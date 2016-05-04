@@ -24,6 +24,11 @@
 // This is managed by the ISR to refect the current reset state
 volatile int nRST;
 
+void assert_fail(uint32_t r0)
+{
+   printf("Assert fail: %08"PRIX32"\r\n", r0);   
+}
+
 void temp_tube_io_handler(uint32_t r0,  uint32_t r1)
 {
    int addr;
@@ -76,7 +81,8 @@ void copro_65tube_init_hardware()
   RPI_SetGpioPinFunction(A0_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(PHI2_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
+//  RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(NRST_PIN, FS_OUTPUT);
   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
   // Configure GPIO to detect a falling edge of the NTUBE
