@@ -24,6 +24,10 @@
 // This is managed by the ISR to refect the current reset state
 volatile int nRST;
 
+volatile uint32_t gpfsel_data_idle[3];
+volatile uint32_t gpfsel_data_driving[3];
+const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
+
 void assert_fail(uint32_t r0)
 {
    printf("Assert fail: %08"PRIX32"\r\n", r0);   
@@ -62,6 +66,7 @@ void temp_tube_io_handler(uint32_t r0,  uint32_t r1)
 
 void copro_65tube_init_hardware()
 {
+   int i;
   // Write 1 to the LED init nibble in the Function Select GPIO
   // peripheral register to enable LED pin as an output
   RPI_GpioBase->LED_GPFSEL |= LED_GPFBIT;
@@ -97,6 +102,12 @@ void copro_65tube_init_hardware()
   // Initialise the UART
   RPI_AuxMiniUartInit( 57600, 8 );
 
+  for (i = 0; i < 3; i++) {
+     gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
+     gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
+     printf("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
+  }
+
 }
 
 //static void copro_65tube_reset() {
@@ -111,6 +122,7 @@ void copro_65tube_main() {
    int i;
    // int count;
    int led = 0;
+
   copro_65tube_init_hardware();
 
   printf("Raspberry Pi Direct 65Tube Client\r\n" );
