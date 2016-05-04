@@ -49,8 +49,24 @@ arm_irq_handler:
         ldr     r0, =(PERIPHERAL_BASE + 0x200034) // address of GPLEV0
         ldr     r1, [r0]
 
+        tst     r1, r2                  // test for glitchs
+        bne     bale
+
+        mov     r2, #PHI2_MASK
+
+wait_for_phi2_high:
+        ldr     r1, [r0]        
+        tst     r1, r2
+        beq     wait_for_phi2_high
+
+wait_for_phi2_low:
+        ldr     r1, [r0]        
+        tst     r1, r2
+        bne     wait_for_phi2_low
+                
         bl      temp_tube_io_handler
-        
+
+bale:
         pop     {r0-r3,ip,lr}
         subs    pc, lr, #4
 

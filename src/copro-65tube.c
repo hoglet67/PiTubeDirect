@@ -93,16 +93,18 @@ void copro_65tube_init_hardware()
 
 }
 
-static void copro_65tube_reset() {
-  // Wipe memory
-  memset(mpu_memory, 0, 0x10000);
-  // Re-instate the Tube ROM on reset
-  memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
-}
+//static void copro_65tube_reset() {
+//  // Wipe memory
+//  memset(mpu_memory, 0, 0x10000);
+//  // Re-instate the Tube ROM on reset
+//  memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
+//}
 
 
 void copro_65tube_main() {
-   int i, count;
+   int i;
+   // int count;
+   int led = 0;
   copro_65tube_init_hardware();
 
   printf("Raspberry Pi Direct 65Tube Client\r\n" );
@@ -114,10 +116,16 @@ void copro_65tube_main() {
 
   _enable_interrupts();
 
-  count = 0;
+  //count = 0;
   while (1) {
      for (i = 0; i < 100000000; i++);
-     printf("tick %d\r\n", count++);
+     if (led) {
+        LED_OFF();
+     } else {
+        LED_ON();
+     }
+     led = ~led;
+     // printf("tick %d\r\n", count++);
 
     // Wait for reset to go high - nRST is updated by the ISR
     // while (nRST == 0);
