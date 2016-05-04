@@ -2,52 +2,19 @@
 #include "tube-defs.h"
 
 .text
+.global tube_regs
 .global arm_irq_handler
 .global arm_firq_handler
 .global copro_65tube_tube_read
 .global copro_65tube_tube_write
 
-.macro ASSERT_LOW mask num
-        ldr     r0, =GPLEV0
-        ldr     r1, [r0]        
-        tst     r1, #\mask
-        mov     r0, #\num
-        blne    assert_fail    
-.endm
+// TODO list
+//        - need C code for write handling
+//        - adding overrun
+//        - need to handle NRST - as an interrupt source - optional!
+//        - very optional, make 8 data words be in expanded format
 
-.macro ASSERT_HIGH mask num
-        ldr     r0, =GPLEV0
-        ldr     r1, [r0]        
-        tst     r1, #\mask
-        mov     r0, #\num
-        bleq    assert_fail    
-.endm
-        
-        
 // ARM IRQ handler
-
-// This is the original IRQ handler from PiTubeClient's copro-65tube
-//
-// Retained for reference so we can see how events (IRQ, NMI, RST)
-// are signalled to the 6502 code.
-//
-// If we keep this same "interface" then we should be able to re-use that code without change
-//
-//arm_irq_handler:
-//        push    {r0, r1, r2}
-//        ldr     r0, =(PERIPHERAL_BASE + 0x200040) // any falling events?
-//        ldr     r2, [r0]
-//        mov     r1, #1<<7               // mask our events
-//        orr     r1, r1, #1<<18 + 1<<17
-//        and     r2, r2, r1
-//        str     r2, [r0]                // clear Pin events
-//        ldr     r1, events
-//        orr     r1, r1, r2              // add our events in
-//        str     r1, events
-//        orr     ip, ip, #256<<I_ALIGN   // signal event to 6502 instruction flow
-//        pop     {r0, r1, r2}
-//        subs    pc, lr, #4
-
 
 arm_firq_handler:
         subs    pc, lr, #4
@@ -56,17 +23,16 @@ arm_irq_handler:
         
         push    {r0-r3,ip,lr}
         
-// toggle a telltale pin (set)
-//        ldr     r0, =GPSET0
-//        mov     r1, #NRST_MASK
-//        str     r1, [r0]
-
         ldr     r0, =GPEDS0
         mov     r1, #-1
         str     r1, [r0]                // clear all Pin events
 
         ldr     r0, =GPLEV0
         ldr     r1, [r0]                // *** very expensive but necessary ***
+
+//      we can defer handling the reset signal, because the OS will use the reset command
+//        tst     r1, #NRESET_MASK        // test for glitches
+//        beq     reset_active
 
         tst     r1, #NTUBE_MASK         // test for glitches
         bne     exit
@@ -99,7 +65,6 @@ arm_irq_handler:
         ldr     r0, =GPCLR0
         str     r2, [r0]                // *** expensive but necessary ***
         
-        
         ldr     r0, =GPFSEL0
         ldr     r3, =(gpfsel_data_driving)
         ldr     r1, [r3]
@@ -109,11 +74,6 @@ arm_irq_handler:
         ldr     r1, [r3, #8]
         str     r1, [r0, #8]            // *** expensive but necessary ***
 
-// toggle a telltale pin (clear)
-//        ldr     r0, =GPCLR0
-//        mov     r1, #NRST_MASK
-//        str     r1, [r0]
-        
         ldr     r0, =GPLEV0
 rd_wait_for_phi2_low:
         ldr     r1, [r0]                // ** very expensive but necessary ***     
@@ -122,19 +82,17 @@ rd_wait_for_phi2_low:
 
         ldr     r0, =GPFSEL0
         ldr     r3, =(gpfsel_data_idle)
-        ldr     r1, [r3]
-        str     r1, [r0]                // *** expensive but necessary ***
-        ldr     r1, [r3, #4]
-        str     r1, [r0, #4]            // *** expensive but necessary ***
-        ldr     r1, [r3, #8]
-        str     r1, [r0, #8]            // *** expensive but necessary ***
-        
-//        ldr     r0, =GPLEV0
-//        ldr     r1, [r0]        
-//        bl      temp_tube_io_handler
-        
+        ldr     r2, [r3]
+        str     r2, [r0]                // *** expensive but necessary ***
+        ldr     r2, [r3, #4]
+        str     r2, [r0, #4]            // *** expensive but necessary ***
+        ldr     r2, [r3, #8]
+        str     r2, [r0, #8]            // *** expensive but necessary ***
+
+        tst     r1, #A0_MASK            // don't bother emulator with status reads
+        bne     post_mail
         b       exit
-        
+
 // WRITE_CYCLE
 wr_cycle:
          
@@ -143,18 +101,21 @@ wr_wait_for_phi2_high:
         tst     r1, #PHI2_MASK
         beq     wr_wait_for_phi2_high
 
-        
 wr_wait_for_phi2_low:
         ldr     r1, [r0]        
         tst     r1, #PHI2_MASK
         bne     wr_wait_for_phi2_low
-                
-//        bl      temp_tube_io_handler
+
+post_mail:
+        ldr     r2, =PINS_MASK
+        and     r1, r1, r2
+        orr     r1, r1, #ATTN_MASK
+        ldr     r0, =tube_mailbox
+        str     r1, [r0]
 
 exit:
         pop     {r0-r3,ip,lr}
         subs    pc, lr, #4
-
 
 // 8 BYTES OF STATE
 tube_regs:

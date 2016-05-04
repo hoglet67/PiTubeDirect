@@ -85,7 +85,7 @@
 
 #define A_MASK       (A2_MASK | A1_MASK | A0_MASK)
 
-#define PINS_MASK    (A_MASK | D_MASK | RNW_MASK | NRST_MASK)
+#define PINS_MASK    (A_MASK | D_MASK | RNW_MASK | NRST_MASK | NTUBE_MASK)
 
 #ifndef __ASSEMBLER__
 

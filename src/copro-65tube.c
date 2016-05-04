@@ -21,8 +21,12 @@
 #include "copro-65tube.h"
 #include "tube-defs.h"
 
+extern volatile uint8_t tube_regs[];
+ 
 // This is managed by the ISR to refect the current reset state
 volatile int nRST;
+
+volatile uint32_t tube_mailbox;
 
 volatile uint32_t gpfsel_data_idle[3];
 volatile uint32_t gpfsel_data_driving[3];
@@ -33,35 +37,46 @@ void assert_fail(uint32_t r0)
    printf("Assert fail: %08"PRIX32"\r\n", r0);   
 }
 
-void temp_tube_io_handler(uint32_t r0,  uint32_t r1)
+void tube_io_handler(uint32_t mail)
 {
    int addr;
    int data;
-   int phi2;
    int rnw;
    int ntube;
    int nrst;
 
-   printf("%08"PRIX32" %08"PRIX32"\r\n", r0, r1);
+   //printf("%08"PRIX32" %08"PRIX32"\r\n", r0, r1);
 
    addr = 0;
-   if (r1 & A0_MASK) {
+   if (mail & A0_MASK) {
       addr += 1;
    }
-   if (r1 & A1_MASK) {
+   if (mail & A1_MASK) {
       addr += 2;
    }
-   if (r1 & A2_MASK) {
+   if (mail & A2_MASK) {
       addr += 4;
    }
-   data  = ((r1 >> D0_BASE) & 0xF) | (((r1 >> D4_BASE) & 0xF) << 4);
-   phi2  = (r1 >> PHI2_PIN) & 1;
-   rnw   = (r1 >> RNW_PIN) & 1;
-   ntube = (r1 >> NTUBE_PIN) & 1;
-   nrst  = (r1 >> NRST_PIN) & 1;
+   data  = ((mail >> D0_BASE) & 0xF) | (((mail >> D4_BASE) & 0xF) << 4);
+   rnw   = (mail >> RNW_PIN) & 1;
+   ntube = (mail >> NTUBE_PIN) & 1;
+   nrst  = (mail >> NRST_PIN) & 1;
+
+   if (ntube == 0) {
+      if (rnw == 0) {
+         // host wrote to any tube reg (0..7)
+         tube_regs[addr] = data;
+      } else {
+         // host reads from tube data reg (1, 3, 5, 7)
+         // data has already been delivered, just need to deal with side effects here
+         // TODO
+      }
+   } else {
+      // probably reset has changed
+      printf("nrst = %d\r\n", nrst);
+   }
    
-   printf("A=%d; D=%02X; PHI2=%d; RNW=%d; NTUBE=%d; nRST=%d\r\n",
-          addr, data, phi2, rnw, ntube, nrst);
+   printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
 }
 
 void copro_65tube_init_hardware()
@@ -86,8 +101,7 @@ void copro_65tube_init_hardware()
   RPI_SetGpioPinFunction(A0_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(PHI2_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);
-//  RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(NRST_PIN, FS_OUTPUT);
+  RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
   // Configure GPIO to detect a falling edge of the NTUBE
@@ -136,7 +150,14 @@ void copro_65tube_main() {
 
   //count = 0;
   while (1) {
-     for (i = 0; i < 100000000; i++);
+     for (i = 0; i < 100000000; i++) {
+
+        if (tube_mailbox & ATTN_MASK) {
+           tube_io_handler(tube_mailbox);
+           tube_mailbox &= ~ATTN_MASK;
+        }
+
+     }
      if (led) {
         LED_OFF();
      } else {
