@@ -20,32 +20,35 @@
 #include "tuberom_6502.h"
 #include "copro-65tube.h"
 #include "tube-defs.h"
-
-extern volatile uint8_t tube_regs[];
+#include "tube-ula.h"
  
 // This is managed by the ISR to refect the current reset state
 volatile int nRST;
 
-volatile uint32_t tube_mailbox;
+extern volatile uint8_t tube_regs[];
 
 volatile uint32_t gpfsel_data_idle[3];
 volatile uint32_t gpfsel_data_driving[3];
 const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 
-void assert_fail(uint32_t r0)
-{
-   printf("Assert fail: %08"PRIX32"\r\n", r0);   
-}
+volatile int memory[1000000];
+int a;
 
-void tube_io_handler(uint32_t mail)
+// Bit 0 is the tube asserting irq
+// Bit 1 is the tube asserting nmi
+extern int tube_irq;
+
+// Returns bit 0 set if IRQ is asserted by the tube
+// Returns bit 1 set if NMI is asserted by the tube
+// Returns bit 2 set if RST is asserted by the host or tube
+
+int tube_io_handler(uint32_t mail)
 {
    int addr;
    int data;
    int rnw;
    int ntube;
    int nrst;
-
-   //printf("%08"PRIX32" %08"PRIX32"\r\n", r0, r1);
 
    addr = 0;
    if (mail & A0_MASK) {
@@ -62,21 +65,21 @@ void tube_io_handler(uint32_t mail)
    ntube = (mail >> NTUBE_PIN) & 1;
    nrst  = (mail >> NRST_PIN) & 1;
 
-   if (ntube == 0) {
+   if (nrst == 1 && ntube == 0) {
       if (rnw == 0) {
-         // host wrote to any tube reg (0..7)
-         tube_regs[addr] = data;
+         copro_65tube_host_write(addr, data);
       } else {
-         // host reads from tube data reg (1, 3, 5, 7)
-         // data has already been delivered, just need to deal with side effects here
-         // TODO
+         copro_65tube_host_read(addr);
       }
-   } else {
-      // probably reset has changed
-      printf("nrst = %d\r\n", nrst);
    }
    
-   printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+   //printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+
+   if (nrst == 0 || (tube_regs[0] & 0x20)) {
+      return tube_irq | 4;
+   } else {
+      return tube_irq;
+   }
 }
 
 void copro_65tube_init_hardware()
@@ -104,11 +107,14 @@ void copro_65tube_init_hardware()
   RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
-  // Configure GPIO to detect a falling edge of the NTUBE
-  RPI_GpioBase->GPFEN0 |= NTUBE_MASK;
+  // Configure GPIO to detect a falling edge of NTUBE and NRST
+  RPI_GpioBase->GPFEN0 |= NTUBE_MASK | NRST_MASK;
+
+  // Configure GPIO to detect a rising edge of NRST
+  RPI_GpioBase->GPREN0 |= NRST_MASK;
 
   // Make sure there are no pending detections
-  RPI_GpioBase->GPEDS0 = NTUBE_MASK;
+  RPI_GpioBase->GPEDS0 = NTUBE_MASK | NRST_MASK;
 
   // Enable gpio_int[0] which is IRQ 49
   RPI_GetIrqController()->Enable_IRQs_2 = (1 << (49 - 32));
@@ -124,18 +130,17 @@ void copro_65tube_init_hardware()
 
 }
 
-//static void copro_65tube_reset() {
-//  // Wipe memory
-//  memset(mpu_memory, 0, 0x10000);
-//  // Re-instate the Tube ROM on reset
-//  memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
-//}
+static void copro_65tube_reset() {
+  // Wipe memory
+  memset(mpu_memory, 0, 0x10000);
+  // Re-instate the Tube ROM on reset
+  memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
+  // Do a tube reset
+  copro_65tube_tube_reset();  
+}
 
 
 void copro_65tube_main() {
-   int i;
-   // int count;
-   int led = 0;
 
   copro_65tube_init_hardware();
 
@@ -146,34 +151,20 @@ void copro_65tube_main() {
 
   printf("Initialise UART console with standard libc\r\n" );
 
-  _enable_interrupts();
-
-  //count = 0;
   while (1) {
-     for (i = 0; i < 100000000; i++) {
-
-        if (tube_mailbox & ATTN_MASK) {
-           tube_io_handler(tube_mailbox);
-           tube_mailbox &= ~ATTN_MASK;
-        }
-
-     }
-     if (led) {
-        LED_OFF();
-     } else {
-        LED_ON();
-     }
-     led = ~led;
-     // printf("tick %d\r\n", count++);
-
-    // Wait for reset to go high - nRST is updated by the ISR
-    // while (nRST == 0);
-    // printf("RST!\r\n");
     // Reinitialize the 6502 memory
-    // copro_65tube_reset();
+    copro_65tube_reset();
+    // log...
+    //printf("starting 6502\r\n");
     // Start executing code, this will return when reset goes low
-    // exec_65tube(mpu_memory);
-    // Dump memory
-    // copro_65tube_dump_mem(0x0000, 0x0400);
+    exec_65tube(mpu_memory);
+    // log...
+    //printf("stopping 6502\r\n");
+    // wait for nRST to be released
+    if ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) {
+       //printf("nRST pressed\r\n");
+       while ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0);
+       //printf("nRST released\r\n");
+    }
   }
 }

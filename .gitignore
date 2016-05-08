@@ -7,3 +7,4 @@ src/scripts/cmake_install.cmake
 src/scripts/kernel.img
 src/scripts/tube-client
 src/scripts/tube-client.cbp
+not_in_git/

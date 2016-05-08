@@ -63,6 +63,7 @@ add_executable( tube-client
     rpi-interrupts.c
     rpi-interrupts.h
     tube.S
+    tube-ula.c
 # 6502 Co Processor using 65tube Implementation
     copro-65tube.h
     copro-65tube.c

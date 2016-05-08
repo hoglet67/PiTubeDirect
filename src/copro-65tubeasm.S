@@ -71,6 +71,7 @@
 #include "rpi-base.h"
         
 .text
+.global events
 .global exec_65tube
 .global mpu_memory
 
@@ -307,9 +308,9 @@ exec_65tube:
         mov     r0, #0                  // initialize Event register
         str     r0, events
 
-        ldr     r0, =arm_irq_handler    // Install the ARM interrupt handler
-        mov     r1, #0x38
-        str     r0, [r1]
+//        ldr     r0, =arm_irq_handler    // Install the ARM interrupt handler
+//        mov     r1, #0x38
+//        str     r0, [r1]
         
         mrs     r0, CPSR                // Enable ARM interrupts
         bic     r0, r0, #0x80
@@ -339,17 +340,23 @@ Event_Handler:
         ldr     r0, events
         bic     ip, ip, #256<<I_ALIGN   // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
-        mov     r1, #0
-        str     r1, events              // ack all events
-        tst     r0, #(1 << 7)           // Test for RST (GPIO7)
+
+        bic     r1, r0, #0x80000000     // the attention bit
+        str     r1, events              // ack the attention bit
+
+        push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value
+        bl      tube_io_handler
+        pop     {r1-r3,ip,lr}
+        
+        tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
 
-        tst     r0, #(1 << 18)          // events (bit 18) = 1 then we have seen a falling NMI edge
+        tst     r0, #2                  // Bit 1 set indicate NMI is active
         bne     handle_nmi              // Take the NMI interrupt
 
         tst     r4, #4                  // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq
-        tst     r0, #(1 << 17)          // events (bit 17) = 1 then we have seen a falling IRQ edge
+        tst     r0, #1                  // Bit 1 set indicate IRQ is active
         bne     handle_irq              // Take the IRQ interrupt
 
 noirq:

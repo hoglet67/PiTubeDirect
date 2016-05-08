@@ -56,6 +56,7 @@
 .global _get_cpsr
 .global _enable_unaligned_access
 .global _enable_l1_cache
+.global _invalidate_cache
         
 // From the ARM ARM (Architecture Reference Manual). Make sure you get the
 // ARMv5 documentation which includes the ARMv6 documentation which is the
@@ -313,3 +314,7 @@ _enable_l1_cache:
 
     mov      pc, lr
         
+_invalidate_cache:
+    mov      r0, #0
+    mcr      p15, 0, r0, c7, c7, 0
+    mov      pc, lr        

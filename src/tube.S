@@ -5,8 +5,6 @@
 .global tube_regs
 .global arm_irq_handler
 .global arm_firq_handler
-.global copro_65tube_tube_read
-.global copro_65tube_tube_write
 
 // TODO list
 //        - need C code for write handling
@@ -16,12 +14,15 @@
 
 // ARM IRQ handler
 
+// Align start each instruction on a 64-byte boundary
+.equ    I_ALIGN,     7
+
 arm_firq_handler:
         subs    pc, lr, #4
         
 arm_irq_handler:
         
-        push    {r0-r3,ip,lr}
+        push    {r0-r3}
         
         ldr     r0, =GPEDS0
         mov     r1, #-1
@@ -29,10 +30,9 @@ arm_irq_handler:
 
         ldr     r0, =GPLEV0
         ldr     r1, [r0]                // *** very expensive but necessary ***
-
-//      we can defer handling the reset signal, because the OS will use the reset command
-//        tst     r1, #NRESET_MASK        // test for glitches
-//        beq     reset_active
+        
+        tst     r1, #NRST_MASK          // test for reset
+        beq     post_mail
 
         tst     r1, #NTUBE_MASK         // test for glitches
         bne     exit
@@ -110,11 +110,13 @@ post_mail:
         ldr     r2, =PINS_MASK
         and     r1, r1, r2
         orr     r1, r1, #ATTN_MASK
-        ldr     r0, =tube_mailbox
+        ldr     r0, =events             // was tube_mailbox
         str     r1, [r0]
 
+        orr     ip, ip, #256<<I_ALIGN   // signal event to 6502 instruction flow
+
 exit:
-        pop     {r0-r3,ip,lr}
+        pop     {r0-r3}
         subs    pc, lr, #4
 
 // 8 BYTES OF STATE
@@ -127,12 +129,3 @@ tube_regs:
         .byte 0xa9
         .byte 0x98
         .byte 0x87
-        
-// parasite reading the tube
-copro_65tube_tube_read:
-    mov      pc, lr
-
-// parasite writing the tube
-copro_65tube_tube_write:
-    mov      pc, lr
-        
