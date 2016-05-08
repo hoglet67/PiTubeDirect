@@ -27,6 +27,8 @@ volatile int nRST;
 
 extern volatile uint8_t tube_regs[];
 
+extern volatile uint32_t events;
+
 volatile uint32_t gpfsel_data_idle[3];
 volatile uint32_t gpfsel_data_driving[3];
 const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
@@ -73,7 +75,7 @@ int tube_io_handler(uint32_t mail)
       }
    }
    
-   //printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+   printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
 
    if (nrst == 0 || (tube_regs[0] & 0x20)) {
       return tube_irq | 4;
@@ -135,8 +137,6 @@ static void copro_65tube_reset() {
   memset(mpu_memory, 0, 0x10000);
   // Re-instate the Tube ROM on reset
   memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
-  // Do a tube reset
-  copro_65tube_tube_reset();  
 }
 
 
@@ -151,6 +151,18 @@ void copro_65tube_main() {
 
   printf("Initialise UART console with standard libc\r\n" );
 
+  // Do a tube reset just once
+  copro_65tube_tube_reset();  
+
+#if 0
+  _enable_interrupts();
+  while (1) {
+     if (events & 0x80000000) {
+        tube_io_handler(events);
+        events &= ~0x80000000;
+     }
+  }
+#endif
   while (1) {
     // Reinitialize the 6502 memory
     copro_65tube_reset();

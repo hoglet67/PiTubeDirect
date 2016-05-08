@@ -255,6 +255,7 @@ void copro_65tube_tube_write(uint32_t addr, uint8_t val)
 
 void copro_65tube_tube_reset()
 {
+   printf("tube reset\r\n");
    ph1pos = hp3pos = 0;
    ph3pos = 1;
    HSTAT1 = HSTAT2 = HSTAT4 = 0x40;
