@@ -102,8 +102,9 @@ wr_wait_for_phi2_high:
         beq     wr_wait_for_phi2_high
 
 wr_wait_for_phi2_low:
-        ldr     r1, [r0]        
-        tst     r1, #PHI2_MASK
+        ldr     r2, [r0]        
+        tst     r2, #PHI2_MASK
+        movne   r1, r2
         bne     wr_wait_for_phi2_low
 
 post_mail:
