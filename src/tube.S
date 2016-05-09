@@ -1,10 +1,95 @@
 #include "rpi-base.h"
 #include "tube-defs.h"
+#include "cache.h"
+
+// Align start each instruction on a 64-byte boundary
+.equ    I_ALIGN,     7
 
 .text
 .global tube_regs
 .global arm_irq_handler
 .global arm_firq_handler
+.global lock_isr
+
+// =================================================
+// LOCK the ISR CODE into cache
+// =================================================
+
+lock_isr:
+    push    {lr}
+
+    // Copy locking code into un-cached memory
+    ldr     r0, =lock_isr_into_icache_start
+    ldr     r1, =UNCACHED_MEM_BASE
+    mov     r2, #(lock_isr_into_icache_end - lock_isr_into_icache_start)
+copy_loop:
+    ldr     r3, [r0], #4
+    str     r3, [r1], #4
+    subs    r2, r2, #4
+    bne     copy_loop
+
+    // disable interrupts (so handler doesn't get accidentally executed
+    bl      _disable_interrupts
+           
+    // execute locking code        
+    ldr     r0, =UNCACHED_MEM_BASE
+    blx     r0
+
+    // enable interrupts
+    bl      _enable_interrupts
+
+    pop     {lr}
+    mov     pc, lr
+        
+// This code must only be executed from uncachable memory
+// and must be position independant
+
+.align I_ALIGN
+lock_isr_into_icache_start:
+
+    // invalidate entire instruction cache (page 3-74)
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c5, 0
+
+    // enable i-cache way 0, lock ways 1, 2, 3 (page 3-89)
+    mov     r0, #0xfffffffe
+    mcr     p15, 0, r0, c9, c0, 1
+
+    // bring the isr code into cache
+    // these loads are relative references, so should relocate
+    ldr     r0, isr_code_start_ptr
+    ldr     r1, isr_code_end_ptr
+lock_loop:
+    // prefetch cache line into instruction cache (page 3-76)
+    // r0 is the virtual address, with bits 4..0 set to zero
+    mcr     p15, 0, r0, c7, c13, 1
+    // move to the next cache line
+    add     r0, r0, #32
+    cmp     r0, r1
+    bne     lock_loop
+         
+    // lock i-cache way 0, enable ways 1, 2, 3 (page 3-89)
+    mov     r0, #0xfffffff1
+    mcr     p15, 0, r0, c9, c0, 1 
+
+    mov     pc, lr
+
+isr_code_start_ptr:
+.word isr_code_start
+
+isr_code_end_ptr:
+.word isr_code_end
+        
+.align I_ALIGN
+lock_isr_into_icache_end:
+        
+// =================================================
+// ISR CODE
+// =================================================
+
+.align I_ALIGN
+isr_code_start:
+        
 
 // TODO list
 //        - need C code for write handling
@@ -14,9 +99,8 @@
 
 // ARM IRQ handler
 
-// Align start each instruction on a 64-byte boundary
-.equ    I_ALIGN,     7
 
+        
 arm_firq_handler:
         subs    pc, lr, #4
         
@@ -120,6 +204,17 @@ exit:
         pop     {r0-r3}
         subs    pc, lr, #4
 
+
+.align I_ALIGN
+isr_code_end:
+
+// =================================================
+// ISR DATA
+// =================================================
+        
+.align I_ALIGN
+isr_data_start:
+        
 // 8 BYTES OF STATE
 tube_regs:
         .byte 0xfe
@@ -130,3 +225,8 @@ tube_regs:
         .byte 0xa9
         .byte 0x98
         .byte 0x87
+
+.align I_ALIGN
+isr_data_end:
+
+        

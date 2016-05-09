@@ -19,6 +19,8 @@ extern void _enable_unaligned_access();
 
 extern void _enable_l1_cache();
 
-extern void _invalidate_cache();
+extern void _invalidate_icache();
+
+extern void _invalidate_dcache();
 
 #endif

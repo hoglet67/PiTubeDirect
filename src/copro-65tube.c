@@ -20,6 +20,7 @@
 #include "tuberom_6502.h"
 #include "copro-65tube.h"
 #include "tube-defs.h"
+#include "tube.h"
 #include "tube-ula.h"
  
 // This is managed by the ISR to refect the current reset state
@@ -69,9 +70,9 @@ int tube_io_handler(uint32_t mail)
 
    if (nrst == 1 && ntube == 0) {
       if (rnw == 0) {
-         copro_65tube_host_write(addr, data);
+         //copro_65tube_host_write(addr, data);
       } else {
-         copro_65tube_host_read(addr);
+         //copro_65tube_host_read(addr);
       }
    }
    
@@ -149,12 +150,11 @@ void copro_65tube_main() {
   enable_MMU_and_IDCaches();
   _enable_unaligned_access();
 
+  // Lock the Tube Interrupt handler into cache
+  lock_isr();
+
   printf("Initialise UART console with standard libc\r\n" );
 
-  // Do a tube reset just once
-  copro_65tube_tube_reset();  
-
-#if 0
   _enable_interrupts();
   while (1) {
      if (events & 0x80000000) {
@@ -162,7 +162,9 @@ void copro_65tube_main() {
         events &= ~0x80000000;
      }
   }
-#endif
+#if 0 
+  // Do a tube reset just once
+  copro_65tube_tube_reset();  
   while (1) {
     // Reinitialize the 6502 memory
     copro_65tube_reset();
@@ -179,4 +181,5 @@ void copro_65tube_main() {
        //printf("nRST released\r\n");
     }
   }
+#endif
 }
