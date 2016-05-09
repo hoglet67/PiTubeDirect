@@ -148,6 +148,7 @@ void copro_65tube_main() {
 
   enable_MMU_and_IDCaches();
   _enable_unaligned_access();
+  initialize_instruction_tcm();
 
   printf("Initialise UART console with standard libc\r\n" );
 

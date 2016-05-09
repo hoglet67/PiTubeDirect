@@ -5,4 +5,6 @@
 
 void enable_MMU_and_IDCaches(void);
 
+void initialize_instruction_tcm(void);
+
 #endif

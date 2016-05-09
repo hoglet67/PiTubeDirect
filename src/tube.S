@@ -5,7 +5,9 @@
 .global tube_regs
 .global arm_irq_handler
 .global arm_firq_handler
-
+.global tcm_code_start
+.global tcm_code_end
+        
 // TODO list
 //        - need C code for write handling
 //        - adding overrun
@@ -17,6 +19,9 @@
 // Align start each instruction on a 64-byte boundary
 .equ    I_ALIGN,     7
 
+
+tcm_code_start:
+        
 arm_firq_handler:
         subs    pc, lr, #4
         
@@ -130,3 +135,5 @@ tube_regs:
         .byte 0xa9
         .byte 0x98
         .byte 0x87
+
+tcm_code_end:
