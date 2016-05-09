@@ -70,14 +70,13 @@ int tube_io_handler(uint32_t mail)
 
    if (nrst == 1 && ntube == 0) {
       if (rnw == 0) {
-         //copro_65tube_host_write(addr, data);
+         copro_65tube_host_write(addr, data);
       } else {
-         //copro_65tube_host_read(addr);
+         copro_65tube_host_read(addr);
+         printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
       }
    }
    
-   printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-
    if (nrst == 0 || (tube_regs[0] & 0x20)) {
       return tube_irq | 4;
    } else {
@@ -155,6 +154,7 @@ void copro_65tube_main() {
 
   printf("Initialise UART console with standard libc\r\n" );
 
+#if 0 
   _enable_interrupts();
   while (1) {
      if (events & 0x80000000) {
@@ -162,9 +162,9 @@ void copro_65tube_main() {
         events &= ~0x80000000;
      }
   }
-#if 0 
+#endif
   // Do a tube reset just once
-  copro_65tube_tube_reset();  
+  copro_65tube_tube_reset();
   while (1) {
     // Reinitialize the 6502 memory
     copro_65tube_reset();
@@ -181,5 +181,4 @@ void copro_65tube_main() {
        //printf("nRST released\r\n");
     }
   }
-#endif
 }
