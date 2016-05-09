@@ -115,4 +115,11 @@ void enable_MMU_and_IDCaches(void)
   asm volatile ("mcr p15,0,%0,c1,c0,0" :: "r" (sctrl) : "memory");
   asm volatile ("mrc p15,0,%0,c1,c0,0" : "=r" (sctrl));
   printf("sctrl   = %08x\r\n", sctrl);
+
+  // For information, show the cache type register
+  // From this you can tell what type of cache is implemented
+  unsigned ctype;
+  asm volatile ("mrc p15,0,%0,c0,c0,1" : "=r" (ctype));
+  printf("ctype   = %08x\r\n", ctype);
+
 }
