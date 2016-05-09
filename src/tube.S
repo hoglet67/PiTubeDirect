@@ -19,9 +19,9 @@ lock_isr:
     push    {lr}
 
     // Copy locking code into un-cached memory
-    ldr     r0, =lock_isr_into_icache_start
+    ldr     r0, =lock_isr_into_cache_start
     ldr     r1, =UNCACHED_MEM_BASE
-    mov     r2, #(lock_isr_into_icache_end - lock_isr_into_icache_start)
+    mov     r2, #(lock_isr_into_cache_end - lock_isr_into_cache_start)
 copy_loop:
     ldr     r3, [r0], #4
     str     r3, [r1], #4
@@ -30,8 +30,8 @@ copy_loop:
 
     // disable interrupts (so handler doesn't get accidentally executed
     bl      _disable_interrupts
-           
-    // execute locking code        
+
+    // execute locking code
     ldr     r0, =UNCACHED_MEM_BASE
     blx     r0
 
@@ -40,37 +40,77 @@ copy_loop:
 
     pop     {lr}
     mov     pc, lr
-        
+
 // This code must only be executed from uncachable memory
 // and must be position independant
 
+// TODO: Check whether any of the different regions will "alias"
+        
 .align I_ALIGN
-lock_isr_into_icache_start:
+lock_isr_into_cache_start:
 
     // invalidate entire instruction cache (page 3-74)
     mov     r0, #0
     mcr     p15, 0, r0, c7, c5, 0
 
-    // enable i-cache way 0, lock ways 1, 2, 3 (page 3-89)
-    mov     r0, #0xfffffffe
-    mcr     p15, 0, r0, c9, c0, 1
+    // clean and invalidate the entire data cache (page 3-74)
+    mov      r0, #0
+    mcr      p15, 0, r0, c7, c14, 0
 
-    // bring the isr code into cache
+    // enable i-cache/d-cache way 0, lock ways 1, 2, 3 (page 3-89)
+    mov     r0, #0xfffffffe
+    mcr     p15, 0, r0, c9, c0, 0 // d-cache
+    mcr     p15, 0, r0, c9, c0, 1 // i-cache
+
+    // bring the isr code into i-cache
     // these loads are relative references, so should relocate
     ldr     r0, isr_code_start_ptr
     ldr     r1, isr_code_end_ptr
-lock_loop:
+lock_code_loop:
     // prefetch cache line into instruction cache (page 3-76)
     // r0 is the virtual address, with bits 4..0 set to zero
     mcr     p15, 0, r0, c7, c13, 1
     // move to the next cache line
     add     r0, r0, #32
     cmp     r0, r1
-    bne     lock_loop
-         
-    // lock i-cache way 0, enable ways 1, 2, 3 (page 3-89)
+    bne     lock_code_loop
+
+    // prefetch the vector instructions (8 words starting at 0x00000000) into the i-cache
+    mov     r0, #0x00
+    mcr     p15, 0, r0, c7, c13, 1
+
+    // bring the isr data into d-cache
+    // these loads are relative references, so should relocate
+    ldr     r0, isr_data_start_ptr
+    ldr     r1, isr_data_end_ptr
+lock_data_loop:
+    // load from the cache line to prefetch it
+    ldr     r2, [r0]
+    // move to the next cache line
+    add     r0, r0, #32
+    cmp     r0, r1
+    bne     lock_data_loop
+
+    // prefetch the vector data (8 words starting at 0x00000020) into the d-cache
+    mov     r0, #0x20
+    ldr     r2, [r0]
+
+    // bring the isr stack into d-cache
+    // these loads are relative references, so should relocate
+    ldr     r0, isr_stack_start_ptr
+    ldr     r1, isr_stack_end_ptr
+lock_stack_loop:
+    // load from the cache line to prefetch it
+    ldr     r2, [r0]
+    // move to the next cache line
+    add     r0, r0, #32
+    cmp     r0, r1
+    bne     lock_stack_loop
+
+    // lock i-cache/d-cache way 0, enable ways 1, 2, 3 (page 3-89)
     mov     r0, #0xfffffff1
-    mcr     p15, 0, r0, c9, c0, 1 
+    mcr     p15, 0, r0, c9, c0, 0 // d-cache
+    mcr     p15, 0, r0, c9, c0, 1 // i-cache
 
     mov     pc, lr
 
@@ -79,17 +119,32 @@ isr_code_start_ptr:
 
 isr_code_end_ptr:
 .word isr_code_end
+
+isr_data_start_ptr:
+.word isr_data_start
+
+isr_data_end_ptr:
+.word isr_data_end
+
+// TODO these should be somehow imported from arm-startup.S
         
+isr_stack_start_ptr:
+.word 0x01EF0000 - 0x100
+
+isr_stack_end_ptr:
+.word 0x01EF0000
+
+
 .align I_ALIGN
-lock_isr_into_icache_end:
-        
+lock_isr_into_cache_end:
+
 // =================================================
 // ISR CODE
 // =================================================
 
 .align I_ALIGN
 isr_code_start:
-        
+
 
 // TODO list
 //        - need C code for write handling
@@ -100,21 +155,21 @@ isr_code_start:
 // ARM IRQ handler
 
 
-        
+
 arm_firq_handler:
         subs    pc, lr, #4
-        
+
 arm_irq_handler:
-        
+
         push    {r0-r3}
-        
+
         ldr     r0, =GPEDS0
         mov     r1, #-1
         str     r1, [r0]                // clear all Pin events
 
         ldr     r0, =GPLEV0
         ldr     r1, [r0]                // *** very expensive but necessary ***
-        
+
         tst     r1, #NRST_MASK          // test for reset
         beq     post_mail
 
@@ -138,17 +193,17 @@ arm_irq_handler:
 
         mov     r3, r2, LSL #D0_BASE // low nibble now aligned to GPIO
         and     r3, r3, #D30_MASK
-        mov     r2, r2, LSL #D4_BASE-4 
+        mov     r2, r2, LSL #D4_BASE-4
         and     r2, r2, #D74_MASK // high nibble in the right place
         orr     r2, r2, r3
-        
+
         ldr     r0, =GPSET0
         str     r2, [r0]                // *** expensive but necessary ***
         eor     r2, r2, #D30_MASK
         eor     r2, r2, #D74_MASK
         ldr     r0, =GPCLR0
         str     r2, [r0]                // *** expensive but necessary ***
-        
+
         ldr     r0, =GPFSEL0
         ldr     r3, =(gpfsel_data_driving)
         ldr     r1, [r3]
@@ -160,7 +215,7 @@ arm_irq_handler:
 
         ldr     r0, =GPLEV0
 rd_wait_for_phi2_low:
-        ldr     r1, [r0]                // ** very expensive but necessary ***     
+        ldr     r1, [r0]                // ** very expensive but necessary ***
         tst     r1, #PHI2_MASK
         bne     rd_wait_for_phi2_low
 
@@ -179,14 +234,14 @@ rd_wait_for_phi2_low:
 
 // WRITE_CYCLE
 wr_cycle:
-         
+
 wr_wait_for_phi2_high:
-        ldr     r1, [r0]        
+        ldr     r1, [r0]
         tst     r1, #PHI2_MASK
         beq     wr_wait_for_phi2_high
 
 wr_wait_for_phi2_low:
-        ldr     r2, [r0]        
+        ldr     r2, [r0]
         tst     r2, #PHI2_MASK
         movne   r1, r2
         bne     wr_wait_for_phi2_low
@@ -211,10 +266,10 @@ isr_code_end:
 // =================================================
 // ISR DATA
 // =================================================
-        
+
 .align I_ALIGN
 isr_data_start:
-        
+
 // 8 BYTES OF STATE
 tube_regs:
         .byte 0xfe
@@ -228,5 +283,3 @@ tube_regs:
 
 .align I_ALIGN
 isr_data_end:
-
-        
