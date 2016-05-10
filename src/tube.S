@@ -215,8 +215,9 @@ arm_irq_handler:
 
         ldr     r0, =GPLEV0
 rd_wait_for_phi2_low:
-        ldr     r1, [r0]                // ** very expensive but necessary ***
-        tst     r1, #PHI2_MASK
+        ldr     r2, [r0]                // ** very expensive but necessary ***
+        tst     r2, #PHI2_MASK
+        movne   r1, r2
         bne     rd_wait_for_phi2_low
 
         ldr     r0, =GPFSEL0
