@@ -11,14 +11,14 @@
 // r2       = scratch register (used to hold CPRS normally)
 // r3       = a constant value 0f 0x0000FEF8 >> 3 (for tube register address checking)
 // r4       = 6502 flags (only D and I bits maintained here, CVZN use ARM flags)
-// r5       = a constant value of 0xFFFFFF00
+// r5       = base address of 64-byte aligned instruction implementations
 // r6       = 6502 A
 // r7       = 6502 X
 // r8       = 6502 Y
 // r9       = 6502 SP
 // r10 (sl) = 6502 PC
 // r11 (fp) = base address of 64KB of flat memory
-// r12 (ip) = base address of 64-byte aligned instruction implementations
+// r12 (ip) = a constant value of 0xFFFFFF00
 // r13 (sp) = normal ARM usage
 // r14 (lr) = normal ARM usage
 // r15 (pc) = normal ARM usage
@@ -46,21 +46,21 @@
 // at the end of each 6502 instruction we currently do :
 // // FETCH_NEXT this jumps direct to the next instruction
 //        ldrb    r0, [sl], #1
-//        add     pc, ip, r0, lsl #I_ALIGN
+//        add     pc, r5, r0, lsl #I_ALIGN
 //
 // This gives us a nice hook into the instruction handler
 // When the ARM IRQ detects a valid interrupt
-// it adds a constant ( 256 << I_ALIGN) to ip to move into a second instruction handler
+// it adds a constant ( 256 << I_ALIGN) to r5 to move into a second instruction handler
 // This instruction handler can just be 256 Branches to the Event handler
 // this code is executed so rarely absolute performance isn.t an issue and we aren.t worried about it fitting in the cache
 
 
 // A check needs to be that more than than one event isn.t being added. This can be
-// simplified if we align the code to a 0 boundary and just orr ip,ip,#256<<I_ALIGN
+// simplified if we align the code to a 0 boundary and just orr r5,r5,#256<<I_ALIGN
 //
 // once we are in the event handler we do
 // disable arm IRQs // this prevents us missing events
-// bic ip,ip,#256<<I_ALIGN
+// bic r5,r5,#256<<I_ALIGN
 // reenable IRQs // now if another event happens we will service it at the next instruction boundary
 // sub sl,sl,#1 // set instruction pointer ready to be stacked
 // check for reset ( if we have a reset we are happy to drop any other outstanding events
@@ -86,7 +86,7 @@
 // Macros for fetching the next instruction, for one byte instructions
         
 .macro FETCH_NEXT_STAGE_1_I
-        add     lr, ip, r0, lsl #I_ALIGN
+        add     lr, r5, r0, lsl #I_ALIGN
 .endm
 
 .macro FETCH_NEXT_STAGE_2_I
@@ -104,7 +104,7 @@
 
 .macro FETCH_NEXT_STAGE_1
         ldrb    r0, [sl], #1
-        add     lr, ip, r2, lsl #I_ALIGN
+        add     lr, r5, r2, lsl #I_ALIGN
 .endm
         
 .macro FETCH_NEXT_STAGE_2
@@ -114,7 +114,7 @@
 .endm
 
 .macro FETCH_NEXT_STAGE_12
-        add     lr, ip, r2, lsl #I_ALIGN
+        add     lr, r5, r2, lsl #I_ALIGN
         ldrb    r0, [sl], #1
         mov     pc, lr
         // Insert the current literal pool, otherwise constants are to far away and you get a build error
@@ -301,9 +301,9 @@ exec_65tube:
         push    {r0-r12,lr}
 
         mov     fp, r0                  // set fp (r11) to the 64K 6502 memory array
-        ldr     ip, =opcode_00          // set ip (r12) to the base address of the 6502 instruction handler
+        ldr     r5, =opcode_00          // set r5 (r12) to the base address of the 6502 instruction handler
         ldr     r3, =(0x0000fef8 >> 3)  // initialize the constant in r3
-        ldr     r5, =0xffffff00         // initialize the constant in r5
+        ldr     r12, =0xffffff00         // initialize the constant in r12
 
         mov     r0, #0                  // initialize Event register
         str     r0, events
@@ -338,7 +338,7 @@ Event_Handler:
         msr     CPSR_c, r1
         
         ldr     r0, events
-        bic     ip, ip, #256<<I_ALIGN   // ack events
+        bic     r5, r5, #256<<I_ALIGN   // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
 
         bic     r1, r0, #0x80000000     // the attention bit
@@ -555,7 +555,7 @@ opcode_06:
         FETCH_NEXT_STAGE_0
         lsl     r1, r1, #1
         strb    r1, [fp, r0]
-        tst     r5, r1, lsl #24
+        tst     r12, r1, lsl #24
         FETCH_NEXT_STAGE_12
 
 // Opcode 07 - RMB0 $00
@@ -627,7 +627,7 @@ opcode_0E:
         lsl     r1, r1, #1
         STORE_ABSOLUTE
         FETCH_NEXT_STAGE_0
-        tst     r5, r1, lsl #24
+        tst     r12, r1, lsl #24
         FETCH_NEXT_STAGE_12
 
 // Opcode 0F - BBR0
@@ -701,7 +701,7 @@ opcode_16:
         FETCH_NEXT_STAGE_0
         lsl     r1, r1, #1
         strb    r1, [fp, r0, lsr #24]
-        tst     r5, r1, lsl #24
+        tst     r12, r1, lsl #24
         FETCH_NEXT_STAGE_12
 
 // Opcode 17 - RMB1 $00
@@ -775,7 +775,7 @@ opcode_1E:
         lsl     r1, r1, #1
         STORE_ABSOLUTE
         FETCH_NEXT_STAGE_0
-        tst     r5, r1, lsl #24
+        tst     r12, r1, lsl #24
         FETCH_NEXT_STAGE_12
 
 // Opcode 1F - BBR1
@@ -1364,7 +1364,7 @@ opcode_61:
         tst     r4, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, r5
+        orrcs   r1, r1, r12
         adcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -1385,7 +1385,7 @@ opcode_63:
 .align I_ALIGN
 opcode_64:
         FETCH_NEXT_STAGE_0
-        strb    r5, [fp, r0]
+        strb    r12, [fp, r0]
         FETCH_NEXT_STAGE_12
 
 // Opcode 65 - ADC $00
@@ -1395,7 +1395,7 @@ opcode_65:
         tst     r4, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, r5
+        orrcs   r1, r1, r12
         adcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -1433,7 +1433,7 @@ opcode_69:
         tst     r4, #8
         bne     decimal_mode_adc   
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, r5
+        orrcs   r1, r1, r12
         adcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -1474,7 +1474,7 @@ opcode_6D:
         tst     r4, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, r5
+        orrcs   r1, r1, r12
         adcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -1513,7 +1513,7 @@ opcode_71:
         tst     r4, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, r5
+        orrcs   r1, r1, r12
         adcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -1528,7 +1528,7 @@ opcode_72:
         tst     r4, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, r5
+        orrcs   r1, r1, r12
         adcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -1545,7 +1545,7 @@ opcode_73:
 opcode_74:
         FETCH_NEXT_STAGE_0
         add     r0, r7, r0, lsl #24
-        strb    r5, [fp, r0, lsr #24]
+        strb    r12, [fp, r0, lsr #24]
         FETCH_NEXT_STAGE_12
 
 // Opcode 75 - ADC $00,X
@@ -1556,7 +1556,7 @@ opcode_75:
         tst     r4, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, r5
+        orrcs   r1, r1, r12
         adcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -1594,7 +1594,7 @@ opcode_79:
         tst     r4, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, r5
+        orrcs   r1, r1, r12
         adcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -1633,7 +1633,7 @@ opcode_7D:
         tst     r4, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, r5
+        orrcs   r1, r1, r12
         adcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -1866,7 +1866,7 @@ opcode_9B:
 opcode_9C:
         EA_ABSOLUTE
         FETCH_NEXT_STAGE_0
-        strb    r5, [fp, r0]
+        strb    r12, [fp, r0]
         FETCH_NEXT_STAGE_12
 
 // Opcode 9D - STA $0000,X
@@ -1882,7 +1882,7 @@ opcode_9D:
 opcode_9E:
         EA_ABSOLUTE_INDEXED r7
         FETCH_NEXT_STAGE_0
-        strb    r5, [fp, r0]
+        strb    r12, [fp, r0]
         FETCH_NEXT_STAGE_12
 
 // Opcode 9F - BBS1
@@ -2422,7 +2422,7 @@ opcode_E1:
         tst     r4, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcc   r1, r1, r5
+        orrcc   r1, r1, r12
         sbcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -2455,7 +2455,7 @@ opcode_E5:
         tst     r4, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcc   r1, r1, r5
+        orrcc   r1, r1, r12
         sbcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -2493,7 +2493,7 @@ opcode_E9:
         tst     r4, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcc   r1, r1, r5
+        orrcc   r1, r1, r12
         sbcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -2527,7 +2527,7 @@ opcode_ED:
         tst     r4, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcc   r1, r1, r5
+        orrcc   r1, r1, r12
         sbcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -2565,7 +2565,7 @@ opcode_F1:
         tst     r4, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcc   r1, r1, r5
+        orrcc   r1, r1, r12
         sbcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -2580,7 +2580,7 @@ opcode_F2:
         tst     r4, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcc   r1, r1, r5
+        orrcc   r1, r1, r12
         sbcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -2605,7 +2605,7 @@ opcode_F5:
         tst     r4, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcc   r1, r1, r5
+        orrcc   r1, r1, r12
         sbcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -2644,7 +2644,7 @@ opcode_F9:
         tst     r4, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcc   r1, r1, r5
+        orrcc   r1, r1, r12
         sbcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40
@@ -2678,7 +2678,7 @@ opcode_FD:
         tst     r4, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcc   r1, r1, r5
+        orrcc   r1, r1, r12
         sbcs    r6, r6, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   r4, #0x40

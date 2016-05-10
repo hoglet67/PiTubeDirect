@@ -255,26 +255,8 @@ post_mail:
         ldr     r8, =events             // was tube_mailbox
         str     r9, [r8]
 
-        // Switch back to irq mode so ip is not shadowed
-        mrs     r8, cpsr
-        bic     r8, r8, #0x1F
-        orr     r8, r8, #0x12
-        msr     cpsr_c, r8
-        
-        orr     ip, ip, #256<<I_ALIGN   // signal event to 6502 instruction flow
+        orr     r5, r5, #256<<I_ALIGN   // signal event to 6502 instruction flow
 
-        // Switch back to fiq mode, so we return correctly
-        // lr is used here because its shadowed in IRQ mode, so doesn't corrupt the normal lr
-        mrs     lr, cpsr
-        bic     lr, lr, #0x1F
-        orr     lr, lr, #0x11
-        msr     cpsr_c, lr
-
-        // Note, the above mode switching could be avoided if we reworked the register assignment
-        // in the 6502 emulator to use a register r0..r7 for signalling.
-        // I did do this as an experiment, and it's parked in a branch.
-        // I'd like to avoid making big changes to that code for now.
-        
 exit:
         //r8-r11 are shadowed in FIQ mode, so no need to pop
         //pop   {r8-r11}
