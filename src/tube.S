@@ -271,6 +271,10 @@ isr_code_end:
 .align I_ALIGN
 isr_data_start:
 
+// Insert the current literal pool, so these get locked in the cache
+.ltorg
+
+        
 // 8 BYTES OF STATE
 tube_regs:
         .byte 0xfe
