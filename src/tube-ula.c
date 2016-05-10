@@ -59,7 +59,7 @@ uint8_t copro_65tube_host_read(uint16_t addr)
       ph1pos--;
       PSTAT1 |= 0x40;
       if (!ph1pos) HSTAT1 &= ~0x80;
-      printf("Host read R1=%02x\r\n", temp);
+      //printf("Host read R1=%02x\r\n", temp);
       break;
    case 2: /*Register 2 Stat*/
       temp = HSTAT2;
@@ -218,7 +218,7 @@ void copro_65tube_tube_write(uint32_t addr, uint8_t val)
          ph1[ph1pos++] = val;
          HSTAT1 |= 0x80;
          if (ph1pos == 24) PSTAT1 &= ~0x40;
-         printf("Parasite wrote R1=%02x\r\n", val);
+         //printf("Parasite wrote R1=%02x\r\n", val);
       }
       break;
    case 3: /*Register 2*/

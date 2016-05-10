@@ -73,9 +73,10 @@ int tube_io_handler(uint32_t mail)
          copro_65tube_host_write(addr, data);
       } else {
          copro_65tube_host_read(addr);
-         printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
       }
    }
+
+   //printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
    
    if (nrst == 0 || (tube_regs[0] & 0x20)) {
       return tube_irq | 4;
