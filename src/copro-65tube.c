@@ -9,6 +9,8 @@
  *
  */
 
+#define TEST_MODE 1
+
 #include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
@@ -85,7 +87,9 @@ int tube_io_handler(uint32_t mail)
       }
    }
 
-   //printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+#if TEST_MODE
+   printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+#endif
    
    if (nrst == 0 || (tube_regs[0] & 0x20)) {
       return tube_irq | 4;
@@ -147,6 +151,18 @@ void copro_65tube_init_hardware()
 
 }
 
+#if TEST_MODE
+static void tube_reset_and_write_test_string() {
+   int i;
+   char testmessage[] = "Ed and Dave's Pi Tube";
+   // Reset the tube emulation
+   copro_65tube_tube_reset();
+   // Write a fake startup message to the Reg 1 (PH1) on reset
+   for (i = 0; i <= strlen(testmessage); i++) {
+      copro_65tube_tube_write(1, testmessage[i]);
+   }
+}
+#else
 static void copro_65tube_reset() {
   // Wipe memory
   memset(mpu_memory, 0, 0x10000);
@@ -155,7 +171,7 @@ static void copro_65tube_reset() {
   // Do a tube reset
   copro_65tube_tube_reset();
 }
-
+#endif
 
 void copro_65tube_main() {
 
@@ -171,15 +187,22 @@ void copro_65tube_main() {
 
   printf("Initialise UART console with standard libc\r\n" );
 
-#if 0 
   _enable_interrupts();
+
+#if TEST_MODE
+  // Fake a startup message
+  tube_reset_and_write_test_string();
   while (1) {
      if (events & 0x80000000) {
-        tube_io_handler(events);
+        if (tube_io_handler(events) & 4) {
+           // A reset has been detected
+           tube_reset_and_write_test_string();
+        }
         events &= ~0x80000000;
      }
   }
-#endif
+#else
+  // This is the proper 6502 emulation
   while (1) {
     // Reinitialize the 6502 memory
     copro_65tube_reset();
@@ -196,4 +219,5 @@ void copro_65tube_main() {
        //printf("nRST released\r\n");
     }
   }
+#endif
 }
