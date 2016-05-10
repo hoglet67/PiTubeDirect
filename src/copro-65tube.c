@@ -53,6 +53,15 @@ int tube_io_handler(uint32_t mail)
    int ntube;
    int nrst;
 
+   // Toggle the LED on each tube access
+   static int led = 0;
+	if (led) {
+	  LED_OFF();
+	} else {
+	  LED_ON();
+	}
+	led = ~led;
+
    addr = 0;
    if (mail & A0_MASK) {
       addr += 1;
