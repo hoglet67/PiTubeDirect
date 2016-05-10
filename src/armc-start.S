@@ -37,9 +37,10 @@
 
 .equ    SVR_STACK,        0x01F00000
 .equ    IRQ_STACK,        0x01EF0000
-.equ    USER_STACK,       0x01EE0000
-.equ    ABORT_STACK,      0x01ED0000
-.equ    UNDEFINED_STACK,  0x01EC0000
+.equ    FIQ_STACK,        0x01EE0000
+.equ    USER_STACK,       0x01ED0000
+.equ    ABORT_STACK,      0x01EC0000
+.equ    UNDEFINED_STACK,  0x01EB0000
 
 .equ    SCTLR_ENABLE_DATA_CACHE,        0x4
 .equ    SCTLR_ENABLE_BRANCH_PREDICTION, 0x800
@@ -101,9 +102,10 @@ _prefetch_abort_vector_h:           .word   _prefetch_abort_handler_
 _data_abort_vector_h:               .word   _data_abort_handler_
 _unused_handler_h:                  .word   _reset_
 _interrupt_vector_h:                .word   arm_irq_handler
-_fast_interrupt_vector_h:           .word   arm_firq_handler
+_fast_interrupt_vector_h:           .word   arm_fiq_handler
 
 _irq_stack:                         .word   IRQ_STACK
+_fiq_stack:                         .word   FIQ_STACK
 _svr_stack:                         .word   SVR_STACK
 _user_stack:                        .word   USER_STACK
 _undefined_stack:                   .word   UNDEFINED_STACK
@@ -179,6 +181,11 @@ _reset_continue:
     msr cpsr_c, r0
     ldr sp, _irq_stack
 
+    // Also setup the stack used for FIQs
+    mov r0, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+    msr cpsr_c, r0
+    ldr sp, _fiq_stack
+
     // Also setup the stack used for undefined exceptions
     mov r0, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
@@ -252,13 +259,13 @@ _get_cpsr:
 
 _enable_interrupts:
     mrs     r0, cpsr
-    bic     r0, r0, #CPSR_IRQ_INHIBIT
+    bic     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r0
     mov     pc, lr
 
 _disable_interrupts:
     mrs     r0, cpsr
-    orr     r0, r0, #CPSR_IRQ_INHIBIT
+    orr     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r0
     mov     pc, lr
 

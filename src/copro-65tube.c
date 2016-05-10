@@ -119,8 +119,13 @@ void copro_65tube_init_hardware()
   // Make sure there are no pending detections
   RPI_GpioBase->GPEDS0 = NTUBE_MASK | NRST_MASK;
 
+  // This line enables IRQ interrupts
   // Enable gpio_int[0] which is IRQ 49
-  RPI_GetIrqController()->Enable_IRQs_2 = (1 << (49 - 32));
+  //RPI_GetIrqController()->Enable_IRQs_2 = (1 << (49 - 32));
+
+  // This line enables FIQ interrupts
+  // Enable gpio_int[0] which is IRQ 49 as FIQ
+  RPI_GetIrqController()->FIQ_control = 0x80 + 49;
 
   // Initialise the UART
   RPI_AuxMiniUartInit( 57600, 8 );

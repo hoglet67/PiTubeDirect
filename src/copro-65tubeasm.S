@@ -312,8 +312,8 @@ exec_65tube:
 //        mov     r1, #0x38
 //        str     r0, [r1]
         
-        mrs     r0, CPSR                // Enable ARM interrupts
-        bic     r0, r0, #0x80
+        mrs     r0, CPSR                // Enable ARM IRQs and FIQs
+        bic     r0, r0, #0xC0
         msr     CPSR_c, r0
 
 handle_rst:
@@ -334,7 +334,7 @@ events:
 // We have come here via a branch from the second instruction table
 Event_Handler:
         mrs     r2, CPSR                // preserve the 6502 flags
-        orr     r1, r2, #0x80           // disable ARM IRQs
+        orr     r1, r2, #0xC0           // disable ARM IRQs and FIQs
         msr     CPSR_c, r1
         
         ldr     r0, events
@@ -401,7 +401,7 @@ decimal_mode_sbc:
 
 tube_load_handler:
         push    {r0-r3,lr}                // r0 = address, r2 = current cpsr
-        orr     r2, r2, #0x80             // disable ARM interrupts
+        orr     r2, r2, #0xC0             // disable ARM IRQs and FIQs
         msr     CPSR_c, r2
         push    {ip}                      // push ip after disabling interrupts to avoid a race condition
         bl      copro_65tube_tube_read
@@ -411,7 +411,7 @@ tube_load_handler:
 
 tube_store_handler:
         push    {r0-r3,lr}                // r0 = address, r1 = data, r2 = current cpsr
-        orr     r2, r2, #0x80             // disable ARM interrupts
+        orr     r2, r2, #0xC0             // disable ARM IRQs and FIQs
         msr     CPSR_c, r2
         push    {ip}                      // push ip after disabling interrupts to avoid a race condition
         bl      copro_65tube_tube_write
