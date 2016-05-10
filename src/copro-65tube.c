@@ -137,6 +137,8 @@ static void copro_65tube_reset() {
   memset(mpu_memory, 0, 0x10000);
   // Re-instate the Tube ROM on reset
   memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
+  // Do a tube reset
+  copro_65tube_tube_reset();
 }
 
 
@@ -163,8 +165,6 @@ void copro_65tube_main() {
      }
   }
 #endif
-  // Do a tube reset just once
-  copro_65tube_tube_reset();
   while (1) {
     // Reinitialize the 6502 memory
     copro_65tube_reset();
