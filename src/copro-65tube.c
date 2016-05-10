@@ -30,8 +30,8 @@ extern volatile uint8_t tube_regs[];
 
 extern volatile uint32_t events;
 
-volatile uint32_t gpfsel_data_idle[3];
-volatile uint32_t gpfsel_data_driving[3];
+extern volatile uint32_t gpfsel_data_idle[3];
+extern volatile uint32_t gpfsel_data_driving[3];
 const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 
 volatile int memory[1000000];

@@ -10,6 +10,8 @@
 .global arm_irq_handler
 .global arm_fiq_handler
 .global lock_isr
+.global gpfsel_data_idle
+.global gpfsel_data_driving
 
 // =================================================
 // LOCK the ISR CODE into cache
@@ -294,6 +296,16 @@ isr_data_start:
 // Insert the current literal pool, so these get locked in the cache
 .ltorg
 
+// Some constants for controlling the data bus        
+gpfsel_data_idle:
+        .word 0
+        .word 0
+        .word 0
+
+gpfsel_data_driving:
+        .word 0
+        .word 0
+        .word 0
         
 // 8 BYTES OF STATE
 tube_regs:
