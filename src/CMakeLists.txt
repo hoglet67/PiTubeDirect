@@ -41,6 +41,7 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPROFILING" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-ip" )
 
 
 

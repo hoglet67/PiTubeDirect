@@ -9,7 +9,7 @@
  *
  */
 
-#define TEST_MODE 1
+#define TEST_MODE 0
 
 #include <stdio.h>
 #include <inttypes.h>

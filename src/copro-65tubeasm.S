@@ -399,23 +399,47 @@ decimal_mode_sbc:
         orrvs   r4, #0x40
         FETCH_NEXT_STAGE_2
 
+        // Note regarding commented out code below
+        //
+        // The reason for disabling interrupts was to prevent an interrupt
+        // notification (via register ip) being "lost" as ip is pushed
+        // then later popped. If an interrupt was allowed to occur in between
+        // then the pop would overwrite the flag set in register ip by the
+        // interrupt handler.
+        //
+        // In PiTubeDirect, because interrupts are using to provide the host
+        // 6502 with read data, interrupt latency is critical. We cannot affort
+        // ever to disable interrupts, or reads are late, and the 6502 get
+        // incorrect data (or worse, a bus conflict with a later cycle).
+        //
+        // Instead of disabling interrupts, we have compiled with -ffixed-ip
+        // prevent the C compiler using ip (r12). It's normally a valid scratch
+        // register.
+        //
+        // If the C code calls any system libraries (e.g. printf) then it's
+        // likely that ip will get corrupted, so we need to be very careful.
+        //
+        // It's probably woth redesigning the way the ISR notifies the main
+        // code to invoke the event handler. This will only cost a few more
+        // emulation cycles.
+
 tube_load_handler:
         push    {r0-r3,lr}                // r0 = address, r2 = current cpsr
-        orr     r2, r2, #0xC0             // disable ARM IRQs and FIQs
-        msr     CPSR_c, r2
-        push    {ip}                      // push ip after disabling interrupts to avoid a race condition
+//      orr     r2, r2, #0xC0             // disable ARM IRQs and FIQs
+//      msr     CPSR_c, r2
+//      push    {ip}                      // push ip after disabling interrupts to avoid a race condition
         bl      copro_65tube_tube_read
-        pop     {ip}
+//      pop     {ip}
         str     r0, [sp, #4]              // save result to r1 on the stack
         pop     {r0-r3,pc}                // r2 (cpsr) is preserved
 
 tube_store_handler:
         push    {r0-r3,lr}                // r0 = address, r1 = data, r2 = current cpsr
-        orr     r2, r2, #0xC0             // disable ARM IRQs and FIQs
-        msr     CPSR_c, r2
-        push    {ip}                      // push ip after disabling interrupts to avoid a race condition
+//      orr     r2, r2, #0xC0             // disable ARM IRQs and FIQs
+//      msr     CPSR_c, r2
+//      push    {ip}                      // push ip after disabling interrupts to avoid a race condition
         bl      copro_65tube_tube_write
-        pop     {ip}
+//      pop     {ip}
         pop     {r0-r3,pc}                // r2 (cpsr) is preserved
 
 handle_irq:
