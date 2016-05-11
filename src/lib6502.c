@@ -113,7 +113,6 @@ static int elapsed;
 #define zpr(ticks)				\
   tick(ticks);					\
   ea= memory[PC++];				\
-  fprintf(stderr, "\nea: %02X\n", ea);        \
   if (ea & 0x80) ea -= 0x100;			\
   tickIf((ea >> 8) != (PC >> 8));
 
