@@ -3,6 +3,7 @@
 #include "rpi-gpio.h"
 #include "rpi-interrupts.h"
 #include "tube-defs.h"
+#include "tube-ula.h"
 
 // From here: https://www.raspberrypi.org/forums/viewtopic.php?f=72&t=53862
 void reboot_now(void)
@@ -126,12 +127,13 @@ void dump_info(unsigned int *context, int offset, char *type) {
   led = 0;
   while (1) {
 	for (i = 0; i < 1000000; i++) {
+
 	  // look for reset being low
-	  if (!(nRST)) {
-		rstlow = 1;
+     if (tube_is_rst_active()) {
+      rstlow = 1;
 	  }
 	  // then reset on the next rising edge
-	  if (rstlow && (nRST)) {
+	  if (rstlow && (!tube_is_rst_active())) {
 		reboot_now();
 	  }
 	}

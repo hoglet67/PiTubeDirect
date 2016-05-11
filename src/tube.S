@@ -257,6 +257,7 @@ post_mail:
         ldr     r8, =events             // was tube_mailbox
         str     r9, [r8]
 
+#if 0        
         // Switch back to irq mode so ip is not shadowed
         mrs     r8, cpsr
         bic     r8, r8, #0x1F
@@ -271,7 +272,8 @@ post_mail:
         bic     lr, lr, #0x1F
         orr     lr, lr, #0x11
         msr     cpsr_c, lr
-
+#endif
+        
         // Note, the above mode switching could be avoided if we reworked the register assignment
         // in the 6502 emulator to use a register r0..r7 for signalling.
         // I did do this as an experiment, and it's parked in a branch.

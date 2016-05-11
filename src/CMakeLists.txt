@@ -69,6 +69,11 @@ add_executable( tube-client
     copro-65tube.h
     copro-65tube.c
     copro-65tubeasm.S
+# 6502 Co Processor using 65tube Implementation
+    copro-lib6502.c
+    copro-lib6502.h
+    lib6502.c
+    lib6502.h
 # Shared
     tuberom_6502.h
     tuberom_6502.c

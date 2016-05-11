@@ -3,9 +3,20 @@
 
 #include <stdio.h>
 #include <inttypes.h>
+#include "tube-defs.h"
+#include "tube.h"
+#include "rpi-gpio.h"
+#include "rpi-aux.h"
+#include "rpi-interrupts.h"
 
 extern volatile uint8_t tube_regs[];
 
+extern volatile uint32_t gpfsel_data_idle[3];
+extern volatile uint32_t gpfsel_data_driving[3];
+const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
+
+// Bit 0 is the tube asserting irq
+// Bit 1 is the tube asserting nmi
 int tube_irq=0;
 
 uint8_t ph1[24],ph2,ph3[2],ph4;
@@ -44,7 +55,7 @@ void tube_updateints()
    tube_regs[7] = ph4;
 }
 
-uint8_t copro_65tube_host_read(uint16_t addr)
+uint8_t tube_host_read(uint16_t addr)
 {
    uint8_t temp = 0;
    int c;
@@ -101,7 +112,7 @@ uint8_t copro_65tube_host_read(uint16_t addr)
    return temp;
 }
 
-void copro_65tube_host_write(uint16_t addr, uint8_t val)
+void tube_host_write(uint16_t addr, uint8_t val)
 {
    switch (addr & 7)
    {
@@ -149,7 +160,7 @@ void copro_65tube_host_write(uint16_t addr, uint8_t val)
    tube_updateints();
 }
 
-uint8_t copro_65tube_tube_read(uint32_t addr)
+uint8_t tube_parasite_read(uint32_t addr)
 {
    uint8_t temp = 0;
    switch (addr & 7)
@@ -208,7 +219,7 @@ uint8_t copro_65tube_tube_read(uint32_t addr)
    return temp;
 }
 
-void copro_65tube_tube_write(uint32_t addr, uint8_t val)
+void tube_parasite_write(uint32_t addr, uint8_t val)
 {
    switch (addr & 7)
    {
@@ -255,7 +266,7 @@ void copro_65tube_tube_write(uint32_t addr, uint8_t val)
 }
 
 
-void copro_65tube_tube_reset()
+void tube_reset()
 {
    printf("tube reset\r\n");
    ph1pos = hp3pos = 0;
@@ -264,4 +275,124 @@ void copro_65tube_tube_reset()
    PSTAT1 = PSTAT2 = PSTAT3 = PSTAT4 = 0x40;
    HSTAT3 = 0xC0;
    tube_updateints();
+}
+
+// Returns bit 0 set if IRQ is asserted by the tube
+// Returns bit 1 set if NMI is asserted by the tube
+// Returns bit 2 set if RST is asserted by the host or tube
+
+int tube_io_handler(uint32_t mail)
+{
+   int addr;
+   int data;
+   int rnw;
+   int ntube;
+   int nrst;
+
+   // Toggle the LED on each tube access
+   static int led = 0;
+	if (led) {
+	  LED_OFF();
+	} else {
+	  LED_ON();
+	}
+	led = ~led;
+
+   addr = 0;
+   if (mail & A0_MASK) {
+      addr += 1;
+   }
+   if (mail & A1_MASK) {
+      addr += 2;
+   }
+   if (mail & A2_MASK) {
+      addr += 4;
+   }
+   data  = ((mail >> D0_BASE) & 0xF) | (((mail >> D4_BASE) & 0xF) << 4);
+   rnw   = (mail >> RNW_PIN) & 1;
+   ntube = (mail >> NTUBE_PIN) & 1;
+   nrst  = (mail >> NRST_PIN) & 1;
+
+   if (nrst == 1 && ntube == 0) {
+      if (rnw == 0) {
+         tube_host_write(addr, data);
+      } else {
+         tube_host_read(addr);
+      }
+   }
+
+#if TEST_MODE
+   printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+#endif
+   
+   if (nrst == 0 || (tube_regs[0] & 0x20)) {
+      return tube_irq | 4;
+   } else {
+      return tube_irq;
+   }
+}
+
+void tube_init_hardware()
+{
+   int i;
+  // Write 1 to the LED init nibble in the Function Select GPIO
+  // peripheral register to enable LED pin as an output
+  RPI_GpioBase->LED_GPFSEL |= LED_GPFBIT;
+
+  // Configure our pins as inputs
+  RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D5_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D4_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D3_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D2_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D1_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(D0_PIN, FS_INPUT);
+
+  RPI_SetGpioPinFunction(A2_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(A1_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(A0_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(PHI2_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
+  RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
+
+  // Configure GPIO to detect a falling edge of NTUBE and NRST
+  RPI_GpioBase->GPFEN0 |= NTUBE_MASK | NRST_MASK;
+
+  // Configure GPIO to detect a rising edge of NRST
+  RPI_GpioBase->GPREN0 |= NRST_MASK;
+
+  // Make sure there are no pending detections
+  RPI_GpioBase->GPEDS0 = NTUBE_MASK | NRST_MASK;
+
+  // This line enables IRQ interrupts
+  // Enable gpio_int[0] which is IRQ 49
+  //RPI_GetIrqController()->Enable_IRQs_2 = (1 << (49 - 32));
+
+  // This line enables FIQ interrupts
+  // Enable gpio_int[0] which is IRQ 49 as FIQ
+  RPI_GetIrqController()->FIQ_control = 0x80 + 49;
+
+  // Initialise the UART
+  RPI_AuxMiniUartInit( 57600, 8 );
+
+  for (i = 0; i < 3; i++) {
+     gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
+     gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
+     printf("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
+  }
+
+}
+
+int tube_is_rst_active() {
+   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0);
+}
+
+void tube_wait_for_rst_active() {
+   while (!tube_is_rst_active());
+}
+
+void tube_wait_for_rst_release() {
+   while (tube_is_rst_active());
 }
