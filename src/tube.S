@@ -194,10 +194,10 @@ arm_fiq_handler:
         ldr     r8, =tube_regs
         ldrb    r10, [r8, r10]
 
-        mov     r11, r10, LSL #D0_BASE // low nibble now aligned to GPIO
+        mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
         and     r11, r11, #D30_MASK
         mov     r10, r10, LSL #D4_BASE-4
-        and     r10, r10, #D74_MASK // high nibble in the right place
+        and     r10, r10, #D74_MASK      // high nibble in the right place
         orr     r10, r10, r11
 
         ldr     r8, =GPSET0
@@ -209,12 +209,12 @@ arm_fiq_handler:
 
         ldr     r8, =GPFSEL0
         ldr     r11, =(gpfsel_data_driving)
-        ldr     r9, [r11]
-        str     r9, [r8]                // *** expensive but necessary ***
-        ldr     r9, [r11, #4]
-        str     r9, [r8, #4]            // *** expensive but necessary ***
-        ldr     r9, [r11, #8]
-        str     r9, [r8, #8]            // *** expensive but necessary ***
+        ldr     r10, [r11]
+        str     r10, [r8]                // *** expensive but necessary ***
+        ldr     r10, [r11, #4]
+        str     r10, [r8, #4]            // *** expensive but necessary ***
+        ldr     r10, [r11, #8]
+        str     r10, [r8, #8]            // *** expensive but necessary ***
 
         ldr     r8, =GPLEV0
 rd_wait_for_phi2_low:
@@ -232,7 +232,7 @@ rd_wait_for_phi2_low:
         ldr     r10, [r11, #8]
         str     r10, [r8, #8]            // *** expensive but necessary ***
 
-        tst     r9, #A0_MASK            // don't bother emulator with status reads
+        tst     r9, #A0_MASK             // don't bother emulator with status reads
         bne     post_mail
         b       exit
 
