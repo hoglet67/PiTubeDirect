@@ -66,10 +66,12 @@ uint8_t tube_host_read(uint16_t addr)
       break;
    case 1: /*Register 1*/
       temp = ph1[0];
-      for (c = 0; c < 23; c++) ph1[c] = ph1[c + 1];
-      ph1pos--;
-      PSTAT1 |= 0x40;
-      if (!ph1pos) HSTAT1 &= ~0x80;
+      if (ph1pos > 0) {
+         for (c = 0; c < 23; c++) ph1[c] = ph1[c + 1];
+         ph1pos--;
+         PSTAT1 |= 0x40;
+         if (!ph1pos) HSTAT1 &= ~0x80;
+      }
       //printf("Host read R1=%02x\r\n", temp);
       break;
    case 2: /*Register 2 Stat*/
@@ -166,7 +168,7 @@ uint8_t tube_parasite_read(uint32_t addr)
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
-      temp = PSTAT1 | (HSTAT1 & 0xc0);
+      temp = PSTAT1 | (HSTAT1 & 0x3F);
       break;
    case 1: /*Register 1*/
       temp = hp1;
