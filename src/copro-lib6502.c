@@ -33,17 +33,27 @@ static void copro_lib6502_reset(M6502 *mpu) {
   tube_reset();
 }
 
+static unsigned int last_nmi = 0;
+
 static int copro_lib6502_tube_read(M6502 *mpu, uint16_t addr, uint8_t data) {
-  return tube_parasite_read(addr);
+  data = tube_parasite_read(addr);
+  // Update NMI state as it may hve been cleared by the read
+  if ((tube_irq & 2) == 0) {
+     last_nmi = 0;
+  }
+  return data;
 }
 
 static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
   tube_parasite_write(addr, data);
+  // Update NMI state as it may hve been cleared by the write
+  if ((tube_irq & 2) == 0) {
+     last_nmi = 0;
+  }
   return 0;
 }
 
 static void copro_lib6502_poll(M6502 *mpu) {
-  static unsigned int last_nmi = 0;
   static unsigned int last_rst = 0;
   if (events & 0x80000000) {
     events &= ~0x80000000;

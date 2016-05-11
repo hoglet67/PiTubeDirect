@@ -3,6 +3,8 @@
 #ifndef TUBE_ULA_H
 #define TUBE_ULA_H
 
+extern int tube_irq;
+
 extern uint8_t tube_host_read(uint16_t addr);
 
 extern void tube_host_write(uint16_t addr, uint8_t val);
