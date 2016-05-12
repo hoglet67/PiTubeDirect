@@ -9,6 +9,8 @@
 #include "rpi-aux.h"
 #include "rpi-interrupts.h"
 
+#define DEBUG_TRANSFERS
+
 extern volatile uint8_t tube_regs[];
 
 extern volatile uint32_t gpfsel_data_idle[3];
@@ -35,6 +37,13 @@ int ph1pos,ph3pos,hp3pos;
 #define PSTAT2 pstat[1]
 #define PSTAT3 pstat[2]
 #define PSTAT4 pstat[3]
+
+#ifdef DEBUG_TRANSFERS
+uint32_t checksum_h = 0;
+uint32_t count_h = 0;
+uint32_t checksum_p = 0;
+uint32_t count_p = 0;
+#endif
 
 void tube_updateints()
 {
@@ -133,6 +142,11 @@ void tube_host_write(uint16_t addr, uint8_t val)
       HSTAT2 &= ~0x40;
       break;
    case 5: /*Register 3*/
+#ifdef DEBUG_TRANSFERS
+      checksum_h *= 13;
+      checksum_h += val;
+      count_h++;
+#endif
       if (HSTAT1 & 16)
       {
          if (hp3pos < 2)
@@ -157,6 +171,16 @@ void tube_host_write(uint16_t addr, uint8_t val)
       hp4 = val;
       PSTAT4 |=  0x80;
       HSTAT4 &= ~0x40;
+#ifdef DEBUG_TRANSFERS
+      if (val == 4) {
+         printf("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
+         printf("checksum_p = %08"PRIX32" %08"PRIX32"\r\n", count_p, checksum_p);
+         checksum_h = 0;
+         checksum_p = 0;
+         count_h = 0;
+         count_p = 0;
+      }
+#endif
       break;
    }
    tube_updateints();
@@ -194,6 +218,11 @@ uint8_t tube_parasite_read(uint32_t addr)
       break;
    case 5: /*Register 3*/
       temp = hp3[0];
+#ifdef DEBUG_TRANSFERS
+      checksum_p *= 13;
+      checksum_p += temp;
+      count_p ++;
+#endif
       if (hp3pos>0)
       {
          hp3[0] = hp3[1];
