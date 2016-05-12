@@ -3,6 +3,14 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
+// Configure the particular coprocessor
+#define COPRO_LIB6502 3
+#define COPRO_65TUBE  4
+
+#ifndef COPRO
+#define COPRO COPRO_LIB6502
+#endif
+
 #ifdef __ASSEMBLER__
 
 #include "rpi-base.h"

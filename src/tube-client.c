@@ -1,11 +1,7 @@
 #include <stdio.h>
 #include "copro-lib6502.h"
 #include "copro-65tube.h"
-
-#define COPRO_LIB6502 3
-#define COPRO_65TUBE  4
-
-#define COPRO COPRO_LIB6502
+#include "tube-defs.h"
 
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {

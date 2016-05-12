@@ -262,7 +262,7 @@ post_mail:
         orrne   r9, r9, #OVERRUN_MASK
         str     r9, [r8]
 
-#if 0        
+#if (COPRO == COPRO_65TUBE)
         // Switch back to irq mode so ip is not shadowed
         mrs     r8, cpsr
         bic     r8, r8, #0x1F
