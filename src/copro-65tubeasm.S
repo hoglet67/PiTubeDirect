@@ -132,10 +132,9 @@
 .macro FETCH_NEXT_CHECK_IRQ
         mrs     r2, CPSR                  // Preserve the 6502 flags
         tst     r4, #4                    // Test whether interrupts are enabled (bit 2 = 0)
-        ldreq   r0, =pending_irq          // The next 4 instructions are skipped if interrupts disabled
-        ldreq   r0, [r0]                  //
-        eoreq   r0, r0, #1                // Invert, so pending_irq is active low
-        tsteq   r0, #1                    // Test for IRQ
+        ldreq   r0, =(PERIPHERAL_BASE + 0x200034)
+        ldreq   r0, [r0]
+        tsteq   r0, #(1 << 17)            // Test for IRQ
         beq     handle_irq
         msr     CPSR_flg, r2              // Restore the 6502 flags
         FETCH_NEXT_MERGED
@@ -330,10 +329,7 @@ exec_65tube_exit:                       // We get here from the Event handler wh
 
 events:
         .word 0
-
-pending_irq:
-        .word 0
-
+        
 // 6502 Event handler
 // We have come here via a branch from the second instruction table
 Event_Handler:
@@ -351,8 +347,6 @@ Event_Handler:
         push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value
         bl      tube_io_handler
         pop     {r1-r3,ip,lr}
-
-        str     r0, pending_irq         // bit 0 of pending_irq indicates
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
@@ -362,7 +356,7 @@ Event_Handler:
 
         tst     r4, #4                  // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq
-        tst     r0, #1                  // Bit 0 set indicate IRQ is active
+        tst     r0, #1                  // Bit 1 set indicate IRQ is active
         bne     handle_irq              // Take the IRQ interrupt
 
 noirq:
@@ -449,9 +443,6 @@ tube_store_handler:
         pop     {r0-r3,pc}                // r2 (cpsr) is preserved
 
 handle_irq:
-        ldr     r0, pending_irq           // clear any pending irq flag
-        bic     r0, r0, #1
-        str     r0, pending_irq
         msr     CPSR, r2                  // Restore the 6502 flags and re-enable ARM interrupts
         sub     r1, sl, fp
         lsr     r0, r1, #8
