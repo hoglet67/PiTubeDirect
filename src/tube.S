@@ -250,11 +250,16 @@ wr_wait_for_phi2_low:
         movne   r9, r10
         bne     wr_wait_for_phi2_low
 
+// At this point, cache misses will no longer disrupt the 6502 bus timings
 post_mail:
         ldr     r10, =PINS_MASK
         and     r9, r9, r10
         orr     r9, r9, #ATTN_MASK
         ldr     r8, =events             // was tube_mailbox
+
+        ldr     r10, [r8]
+        tst     r10, #ATTN_MASK         // if previous message not acknowledged, then flag overrun
+        orrne   r9, r9, #OVERRUN_MASK
         str     r9, [r8]
 
 #if 0        

@@ -315,6 +315,10 @@ int tube_io_handler(uint32_t mail)
    ntube = (mail >> NTUBE_PIN) & 1;
    nrst  = (mail >> NRST_PIN) & 1;
 
+   if (mail & OVERRUN_MASK) {
+      printf("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+   }
+
    if (nrst == 1 && ntube == 0) {
       if (rnw == 0) {
          tube_host_write(addr, data);

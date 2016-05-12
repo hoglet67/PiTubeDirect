@@ -15,6 +15,7 @@
 #include <string.h>
 #include "startup.h"
 #include "cache.h"
+#include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
 #include "tuberom_6502.h"
@@ -55,9 +56,10 @@ static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
 
 static void copro_lib6502_poll(M6502 *mpu) {
   static unsigned int last_rst = 0;
-  if (events & 0x80000000) {
-    events &= ~0x80000000;
-    unsigned int intr = tube_io_handler(events);
+  if (events & ATTN_MASK) {
+    unsigned int events_copy = events;
+    events &= ~(ATTN_MASK | OVERRUN_MASK);
+    unsigned int intr = tube_io_handler(events_copy);
     unsigned int irq = intr & 1;
     unsigned int nmi = intr & 2;
     unsigned int rst = intr & 4;
