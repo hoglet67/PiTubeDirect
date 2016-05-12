@@ -348,12 +348,16 @@ int tube_io_handler(uint32_t mail)
       printf("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
 
-   if (nrst == 1 && ntube == 0) {
-      if (rnw == 0) {
-         tube_host_write(addr, data);
+   if (nrst == 1) {
+      if (ntube == 0) {
+         if (rnw == 0) {
+            tube_host_write(addr, data);
+         } else {
+            tube_host_read(addr);
+         }
       } else {
-         tube_host_read(addr);
-      }
+         printf("LATE: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+      }      
    }
 
 #if TEST_MODE
