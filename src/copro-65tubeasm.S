@@ -132,9 +132,10 @@
 .macro FETCH_NEXT_CHECK_IRQ
         mrs     r2, CPSR                  // Preserve the 6502 flags
         tst     r4, #4                    // Test whether interrupts are enabled (bit 2 = 0)
-        ldreq   r0, =(PERIPHERAL_BASE + 0x200034)
+        ldreq   r0, =tube_irq
         ldreq   r0, [r0]
-        tsteq   r0, #(1 << 17)            // Test for IRQ
+        eoreq   r0, r0, #1
+        tsteq   r0, #1                    // Test for IRQ
         beq     handle_irq
         msr     CPSR_flg, r2              // Restore the 6502 flags
         FETCH_NEXT_MERGED
