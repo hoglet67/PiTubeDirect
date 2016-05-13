@@ -182,6 +182,8 @@ void tube_host_write(uint16_t addr, uint8_t val)
       }
 #endif
       break;
+   default:
+      printf("Illegal host write to %d\r\n", addr);
    }
    tube_updateints();
 }
