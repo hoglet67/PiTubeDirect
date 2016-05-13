@@ -24,11 +24,6 @@
  
 #if TEST_MODE
 extern volatile uint32_t events;
-#endif
-
-volatile int memory[1000000];
-
-#if TEST_MODE
 static void tube_reset_and_write_test_string() {
    int i;
    char testmessage[] = "Ed and Dave's Pi Tube";
@@ -40,11 +35,13 @@ static void tube_reset_and_write_test_string() {
    }
 }
 #else
-static void copro_65tube_reset() {
+static void copro_65tube_poweron_reset() {
   // Wipe memory
   memset(mpu_memory, 0, 0x10000);
   // Install test programs (like sphere)
   copy_test_programs(mpu_memory);
+}
+static void copro_65tube_reset() {
   // Re-instate the Tube ROM on reset
   memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
   // Do a tube reset
@@ -81,6 +78,7 @@ void copro_65tube_main() {
      }
   }
 #else
+  copro_65tube_poweron_reset();
   // This is the proper 6502 emulation
   while (1) {
     // Reinitialize the 6502 memory

@@ -25,11 +25,14 @@
 
 int tracing=0;
 
-static void copro_lib6502_reset(M6502 *mpu) {
+static void copro_lib6502_poweron_reset(M6502 *mpu) {
   // Wipe memory
   memset(mpu->memory, 0, 0x10000);
   // Install test programs (like sphere)
   copy_test_programs(mpu->memory);
+}
+
+static void copro_lib6502_reset(M6502 *mpu) {
   // Re-instate the Tube ROM on reset
   memcpy(mpu->memory + 0xf800, tuberom_6502_orig, 0x800);
   // Reset lib6502
@@ -112,6 +115,7 @@ void copro_lib6502_main() {
     M6502_setCallback(mpu, write, addr, copro_lib6502_tube_write);
   }
 
+  copro_lib6502_poweron_reset(mpu);
   copro_lib6502_reset(mpu);
 
   M6502_run(mpu, copro_lib6502_poll);
