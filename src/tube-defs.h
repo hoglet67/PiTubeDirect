@@ -8,7 +8,7 @@
 #define COPRO_65TUBE  4
 
 #ifndef COPRO
-#define COPRO COPRO_LIB6502
+#define COPRO COPRO_65TUBE
 #endif
 
 #ifdef __ASSEMBLER__
