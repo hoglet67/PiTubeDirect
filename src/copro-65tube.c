@@ -19,6 +19,7 @@
 #include "tube.h"
 #include "tube-ula.h"
 #include "tuberom_6502.h"
+#include "programs.h"
 #include "copro-65tube.h"
  
 #if TEST_MODE
@@ -42,6 +43,8 @@ static void tube_reset_and_write_test_string() {
 static void copro_65tube_reset() {
   // Wipe memory
   memset(mpu_memory, 0, 0x10000);
+  // Install test programs (like sphere)
+  copy_test_programs(mpu_memory);
   // Re-instate the Tube ROM on reset
   memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
   // Do a tube reset

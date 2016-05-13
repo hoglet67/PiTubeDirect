@@ -20,12 +20,16 @@
 #include "tube-ula.h"
 #include "tuberom_6502.h"
 #include "lib6502.h"
+#include "programs.h"
 #include "copro-lib6502.h"
 
 int tracing=0;
 
 static void copro_lib6502_reset(M6502 *mpu) {
+  // Wipe memory
   memset(mpu->memory, 0, 0x10000);
+  // Install test programs (like sphere)
+  copy_test_programs(mpu->memory);
   // Re-instate the Tube ROM on reset
   memcpy(mpu->memory + 0xf800, tuberom_6502_orig, 0x800);
   // Reset lib6502
