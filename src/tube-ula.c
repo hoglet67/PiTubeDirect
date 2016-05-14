@@ -423,8 +423,9 @@ void tube_init_hardware()
   // Enable gpio_int[0] which is IRQ 49 as FIQ
   RPI_GetIrqController()->FIQ_control = 0x80 + 49;
 
-  // Initialise the UART
-  RPI_AuxMiniUartInit( 57600, 8 );
+  // Initialise the UART to 57600 baud
+  // The scale factor of 250/350 is because we overclock core_freq to 350MHz (default is 250MHz)
+  RPI_AuxMiniUartInit( 57600 * 250 / 350, 8 );
 
   // Precalculate the values that need to be written to the FSEL registers
   // to set the data bus GPIOs as inputs (idle) and output (driving)
