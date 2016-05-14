@@ -47,8 +47,22 @@ copy_loop:
 // This code must only be executed from uncachable memory
 // and must be position independant
 
-// TODO: Check whether any of the different regions will "alias"
+// Cache ways are 4KB, and contain 128 x 32 byte lines
         
+// I Cache Locked Way
+        
+// 0x00000000-0x0000001f - cache line  0     - (vectors)
+// 0x01f01180-0x01f012ff - cache lines 12-23 - (ISR code)
+        
+// D Cache Locked Way
+
+// 0x?????000-0x?????01f - cache line  0       - (vector TLBs)
+// 0x00000020-0x0000003f - cache line  1       - (vectors)
+// 0x?????060-0x?????07f - cache line  3       - (code/data/stack TLBs)
+// 0x01f01300-0x01f01380 - cache lines 24-27   - (ISR data)
+// 0x?????800-0x?????81f - cache line  64      - (IO TLB)
+// 0x01edff00-0x01edffff - cache lines 120-127 - (FIQ stack, not currently used)
+
 .align I_ALIGN
 lock_isr_into_cache_start:
 
@@ -60,10 +74,30 @@ lock_isr_into_cache_start:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c14, 0
 
-    // enable i-cache/d-cache way 0, lock ways 1, 2, 3 (page 3-89)
+    // data synchronization barrier to ensure all outstanding memory transactions are complete
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c10, 4
+        
+    // Set the fast interrupt mode bit
+    // This is commented out because
+    // 1. It costs in overall performance
+    // 2. It did not make an observable different to tube read latency
+
+    // mrc     p15, 0, r0, c1, c0, 0
+    // orr     r0, r0, #(1<<21)
+    // mcr     p15, 0, r0, c1, c0, 0
+
+    // data synchronization barrier to ensure all outstanding memory transactions are complete
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c10, 4
+        
+    // enable d-cache way 0, lock ways 1, 2, 3 (page 3-89)
     mov     r0, #0xfffffffe
-    mcr     p15, 0, r0, c9, c0, 0 // d-cache
-    mcr     p15, 0, r0, c9, c0, 1 // i-cache
+    mcr     p15, 0, r0, c9, c0, 0
+        
+    // enable i-cache way 0, lock ways 1, 2, 3 (page 3-89)
+    mov     r0, #0xfffffffe
+    mcr     p15, 0, r0, c9, c0, 1
 
     // bring the isr code into i-cache
     // these loads are relative references, so should relocate
@@ -82,6 +116,11 @@ lock_code_loop:
     mov     r0, #0x00
     mcr     p15, 0, r0, c7, c13, 1
 
+    // any data prefetched is actually used by accumulating into r3
+    // don't think this is actually necessary, but lets be really
+    // sure the ARM doesn't abort the transactions
+    mov     r3, #0x00
+        
     // bring the isr data into d-cache
     // these loads are relative references, so should relocate
     ldr     r0, isr_data_start_ptr
@@ -89,6 +128,7 @@ lock_code_loop:
 lock_data_loop:
     // load from the cache line to prefetch it
     ldr     r2, [r0]
+    add     r3, r3, r2
     // move to the next cache line
     add     r0, r0, #32
     cmp     r0, r1
@@ -97,6 +137,19 @@ lock_data_loop:
     // prefetch the vector data (8 words starting at 0x00000020) into the d-cache
     mov     r0, #0x20
     ldr     r2, [r0]
+    add     r3, r3, r2
+
+    // prefetch the used page table (TLB) entries
+    // The complete table is 4K words (16K bytes) with one work per 1MB of virtual memory
+    // It is aligned on a 4KB boundary
+    // Each cache line contains 8 words representing 8MB of memory
+    ldr     r0, page_table_ptr
+    ldr     r2, [r0, #(0x000 * 4)]  // 0x00000000-0x000fffff (vectors)
+    add     r3, r3, r2
+    ldr     r2, [r0, #(0x018 * 4)]  // 0x01800000-0x01ffffff (stacks, code and data)
+    add     r3, r3, r2
+    ldr     r2, [r0, #(0x200 * 4)]  // 0x20000000-0x027fffff (IO - todo should use PERIPHERAL_BASE here)
+    add     r3, r3, r2
 
     // bring the isr stack into d-cache
     // these loads are relative references, so should relocate
@@ -105,15 +158,23 @@ lock_data_loop:
 lock_stack_loop:
     // load from the cache line to prefetch it
     ldr     r2, [r0]
+    add     r3, r3, r2
     // move to the next cache line
     add     r0, r0, #32
     cmp     r0, r1
     bne     lock_stack_loop
 
-    // lock i-cache/d-cache way 0, enable ways 1, 2, 3 (page 3-89)
+    // data synchronization barrier to ensure all outstanding memory transactions are complete
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c10, 4
+        
+    // lock d-cache way 0, enable ways 1, 2, 3 (page 3-89)
     mov     r0, #0xfffffff1
-    mcr     p15, 0, r0, c9, c0, 0 // d-cache
-    mcr     p15, 0, r0, c9, c0, 1 // i-cache
+    mcr     p15, 0, r0, c9, c0, 0
+
+    // lock i-cache way 0, enable ways 1, 2, 3 (page 3-89)
+    mov     r0, #0xfffffff1
+    mcr     p15, 0, r0, c9, c0, 1
 
     mov     pc, lr
 
@@ -129,6 +190,9 @@ isr_data_start_ptr:
 isr_data_end_ptr:
 .word isr_data_end
 
+page_table_ptr:
+.word PageTable
+        
 // TODO these should be somehow imported from arm-startup.S
         
 isr_stack_start_ptr:

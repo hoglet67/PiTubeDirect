@@ -3,9 +3,10 @@
 #include "rpi-base.h"
 #include "cache.h"
 
+volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
+
 void enable_MMU_and_IDCaches(void)
 {
-  static volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
 
   printf("enable_MMU_and_IDCaches\r\n");
   printf("cpsr    = %08x\r\n", _get_cpsr());
