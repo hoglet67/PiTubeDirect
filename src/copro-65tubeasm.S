@@ -71,7 +71,6 @@
 #include "rpi-base.h"
         
 .text
-.global events
 .global exec_65tube
 .global mpu_memory
 
@@ -306,13 +305,10 @@ exec_65tube:
         ldr     r3, =(0x0000fef8 >> 3)  // initialize the constant in r3
         ldr     r5, =0xffffff00         // initialize the constant in r5
 
-        mov     r0, #0                  // initialize Event register
-        str     r0, events
+        mov     r0, #0                  // initialize tube mailbox (between isr and event handler)
+        ldr     r1, =tube_mailbox
+        str     r0, [r1]
 
-//        ldr     r0, =arm_irq_handler    // Install the ARM interrupt handler
-//        mov     r1, #0x38
-//        str     r0, [r1]
-        
         mrs     r0, CPSR                // Enable ARM IRQs and FIQs
         bic     r0, r0, #0xC0
         msr     CPSR_c, r0
@@ -328,8 +324,6 @@ handle_rst:
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
         pop      {r0-r12,pc}
 
-events:
-        .word 0
         
 // 6502 Event handler
 // We have come here via a branch from the second instruction table
@@ -338,12 +332,13 @@ Event_Handler:
         orr     r1, r2, #0xC0           // disable ARM IRQs and FIQs
         msr     CPSR_c, r1
         
-        ldr     r0, events
+        ldr     r1, =tube_mailbox
+        ldr     r0, [r1]
         bic     ip, ip, #256<<I_ALIGN   // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
 
-        bic     r1, r0, #0x80000000     // the attention bit
-        str     r1, events              // ack the attention bit
+        bic     r0, r0, #0x80000000     // the attention bit
+        str     r0, [r1]                // ack the attention bit
 
         push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value
         bl      tube_io_handler

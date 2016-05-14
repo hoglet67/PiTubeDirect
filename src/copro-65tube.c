@@ -23,7 +23,6 @@
 #include "copro-65tube.h"
  
 #if TEST_MODE
-extern volatile uint32_t events;
 static void tube_reset_and_write_test_string() {
    int i;
    char testmessage[] = "Ed and Dave's Pi Tube";
@@ -69,12 +68,12 @@ void copro_65tube_main() {
   // Fake a startup message
   tube_reset_and_write_test_string();
   while (1) {
-     if (events & 0x80000000) {
-        if (tube_io_handler(events) & 4) {
+     if (tube_mailbox & ATTN_MASK) {
+        if (tube_io_handler(tube_mailbox) & 4) {
            // A reset has been detected
            tube_reset_and_write_test_string();
         }
-        events &= ~0x80000000;
+        tube_mailbox &= ~ATTN_MASK;
      }
   }
 #else

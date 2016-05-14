@@ -7,6 +7,7 @@
 
 .text
 .global tube_regs
+.global tube_mailbox
 .global arm_irq_handler
 .global arm_fiq_handler
 .global lock_isr
@@ -255,12 +256,11 @@ post_mail:
         ldr     r10, =PINS_MASK
         and     r9, r9, r10
         orr     r9, r9, #ATTN_MASK
-        ldr     r8, =events             // was tube_mailbox
 
-        ldr     r10, [r8]
+        ldr     r10, tube_mailbox
         tst     r10, #ATTN_MASK         // if previous message not acknowledged, then flag overrun
         orrne   r9, r9, #OVERRUN_MASK
-        str     r9, [r8]
+        str     r9, tube_mailbox
 
 #if (COPRO == COPRO_65TUBE)
         // Switch back to irq mode so ip is not shadowed
@@ -312,6 +312,10 @@ gpfsel_data_idle:
 gpfsel_data_driving:
         .word 0
         .word 0
+        .word 0
+
+// Mailbox between tube isr and events handler (in C)
+tube_mailbox:
         .word 0
         
 // 8 BYTES OF STATE
