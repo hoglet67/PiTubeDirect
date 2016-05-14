@@ -1,5 +1,11 @@
-/*B-em v2.2 by Tom Walker
-  Tube ULA emulation*/
+/*
+ * Tube ULA Emulation
+ *
+ * (c) 2016 David Banks and Ed Spittles
+ * 
+ * Based on code from B-em v2.2 by Tom Walker
+ *
+ */
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -19,6 +25,8 @@ const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 
 // Bit 0 is the tube asserting irq
 // Bit 1 is the tube asserting nmi
+// Bit 2 is the tube asserting rst
+
 int tube_irq=0;
 
 uint8_t ph1[24],ph2,ph3[2],ph4;
@@ -48,9 +56,6 @@ uint32_t count_p = 0;
 void tube_updateints()
 {
    
-   // interrupt &= ~8;
-   // if ((HSTAT1 & 1) && (HSTAT4 & 128)) interrupt |= 8;
-   
    tube_irq = 0;
    if ((HSTAT1 & 2) && (PSTAT1 & 128)) tube_irq  |= 1;
    if ((HSTAT1 & 4) && (PSTAT4 & 128)) tube_irq  |= 1;
@@ -64,41 +69,37 @@ void tube_updateints()
    tube_regs[7] = ph4;
 }
 
-uint8_t tube_host_read(uint16_t addr)
+// 6502 Host reading the tube registers
+//
+// This function implements read-ahead, so the next values
+// to be read are already pre-loaded into the tube_regs[]
+// array ready for the FIQ handler to read without any delay.
+// This is why there is no return value.
+// 
+// Reading of status registers has no side effects, so nothing to
+// do here for even registers (all handled in the FIQ handler).
+
+void tube_host_read(uint16_t addr)
 {
-   uint8_t temp = 0;
    int c;
    switch (addr & 7)
    {
-   case 0: /*Reg 1 Stat*/
-      temp = HSTAT1;
-      break;
    case 1: /*Register 1*/
-      temp = ph1[0];
       if (ph1pos > 0) {
          for (c = 0; c < 23; c++) ph1[c] = ph1[c + 1];
          ph1pos--;
          PSTAT1 |= 0x40;
          if (!ph1pos) HSTAT1 &= ~0x80;
       }
-      //printf("Host read R1=%02x\r\n", temp);
-      break;
-   case 2: /*Register 2 Stat*/
-      temp = HSTAT2;
       break;
    case 3: /*Register 2*/
-      temp = ph2;
       if (HSTAT2 & 0x80)
       {
          HSTAT2 &= ~0x80;
          PSTAT2 |=  0x40;
       }
       break;
-   case 4: /*Register 3 Stat*/
-      temp = HSTAT3;
-      break;
    case 5: /*Register 3*/
-      temp = ph3[0];
       if (ph3pos > 0)
       {
          ph3[0] = ph3[1];
@@ -107,11 +108,7 @@ uint8_t tube_host_read(uint16_t addr)
          if (!ph3pos) HSTAT3 &= ~0x80;
       }
       break;
-   case 6: /*Register 4 Stat*/
-      temp = HSTAT4;
-      break;
    case 7: /*Register 4*/
-      temp = ph4;
       if (HSTAT4 & 0x80)
       {
          HSTAT4 &= ~0x80;
@@ -120,7 +117,6 @@ uint8_t tube_host_read(uint16_t addr)
       break;
    }
    tube_updateints();
-   return temp;
 }
 
 void tube_host_write(uint16_t addr, uint8_t val)
@@ -163,9 +159,7 @@ void tube_host_write(uint16_t addr, uint8_t val)
          hp3pos = 1;
          PSTAT3 |=  0x80;
          HSTAT3 &= ~0x40;
-         tube_updateints();
       }
-//                printf("Write R3 %i\n",hp3pos);
       break;
    case 7: /*Register 4*/
       hp4 = val;
@@ -262,7 +256,6 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          ph1[ph1pos++] = val;
          HSTAT1 |= 0x80;
          if (ph1pos == 24) PSTAT1 &= ~0x40;
-         //printf("Parasite wrote R1=%02x\r\n", val);
       }
       break;
    case 3: /*Register 2*/
