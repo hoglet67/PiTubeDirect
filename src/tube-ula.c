@@ -17,24 +17,25 @@
 
 #define DEBUG_TRANSFERS
 
-extern volatile uint8_t tube_regs[];
+extern volatile uint8_t tube_regs[8];
 
 extern volatile uint32_t gpfsel_data_idle[3];
 extern volatile uint32_t gpfsel_data_driving[3];
 const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 
-// Bit 0 is the tube asserting irq
-// Bit 1 is the tube asserting nmi
-// Bit 2 is the tube asserting rst
-
-int tube_irq=0;
-
-uint8_t ph1[24],ph2,ph3[2],ph4;
+uint8_t ph1[24],ph3_1;
 uint8_t hp1,hp2,hp3[2],hp4;
 uint8_t pstat[4];
 int ph1pos,ph3pos,hp3pos;
 
-// host status registers are the ones seen by the tube isr
+// Host end of the fifos are the ones read by the tube isr
+#define PH1_0 tube_regs[1]
+#define PH2   tube_regs[3]
+#define PH3_0 tube_regs[5]
+#define PH3_1 ph3_1
+#define PH4   tube_regs[7]
+
+// Host status registers are the ones read by the tube isr
 #define HSTAT1 tube_regs[0]
 #define HSTAT2 tube_regs[2]
 #define HSTAT3 tube_regs[4]
@@ -53,20 +54,22 @@ uint32_t checksum_p = 0;
 uint32_t count_p = 0;
 #endif
 
+// The current Tube IRQ/NMI state is maintained in a global that the emulation code can see
+//
+// Bit 0 is the tube asserting irq
+// Bit 1 is the tube asserting nmi
+
+int tube_irq=0;
+
 void tube_updateints()
-{
-   
+{   
    tube_irq = 0;
+   // Test for IRQ
    if ((HSTAT1 & 2) && (PSTAT1 & 128)) tube_irq  |= 1;
    if ((HSTAT1 & 4) && (PSTAT4 & 128)) tube_irq  |= 1;
+   // Test for NMI
    if ((HSTAT1 & 8) && !(HSTAT1 & 16) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
    if ((HSTAT1 & 8) &&  (HSTAT1 & 16) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
-
-   // Update read-ahead of host data
-   tube_regs[1] = ph1[0];
-   tube_regs[3] = ph2;
-   tube_regs[5] = ph3[0];
-   tube_regs[7] = ph4;
 }
 
 // 6502 Host reading the tube registers
@@ -86,7 +89,8 @@ void tube_host_read(uint16_t addr)
    {
    case 1: /*Register 1*/
       if (ph1pos > 0) {
-         for (c = 0; c < 23; c++) ph1[c] = ph1[c + 1];
+         PH1_0 = ph1[1];
+         for (c = 1; c < 23; c++) ph1[c] = ph1[c + 1];
          ph1pos--;
          PSTAT1 |= 0x40;
          if (!ph1pos) HSTAT1 &= ~0x80;
@@ -102,7 +106,7 @@ void tube_host_read(uint16_t addr)
    case 5: /*Register 3*/
       if (ph3pos > 0)
       {
-         ph3[0] = ph3[1];
+         PH3_0 = PH3_1;
          ph3pos--;
          PSTAT3 |= 0x40;
          if (!ph3pos) HSTAT3 &= ~0x80;
@@ -253,21 +257,32 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
    case 1: /*Register 1*/
       if (ph1pos < 24)
       {
-         ph1[ph1pos++] = val;
+         if (ph1pos == 0) {
+            PH1_0 = val;
+         } else {
+            ph1[ph1pos] = val;
+         }
+         ph1pos++;
          HSTAT1 |= 0x80;
          if (ph1pos == 24) PSTAT1 &= ~0x40;
       }
       break;
    case 3: /*Register 2*/
-      ph2 = val;
+      PH2 = val;
       HSTAT2 |=  0x80;
       PSTAT2 &= ~0x40;
       break;
    case 5: /*Register 3*/
       if (HSTAT1 & 16)
       {
-         if (ph3pos < 2)
-            ph3[ph3pos++] = val;
+         if (ph3pos < 2) {
+            if (ph3pos == 0) {
+               PH3_0 = val;
+            } else {
+               PH3_1 = val;
+            }
+            ph3pos++;
+         }
          if (ph3pos == 2)
          {
             HSTAT3 |=  0x80;
@@ -276,14 +291,14 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
       }
       else
       {
-         ph3[0] = val;
+         PH3_0 = val;
          ph3pos = 1;
          HSTAT3 |=  0x80;
          PSTAT3 &= ~0x40;
       }
       break;
    case 7: /*Register 4*/
-      ph4 = val;
+      PH4 = val;
       HSTAT4 |=  0x80;
       PSTAT4 &= ~0x40;
       break;
@@ -411,12 +426,13 @@ void tube_init_hardware()
   // Initialise the UART
   RPI_AuxMiniUartInit( 57600, 8 );
 
+  // Precalculate the values that need to be written to the FSEL registers
+  // to set the data bus GPIOs as inputs (idle) and output (driving)
   for (i = 0; i < 3; i++) {
      gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
      gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
      printf("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
   }
-
 }
 
 int tube_is_rst_active() {
