@@ -24,21 +24,23 @@
 
 #endif // __ASSEMBLER__
 
-//    D7 - Pin 22 - GPIO25 
-//    D6 - Pin 18 - GPIO24 
-//    D5 - Pin 16 - GPIO23 
-//    D4 - Pin 15 - GPIO22 
-//    D3 - Pin 23 - GPIO11 
-//    D2 - Pin 19 - GPIO10 
-//    D1 - Pin 21 - GPIO9  
-//    D0 - Pin 24 - GPIO8  
-//    A2 - Pin  5 - GPIO1  (GPIO3  on later models)
-//    A1 - Pin  3 - GPIO0  (GPIO2  on later models)
-//    A0 - Pin 13 - GPIO21 (GPIO27 on later models)
-//  Phi2 - Pin 26 - GPIO7  
-// nTUBE - Pin 11 - GPIO17 
-//  nRST - Pin  7 - GPIO4  
-//   RnW - Pin 12 - GPIO18 
+//    A2 – Green  - Pin 5  – GPIO1  (GPIO3 on later models)
+//    A1 – Blue   - Pin 3  – GPIO0  (GPIO2 on later models)
+//    A0 – Purple – Pin 13 – GPIO21 (GPIO27 on later models)
+//    D7 – Grey   - Pin 22 – GPIO25 
+//    D6 – White  - Pin 18 – GPIO24 
+//    D5 – Black  - Pin 16 – GPIO23 
+//    D4 – Brown  - Pin 15 – GPIO22 
+//    D3 – Red    - Pin 23 – GPIO11 
+//    D2 – Orange – Pin 19 – GPIO10 
+//    D1 – Yellow – Pin 21 – GPIO9 
+//    D0 – Green  - Pin 24 – GPIO8 
+//  nRST – Blue   - Pin 7  – GPIO4 
+// nTUBE – Purple – Pin 11 – GPIO17 
+//  nIRQ 
+//  Phi2 – Grey   - Pin 26 – GPIO7 
+//   RnW – White  - Pin 12 – GPIO18
+//   GND – Black  - Pin 25 – GND 
 
 #define D0_BASE      (8)
 #define D4_BASE      (22)
@@ -57,9 +59,20 @@
 #define MAGIC_C2     ((1 << ((D4_PIN - 20) * 3)) | (1 << ((D5_PIN - 20) * 3)))
 #define MAGIC_C3     ((1 << ((D6_PIN - 20) * 3)) | (1 << ((D7_PIN - 20) * 3)))
 
+#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
+
+#define A2_PIN       (3)
+#define A1_PIN       (2)
+#define A0_PIN       (27)
+
+#else
+
 #define A2_PIN       (1)
 #define A1_PIN       (0)
 #define A0_PIN       (21)
+
+#endif
+
 #define PHI2_PIN     (7)
 #define NTUBE_PIN    (17)
 #define NRST_PIN     (4)
