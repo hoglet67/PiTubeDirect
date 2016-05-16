@@ -1,0 +1,9 @@
+# config.txt for PiTubeDirect (https://github.com/hoglet67/PiTubeDirect)
+#
+arm_freq=900
+core_freq=350
+force_turbo=1
+#
+# See fully annotated config.txt at
+# https://raw.githubusercontent.com/Evilpaul/RPi-config/master/config.txt
+# (via http://elinux.org/RPiconfig)
