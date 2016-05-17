@@ -1,7 +1,13 @@
+#include <stdio.h>
 #include "rpi-aux.h"
 #include "rpi-base.h"
 #include "rpi-gpio.h"
-#include <stdio.h>
+#include "info.h"
+
+/* Define the system clock frequency in MHz for the baud rate calculation.
+ This is clearly defined on the BCM2835 datasheet errata page:
+ http://elinux.org/BCM2835_datasheet_errata */
+#define FALLBACK_SYS_FREQ    250000000
 
 static aux_t* auxillary = (aux_t*) AUX_BASE;
 
@@ -10,14 +16,15 @@ aux_t* RPI_GetAux(void)
   return auxillary;
 }
 
-/* Define the system clock frequency in MHz for the baud rate calculation.
- This is clearly defined on the BCM2835 datasheet errata page:
- http://elinux.org/BCM2835_datasheet_errata */
-#define SYS_FREQ    250000000
-
 void RPI_AuxMiniUartInit(int baud, int bits)
 {
   volatile int i;
+
+  int sys_freq = get_clock_rate(CORE_CLK_ID);
+
+  if (!sys_freq) {
+     sys_freq = FALLBACK_SYS_FREQ;
+  }
 
   /* As this is a mini uart the configuration is complete! Now just
    enable the uart. Note from the documentation in section 2.1.1 of
@@ -50,7 +57,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
 
   /* Transposed calculation from Section 2.2.1 of the ARM peripherals
    manual */
-  auxillary->MU_BAUD = ( SYS_FREQ / (8 * baud)) - 1;
+  auxillary->MU_BAUD = ( sys_freq / (8 * baud)) - 1;
 
   /* Setup GPIO 14 and 15 as alternative function 5 which is
    UART 1 TXD/RXD. These need to be set before enabling the UART */
