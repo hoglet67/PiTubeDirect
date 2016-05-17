@@ -63,10 +63,16 @@ add_executable( tube-client
     rpi-aux.h
     rpi-interrupts.c
     rpi-interrupts.h
+    rpi-mailbox.c
+    rpi-mailbox.h
+    rpi-mailbox-interface.c
+    rpi-mailbox-interface.h
     tube.S
     tube-ula.c
     programs.c
     programs.h
+    info.c
+    info.h
 # 6502 Co Processor using 65tube Implementation
     copro-65tube.h
     copro-65tube.c

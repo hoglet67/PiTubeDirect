@@ -14,6 +14,7 @@
 #include "rpi-gpio.h"
 #include "rpi-aux.h"
 #include "rpi-interrupts.h"
+#include "info.h"
 
 #define DEBUG_TRANSFERS
 
@@ -381,8 +382,10 @@ int tube_io_handler(uint32_t mail)
    }
 }
 
+
 void tube_init_hardware()
 {
+
    int i;
   // Write 1 to the LED init nibble in the Function Select GPIO
   // peripheral register to enable LED pin as an output
@@ -424,8 +427,9 @@ void tube_init_hardware()
   RPI_GetIrqController()->FIQ_control = 0x80 + 49;
 
   // Initialise the UART to 57600 baud
-  // The scale factor of 250/350 is because we overclock core_freq to 350MHz (default is 250MHz)
-  RPI_AuxMiniUartInit( 57600 * 250 / 350, 8 );
+  RPI_AuxMiniUartInit( 57600, 8 );
+
+  dump_useful_info();
 
   // Precalculate the values that need to be written to the FSEL registers
   // to set the data bus GPIOs as inputs (idle) and output (driving)
@@ -434,6 +438,11 @@ void tube_init_hardware()
      gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
      printf("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
   }
+
+  // Print the GPIO numbers of A0, A1 and A2
+  printf("A0 = GPIO%02d = mask %08x\r\n", A0_PIN, A0_MASK); 
+  printf("A1 = GPIO%02d = mask %08x\r\n", A1_PIN, A1_MASK); 
+  printf("A2 = GPIO%02d = mask %08x\r\n", A2_PIN, A2_MASK); 
 }
 
 int tube_is_rst_active() {
