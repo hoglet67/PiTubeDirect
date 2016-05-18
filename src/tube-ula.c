@@ -427,7 +427,7 @@ void tube_init_hardware()
   RPI_GetIrqController()->FIQ_control = 0x80 + 49;
 
   // Initialise the UART to 57600 baud
-  RPI_AuxMiniUartInit( 57600, 8 );
+  RPI_AuxMiniUartInit( 115200, 8 );
 
   dump_useful_info();
 
