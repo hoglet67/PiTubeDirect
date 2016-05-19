@@ -16,7 +16,7 @@
 #include "rpi-interrupts.h"
 #include "info.h"
 
-#define DEBUG_TRANSFERS
+//#define DEBUG_TRANSFERS
 
 extern volatile uint8_t tube_regs[8];
 
@@ -359,7 +359,10 @@ int tube_io_handler(uint32_t mail)
       printf("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
 
-   if (nrst == 1) {
+   if (mail & GLITCH_MASK) {
+      printf("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+   } else if (nrst == 1) {
+
       if (ntube == 0) {
          if (rnw == 0) {
             tube_host_write(addr, data);
@@ -408,6 +411,8 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
+
+  RPI_SetGpioPinFunction(TEST_PIN, FS_OUTPUT);
 
   // Configure GPIO to detect a falling edge of NTUBE and NRST
   RPI_GpioBase->GPFEN0 |= NTUBE_MASK | NRST_MASK;

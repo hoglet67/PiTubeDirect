@@ -230,7 +230,13 @@ arm_fiq_handler:
 
         //r8-r11 are shadowed in FIQ mode, so no need to push
         //push    {r8-r11}
-        
+
+        mov     r9, #TEST_MASK
+        ldr     r8, =GPSET0
+        str     r9, [r8]
+        ldr     r8, =GPCLR0
+        str     r9, [r8]
+
         ldr     r8, =GPEDS0
         mov     r9, #-1
         str     r9, [r8]                // clear all Pin events
@@ -319,6 +325,8 @@ wr_wait_for_phi2_low:
 post_mail:
         ldr     r10, =PINS_MASK
         and     r9, r9, r10
+
+post_mail2:
         orr     r9, r9, #ATTN_MASK
 
         ldr     r10, tube_mailbox
@@ -352,6 +360,12 @@ exit:
         //r8-r11 are shadowed in FIQ mode, so no need to pop
         //pop   {r8-r11}
         subs    pc, lr, #4
+
+glitch:
+        ldr     r10, =PINS_MASK
+        and     r9, r9, r10
+        orr     r9, r9, #GLITCH_MASK
+        b       post_mail2
 
 
 .align I_ALIGN

@@ -80,6 +80,9 @@
 
 #define ATTN_PIN     (31)
 #define OVERRUN_PIN  (30)
+#define GLITCH_PIN   (29)
+
+#define TEST_PIN     (21)
 
 #define D7_MASK      (1 << D7_PIN)
 #define D6_MASK      (1 << D6_PIN)
@@ -99,6 +102,7 @@
 
 #define ATTN_MASK    (1 << ATTN_PIN)
 #define OVERRUN_MASK (1 << OVERRUN_PIN)
+#define GLITCH_MASK  (1 << GLITCH_PIN)
 
 #define D30_MASK     (D3_MASK | D2_MASK | D1_MASK | D0_MASK)
 #define D74_MASK     (D7_MASK | D6_MASK | D5_MASK | D4_MASK)
@@ -107,6 +111,8 @@
 #define A_MASK       (A2_MASK | A1_MASK | A0_MASK)
 
 #define PINS_MASK    (A_MASK | D_MASK | RNW_MASK | NRST_MASK | NTUBE_MASK)
+
+#define TEST_MASK    (1 << TEST_PIN)
 
 #ifndef __ASSEMBLER__
 
