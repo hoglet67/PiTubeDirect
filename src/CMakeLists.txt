@@ -73,6 +73,8 @@ add_executable( tube-client
     programs.h
     info.c
     info.h
+    performance.c
+    performance.h
 # 6502 Co Processor using 65tube Implementation
     copro-65tube.h
     copro-65tube.c

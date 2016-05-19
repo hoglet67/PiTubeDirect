@@ -15,6 +15,7 @@
 #include "rpi-aux.h"
 #include "rpi-interrupts.h"
 #include "info.h"
+#include "performance.h"
 
 //#define DEBUG_TRANSFERS
 
@@ -311,6 +312,8 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 void tube_reset()
 {
    printf("tube reset\r\n");
+   reset_performance_counters(PERF_TYPE_I_MICROTLB_MISS, PERF_TYPE_D_MICROTLB_MISS);
+
    ph1pos = hp3pos = 0;
    ph3pos = 1;
    HSTAT1 = HSTAT2 = HSTAT4 = 0x40;
