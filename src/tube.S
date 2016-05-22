@@ -234,8 +234,6 @@ arm_fiq_handler:
         mov     r9, #TEST_MASK
         ldr     r8, =GPSET0
         str     r9, [r8]
-        ldr     r8, =GPCLR0
-        str     r9, [r8]
 
         ldr     r8, =GPEDS0
         mov     r9, #-1
@@ -357,6 +355,10 @@ post_mail2:
         // I'd like to avoid making big changes to that code for now.
         
 exit:
+        mov     r9, #TEST_MASK
+        ldr     r8, =GPCLR0
+        str     r9, [r8]
+        
         //r8-r11 are shadowed in FIQ mode, so no need to pop
         //pop   {r8-r11}
         subs    pc, lr, #4
