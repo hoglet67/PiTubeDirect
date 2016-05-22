@@ -102,7 +102,9 @@ void copro_lib6502_main() {
   _enable_unaligned_access();
 
   // Lock the Tube Interrupt handler into cache
+#ifndef RPI2 
   lock_isr();
+#endif
 
   printf("Initialise UART console with standard libc\r\n" );
 

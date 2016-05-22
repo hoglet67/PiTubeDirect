@@ -28,7 +28,7 @@
 //  Relocate to just below 32MB
 
 .equ    RELOCATE_TO,      0x01F00000
-#ifdef RPI2
+#ifdef RPI2X
 .equ    RELOCATE_FROM,    0x00000000
 #else
 .equ    RELOCATE_FROM,    0x00008000

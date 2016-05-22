@@ -8,7 +8,10 @@ void reset_performance_counters(int type0, int type1) {
    unsigned counter0;
    unsigned counter1;
 
+   // TODO: Update for compatibility with RPI2
+
   // Read counters
+#ifndef RPI2
   asm volatile ("mrc p15,0,%0,c15,c12,1" : "=r" (cycle_counter));
   asm volatile ("mrc p15,0,%0,c15,c12,2" : "=r" (counter0));
   asm volatile ("mrc p15,0,%0,c15,c12,3" : "=r" (counter1));
@@ -27,5 +30,5 @@ void reset_performance_counters(int type0, int type1) {
 
   val =  (type0 << 20) | (type1 << 12) | 0xF;
   asm volatile ("mcr p15,0,%0,c15,c12,0" :: "r" (val) : "memory");
-
+#endif
 }
