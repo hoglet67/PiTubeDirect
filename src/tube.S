@@ -2,9 +2,6 @@
 #include "tube-defs.h"
 #include "cache.h"
 
-// Align start each instruction on a 64-byte boundary
-.equ    I_ALIGN,     7
-
 .text
 .global tube_regs
 .global tube_mailbox
@@ -17,7 +14,8 @@
 // =================================================
 // LOCK the ISR CODE into cache
 // =================================================
-
+CACHELINE_ALIGN = 5
+        
 lock_isr:
     push    {lr}
 
@@ -63,7 +61,7 @@ copy_loop:
 // 0x?????800-0x?????81f - cache line  64      - (IO TLB)
 // 0x01edff00-0x01edffff - cache lines 120-127 - (FIQ stack, not currently used)
 
-.align I_ALIGN
+.align CACHELINE_ALIGN
 lock_isr_into_cache_start:
 
     // invalidate entire instruction cache (page 3-74)
@@ -202,14 +200,14 @@ isr_stack_end_ptr:
 .word 0x01EE0000
 
 
-.align I_ALIGN
+.align CACHELINE_ALIGN
 lock_isr_into_cache_end:
 
 // =================================================
 // ISR CODE
 // =================================================
 
-.align I_ALIGN
+.align CACHELINE_ALIGN
 isr_code_start:
 
 
@@ -339,7 +337,7 @@ post_mail2:
         orr     r8, r8, #0x12
         msr     cpsr_c, r8
         
-        orr     ip, ip, #256<<I_ALIGN   // signal event to 6502 instruction flow
+        orr     ip, ip, #1024   // signal event to 6502 instruction flow
 
         // Switch back to fiq mode, so we return correctly
         // lr is used here because its shadowed in IRQ mode, so doesn't corrupt the normal lr
@@ -370,14 +368,14 @@ glitch:
         b       post_mail2
 
 
-.align I_ALIGN
+.align CACHELINE_ALIGN
 isr_code_end:
 
 // =================================================
 // ISR DATA
 // =================================================
 
-.align I_ALIGN
+.align CACHELINE_ALIGN
 isr_data_start:
 
 // Insert the current literal pool, so these get locked in the cache
@@ -409,5 +407,5 @@ tube_regs:
         .byte 0x98
         .byte 0x87
 
-.align I_ALIGN
+.align CACHELINE_ALIGN
 isr_data_end:

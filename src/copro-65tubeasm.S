@@ -78,16 +78,16 @@
 .equ    Z_FLAG,      0x40000000
 .equ    C_FLAG,      0x20000000
 
-// Align start each instruction on a 64-byte boundary
-.equ    I_ALIGN,     7
-
 
 // Macro for fetch next to be used with 2/3 byte instructions
 .macro FETCH_NEXT
         ldrb    r2, [sl], #1
         ldrb    r0, [sl], #1
-        add     lr, ip, r2, lsl #I_ALIGN
-        mov     pc, lr
+
+
+        ldr     pc, [ip, r2, lsl #2]
+        //add     lr, ip, r2, lsl #2
+        //mov     pc, lr
         // Insert the current literal pool, otherwise constants are to far away and you get a build error
         .ltorg
 .endm
@@ -272,7 +272,7 @@ exec_65tube:
         push    {r0-r12,lr}
 
         mov     fp, r0                  // set fp (r11) to the 64K 6502 memory array
-        ldr     ip, =opcode_00          // set ip (r12) to the base address of the 6502 instruction handler
+        ldr     ip, =opcode_jump_table  // set ip (r12) to the base address of the 6502 instruction handler
         ldr     r3, =(0x0000fef8 >> 3)  // initialize the constant in r3
         ldr     r5, =0xffffff00         // initialize the constant in r5
 
@@ -305,7 +305,7 @@ Event_Handler:
         
         ldr     r1, =tube_mailbox
         ldr     r0, [r1]
-        bic     ip, ip, #256<<I_ALIGN   // ack events
+        bic     ip, ip, #1024           // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
 
         bic     r0, r0, #0x80000000     // the attention bit
@@ -472,7 +472,7 @@ mpu_memory:
 // **********************************************
 
 // Opcode 00 - BRK
-.align I_ALIGN
+// .align I_ALIGN
 opcode_00:
         // BRK is really a two byte instruction, so no fixup needed
         sub     r1, sl, fp
@@ -491,7 +491,7 @@ opcode_00:
         FETCH_NEXT
 
 // Opcode 01 - ORA ($00,X)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_01:
         EA_INDIRECT_X
         LOAD_INDIRECT
@@ -500,17 +500,17 @@ opcode_01:
         FETCH_NEXT
 
 // Opcode 02 - NOP #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_02:
         NOP_2
 
 // Opcode 03 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_03:
         NOP_1
 
 // Opcode 04 - TSB $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_04:
         ldrb    r1, [fp, r0]
         mrs     r2, CPSR
@@ -523,7 +523,7 @@ opcode_04:
         FETCH_NEXT
 
 // Opcode 05 - ORA $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_05:
         ldrb    r1, [fp, r0]
         lsl     r1, r1, #24
@@ -531,7 +531,7 @@ opcode_05:
         FETCH_NEXT
 
 // Opcode 06 - ASL $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_06:
         ldrb    r1, [fp, r0]
         lsl     r1, r1, #1
@@ -540,12 +540,12 @@ opcode_06:
         FETCH_NEXT
 
 // Opcode 07 - RMB0 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_07:
         RMB 0
 
 // Opcode 08 - PHP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_08:
         orr     r0, r4, #0x30
         orrmi   r0, r0, #0x80
@@ -555,25 +555,25 @@ opcode_08:
         FETCH_NEXT_I
 
 // Opcode 09 - ORA #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_09:
         lsl     r0, r0, #24
         orrs    r6, r6, r0
         FETCH_NEXT
 
 // Opcode 0A - ASL A
-.align I_ALIGN
+// .align I_ALIGN
 opcode_0A:
         lsls    r6, r6, #1
         FETCH_NEXT_I
 
 // Opcode 0B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_0B:
         NOP_1
 
 // Opcode 0C - TSB $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_0C:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -587,7 +587,7 @@ opcode_0C:
         FETCH_NEXT
 
 // Opcode 0D - ORA $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_0D:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -596,7 +596,7 @@ opcode_0D:
         FETCH_NEXT
 
 // Opcode 0E - ASL $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_0E:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -606,18 +606,18 @@ opcode_0E:
         FETCH_NEXT
 
 // Opcode 0F - BBR0
-.align I_ALIGN
+// .align I_ALIGN
 opcode_0F:
         BBR 0
 
 // Opcode 10 - BPL
-.align I_ALIGN
+// .align I_ALIGN
 opcode_10:
         sxtabpl sl, sl, r0
         FETCH_NEXT
 
 // Opcode 11 - ORA ($00),Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_11:
         EA_INDIRECT_Y
         LOAD_INDIRECT
@@ -626,7 +626,7 @@ opcode_11:
         FETCH_NEXT
 
 // Opcode 12 - ORA ($00)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_12:
         EA_INDIRECT
         LOAD_INDIRECT
@@ -635,12 +635,12 @@ opcode_12:
         FETCH_NEXT
 
 // Opcode 13 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_13:
         NOP_1
 
 // Opcode 14 - TRB $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_14:
         ldrb    r1, [fp, r0]
         mrs     r2, CPSR
@@ -653,7 +653,7 @@ opcode_14:
         FETCH_NEXT
 
 // Opcode 15 - ORA $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_15:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -662,7 +662,7 @@ opcode_15:
         FETCH_NEXT
 
 // Opcode 16 - ASL $00, X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_16:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -672,12 +672,12 @@ opcode_16:
         FETCH_NEXT
 
 // Opcode 17 - RMB1 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_17:
         RMB 1
 
 // Opcode 18 - CLC
-.align I_ALIGN
+// .align I_ALIGN
 opcode_18:
         mrs     r0, CPSR
         bic     r0, r0, #C_FLAG
@@ -685,7 +685,7 @@ opcode_18:
         FETCH_NEXT_I
 
 // Opcode 19 - ORA $0000,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_19:
         EA_ABSOLUTE_INDEXED r8
         LOAD_ABSOLUTE
@@ -694,19 +694,19 @@ opcode_19:
         FETCH_NEXT
 
 // Opcode 1A - INC A
-.align I_ALIGN
+// .align I_ALIGN
 opcode_1A:
         add     r6, r6, #0x1000000
         teq     r6, #0
         FETCH_NEXT_I
 
 // Opcode 1B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_1B:
         NOP_1
 
 // Opcode 1C - TRB $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_1C:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -720,7 +720,7 @@ opcode_1C:
         FETCH_NEXT
 
 // Opcode 1D - ORA $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_1D:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -729,7 +729,7 @@ opcode_1D:
         FETCH_NEXT
 
 // Opcode 1E - ASL $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_1E:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -739,12 +739,12 @@ opcode_1E:
         FETCH_NEXT
 
 // Opcode 1F - BBR1
-.align I_ALIGN
+// .align I_ALIGN
 opcode_1F:
         BBR 1
 
 // Opcode 20 - JSR $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_20:
         ldrh    r1, [sl, #-1]
         sub     r9, r9, #1
@@ -754,7 +754,7 @@ opcode_20:
         FETCH_NEXT
 
 // Opcode 21 - AND ($00,X)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_21:
         EA_INDIRECT_X
         LOAD_INDIRECT
@@ -763,17 +763,17 @@ opcode_21:
         FETCH_NEXT
 
 // Opcode 22 - NOP #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_22:
         NOP_2
 
 // Opcode 23 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_23:
         NOP_1
 
 // Opcode 24 - BIT $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_24:
         ldrb    r1, [fp, r0]
         lsl     r0, r1, #24
@@ -789,7 +789,7 @@ opcode_24:
         FETCH_NEXT
 
 // Opcode 25 - AND     $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_25:
         ldrb    r1, [fp, r0]
         lsl     r1, r1, #24
@@ -797,7 +797,7 @@ opcode_25:
         FETCH_NEXT
 
 // Opcode 26 - ROL $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_26:
         ldrb    r1, [fp, r0]
         adc     r1, r1, r1
@@ -806,12 +806,12 @@ opcode_26:
         FETCH_NEXT
 
 // Opcode 27 - RMB2 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_27:
         RMB 2
 
 // Opcode 28 - PLP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_28:
         sub     sl, sl, #1  // fix up FETCH_NEXT reading ahead two bytes
         SPOP    r0
@@ -826,26 +826,26 @@ opcode_28:
         FETCH_NEXT_CHECK_IRQ
 
 // Opcode 29 - AND     #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_29:
         lsl     r0, r0, #24
         ands    r6, r6, r0
         FETCH_NEXT
 
 // Opcode 2A - ROL A
-.align I_ALIGN
+// .align I_ALIGN
 opcode_2A:
         orrcs   r6, r6, #0x800000
         lsls    r6, r6, #1
         FETCH_NEXT_I
 
 // Opcode 2B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_2B:
         NOP_1
 
 // Opcode 2C - BIT $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_2C:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -862,7 +862,7 @@ opcode_2C:
         FETCH_NEXT
 
 // Opcode 2D - AND     $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_2D:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -871,7 +871,7 @@ opcode_2D:
         FETCH_NEXT
 
 // Opcode 2E - ROL $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_2E:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -881,18 +881,18 @@ opcode_2E:
         FETCH_NEXT
 
 // Opcode 2F - BBR2
-.align I_ALIGN
+// .align I_ALIGN
 opcode_2F:
         BBR 2
 
 // Opcode 30 - BMI
-.align I_ALIGN
+// .align I_ALIGN
 opcode_30:
         sxtabmi sl, sl, r0
         FETCH_NEXT
 
 // Opcode 31 - AND ($00),Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_31:
         EA_INDIRECT_Y
         LOAD_INDIRECT
@@ -901,7 +901,7 @@ opcode_31:
         FETCH_NEXT
 
 // Opcode 32 - AND ($00)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_32:
         EA_INDIRECT
         LOAD_INDIRECT
@@ -910,12 +910,12 @@ opcode_32:
         FETCH_NEXT
 
 // Opcode 33 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_33:
         NOP_1
 
 // Opcode 34 - BIT $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_34:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -932,7 +932,7 @@ opcode_34:
         FETCH_NEXT
 
 // Opcode 35 - AND $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_35:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -941,7 +941,7 @@ opcode_35:
         FETCH_NEXT
 
 // Opcode 36 - ROL $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_36:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -951,12 +951,12 @@ opcode_36:
         FETCH_NEXT
 
 // Opcode 37 - RMB3 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_37:
         RMB 3
 
 // Opcode 38 - SEC
-.align I_ALIGN
+// .align I_ALIGN
 opcode_38:
         mrs     r0, CPSR
         orr     r0, r0, #C_FLAG
@@ -964,7 +964,7 @@ opcode_38:
         FETCH_NEXT_I
 
 // Opcode 39 - AND $0000,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_39:
         EA_ABSOLUTE_INDEXED r8
         LOAD_ABSOLUTE
@@ -973,19 +973,19 @@ opcode_39:
         FETCH_NEXT
 
 // Opcode 3A - DEC A
-.align I_ALIGN
+// .align I_ALIGN
 opcode_3A:
         sub     r6, r6, #0x1000000
         teq     r6, #0
         FETCH_NEXT_I
 
 // Opcode 3B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_3B:
         NOP_1
         
 // Opcode 3C - BIT $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_3C:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -1002,7 +1002,7 @@ opcode_3C:
         FETCH_NEXT
 
 // Opcode 3D - AND $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_3D:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -1011,7 +1011,7 @@ opcode_3D:
         FETCH_NEXT
 
 // Opcode 3E - ROL $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_3E:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -1021,17 +1021,17 @@ opcode_3E:
         FETCH_NEXT
 
 // Opcode 3F - BBR3
-.align I_ALIGN
+// .align I_ALIGN
 opcode_3F:
         BBR 3
 
 // Opcode 40 - RTI
-.align I_ALIGN
+// .align I_ALIGN
 opcode_40:
         b       handle_rti
 
 // Opcode 41 - EOR ($00,X)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_41:
         EA_INDIRECT_X
         LOAD_INDIRECT
@@ -1040,22 +1040,22 @@ opcode_41:
         FETCH_NEXT
 
 // Opcode 42 - NOP #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_42:
         NOP_2
         
 // Opcode 43 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_43:
         NOP_1
         
 // Opcode 44 - NOP $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_44:
         NOP_2
 
 // Opcode 45 - EOR $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_45:
         ldrb    r1, [fp, r0]
         lsl     r1, r1, #24
@@ -1063,7 +1063,7 @@ opcode_45:
         FETCH_NEXT
 
 // Opcode 46 - LSR $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_46:
         ldrb    r1, [fp, r0]
         lsrs    r1, r1, #1
@@ -1073,26 +1073,26 @@ opcode_46:
         FETCH_NEXT
 
 // Opcode 47 - RMB4 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_47:
         RMB 4
 
 // Opcode 48 - PHA
-.align I_ALIGN
+// .align I_ALIGN
 opcode_48:
         lsr     r0, r6, #24
         SPUSH   r0
         FETCH_NEXT_I
 
 // Opcode 49 - EOR #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_49:
         lsl     r0, r0, #24
         eors    r6, r6, r0
         FETCH_NEXT
 
 // Opcode 4A - LSR A
-.align I_ALIGN
+// .align I_ALIGN
 opcode_4A:
         lsrs    r0, r6, #25
         lsl     r6, r0, #24
@@ -1100,19 +1100,19 @@ opcode_4A:
         FETCH_NEXT_I
 
 // Opcode 4B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_4B:
         NOP_1
         
 // Opcode 4C - JMP $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_4C:
         EA_ABSOLUTE
         add     sl, r0, fp
         FETCH_NEXT
 
 // Opcode 4D - EOR $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_4D:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -1121,7 +1121,7 @@ opcode_4D:
         FETCH_NEXT
 
 // Opcode 4E - LSR $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_4E:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -1132,13 +1132,13 @@ opcode_4E:
         FETCH_NEXT
 
 // Opcode 4F - BBR4
-.align I_ALIGN
+// .align I_ALIGN
 opcode_4F:
         BBR 4
 
 
 // Opcode 50 - BVC
-.align I_ALIGN
+// .align I_ALIGN
 opcode_50:
         mrs     r2, CPSR
         tst     r4, #0x40
@@ -1147,7 +1147,7 @@ opcode_50:
         FETCH_NEXT
 
 // Opcode 51 - EOR ($00),Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_51:
         EA_INDIRECT_Y
         LOAD_INDIRECT
@@ -1156,7 +1156,7 @@ opcode_51:
         FETCH_NEXT
 
 // Opcode 52 - EOR ($00)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_52:
         EA_INDIRECT
         LOAD_INDIRECT
@@ -1165,17 +1165,17 @@ opcode_52:
         FETCH_NEXT
 
 // Opcode 53 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_53:
         NOP_1
         
 // Opcode 54 - NOP $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_54:
         NOP_2
 
 // Opcode 55 - EOR $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_55:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -1184,7 +1184,7 @@ opcode_55:
         FETCH_NEXT
 
 // Opcode 56 - LSR $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_56:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -1195,19 +1195,19 @@ opcode_56:
         FETCH_NEXT
 
 // Opcode 57 - RMB5 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_57:
         RMB 5
 
 // Opcode 58 - CLI
-.align I_ALIGN
+// .align I_ALIGN
 opcode_58:
         sub     sl, sl, #1  // fix up FETCH_NEXT reading ahead two bytes
         bic     r4, r4, #4
         FETCH_NEXT_CHECK_IRQ
 
 // Opcode 59 - EOR $0000,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_59:
         EA_ABSOLUTE_INDEXED r8
         LOAD_ABSOLUTE
@@ -1216,24 +1216,24 @@ opcode_59:
         FETCH_NEXT
 
 // Opcode 5A - PHY
-.align I_ALIGN
+// .align I_ALIGN
 opcode_5A:
         lsr     r0, r8, #24
         SPUSH   r0
         FETCH_NEXT_I
 
 // Opcode 5B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_5B:
         NOP_1
         
 // Opcode 5C - NOP $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_5C:
         NOP_3
 
 // Opcode 5D - EOR $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_5D:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -1242,7 +1242,7 @@ opcode_5D:
         FETCH_NEXT
 
 // Opcode 5E - LSR $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_5E:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -1253,12 +1253,12 @@ opcode_5E:
         FETCH_NEXT
 
 // Opcode 5F - BBR5
-.align I_ALIGN
+// .align I_ALIGN
 opcode_5F:
         BBR 5
 
 // Opcode 60 - RTS
-.align I_ALIGN
+// .align I_ALIGN
 opcode_60:
         ldrh    r0, [r9, #1]
         add     r9, r9, #2
@@ -1269,7 +1269,7 @@ opcode_60:
         FETCH_NEXT
 
 // Opcode 61 - ADC ($00,X)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_61:
         EA_INDIRECT_X
         LOAD_INDIRECT
@@ -1282,23 +1282,23 @@ opcode_61:
         FETCH_NEXT
 
 // Opcode 62 - NOP #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_62:
         NOP_2
 
 // Opcode 63 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_63:
         NOP_1
         
 // Opcode 64 - STZ $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_64:
         strb    r5, [fp, r0]
         FETCH_NEXT
 
 // Opcode 65 - ADC $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_65:
         ldrb    r1, [fp, r0]
         tst     r4, #8
@@ -1310,7 +1310,7 @@ opcode_65:
         FETCH_NEXT
 
 // Opcode 66 - ROR $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_66:
         ldrb    r1, [fp, r0]
         orrcs   r1, r1, #0x100
@@ -1319,12 +1319,12 @@ opcode_66:
         FETCH_NEXT
 
 // Opcode 67 - RMB6 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_67:
         RMB 6
 
 // Opcode 68 - PLA
-.align I_ALIGN
+// .align I_ALIGN
 opcode_68:
         SPOP    r6
         lsl     r6, r6, #24
@@ -1332,7 +1332,7 @@ opcode_68:
         FETCH_NEXT_I
 
 // Opcode 69 - ADC #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_69:
         mov     r1, r0  // TODO - could probably optimise this away
         tst     r4, #8
@@ -1344,7 +1344,7 @@ opcode_69:
         FETCH_NEXT
 
 // Opcode 6A - ROR A
-.align I_ALIGN
+// .align I_ALIGN
 opcode_6A:
         orrcs   r6, r6, #1
         rors    r0, r6, #25
@@ -1353,12 +1353,12 @@ opcode_6A:
         FETCH_NEXT_I
 
 // Opcode 6B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_6B:
         NOP_1
         
 // Opcode 6C - JMP ($0000)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_6C:
         ldrb    r1, [sl], #0
         add     r0, r0, r1, lsl #8
@@ -1369,7 +1369,7 @@ opcode_6C:
         FETCH_NEXT
 
 // Opcode 6D - ADC $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_6D:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -1382,7 +1382,7 @@ opcode_6D:
         FETCH_NEXT
 
 // Opcode 6E - ROR $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_6E:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -1392,12 +1392,12 @@ opcode_6E:
         FETCH_NEXT
 
 // Opcode 6F - BBR6
-.align I_ALIGN
+// .align I_ALIGN
 opcode_6F:
         BBR 6
 
 // Opcode 70 - BVS
-.align I_ALIGN
+// .align I_ALIGN
 opcode_70:
         mrs     r2, CPSR
         tst     r4, #0x40
@@ -1406,7 +1406,7 @@ opcode_70:
         FETCH_NEXT
 
 // Opcode 71 - ADC ($00),Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_71:
         EA_INDIRECT_Y
         LOAD_INDIRECT
@@ -1419,7 +1419,7 @@ opcode_71:
         FETCH_NEXT
 
 // Opcode 72 - ADC ($00)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_72:
         EA_INDIRECT
         LOAD_INDIRECT
@@ -1432,19 +1432,19 @@ opcode_72:
         FETCH_NEXT
 
 // Opcode 73 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_73:
         NOP_1
         
 // Opcode 74 - STZ $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_74:
         add     r0, r7, r0, lsl #24
         strb    r5, [fp, r0, lsr #24]
         FETCH_NEXT
 
 // Opcode 75 - ADC $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_75:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -1457,7 +1457,7 @@ opcode_75:
         FETCH_NEXT
 
 // Opcode 76 - ROR $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_76:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -1467,18 +1467,18 @@ opcode_76:
         FETCH_NEXT
 
 // Opcode 77 - RMB7 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_77:
         RMB 7
 
 // Opcode 78 - SEI
-.align I_ALIGN
+// .align I_ALIGN
 opcode_78:
         orr     r4, r4, #4
         FETCH_NEXT_I
 
 // Opcode 79 - ADC $0000,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_79:
         EA_ABSOLUTE_INDEXED r8
         LOAD_ABSOLUTE
@@ -1491,7 +1491,7 @@ opcode_79:
         FETCH_NEXT
 
 // Opcode 7A - PLY
-.align I_ALIGN
+// .align I_ALIGN
 opcode_7A:
         SPOP    r8
         lsl     r8, r8, #24
@@ -1499,12 +1499,12 @@ opcode_7A:
         FETCH_NEXT_I
 
 // Opcode 7B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_7B:
         NOP_1
         
 // Opcode 7C - JMP ($0000,X)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_7C:
         EA_ABSOLUTE_INDEXED r7
         ldrb    r1, [r0, fp]!
@@ -1514,7 +1514,7 @@ opcode_7C:
         FETCH_NEXT
 
 // Opcode 7D - ADC $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_7D:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -1527,7 +1527,7 @@ opcode_7D:
         FETCH_NEXT
 
 // Opcode 7E - ROR $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_7E:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -1537,18 +1537,18 @@ opcode_7E:
         FETCH_NEXT
 
 // Opcode 7F - BBR7
-.align I_ALIGN
+// .align I_ALIGN
 opcode_7F:
         BBR 7
 
 // Opcode 80 - BRA
-.align I_ALIGN
+// .align I_ALIGN
 opcode_80:
         sxtab   sl, sl, r0
         FETCH_NEXT
 
 // Opcode 81 - STA ($00,X)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_81:
         EA_INDIRECT_X
         lsr     r1, r6, #24
@@ -1556,50 +1556,50 @@ opcode_81:
         FETCH_NEXT
 
 // Opcode 82 - NOP #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_82:
         NOP_2
 
 // Opcode 83 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_83:
         NOP_1
         
 // Opcode 84 - STY $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_84:
         lsr     r1, r8, #24
         strb    r1, [fp, r0]
         FETCH_NEXT
 
 // Opcode 85 - STA $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_85:
         lsr     r1, r6, #24
         strb    r1, [fp, r0]
         FETCH_NEXT
 
 // Opcode 86 - STX $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_86:
         lsr     r1, r7, #24
         strb    r1, [fp, r0]
         FETCH_NEXT
 
 // Opcode 87 - SMB0 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_87:
         SMB 0
 
 // Opcode 88 - DEY
-.align I_ALIGN
+// .align I_ALIGN
 opcode_88:
         sub     r8, r8, #0x1000000
         teq     r8, #0
         FETCH_NEXT_I
 
 // Opcode 89 - BIT #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_89:
         lsl     r0, r0, #24
         mrs     r2, CPSR
@@ -1612,18 +1612,18 @@ opcode_89:
         FETCH_NEXT
 
 // Opcode 8A - TXA
-.align I_ALIGN
+// .align I_ALIGN
 opcode_8A:
         movs    r6, r7
         FETCH_NEXT_I
 
 // Opcode 8B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_8B:
         NOP_1
         
 // Opcode 8C - STY $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_8C:
         EA_ABSOLUTE
         lsr     r1, r8, #24
@@ -1631,7 +1631,7 @@ opcode_8C:
         FETCH_NEXT
 
 // Opcode 8D - STA $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_8D:
         EA_ABSOLUTE
         lsr     r1, r6, #24
@@ -1639,7 +1639,7 @@ opcode_8D:
         FETCH_NEXT
 
 // Opcode 8E - STX $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_8E:
         EA_ABSOLUTE
         lsr     r1, r7, #24
@@ -1647,18 +1647,18 @@ opcode_8E:
         FETCH_NEXT
 
 // Opcode 8F - BBS0
-.align I_ALIGN
+// .align I_ALIGN
 opcode_8F:
         BBS 0
 
 // Opcode 90 - BCC
-.align I_ALIGN
+// .align I_ALIGN
 opcode_90:
         sxtabcc sl, sl, r0
         FETCH_NEXT
 
 // Opcode 91 - STA ($00),Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_91:
         EA_INDIRECT_Y
         lsr     r1, r6, #24
@@ -1666,7 +1666,7 @@ opcode_91:
         FETCH_NEXT
 
 // Opcode 92 - STA ($00)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_92:
         EA_INDIRECT
         lsr     r1, r6, #24
@@ -1674,12 +1674,12 @@ opcode_92:
         FETCH_NEXT
 
 // Opcode 93 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_93:
         NOP_1
         
 // Opcode 94 - STY $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_94:
         add     r0, r7, r0, lsl #24
         lsr     r1, r8, #24
@@ -1687,7 +1687,7 @@ opcode_94:
         FETCH_NEXT
 
 // Opcode 95 - STA $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_95:
         add     r0, r7, r0, lsl #24
         lsr     r1, r6, #24
@@ -1695,7 +1695,7 @@ opcode_95:
         FETCH_NEXT
 
 // Opcode 96 - STX $00,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_96:
         add     r0, r8, r0, lsl #24
         lsr     r1, r7, #24
@@ -1703,18 +1703,18 @@ opcode_96:
         FETCH_NEXT
 
 // Opcode 97 - SMB1 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_97:
         SMB 1
 
 // Opcode 98 - TYA
-.align I_ALIGN
+// .align I_ALIGN
 opcode_98:
         movs    r6, r8
         FETCH_NEXT_I
 
 // Opcode 99 - STA $0000,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_99:
         EA_ABSOLUTE_INDEXED r8
         lsr     r1, r6, #24
@@ -1722,26 +1722,26 @@ opcode_99:
         FETCH_NEXT
 
 // Opcode 9A - TXS
-.align I_ALIGN
+// .align I_ALIGN
 opcode_9A:
         add     r9, fp, #0x100
         add     r9, r9, r7, lsr #24
         FETCH_NEXT_I
 
 // Opcode 9B - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_9B:
         NOP_1
         
 // Opcode 9C - STZ $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_9C:
         EA_ABSOLUTE
         strb    r5, [fp, r0]
         FETCH_NEXT
 
 // Opcode 9D - STA $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_9D:
         EA_ABSOLUTE_INDEXED r7
         lsr     r1, r6, #24
@@ -1749,26 +1749,26 @@ opcode_9D:
         FETCH_NEXT
 
 // Opcode 9E - STZ $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_9E:
         EA_ABSOLUTE_INDEXED r7
         strb    r5, [fp, r0]
         FETCH_NEXT
 
 // Opcode 9F - BBS1
-.align I_ALIGN
+// .align I_ALIGN
 opcode_9F:
         BBS 1
 
 // Opcode A0 - LDY #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A0:
         lsl     r8, r0, #24
         teq     r8, #0
         FETCH_NEXT
 
 // Opcode A1 - LDA ($00,X)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A1:
         EA_INDIRECT_X
         LOAD_INDIRECT
@@ -1777,19 +1777,19 @@ opcode_A1:
         FETCH_NEXT
 
 // Opcode A2 - LDX #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A2:
         lsl     r7, r0, #24
         teq     r7, #0
         FETCH_NEXT
 
 // Opcode A3 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A3:
         NOP_1
         
 // Opcode A4 - LDY $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A4:
         ldrb    r8, [fp, r0]
         lsl     r8, r8, #24
@@ -1797,7 +1797,7 @@ opcode_A4:
         FETCH_NEXT
 
 // Opcode A5 - LDA $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A5:
         ldrb    r6, [fp, r0]
         lsl     r6, r6, #24
@@ -1805,7 +1805,7 @@ opcode_A5:
         FETCH_NEXT
 
 // Opcode A6 - LDX $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A6:
         ldrb    r7, [fp, r0]
         lsl     r7, r7, #24
@@ -1813,36 +1813,36 @@ opcode_A6:
         FETCH_NEXT
 
 // Opcode A7 - SMB2 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A7:
         SMB 2
 
 // Opcode A8 - TAY
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A8:
         movs    r8, r6
         FETCH_NEXT_I
 
 // Opcode A9 - LDA #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_A9:
         lsl     r6, r0, #24
         teq     r6, #0
         FETCH_NEXT
 
 // Opcode AA - TAX
-.align I_ALIGN
+// .align I_ALIGN
 opcode_AA:
         movs    r7, r6
         FETCH_NEXT_I
 
 // Opcode AB - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_AB:
         NOP_1
         
 // Opcode AC - LDY $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_AC:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -1851,7 +1851,7 @@ opcode_AC:
         FETCH_NEXT
 
 // Opcode AD - LDA $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_AD:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -1860,7 +1860,7 @@ opcode_AD:
         FETCH_NEXT
 
 // Opcode AE - LDX $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_AE:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -1869,18 +1869,18 @@ opcode_AE:
         FETCH_NEXT
 
 // Opcode AF - BBS2
-.align I_ALIGN
+// .align I_ALIGN
 opcode_AF:
         BBS 2
 
 // Opcode B0 - BCS
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B0:
         sxtabcs sl, sl, r0
         FETCH_NEXT
 
 // Opcode B1 - LDA ($00),Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B1:
         EA_INDIRECT_Y
         LOAD_INDIRECT
@@ -1889,7 +1889,7 @@ opcode_B1:
         FETCH_NEXT
 
 // Opcode B2 - LDA ($00)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B2:
         EA_INDIRECT
         LOAD_INDIRECT
@@ -1898,12 +1898,12 @@ opcode_B2:
         FETCH_NEXT
 
 // Opcode B3 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B3:
         NOP_1
         
 // Opcode B4 - LDY $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B4:
         add     r0, r7, r0, lsl #24
         ldrb    r8, [fp, r0, lsr #24]
@@ -1912,7 +1912,7 @@ opcode_B4:
         FETCH_NEXT
 
 // Opcode B5 - LDA $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B5:
         add     r0, r7, r0, lsl #24
         ldrb    r6, [fp, r0, lsr #24]
@@ -1921,7 +1921,7 @@ opcode_B5:
         FETCH_NEXT
 
 // Opcode B6 - LDX $00,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B6:
         add     r0, r8, r0, lsl #24
         ldrb    r7, [fp, r0, lsr #24]
@@ -1930,18 +1930,18 @@ opcode_B6:
         FETCH_NEXT
 
 // Opcode B7 - SMB3 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B7:
         SMB 3
 
 // Opcode B8 - CLV
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B8:
         bic     r4, #0x40
         FETCH_NEXT_I
 
 // Opcode B9 - LDA $0000,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_B9:
         EA_ABSOLUTE_INDEXED r8
         LOAD_ABSOLUTE
@@ -1950,19 +1950,19 @@ opcode_B9:
         FETCH_NEXT
 
 // Opcode BA - TSX
-.align I_ALIGN
+// .align I_ALIGN
 opcode_BA:
         lsl     r7, r9, #24
         teq     r7, #0
         FETCH_NEXT_I
 
 // Opcode BB - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_BB:
         NOP_1
         
 // Opcode BC - LDY $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_BC:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -1971,7 +1971,7 @@ opcode_BC:
         FETCH_NEXT
 
 // Opcode BD - LDA $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_BD:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -1980,7 +1980,7 @@ opcode_BD:
         FETCH_NEXT
 
 // Opcode BE - LDX $0000,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_BE:
         EA_ABSOLUTE_INDEXED r8
         LOAD_ABSOLUTE
@@ -1989,18 +1989,18 @@ opcode_BE:
         FETCH_NEXT
 
 // Opcode BF - BBS3
-.align I_ALIGN
+// .align I_ALIGN
 opcode_BF:
         BBS 3
 
 // Opcode C0 - CPY #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C0:
         cmp     r8, r0, lsl #24
         FETCH_NEXT
 
 // Opcode C1 - CMP ($00,X)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C1:
         EA_INDIRECT_X
         LOAD_INDIRECT
@@ -2008,31 +2008,31 @@ opcode_C1:
         FETCH_NEXT
 
 // Opcode C2 - NOP #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C2:
         NOP_2
         
 // Opcode C3 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C3:
         NOP_1
         
 // Opcode C4 - CPY $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C4:
         ldrb    r1, [fp, r0]
         cmp     r8, r1, lsl #24
         FETCH_NEXT
 
 // Opcode C5 - CMP $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C5:
         ldrb    r1, [fp, r0]
         cmp     r6, r1, lsl #24
         FETCH_NEXT
 
 // Opcode C6 - DEC $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C6:
         ldrb    r1, [fp, r0]
         sub     r1, r1, #1
@@ -2042,38 +2042,38 @@ opcode_C6:
         FETCH_NEXT
 
 // Opcode C7 - SMB4 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C7:
         SMB 4
 
 // Opcode C8 - INY
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C8:
         add     r8, r8, #0x1000000
         teq     r8, #0
         FETCH_NEXT_I
 
 // Opcode C9 - CMP #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_C9:
         cmp     r6, r0, lsl #24
         FETCH_NEXT
 
 // Opcode CA - DEX
-.align I_ALIGN
+// .align I_ALIGN
 opcode_CA:
         sub     r7, r7, #0x1000000
         teq     r7, #0
         FETCH_NEXT_I
 
 // Opcode CB - WAI
-.align I_ALIGN
+// .align I_ALIGN
 opcode_CB:
         // TODO - Implement this
         FETCH_NEXT_I
 
 // Opcode CC - CPY $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_CC:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -2081,7 +2081,7 @@ opcode_CC:
         FETCH_NEXT
 
 // Opcode CD - CMP $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_CD:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -2089,7 +2089,7 @@ opcode_CD:
         FETCH_NEXT
 
 // Opcode CE - DEC $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_CE:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -2100,18 +2100,18 @@ opcode_CE:
         FETCH_NEXT
 
 // Opcode CF - BBS4
-.align I_ALIGN
+// .align I_ALIGN
 opcode_CF:
         BBS 4
 
 // Opcode D0 - BNE
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D0:
         sxtabne sl, sl, r0
         FETCH_NEXT
 
 // Opcode D1 - CMP ($00),Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D1:
         EA_INDIRECT_Y
         LOAD_INDIRECT
@@ -2119,7 +2119,7 @@ opcode_D1:
         FETCH_NEXT
 
 // Opcode D2 - CMP ($00)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D2:
         EA_INDIRECT
         LOAD_INDIRECT
@@ -2127,17 +2127,17 @@ opcode_D2:
         FETCH_NEXT
 
 // Opcode D3 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D3:
         NOP_1
         
 // Opcode D4 - NOP $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D4:
         NOP_2
 
 // Opcode D5 - CMP $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D5:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -2145,7 +2145,7 @@ opcode_D5:
         FETCH_NEXT
 
 // Opcode D6 - DEC $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D6:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -2156,18 +2156,18 @@ opcode_D6:
         FETCH_NEXT
 
 // Opcode D7 - SMB5 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D7:
         SMB 5
 
 // Opcode D8 - CLD
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D8:
         bic     r4, r4, #8
         FETCH_NEXT_I
 
 // Opcode D9 - CMP $0000,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_D9:
         EA_ABSOLUTE_INDEXED r8
         LOAD_ABSOLUTE
@@ -2175,25 +2175,25 @@ opcode_D9:
         FETCH_NEXT
 
 // Opcode DA - PHX
-.align I_ALIGN
+// .align I_ALIGN
 opcode_DA:
         lsr     r0, r7, #24
         SPUSH   r0
         FETCH_NEXT_I
 
 // Opcode DB - STP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_DB:
         // TODO - Implement this
         FETCH_NEXT_I
 
 // Opcode DC - NOP $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_DC:
         NOP_3
 
 // Opcode DD - CMP $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_DD:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -2201,7 +2201,7 @@ opcode_DD:
         FETCH_NEXT
 
 // Opcode DE - DEX $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_DE:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -2212,18 +2212,18 @@ opcode_DE:
         FETCH_NEXT
 
 // Opcode DF - BBS5
-.align I_ALIGN
+// .align I_ALIGN
 opcode_DF:
         BBS 5
 
 // Opcode E0 - CPX #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E0:
         cmp     r7, r0, lsl #24
         FETCH_NEXT
 
 // Opcode E1 - SBC ($00,X)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E1:
         EA_INDIRECT_X
         LOAD_INDIRECT
@@ -2236,24 +2236,24 @@ opcode_E1:
         FETCH_NEXT
 
 // Opcode E2 - NOP #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E2:
         NOP_2
 
 // Opcode E3 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E3:
         NOP_1
         
 // Opcode E4 - CPX $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E4:
         ldrb    r1, [fp, r0]
         cmp     r7, r1, lsl #24
         FETCH_NEXT
 
 // Opcode E5 - SBC $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E5:
         ldrb    r1, [fp, r0]
         tst     r4, #8
@@ -2265,7 +2265,7 @@ opcode_E5:
         FETCH_NEXT
 
 // Opcode E6 - INC $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E6:
         ldrb    r1, [fp, r0]
         add     r1, r1, #1
@@ -2275,19 +2275,19 @@ opcode_E6:
         FETCH_NEXT
 
 // Opcode E7 - SMB6 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E7:
         SMB 6
 
 // Opcode E8 - INX
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E8:
         add     r7, r7, #0x1000000
         teq     r7, #0
         FETCH_NEXT_I
 
 // Opcode E9 - SBC #$00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_E9:
         mov     r1, r0   // TODO - could probably optimise this away
         tst     r4, #8
@@ -2299,17 +2299,17 @@ opcode_E9:
         FETCH_NEXT
 
 // Opcode EA - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_EA:
         NOP_1
         
 // Opcode EB - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_EB:
         NOP_1
         
 // Opcode EC - CPX $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_EC:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -2317,7 +2317,7 @@ opcode_EC:
         FETCH_NEXT
 
 // Opcode ED - SBC $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_ED:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -2330,7 +2330,7 @@ opcode_ED:
         FETCH_NEXT
 
 // Opcode EE - INC $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_EE:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
@@ -2341,18 +2341,18 @@ opcode_EE:
         FETCH_NEXT
 
 // Opcode EF - BBS6
-.align I_ALIGN
+// .align I_ALIGN
 opcode_EF:
         BBS 6
 
 // Opcode F0 - BEQ
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F0:
         sxtabeq sl, sl, r0
         FETCH_NEXT
 
 // Opcode F1 - SBC ($00),Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F1:
         EA_INDIRECT_Y
         LOAD_INDIRECT
@@ -2365,7 +2365,7 @@ opcode_F1:
         FETCH_NEXT
 
 // Opcode F2 - SBC ($00)
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F2:
         EA_INDIRECT
         LOAD_INDIRECT
@@ -2378,17 +2378,17 @@ opcode_F2:
         FETCH_NEXT
 
 // Opcode F3 - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F3:
         NOP_1
         
 // Opcode F4 - NOP $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F4:
         NOP_2
 
 // Opcode F5 - SBC $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F5:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -2401,7 +2401,7 @@ opcode_F5:
         FETCH_NEXT
 
 // Opcode F6 - INC $00,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F6:
         add     r0, r7, r0, lsl #24
         ldrb    r1, [fp, r0, lsr #24]
@@ -2412,18 +2412,18 @@ opcode_F6:
         FETCH_NEXT
 
 // Opcode F7 - SMB7 $00
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F7:
         SMB 7
 
 // Opcode F8 - SED
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F8:
         orr     r4, r4, #8
         FETCH_NEXT_I
 
 // Opcode F9 - SBC $0000,Y
-.align I_ALIGN
+// .align I_ALIGN
 opcode_F9:
         EA_ABSOLUTE_INDEXED r8
         LOAD_ABSOLUTE
@@ -2436,7 +2436,7 @@ opcode_F9:
         FETCH_NEXT
 
 // Opcode FA - PLX
-.align I_ALIGN
+// .align I_ALIGN
 opcode_FA:
         SPOP    r7
         lsl     r7, r7, #24
@@ -2444,17 +2444,17 @@ opcode_FA:
         FETCH_NEXT_I
 
 // Opcode FB - NOP
-.align I_ALIGN
+// .align I_ALIGN
 opcode_FB:
         NOP_1
         
 // Opcode FC - NOP $0000
-.align I_ALIGN
+// .align I_ALIGN
 opcode_FC:
         NOP_3
 
 // Opcode FD - SBC $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_FD:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -2467,7 +2467,7 @@ opcode_FD:
         FETCH_NEXT
 
 // Opcode FE - INC $0000,X
-.align I_ALIGN
+// .align I_ALIGN
 opcode_FE:
         EA_ABSOLUTE_INDEXED r7
         LOAD_ABSOLUTE
@@ -2478,7 +2478,7 @@ opcode_FE:
         FETCH_NEXT
 
 // Opcode FF - BBS7
-.align I_ALIGN
+// .align I_ALIGN
 opcode_FF:
         BBS 7
 
@@ -2486,7 +2486,273 @@ opcode_FF:
 // End of opcode implementations
 // **********************************************
 
+// Opcode Jump Table
+//     256 words = 1K bytes
+//     align on a 2K boundary so setting bit 10 can jump to the events table
+
+.align 11
+
+opcode_jump_table:       
+        .word   opcode_00
+        .word   opcode_01
+        .word   opcode_02
+        .word   opcode_03
+        .word   opcode_04
+        .word   opcode_05
+        .word   opcode_06
+        .word   opcode_07
+        .word   opcode_08
+        .word   opcode_09
+        .word   opcode_0A
+        .word   opcode_0B
+        .word   opcode_0C
+        .word   opcode_0D
+        .word   opcode_0E
+        .word   opcode_0F
+        .word   opcode_10
+        .word   opcode_11
+        .word   opcode_12
+        .word   opcode_13
+        .word   opcode_14
+        .word   opcode_15
+        .word   opcode_16
+        .word   opcode_17
+        .word   opcode_18
+        .word   opcode_19
+        .word   opcode_1A
+        .word   opcode_1B
+        .word   opcode_1C
+        .word   opcode_1D
+        .word   opcode_1E
+        .word   opcode_1F
+        .word   opcode_20
+        .word   opcode_21
+        .word   opcode_22
+        .word   opcode_23
+        .word   opcode_24
+        .word   opcode_25
+        .word   opcode_26
+        .word   opcode_27
+        .word   opcode_28
+        .word   opcode_29
+        .word   opcode_2A
+        .word   opcode_2B
+        .word   opcode_2C
+        .word   opcode_2D
+        .word   opcode_2E
+        .word   opcode_2F
+        .word   opcode_30
+        .word   opcode_31
+        .word   opcode_32
+        .word   opcode_33
+        .word   opcode_34
+        .word   opcode_35
+        .word   opcode_36
+        .word   opcode_37
+        .word   opcode_38
+        .word   opcode_39
+        .word   opcode_3A
+        .word   opcode_3B
+        .word   opcode_3C
+        .word   opcode_3D
+        .word   opcode_3E
+        .word   opcode_3F
+        .word   opcode_40
+        .word   opcode_41
+        .word   opcode_42
+        .word   opcode_43
+        .word   opcode_44
+        .word   opcode_45
+        .word   opcode_46
+        .word   opcode_47
+        .word   opcode_48
+        .word   opcode_49
+        .word   opcode_4A
+        .word   opcode_4B
+        .word   opcode_4C
+        .word   opcode_4D
+        .word   opcode_4E
+        .word   opcode_4F
+        .word   opcode_50
+        .word   opcode_51
+        .word   opcode_52
+        .word   opcode_53
+        .word   opcode_54
+        .word   opcode_55
+        .word   opcode_56
+        .word   opcode_57
+        .word   opcode_58
+        .word   opcode_59
+        .word   opcode_5A
+        .word   opcode_5B
+        .word   opcode_5C
+        .word   opcode_5D
+        .word   opcode_5E
+        .word   opcode_5F
+        .word   opcode_60
+        .word   opcode_61
+        .word   opcode_62
+        .word   opcode_63
+        .word   opcode_64
+        .word   opcode_65
+        .word   opcode_66
+        .word   opcode_67
+        .word   opcode_68
+        .word   opcode_69
+        .word   opcode_6A
+        .word   opcode_6B
+        .word   opcode_6C
+        .word   opcode_6D
+        .word   opcode_6E
+        .word   opcode_6F
+        .word   opcode_70
+        .word   opcode_71
+        .word   opcode_72
+        .word   opcode_73
+        .word   opcode_74
+        .word   opcode_75
+        .word   opcode_76
+        .word   opcode_77
+        .word   opcode_78
+        .word   opcode_79
+        .word   opcode_7A
+        .word   opcode_7B
+        .word   opcode_7C
+        .word   opcode_7D
+        .word   opcode_7E
+        .word   opcode_7F
+        .word   opcode_80
+        .word   opcode_81
+        .word   opcode_82
+        .word   opcode_83
+        .word   opcode_84
+        .word   opcode_85
+        .word   opcode_86
+        .word   opcode_87
+        .word   opcode_88
+        .word   opcode_89
+        .word   opcode_8A
+        .word   opcode_8B
+        .word   opcode_8C
+        .word   opcode_8D
+        .word   opcode_8E
+        .word   opcode_8F
+        .word   opcode_90
+        .word   opcode_91
+        .word   opcode_92
+        .word   opcode_93
+        .word   opcode_94
+        .word   opcode_95
+        .word   opcode_96
+        .word   opcode_97
+        .word   opcode_98
+        .word   opcode_99
+        .word   opcode_9A
+        .word   opcode_9B
+        .word   opcode_9C
+        .word   opcode_9D
+        .word   opcode_9E
+        .word   opcode_9F
+        .word   opcode_A0
+        .word   opcode_A1
+        .word   opcode_A2
+        .word   opcode_A3
+        .word   opcode_A4
+        .word   opcode_A5
+        .word   opcode_A6
+        .word   opcode_A7
+        .word   opcode_A8
+        .word   opcode_A9
+        .word   opcode_AA
+        .word   opcode_AB
+        .word   opcode_AC
+        .word   opcode_AD
+        .word   opcode_AE
+        .word   opcode_AF
+        .word   opcode_B0
+        .word   opcode_B1
+        .word   opcode_B2
+        .word   opcode_B3
+        .word   opcode_B4
+        .word   opcode_B5
+        .word   opcode_B6
+        .word   opcode_B7
+        .word   opcode_B8
+        .word   opcode_B9
+        .word   opcode_BA
+        .word   opcode_BB
+        .word   opcode_BC
+        .word   opcode_BD
+        .word   opcode_BE
+        .word   opcode_BF
+        .word   opcode_C0
+        .word   opcode_C1
+        .word   opcode_C2
+        .word   opcode_C3
+        .word   opcode_C4
+        .word   opcode_C5
+        .word   opcode_C6
+        .word   opcode_C7
+        .word   opcode_C8
+        .word   opcode_C9
+        .word   opcode_CA
+        .word   opcode_CB
+        .word   opcode_CC
+        .word   opcode_CD
+        .word   opcode_CE
+        .word   opcode_CF
+        .word   opcode_D0
+        .word   opcode_D1
+        .word   opcode_D2
+        .word   opcode_D3
+        .word   opcode_D4
+        .word   opcode_D5
+        .word   opcode_D6
+        .word   opcode_D7
+        .word   opcode_D8
+        .word   opcode_D9
+        .word   opcode_DA
+        .word   opcode_DB
+        .word   opcode_DC
+        .word   opcode_DD
+        .word   opcode_DE
+        .word   opcode_DF
+        .word   opcode_E0
+        .word   opcode_E1
+        .word   opcode_E2
+        .word   opcode_E3
+        .word   opcode_E4
+        .word   opcode_E5
+        .word   opcode_E6
+        .word   opcode_E7
+        .word   opcode_E8
+        .word   opcode_E9
+        .word   opcode_EA
+        .word   opcode_EB
+        .word   opcode_EC
+        .word   opcode_ED
+        .word   opcode_EE
+        .word   opcode_EF
+        .word   opcode_F0
+        .word   opcode_F1
+        .word   opcode_F2
+        .word   opcode_F3
+        .word   opcode_F4
+        .word   opcode_F5
+        .word   opcode_F6
+        .word   opcode_F7
+        .word   opcode_F8
+        .word   opcode_F9
+        .word   opcode_FA
+        .word   opcode_FB
+        .word   opcode_FC
+        .word   opcode_FD
+        .word   opcode_FE
+        .word   opcode_FF
+
+// Event Handler Jump Table
+
 .rept 256
-.align I_ALIGN
-        B        Event_Handler
+        .word    Event_Handler
 .endr
+        
