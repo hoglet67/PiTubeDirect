@@ -82,8 +82,6 @@
 #define OVERRUN_PIN  (30)
 #define GLITCH_PIN   (29)
 
-#define TEST_PIN     (21)
-
 #define D7_MASK      (1 << D7_PIN)
 #define D6_MASK      (1 << D6_PIN)
 #define D5_MASK      (1 << D5_PIN)
@@ -112,7 +110,12 @@
 
 #define PINS_MASK    (A_MASK | D_MASK | RNW_MASK | NRST_MASK | NTUBE_MASK)
 
+#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
+
+#define TEST_PIN     (21)
 #define TEST_MASK    (1 << TEST_PIN)
+
+#endif
 
 #ifndef __ASSEMBLER__
 

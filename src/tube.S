@@ -229,10 +229,12 @@ arm_fiq_handler:
         //r8-r11 are shadowed in FIQ mode, so no need to push
         //push    {r8-r11}
 
+#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
         mov     r9, #TEST_MASK
         ldr     r8, =GPSET0
         str     r9, [r8]
-
+#endif
+        
         ldr     r8, =GPEDS0
         mov     r9, #-1
         str     r9, [r8]                // clear all Pin events
@@ -353,9 +355,12 @@ post_mail2:
         // I'd like to avoid making big changes to that code for now.
         
 exit:
+
+#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
         mov     r9, #TEST_MASK
         ldr     r8, =GPCLR0
         str     r9, [r8]
+#endif
         
         //r8-r11 are shadowed in FIQ mode, so no need to pop
         //pop   {r8-r11}

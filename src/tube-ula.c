@@ -415,7 +415,9 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
+#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
   RPI_SetGpioPinFunction(TEST_PIN, FS_OUTPUT);
+#endif
 
   // Configure GPIO to detect a falling edge of NTUBE and NRST
   RPI_GpioBase->GPFEN0 |= NTUBE_MASK | NRST_MASK;
