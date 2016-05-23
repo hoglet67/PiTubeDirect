@@ -229,7 +229,7 @@ arm_fiq_handler:
         //r8-r11 are shadowed in FIQ mode, so no need to push
         //push    {r8-r11}
 
-#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
+#ifdef HAS40PINS
         mov     r9, #TEST_MASK
         ldr     r8, =GPSET0
         str     r9, [r8]
@@ -356,7 +356,7 @@ post_mail2:
         
 exit:
 
-#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
+#ifdef HAS40PINS
         mov     r9, #TEST_MASK
         ldr     r8, =GPCLR0
         str     r9, [r8]

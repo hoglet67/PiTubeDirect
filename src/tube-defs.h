@@ -11,6 +11,12 @@
 #define COPRO COPRO_65TUBE
 #endif
 
+// Indicates a Pi with the 40 pin GPIO connector
+// so that additional functionality (e.g. test pins) can be enabled
+#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
+#define HAS40PINS
+#endif
+
 #ifdef __ASSEMBLER__
 
 #include "rpi-base.h"
@@ -110,17 +116,9 @@
 
 #define PINS_MASK    (A_MASK | D_MASK | RNW_MASK | NRST_MASK | NTUBE_MASK)
 
-#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
-
+#ifdef HAS40PINS
 #define TEST_PIN     (21)
 #define TEST_MASK    (1 << TEST_PIN)
-
-#endif
-
-#ifndef __ASSEMBLER__
-
-extern volatile int nRST;
-
 #endif
 
 #endif
