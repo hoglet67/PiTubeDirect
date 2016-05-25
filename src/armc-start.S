@@ -35,12 +35,21 @@
 #endif
 .equ    RELOCATE_LENGTH,  0x00100000
 
-.equ    SVR_STACK,        0x01F00000
-.equ    IRQ_STACK,        0x01EF0000
-.equ    FIQ_STACK,        0x01EE0000
-.equ    USER_STACK,       0x01ED0000
-.equ    ABORT_STACK,      0x01EC0000
-.equ    UNDEFINED_STACK,  0x01EB0000
+.equ    C0_SVR_STACK,        0x01F00000
+.equ    C0_IRQ_STACK,        0x01EF0000
+.equ    C0_FIQ_STACK,        0x01EE0000
+.equ    C0_USER_STACK,       0x01ED0000
+.equ    C0_ABORT_STACK,      0x01EC0000
+.equ    C0_UNDEFINED_STACK,  0x01EB0000
+
+#ifdef RPI2
+.equ    C1_SVR_STACK,        0x01EA0000
+.equ    C1_IRQ_STACK,        0x01E90000
+.equ    C1_FIQ_STACK,        0x01E80000
+.equ    C1_USER_STACK,       0x01E70000
+.equ    C1_ABORT_STACK,      0x01E60000
+.equ    C1_UNDEFINED_STACK,  0x01E50000
+#endif
 
 .equ    SCTLR_ENABLE_DATA_CACHE,        0x4
 .equ    SCTLR_ENABLE_BRANCH_PREDICTION, 0x800
@@ -54,12 +63,17 @@
 .global _exception_table
 .global _enable_interrupts
 .global _disable_interrupts
-.global _get_cpsr
 .global _enable_unaligned_access
 .global _enable_l1_cache
 .global _invalidate_icache
 .global _invalidate_dcache
-        
+
+#ifdef RPI2
+.global _get_core
+.global _init_core
+.global _spin_core
+#endif
+
 // From the ARM ARM (Architecture Reference Manual). Make sure you get the
 // ARMv5 documentation which includes the ARMv6 documentation which is the
 // correct processor type for the Broadcom BCM2835. The ARMv6-M manuals
@@ -104,12 +118,21 @@ _unused_handler_h:                  .word   _reset_
 _interrupt_vector_h:                .word   arm_irq_handler
 _fast_interrupt_vector_h:           .word   arm_fiq_handler
 
-_irq_stack:                         .word   IRQ_STACK
-_fiq_stack:                         .word   FIQ_STACK
-_svr_stack:                         .word   SVR_STACK
-_user_stack:                        .word   USER_STACK
-_undefined_stack:                   .word   UNDEFINED_STACK
-_abort_stack:                       .word   ABORT_STACK
+_c0_irq_stack:                      .word   C0_IRQ_STACK
+_c0_fiq_stack:                      .word   C0_FIQ_STACK
+_c0_svr_stack:                      .word   C0_SVR_STACK
+_c0_user_stack:                     .word   C0_USER_STACK
+_c0_undefined_stack:                .word   C0_UNDEFINED_STACK
+_c0_abort_stack:                    .word   C0_ABORT_STACK
+
+#ifdef RPI2
+_c1_irq_stack:                      .word   C1_IRQ_STACK
+_c1_fiq_stack:                      .word   C1_FIQ_STACK
+_c1_svr_stack:                      .word   C1_SVR_STACK
+_c1_user_stack:                     .word   C1_USER_STACK
+_c1_undefined_stack:                .word   C1_UNDEFINED_STACK
+_c1_abort_stack:                    .word   C1_ABORT_STACK
+#endif
 
 _patch_data:                        .word _reset_
 _patch_address:                     .word _reset_h
@@ -135,15 +158,9 @@ _copy_loop:
     // execution resumes here in high memory
 _reset_:
 
+#ifdef RPI2
     // On a Raspberry Pi 2 we enter in HYP mode, and need to force a switch to supervisor mode
     // This should be safe on a older Pi
-#ifdef RPI2
-    // Test which core we are running on
-    mrc     p15, 0, r0, c0, c0, 5
-    ands    r0, #3
-    // Put cores 1-3 into a tight loop
-    bne     _core_loop
-
     mrs     r0, cpsr
     eor     r0, r0, #CPSR_MODE_HYP
     tst     r0, #CPSR_MODE_MASK
@@ -155,14 +172,11 @@ _reset_:
     msr     spsr_cxsf, r0
     .word 0xE12EF30E  // msr_elr_hyp lr
     .word 0xE160006E  // eret
-_core_loop:
-    b       _core_loop    
 _not_in_hyp_mode:
     msr    cpsr_c, r0
 _reset_continue:
 #endif
-        
-        
+
     // We enter execution in supervisor mode. For more information on
     // processor modes see ARM Section A2.2 (Processor Modes)
 
@@ -179,28 +193,27 @@ _reset_continue:
     // stack pointer which differs to the application stack pointer:
     mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _irq_stack
+    ldr sp, _c0_irq_stack
 
     // Also setup the stack used for FIQs
     mov r0, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _fiq_stack
+    ldr sp, _c0_fiq_stack
 
     // Also setup the stack used for undefined exceptions
     mov r0, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _undefined_stack
-
+    ldr sp, _c0_undefined_stack
 
     // Also setup the stack used for prefetch and data abort exceptions
     mov r0, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _abort_stack
+    ldr sp, _c0_abort_stack
 
     // Finally, a user/system mode stack, although the application will likely reset this
     mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _user_stack
+    ldr sp, _c0_user_stack
 
     // Switch back to supervisor mode (our application mode) and
     // set the stack pointer. Remember that the stack works its way
@@ -208,7 +221,7 @@ _reset_continue:
     // application.
     mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _svr_stack
+    ldr sp, _c0_svr_stack
 
     // Enable VFP ------------------------------------------------------------
 
@@ -218,10 +231,10 @@ _reset_continue:
     mcr     p15, 0, r0, c1, c0, 2
 
     // 2. Set the FPEXC EN bit to enable the NEON MPE:
-    mov     r0, #0x40000000 
+    mov     r0, #0x40000000
     vmsr    fpexc, r0
-        
-#else   
+
+#else
     // r1 = Access Control Register
     MRC p15, #0, r1, c1, c0, #2
     // enable full access for p10,11
@@ -237,7 +250,7 @@ _reset_continue:
     // FPEXC = r0
     FMXR FPEXC, r0
 #endif
-        
+
     // The c-startup function which we never return from. This function will
     // initialise the ro data section (most things that have the const
     // declaration) and initialise the bss section variables to 0 (generally
@@ -296,7 +309,7 @@ _swi_handler_:
     stmfd    sp!, {r0}            // Store spsr onto stack.
     mov      r0, sp
     bl       swi_handler
-        
+
 _enable_unaligned_access:
 
     mrc      p15, 0, r0, c1, c0, 0   // read SCTLR
@@ -304,11 +317,11 @@ _enable_unaligned_access:
     orr      r0, r0, #1 << 22        // U (v6 unaligned access model)
     mcr      p15, 0, r0, c1, c0, 0   // write SCTLR
     mov      pc, lr
-        
+
     // Enable L1 Cache -------------------------------------------------------
 
 _enable_l1_cache:
-        
+
     // R0 = System Control Register
     mrc p15,0,r0,c1,c0,0
 
@@ -321,14 +334,108 @@ _enable_l1_cache:
     mcr p15,0,r0,c1,c0,0
 
     mov      pc, lr
-        
+
 _invalidate_icache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c5, 0
-    mov      pc, lr        
+    mov      pc, lr
 
 _invalidate_dcache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c14, 0
-    mov      pc, lr        
+    mov      pc, lr
+
+
+#ifdef RPI2
+_get_core:
+    mrc     p15, 0, r0, c0, c0, 5
+    and     r0, #3
+    mov     pc, lr
+
+_init_core:
+    // On a Raspberry Pi 2 we enter in HYP mode, and need to force a switch to supervisor mode
+    mrs     r0, cpsr
+    eor     r0, r0, #CPSR_MODE_HYP
+    tst     r0, #CPSR_MODE_MASK
+    bic     r0 , r0 , #CPSR_MODE_MASK
+    orr     r0 , r0 , #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVR
+    bne     _init_not_in_hyp_mode
+    orr     r0, r0, #CPSR_A_BIT
+    adr     lr, _init_continue
+    msr     spsr_cxsf, r0
+    .word 0xE12EF30E  // msr_elr_hyp lr
+    .word 0xE160006E  // eret
+_init_not_in_hyp_mode:
+    msr    cpsr_c, r0
+
+_init_continue:
+    // Initialise Stack Pointers ---------------------------------------------
+
+    // We're going to use interrupt mode, so setup the interrupt mode
+    // stack pointer which differs to the application stack pointer:
+    mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+    msr cpsr_c, r0
+    ldr sp, _c1_irq_stack
+
+    // Also setup the stack used for FIQs
+    mov r0, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+    msr cpsr_c, r0
+    ldr sp, _c1_fiq_stack
+
+    // Also setup the stack used for undefined exceptions
+    mov r0, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+    msr cpsr_c, r0
+    ldr sp, _c1_undefined_stack
+
+    // Also setup the stack used for prefetch and data abort exceptions
+    mov r0, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+    msr cpsr_c, r0
+    ldr sp, _c1_abort_stack
+
+    // Finally, a user/system mode stack, although the application will likely reset this
+    mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+    msr cpsr_c, r0
+    ldr sp, _c1_user_stack
+
+    // Switch back to supervisor mode (our application mode) and
+    // set the stack pointer. Remember that the stack works its way
+    // down memory, our heap will work it's way up from after the
+    // application.
+    mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+    msr cpsr_c, r0
+    ldr sp, _c1_svr_stack
+
+    // Enable VFP ------------------------------------------------------------
+
+    //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
+    ldr     r0, =(0xf << 20)
+    mcr     p15, 0, r0, c1, c0, 2
+
+    // 2. Set the FPEXC EN bit to enable the NEON MPE:
+    mov     r0, #0x40000000
+    vmsr    fpexc, r0
+
+    bl      run_core
+
+    // If main does return for some reason, just catch it and stay here.
+_spin_core:
+    mov     r0, #'S'    
+    bl      RPI_AuxMiniUartWrite
+    mov     r0, #'P'    
+    bl      RPI_AuxMiniUartWrite
+    mov     r0, #'I'    
+    bl      RPI_AuxMiniUartWrite
+    mov     r0, #'N'    
+    bl      RPI_AuxMiniUartWrite
+    bl     _get_core
+    add     r0, r0, #'0'
+    bl      RPI_AuxMiniUartWrite
+    mov     r0, #'\r'    
+    bl      RPI_AuxMiniUartWrite
+    mov     r0, #'\n'    
+    bl      RPI_AuxMiniUartWrite
         
+_spin_core1:
+    b       _spin_core1
+
+#endif

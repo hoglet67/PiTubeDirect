@@ -15,6 +15,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include "startup.h"
+#include "rpi-aux.h"
 #include "cache.h"
 #include "tube.h"
 #include "tube-ula.h"
@@ -48,24 +49,8 @@ static void copro_65tube_reset() {
 }
 #endif
 
-void copro_65tube_main() {
 
-  tube_init_hardware();
-
-  printf("Raspberry Pi Direct 65Tube Client\r\n" );
-
-  enable_MMU_and_IDCaches();
-  _enable_unaligned_access();
-
-  // Lock the Tube Interrupt handler into cache
-#ifndef RPI2
-  lock_isr();
-#endif
-
-  printf("Initialise UART console with standard libc\r\n" );
-
-  _enable_interrupts();
-
+void copro_65tube_emulator() {
 #if TEST_MODE
   // Fake a startup message
   tube_reset_and_write_test_string();
@@ -94,4 +79,81 @@ void copro_65tube_main() {
     tube_wait_for_rst_release();
   }
 #endif
+}
+
+#ifdef RPI2
+void run_core() {
+   int i;
+   // Write first line without using printf
+   // In case the VFP unit is not enabled
+	RPI_AuxMiniUartWrite('C');
+	RPI_AuxMiniUartWrite('O');
+	RPI_AuxMiniUartWrite('R');
+	RPI_AuxMiniUartWrite('E');
+   i = _get_core();
+	RPI_AuxMiniUartWrite('0' + i);
+	RPI_AuxMiniUartWrite('\r');
+	RPI_AuxMiniUartWrite('\n');
+   
+   enable_MMU_and_IDCaches();
+   _enable_unaligned_access();
+   
+   printf("test running on core %d\r\n", i);
+   copro_65tube_emulator();
+}
+
+typedef void (*func_ptr)();
+
+void start_core(int core, func_ptr func) {
+   printf("starting core %d\r\n", core);
+   *(unsigned int *)(0x4000008C + 0x10 * core) = (unsigned int) func;
+}
+#endif
+
+
+void copro_65tube_main() {
+  volatile int i;
+  tube_init_hardware();
+
+  printf("Raspberry Pi Direct 65Tube Client\r\n" );
+
+  enable_MMU_and_IDCaches();
+  _enable_unaligned_access();
+
+  // Lock the Tube Interrupt handler into cache
+#ifndef RPI2
+  lock_isr();
+#endif
+
+  printf("Initialise UART console with standard libc\r\n" );
+
+  _enable_interrupts();
+
+#ifdef RPI2
+
+  printf("main running on core %d\r\n", _get_core());
+  for (i = 0; i < 100000000; i++);
+  start_core(1, _spin_core);
+
+  for (i = 0; i < 100000000; i++);
+  start_core(2, _spin_core);
+
+  for (i = 0; i < 100000000; i++);
+
+#ifdef MULTICORE
+  start_core(3, _init_core);
+  while (1);
+#else
+  start_core(3, _spin_core);
+  for (i = 0; i < 100000000; i++);
+  //copro_65tube_emulator();
+  while (1);
+
+#endif // MULTICORE
+
+#else // RPI2
+
+  copro_65tube_emulator();
+
+#endif // RPI2
 }

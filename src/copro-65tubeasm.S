@@ -69,6 +69,7 @@
 // if so check if we have an IRQ
 
 #include "rpi-base.h"
+#include "tube-defs.h"
         
 .text
 .global exec_65tube
@@ -516,9 +517,9 @@ opcode_jump_table:
 // Start of Event Handler Jump Table
 // **********************************************
 
-.rept 256
-        .word    Event_Handler
-.endr
+//.rept 256
+//        .word    Event_Handler
+//.endr
 
 // **********************************************
 // End of Event Handler Jump Table
@@ -559,6 +560,13 @@ fetch_next_i:
         sub     sl, sl, #1
         
 fetch_next:
+        mrs     r2, CPSR                  // Preserve the 6502 flags
+        ldr     r0, =tube_mailbox         // Check the tube mailbox for "events" (e.g. tube irq)
+        ldr     r0, [r0]
+        tst     r0, #ATTN_MASK
+        bne     Event_Handler
+        msr     CPSR_flg, r2              // Restore the 6502 flags
+        
         ldrb    r2, [sl], #1
         ldrb    r0, [sl], #1
         ldr     pc, [ip, r2, lsl #2]
@@ -577,7 +585,7 @@ fetch_next_check_irq:
 // 6502 Event handler
 // We have come here via a branch from the second instruction table
 Event_Handler:
-        mrs     r2, CPSR                // preserve the 6502 flags
+//      mrs     r2, CPSR                // preserve the 6502 flags
         orr     r1, r2, #0xC0           // disable ARM IRQs and FIQs
         msr     CPSR_c, r1
         
@@ -586,7 +594,7 @@ Event_Handler:
         bic     ip, ip, #1024           // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
 
-        bic     r0, r0, #0x80000000     // the attention bit
+        bic     r0, r0, #ATTN_MASK      // the attention bit
         str     r0, [r1]                // ack the attention bit
 
         push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value

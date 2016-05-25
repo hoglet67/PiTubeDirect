@@ -23,4 +23,10 @@ extern void _invalidate_icache();
 
 extern void _invalidate_dcache();
 
+extern unsigned int _get_core();
+
+extern void _init_core();
+
+extern void _spin_core();
+
 #endif
