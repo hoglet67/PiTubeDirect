@@ -79,7 +79,7 @@ void enable_MMU_and_IDCaches(void)
   asm volatile ("mrc p15, 0, %0, c2, c0, 2" : "=r" (ttbcr));
   printf("ttbcr   = %08x\r\n", ttbcr);
 
-#ifdef RPI2
+#if defined(RPI2) || defined(RPI3)
   // set TTBR0 - page table walk memory cacheability/shareable
   // [Bit 0, Bit 6] indicates inner cachability: 01 = normal memory, inner write-back write-allocate cacheable
   // [Bit 4, Bit 3] indicates outer cachability: 01 = normal memory, outer write-back write-allocate cacheable
@@ -94,7 +94,7 @@ void enable_MMU_and_IDCaches(void)
   asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (ttbr0));
   printf("ttbr0   = %08x\r\n", ttbr0);
 
-#ifdef RPI2
+#if defined(RPI2) || defined(RPI3)
   asm volatile ("isb" ::: "memory");
 #else
   // invalidate data cache and flush prefetch buffer

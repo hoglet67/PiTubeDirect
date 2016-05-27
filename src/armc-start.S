@@ -27,8 +27,10 @@
 
 //  Relocate to just below 32MB
 
+//#define KERNEL_OLD
+        
 .equ    RELOCATE_TO,      0x01F00000
-#ifdef RPI2X
+#ifdef KERNEL_OLD
 .equ    RELOCATE_FROM,    0x00000000
 #else
 .equ    RELOCATE_FROM,    0x00008000
@@ -42,7 +44,7 @@
 .equ    C0_ABORT_STACK,      0x01EC0000
 .equ    C0_UNDEFINED_STACK,  0x01EB0000
 
-#ifdef RPI2
+#if defined(RPI2) || defined(RPI3)
 .equ    C1_SVR_STACK,        0x01EA0000
 .equ    C1_IRQ_STACK,        0x01E90000
 .equ    C1_FIQ_STACK,        0x01E80000
@@ -68,7 +70,7 @@
 .global _invalidate_icache
 .global _invalidate_dcache
 
-#ifdef RPI2
+#if defined(RPI2) || defined(RPI3)
 .global _get_core
 .global _init_core
 .global _spin_core
@@ -125,7 +127,7 @@ _c0_user_stack:                     .word   C0_USER_STACK
 _c0_undefined_stack:                .word   C0_UNDEFINED_STACK
 _c0_abort_stack:                    .word   C0_ABORT_STACK
 
-#ifdef RPI2
+#if defined(RPI2) || defined(RPI3)
 _c1_irq_stack:                      .word   C1_IRQ_STACK
 _c1_fiq_stack:                      .word   C1_FIQ_STACK
 _c1_svr_stack:                      .word   C1_SVR_STACK
@@ -158,9 +160,32 @@ _copy_loop:
     // execution resumes here in high memory
 _reset_:
 
-#ifdef RPI2
-    // On a Raspberry Pi 2 we enter in HYP mode, and need to force a switch to supervisor mode
-    // This should be safe on a older Pi
+#if defined(RPI2) || defined(RPI3)
+
+#ifdef KERNEL_OLD
+        
+    // if kernel_old=1 all cores are running and we need to sleep 1-3
+    // if kernel_old=0 then just core0 is running, and core 1-3 are waiting
+    // on a mailbox write to be woken up.
+    //
+    // Test which core we are running on
+    mrc     p15, 0, r0, c0, c0, 5
+    ands    r0, #3
+    beq     _core_continue
+    // Put cores 1-3 into a tight loop
+_core_loop:
+    b       _core_loop    
+_core_continue:
+
+#else
+        
+    // if kernel_old=0 enter in HYP mode and need to force a switch to SVC mode
+    //
+    // for now we assume kernel_old=1 and don't execute this core
+    //
+    // The logs show:
+    // SVC mode: cpsr ends with 1d3
+    // HYP mode: cpsr ends with 1a3
     mrs     r0, cpsr
     eor     r0, r0, #CPSR_MODE_HYP
     tst     r0, #CPSR_MODE_MASK
@@ -177,6 +202,8 @@ _not_in_hyp_mode:
 _reset_continue:
 #endif
 
+#endif
+        
     // We enter execution in supervisor mode. For more information on
     // processor modes see ARM Section A2.2 (Processor Modes)
 
@@ -225,7 +252,7 @@ _reset_continue:
 
     // Enable VFP ------------------------------------------------------------
 
-#ifdef RPI2
+#if defined(RPI2) || defined(RPI3)
     //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
     ldr     r0, =(0xf << 20)
     mcr     p15, 0, r0, c1, c0, 2
@@ -346,7 +373,7 @@ _invalidate_dcache:
     mov      pc, lr
 
 
-#ifdef RPI2
+#if defined(RPI2) || defined(RPI3)
 _get_core:
     mrc     p15, 0, r0, c0, c0, 5
     and     r0, #3

@@ -13,7 +13,7 @@
 
 // Indicates a Pi with the 40 pin GPIO connector
 // so that additional functionality (e.g. test pins) can be enabled
-#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
+#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2) || defined(RPI3)
 #define HAS40PINS
 #endif
 
@@ -65,7 +65,7 @@
 #define MAGIC_C2     ((1 << ((D4_PIN - 20) * 3)) | (1 << ((D5_PIN - 20) * 3)))
 #define MAGIC_C3     ((1 << ((D6_PIN - 20) * 3)) | (1 << ((D7_PIN - 20) * 3)))
 
-#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2)
+#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2) || defined(RPI3)
 
 #define A2_PIN       (3)
 #define A1_PIN       (2)
