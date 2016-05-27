@@ -43,6 +43,7 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPROFILING" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-ip" )
 
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-tree-loop-distribute-patterns" )
 
 
 # Set the linker flags so that we use our "custom" linker script

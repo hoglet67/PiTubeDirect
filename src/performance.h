@@ -31,4 +31,6 @@
 
 extern void reset_performance_counters(int type0, int type1);
 
+extern void print_performance_counters(int type0, int type1);
+
 #endif

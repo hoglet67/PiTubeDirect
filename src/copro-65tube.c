@@ -21,6 +21,7 @@
 #include "tuberom_6502.h"
 #include "programs.h"
 #include "copro-65tube.h"
+#include "performance.h"
  
 #if TEST_MODE
 static void tube_reset_and_write_test_string() {
@@ -87,7 +88,9 @@ void copro_65tube_main() {
     // log...
     //printf("starting 6502\r\n");
     // Start executing code, this will return when reset goes low
+    reset_performance_counters(PERF_TYPE_I_CACHE_MISS, PERF_TYPE_D_CACHE_MISS);
     exec_65tube(mpu_memory);
+    print_performance_counters(PERF_TYPE_I_CACHE_MISS, PERF_TYPE_D_CACHE_MISS);
     // log...
     //printf("stopping 6502\r\n");
     // wait for nRST to be released

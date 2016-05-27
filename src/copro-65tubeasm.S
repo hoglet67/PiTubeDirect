@@ -69,6 +69,7 @@
 // if so check if we have an IRQ
 
 #include "rpi-base.h"
+#include "tube-defs.h"
         
 .text
 .global exec_65tube
@@ -555,10 +556,39 @@ handle_rst:
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
         pop      {r0-r12,pc}
 
+last_icache_miss_cnt:
+        .word 0
+
+last_dcache_miss_cnt:
+        .word 0
+        
 fetch_next_i:
         sub     sl, sl, #1
         
 fetch_next:
+        mrs     r2, CPSR                  // Preserve the 6502 flags
+
+        mrc     p15, 0, r0, c15, c12, 2   // read performance counter 0 = icache-miss-count
+        ldr     r1, last_icache_miss_cnt  // compare against the last stored value
+        cmp     r1, r0        
+        strne   r0, last_icache_miss_cnt  // if changed, update the last count value
+        mov     r0, #TEST2_MASK
+        ldrne   r1, =GPSET0               // set/clear the test2 pin to indicate a change in cache miss count
+        ldreq   r1, =GPCLR0
+        str     r0, [r1]
+
+
+        mrc     p15, 0, r0, c15, c12, 3   // read performance counter 1 = dcache-miss-count
+        ldr     r1, last_dcache_miss_cnt  // compare against the last stored value
+        cmp     r1, r0        
+        strne   r0, last_dcache_miss_cnt  // if changed, update the last count value
+        mov     r0, #TEST3_MASK
+        ldrne   r1, =GPSET0               // set/clear the test2 pin to indicate a change in cache miss count
+        ldreq   r1, =GPCLR0
+        str     r0, [r1]
+        
+        msr     CPSR_flg, r2              // Restore the 6502 flags
+        
         ldrb    r2, [sl], #1
         ldrb    r0, [sl], #1
         ldr     pc, [ip, r2, lsl #2]
