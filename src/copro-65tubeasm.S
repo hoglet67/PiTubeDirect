@@ -591,8 +591,8 @@ Event_Handler:
         
         ldr     r1, =tube_mailbox
         ldr     r0, [r1]
-        bic     ip, ip, #1024           // ack events
-        sub     sl, sl, #2              // set the instruction back as we haven't executed it
+//      bic     ip, ip, #1024           // ack events
+//      sub     sl, sl, #2              // set the instruction back as we haven't executed it
 
         bic     r0, r0, #ATTN_MASK      // the attention bit
         str     r0, [r1]                // ack the attention bit
