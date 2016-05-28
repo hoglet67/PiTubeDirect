@@ -12,9 +12,9 @@
 
 typedef void (*func_ptr)();
 
-void emulator_not_implemented();
+static void emulator_not_implemented();
 
-const char * emulator_names[] = {
+static const char * emulator_names[] = {
    "ARM Native",
    "ARM2",
    "Beebdroid6502",
@@ -24,7 +24,7 @@ const char * emulator_names[] = {
    "32016"
 };
 
-const func_ptr emulator_functions[] = {
+static const func_ptr emulator_functions[] = {
    emulator_not_implemented,
    emulator_not_implemented,
    emulator_not_implemented,
@@ -34,7 +34,7 @@ const func_ptr emulator_functions[] = {
    emulator_not_implemented
 };
 
-func_ptr emulator;
+static func_ptr emulator;
 
 #ifdef HAS_MULTICORE
 void run_core() {
@@ -57,13 +57,13 @@ void run_core() {
    emulator();
 }
 
-void start_core(int core, func_ptr func) {
+static void start_core(int core, func_ptr func) {
    printf("starting core %d\r\n", core);
    *(unsigned int *)(0x4000008C + 0x10 * core) = (unsigned int) func;
 }
 #endif
 
-void emulator_not_implemented() {
+static void emulator_not_implemented() {
    printf("Co Pro has not been implemented yet\r\n");
    printf("Halted....\r\n");
    while (1);
