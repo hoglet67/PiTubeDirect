@@ -313,7 +313,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 void tube_reset()
 {
-//   printf("tube reset\r\n");
+   printf("tube reset\r\n");
    ph1pos = hp3pos = 0;
    ph3pos = 1;
    HSTAT1 = HSTAT2 = HSTAT4 = 0x40;
@@ -492,10 +492,10 @@ void tube_wait_for_rst_release() {
 }
 
 void tube_reset_performance_counters() {
-//   reset_performance_counters(&pct);
+   reset_performance_counters(&pct);
 }
 
 void tube_log_performance_counters() {
-//   read_performance_counters(&pct);
-//   print_performance_counters(&pct);
+   read_performance_counters(&pct);
+   print_performance_counters(&pct);
 }
