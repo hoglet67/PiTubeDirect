@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <inttypes.h>
-#include "copro-lib6502.h"
-#include "copro-65tube.h"
 #include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
@@ -9,6 +7,10 @@
 #include "rpi-aux.h"
 #include "cache.h"
 #include "performance.h"
+
+#include "copro-lib6502.h"
+#include "copro-65tube.h"
+#include "copro-80186.h"
 
 typedef void (*func_ptr)();
 
@@ -30,7 +32,7 @@ static const func_ptr emulator_functions[] = {
    emulator_not_implemented,
    copro_lib6502_emulator,
    copro_65tube_emulator,
-   emulator_not_implemented,
+   copro_80186_emulator,
    emulator_not_implemented
 };
 

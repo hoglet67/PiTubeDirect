@@ -87,6 +87,17 @@ add_executable( tube-client
 # Shared
     tuberom_6502.h
     tuberom_6502.c
+# 80186 Co Pro
+    copro-80186.c
+    copro-80186.h
+    cpu80186/Client86_v1_01.h
+    cpu80186/cpu80186.c
+    cpu80186/cpu80186.h
+    cpu80186/i386dasm.c
+    cpu80186/iop80186.c
+    cpu80186/iop80186.h
+    cpu80186/mem80186.c
+    cpu80186/mem80186.h
 )
 
 target_link_libraries (tube-client m)

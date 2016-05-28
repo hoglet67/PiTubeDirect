@@ -1,0 +1,3465 @@
+; Acorn 80x86 Second Processor Client Code
+; ========================================
+; Original code Copyright (C) Acorn Computer
+; This recreated source Copyright (C) J.G.Harston
+; Assembly tested with a86 - http://www.eji.com/a86
+;
+; Some comments from Eelco Huininga's disassembly
+; Comments marked (...) are from original Acorn source
+;
+PAGE ,255
+;
+; Original PC/MS-DOS memory map
+; =============================
+; 0000-03FF Hardware vectors
+;      0400 BIOS data area
+;      0500 DOS data area
+;      0600 DOS/COMMAND data area
+;      0700 IBMBIO.COM/IO.SYS
+; F000:0000 system ROM
+;      0000 reserved ROM
+;      4000 ROM BASIC
+;      E000 BIOS
+;
+
+; 80x86 CoPro Memory map
+; ======================
+; 0000:0000 +---------------------------------+ 00000    0K
+;           | Hardware vectors, INT 0-INT 255 |
+; 0000:0400 +---------------------------------+ 00400    1K
+;           | BIOS Data Area - unused by Tube |
+; 0000:0500 +---------------------------------+ 00500
+;           |      Tube client variables      |
+;           |                                 |
+; 0000:0600 +---------------------------------+ 00600
+;           |             unused              |
+;           |       Overwritten by DOS        |
+; 0000:0A00 +---------------------------------+ 00A00
+;           |     RAM copy of Tube client     |
+;           |  STARTUP runs in RAM and calls  |
+;           | RAM copies of Tube subroutines  |
+;           |       Overwritten by DOS        |
+; 0000:4000 +---------------------------------+ 04000   16K
+; 0400:0000 |       dosboot loaded here       |
+;           :                                 :
+;           :                                 :
+;           :                                 :
+;           :                                 :
+; B000:0000 +---------------------------------+ B0000  704K
+;           |   CGA bitmap comparison copy    |
+;           |                                 |
+; B400:0000 +---------------------------------+ B4000  720K
+;           |      DOS hard disk buffer       |
+;           |                                 |
+; B800:0000 +---------------------------------+ B8000  736K
+;           |  CGA-compatible screen bitmap   |
+;           |                                 |
+; BC00:0000 +---------------------------------+ BC000  752K
+;           |  CGA character comparison copy  |
+;           |                                 |
+; C000:0000 +---------------------------------+ C0000  768K
+;           |     Reflections of Tube ROM     |
+;           |       if ROM not modified       |
+; F000:0000 +---------------------------------+ F0000  960K
+;           |        Tube client ROM          |
+;           |   Tube MOS INTs call ROM code   |
+; F000:4000 +---------------------------------+ F4000  976K
+;           |   Mirrors of Tube client ROM    |
+;           |                                 |
+; FFFF:0000 +---------------------------------+ FFFF0
+;           |          RESET vectors          |
+; FFFF:000F +---------------------------------+ FFFFF 1024K
+;
+;
+; I/O locations
+; =============
+; &80 Tube R1 Status
+; &82 Tube R1 Data
+; &84 Tube R2 Status
+; &86 Tube R2 Data
+; &88 Tube R3 Status
+; &8A Tube R3 Data
+; &8C Tube R4 Status
+; &8E Tube R4 Data
+;
+;
+; Interupt vectors
+; ================
+; Vectors at 0000-03FF copied from ROM to RAM on RESET
+;
+ORG  0000h
+DB   64 DUP 0            ; INT &00-&0B - null
+DW   L1FD6, F000h        ; INT &0C - Tube interupt
+DB   188 DUP 0           ; INT &0D-&3F - null
+;
+; MOS interface INT vectors
+; -------------------------
+DW   L1DAC, F000h       ; INT &40 - OSFIND
+DW   L1DCF, F000h       ; INT &41 - OSGBPB
+DW   L1F1F, F000h       ; INT &42 - OSBPUT
+DW   L1F3B, F000h       ; INT &43 - OSBGET
+DW   L1F4F, F000h       ; INT &44 - OSARGS
+DW   L1F93, F000h       ; INT &45 - OSFILE
+DW   L19B0, F000h       ; INT &46 - OSRDCH
+DW   L19D8, F000h       ; INT &47 - OSASCI
+DW   L19DD, F000h       ; INT &48 - OSNEWL
+DW   L19E5, F000h       ; INT &49 - OSWRCH
+DW   L1E6D, F000h       ; INT &4A - OSWORD
+DW   L1E10, F000h       ; INT &4B - OSBYTE
+DW   L1A11, F000h       ; INT &4C - OSCLI
+DW   0000h, 0000h       ; INT &4D
+DW   0000h, 0000h       ; INT &4E
+DW   L2048, F000h	; INT &4F - ERROR
+;
+ORG  0200h		; INT &80-&8F XIOS INTs initialised when BOOTCODE loaded
+ORG  0300h
+ORG  0380h		; INT &E0-&EF BDOS INTs initialised when DOS loaded
+ORG  0400h		; End of INT vectors
+;
+;
+; Tube Client/BIOS Workspace
+; ==========================
+; 0400-09FF is used as workspace.
+; 0400-05AD is uninitialised, 05AE-3FFF is copied from ROM on RESET
+;
+ORG  0413h
+IBM_MemSize:	DW   0	; IBM BIOS RAM size in KB
+;
+;
+; Buffers
+; =======
+ORG  0500h
+DB   80 DUP 0		; Supervisor command prompt stack
+L0550:
+DB   80 DUP 0		; 80-character text buffer
+;
+;
+; Variables
+; =========
+L05A0:	DW CCCCh	; Transfer address address
+L05A2:	DW CCCCh	; Transfer address segment
+L05A4:	DW 0000h	; Current program address
+L05A6:	DW 0000h	; Current program segment
+L05A8:	DW 0000h, 0000h ; Warm boot flag, set to "neil"
+L05AC:	DW 0000h	; &00=RAM has been tested, <>&00=RAM has not been tested
+
+; ROM copied to RAM from here onwards
+; -----------------------------------
+ROMBASE:
+L05AE:	DB FFh		; iR1R4type
+L05AF:	DB FFh		; iR1R4claimer
+L05B0:  DB 00h		; CLI flag
+L05B1:  DB 00h          ; Boot/NoBoot flag
+L05B2:  DB 00h		; Last RESET type from OSBYTE &FD
+	DB 00h
+L05B4:  DW L1DA8, F000h ; Address of &00,"(C)" string
+;
+; Variables for Dump routines, *D *G *TFER
+; ----------------------------------------
+L05B8:	DW 0000h	; Start address
+L05BA:	DW 0000h	; End address
+L05BC:  DW 0000h	; Segment for *D, *G, *TFER)
+L05BE:	DW 0000h	; "in_address"
+L05C0:  DW 0000h        ; "temp" - used to transfer ODWORD &FA code
+L05C2:	DB 00h		; "display_byte"
+;
+; OSWORD 0 control block
+; ----------------------
+L05C3:	DW L0550	; Address=&0550
+	DB L05A0-L0550	; Length =80
+	DB 20h, FFh	; Chars  =&20-&FF
+;
+; OSWORD 5/6 control block
+; ------------------------
+L05C8:	DD 00000000h	; Address for OSWORD 5/6 call
+	DB 00h		; Data byte for OSWORD 5/6 call
+;
+; OSWORD &FA control block
+; ------------------------
+L05CD:	DB 0Eh, 01h     ; Send length, receive length
+	DD 00000000h    ; I/O processor address
+	DW 0000h, 0000h ; 80x86 address
+	DW 0000h        ; Data length
+	DB 00h          ; Transfer type
+	DB 00h          ; Memory access control
+;
+L05DB:	DB 00h		; current_rom
+L05DC:	DB 00h		; rom_number
+L05DD:	DB 00h
+L05DE:	DW 0000h        ; GSTrans flag
+        DD 0,0,0,0
+L05F0:  DW 0000h
+L05F2:  DB 00h          ; Escape flag
+L05F3:  DB 00h
+L05F4:  DW 0000h, 0000h ; FAULT  - Address of last error
+L05F8:  DW L2059, 0000h ; BRKV   - Current error handler
+L05FC:	DW 0000h, 0000h	; EVENTV - Current event handler
+;
+; &0600-&09FF unused - overwritten by DOS
+;
+; After RESET has copied the ROM at F000:0000 into RAM at 0000:0000, continue executing here
+; ==========================================================================================
+ORG 0A00h
+;
+L0A00:
+IN   AL,50h		; This switches out ROM on 286
+MOV  AX,CS              ; AX=code segment, this will be &0000 as we are now running in RAM
+MOV  DS,AX              ; Set data, extra and stack segment to same as code segment
+MOV  ES,AX
+MOV  SS,AX
+MOV  SP,L22E0		; Use internal stack
+PUSH SP
+POP  AX                 ; Push SP and pop it to AX
+CMP  AX,SP
+JNZ  L0A30              ; If popped value different, running on 80186
+;
+; The 80186 changes the value of SP before saving it, so pushes to the stack
+; the value that SP has after the push. The 80286, on the other hand, saves
+; the value that SP had before the operation started. Consequently, if the
+; popped value is different, the code is running on an 80186.
+;
+; If a non-80186 is found, make Tube INT vectors and (C) address point to RAM
+; copy of ROM by changing vector segment from &F000 to &0000. This is done
+; because on a non-186 the INT &0C data transfer code using NMIs calling
+; self-modifying code so has to run from RAM. (The 186 uses DMA transfers.)
+; This causes problems with the MOS INTs though.
+;
+PUSH DS
+SUB  AX,AX              ; AX=0
+MOV  DS,AX              ; DS=0
+MOV  BX,0033h           ; BX=>INT &0C vector segment high byte
+MOV  [BX],AL            ; Make INT &0C vector to RAM copy at 0000:1FD6
+MOV  BX,05B7h           ; BX=>segment high byte of address of &00,"(C)" string
+MOV  [BX],AL            ; Change address to be to RAM copy at 0000:1DA8 (*BUG*)
+MOV  BX,0103h           ; BX=>segment high byte of INT &40 vector
+MOV  CX,0010h           ; 16 vectors to change
+L0A28:
+MOV  [BX],AL            ; Make vector segment point to RAM copy at &0000:xxxx
+			; *BUG* This causes any use of MOS INTs on a 286 after
+			; DOS has booted to crash, as DOS will have overwritten
+			; the RAM copy of the Tube client. This can be fixed by
+			; NOP-ing out this MOV leaving the MOS INTs pointing to
+			; the ROM code. (Hoglet)
+
+			; After DOS has booted it attaches its own data transfer
+			; code to INT &0C so no problem results from the Tube
+			; code having been overwritten.
+
+ADD  BX,04h             ; Step to next vector
+LOOP L0A28              ; Loop for all 16 vectors
+POP DS
+;
+L0A30:
+STI                     ; Enable interupts
+MOV  AL,[L05AC]         ; Get 'RAM has been tested' flag
+OR   AL,AL
+JNZ  FirstTime		; If <>&00, RAM has not been tested, skip past
+MOV  BX,[L05A4]         ; BX=address of current program
+MOV  CX,[L05A6]         ; CX=segment of current program
+JMP  SHORT L0A50	; Jump to continue startup
+;
+FirstTime:
+MOV  BX,L0C53           ; RAM has not been tested yet, set Supervisor as current program
+MOV  [L05A4],BX         ; Set address of current program
+MOV  CX,0000h
+MOV  [L05A6],CX         ; Set segment of current program to &0000 - the BIOS copy in RAM
+;
+L0A50:
+MOV  [L05A0],CX         ; Set transfer address as current program
+MOV  [L05A2],CX         ; Set transfer segment as current program
+
+; startup sequence
+; -----------------
+; Use OSWRCH to write out a startup message terminated by zero byte.
+; Wait for acknowledge from Host in R2DATA
+; During this wait a data transfer may occur from the host using R3/R4 data
+; transfer mechanism.
+; IF acknowledge=&80 THEN code is to be entered at transfer address. Data
+; might not have been transfered, eg on Soft Break host expects Parasite to
+; enter code sent at last Hard Break.
+;
+CALL L0D24		; Find how much memory present, store in L0CAF
+MOV  BX,L0CD0		; BX=>"Acorn TUBE 80"
+CALL L18DB		; Print first part of startup message
+PUSH SP
+POP  AX			; Check for 80186/80286
+CMP  AX,SP
+JZ   L0A6C		; If popped value same, not 80186
+MOV  AX,186		; Same, so set AX=186 for 80186
+JMP  SHORT L0A6F	; Jump to print it
+L0A6C:
+MOV  AX,286		; If not 80186, set AX=286
+L0A6F:
+CALL L0DAA		; Print AX in decimal to print '186' or '286'
+MOV  AL," "
+CALL L19F7              ; Print a space
+MOV  AX,CS:[L0CAF]      ; Get memory size
+CALL L0DAA              ;  and print it
+MOV  BX,L0CE0           ; BX=>'K', newline, newline
+CALL L18CF              ; Print rest of startup message and NULL terminator
+CALL L1973              ; Wait for RESET acknowledge from TubeR2, and disgard it
+                        ; This will be &80 if code to be executed, &00 if no code to be executed
+                        ; As with the Z80, the 80x86 ignores the RESET acknowldge and instead
+                        ; attempts to execute code if a Hard/Power Break, falling back to booting
+                        ; a disk operating system from disk. A Soft Break always goes to the command
+                        ; prompt.
+
+; Check for T being pressed for system test
+; -----------------------------------------
+MOV  AL,7Ah
+CALL L1E17              ; OSBYTE &7A - scan keyboard
+CMP  BL,23h
+JZ   L0AAA              ; If 'T' pressed, go straight to system test
+MOV  AL,0FDh
+MOV  BX,0FF00h            
+CALL L1E17              ; OSBYTE &FD - read RESET type
+AND  BL,BL
+JNZ  L0AA3              ; If not Soft Break, don't enter Supervisor
+CALL L0DC7              ; Soft Break, so just set up OSWORD &FA
+JMP  L0C53              ;  and jump to Supervisor command prompt
+;
+; 'T'est not pressed, and not Soft Break, prepare to do hard reset
+; ----------------------------------------------------------------
+L0AA3:
+MOV  AL,[L05AC]		; Get the 'RAM has been tested' flag
+OR   AL,AL
+JZ   L0AAD		; If &00, RAM has been tested, skip past RAM test
+;
+; Hard Reset or skipping stright to system test
+; ---------------------------------------------
+L0AAA:
+CALL L0AC0              ; Destructively test RAM
+L0AAD:
+MOV  AL,0FDh
+MOV  BX,0FF00h
+CALL L1E17              ; OSBYTE &FD - read RESET type
+MOV  CS:[L05B2],BL      ; Store RESET type in workspace
+CALL L0DC7              ; Set up OSWORD &FA in I/O processor
+JMP  L1CFC              ; Jump to check and enter code or to boot DOS
+;
+; Destructively test RAM - RAM has already been counted before coming here
+; ------------------------------------------------------------------------
+; This will only test the bottom 512K of RAM. With a 1M system the top half
+; of the RAM won't be tested, but will be counted by the RAM count routine.
+;
+L0AC0:
+MOV  CX,0007h           ; Loop 7 times, from &1000:nnnn to &7000:nnnn
+MOV  AX,1000h           ; Start at segment &1000, real address &10000
+L0AC6:
+PUSH CX                 ; Save counter
+MOV  DS,AX              ; Point DS and ES to current segment
+MOV  ES,AX
+CALL L0AE0		; Call memory test for this segment
+MOV  AX,DS
+ADD  AX,1000h           ; Inc. segment by 4K, inc. real address by 64K
+POP  CX                 ; Get counter back
+LOOP L0AC6              ; Loop back for next 64K block
+CALL L0B88              ; Call test_timer (removed test)
+CALL L0B89              ; Call test_refresh (removed test)
+CALL L0B8A              ; Call test_dma (removed test)
+RET
+;
+; Destructively test 64K of RAM at DS/ES
+; --------------------------------------
+; Depends on RAM in 1st 64K working for stack
+;
+; First two passes - fill with &AA, then with &55
+;
+L0AE0:
+MOV  AX,AAAAh           ; Set up test pattern of &AAAA
+L0AE3:
+MOV  CX,8000h           ; Loop 32768 times for 65536 bytes
+MOV  BX,CX              ; Save counter in BX
+CLD                     ; Set Direction to forwards
+MOV  DX,AX              ; Save test pattern in DX to compare with
+SUB  DI,DI              ; DI=0 to point to start of 64K segment
+REPE STOSW              ; Fill 64K segment with fill bytes
+MOV  CX,BX              ; Get 32768 counter back
+SUB  SI,SI              ; SI=0 to point to start of 64K to start checking
+L0AF3:
+LODSW                   ; Get a word from [SI], inc. SI
+XOR  AX,DX              ; Compare with test pattern
+JNZ  L0B3B              ; Didn't read it back, must be faulty
+LOOP L0AF3              ; Loop to check all 64K
+MOV  AX,DX              ; Get test pattern back again
+CMP  AX,5555h           ; If it's &5555, we've done second pass
+JZ   L0B06              ; Second pass done, jump to do &FF/&00
+MOV  AX,5555h           ; Toggle fill byte to &55
+JMP  SHORT L09E3        ; Jump back to do second pass of &AA/&55
+;
+; Next two passes - fill with &FF and &00 and step through address lines
+;
+L0B06:
+SUB  AX,AX              ; Fill with &0000
+MOV  CX,BX              ; Copy count back to CX again
+REPE STOSW              ; Fill 64K with test pattern
+MOV  DL,01h             ; Start with test type in DL=&01
+SUB  SI,SI              ; SI=0 to point to start of 64K to start checking
+L0B10:
+MOV  DI,SI              ; Save current SI in DI
+MOV  AX,FFFFh
+MOV  [SI],AL            ; Set byte at [SI] to &FF
+CMP  SI,00h             ; Check SI to see how to update it
+JNZ  L0B1F
+INC  SI                 ; If SI=&0000, increment it
+JMP  SHORT L0B23	; JMP L0B23
+LFB1F:
+MOV  DL,03h             ; If SI<>&0000, set DL to &03
+SHL  SI,1               ;  and double SI to step through address lines
+L0B23:
+MOV  AL,[SI]            ; Get byte from new SI
+CMP  AL,00h             ; Is it zero? (it will be &55)
+JNZ  L0B41              ; If not zero, jump forwards
+SHL  SI,1               ; Double SI again
+JNZ  L0B23              ; Loop until SI wraps past 64K
+MOV  SI,DI              ; Restore SI to saved start address
+OR   SI,SI
+JNZ  L0B36              ; Check SI to see how to update it
+INC  SI                 ; If zero, increment and loop back
+JMP  L0B10
+L0B36:
+SHL  SI,1               ; If not zero, double SI and loop back
+JNS  L0B10              ; Loop until SI=32K
+RET
+;
+; Memory error - &AA/&55 check failed
+; -----------------------------------
+L0B3B:                  ; &AA/&55 check failed
+SUB  DL,DL              ; Error type in DL is now zero
+DEC  SI                 ; Step SI back to point to faulty location
+DEC  SI
+JMP  SHORT L0B47        ; Jump to report error
+;
+; Address line error - &00/&FF check failed
+; -----------------------------------------
+L0B41:
+CMP  AL,AH              ; Compare written and read bytes
+JNZ  L0B47              ; If different, use error type in DL
+INC  DL                 ; If same, add one to error type
+;
+; Report RAM fault, DL=type, SI=address
+; -------------------------------------
+L0B47:
+PUSH SI                 ; Save address of fault
+PUSH DI                 ; Save DI
+SUB  AX,AX              ; AX=&0000
+MOV  DS,AX              ; DS=&0000
+MOV  BX,L0B76           ; BX=>CR,LF,"Ram fault type "
+CALL L18CF              ; Print message
+MOV  AL,DL              ; AL=error type
+ADD  AL,ASC"0"          ; Convert to character
+CALL L19F7              ; Print digit
+MOV  AL,ASC"/"
+CALL L19F7              ; Print "/"
+POP  DI                 ; Restore DI
+POP  SI                 ; Get fault address back
+OR   DL,DL              ; Check fault type in DL
+JZ   L0B6F              ; Jump with fault type &00
+MOV  BX,DI
+CALL L185A              ; Print DI in hex, start of block with fault
+MOV  AL,ASC"/"
+CALL L19F7              ; Print "/"
+L0B6F:
+MOV  BX,SI
+CALL L185A              ; Print fault address in hex
+CLI                     ; Disable interupts
+HLT                     ; And stop.
+L0B76:  DB 13,10,"Ram fault type ",0
+;
+; If a RAM fault is found, will display:
+; Ram fault type 00/xxxx        - address where &AA/&55 fill failed
+; Ram fault type 01/xxxx/xxxx   - address where stepping through address
+; Ram fault type 02/xxxx/xxxx   -  lines failed
+; Ram fault type 03/xxxx/xxxx   - 
+; Ram fault type 04/xxxx/xxxx   - 
+;
+; Some removed system tests
+; -------------------------
+L0B88:	RET		; test_timer
+L0B89:	RET		; test_refresh
+L0B8A:	RET		; test_dam
+;
+;
+; Try to boot DOS
+; ===============
+L0B8B:
+MOV  AL,00h
+MOV  BL,01h
+CALL L1E17              ; OSBYTE 0,1 - read machine type
+MOV  CS:[L0CB7],BL      ; Save machine type
+;
+; This is needlessley messy. OS<2 does *not* mean there is no shadow screen.
+; The way to find if there is a shadow screen is to *ask* if there is a shadow
+; screen. The way to disable a shadow screen is just plain simply go ahead and
+; disable the shadow screen with OSBYTE 114 whether it physically exists or not.
+;
+CMP  BL,02h             ; Is it B vs B+/Master?
+JB   L0BAF              ; Jump if BBC B, assume it doesn't have shadow screen
+MOV  AL,0EFh
+MOV  BX,0FF00h
+CALL L1E17              ; OSBYTE &EF - read shadow screen flag
+OR   BL,BL
+JNZ  L0BAF              ; Skip past if shadow screen selected
+MOV  AL,72h
+MOV  BL,01h
+CALL L1E17              ; OSBYTE 114,1 - disable shadow screen
+;
+L0BAF:
+CALL L0D09              ; Attempt to select ADFS
+JZ   L0BDC              ; Skip past if ADFS present
+INT  4Fh                ; Generate error
+DB   FFh,"Cannot boot DOS - ADFS not present",13,10,0
+; Will never get to this point if ADFS is not present, as a 'Bad command' error will
+; have occured instead. Should have selected ADFS with OSBYTE 143,18,8 not with a
+; *FADFS command.
+
+
+; ADFS is present, look for a dosboot file.
+; If there is a hard drive present, then look for :0.$.dosboot (which will be
+; on the hard drive), if that fails look for :4.$.dosboot (which will be on
+; the first floppy).
+; If there is no hard drive present, then look for :4.$.dosboot (which will
+; be on the first floppy).
+;
+; Could be made simpler as the filename :0.$.dosboot already maps to the hard
+; drive if present and to the floppy if there is no hard drive.
+;
+L0BDC:
+MOV  BX,L0CB8           ; BX=>"dir :0"
+CALL L1A18              ; OSCLI to do *dir :0
+			; If HD present selects hard drive :0
+			; If no HD present, selects floppy :0
+CALL L1064              ; Check if hard drive present
+JZ   L0BF3              ; No hard drive, skip to check floppy
+			;  (which we've already selected)
+;
+; Check for the presence of file by trying to OPENIN it. This has the
+; disadvantage of being slow and having to remember to close the handle
+; later, but has the advantage of not needing any workspace for an OSFILE
+; control block and accidently avoids using the crippled OSFILE routine.
+;
+MOV  AL,40h             ; &40=OPENIN
+MOV  BX,L0CEB           ; BX=>"$.dosboot"
+CALL L1DB3              ; OSFIND - test if file present
+OR   AL,AL              ; Check if file opened
+JNZ  L0C30              ; File present on :0, jump to load it
+;
+; No file found on hard drive, or hard drive not present, look on floppy
+;
+L0BF3:
+MOV  BX,L0CBF           ; BX="dir :4"
+CALL L1A18              ; OSCLI "dir :4" to select drive 4, floppy
+MOV  AL,40h             ; &40=OPENIN
+MOV  BX,L0CEB           ; BX=>"$.dosboot"
+CALL L1DB3              ; OSFIND - test if file present
+OR   AL,AL              ; Check if file opened
+JNZ  L0C30              ; File present on :4, jump to load it
+;
+; Can't find dosboot on HD or FD, generate error and drop to Supervisor
+;
+INT  4Fh                ; Generate error
+DB   FFh,"Cannot boot DOS - boot file not found",13,10,0
+;
+; Load and enter dosboot file
+; ---------------------------
+.L0C30
+MOV  BX,L0CC0           ; BX=>MODE 3
+CALL L18CF              ; Select MODE 3
+MOV  BX,L0CC6           ; BX=>"close"
+CALL L1A18              ; Close any open files
+			;  dosboot was opened to test presence
+MOV  BX,L0CE6           ; BX=>"load $.dosboot 04000000"
+CALL L1A18              ; Get host to load dosboot file bypassing crippled
+			;  local OSFILE
+
+;(if we get here we must have loaded boot file ok (could still contain garbage)
+;(of course - should we do a test ?) so set up exec_ptr to reload dos on break)
+;(assuming things like shadow disabled and boot file present - things makes   )
+;(rebooting rather less ponderous as adfs takes an inordinate length of time  )
+;(searching for a file on floppies - of course if the punter has replaced his )
+;(boot disc then he will get an adfs disc error)
+
+MOV  AX,L0C30
+MOV  [L05A4],AX         ; Set dosboot startup as current program
+MOV  AX,0000h
+MOV  [L05A6],AX         ; Set dosboot startup as current segment
+JMP  0400h:0000         ; Jump to loaded code at &04000
+;
+;
+; Supervisor command prompt
+; =========================
+.L0C53
+MOV  AX,CS		; Set segment registers to where-ever I'm running from
+			; Segment will be &0000 if I'm in RAM, &F000 if in ROM
+MOV  ES,AX              ; ES=current code segment
+SUB  AX,AX              ; AX=0
+MOV  DS,AX              ; DS=0
+MOV  SS,AX              ; SS=0, put stack in segment &0000
+MOV  SP,L0550           ; Point to Supervisor stack in workspace
+MOV  AX,L0C53           ; Set current program to Supervisor RAM copy
+MOV  [L05A4],AX         ; Set current program address
+MOV  AX,0000h
+MOV  [L05A6],AX         ; Set current program segment to &0000
+MOV  AX,L2059           ; Point error handler to RAM copy of default handler
+MOV  [L05F8],AX         ; Set Error handler offset
+MOV  AX,0000h
+MOV  [L05FA],AX         ; Set Error handler segment to &0000
+MOV  AL,0E5h
+MOV  BX,0000h
+CALL L1E17              ; OSBYTE 229,0 - make Escape key active
+L0C80:
+MOV  AL,ASC"*"
+CALL LL9F7              ; Print '*'
+MOV  BX,L05C3           ; Point to OSWORD 0 control block
+MOV  AL,00
+CALL L1E74              ; OSWORD 0 - Read line to &0550
+JB   L0C9A              ; Escape, jump to report it
+MOV  BX,L0550           ; Point to input line
+CALL L1A18              ; Pass to OSCLI
+JMP  SHORT L0C80        ; Loop back for another line
+L0C97:
+CALL L19F0              ; Print NEWL
+MOV  AL,7Eh
+CALL L1E17              ; OSBYTE &7E - Acknowledge Escape
+INT  4Fh                ; Generate error
+DB   17,"Escape",0
+;
+;(some variables for init_memory)
+;
+L0CA9:	DW 00000h	; "memory_top"
+L0CAB:	DW 0FFFFh	; "lo_mem_top"
+L0CAD:  DW 00004h	; "num_mmkb"
+;L0CAF:	DW 0FFFFh       ; "num_kb" - Memory size in K
+      	DW 0FFFFh       ; "num_kb" - Memory size in K
+;
+L0CB1:  DB "neil"
+L0CB5:  DW 0000h        ; OSWORD &70 control block to read ADFS 'hard drive present' flag
+;L0CB7:	DB 00h          ; OSBYTE &00 machine type
+      	DB 00h          ; OSBYTE &00 machine type
+
+;
+L0CB8:  DB "dir :0",13                  ; Select drive 0 (hard)
+L0CBF:  DB "dir :4",13                  ; Select drive 4 (floppy)
+L0CC6:  DB "close",13                   ; Close all files
+L0CCC:  DB 22,3,0			; MODE 3
+L0CCF:	DB 0				; "response"
+L0CD0:  DB 13,13,"Acorn TUBE 80",0      ; First part of startup string
+L0CE0:  DB "K",13,10,13,10,0            ; 'K', two newlines
+L0CE6:  DB "load "                      ; Command to load dosboot
+L0CEB:  DB "$.dosboot 04000000",13      ; dosboot filename
+L0CFE:  DB "fadfs",13                   ; Select ADFS without mounting
+;
+;
+; Read current filing system
+; --------------------------
+L0D04:
+SUB  AX,AX              ; AL=0, AH=0 - Read filing system
+JMP  L1F56              ; Jump to do OSARGS
+;
+; Test for presense of ADFS
+; -------------------------
+; This is the wrong way to do this, an error will be generated if ADFS is not
+; present. Should try to select ADFS with Service Call 18 not via a command.
+L0D09:
+MOV  BX,L0CFE           ; BX=>"fadfs"
+CALL L1A18              ; OSCLI - select ADFS without mounting
+CALL L0D04              ; Read current filing system
+CMP  AL,08h             ; Is if &08 - ADFS?
+RET                     ; Return Z=ADFS, NZ=not ADFS
+;
+; Select filing system BH
+; -----------------------
+; Not called from anywhere, even though this is the correct way to do this
+L0D15:
+PUSH BX                 ; Save BX
+MOV  AL,8Fh
+MOV  BL,12h
+CALL L1E17              ; OSBYTE 143,18,BH - Select filing system
+CALL L0D04              ; Read filing system
+POP  BX                 ; Get BX back
+CMP  AL,BH              ; Compare with requested filing system
+RET                     ; Return Z=FS selected, NZ=FS not selected
+;
+;
+;/***************************************************************/
+;/*     Memory initialization                                   */
+;/*                                                             */
+;/*     Perform a memory test to find amount of memory          */
+;/*     installed in machine (even on the A300/A310).           */
+;/***************************************************************/
+;
+; Find out how much RAM present, store size in K in L0CAF
+; -------------------------------------------------------
+; init_memory
+.L0D24
+PUSHF                   	; Save flags
+PUSH ES                 	; Save ES
+CLD                     	; Set Direction to forwards
+CLI                     	; Disable interupts
+MOV  WORD PTR CS:[L0CAD],0400h	; Set num_mmkb to 1024K, max size
+MOV  WORD PTR CS:[L0CA9],FFFFh	; Set memory_top to &FFFF, stop at top segment
+MOV  AX,1000h           	; Start at segment &1000, real address &10000, 64K
+PUSH DS				; Save current data segment
+MOV  DS,AX			; Set to selected segment
+MOV  CX,[0FFFCh]		; Save top four bytes of segment as we may
+MOV  DX,[0FFFEh]		;  corrupt them
+POP  DS				; Restore data segment
+MOV  AX,0F000h
+MOV  ES,AX              ; Set ES segment to start of ROM
+MOV  DI,0FFFCh
+STOSW                   ; Store AX at ES:[DI], inc. DI
+NOT  AX
+STOSW                   ; Store AX at ES:[DI], inc. DI
+NOT  AX
+SUB  AX,2000h
+JNC  L0D48
+MOV  AX,0F000h
+MOV  ES,AX
+MOV  DI,0FFFCh
+SCASW
+JNZ  L0D6A
+NOT  AX
+SCASW
+JZ   L0D84
+NOT  AX
+SUB  WORD CS:[L0CA9],2000h
+SUB  WORD CS:[L0CAD],0080h
+SUB  AX,2000h
+JNB  L0D5B
+MOV  WORD CS:[L0CA9],0000h
+MOV  AX,CS:[L0CA9]
+MOV  CS:[L0CAB],AX
+MOV  AX,CS:[L0CAD]
+MOV  CS:[L0CAF],AX      ; Set memory size in K
+MOV  CS:[0413h],AX      ; Set a copy of memory size
+MOV  AX,1000h
+PUSH DS
+MOV  DS,AX
+MOV  [0FFFCh],CX
+MOV  [0FFFEh],DX
+POP  DS                 ; Restore data segment
+POP  ES                 ; Restore ES segment
+POPF                    ; Restore flags
+RET
+;
+; Print AX in decimal
+; -------------------
+L0DAA:
+AND  AX,AX              ; Check if AX=0
+JZ   L0DC1              ; Exit if zero, no leading zeros
+MOV  DX,0000h           ; DX:AX=&0000xxxx
+MOV  BX,000Ah           ; Prepare to divide by 10
+DIV  BX                 ; AX=DX:AX DIV BX, DX=DX:AX MOD BX
+PUSH DX                 ; Push remainer - current digit
+CALL L0DAA              ; Call myself for next digit
+POP  CX                 ; Get current digit back
+ADD  CL,ASC"0"          ; Convert to character
+CALL L0DC2              ; Print it
+L0DC1:
+RET                     ; Return to print next digit or all done
+;
+; Print character in CL
+; ---------------------
+L0DC2:
+MOV AL,CL
+JMP L19F7               ; Print character
+;
+; Set up OSWORD &FA in I/O processor - get comments from A5000 file
+; ----------------------------------
+.L0DC7
+CLI
+PUSH DS
+MOV  AX,0000h
+MOV  DS,AX
+MOV  BX,2500h
+PUSH BX
+MOV  SI,L0E69
+MOV  CX,01FBh
+CALL L0E23
+MOV  BX,0200h
+MOV  SI,L05C0
+MOV  CX,0002h
+CALL L0E0A
+POP  BX
+ADD  BYTE BX,00C0h
+MOV  SI,L05C0
+MOV  CX,0002h
+CALL L0E23
+MOV  BX,2500h
+MOV  [L05C0],BX
+MOV  BX,0200h
+MOV  SI,L05C0
+MOV  CX,0002h
+CALL L0E23
+POP  DS
+STI
+RET
+;
+; Read CX bytes from I/O memory at BX to local memory at SI
+; ---------------------------------------------------------
+L0E0A:
+MOV  [L05C8],BX         ; Store I/O address in control block
+PUSH BX                 ; Save current address
+MOV  BX, SHORT L05C8    ; BX=>control block
+MOV  AL,05h
+CALL L1E74              ; OSWORD 5 - read byte from I/O memory
+MOV  AL,CS:[L05CC]      ; Get byte from control block
+MOV  [SI],AL            ; Store in memory at SI
+INC  SI                 ; Increment address in SI
+POP  BX                 ; Get I/O address back
+INC  BX                 ; Increment I/O address
+LOOP L0E0A              ; Loop CX times
+RET
+;
+; Write CX bytes from local memory at SI to I/O memory at BX
+; ----------------------------------------------------------
+L0E23:
+MOV  [L05C8],BX         ; Store I/O address in control block
+MOV  AL,[SI]            ; Get byte from local memory at SI
+MOV  CS:[L05CC],AL      ; Store byte in control block
+PUSH BX                 ; Save current I/O address
+MOV  BX, SHORT L05C8    ; BX=>control block
+MOV  AL,06h
+CALL L1E74              ; OSWORD 6 - write byte to I/O memory
+INC  SI                 ; Increment local address in SI
+POP  BX                 ; Get I/O address back
+INC  BX                 ; Increment I/O address
+LOOP L0E23              ; Loop CX times
+RET
+;
+; Make an OSWORD &FA call
+; -----------------------
+; AL=function, BX=I/O address, DI=>x86 address, ES=x86 segment, CX=number of bytes
+L0E3C:
+PUSH DS                 ; Save registers
+PUSH BX
+PUSH AX                 ; Save action
+SUB  AX,AX              ; AX=0
+MOV  DS,AX              ; Data segment=&0000, RAM workspace
+MOV  [L05CD],0010Eh     ; Set control block lengths
+MOV  [L05CF],BX         ; Store I/O address
+MOV  [L05D3],DI         ; Store x86 address
+MOV  AX,ES              ; AX=x86 segment
+MOV  [L05D5],AX         ; Store x86 segment
+MOV  [L05D7],CX         ; Store byte count
+POP  AX                 ; Get function back
+MOV  [L05D9],AL         ; Store function
+MOV  BX, SHORT L05CD    ; BX=>control block
+MOV  AL,0FAh
+CALL L1E74              ; OSWORD &FA
+POP  BX                 ; Restore registers
+POP  DS
+RET
+;
+;
+; 6502 OSWORD &FA code
+; --------------------
+L0E69:
+DD 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+DD 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+DD 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+DD 0,0,0
+DB 0,0,0
+
+
+; Check if ADFS hard drive present by calling OSWORD &70
+; ------------------------------------------------------
+.L1064
+MOV  AL,70h
+MOV  BX,L0CB5
+CALL L1E74              ; OSWORD &70 - read ADFS status byte
+MOV  AL,CS:[L0CB5+1]    ; Get returned status byte
+AND  AL,20h             ; Check 'hard drive' flag
+RET                     ; Return NZ=hard drive, Z=no hard drive
+
+; Parse command line for addresses (<segment>:)(<start offset>) (<end offset>)
+; ----------------------------------------------------------------------------
+; On exit, L05BC=<segment>, if supplied
+;          L05BE=<start offset> if no <end offset>
+;          L05B8=<start offset> if <end offset> supplied
+;          L05BA=<end offset> if supplied
+;          L05BE=last hex value read
+L1073:
+MOV  BYTE ES:[L05DC],00h  ; Clear a flag
+MOV  BYTE ES:[L05DD],00h  ; Clear a flag
+CALL L1B27              ; Skip spaces
+CMP  AL,0Dh
+JZ   L10C6              ; Exit if at end of line with L05DC=&FF
+CALL L189A              ; Read hex value to L05BE
+CMP  AL,0Dh             ; AL=character after hex value
+JZ   L10C6              ; Exit if at end of line with L05DC=&FF
+CMP  AL,ASC":"          ; Is there a segment seperator?
+JNZ  L10A7              ; No, jump to see if anything else
+MOV  AX,ES:[L05BE]      ; Get the hex value
+MOV  ES:[L05BC],AX      ; Store it as <segment>
+CALL L1B27              ; Skip spaces
+CMP  AL,0Dh
+JZ   L10C6              ; Exit if at end of line with L05DC=&FF
+CALL L189A              ; Read hex value to L05BE
+CMP  AL,0Dh
+JZ   L10C6              ; Exit if at end of line with L05DC=&FF
+L10A7:
+CMP  AL,ASC" "
+JNZ  L10CD              ; No space character after hex value, exit with L05DD=&FF
+MOV  AX,ES:[L05BE]      ; Get the hex value just read
+MOV  ES:[L05B8],AX      ; Store it as <start segment>
+CALL L1B28              ; Skip spaces
+CALL L189A              ; Read hex value to L05BE
+CMP  AL,ASC" "
+JNZ  L10CD              ; If no following space, exit with L05DD=&FF
+MOV  AX,ES:[L05BE]      ; Get the hex value
+MOV  ES:[L05BA],AX      ; Store it as <end offset>
+RET
+L10C6:
+MOV  BYTE ES:[L05DC],FFh  ; No <start offset> or <end offset> supplied
+RET
+L10CD:
+MOV  BYTE ES:[L05DD],FFh  ; Seta flag
+RET
+
+; *D (<segment>:)<start offset> <end offset> - dump memory
+; --------------------------------------------------------
+L10D4:
+CALL L1073              ; Parse command line addresses
+MOV  AL,FFh
+CMP  AL,ES:[L05DC]      ; Check one of the flags
+JZ   L1135              ; Not enough addresses, jump to error
+CMP  AL,ES:[L05DD]      ; Check the other flag
+JNZ  L10EA              ; 
+JMP  L131B              ; 
+L10EA:
+CALL L1B28              ; Skip spaces
+CMP  AL,0Dh
+JZ   L1135              ; If end of line...
+CALL L189A              
+CALL L1B28              ; Skip spaces
+CMP  AL,0Dh
+JNZ  L1135              ; Not at end of line
+PUSH ES                 ; Save ES
+MOV  CX,ES:[L05BA]      ; Get values
+SUB  CX,ES:[L05B8]
+MOV  DI,ES:[L05B8]
+MOV  AX,ES:[L05BE]
+MOV  ES,ES:[L05BC]
+CMP  AH,00h
+JNZ  L111E
+L1119:
+STOSB
+LOOP L1119
+JMP  SHORT L1031
+L111E:
+OR   CX,CX
+JZ   L112B
+CMP  CX,000Ah
+JZ   L1131
+SHR  CX,1
+JMP  SHORT L102E
+L112B:
+MOV  CX,8000h
+STOSW
+LOOP L112E
+L1131:
+POP  ES
+JMP  L1AB2
+L1135:
+INT  4Fh                ; Generate error
+DB   254,"Syntax : f (<segment>:) <start offset> <end offset> <fill byte|word>",0
+; nb: error number wrong, should be 220
+
+L117D:
+INT  4Fh
+DB   254,"Syntax : sr (<segment>:) <start offset> <end offset> <""string"">",0
+; nb: error number wrong, should be 220
+;
+; *SR
+; ---
+L11C0:
+MOV  AL,[SI]
+AND  AL,0DFh
+CMP  AL,ASC"R"
+JZ   L11CB
+JMP  L131B
+L11CB:
+CALL L1073
+MOV  AL,FFh
+CMP  AL,ES:[L05DC]
+JZ   L117D
+CMP  AL,ES:[L05DD]
+JNZ  L11E1
+JMP  L131B
+L11E1:
+CALL L1B28
+CMP  AL,0Dh
+JZ   L117D
+CMP  AL,22h
+JNZ  L117D
+INC  SI
+CALL L125E
+MOV  BX,CX
+OR   BX,BX
+JNZ  L11F9
+JMP  L12A2
+L11F9:
+PUSH ES
+MOV  CX,ES:[L05BA]
+MOV  DI,ES:[L05B8]
+MOV  ES,ES:[L05BC]
+CLD
+MOV  AL,CS:[L05F2]      ; Escape flag - assumes I'm running in RAM, should be ES:
+TEST AL,80h
+JZ   L1215
+JMP  L0C97
+L1215:
+MOV  AX,DI
+ADD  AX,BX
+JB   L1232
+OR   CX,CX
+JZ   L1223
+CMP  AX,CX
+JNBE L1240
+PUSH CX
+PUSH SI
+MOV  CX,BX
+DB F3h ; REPE           ; F000-1227 F3           s
+DB A6h ; CMSB           ; F000-1228 A6           &
+JNZ  L122E
+CALL L1245
+POP  SI
+POP  CX
+JMP  SHORT L110A
+JNZ  L1241
+OR   CX,CX
+JNZ  L1241
+MOV  CX,BX
+DB F3h ; REPE           ; F000-123A F3           s
+DB A6h ; CMSB           ; F000-123B A6           &
+JNZ  L1241
+CALL L1245
+POP  ES
+JMP  L1AB2
+PUSH BX
+PUSH DI
+SUB  DI,BX
+MOV  BX,ES
+CALL L185A
+MOV  AL,ASC":"
+CALL L19F7              ; Print character
+MOV  BX,DI
+CALL L185A
+CALL L19F0              ; Newline
+POP  DI
+POP  BX
+RET
+;
+; GSTrans string parsing?
+L125E:
+MOV  BX,SI
+SUB  CX,CX
+MOV  AL,[SI]
+CMP  AL,ASC"|"
+JNZ  L126D
+CALL L12B0
+JMP  SHORT L119B
+CMP  AL,22h
+JNZ  L1285
+MOV  AL,[SI+01h]
+CMP  AL,ASC" "
+JZ   L129F
+CMP  AL,0Dh
+JZ   L129F
+CMP  AL,22h
+JNZ  L12A2
+CALL L12FD
+JMP  L119B
+CMP  AL,0Dh
+JZ   L12A2
+CMP  BYTE [L05DE],0FFh
+JNZ  L129B
+ADD  AL,80h
+MOV  [SI],AL
+MOV  BYTE CS:[L05DE],00h
+INC  SI
+INC  CX
+JMP  SHORT L1162
+MOV  SI,BX
+RET
+L12A2:
+INT  4Fh
+DB   254,"Bad string",0
+; nb - error number wrong, should be 253
+
+L12B0:
+INC  SI
+MOV  AL,[SI]
+CMP  AL,ASC"a"
+JB   L12BD
+CMP  AL,ASC"z"+1
+JNB  L12BD
+AND  AL,0DFh
+CMP  AL,40h
+JB   L12DD
+CMP  AL,ASC"a"-1
+JNB  L12DD
+SUB  AL,40h
+CMP  BYTE CS:[L05DE],0FFh
+JNZ  L12D1
+ADD  AL,80h
+MOV  [SI],AL
+MOV  BYTE CS:[L05DE],00h
+CALL L1300
+RET
+;
+L12DD:
+CMP  AL,ASC"?"
+JNZ  L12E5
+MOV  AL,7Fh
+JMP  SHORT L11C7
+CMP  AL,ASC"|"
+JZ   L12C7
+CMP  AL,ASC"!"
+JNZ  L12C7
+MOV  BYTE CS:[L05DE],FFh
+CALL L1300
+INC  SI
+CALL L1300
+DEC  SI
+DEC  CX
+RET
+;
+L12FD:
+INC  SI
+JMP  SHORT L11C7
+PUSH SI
+PUSH BX
+PUSH CX
+MOV  CX,SI
+SUB  CX,BX
+DEC  CX
+JZ   L1316
+ADD  BX,CX
+DEC  BX
+DEC  SI
+MOV  AL,[BX]
+MOV  [SI],AL
+DEC  BX
+DEC  SI
+LOOP L130E
+POP  CX
+POP  BX
+INC  BX
+POP  SI
+RET
+L131B:
+JMP  L1AA3
+;
+; *TFER <io addr> (<segment>:) <offset> <length> <r>|<w> (<rom>|m|s)
+; ------------------------------------------------------------------
+L131E:
+INT  4Fh
+DB   254,"Syntax : tfer <io addr.> (<segment>:) <offset> <length> <r>|<w>",0
+; nb, error number wrong, should be 220
+;
+; *TFER command
+; -------------
+L1361:
+INC  SI                 ; Already matched 'T', step to next character
+MOV  AL,[SI]            ; Get character
+AND  AL,0DFh            ; Force to upper case
+CMP  AL,ASC"F"
+JNZ  L131B              ; Not *TF---, jump to OSCLI
+INC  SI
+MOV  AL,[SI]            ; Get next character
+AND  AL,0DFh            ; Force to upper case
+CMP  AL,ASC"E"
+JNZ  L131B              ; Not *TFE---, jump to OSCLI
+INC  SI
+MOV  AL,[SI]            ; Get next character
+AND  AL,0DFh            ; Force to upper case
+CMP  AL,ASC"R"
+JNZ  L131B              ; Not *TFER---, jump to OSCLI
+CALL L1B27              ; Skip spaces
+CMP  AL,0Dh
+JZ   L131E              ; *TFER but parameters, jump to error
+CALL L189A              ; Get hex <io addr>
+CMP  AL,ASC" "          ; Followed by a space?
+JZ   L138D              ; More parameters, continue
+JMP  L131B              ; Not enough parameters, jump to OSCLI
+L138D:
+MOV  DI,ES:[L05BE]      ; DI=<io addr>
+CALL L1B27              ; Skip spaces
+CALL L189A              ; Get <segment> or <offset>
+CMP  AL,ASC":"          ; Is it followed by ':' ?
+JNZ  L13B1              ; Not <segment>, jump to use it as <offset>
+MOV  AX,ES:[L05BE]      ; Get hex value just read in
+MOV  ES:[L05BC],AX      ; Store in L05BC as <segment>
+CALL L1B27              ; Skip spaces
+CALL L189A              ; Read hex <offset>
+CMP  AL,ASC" "          ; Followed by a space?
+JZ   L13B1              ; More parameters, continue
+JMP  L131E              ; Not enough parameters, jump to OSCLI
+L13B1:
+MOV  DX,ES:[L05BE]      ; DX=<offset>
+CALL L1B28              ; Skip spaces
+CALL L189A              ; Read hex <length>
+CMP  AL,ASC" "          ; Followed by a space?
+JZ   L13C3              ; More parameters, continue
+JMP  L131E              ; Not enough parameters, jump to OSCLI
+L13C3:
+MOV  CX,ES:[L05BE]      ; CX=<length>
+CALL L1B27              ; Skip spaces
+AND  AL,0DFh            ; Force to upper case
+CMP  AL,ASC"R"
+JZ   L13DC              ; 'R' - jump to read
+CMP  AL,ASC"W"
+JZ   L13D8              ; 'W' - jump to write
+JMP  L131E              ; Not R/W, jump to pass to OSCLI
+L13D8:
+MOV  AL,06h             ; AL=&06 for write
+JMP  L12DE
+L13DC:
+MOV  AL,07h             ; AL=&07 for read
+L13DE:
+PUSH AX                 ; Save action
+CALL L1B27              ; Skip spaces again
+CMP  AL,0Dh             ; End of line?
+JZ   L1402              ; Jump if no more parameters
+CALL L187C              ; Check if hex digit
+JNB  L13FE              ; Hex digit, use it as ROM number
+CMP  AL,ASC"S"
+JNZ  L13F3              ; Not 'S', don't use shadow memory
+MOV  BL,20h             ; BL=&20 for shadow memory
+JMP  SHORT L1404        ; Jump to continue
+L13F3:
+CMP  AL,ASC"M"
+JZ   L13FA              ; If 'M', jump to use main memory
+JMP  L131E              ; Not 'S' or 'M' or <hex>, jump to pass on to OSCLI
+L13FA:
+MOV  BL,40h             ; BL=&40 for main memory
+JMP  SHORT L1404        ; Jump to continue
+L13FE:
+MOV  BL,AL              ; BL=rom number
+JMP  SHORT L1404        ; Jump to continue
+L1402:
+MOV  BL,10h             ; BL=&10 to use current ROM
+L1404:
+POP  AX                 ; AX=action
+MOV  ES:[L05DA],BL      ; memory access control
+MOV  ES:[L05D9],AL      ; transfer type
+MOV  ES:[L05CF],DI      ; I/O address
+MOV  ES:[L05D3],DX      ; x86 address
+MOV  AX,ES:[L05BC]
+MOV  ES:[L05D5],AX      ; x86 offset
+MOV  ES:[L05D7],CX      ; number
+MOV  AX,ES
+MOV  DS,AX              ; Point Data Segment to system memory at ES
+MOV  BX, SHORT L05CD    ; BX=>control block
+MOV  AL,0FAh
+CALL L1E74              ; OSWORD &FA - transfer memory
+JMP  L1AB2              ; Jump to exit *command
+;;;;
+; assembles with matching addresses up to here
+;;;;
+
+; Nothing calls this
+L1434:
+MOV  AL,01h                    		; F000-1434 B0 01        0.
+CALL L143D                     		; F000-1436 E8 04 00     h..
+CALL L1454                     		; F000-1439 E8 18 00     h..
+RET                            		; F000-143C C3           C
+;
+L143D:
+PUSH ES                        		; F000-143D 06           .
+PUSH BX                        		; F000-143E 53           S
+PUSH AX                        		; F000-143F 50           P
+SUB  AX,AX                      	; F000-1440 2B C0        +@
+MOV  ES,AX              ; x86 segment   ; F000-1442 8E C0        .@
+MOV  BX,00F4h           ; I/O address   ; F000-1444 BB F4 00     ;t.
+MOV  DI, OFFSET L05DA   ; x86 offset    ; F000-1447 BF DA 05     ?Z.
+MOV  CX,0001h           ; number        ; F000-144A B9 01 00     9..
+POP  AX                         	; F000-144D 58           X
+CALL L0E3C              ; OSWORD        ; F000-144E E8 EB F9     hky
+POP  BX                         	; F000-1451 5B           [
+POP  ES                         	; F000-1452 07           .
+RET                            		; F000-1453 C3           C
+;
+L1454:
+PUSH ES                        		; F000-1454 06           .
+PUSH BX                        		; F000-1455 53           S
+SUB  AX,AX                      	; F000-1456 2B C0        +@
+MOV  ES,AX                      	; F000-1458 8E C0        .@
+MOV  ES:[L05DB],BL                	; F000-145B 88 1E DB 05  ..[.
+MOV  BX,00F4h           ; I/O address   ; F000-145F BB F4 00     ;t.
+MOV  DI, OFFSET L05DB   ; x86 address   ; F000-1462 BF DB 05     ?[.
+MOV  CX,0001h           ; number        ; F000-1465 B9 01 00     9..
+CALL L0E3C              ; OSWORD        ; F000-1468 E8 D1 F9     hQy
+POP  BX                         	; F000-146B 5B           [
+MOV  AL,97h             ; Write to SHEILA  ; F000-146C B0 97        0.
+MOV  BH,BL                      	   ; F000-146E 8A FB        .{
+MOV  BL,30h             ; &FE30 - ROMSEL   ; F000-1470 B3 30        30
+CALL L1E17              ; OSBYTE           ; F000-1472 E8 A2 09     h".
+POP  ES                         	; F000-1475 07           .
+RET                            		; F000-1476 C3           C
+;
+L1477:
+SUB  AX,AX                      	; F000-1477 2B C0        +@
+CALL L143D                     		; F000-1479 E8 C1 FF     hA.
+MOV  BL,ES:[L05DA]                	; F000-147D 8A 1E DA 05  ..Z.
+CALL L1454                     		; F000-1481 E8 D0 FF     hP.
+RET                            		; F000-1484 C3           C
+
+; *MON
+; ----
+INC  SI                         ; F000-1485 46           F
+MOV  AL,[SI]                    ; F000-1486 8A 04        ..
+AND  AL,0DFh                    ; F000-1488 24 DF        $_
+CMP  AL,ASC"O"                  ; F000-148A 3C 4F        <O
+JNZ  L14E8                      ; F000-148C 75 5A        uZ
+INC  SI                         ; F000-148E 46           F
+MOV  AL,[SI]                    ; F000-148F 8A 04        ..
+AND  AL,0DFh                    ; F000-1491 24 DF        $_
+CMP  AL,ASC"N"                  ; F000-1493 3C 4E        <N
+JNZ  L14E8                      ; F000-1495 75 51        uQ
+CALL L1B27                      ; F000-1497 E8 8D 06     h..
+CMP  AL,0Dh                     ; F000-149A 3C 0D        <.
+JNZ  L14E8                      ; F000-149C 75 4A        uJ
+JMP  L10C53                     ; F000-149E E9 B2 F7     i2w
+
+; *GO (<segment:>) <offset>
+; -------------------------
+INC  SI                         ; F000-14A1 46           F
+MOV  AL,[SI]                    ; F000-14A2 8A 04        ..
+AND  AL,DFh                     ; F000-14A4 24 DF        $_
+CMP  AL,ASC"O"                  ; F000-14A6 3C 4F        <O
+JNZ  L14E8                      ; F000-14A8 75 3E        u>
+CALL L1B27                      ; F000-14AA E8 7A 06     hz.
+CMP  AL,0Dh                     ; F000-14AD 3C 0D        <.
+JZ   L14D5                      ; F000-14AF 74 24        t$
+CALL L189A                      ; F000-14B1 E8 E6 03     hf.
+CMP  AL,0Dh                     ; F000-14B4 3C 0D        <.
+JZ   L14D5                      ; F000-14B6 74 1D        t.
+CMP  AL,ASC":"                  ; F000-14B8 3C 3A        <-
+JNZ  L14E8                      ; F000-14BA 75 2C        u,
+MOV  AX,ES:[L05BE]              ; F000-14BD A1 BE 05     !>.
+MOV  ES:[L05BC],AX              ; F000-14C1 A3 BC 05     #<.
+CALL L1B27                      ; F000-14C4 E8 60 06     h`.
+CMP  AL,0Dh                     ; F000-14C7 3C 0D        <.
+JZ   L14D5                      ; F000-14C9 74 0A        t.
+CALL L189A                      ; F000-14CB E8 CC 03     hL.
+CALL L1B28                      ; F000-14CE E8 57 06     hW.
+CMP  AL,0Dh                     ; F000-14D1 3C 0D        <.
+JNZ  L14E8                      ; F000-14D3 75 13        u.
+MOV  AX,ES:[L05BE]              ; F000-14D6 A1 BE 05     !>.
+MOV  ES:[L05A0],AX              ; F000-14DA A3 A0 05     # .
+MOV  AX,ES:[L05BC]              ; F000-14DE A1 BC 05     !<.
+MOV  ES:[L05A2],AX              ; F000-14E2 A3 A2 05     #".
+JMP  L1ABA                      ; F000-14E5 E9 D2 05     iR.
+JMP  L1AA3                      ; F000-14E8 E9 B8 05     i8.
+
+; *D
+; ---
+CALL L1B27                      ; F000-14EB E8 39 06     h9.
+CMP  AL,0Dh                     ; F000-14EE 3C 0D        <.
+JZ   L1531                      ; F000-14F0 74 3F        t?
+CALL L189A                      ; F000-14F2 E8 A5 03     h%.
+CMP  AL,0Dh                     ; F000-14F5 3C 0D        <.
+JZ   L1529                      ; F000-14F7 74 30        t0
+CMP  AL,ASC":"                  ; F000-14F9 3C 3A        <-
+JNZ  L1513                      ; F000-14FB 75 16        u.
+MOV  AX,ES:[L05BE]              ; F000-14FE A1 BE 05     !>.
+MOV  ES:[L05BC],AX              ; F000-1502 A3 BC 05     #<.
+CALL L1B27                      ; F000-1505 E8 1F 06     h..
+CMP  AL,0Dh                     ; F000-1508 3C 0D        <.
+JZ   L1531                      ; F000-150A 74 25        t%
+CALL L189A                      ; F000-150C E8 8B 03     h..
+CMP  AL,0Dh                     ; F000-150F 3C 0D        <.
+JZ   L1529                      ; F000-1511 74 16        t.
+CMP  AL,ASC" "                  ; F000-1513 3C 20        <
+JNZ  L1567                      ; F000-1515 75 50        uP
+MOV  BX,ES:[L05BE]              ; F000-1518 8B 1E BE 05  ..>.
+CALL L1B28                      ; F000-151C E8 09 06     h..
+CALL L189A                      ; F000-151F E8 78 03     hx.
+MOV  SI,ES:[L05BE]              ; F000-1523 8B 36 BE 05  .6>.
+JMP  L1446                      ; F000-1527 EB 1D        k.
+MOV  AX,ES:[L05BE]              ; F000-152A A1 BE 05     !>.
+MOV  ES:[L05B8],AX              ; F000-152E A3 B8 05     #8.
+MOV  AX,ES:[L05B8]              ; F000-1532 A1 B8 05     !8.
+ADD  AX,0080h                   ; F000-1535 05 80 00     ...
+MOV  ES:[L05BA],AX              ; F000-1539 A3 BA 05     #-.
+MOV  BX,ES:[L05B8]              ; F000-153D 8B 1E B8 05  ..8.
+MOV  SI,ES:[L05BA]              ; F000-1542 8B 36 BA 05  .6-.
+MOV  AL,ES:[L05F2]   ; EscFlag  ; F000-1547 A0 F2 05      r.
+TEST AL,80h                     ; F000-154A A8 80        (.
+JZ   L1551                      ; F000-154C 74 03        t.
+JMP  L0C97                      ; F000-154E E9 46 F7     iFw
+CALL L19F0           ; newline  ; F000-1551 E8 9C 04     h..
+CALL L17F9                      ; F000-1554 E8 A2 02     h".
+CALL L183C                      ; F000-1557 E8 E2 02     hb.
+JB   L1546                      ; F000-155A 72 EA        rj
+MOV  ES:[L05B8],BX              ; F000-155D 89 1E B8 05  ..8.
+CALL L19F0           ; newline  ; F000-1561 E8 8C 04     h..
+JMP  L1AB2                      ; F000-1564 E9 4B 05     iK.
+MOV  AL,[SI]                    ; F000-1567 8A 04        ..
+AND  AL,DFh                     ; F000-1569 24 DF        $_
+CMP  AL,ASC"O"                  ; F000-156B 3C 4F        <O
+JNZ  L1582                      ; F000-156D 75 13        u.
+INC  SI                         ; F000-156F 46           F
+MOV  AL,[SI]                    ; F000-1570 8A 04        ..
+AND  AL,DFh                     ; F000-1572 24 DF        $_
+CMP  AL,ASC"S"                  ; F000-1574 3C 53        <S
+JNZ  L1582                      ; F000-1576 75 0A        u.
+CALL L1B27                      ; F000-1578 E8 AC 05     h,.
+CMP  AL,0Dh                     ; F000-157B 3C 0D        <.
+JNZ  L1582                      ; F000-157D 75 03        u.
+JMP  L10B8B                     ; F000-157F E9 09 F6     i.v
+JMP  L01AA3                     ; F000-1582 E9 1E 05     i..
+;
+L1585:
+INT  4Fh                        ; F000-1585 CD 4F        MO
+DB   254,"Syntax: s (<segment>:) (<offset>",0
+; nb error number wrong, should be 220
+
+; *S
+;---
+L15A9:
+CALL L1B27                     ; F000-15A9 E8 7B 05     .{.
+CMP  AL,0Dh                    ; F000-15AC 3C 0D        <.
+JZ   L1585                     ; F000-15AE 74 D5        tU
+CALL L189A                     ; F000-15B0 E8 E7 02     hg.
+CALL L1B28                     ; F000-15B3 E8 72 05     hr.
+CMP  AL,0Dh                    ; F000-15B6 3C 0D        <.
+JZ   L15DA                     ; F000-15B8 74 20        t
+CMP  AL,ASC":"                 ; F000-15BA 3C 3A        <-
+JZ   L15C1                     ; F000-15BC 74 03        t.
+JMP  L11C0                     ; F000-15BE E9 FF FB     i.{
+
+L15C2:
+MOV  AX,ES:[L05BE]             ; F000-15C2 A1 BE 05     !>.
+MOV  ES:[L05BC],AX             ; F000-15C6 A3 BC 05     #<.
+CALL L1B27                     ; F000-15C9 E8 5B 05     h[.
+CMP  AL,0Dh                    ; F000-15CC 3C 0D        <.
+JZ   L1585                     ; F000-15CE 74 B5        t5
+CALL L189A                     ; F000-15D0 E8 C7 02     hG.
+CALL L1B28                     ; F000-15D3 E8 52 05     hR.
+CMP  AL,0Dh                    ; F000-15D6 3C 0D        <.
+JNZ  L1582                     ; F000-15D8 75 A8        u(
+PUSH ES                        ; F000-15DA 06           .
+SUB  AX,AX                     ; F000-15DB 2B C0        +@
+MOV  DS,AX                     ; F000-15DD 8E D8        .X
+MOV  AX,[L05BC]                ; F000-15DF A1 BC 05     !<.
+MOV  ES,AX                     ; F000-15E2 8E C0        .@
+MOV  AL,04h                    ; F000-15E4 B0 04        0.
+MOV  BL,02h                    ; F000-15E6 B3 02        3.
+CALL L1E17    ; OSBYTE         ; F000-15E8 E8 2C 08     h,.
+PUSH BX                        ; F000-15EB 53           S
+MOV  AL,E1h                    ; F000-15EC B0 E1        0a
+MOV  BX,0080h                  ; F000-15EE BB 80 00     ;..
+CALL L1E17    ; OSBYTE         ; F000-15F1 E8 23 08     h#.
+PUSH BX                        ; F000-15F4 53           S
+MOV  AL,E2h                    ; F000-15F5 B0 E2        0b
+MOV  BX,0085h                  ; F000-15F7 BB 85 00     ;..
+CALL L1E17    ; OSBYTE         ; F000-15FA E8 1A 08     h..
+PUSH BX                        ; F000-15FD 53           S
+MOV  DL,0Bh                    ; F000-15FE B2 0B        2.
+MOV  BX,[L05BE]                ; F000-1600 8B 1E BE 05  ..>.
+CALL L19F0    ; Newline        ; F000-1604 E8 E9 03     hi.
+CALL L17F9                     ; F000-1607 E8 EF 01     ho.
+MOV  CL,DL                     ; F000-160A 8A CA        .J
+CALL L17DA                     ; F000-160C E8 CB 01     hK.
+CALL L19C3    ; OSRDCH         ; F000-160F E8 B1 03     h1.
+MOV  AH,[L05F2]  ; escflag     ; F000-1612 8A 26 F2 05  .&r.
+MOV  AH,[L05F2]                ; F000-1616 F6           v
+LES  AX,[BX+SI+1A74h]          ; F000-1617 C4 80 74 1A  DATAt.
+POP  BX                        ; F000-161B 5B           [
+MOV  BH,00h                    ; F000-161C B7 00        7.
+MOV  AL,E2h                    ; F000-161E B0 E2        0b
+CALL L1E17       ; OSBYTE      ; F000-1620 E8 F4 07     ht.
+POP  BX                        ; F000-1623 5B           [
+MOV  BH,00h                    ; F000-1624 B7 00        7.
+MOV  AL,E1h                    ; F000-1626 B0 E1        0a
+CALL L1E17       ; OSBYTE      ; F000-1628 E8 EC 07     hl.
+POP  BX                        ; F000-162B 5B           [
+MOV  AL,04h                    ; F000-162C B0 04        0.
+CALL L1E17       ; OSBYTE      ; F000-162E E8 E6 07     hf.
+POP  ES                        ; F000-1631 07           .
+JMP  L0C97                     ; F000-1632 E9 62 F6     ibv
+CMP  AL,8Bh                    ; F000-1635 3C 8B        <.
+JB   L1650                     ; F000-1637 72 17        r.
+CMP  AL,95h                    ; F000-1639 3C 95        <.
+JNB  L1650                     ; F000-163B 73 13        s.
+SUB  AL,8Bh                    ; F000-163D 2C 8B        ,.
+MOV  AH,00h                    ; F000-163F B4 00        4.
+ADD  AX,AX                     ; F000-1641 03 C0        .@
+MOV  BX,L17C6                  ; F000-1643 BB C6 17     ;
+ADD  BX,AX                     ; F000-1646 03 D8        .X
+MOV  AX,[BX]                   ; F000-1648 8B 07        ..
+CALL AX                        ; F000-164A FF D0 72 B2  .Pr2
+JMP  L150F                     ; F000-164E EB BF        k?
+CALL L1657                     ; F000-1650 E8 04 00     h..
+JB   L1600                     ; F000-1653 72 AB        r+
+JMP  L150F                     ; F000-1655 EB B8        k8
+PUSH AX                        ; F000-1657 50           P
+CALL L17F2                     ; F000-1658 E8 97 01     h..
+JNB  L1687                     ; F000-165B 73 2A        s*
+POP AX                         ; F000-165D 58           X
+CALL L187C ; check if hex digit  ; F000-165E E8 1B 02     h..
+JNB  L1665                     ; F000-1661 73 02        s.
+CLC                            ; F000-1663 F8           x
+RET                            ; F000-1664 C3           C
+; 
+L1665:
+MOV  CH,AL                     ; F000-1665 8A E8        .&
+SUB  BL,0Bh                    ; F000-1667 80 EB 0B     .k.
+MOV  AL,BL                     ; F000-166A 8A C3        .C
+MOV  AH,00h                    ; F000-166C B4 00        4.
+MOV  CL,03h                    ; F000-166E B1 03        1.
+DIV  CL                        ; F000-1670 F6           v
+DIV  CL                        ; F000-1671 F1           q
+ADD  AX,[L05BE]                ; F000-1672 03 06 BE 05  ..>.
+MOV  BX,AX                     ; F000-1676 8B D8        .X
+MOV  AL,ES:[BX]                ; F000-1679 8A 07        ..
+MOV  AL,[BX]                   ; F000-167B D0 E0        P`
+MOV  AL,[BX]                   ; F000-167D D0 E0        P`
+MOV  AL,[BX]                   ; F000-167F D0 E0        P`
+MOV  AL,[BX]                   ; F000-1681 D0 E0        P`
+ADD  AL,CH                     ; F000-1683 02 C5        .E
+JMP  L1595                     ; F000-1685 EB 0E        k.
+SUB  BL,ASC":"                 ; F000-1687 80 EB 3A     .k-
+MOV  AL,BL                     ; F000-168A 8A C3        .C
+MOV  AH,00h                    ; F000-168C B4 00        4.
+ADD  AX,[L05BE]                ; F000-168E 03 06 BE 05  ..>.
+MOV  BX,AX                     ; F000-1692 8B D8        .X
+POP  AX                        ; F000-1694 58           X
+MOV  ES:[BX],AL                ; F000-1696 88 07        ..
+MOV  [L05C2],AL                ; F000-1698 A2 C2 05     "B.
+CALL L17F2                     ; F000-169B E8 54 01     hT.
+JNB  L16BF                     ; F000-169E 73 1F        s.
+PUSH BX                        ; F000-16A0 53           S
+MOV  AL,08h                    ; F000-16A1 B0 08        0.
+CALL L19F7          ; oswrch   ; F000-16A3 E8 51 03     hQ.
+MOV  AL,[L05C2]                ; F000-16A6 A0 C2 05      BGET
+CALL L1861                     ; F000-16A9 E8 B5 01     h5.
+CALL L16F4                     ; F000-16AC E8 45 00     hE.
+MOV  AL,[L05C2]                ; F000-16AF A0 C2 05      BGET
+CALL L184D                     ; F000-16B2 E8 98 01     h..
+POP  BX                        ; F000-16B5 5B           [
+MOV  CL,BL                     ; F000-16B6 8A CB        .K
+MOV  DL,BL                     ; F000-16B8 8A D3        .S
+CALL L17DA                     ; F000-16BA E8 1D 01     h..
+CLC                            ; F000-16BD F8           x
+RET                            ; F000-16BE C3           C
+;
+L16BF:
+PUSH BX                        ; F000-16BF 53           S
+MOV  AL,[L05C2]                ; F000-16C0 A0 C2 05      BGET
+PUSH AX                        ; F000-16C3 50           P
+CALL L184D                     ; F000-16C4 E8 86 01     h..
+CALL L1708                     ; F000-16C7 E8 3E 00     h>.
+MOV  AL,08h                    ; F000-16CA B0 08        0.
+CALL L19F7          ; oswrch   ; F000-16CC E8 28 03     h(.
+POP  AX                        ; F000-16CF 58           X
+CALL L1861                     ; F000-16D0 E8 8E 01     h..
+POP  BX                        ; F000-16D3 5B           [
+CMP  BL,49h                    ; F000-16D4 80 FB 49     .{I
+JNZ  L16DC                     ; F000-16D7 75 03        u.
+JMP  L1779                     ; F000-16D9 E9 9D 00     i..
+INC  BL                        ; F000-16DC FE C3        ~C
+MOV  CL,BL                     ; F000-16DE 8A CB        .K
+MOV  DL,BL                     ; F000-16E0 8A D3        .S
+CALL L17DA                     ; F000-16E2 E8 F5 00     hu.
+CLC                            ; F000-16E5 F8           x
+RET                            ; F000-16E6 C3           C
+;
+L16E7:
+CALL L17F2                     ; F000-16E7 E8 08 01     h..
+JNB  L16F0                     ; F000-16EA 73 04        s.
+CALL L16F4                     ; F000-16EC E8 05 00     h..
+RET                            ; F000-16EF C3           C
+;
+L16F0:
+CALL L1708                     ; F000-16F0 E8 15 00     h..
+RET                            ; F000-16F3 C3           C
+;
+L16F4:
+SUB  BL,0Bh                    ; F000-16F4 80 EB 0B     .k.
+MOV  AL,BL                     ; F000-16F7 8A C3        .C
+MOV  AH,00h                    ; F000-16F9 B4 00        4.
+MOV  CL,03h                    ; F000-16FB B1 03        1.
+DIV  CL                        ; F000-16FD F6           v
+DIV  CL                        ; F000-16FE F1           q
+ADD  AL,ASC":"                 ; F000-16FF 04 3A        .-
+MOV  CL,AL                     ; F000-1701 8A C8        .H
+MOV  DL,AL                     ; F000-1703 8A D0        .P
+JMP  L17DA                     ; F000-1705 E9 D2 00     iR.
+;
+L1708:
+SUB  BL,ASC":"                 ; F000-1708 80 EB 3A     .k-
+MOV  AL,BL                     ; F000-170B 8A C3        .C
+MOV  CL,03h                    ; F000-170D B1 03        1.
+MUL  CL                        ; F000-170F F6 E1        va
+ADD  AL,0Bh                    ; F000-1711 04 0B       ..
+MOV  CL,AL                     ; F000-1713 8A C8
+MOV  DL,AL                     ; F000-1715 8A D0
+CALL L17DA                     ; F000-1717 E8 C0 00
+RET                            ; F000-171A C£
+CALL L17F2                     ; F000-171B E8 D4 00     hT.
+JNB  L173C                     ; F000-171E 73 1C        s.
+CMP  BL,0Bh                    ; F000-1720 80 FB 0B     .{.
+JNZ  L172E                     ; F000-1723 75 09        u.
+SUB  WORD [L05BE],B210h        ; F000-1725 83 2E BE 05 10 ..>.
+CMP  CL,BH                     ; F000-172B 38 F9
+RET                            ; F000-172D C3           C
+;
+L172E:
+MOV  CX,0003h                  ; F000-172E B9 03 00     9..
+MOV  AL,08h                    ; F000-1731 B0 08        0.
+L1733:
+CALL L19F7          ; oswrch   ; F000-1733 E8 C1 02     hA.
+LOOP L1733                     ; F000-1736 E2 FB        b{
+SUB  DL,03h                    ; F000-1738 80 EA 03     .j.
+RET                            ; F000-173B C3           C
+L173C:
+CMP  BL,ASC":"                 ; F000-173C 80 FB 3A     .{-
+JNZ  L174A                     ; F000-173F 75 09        u.
+SUB  WORD PTR [L05BE],B210h    ; F000-1741 83 2E BE 05 10 ..>.
+DEC CX                         ; F000-1747 49        2I
+STC                            ; F000-1748 F9           y
+RET                            ; F000-1749 C3           C
+;
+L174A:
+MOV  AL,08h                    ; F000-174A B0 08        0.
+CALL L19F7          ; oswrch   ; F000-174C E8 A8 02     h(.
+SUB  DL,01h                    ; F000-174F 80 EA 01     .j.
+RET                            ; F000-1752 C3           C
+;
+L1753:
+CALL L17F2                     ; F000-1753 E8 9C 00     h..
+JNB  L1774                     ; F000-1756 73 1C        s.
+CMP  BL,38h                    ; F000-1758 80 FB 38     .{8
+JNZ  L1766                     ; F000-175B 75 09        u.
+ADD  [L05BE],0010h             ; F000-175D 83 06 BE 05 10 ..>.
+MOV  DL,0Bh                    ; F000-1762 B2 0B        2.
+STC                            ; F000-1764 F9           y
+RET                            ; F000-1765 C3           C
+;
+L1766:
+MOV  CX,0003h                  ; F000-1766 B9 03 00     9..
+MOV  AL,09h                    ; F000-1769 B0 09        0.
+CALL L19F7                     ; F000-176B E8 89 02     h..
+LOOP L176B                     ; F000-176E E2 FB        b{
+ADD  DL,03h                    ; F000-1770 80 C2 03     .BGET
+RET                            ; F000-1773 C3           C
+;
+L1774:
+CMP  BL,49h                    ; F000-1774 80 FB 49     .{I
+JNZ  L1782                     ; F000-1777 75 09        u.
+ADD  [L05BE],0010h             ; F000-1779 83 06 BE 05 10 ..>.
+MOV  DL,ASC":"                 ; F000-177E B2 3A        2-
+STC                            ; F000-1780 F9           y
+RET                            ; F000-1781 C3           C
+;
+L1782:
+MOV  AL,09h                    ; F000-1782 B0 09        0.
+CALL L19F7                     ; F000-1784 E8 70 02     hp.
+ADD  DL,01h                    ; F000-1787 80 C2 01     .BGET
+RET                            ; F000-178A C3           C
+;
+L178B:
+SUB  [L05BE],0010h             ; F000-178B 83 2E BE 05 10 ..>.
+STC                            ; F000-1790 F9           y
+RET                            ; F000-1791 C3           C
+;
+L1792:
+ADD  [L05BE],0010h             ; F000-1792 83 06 BE 05 10 ..>.
+STC                            ; F000-1797 F9           y
+RET                            ; F000-1798 C3           C
+;
+L1799:
+RET                            ; F000-1799 C3           C
+;
+L179A:
+CALL L17F2                     ; F000-179A E8 55 00     hU.
+JNB  L17A7                     ; F000-179D 73 08        s.
+MOV  CL,0Bh                    ; F000-179F B1 0B        1.
+MOV  DL,CL                     ; F000-17A1 8A D1        .Q
+CALL L17DA                     ; F000-17A3 E8 34 00     h4.
+RET                            ; F000-17A6 C3           C
+;
+L17A7:
+MOV  CL,ASC":"                 ; F000-17A7 B1 3A        1-
+MOV  DL,CL                     ; F000-17A9 8A D1        .Q
+CALL L17DA                     ; F000-17AB E8 2C 00     h,.
+RET                            ; F000-17AE C3           C
+;
+L17AF:
+CALL L17F2                     ; F000-17AF E8 40 00     h@.
+JNB  L17BC                     ; F000-17B2 73 08        s.
+MOV  CL,38h                    ; F000-17B4 B1 38        18
+MOV  DL,CL                     ; F000-17B6 8A D1        .Q
+CALL L17DA                     ; F000-17B8 E8 1F 00     h..
+RET                            ; F000-17BB C3           C
+;
+L17BC:
+MOV  CL,49h                    ; F000-17BC B1 49        1I
+MOV  DL,CL                     ; F000-17BE 8A D1        .Q
+CALL L17DA                     ; F000-17C0 E8 17 00     h..
+RET                            ; F000-17C3 C3           C
+;
+L17C4:
+RET                            ; F000-17C4 C3           C
+;
+L17C5:
+RET                            ; F000-17C5 C3           C
+;
+L17C6:
+OUT  16h,AX                    ; F000-17C6 E7 16        g.
+SBB  DX,[BX]                   ; F000-17C8 1B 17        ..
+PUSH BX                        ; F000-17CA 53           S
+POP  SS                        ; F000-17CB 17           .
+MOV  DX,[BX]                   ; F000-17CC 8B 17        ..
+XCHG AX,DX                     ; F000-17CE 92           .
+POP  SS                        ; F000-17CF 17           .
+CWD                            ; F000-17D0 99           .
+POP  SS                        ; F000-17D1 17           .
+CALL 0C417h:0AF17h             ; F000-17D2 9A 17 AF 17 C4 ../.
+POP  SS                        ; F000-17D7 17           .
+LDS  DX,[BX]                   ; F000-17D8 C5 17        ENDPROC
+CALL L17ED                     ; F000-17DA E8 10 00     h..
+MOV  AL,1Fh                    ; F000-17DD B0 1F        0.
+CALL L19F7  ; VDU 31 - TAB     ; F000-17DF E8 15 02     h..
+MOV  AL,CL                     ; F000-17E2 8A C1        .A
+CALL L19F7  ; Send X coord     ; F000-17E4 E8 10 02     h..
+MOV  AL,BH                     ; F000-17E7 8A C7        .G
+CALL L19F7  ; Send Y coord     ; F000-17E9 E8 0B 02     h..
+RET                            ; F000-17EC C3           C
+MOV  AL,86h                    ; F000-17ED B0 86        0.
+JMP  L1E17 ;  OSBYTE &86 - read POS and VPOS
+CALL L117ED                    ; F000-17F2 E8 F8 FF     hx.
+CMP  BL,39h                    ; F000-17F5 80 FB 39     .{9
+RET                            ; F000-17F8 C3           C
+;
+L17F9:
+PUSH ES                        ; F000-17F9 06           .
+SUB  AX,AX                     ; F000-17FA 2B C0        +@
+MOV  ES,AX                     ; F000-17FC 8E C0        .@
+PUSH BX                        ; F000-17FE 53           S
+MOV  BX,ES:[L05BC]             ; F000-1800 8B 1E BC 05  ..<.
+CALL L185A                     ; F000-1804 E8 53 00     hS.
+MOV  AL,ASC":"                 ; F000-1807 B0 3A        0-
+CALL L19F7                     ; F000-1809 E8 EB 01     hk.
+POP  BX                        ; F000-180C 5B           [
+CALL L185A                     ; F000-180D E8 4A 00     hJ.
+PUSH DS                        ; F000-1810 1E           .
+MOV  AX,ES:[L05BC]             ; F000-1812 A1 BC 05     !<.
+MOV  DS,AX                     ; F000-1815 8E D8        .X
+MOV  CX,0010h                  ; F000-1817 B9 10 00     9..
+PUSH BX                        ; F000-181A 53           S
+MOV  AL,ASC" "                 ; F000-181B B0 20        0
+CALL L19F7                     ; F000-181D E8 D7 01     hW.
+MOV  AL,[BX]                   ; F000-1820 8A 07        ..
+CALL L1861                     ; F000-1822 E8 3C 00     h<.
+INC  BX                        ; F000-1825 43           C
+LOOP L181B                     ; F000-1826 E2 F3        bs
+MOV  CX,0010h                  ; F000-1828 B9 10 00     9..
+POP  BX                        ; F000-182B 5B           [
+MOV  AL,ASC" "                 ; F000-182C B0 20        0
+CALL L19F7                     ; F000-182E E8 C6 01     hF.
+MOV  AL,[BX]                   ; F000-1831 8A 07        ..
+CALL L184D                     ; F000-1833 E8 17 00     h..
+INC  BX                        ; F000-1836 43           C
+LOOP L1831                     ; F000-1837 E2 F8        bx
+POP  DS                        ; F000-1839 1F           .
+POP  ES                        ; F000-183A 07           .
+RET                            ; F000-183B C3           C
+;
+L183C:
+PUSH BX                        ; F000-183C 53           S
+SUB  BX,0004h                  ; F000-183D 83 EB 08     .k.
+JNB  L1846                     ; F000-1840 73 04        s.
+SUB  BX,BX                     ; F000-1842 2B DB        +[
+JMP  L1748                     ; F000-1844 EB 02        k.
+POP  BX                        ; F000-1846 5B           [
+PUSH BX                        ; F000-1847 53           S
+DEC  BX                        ; F000-1848 4B           K
+SUB  BX,SI                     ; F000-1849 2B DE        +^
+POP  BX                        ; F000-184B 5B           [
+RET                            ; F000-184C C3           C
+;
+L184D:
+CMP  AL,ASC" "                 ; F000-184D 3C 20        <
+JB   L1855                     ; F000-184F 72 04        r.
+CMP  AL,7Fh                    ; F000-1851 3C 7F        <.
+JB   L1857                     ; F000-1853 72 02        r.
+MOV  AL,ASC"."                 ; F000-1855 B0 2E        0.
+JMP  L19F7                     ; F000-1857 E9 9D 01     i..
+;
+; Print BX in hex
+L185A:
+MOV  AL,BH                     ; F000-185A 8A C7        .G
+CALL L1861                     ; F000-185C E8 02 00     h..
+MOV  AL,BL                     ; F000-185F 8A C3        .C
+PUSH AX                        ; F000-1861 50           P
+SHR  AL,1                      ; F000-1862 D0 E8        P&
+SHR  AL,1                      ; F000-1864 D0 E8        P&
+SHR  AL,1                      ; F000-1866 D0 E8        P&
+SHR  AL,1                      ; F000-1868 D0 E8        P&
+CALL L186E                     ; F000-186A E8 01 00     h..
+POP  AX                        ; F000-186D 58           X
+;  print hex nybble
+AND  AX,000Fh                  ; F000-186E 25 0F 00     %..
+CMP  AL,0Ah                    ; F000-1871 3C 0A        <.
+JB   L1877                     ; F000-1873 72 02        r.
+ADD  AL,07h                    ; F000-1875 04 07        ..
+ADD  AL,ASC"0"                 ; F000-1877 04 30        .0
+JMP  L19F7                     ; F000-1879 E9 7B 01     i{.
+
+; check if hex digit
+L187C:
+TEST AL,40h                    ; F000-187C A8 40        (@
+JZ   L1882                     ; F000-187E 74 02        t.
+AND  AL,DFh                    ; F000-1880 24 DF        $_
+CMP  AL,ASC"0"                 ; F000-1882 3C 30        <0
+JB   L1898                     ; F000-1884 72 12        r.
+CMP  AL,ASC"G"                 ; F000-1886 3C 47        <G
+JNB  L1898                     ; F000-1888 73 0E        s.
+CMP  AL,ASC":"                 ; F000-188A 3C 3A        <-
+JB   L1894                     ; F000-188C 72 06        r.
+CMP  AL,ASC"A"                 ; F000-188E 3C 41        <A
+JB   L1898                     ; F000-1890 72 06        r.
+ADD  AL,09h                    ; F000-1892 04 09        ..
+L1894:
+AND  AL,0Fh                    ; F000-1894 24 0F        $.
+CLC                            ; F000-1896 F8           x
+RET                            ; F000-1897 C3           C
+;
+L1898:
+STC                            ; F000-1898 F9           y
+RET                            ; F000-1899 C3           C
+;
+; Read hex value
+L189A:
+PUSH BX
+SUB  BX,BX
+L189D:
+MOV  AL,[SI]
+TEST AL,40h
+L18A1:
+JZ   L18A5
+AND  AL,0DFh
+L18A5:
+CMP  AL,ASC"0"
+JB   L18CD
+CMP  AL,ASC"F"+1
+JNB  L18CD
+CMP  AL,ASC"9"+1
+JB   L18B7
+CMP  AL,ASC"A"
+JB   L18CD
+ADD  AL,09h
+L18B7:
+AND  AL,0Fh
+SHL  BX,1
+SHL  BX,1
+SHL  BX,1
+SHL  BX,1
+OR   AL,BL
+MOV  BL,AL
+INC  SI
+MOV  ES:[L05BE],BX
+JMP  SHORT L189D
+L18CD:
+POP  BX
+RET
+;
+; Print zero-terminated string at BX including the zero byte
+; ==========================================================
+.L18CF
+MOV SI,BX
+CLD                     ; Point SI to string at BX, set to Decimal
+.L18D2
+LODSB                   ; Get byte from [BX] and increment
+CALL L19F7              ; Call WRCH
+TEST AL,AL
+JNZ  L18D2              ; Loop until zero byte printed
+RET
+;
+; Print zero-terminated string at BX not including the zero byte
+; ==============================================================
+.L18DB
+MOV SI,BX
+CLD                     ; Point SI to string at BX, set to Decimal
+.L18DE
+LODSB                   ; Get byte from [BX] and increment
+TEST AL,AL
+JZ L18E8                ; If zero, jump to exit
+CALL L19F7
+JMP L18DE               ; Call WRCH and loop back
+.L18E8
+RET
+;
+; CORE TUBE COMMUNICATION ROUTINES
+; ================================
+;
+; Send byte in AL to Tube
+; -----------------------
+.L18E9
+PUSH AX                 ; Save data byte
+L18EA:
+IN   AL,84h             ; Read Tube R2 Status
+SHL  AL,1               ; Move bit 6 into bit 7
+JNS  L18EA              ; Not ready to send, loop back
+POP  AX                 ; Get byte back
+OUT  86h,AL             ; Send to Tube R2 Data port
+RET
+;
+; Wait for byte from TubeR2, returning it in AL
+L18F4:
+IN   AL,84h                      ; F000-18F4 E4 84        d.
+TEST AL,AL                       ; F000-18F6 84 C0        .@
+JNS  L18F3                       ; F000-18F8 79 FA        yz
+IN   AL,86h                      ; F000-18FA E4 86        d.
+RET                              ; F000-18FC C3           C
+
+L18FD:
+PUSH AX                          ; F000-18FD 50           P
+IN   AL,80h                      ; F000-18FE E4 80        d.
+IN   AL,80h                      ; F000-1900 D0 E0        P`
+JNS  L18FD                       ; F000-1902 79 FA        yz
+POP  AX                          ; F000-1904 58           X
+OUT  82h,AL                      ; F000-1905 E6 82        f.
+RET                              ; F000-1907 C3           C
+L1908:
+IN   AL,8Ch                      ; F000-1908 E4 8C        d.
+TEST AL,AL                       ; F000-190A 84 C0        .@
+JS   L1916                       ; F000-190C 78 09        x.
+IN   AL,80h                      ; F000-190E E4 80        d.
+TEST AL,AL                       ; F000-1910 84 C0        .@
+JNS  L1907                       ; F000-1912 79 F4        yt
+IN   AL,82h                      ; F000-1914 E4 82        d.
+RET                              ; F000-1916 C3           C
+L1917:
+PUSH DS                          ; F000-1917 1E           .
+PUSH ES                          ; F000-1918 06           .
+PUSHA                            ; F000-1919 60           `
+CALL L2018                       ; F000-191A E8 FB 06     h{.
+POPA                             ; F000-191D 61           a
+POP  ES                          ; F000-191E 07           .
+POP  DS                          ; F000-191F 1F           .
+JMP  L1808                       ; F000-1920 EB E6        kf
+PUSH AX                          ; F000-1922 50           P
+IN   AL,8Ch                      ; F000-1923 E4 8C        d.
+TEST AL,AL                       ; F000-1925 84 C0        .@
+JS   L1930                       ; F000-1927 78 08        x.
+JS   L1930                       ; F000-1929 D0 E0        P`
+JNS  L1922                       ; F000-192B 79 F6        yv
+POP  AX                          ; F000-192D 58           X
+OUT  8Eh,AL                      ; F000-192E E6 8E        f.
+RET                              ; F000-1930 C3           C
+L1931:
+PUSH DS                         ; F000-1931 1E           .
+PUSH ES                         ; F000-1932 06           .
+PUSHA                           ; F000-1933 60           `
+CALL L2018                      ; F000-1934 E8 E1 06     ha.
+POPA                            ; F000-1937 61           a
+POP  ES                         ; F000-1938 07           .
+POP  DS                         ; F000-1939 1F           .
+JMP  L1823                      ; F000-193A EB E7        kg
+PUSH DX                         ; F000-193C 52           R
+MOV  DH,0000h                   ; F000-193D B6 00        6.
+DEC  DL                         ; F000-193F FE CA        ~J
+DEC  DL                         ; F000-1941 FE CA        ~J
+IN   AL,DX                      ; F000-1943 EC           l
+TEST AL,AL                      ; F000-1944 84 C0        .@
+JNS  L1942                      ; F000-1946 79 FB        y{
+INC  DL                         ; F000-1948 FE C2        ~B
+INC  DL                         ; F000-194A FE C2        ~B
+IN   AL,DX                      ; F000-194C EC           l
+POP  DX                         ; F000-194D 5A           Z
+RET                             ; F000-194E C3           C
+L194F:
+PUSH DX                        ; F000-194F 52           R
+PUSH AX                        ; F000-1950 50           P
+MOV  DH,00h                    ; F000-1951 B6 00        6.
+DEC  DL                        ; F000-1953 FE CA        ~J
+DEC  DL                        ; F000-1955 FE CA        ~J
+IN   AL,DX                     ; F000-1957 EC           l
+IN   AL,DX                     ; F000-1958 D0 E0        P`
+JNS  L1956                     ; F000-195A 79 FB        y{
+INC  DL                        ; F000-195C FE C2        ~B
+INC  DL                        ; F000-195E FE C2        ~B
+POP  AX                        ; F000-1960 58           X
+OUT  DX,AL                     ; F000-1961 EE           n
+POP  DX                        ; F000-1962 5A           Z
+RET                            ; F000-1963 C3           C
+;
+; Send byte in AL to Tube R2
+; --------------------------
+PUSHF                           ; F000-1964 9C           .
+PUSH AX                         ; F000-1965 50           P
+IN   AL,84h                     ; F000-1966 E4 84        d.
+TEST AL,40h                     ; F000-1968 A8 40        (@
+JZ   L1966                      ; F000-196A 74 FA        tz
+MOV  AL,AH                      ; F000-196C 8A C4        .D
+OUT  86h,AL                     ; F000-196E E6 86        f.
+POP  AX                         ; F000-1970 58           X
+POPF                            ; F000-1971 9D           .
+RET                             ; F000-1972 C3           C
+;
+; Wait for byte from TubeR2, returning it in AH
+; ---------------------------------------------
+.L1973
+PUSHF                          ; F000-1973 9C           .
+XCHG AL,AH                     ; F000-1974 86 E0        .`
+L1976:
+IN   AL,84h                    ; F000-1976 E4 84        d.
+TEST AL,80h                    ; F000-1978 A8 80        (.
+JZ   L1976                     ; F000-197A 74 FA        tz
+IN   AL,86h                    ; F000-197C E4 86        d.
+XCHG AL,AH                     ; F000-197E 86 E0        .`
+POPF                           ; F000-1980 9D           .
+RET                            ; F000-1981 C3           C
+
+L1982:
+PUSHF                          ; F000-1982 9C           .
+XCHG AH,AL                     ; F000-1983 86 C4        .D
+L1985:
+IN   AL,80h                    ; F000-1985 E4 80        d.
+TEST AL,80h                    ; F000-1987 A8 80        (.
+JZ   L1985                     ; F000-1989 74 FA        tz
+IN   AL,82h                    ; F000-198B E4 82        d.
+XCHG AH,AL                     ; F000-198D 86 C4        .D
+POPF                           ; F000-198F 9D           .
+RET                            ; F000-1990 C3           C
+
+L1991:
+PUSHF                          ; F000-1991 9C           .
+XCHG AH,AL                     ; F000-1992 86 C4        .D
+IN   AL,8Ch                    ; F000-1994 E4 8C        d.
+TEST AL,80h                    ; F000-1996 A8 80        (.
+JZ   L1994                     ; F000-1998 74 FA        tz
+IN   AL,8Eh                    ; F000-199A E4 8E        d.
+XCHG AH,AL                     ; F000-199C 86 C4        .D
+POPF                           ; F000-199E 9D           .
+RET                            ; F000-199F C3           C
+
+; Send string at BX to Tube
+; -------------------------
+L19A0:
+PUSH BX                 ; Save pointer to string
+L19A1:
+MOV  AL,[BX]            ; Get byte from string
+CALL L18E9              ; Send to Tube
+CMP  BYTE PTR [BX],0Dh  ; Was it <cr> ?
+JZ   L19AE              ; End of string, exit
+INC  BX                 ; Point to next character
+JMP  L19A1              ; Loop to send next character
+L19AE:
+POP  BX                 ; Restore string pointer
+RET                     ; and return
+;
+; OSRDCH
+; ======
+.L19B0
+STI
+CALL L19C3
+;
+;
+; End INT call
+; ============
+; Need to modify stacked flags to pass flags to caller
+;
+PUSH BP                      ; Save BP and AX so we can use them
+PUSH AX
+MOV  BP,SP                   ; Point BP to stack
+LAHF                         ; Get flags into AH
+MOV  BYTE [BX+SI+08h],08h    ;
+OR   [BX+SI+08h],AH          ; Store flags on stack to be popped on return
+POP  AX                      ; Get AX and BP back again
+POP  BP
+IRET                         ; Pop flags and return to caller
+;
+L19C3:
+XCHG AH,AL                     ; F000-19C3 86 C4        .D
+MOV  AH,00h                    ; F000-19C5 B4 00        4.
+CALL L1964                     ; F000-19C7 E8 9A FF     h..
+CALL L1973                     ; F000-19CA E8 A6 FF     h&.
+NOT  AH                        ; F000-19CD F6           v
+AAM  80h                       ; F000-19CE D4 80        TAN
+CLD                            ; F000-19D0 FC           |
+SUB  AL,9Eh                    ; F000-19D1 80 E8 9E     .h.
+INC  BYTE PTR [BX+SI+0C3C4h]   ; F000-19D4 FF 86 C4 C3 FB 3C .
+L19DA:
+OR   AX,0875h                  ; F000-19DA 0D 75        .u
+OR   BL,BH                     ; F000-19DC 08 FB        .{
+MOV  AL,0Ah                    ; F000-19DE B0 0A        0.
+CALL L19F7                     ; F000-19E0 E8 14 00     h..
+MOV  AL,0Dh                    ; F000-19E3 B0 0D        0.
+L19E5:
+STI                            ; F000-19E5 FB           {
+CALL L19F7                     ; F000-19E6 E8 0E 00     h..
+JMP  L19B4                     ; F000-19E9 E9 C8 FF     iH.
+;
+; OSASCI
+CMP  AL,0Dh  ; Char=<cr>?      ; F000-19EC 3C 0D        <.
+JNZ  L19F7   ; No, print character
+;
+; OSNEWL
+L19F0:
+MOV  AL,0Ah                    ; F000-19F0 B0 0A        0.
+CALL L19F7 ; Print <lf>        ; F000-19F2 E8 02 00     h..
+MOV  AL,0Dh                    ; F000-19F5 B0 0D        0.
+;
+; OSWRCH
+.L19F7
+XCHG AH,AL   ; Save character in AH      ; F000-19F7 86 C4        .D
+IN   AL,80h  ; Read Tube R1 Status       ; F000-19F9 E4 80        d.
+IN   AL,80h                              ; F000-19FB D0 E0        P`
+JNS  L19F8   ; Loop until b7=0, R1 free  ; F000-19FD 79 FA        yz
+XCHG AH,AL   ; Get c&aracter back to AL  ; F000-19FF 86 C4        .D
+OUT  82h,AL  ; Send character to Tube R1 ; F000-1A01 E6 82        f.
+RET                                      ; F000-1A03 C3           C
+;
+L1A04:
+MOV  DX,0082h                   ; F000-1A04 BA 82 00     -..
+IN   AL,80h                     ; F000-1A07 E4 80        d.
+IN   AL,80h                     ; F000-1A09 D0 E0        P`
+JNS  L1A06                      ; F000-1A0B 79 FA        yz
+OUTSB                           ; F000-1A0D 6E           n
+LOOP L1A07                      ; F000-1A0E E2 F7        bw
+RET                             ; F000-1A10 C3           C
+
+; OSCLI
+; =====
+L1A11:
+STI
+CALL L1A18
+JMP L19B4
+L1A18:
+PUSH AX                         ; F000-1A18 50           P
+PUSH BX                         ; F000-1A19 53           S
+PUSH CX                         ; F000-1A1A 51           Q
+PUSH DX                         ; F000-1A1B 52           R
+PUSH SI                         ; F000-1A1C 56           V
+PUSH DS                         ; F000-1A1D 1E           .
+PUSH ES                         ; F000-1A1E 06           .
+SUB  AX,AX                      ; F000-1A1F 2B C0        +@
+MOV  ES,AX                      ; F000-1A21 8E C0        .@
+MOV  SI,BX                      ; F000-1A23 8B F3        .s
+L1A25:
+CALL L1B30                      ; F000-1A25 E8 08 01     h..
+CALL L1B28                      ; F000-1A28 E8 FD 00     h}.
+CMP  AL,ASC"*"  ; skip '*'s     ; F000-1A2B 3C 2A        <*
+JZ   L1A25                      ; F000-1A2D 74 F6        tv
+AND  AL,0DFh                    ; F000-1A2F 24 DF        $_
+CMP  AL,ASC"H"                  ; F000-1A31 3C 48        <H
+JZ   L1A62                      ; F000-1A33 74 2D        t-
+CMP  AL,ASC"D"                  ; F000-1A35 3C 44        <D
+JNZ  L1A3C                      ; F000-1A37 75 03        u.
+JMP  L14EB                      ; F000-1A39 E9 AF FA     i/z
+L1A3C:
+CMP  AL,ASC"F"                  ; F000-1A3C 3C 46        <F
+JNZ  L1A43                      ; F000-1A3E 75 03        u.
+JMP  L10D4                      ; F000-1A40 E9 91 F6     i.v
+L1A43:
+CMP  AL,ASC"G"                  ; F000-1A43 3C 47        <G
+JNZ  L1A4A                      ; F000-1A45 75 03        u.
+JMP  L14A1                      ; F000-1A47 E9 57 FA     iWz
+L1A4A:
+CMP  AL,ASC"M"                  ; F000-1A4A 3C 4D        <M
+JNZ  L1A51                      ; F000-1A4C 75 03        u.
+JMP  L1485                      ; F000-1A4E E9 34 FA     i4z
+L1A51:
+CMP  AL,ASC"S"                  ; F000-1A51 3C 53        <S
+JNZ  L1A58                      ; F000-1A53 75 03        u.
+JMP  L15A9                      ; F000-1A55 E9 51 FB     iQ{
+L1A58:
+CMP  AL,ASC"T"                  ; F000-1A58 3C 54        <T
+JNZ  L1A5F                      ; F000-1A5A 75 03        u.
+JMP  L1361                      ; F000-1A5C E9 02 F9     i.y
+
+L1A5F:
+JMP  L1AA3                      ; F000-1A5F E9 41 00     iA.
+
+; *HELP
+L1A62:
+INC  SI                         ; F000-1A62 46           F
+MOV  AL,[SI]                    ; F000-1A63 8A 04        ..
+CMP  AL,ASC"."                  ; F000-1A65 3C 2E        <.
+JZ   L1A96                      ; F000-1A67 74 2D        t-
+AND  AL,0DFh                    ; F000-1A69 24 DF        $_
+CMP  AL,ASC"E"                  ; F000-1A6B 3C 45        <E
+JNZ  L1AA3                      ; F000-1A6D 75 34        u4
+INC  SI                         ; F000-1A6F 46           F
+MOV  AL,[SI]                    ; F000-1A70 8A 04        ..
+CMP  AL,ASC"."                  ; F000-1A72 3C 2E        <.
+JZ   L1A96                      ; F000-1A74 74 20        t
+AND  AL,0DFh                    ; F000-1A76 24 DF        $_
+CMP  AL,ASC"L"                  ; F000-1A78 3C 4C        <L
+JNZ  L1AA3                      ; F000-1A7A 75 27        u'
+INC  SI                         ; F000-1A7C 46           F
+MOV  AL,[SI]                    ; F000-1A7D 8A 04        ..
+CMP  AL,ASC"."                  ; F000-1A7F 3C 2E        <.
+JZ   L1A96                      ; F000-1A81 74 13        t.
+AND  AL,0DFh                    ; F000-1A83 24 DF        $_
+CMP  AL,ASC"P"                  ; F000-1A85 3C 50        <P
+JNZ  L1AA3                      ; F000-1A87 75 1A        u.
+INC  SI                         ; F000-1A89 46           F
+MOV  AL,[SI]                    ; F000-1A8A 8A 04        ..
+CALL L1CF2                      ; F000-1A8C E8 63 02     hc.
+JNB  L1AA3                      ; F000-1A8F 73 12        s.
+CALL L1B28                      ; F000-1A91 E8 94 00     h..
+JMP  L1999                      ; F000-1A94 EB 03        k.
+L1A96:
+CALL L1B27                      ; F000-1A96 E8 8E 00     h..
+CMP  AL,0Dh                     ; F000-1A99 3C 0D        <.
+JNZ  L1AE1                      ; F000-1A9B 75 44        uD
+CALL L1B37     ; Print help message 80(1/2)86 TUBE 1.00
+CALL L1B72                      ; F000-1AA0 E8 CF 00     hO.
+
+; Pass *command to Client
+; -----------------------
+L1AA3:
+MOV  AL,02h
+CALL L18E9     ; Send command &02 - OSCLI
+CALL L19A0     ; Send string
+CALL L18F4     ; Wait for reply from TubeR2
+CMP  AL,80h
+JZ   L1ABA     ; Enter code
+;
+; Exit from *command
+; ------------------
+L1AB2:
+POP  ES                 ; Restore all registers
+POP  DS
+POP  SI
+POP  DX
+POP  CX
+POP  BX
+POP  AX
+RET
+;
+; Enter code transfered by OSCLI command
+; --------------------------------------
+; On entry, ES=0 to point to Client's workspace
+;
+L1ABA:
+MOV  BYTE ES:[L2601],01h ; Set *RUN flag
+PUSH ES:[L05A4]          ; Push current program address
+PUSH ES:[L05A6]          ; Push current program segment
+CALL L1CFC               ; Enter the code
+MOV  AX,0
+MOV  ES,AX               ; Restore ES pointing to Client's workspace
+POP  ES:[L05A6]          ; Restore program segment
+POP  ES:[L05A4]          ; Restore program address
+JMP  L19B2               ; Jump to return from OSCLI
+
+L1ADE:
+INC  SI                         ; F000-1ADE 46           F
+MOV  AL,[SI]                    ; F000-1ADF 8A 04        ..
+CMP  AL,ASC"."                  ; F000-1AE1 3C 2E        <.
+JZ   L1B1E                      ; F000-1AE3 74 39        t9
+AND  AL,0DFh                    ; F000-1AE5 24 DF        $_
+CMP  AL,ASC"M"                  ; F000-1AE7 3C 4D        <M
+JZ   L1AFC                      ; F000-1AE9 74 11        t.
+CMP  AL,0Dh                     ; F000-1AEB 3C 0D        <.
+JZ   L1AA3                      ; F000-1AED 74 B4        t4
+INC  SI                         ; F000-1AEF 46           F
+MOV  AL,[SI]                    ; F000-1AF0 8A 04        ..
+CMP  AL,0Dh                     ; F000-1AF2 3C 0D        <.
+JZ   L1AA3                      ; F000-1AF4 74 AD        t-
+CMP  AL,ASC" "                  ; F000-1AF6 3C 20        <
+JNZ  L1AEF                      ; F000-1AF8 75 F5        uu
+JMP  L1ADE                      ; F000-1AFA EB E2        kb
+
+L1AFC:
+INC  SI                         ; F000-1AFC 46           F
+MOV  AL,[SI]                    ; F000-1AFD 8A 04        ..
+CMP  AL,ASC"."                  ; F000-1AFF 3C 2E        <.
+JZ   L1B1E                      ; F000-1B01 74 1B        t.
+AND  AL,0DFh                    ; F000-1B03 24 DF        $_
+CMP  AL,ASC"O"                  ; F000-1B05 3C 4F        <O
+JNZ  L1AEF                      ; F000-1B07 75 E6        uf
+INC  SI                         ; F000-1B09 46           F
+MOV  AL,[SI]                    ; F000-1B0A 8A 04        ..
+CMP  AL,ASC"."                  ; F000-1B0C 3C 2E        <.
+JZ   L1B1E                      ; F000-1B0E 74 0E        t.
+AND  AL,0DFh                    ; F000-1B10 24 DF        $_
+CMP  AL,ASC"N"                  ; F000-1B12 3C 4E        <N
+JNZ  L1AEF                      ; F000-1B14 75 D9        uY
+INC  SI                         ; F000-1B16 46           F
+MOV  AL,[SI]                    ; F000-1B17 8A 04        ..
+CALL L1CF2                      ; F000-1B19 E8 D6 01     hV.
+JNB  L1AEF                      ; F000-1B1C 73 D1        sQ
+CALL L1B37        ; Print help message 80(1/2)86 TUBE 1.00
+CALL L1B8B                      ; F000-1B21 E8 67 00     hg.
+JMP  L1AA3                      ; F000-1B24 E9 7C FF     i|.
+L1B27:
+INC  SI                         ; F000-1B27 46           F
+MOV  AL,[SI]                    ; F000-1B28 8A 04        ..
+CMP  AL,ASC" "                  ; F000-1B2A 3C 20        <
+JZ   L1B27                      ; F000-1B2C 74 F9        ty
+RET                             ; F000-1B2E C3           C
+L1B2F:
+INC  SI                         ; F000-1B2F 46           F
+MOV  AL,[SI]                    ; F000-1B30 8A 04        ..
+CMP  AL,ASC"*"                  ; F000-1B32 3C 2A        <*
+JZ   L1B2F                      ; F000-1B34 74 F9        ty
+RET                             ; F000-1B36 C3           C
+
+; Print help message, 80(1/2)86 TUBE 1.00
+L1B37:
+PUSH BX                         ; F000-1B37 53           S
+PUSH DS                         ; F000-1B38 1E           .
+MOV  AX,ES:[0102h]              ; F000-1B3A A1 02 01     !..
+MOV  DS,AX                      ; F000-1B3D 8E D8        .X
+MOV  BX,L1B5F    ; cr,lf,"80"   ; F000-1B3F BB 5F 1B     ;_.
+CALL L18CF                      ; F000-1B42 E8 8A FD     h.}
+PUSH SP                         ; F000-1B45 54           T
+POP  AX                         ; F000-1B46 58           X
+CMP  AX,SP                      ; F000-1B47 3B C4        ;D
+JZ   L1B50                      ; F000-1B49 74 05        t.
+MOV  AX,00BAh                   ; F000-1B4B B8 BA 00     8-.
+JMP  L1A53                      ; F000-1B4E EB 03        k.
+MOV  AX,011Eh                   ; F000-1B50 B8 1E 01     8..
+CALL L0DAA                      ; F000-1B53 E8 54 F2     hTr
+MOV  BX,L1B64    ; " TUBE 1.00",cr,lf
+CALL L18CF                      ; F000-1B59 E8 73 FD     hs}
+POP  DS                         ; F000-1B5C 1F           .
+POP  BX                         ; F000-1B5D 5B           [
+RET                             ; F000-1B5E C3           C
+L1B5F:  DB 13,10,"80",0
+L1B64:  DB " TUBE 1.00",13,10,0
+
+L1B71:
+DB 64h
+L1B72:
+PUSH BX                        ; F000-1B72 53
+PUSH DS                        ; F000-1B73 1E           .
+MOV  AX,ES:[0102h]             ; F000-1B75 A1 02 01     !..
+MOV  DS,AX                     ; F000-1B78 8E D8        .X
+MOV  BX,L1B83     ; =>"  MON",13,10,0
+CALL L18CF        ; print string
+POP  DS                         ; F000-1B80 1F           .
+POP  BX                         ; F000-1B81 5B           [
+RET                             ; F000-1B82 C3           C
+L1B83: DB "  MON",13,10,0
+L1B8B:
+PUSH BX                         ; F000-1B8B 53
+PUSH DS                         ; F000-1B8C 1E     .STEP
+MOV  AX,ES:[0102h]              ; F000-1B8E A1 02 01     !..
+MOV  DS,AX                      ; F000-1B91 8E D8        .X
+MOV  BX,L1B9C                   ; F000-1B93 BB 9C 1B     ;..
+CALL L18CF     ; print string   ; F000-1B96 E8 36 FD     h6}
+POP  DS                         ; F000-1B99 1F           .
+POP  BX                         ; F000-1B9A 5B           [
+RET                             ; F000-1B9B C3           C
+L1B9C: ; help text
+DB "  d         (<segment>:) (<start offset>) (<end offset>)",13,10
+DB "  dos",13,10
+DB "  f         (<segment>:) (<start offset>) <end offset> <fill byte|word>",13,10
+DB "  go        (<segment>:) <offset>",13,10
+DB "  mon",13,10
+DB "  s         (<segment>:) <offset>",13,10
+DB "  sr        (<segment>:) <start offset> <end offset> <""string"">",13,10
+DB "  tfer      <io addr.> (<segment>:) <offset> <length> <r|w>",13,10
+DB 0
+.L1CF2
+DB   024h
+DB   0DFh; **Unimplemented FPU Directive**                      ; F000-1CF3 DF           _
+CMP  AL,ASC"A"                  ; F000-1CF4 3C 41        <A
+JB   L1CFB                      ; F000-1CF6 72 03        r.
+CMP  AL,ASC"Z"+1                ; F000-1CF8 3C 5B        <[
+CMC                             ; F000-1CFA F5           u
+RET                             ; F000-1CFB C3           C
+;
+; Enter code
+; ==========
+; Check if code has a ROM header. If 80x86 code then set as current program and enter it
+; If wrong code, boot from disk or give an error
+; If no ROM header, enter as raw code
+; If Boot/NoBoot flag is &00, bad ROM header will boot from disk - called from RESET.
+; If Boot/NoBoot flag <> &00, bad ROM header will give error - called from OSCLI.
+;
+; Must enter with ES=0 to point to Tube Client's workspace
+;
+.L1CFC
+MOV  AX,ES:[L05A0]      ; Get transfer address             ; F000-1CFD A1 A0 05     ! .
+MOV  ES:[L05A4],AX      ; Store as current program address ; F000-1D01 A3 A4 05     #$.
+MOV  AX,ES:[L05A2]      ; Get transfer address offset      ; F000-1D05 A1 A2 05     !".
+MOV  ES:[L05A6],AX      ; Store as current program offset  ; F000-1D09 A3 A6 05     #&.
+MOV  ES:[L05F6],AX      ; Get something                    ; F000-1D0D A3 F6 05     #v.
+PUSH ES                 ; Save ES                          ; F000-1D10 06           .
+LDS  SI,ES:[L05A0]      ; Get transfer address             ; F000-1D12 C5 36 A0 05  E6 .
+MOV  BX,DS                      ; F000-1D16 8C DB        .[
+MOV  CX,SI                      ; F000-1D18 8B CE        .N
+ADD  SI,0007h           ; Point to copyright offset
+MOV  DX,SI                      ; F000-1D1D 8B D6        .V
+MOV  AL,[SI]                    ; F000-1D1F 8A 04        ..
+MOV  AH,00h                     ; F000-1D21 B4 00        4.
+MOV  SI,CX                      ; F000-1D23 8B F1        .q
+ADD  SI,AX                      ; F000-1D25 03 F0        .p
+MOV  ES:[L05F4],SI              ; F000-1D28 89 36 F4 05  .6t.
+LES  DI,ES:[L05B4]              ; F000-1D2D C4 3E B4 05  D>4.
+MOV  CX,0004h           ; 4 bytes to match
+DB   0F3h ; REPE        ; Check if 0,"(C)"
+DB   0A6h ; CMSB                           ; F000-1D35 A6           &
+POP  ES                 ; Restore ES       ; F000-1D36 07           .
+JNZ  L1D56              ; No ROM header, jump to enter code directly; F000-1D37 75 1D        u.
+MOV  SI,DX              ; SI=>copyrig&t offset                      ; F000-1D39 8B F2        .r
+DEC  SI                 ; SI=>ROM type byte                         ; F000-1D3B 4E           N
+MOV  AL,ES:[L05B1]      ; Get reboot/noboot flag                    ; F000-1D3D A0 B1 05      1.
+OR   AL,AL                                 ; F000-1D40 0A C0        .@
+JNZ  L1D6E              ; Jump to check without rebooting           ; F000-1D42 75 2A        u*
+;
+; Check ROM header, reboot if not OK
+; ----------------------------------
+MOV  AL,[SI]            ; Get ROM type byte                         ; F000-1D44 8A 04        ..
+TEST AL,40h             ; Check bit 6 - language bit                ; F000-1D46 A8 40        (@
+JNZ  L1D4D              ; Language, skip past                       ; F000-1D48 75 03        u.
+JMP  L0B8B              ; Not language, jump to boot DOS            ; F000-1D4A E9 3E EE     i>n
+AND  AL,0Fh             ; Get CPU bits                              ; F000-1D4D 24 0F        $.
+CMP  AL,0Bh             ; Is it 80186?                              ; F000-1D4F 3C 0B        <.
+JZ   L1D69              ; Yes, jump to enter code                   ; F000-1D51 74 16        t.
+JMP  L0B8B              ; Not 80186, jump to boot DOS               ; F000-1D53 E9 35 EE     i5n
+;
+MOV  AL,ES:[L05B1]      ; Get reboot/noboot flag                    ; F000-1D57 A0 B1 05      1.
+OR   AL,AL                                                          ; F000-1D5A 0A C0        .@
+JNZ  L1D69              ; Noboot, jump to enter code                ; F000-1D5C 75 0B        u.
+MOV  AL,ES:[L05B2]      ; Get another flag                          ; F000-1D5F A0 B2 05      2.
+OR   AL,AL                                                          ; F000-1D62 0A C0        .@
+JZ   L1D69              ; Flag set, jump to enter code              ; F000-1D64 74 03        t.
+JMP  L0B8B                                                          ; F000-1D66 E9 22 EE     i"n
+;
+L1D6A:
+JMP  ES:[L05A0]         ; Enter code
+;
+; Check ROM header, generate error if not OK
+; ------------------------------------------
+L1D6E:
+MOV  BYTE PTR ES:[L05B1],00h                                        ; F000-1D6E 26 C6 06 06 B1 05 &
+MOV  AL,[SI]            ; Get ROM type byte                         ; F000-1D74 8A 04        ..
+TEST AL,40h             ; Check bit6 - language bit                 ; F000-1D76 A8 40        .@
+JZ   L1D84              ; Not language bit, jump to error           ; F000-1D78 74 0A        t.
+AND  AL,0Fh             ; Get CPU bits                              ; F000-1D7A 24 0F        $.
+CMP  AL,0Bh             ; Is it 80186?                              ; F000-1D7C 3C 0B        <.
+JNZ  L1D96              ; Not 80186, jump to error                  ; F000-1D7E 75 16        u.
+MOV  AL,01h             ; AL=1                                      ; F000-1D80 B0 01        0.
+JMP  L1D69              ; Jump to enter code                        ; F000-1D82 EB E5        ke
+L1D84:
+INT  4Fh                ; Generate error
+DB   255,"Not a language",0
+L1D97:
+INT  4Fh
+DB   255,"Not 80186 code",0
+L1DA8:
+DB   0,"(C)"            ; ROM header matching string
+;
+; OSFIND
+; ======
+L1DAC:
+STI                            ; F000-1DAC FB           {
+CALL &1DB3                     ; F000-1DAD E8 03 00     h..
+JMP &119B4                     ; F000-1DB0 E9 01 FC     i.|
+.L1DB3
+PUSH AX                        ; F000-1DB3 50           P
+MOV AL,&012                    ; F000-1DB4 B0 12        0.
+CALL &118E9                    ; F000-1DB6 E8 30 FB     h0{
+POP AX                         ; F000-1DB9 58           X
+CALL &118E9                    ; F000-1DBA E8 2C FB     h,{
+TEST AL,AL                     ; F000-1DBD 84 C0        .@
+JNZ &1DC8                      ; F000-1DBF 75 07        u.
+MOV AL,BH                      ; F000-1DC1 8A C7        .G
+CALL &118E9                    ; F000-1DC3 E8 23 FB     h#{
+JMP &1CCB                      ; F000-1DC6 EB 03        k.
+CALL &119A0                    ; F000-1DC8 E8 D5 FB     hU{
+CALL &118F4                    ; F000-1DCB E8 26 FB     h&{
+RET                            ; F000-1DCE C3           C
+;
+; OSGBPB
+; ======
+.L1DCF
+STI                            ; F000-1DCF FB           {
+CALL &1DD6                     ; F000-1DD0 E8 03 00     h..
+JMP &119B4                     ; F000-1DD3 E9 DE FB     i^{
+PUSH SI                        ; F000-1DD6 56           V
+PUSH CX                        ; F000-1DD7 51           Q
+MOV AH,&016                    ; F000-1DD8 B4 16        4.
+CALL &11964                    ; F000-1DDA E8 87 FB     h.{
+MOV SI,&0000C                  ; F000-1DDD BE 0C 00     >..
+MOV CX,&0000D                  ; F000-1DE0 B9 0D 00     9..
+MOV AH,[BX+SI]                 ; F000-1DE3 8A 20        .
+CALL &11964                    ; F000-1DE5 E8 7C FB     h|{
+DEC SI                         ; F000-1DE8 4E           N
+LOOP &1DE3                     ; F000-1DE9 E2 F8        bx
+MOV AH,AL                      ; F000-1DEB 8A E0        .`
+CALL &11964                    ; F000-1DED E8 74 FB     ht{
+MOV SI,&0000C                  ; F000-1DF0 BE 0C 00     >..
+MOV CX,&0000D                  ; F000-1DF3 B9 0D 00     9..
+CALL &11973                    ; F000-1DF6 E8 7A FB     hz{
+MOV [BX+SI],AH                 ; F000-1DF9 88 20        .
+DEC SI                         ; F000-1DFB 4E           N
+LOOP &1DF6                     ; F000-1DFC E2 F8        bx
+CALL &11973                    ; F000-1DFE E8 72 FB     hr{
+NOT AH                         ; F000-1E01 F6           v
+DW &80D4 ; AAM &80             ; F000-1E02 D4 80        TAN
+CLD                            ; F000-1E04 FC           |
+DW &69E89C80 ; SBB [SI+&69E8],0E8h          ; F000-1E05 80 9C E8 69 FB ..hi
+DB &FB
+MOV AL,AH                      ; F000-1E0A 8A C4        .D
+POPF                           ; F000-1E0C 9D           .
+POP CX                         ; F000-1E0D 59           Y
+POP SI                         ; F000-1E0E 5E           ^
+RET                            ; F000-1E0F C3           C
+; OSBYTE
+; ======
+.L1E10
+STI:CALL L1E17:JMP L19B4
+.L1E17
+CMP AL,&80:JNB L1E30
+MOV AH,&04:CALL &1964          ; F000-1E1D E8 44 FB     hD{
+MOV AH,BL:CALL &1964           ; F000-1E22 E8 3F FB     h?{
+MOV AH,AL:CALL &1964           ; F000-1E27 E8 3A FB     h-{
+CALL &1973
+MOV BL,AH                      ; F000-1E2D 8A DC        .\
+RET                            ; F000-1E2F C3           C
+;
+.L1E30
+CMP AL,&82:JZ L1E69            ; Address high word
+CMP AL,&83:JZ L1E69            ; User memory low limit
+CMP AL,&84:JZ L1E69            ; User memory high limit
+MOV AH,&006:CALL L1964         ; Send command &06 - OSBYTE
+MOV AH,BL:CALL L1964           ; Send first parameter
+MOV AH,BH:CALL L1964           ; Send second parameter
+MOV AH,AL:CALL L1964           ; Send function
+CMP AL,&09D:JZ &1E68           ; If 'Fast BPUT', jump to exit
+CALL &11973                    ; Wait for Carry
+NOT AH                         ; F000-1E57 F6           v
+DW &80D4 ; AAM &80             ; F000-1E58 D4 80        TAN
+CLD
+; F000-1E5B 80           .
+PUSHF         ; Save carry flag              ; F000-1E5C 9C           .
+CALL &11973   ; Wait for result high byte    ; F000-1E5D E8 13 FB     h.{
+MOV BH,AH                                    ; F000-1E60 8A FC        .|
+CALL &11973   ; Wait for result low byte     ; F000-1E62 E8 0E FB     h.{
+MOV BL,AH     ; Move to BL                   ; F000-1E65 8A DC        .\
+POPF          ; Get carry flag back          ; F000-1E67 9D           .
+RET                                          ; F000-1E68 C3           C
+;
+.L1E69
+MOV BX,&00000:RET              ; membot=memtop=&0000
+;
+; OSWORD
+; ======
+.L1E6D
+STI:CALL L1E74:JMP L19B4       ; Call OSWORD subcode, jump to return from INT
+.L1E74
+PUSH AX       ; Save registers      ; F000-1E74 50           P
+PUSH BX                             ; F000-1E75 53           S
+PUSH CX                             ; F000-1E76 51           Q
+PUSH DX                             ; F000-1E77 52           R
+PUSH SI                             ; F000-1E78 56           V
+MOV AH,AL     ; Move function in AH ; F000-1E79 8A E0        .`
+MOV SI,BX     ; SI=>control block   ; F000-1E7B 8B F3        .s
+CALL &1E86    ; Call subcode        ; F000-1E7D E8 06 00     h..
+POP SI        ; Restore registers   ; F000-1E80 5E           ^
+POP DX                         ; F000-1E81 5A           Z
+POP CX                         ; F000-1E82 59           Y
+POP BX                         ; F000-1E83 5B           [
+POP AX                         ; F000-1E84 58           X
+RET                            ; F000-1E85 C3           C
+;
+; OSWORD subcode
+MOV DL,&086                    ; F000-1E86 B2 86        2.
+TEST AH,AH    ; Test function  ; F000-1E88 84 E4        .d
+JNZ &1ECB     ; Jump if <>0, not RDLINE
+;
+; RDLINE
+MOV AL,&00A                    ; F000-1E8C B0 0A        0.
+CALL &1194F                    ; F000-1E8E E8 BE FA     h>z
+MOV CX,&00003                  ; F000-1E91 B9 03 00     9..
+MOV BX,&00005                  ; F000-1E94 BB 05 00     ;..
+DEC BX                         ; F000-1E97 4B           K
+MOV AL,[BX+SI]                 ; F000-1E98 8A 00        ..
+CALL &1194F                    ; F000-1E9A E8 B2 FA     h2z
+LOOP &1E97                     ; F000-1E9D E2 F8        bx
+MOV AL,&007                    ; F000-1E9F B0 07        0.
+CALL &1194F                    ; F000-1EA1 E8 AB FA     h+z
+MOV AL,&000                    ; F000-1EA4 B0 00        0.
+CALL &1194F                    ; F000-1EA6 E8 A6 FA     h&z
+CALL &118F4                    ; F000-1EA9 E8 48 FA     hHz
+CALL &118F1                    ; F000-1EAC D0 E0        P`
+JB &1EC6                       ; F000-1EAE 72 16        r.
+MOV BX,[SI]                    ; F000-1EB0 8B 1C        ..
+MOV CX,&0FFFF                  ; F000-1EB2 B9 FF FF     9..
+CALL &118F4                    ; F000-1EB5 E8 3C FA     h<z
+MOV [BX],AL                    ; F000-1EB8 88 07        ..
+INC BX                         ; F000-1EBA 43           C
+INC CX                         ; F000-1EBB 41           A
+CMP AL,&00D                    ; F000-1EBC 3C 0D        <.
+JNZ &1EB5                      ; F000-1EBE 75 F5        uu
+MOV BL,&000                    ; F000-1EC0 B3 00        3.
+MOV BH,CL                      ; F000-1EC2 8A F9        .y
+CLC                            ; F000-1EC4 F8           x
+RET                            ; F000-1EC5 C3           C
+MOV BX,&000FF                  ; F000-1EC6 BB FF 00     ;..
+STC                            ; F000-1EC9 F9           y
+RET                            ; F000-1ECA C3           C
+;
+; OSWORD <>0
+MOV AL,&008                    ; F000-1ECB B0 08        0.
+CALL &1194F   ; Send command &08 - OSWORD
+MOV AL,AH                      ; F000-1ED0 8A C4        .D
+CALL &1194F   ; Send function  ; F000-1ED2 E8 7A FA     hzz
+SUB BX,BX     ; BX=0           ; F000-1ED5 2B DB        +[
+CMP AH,&081   ; ** This should be &80                        ; F000-1ED7 80 FC 81     .|.
+JB &1EE3      ; Jump with <&81 ; F000-1EDA 72 07        r.
+MOV AL,[SI]   ; Get send lengt& from ctrl blk                ; F000-1EDC 8A 04        ..
+MOV DH,[SI+&01] ; Get revieve len from ctrl blk              ; F000-1EDE 8A 74 01     .t.
+JMP &1EF4     ; Jump to use these                            ; F000-1EE1 EB 11        k.
+;
+CMP AH,&015                    ; F000-1EE3 80 FC 15     .|.
+JNB &1EEA                      ; F000-1EE6 73 02        s.
+;
+MOV BL,AH                      ; F000-1EE8 8A DC        .\
+MOV AL,CS:[BX+&2216]              ; F000-1EEB 8A 87 16 22  ..."
+MOV DH,CS:[BX+&222B]              ; F000-1EF0 8A B7 2B 22  .7+"
+CALL &1194F   ; Send send block length                       ; F000-1EF4 E8 58 FA     hXz
+MOV BL,AL                      ; F000-1EF7 8A D8        .X
+TEST BX,BX                     ; F000-1EF9 85 DB        .[
+JZ &1F07      ; Jump if zero length                          ; F000-1EFB 74 0A        t.
+MOV CX,BX                      ; F000-1EFD 8B CB        .K
+DEC BX                         ; F000-1EFF 4B           K
+MOV AL,[BX+SI] ; Get byte from ctrl blk                      ; F000-1F00 8A 00        ..
+CALL &1194F    ; Send byte     ; F000-1F02 E8 4A FA     hJz
+LOOP &1EFF     ; Loop until all sent                         ; F000-1F05 E2 F8        bx
+MOV AL,DH                      ; F000-1F07 8A C6        .F
+CALL &1194F    ; Send receive length                         ; F000-1F09 E8 43 FA     hCz
+SUB BH,BH                      ; F000-1F0C 2A FF        *.
+MOV BL,DH                      ; F000-1F0E 8A DE        .^
+TEST BX,BX                     ; F000-1F10 85 DB        .[
+JZ &1F1E       ; Jump if zero length                         ; F000-1F12 74 0A        t.
+MOV CX,BX                      ; F000-1F14 8B CB        .K
+DEC BX                         ; F000-1F16 4B           K
+CALL &1193C                    ; F000-1F17 E8 22 FA     h"z
+MOV [BX+SI],AL                 ; F000-1F1A 88 00        ..
+LOOP &1F16                     ; F000-1F1C E2 F8        bx
+RET            ; Return        ; F000-1F1E C3           C
+;
+; OSBPUT
+; ======
+.L1F1F
+STI                            ; F000-1F1F FB           {
+CALL &1F26                     ; F000-1F20 E8 03 00     h..
+JMP &119B4                     ; F000-1F23 E9 8E FA     i.z
+.L1F26
+PUSH AX                        ; F000-1F26 50           P
+MOV AL,&010                    ; F000-1F27 B0 10        0.
+CALL &118E9                    ; F000-1F29 E8 BD F9     h=y
+MOV AL,BH                      ; F000-1F2C 8A C7        .G
+CALL &118E9                    ; F000-1F2E E8 B8 F9     h8y
+POP AX                         ; F000-1F31 58           X
+CALL &118E9                    ; F000-1F32 E8 B4 F9     h4y
+PUSH AX                        ; F000-1F35 50           P
+CALL &118F4                    ; F000-1F36 E8 BB F9     h;y
+POP AX                         ; F000-1F39 58           X
+RET                            ; F000-1F3A C3           C
+; OSBGET
+; ======
+.L1F3B
+STI                            ; F000-1F3B FB           {
+CALL &1F42                     ; F000-1F3C E8 03 00     h..
+JMP &119B4                     ; F000-1F3F E9 72 FA     irz
+MOV AL,&00E                    ; F000-1F42 B0 0E        0.
+CALL &118E9                    ; F000-1F44 E8 A2 F9     h"y
+MOV AL,BH                      ; F000-1F47 8A C7        .G
+CALL &118E9                    ; F000-1F49 E8 9D F9     h.y
+JMP &119CA                     ; F000-1F4C E9 7B FA     i{z
+;
+; OSARGS
+; ======
+; On entry, AL=function, AH=handle,    BX=>data word
+; On exit,  AL=result,   AH=corrupted, BX preserved, BX=>updated data word
+.L1F4F
+STI                     ; Disable interupts           ; F000-1F4F FB           {
+CALL L1F56              ; Call OSARGS subcode         ; F000-1F50 E8 03 00     h..
+JMP  L19B4              ; Jump to exit from INT       ; F000-1F53 E9 5E FA     i^z
+L1F56:
+PUSH BX                 ; Save registers              ; F000-1F56 53           S
+PUSH CX                                               ; F000-1F57 51           Q
+PUSH DX                                               ; F000-1F58 52           R
+PUSH SI                                               ; F000-1F59 56           V
+MOV  DL,AL              ; Save function in DL         ; F000-1F5A 8A D0        .P
+MOV  AL,0Ch             ; AL=OSARGS Tube command code ; F000-1F5C B0 0C        0.
+CALL L18E9              ; Send command byte           ; F000-1F5E E8 88 F9     h.y
+MOV  AL,AH              ; Get handle from AH          ; F000-1F61 8A C4        .D
+CALL L18E9              ; Send handle                 ; F000-1F63 E8 83 F9     h.y
+MOV  SI,0003h           ; Point to data word b24-b31  ; F000-1F66 BE 03 00     >..
+MOV  CX,0004h           ; Four bytes to send          ; F000-1F69 B9 04 00     9..
+L1F6C:
+MOV  AL,[BX+SI]         ; Get byte from data word     ; F000-1F6C 8A 00        ..
+CALL L18E9              ; Send it                     ; F000-1F6E E8 78 F9     hxy
+DEC  SI                 ; Step to next byte           ; F000-1F71 4E           N
+LOOP L1F6C              ; Dec. CX and loop            ; F000-1F72 E2 F8        bx
+MOV  AL,DL              ; Get function from DL        ; F000-1F74 8A C2        .B
+CALL L18E9              ; Send function               ; F000-1F76 E8 70 F9     hpy
+CALL L18F4              ; Wait for response           ; F000-1F79 E8 78 F9     hxy
+MOV  AH,AL              ; Save it in AH               ; F000-1F7C 8A E0        .`
+MOV  SI,0003h           ; Point to data word b24-b31  ; F000-1F7E BE 03 00     >..
+MOV  CX,0004h           ; Four bytes to receive       ; F000-1F81 B9 04 00     9..
+CALL L18F4              ; Wait for data byte          ; F000-1F84 E8 6D F9     hmy
+MOV  [BX+SI],AL         ; Store it                    ; F000-1F87 88 00        ..
+DEC  SI                 ; Step to next byte           ; F000-1F89 4E           N
+LOOP L1F84              ; Loop for all four bytes     ; F000-1F8A E2 F8        bx
+MOV  AL,AH              ; Get result to AL            ; F000-1F8C 8A C4        .D
+                        ; Should restore AH
+POP  SI                 ; Restore registers           ; F000-1F8E 5E           ^
+POP  DX                                               ; F000-1F8F 5A           Z
+POP  CX                                               ; F000-1F90 59           Y
+POP  BX                                               ; F000-1F91 5B           [
+RET                                                   ; F000-1F92 C3           C
+;
+; OSFILE
+; ======
+; On entry, AL=function,           BX=>control block
+; On exit , AL=type, AH corrupted, BX preserved, control block updated
+;
+; Note, a semi-fatal flaw causes OSFILE to not function correctly. The returned control block is
+; written over the filename string as the pointer to the control block is not preserved within
+; the code.
+;
+.L1F93
+STI
+CALL L1F9A              ; Call OSFILE subcode
+JMP  L19B4              ; Jump to exit INT
+L1F9A:
+PUSH CX                 ; Save registers
+PUSH SI
+MOV  AH,AL              ; Save function in AH
+MOV  AL,14h             ; &14 = OSFILE Tube command
+CALL L18E9              ; Send Tube command
+MOV  SI,0011h           ; Point to end of control block, BX+17
+MOV  CX,0010h           ; Control block holds 16 bytes to send
+L1FA9:
+MOV  AL,[BX+SI]         ; Get byte from control block
+CALL L18E9              ; Send the byte
+DEC  SI                 ; Point to next control block byte
+LOOP L1FA9              ; Loop to send 16-byte control block
+DEC  SI                 ; Point to filename address at BX+0
+                        ; *** BUGFIX - add PUSH BX here
+MOV  BX,[SI]            ; Get filename address into BX - oops, actually fetching from [SI]
+			;  which is now &0000, and where's BX gone?
+			; *** BUGFIX - this should be MOV BX,[BX+SI] or MOV BX,[BX]
+CALL L19A0              ; Send string at BX
+MOV  AL,AH              ; Get saved function
+CALL L18E9              ; Send OSFILE function
+CALL L18F4              ; Wait for response
+AND  AL,7Fh             ; Drop bit 7 (why? it means object type &FF is returned as &7F)
+MOV  AH,AL              ; Save object type in AH
+                        ; *** BUGFIX - add POP  BX here
+MOV  SI,0011h           ; Point to end of control block - but we've lost BX! BX now points to filename
+MOV  CX,0010h           ; Control block holds 16 bytes
+L1FC9:
+CALL L18F4              ; Wait for returned control block byte
+MOV  [BX+SI],AL         ; Store it on top of filename! BX should point to control block
+DEC SI                  ; Step to next byte
+LOOP L1FC9              ; Loop to fetch whole control block
+MOV  AL,AH              ; Get object type back from AH
+POP  SI                 ; Restore registers
+POP  CX                 ; Really should either clear or restore AH
+RET
+;
+; INT &0C - Tube R1 or R4 interupt
+; ================================
+PUSHA                          ; F000-1FD6 60           `
+PUSH DS                        ; F000-1FD7 1E           .
+PUSH ES                        ; F000-1FD8 06           .
+MOV DX,&0FF22                  ; F000-1FD9 BA 22 FF     -".
+MOV AX,&08000                  ; F000-1FDC B8 00 80     8..
+OUT AX,DX                      ; F000-1FDF EF           o
+MOV AX,&00000                  ; F000-1FE0 B8 00 00     8..
+MOV DS,AX                      ; F000-1FE3 8E D8        .X
+MOV ES,AX                      ; F000-1FE5 8E C0        .@
+IN AL,&8C                      ; F000-1FE7 E4 8C        d.
+TEST AL,&080                   ; F000-1FE9 A8 80        (.
+JZ &1FF2                       ; F000-1FEB 74 05        t.
+CALL &2018                     ; F000-1FED E8 28 00     h(.
+JMP &1F14                      ; F000-1FF0 EB 22        k"
+IN AL,&80                      ; F000-1FF2 E4 80        d.
+TEST AL,&080                   ; F000-1FF4 A8 80        (.
+JZ &2014                       ; F000-1FF6 74 1C        t.
+MOV DX,&00082                  ; F000-1FF8 BA 82 00     -..
+IN AL,DX                       ; F000-1FFB EC           l
+TEST AL,&080                   ; F000-1FFC A8 80        (.
+JNS &2006                      ; F000-1FFE 79 07        y.
+JNS &2006                      ; F000-2000 D0 E0        P`
+MOV [&5F2],AL                  ; F000-2002 A2 F2 05     "r.
+JMP &1F14                      ; F000-2005 EB 0D        k.
+CALL &11908                    ; F000-2007 E8 FE F8     h~x
+MOV BH,AL                      ; F000-200A 8A F8        .x
+CALL &11908                    ; F000-200C E8 F9 F8     hyx
+MOV BL,AL                      ; F000-200F 8A D8        .X
+CALL &11908                    ; F000-2011 E8 F4 F8     htx
+POP ES                         ; F000-2014 07           .
+POP DS                         ; F000-2015 1F           .
+POPA                           ; F000-2016 61           a
+IRET                           ; F000-2017 CF           O
+MOV DX,&0008E                  ; F000-2018 BA 8E 00     -..
+IN AL,DX                       ; F000-201B EC           l
+IN AL,DX                       ; F000-201C D0 E0        P`
+JNB &2070                      ; F000-201E 73 50        sP
+MOV DX,&00086                  ; F000-2020 BA 86 00     -..
+CALL &1193C                    ; F000-2023 E8 16 F9     h.y
+MOV DI,&00550                  ; F000-2026 BF 50 05     ?PRINT
+MOV AL,&0CD                    ; F000-2029 B0 CD        0M
+STOSB                          ; F000-202B AA           *
+MOV AL,&04F                    ; F000-202C B0 4F        0O
+STOSB                          ; F000-202E AA           *
+CALL &1193C                    ; F000-202F E8 0A F9     h.y
+STOSB                          ; F000-2032 AA           *
+CALL &1193C                    ; F000-2033 E8 06 F9     h.y
+TEST AL,AL                     ; F000-2036 84 C0        .@
+JZ &203D                       ; F000-2038 74 03        t.
+STOSB                          ; F000-203A AA           *
+JMP &1F33                      ; F000-203B EB F6        kv
+STOSB                          ; F000-203D AA           *
+STI                            ; F000-203E FB           {
+JMP FAR CS:[&02044]            ; F000-2040 FF 2E 44 20 50 05 .
+ADD [BX+SI],AL                 ; F000-2046 00 00        ..
+;
+; INT &4F - Generate Error
+; ========================
+.L2048
+STI                                                          ; F000-2048 FB           {
+SUB AX,AX             ; Set AX=0000                          ; F000-2049 2B C0        +@
+MOV DS,AX             ; Set DS=0000                          ; F000-204B 8E D8        .X
+POP AX                ; Pop return address offset            ; F000-204D 58           X
+MOV [&05F4],AX        ; Set fault pointer offset             ; F000-204E A3 F4 05     #t.
+POP AX                ; Pop return address segment           ; F000-2051 58           X
+MOV [&05F6],AX        ; Set fault pointer segment            ; F000-2052 A3 F6 05     #v.
+JMPF [&005F8]         ; Jump via error handler vector        ; F000-2055 FF 2E F8 05  ..x.
+;
+; Error handler
+; =============
+LDS SI,[&005F4]       ; Get fault pointer                    ; F000-2059 C5 36 F4 05  E6 .
+CALL &119F0           ; OSNEWL                               ; F000-205D E8 90 F9     h.y
+INC SI                ; Set past error number                ; F000-2060 46           F
+CLD                                                          ; F000-2061 FC           |
+LODSB                 ; Get error string c&aracter           ; F000-2062 AC           ,
+CALL &119F7           ; OSWRCH - Print character             ; F000-2063 E8 91 F9     h.y
+TEST AL,AL            ; Is it zero?                          ; F000-2066 84 C0        .@
+JNZ &2062             ; Loop until zero terminator           ; F000-2068 75 F8        ux
+CALL &119F0           ; OSNEWL                               ; F000-206A E8 83 F9     h.y
+JMP &10C53            ; Jump to command prompt               ; F000-206D E9 E3 EB     ick
+;
+PUSH AX                        ; F000-2070 50           P
+PUSH DX                        ; F000-2071 52           R
+MOV AX,&00004                  ; F000-2072 B8 04 00     8..
+MOV DX,&0FFCA                  ; F000-2075 BA CA FF     -J.
+OUT AX,DX                      ; F000-2078 EF           o
+POP DX                         ; F000-2079 5A           Z
+POP AX                         ; F000-207A 58           X
+SHR AL,1                       ; F000-207B D0 E8        P&
+MOV [&5AE],AL                  ; F000-207D A2 AE 05     "..
+CALL &1193C                    ; F000-2080 E8 B9 F8     h9x
+DD &05AE3E80 ; CMP BYTE PTR [&005AE],0AEh            ; F000-2083 80 3E AE 05 05 .>..
+DB &05
+JNZ &2090                      ; F000-2088 75 06        u.
+DD &05B006C6 ; MOV [&0C300],000h            ; F000-208A C6 06 B0 05 00 0.
+DB &00
+RET                            ; F000-208F C3           C
+MOV CX,&00004                  ; F000-2090 B9 04 00     9..
+MOV DI,&005A3                  ; F000-2093 BF A3 05     ?#.
+STD                            ; F000-2096 FD           }
+CALL &1193C                    ; F000-2097 E8 A2 F8     h"x
+STOSB                          ; F000-209A AA           *
+LOOP &2097                     ; F000-209B E2 FA        bz
+CLD                            ; F000-209D FC           |
+DD &05AE3E80 ; CMP BYTE PTR [&005AE],0AEh            ; F000-209E 80 3E AE 05 04 .>..
+DB &04
+JZ &20ED                       ; F000-20A3 74 48        tH
+DD &06AE3E80 ; CMP [&005AE],0AEh            ; F000-20A5 80 3E AE 05 06 .>..
+DB &06
+JNB &20F6                      ; F000-20AA 73 4A        sJ
+PUSH SP                        ; F000-20AC 54           T
+POP AX                         ; F000-20AD 58           X
+CMP AX,SP       ; test CPU type               ; F000-20AE 3B C4        ;D
+JZ &20B5                       ; F000-20B0 74 03        t.
+JMP &02139                     ; F000-20B2 E9 84 00     i..
+MOV BX,CS:[&005A0]                ; F000-20B6 8B 1E A0 05  .. .
+MOV CS:[&021C8],BX                ; F000-20BB 89 1E C8 21  ..H!
+MOV CS:[&021DE],BX                ; F000-20C0 89 1E DE 21  ..^!
+MOV BX,CS:[&005A2]                ; F000-20C5 8B 1E A2 05  ..".
+MOV CS:[&021C3],BX                ; F000-20CA 89 1E C3 21  ..C!
+MOV CS:[&021D7],BX                ; F000-20CF 89 1E D7 21  ..W!
+MOV BL,[&005AE]                   ; F000-20D3 8A 1E AE 05  ....
+MOV BH,&000                       ; F000-20D7 B7 00        7.
+MOV BH,&000                       ; F000-20D9 D1 E3        Qc
+MOV AX,CS:[BX+&022E4]             ; F000-20DC 8B 87 E4 22  ..d"
+SUB BX,BX                      ; F000-20E0 2B DB        +[
+PUSH ES                        ; F000-20E2 06           .
+MOV ES,BX                      ; F000-20E3 8E C3        .C
+MOV DI,&00008                  ; F000-20E5 BF 08 00     ?..
+STOSW                          ; F000-20E8 AB           +
+MOV AX,CS                      ; F000-20E9 8C C8        .H
+STOSW                          ; F000-20EB AB           +
+POP ES                         ; F000-20EC 07           .
+IN AL,&8C                      ; F000-20ED E4 8C        d.
+TEST AL,&080                   ; F000-20EF A8 80        (.
+JZ &20ED                       ; F000-20F1 74 FA        tz
+IN AL,&8E                      ; F000-20F3 E4 8E        d.
+RET                            ; F000-20F5 C3           C
+DD &05AE3E80 ; CMP [&005AE],0AEh            ; F000-20F6 80 3E AE 05 06 .>..
+DB &06
+JNZ &211B                      ; F000-20FB 75 1E        u.
+PUSH DS                        ; F000-20FD 1E           .
+LDS SI,[&005A0]                ; F000-20FE C5 36 A0 05  E6 .
+MOV CX,&00101                  ; F000-2102 B9 01 01     9..
+MOV DX,&0008A                  ; F000-2105 BA 8A 00     -..
+IN AL,&8C                      ; F000-2108 E4 8C        d.
+TEST AL,AL                     ; F000-210A 84 C0        .@
+JNS &2107                      ; F000-210C 79 FA        yz
+IN AL,&8E                      ; F000-210E E4 8E        d.
+IN AL,&88                      ; F000-2110 E4 88        d.
+IN AL,&88                      ; F000-2112 D0 E0        P`
+JNS &210F                      ; F000-2114 79 FA        yz
+OUTSB                          ; F000-2116 6E           n
+LOOP &2110                     ; F000-2117 E2 F7        bw
+POP DS                         ; F000-2119 1F           .
+RET                            ; F000-211A C3           C
+PUSH ES                        ; F000-211B 06           .
+LES DI,[&005A0]                ; F000-211C C4 3E A0 05  D> .
+MOV CX,&00100                  ; F000-2120 B9 00 01     9..
+MOV DX,&0008A                  ; F000-2123 BA 8A 00     -..
+IN AL,&8C                      ; F000-2126 E4 8C        d.
+TEST AL,AL                     ; F000-2128 84 C0        .@
+JNS &2125                      ; F000-212A 79 FA        yz
+IN AL,&8E                      ; F000-212C E4 8E        d.
+IN AL,&88                      ; F000-212E E4 88        d.
+AND AL,AL                      ; F000-2130 22 C0        "@
+JNS &212D                      ; F000-2132 79 FA        yz
+INSB                           ; F000-2134 6C           l
+LOOP &212E                     ; F000-2135 E2 F7        bw
+POP ES                         ; F000-2137 07           .
+RET                            ; F000-2138 C3           C
+RET                            ; F000-2139 F6 06 AE     v..
+ADD AX,&07501                  ; F000-213C 05 01 75     ..u
+PUSH ES                        ; F000-213F 06           .
+CALL &214C                     ; F000-2140 E8 09 00     h..
+JMP &120ED                     ; F000-2143 E9 A7 FF     i'.
+CALL &2186                     ; F000-2146 E8 3D 00     h=.
+JMP &120ED                     ; F000-2149 E9 A1 FF     i!.
+MOV AX,[&5A2]                  ; F000-214C A1 A2 05     !".
+ROL AX,1                       ; F000-214F D1 C0        Q@
+ROL AX,1                       ; F000-2151 D1 C0        Q@
+ROL AX,1                       ; F000-2153 D1 C0        Q@
+ROL AX,1                       ; F000-2155 D1 C0        Q@
+MOV BX,AX                      ; F000-2157 8B D8        .X
+MOV DX,&0FFC2                  ; F000-2159 BA C2 FF     -BGET
+OUT AX,DX                      ; F000-215C EF           o
+AND AX,&0FFF0                  ; F000-215D 25 F0 FF     %p.
+ADD AX,[&005A0]                ; F000-2160 03 06 A0 05  .. .
+MOV DX,&0FFC0                  ; F000-2164 BA C0 FF     -@.
+OUT AX,DX                      ; F000-2167 EF           o
+JNB &2171                      ; F000-2168 73 07        s.
+INC BX                         ; F000-216A 43           C
+MOV AX,BX                      ; F000-216B 8B C3        .C
+MOV DX,&0FFC2                  ; F000-216D BA C2 FF     -BGET
+OUT AX,DX                      ; F000-2170 EF           o
+MOV AX,&0008A                  ; F000-2171 B8 8A 00     8..
+MOV DX,&0FFC4                  ; F000-2174 BA C4 FF     -DATA
+OUT AX,DX                      ; F000-2177 EF           o
+XOR AX,AX                      ; F000-2178 33 C0        3@
+MOV DX,&0FFC6                  ; F000-217A BA C6 FF     -
+OUT AX,DX                      ; F000-217D EF           o
+MOV AX,&014A6                  ; F000-217E B8 A6 14     8&.
+MOV DX,&0FFCA                  ; F000-2181 BA CA FF     -J.
+OUT AX,DX                      ; F000-2184 EF           o
+RET                            ; F000-2185 C3           C
+;
+MOV AX,[&5A2]                  ; F000-2186 A1 A2 05     !".
+ROL AX,1                       ; F000-2189 D1 C0        Q@
+ROL AX,1                       ; F000-218B D1 C0        Q@
+ROL AX,1                       ; F000-218D D1 C0        Q@
+ROL AX,1                       ; F000-218F D1 C0        Q@
+MOV DX,&0FFC6                  ; F000-2191 BA C6 FF     -
+OUT AX,DX                      ; F000-2194 EF           o
+MOV BX,AX                      ; F000-2195 8B D8        .X
+AND AX,&0FFF0                  ; F000-2197 25 F0 FF     %p.
+ADD AX,[&005A0]                ; F000-219A 03 06 A0 05  .. .
+MOV DX,&0FFC4                  ; F000-219E BA C4 FF     -DATA
+OUT AX,DX                      ; F000-21A1 EF           o
+JNB &21AB                      ; F000-21A2 73 07        s.
+INC BX                         ; F000-21A4 43           C
+MOV AX,BX                      ; F000-21A5 8B C3        .C
+MOV DX,&0FFC6                  ; F000-21A7 BA C6 FF     -
+OUT AX,DX                      ; F000-21AA EF           o
+MOV AX,&0008A                  ; F000-21AB B8 8A 00     8..
+MOV DX,&0FFC0                  ; F000-21AE BA C0 FF     -@.
+OUT AX,DX                      ; F000-21B1 EF           o
+XOR AX,AX                      ; F000-21B2 33 C0        3@
+MOV DX,&0FFC2                  ; F000-21B4 BA C2 FF     -BGET
+OUT AX,DX                      ; F000-21B7 EF           o
+MOV AX,&0A0A6                  ; F000-21B8 B8 A6 A0     8&
+MOV DX,&0FFCA                  ; F000-21BB BA CA FF     -J.
+OUT AX,DX                      ; F000-21BE EF           o
+RET                            ; F000-21BF C3           C
+PUSH DS                        ; F000-21C0 1E           .
+PUSH AX                        ; F000-21C1 50           P
+MOV AX,&00000                  ; F000-21C2 B8 00 00     8..
+MOV DS,AX                      ; F000-21C5 8E D8        .X
+MOV AL,[&00]                   ; F000-21C7 A0 00 00      ..
+OUT AL,&8A                     ; F000-21CA E6 8A        f.
+INC BYTE CS:[&021C8]           ; F000-21CD FF 06 C8 21 58 1F .
+IRET                           ; F000-21D3 CF           O
+PUSH DS                        ; F000-21D4 1E           .
+PUSH AX                        ; F000-21D5 50           P
+MOV AX,&00000                  ; F000-21D6 B8 00 00     8..
+MOV DS,AX                      ; F000-21D9 8E D8        .X
+IN AL,&8A                      ; F000-21DB E4 8A        d.
+MOV [&00],AL                   ; F000-21DD A2 00 00     "..
+INC BYTE CS:[&021DE]           ; F000-21E1 FF 06 DE 21 58 1F .
+IRET                           ; F000-21E7 CF           O
+PUSH DS                        ; F000-21E8 1E           .
+PUSH SI                        ; F000-21E9 56           V
+PUSH DX                        ; F000-21EA 52           R
+MOV DX,&0008A                  ; F000-21EB BA 8A 00     -..
+CLD                            ; F000-21EE FC           |
+LDS SI,CS:[&005A0]             ; F000-21F0 C5 36 A0 05  E6 .
+OUTSB                          ; F000-21F4 6E           n
+OUTSB                          ; F000-21F5 6E           n
+MOV CS:[&005A0],SI             ; F000-21F7 89 36 A0 05  .6 .
+POP DX                         ; F000-21FB 5A           Z
+POP SI                         ; F000-21FC 5E           ^
+POP DS                         ; F000-21FD 1F           .
+IRET                           ; F000-21FE CF           O
+PUSH ES                        ; F000-21FF 06           .
+PUSH DI                        ; F000-2200 57           W
+PUSH DX                        ; F000-2201 52           R
+MOV DX,&0008A                  ; F000-2202 BA 8A 00     -..
+CLD                            ; F000-2205 FC           |
+LES DI,CS:[&005A0]             ; F000-2207 C4 3E A0 05  D> .
+INSB                           ; F000-220B 6C           l
+INSB                           ; F000-220C 6C           l
+MOV CS:[&005A0],DI             ; F000-220E 89 3E A0 05  .> .
+POP DX                         ; F000-2212 5A           Z
+POP DI                         ; F000-2213 5F           _
+POP ES                         ; F000-2214 07           .
+IRET                           ; F000-2215 CF           O
+ADC [BX+SI],AL                 ; F000-2216 10 00        ..
+ADD AX,&00500                  ; F000-2218 05 00 05     ...
+ADD AL,[DI]                    ; F000-221B 02 05        ..
+OR [&00104],CL                 ; F000-221D 08 0E 04 01  ....
+ADD [DI],AX                    ; F000-2221 01 05        ..
+ADD [BX+DI],AL                 ; F000-2223 00 01        ..
+AND [BX+SI],DL                 ; F000-2225 20 10         .
+OR AX,&00800                   ; F000-2227 0D 00        ..
+OR [BX+SI+&510],AL             ; F000-2229 08 80 10 05  ....
+ADD [DI],AL                    ; F000-222D 00 05        ..
+ADD [DI],AL                    ; F000-222F 00 05        ..
+ADD [BX+SI],AL                 ; F000-2231 00 00        ..
+ADD [DI],AL                    ; F000-2233 00 05        ..
+OR [DI],AX                     ; F000-2235 09 05        ..
+ADD [BX+SI],CL                 ; F000-2237 00 08        ..
+SBB [BX+SI],AX                 ; F000-2239 19 00        ..
+ADD [DI],CX                    ; F000-223B 01 0D        ..
+OR BYTE [BX+SI],&080           ; F000-223D 80 08 80     ...
+
+DB 03h DUP 160 ; 2240-22DF
+
+INT 03                         ; F000-22E0 CC           L
+INT 03                         ; F000-22E1 CC           L
+INT 03                         ; F000-22E2 CC           L
+INT 03                         ; F000-22E3 CC           L
+DB &0C0; **Unimplemented Directive**                         ; F000-22E4 C0           @
+AND SP,DX                      ; F000-22E5 21 D4        !T
+AND AX,BP                      ; F000-22E7 21 E8        !&
+AND DI,DI                      ; F000-22E9 21 FF        !.
+AND [BP+DI],BP                 ; F000-22EB 21 2B        !+
+
+; RESET continues at &22EC
+; ========================
+; test if cold boot
+SUB AX,AX          ; AX=0      ; F000-22EC 2B C0        +@
+MOV DS,AX          ; DS=0      ; F000-22EE 8E D8        .X
+MOV ES,AX          ; ES=0      ; F000-22F0 8E C0        .@
+MOV BX,L05A8       ; BX=>      ; F000-22F2 BB A8 05     ;(.
+MOV CX,0004h       ; CX=4      ; F000-22F5 B9 04 00     9..
+.L22F8
+ADD AL,[BX]                    ; F000-22F8 02 07        ..
+ADC AH,00h                     ; F000-22FA 80 D4 00     .TAN
+INC BX                         ; F000-22FD 43           C
+LOOP L22F8                     ; F000-22FE E2 F8        bx
+CMP AX,01A8h    ; string "neil" adds up to this         ; F000-2300 3D A8 01     =(.
+JNZ  L230D ; No, test the RAM                           ; F000-2303 75 08        u.
+MOV [L05AC],00h ; Clear 'RAM has not been tested' flag  ; F000-2305 C6 06 AC 05 00 ,.
+JMP L3EB8       ; Copy ROM to RAM and enter it          ; F000-230A E9 AB 1B     i+.
+;
+; Test RAM
+.L230D
+MOV AX,&0AAAA                  ; F000-230D B8 AA AA     8**
+MOV CX,&08000                  ; F000-2310 B9 00 80     9..
+MOV BX,CX                      ; F000-2313 8B D9        .Y
+CLD                            ; F000-2315 FC           |
+MOV DX,AX                      ; F000-2316 8B D0        .P
+SUB DI,DI                      ; F000-2318 2B FF        +.
+DB &F3 ; REPE                  ; F000-231A F3           s
+DB &AB ; STOSW                 ; F000-231B AB           +
+MOV CX,BX                      ; F000-231C 8B CB        .K
+SUB SI,SI                      ; F000-231E 2B F6        +v
+LODSW                          ; F000-2320 AD           -
+XOR AX,DX                      ; F000-2321 33 C2        3B
+JNZ &2369                      ; F000-2323 75 44        uD
+LOOP &2320                     ; F000-2325 E2 F9        by
+MOV AX,DX                      ; F000-2327 8B C2        .B
+CMP AX,&05555                  ; F000-2329 3D 55        =U
+PUSH BP                        ; F000-232B 55           U
+JZ &2333                       ; F000-232C 74 05        t.
+MOV AX,&05555                  ; F000-232E B8 55 55     8UU
+JMP &2210                      ; F000-2331 EB DD        k]
+SUB AX,AX                      ; F000-2333 2B C0        +@
+MOV CX,BX                      ; F000-2335 8B CB        .K
+DB &F3 ; REPE                  ; F000-2337 F3           s
+DB &AB ; STOSW                 ; F000-2338 AB           +
+MOV DL,&001                    ; F000-2339 B2 01        2.
+SUB SI,SI                      ; F000-233B 2B F6        +v
+MOV DI,SI                      ; F000-233D 8B FE        .~
+MOV AX,&0FFFF                  ; F000-233F B8 FF FF     8..
+MOV [SI],AL                    ; F000-2342 88 04        ..
+OR SI,SI                       ; F000-2344 0B F6        .v
+JNZ &234B                      ; F000-2346 75 03        u.
+INC SI                         ; F000-2348 46           F
+JMP &224F                      ; F000-2349 EB 04        k.
+MOV DL,&003                    ; F000-234B B2 03        2.
+MOV DL,&003                    ; F000-234D D1 E6        Qf
+MOV AL,[SI]                    ; F000-234F 8A 04        ..
+CMP AL,&000                    ; F000-2351 3C 00        <.
+JNZ &236F                      ; F000-2353 75 1A        u.
+JNZ &236F                      ; F000-2355 D1 E6        Qf
+JNZ &234F                      ; F000-2357 75 F6        uv
+MOV SI,DI                      ; F000-2359 8B F7        .w
+OR SI,SI                       ; F000-235B 0B F6        .v
+JNZ &2362                      ; F000-235D 75 03        u.
+INC SI                         ; F000-235F 46           F
+JMP &223D                      ; F000-2360 EB DB        k[
+JMP &223D                      ; F000-2362 D1 E6        Qf
+JNS &233C                      ; F000-2364 79 D7        yW
+JMP &02444                     ; F000-2366 E9 DB 00     i[.
+SUB DL,DL                      ; F000-2369 2A D2        *R
+DEC SI                         ; F000-236B 4E           N
+DEC SI                         ; F000-236C 4E           N
+JMP &2275                      ; F000-236D EB 06        k.
+CMP AL,AH                      ; F000-236F 3A C4        -D
+JNZ &2375                      ; F000-2371 75 02        u.
+INC DL                         ; F000-2373 FE C2        ~B
+MOV CX,SI                      ; F000-2375 8B CE        .N
+MOV AX,&0F000                  ; F000-2377 B8 00 F0     8.p
+MOV DS,AX                      ; F000-237A 8E D8        .X
+MOV BX,&023E5                  ; F000-237C BB E5 23     ;e#
+MOV SI,BX                      ; F000-237F 8B F3        .s
+CLD                            ; F000-2381 FC           |
+LODSB                          ; F000-2382 AC           ,
+TEST AL,AL                     ; F000-2383 84 C0        .@
+JZ &2395                       ; F000-2385 74 0E        t.
+XCHG AH,AL                     ; F000-2387 86 C4        .D
+IN AL,&80                      ; F000-2389 E4 80        d.
+IN AL,&80                      ; F000-238B D0 E0        P`
+JNS &2388                      ; F000-238D 79 FA        yz
+XCHG AH,AL                     ; F000-238F 86 C4        .D
+DW &82E6 ; OUT AL,&82          ; F000-2391 E6 82        f.
+JMP &2282                      ; F000-2393 EB ED        km
+ADD DL,&030                    ; F000-2395 80 C2 30     .B0
+IN AL,&80                      ; F000-2398 E4 80        d.
+IN AL,&80                      ; F000-239A D0 E0        P`
+JNS &2397                      ; F000-239C 79 FA        yz
+MOV AL,DL                      ; F000-239E 8A C2        .B
+DW &82E6 ; OUT AL,&82          ; F000-23A0 E6 82        f.
+MOV DL,&02F                    ; F000-23A2 B2 2F        2/
+DW &80E4 ; IN AL,&80           ; F000-23A4 E4 80        d.
+IN AL,&80                      ; F000-23A6 D0 E0        P`
+JNS &23A3                      ; F000-23A8 79 FA        yz
+MOV AL,DL                      ; F000-23AA 8A C2        .B
+DW &82E6 ; OUT AL,&82          ; F000-23AC E6 82        f.
+MOV BX,&00004                  ; F000-23AE BB 04 00     ;..
+MOV AL,CH                      ; F000-23B1 8A C5        .E
+MOV AH,AL                      ; F000-23B3 8A E0        .`
+SHR AL,1                       ; F000-23B5 D0 E8        P&
+SHR AL,1                       ; F000-23B7 D0 E8        P&
+SHR AL,1                       ; F000-23B9 D0 E8        P&
+SHR AL,1                       ; F000-23BB D0 E8        P&
+AND AL,&00F                    ; F000-23BD 24 0F        $.
+CMP AL,&00A                    ; F000-23BF 3C 0A        <.
+JB &23C5                       ; F000-23C1 72 02        r.
+ADD AL,&007                    ; F000-23C3 04 07        ..
+ADD AL,&030                    ; F000-23C5 04 30        .0
+MOV DL,AL                      ; F000-23C7 8A D0        .P
+IN AL,&80                      ; F000-23C9 E4 80        d.
+IN AL,&80                      ; F000-23CB D0 E0        P`
+JNS &23C8                      ; F000-23CD 79 FA        yz
+MOV AL,DL                      ; F000-23CF 8A C2        .B
+DW &82E6 ; OUT AL,&82          ; F000-23D1 E6 82        f.
+DEC BX                         ; F000-23D3 4B           K
+JZ &23E3                       ; F000-23D4 74 0D        t.
+CMP BX,&00004                  ; F000-23D6 83 FB 02     .{.
+JZ &23DF                       ; F000-23D9 74 04        t.
+MOV AL,AH                      ; F000-23DB 8A C4        .D
+JMP &22BD                      ; F000-23DD EB DE        k^
+MOV AL,CL                      ; F000-23DF 8A C1        .A
+JMP &22B3                      ; F000-23E1 EB D0        kP
+CLI                            ; F000-23E3 FA           z
+HALT                           ; F000-23E4 F4           t
+L23E5:  DB 10,"Ram fault ",0
+L23F1:
+SUB AX,AX                      ; F000-23F0 2B C0        +@
+MOV SS,AX                      ; F000-23F3 8E D0        .P
+MOV SP,&00550                  ; F000-23F5 BC 50 05     <PRINT
+MOV AX,&01000                  ; F000-23F8 B8 00 10     8..
+MOV DX,&0FF62                  ; F000-23FB BA 62 FF     -b.
+DB &EF ; OUT AX,DX             ; F000-23FE EF           o
+SUB AX,AX                      ; F000-23FF 2B C0        +@
+MOV DX,&0FF60                  ; F000-2401 BA 60 FF     -`.
+DB &EF ; OUT AX,DX             ; F000-2404 EF           o
+MOV AX,&0C000                  ; F000-2405 B8 00 C0     8.@
+MOV DX,&0FF66                  ; F000-2408 BA 66 FF     -f.
+DB &EF ; OUT AX,DX             ; F000-240B EF           o
+MOV CX,&00100                  ; F000-240C B9 00 01     9..
+NOP                            ; F000-240F 90           .
+LOOP &240F                     ; F000-2410 E2 FD        b}
+MOV DX,&0FF60                  ; F000-2412 BA 60 FF     -`.
+IN AX,DX                       ; F000-2415 ED           m
+MOV BX,AX                      ; F000-2416 8B D8        .X
+CALL &1185A                    ; F000-2418 E8 3F F4     h?t
+CALL &119F0                    ; F000-241B E8 D2 F5     hRu
+MOV AX,&00028                  ; F000-241E B8 28 00     8(.
+MOV DX,&0FF52                  ; F000-2421 BA 52 FF     -RETURN
+DB &EF ; OUT AX,DX             ; F000-2424 EF           o
+MOV AX,&0C001                  ; F000-2425 B8 01 C0     8.@
+MOV DX,&0FF56                  ; F000-2428 BA 56 FF     -VDU
+OUT DX,AX                      ; F000-242B EF           o
+SUB AX,AX                      ; F000-242C 2B C0        +@
+MOV DX,&0FF60                  ; F000-242E BA 60 FF     -`.
+OUT DX,AX                      ; F000-2431 EF           o
+MOV CX,&00100                  ; F000-2432 B9 00 01     9..
+NOP                            ; F000-2435 90           .
+LOOP &2435                     ; F000-2436 E2 FD        b}
+MOV DX,&0FF60                  ; F000-2438 BA 60 FF     -`.
+IN AX,DX                       ; F000-243B ED           m
+MOV BX,AX                      ; F000-243C 8B D8        .X
+CALL &1185A                    ; F000-243E E8 19 F4     h.t
+CALL &119F0                    ; F000-2441 E8 AC F5     h,u
+MOV BYTE [L05AC],FFh ; Set 'RAM has been tested'          ; F000-2444 C6 06 AC 05 FF ,.
+MOV AX,&0F000                  ; F000-2449 B8 00 F0     8.p
+MOV DS,AX                      ; F000-244C 8E D8        .X
+MOV SI,&00CB1                  ; F000-244E BE B1 0C     >1.
+SUB AX,AX                      ; F000-2451 2B C0        +@
+MOV ES,AX                      ; F000-2453 8E C0        .@
+MOV DI,&005A8                  ; F000-2455 BF A8 05     ?(.
+MOV CX,&00002 ; Copy 'niel' id string                 ; F000-2458 B9 02 00     9..
+DB &F3 ; REPE                           ; F000-245B F3           s
+DB &A5 ; MOVSW                          ; F000-245C A5           %
+JMP  &03EB8    ; Jump to copy ROM to RAM and continue in RAM                 ; F000-245D E9 58 1A     iX.
+
+; Character table
+; ---------------
+ORG 3A6Eh
+L3A6E:
+DB   00h,00h,00h,00h,00h,00h,00h,00  ; CHR$0 
+DB   3Eh,41h,55h,41h,55h,5Dh,41h,3E  ; CHR$1 
+DB   3Eh,7Fh,6Bh,7Fh,6Bh,63h,7Fh,3E  ; CHR$2 
+DB   00h,36h,7Fh,7Fh,7Fh,3Eh,1Ch,08  ; CHR$3 
+DB   08h,1Ch,3Eh,7Fh,3Eh,1Ch,08h,00  ; CHR$4 
+DB   3Eh,3Eh,08h,7Fh,7Fh,08h,08h,00  ; CHR$5 
+DB   08h,1Ch,3Eh,7Fh,6Bh,08h,08h,00  ; CHR$6 
+DB   00h,00h,00h,18h,18h,00h,00h,00  ; CHR$7 
+DB   FFh,FFh,E7h,E7h,FFh,FFh,FFh,FF  ; CHR$8 
+DB   3Eh,63h,63h,63h,63h,63h,3Eh,00  ; CHR$9 
+DB   C1h,9Ch,9Ch,9Ch,9Ch,9Ch,C1h,FF  ; CHR$10 
+DB   3Ch,0Ah,10h,3Ch,66h,66h,3Ch,00  ; CHR$11 
+DB   00h,3Ch,66h,66h,3Ch,18h,7Eh,18  ; CHR$12 
+DB   18h,14h,14h,10h,10h,10h,70h,70  ; CHR$13 
+DB   30h,28h,38h,28h,68h,68h,08h,38  ; CHR$14 
+DB   08h,08h,3Eh,22h,63h,3Eh,08h,08  ; CHR$15 
+DB   00h,C0h,F0h,FEh,F0h,C0h,00h,00  ; CHR$16 
+DB   00h,06h,3Eh,FEh,3Eh,06h,00h,00  ; CHR$17 
+DB   18h,3Ch,5Ah,18h,18h,5Ah,3Ch,18  ; CHR$18 
+DB   66h,66h,66h,66h,66h,00h,66h,00  ; CHR$19 
+DB   3Eh,52h,52h,3Eh,12h,12h,12h,12  ; CHR$20 
+DB   3Ch,62h,60h,3Ch,42h,3Ch,06h,3C  ; CHR$21 
+DB   00h,00h,00h,7Eh,7Eh,00h,00h,00  ; CHR$22 
+DB   18h,3Ch,5Ah,18h,5Ah,3Ch,18h,7E  ; CHR$23 
+DB   18h,3Ch,5Ah,18h,18h,18h,18h,00  ; CHR$24 
+DB   18h,18h,18h,18h,5Ah,3Ch,18h,00  ; CHR$25 
+DB   00h,08h,0Ch,FEh,0Ch,08h,00h,00  ; CHR$26 
+DB   00h,20h,60h,FEh,60h,20h,00h,00  ; CHR$27 
+DB   00h,00h,60h,60h,60h,7Eh,00h,00  ; CHR$28 
+DB   00h,24h,42h,FFh,42h,24h,00h,00  ; CHR$29 
+DB   00h,00h,00h,18h,3Ch,7Eh,00h,00  ; CHR$30 
+DB   00h,00h,7Eh,3Ch,18h,00h,00h,00  ; CHR$31 
+DB   00h,00h,00h,00h,00h,00h,00h,00  ; CHR$32  - ' '
+DB   18h,18h,18h,18h,18h,00h,18h,00  ; CHR$33  - '!'
+DB   6Ch,6Ch,6Ch,00h,00h,00h,00h,00  ; CHR$34  - '"'
+DB   36h,36h,7Fh,36h,7Fh,36h,36h,00  ; CHR$35  - '#'
+DB   0Ch,3Fh,68h,3Eh,0Bh,7Eh,18h,00  ; CHR$36  - '$'
+DB   60h,66h,0Ch,18h,30h,66h,06h,00  ; CHR$37  - '%'
+DB   38h,6Ch,6Ch,38h,6Dh,66h,3Bh,00  ; CHR$38  - '&'
+DB   0Ch,18h,30h,00h,00h,00h,00h,00  ; CHR$39  - '''
+DB   0Ch,18h,30h,30h,30h,18h,0Ch,00  ; CHR$40  - '('
+DB   30h,18h,0Ch,0Ch,0Ch,18h,30h,00  ; CHR$41  - ')'
+DB   00h,18h,7Eh,3Ch,7Eh,18h,00h,00  ; CHR$42  - '*'
+DB   00h,18h,18h,7Eh,18h,18h,00h,00  ; CHR$43  - '+'
+DB   00h,00h,00h,00h,00h,18h,18h,30  ; CHR$44  - ','
+DB   00h,00h,00h,7Eh,00h,00h,00h,00  ; CHR$45  - '-'
+DB   00h,00h,00h,00h,00h,18h,18h,00  ; CHR$46  - '.'
+DB   00h,06h,0Ch,18h,30h,60h,00h,00  ; CHR$47  - '/'
+DB   3Ch,66h,6Eh,7Eh,76h,66h,3Ch,00  ; CHR$48  - '0'
+DB   18h,38h,18h,18h,18h,18h,7Eh,00  ; CHR$49  - '1'
+DB   3Ch,66h,06h,0Ch,18h,30h,7Eh,00  ; CHR$50  - '2'
+DB   3Ch,66h,06h,1Ch,06h,66h,3Ch,00  ; CHR$51  - '3'
+DB   0Ch,1Ch,3Ch,6Ch,7Eh,0Ch,0Ch,00  ; CHR$52  - '4'
+DB   7Eh,60h,7Ch,06h,06h,66h,3Ch,00  ; CHR$53  - '5'
+DB   1Ch,30h,60h,7Ch,66h,66h,3Ch,00  ; CHR$54  - '6'
+DB   7Eh,06h,0Ch,18h,30h,30h,30h,00  ; CHR$55  - '7'
+DB   3Ch,66h,66h,3Ch,66h,66h,3Ch,00  ; CHR$56  - '8'
+DB   3Ch,66h,66h,3Eh,06h,0Ch,38h,00  ; CHR$57  - '9'
+DB   00h,00h,18h,18h,00h,18h,18h,00  ; CHR$58  - ':'
+DB   00h,00h,18h,18h,00h,18h,18h,30  ; CHR$59  - ';'
+DB   0Ch,18h,30h,60h,30h,18h,0Ch,00  ; CHR$60  - '<'
+DB   00h,00h,7Eh,00h,7Eh,00h,00h,00  ; CHR$61  - '='
+DB   30h,18h,0Ch,06h,0Ch,18h,30h,00  ; CHR$62  - '>'
+DB   3Ch,66h,0Ch,18h,18h,00h,18h,00  ; CHR$63  - '?'
+DB   3Ch,66h,6Eh,6Ah,6Eh,60h,3Ch,00  ; CHR$64  - '@'
+DB   3Ch,66h,66h,7Eh,66h,66h,66h,00  ; CHR$65  - 'A'
+DB   7Ch,66h,66h,7Ch,66h,66h,7Ch,00  ; CHR$66  - 'B'
+DB   3Ch,66h,60h,60h,60h,66h,3Ch,00  ; CHR$67  - 'C'
+DB   78h,6Ch,66h,66h,66h,6Ch,78h,00  ; CHR$68  - 'D'
+DB   7Eh,60h,60h,7Ch,60h,60h,7Eh,00  ; CHR$69  - 'E'
+DB   7Eh,60h,60h,7Ch,60h,60h,60h,00  ; CHR$70  - 'F'
+DB   3Ch,66h,60h,6Eh,66h,66h,3Ch,00  ; CHR$71  - 'G'
+DB   66h,66h,66h,7Eh,66h,66h,66h,00  ; CHR$72  - 'H'
+DB   7Eh,18h,18h,18h,18h,18h,7Eh,00  ; CHR$73  - 'I'
+DB   3Eh,0Ch,0Ch,0Ch,0Ch,6Ch,38h,00  ; CHR$74  - 'J'
+DB   66h,6Ch,78h,70h,78h,6Ch,66h,00  ; CHR$75  - 'K'
+DB   60h,60h,60h,60h,60h,60h,7Eh,00  ; CHR$76  - 'L'
+DB   63h,77h,7Fh,6Bh,6Bh,63h,63h,00  ; CHR$77  - 'M'
+DB   66h,66h,76h,7Eh,6Eh,66h,66h,00  ; CHR$78  - 'N'
+DB   3Ch,66h,66h,66h,66h,66h,3Ch,00  ; CHR$79  - 'O'
+DB   7Ch,66h,66h,7Ch,60h,60h,60h,00  ; CHR$80  - 'P'
+DB   3Ch,66h,66h,66h,6Ah,6Ch,36h,00  ; CHR$81  - 'Q'
+DB   7Ch,66h,66h,7Ch,6Ch,66h,66h,00  ; CHR$82  - 'R'
+DB   3Ch,66h,60h,3Ch,06h,66h,3Ch,00  ; CHR$83  - 'S'
+DB   7Eh,18h,18h,18h,18h,18h,18h,00  ; CHR$84  - 'T'
+DB   66h,66h,66h,66h,66h,66h,3Ch,00  ; CHR$85  - 'U'
+DB   66h,66h,66h,66h,66h,3Ch,18h,00  ; CHR$86  - 'V'
+DB   63h,63h,6Bh,6Bh,7Fh,77h,63h,00  ; CHR$87  - 'W'
+DB   66h,66h,3Ch,18h,3Ch,66h,66h,00  ; CHR$88  - 'X'
+DB   66h,66h,66h,3Ch,18h,18h,18h,00  ; CHR$89  - 'Y'
+DB   7Eh,06h,0Ch,18h,30h,60h,7Eh,00  ; CHR$90  - 'Z'
+DB   7Ch,60h,60h,60h,60h,60h,7Ch,00  ; CHR$91  - '['
+DB   00h,60h,30h,18h,0Ch,06h,00h,00  ; CHR$92  - '\'
+DB   3Eh,06h,06h,06h,06h,06h,3Eh,00  ; CHR$93  - ']'
+DB   18h,3Ch,66h,42h,00h,00h,00h,00  ; CHR$94  - '^'
+DB   00h,00h,00h,00h,00h,00h,00h,FF  ; CHR$95  - '_'
+DB   1Ch,36h,30h,7Ch,30h,30h,7Eh,00  ; CHR$96  - '`'
+DB   00h,00h,3Ch,06h,3Eh,66h,3Eh,00  ; CHR$97  - 'a'
+DB   60h,60h,7Ch,66h,66h,66h,7Ch,00  ; CHR$98  - 'b'
+DB   00h,00h,3Ch,66h,60h,66h,3Ch,00  ; CHR$99  - 'c'
+DB   06h,06h,3Eh,66h,66h,66h,3Eh,00  ; CHR$100 - 'd'
+DB   00h,00h,3Ch,66h,7Eh,60h,3Ch,00  ; CHR$101 - 'e'
+DB   1Ch,30h,30h,7Ch,30h,30h,30h,00  ; CHR$102 - 'f'
+DB   00h,00h,3Eh,66h,66h,3Eh,06h,3C  ; CHR$103 - 'g'
+DB   60h,60h,7Ch,66h,66h,66h,66h,00  ; CHR$104 - 'h'
+DB   18h,00h,38h,18h,18h,18h,3Ch,00  ; CHR$105 - 'i'
+DB   18h,00h,38h,18h,18h,18h,18h,70  ; CHR$106 - 'j'
+DB   60h,60h,66h,6Ch,78h,6Ch,66h,00  ; CHR$107 - 'k'
+DB   38h,18h,18h,18h,18h,18h,3Ch,00  ; CHR$108 - 'l'
+DB   00h,00h,36h,7Fh,6Bh,6Bh,63h,00  ; CHR$109 - 'm'
+DB   00h,00h,7Ch,66h,66h,66h,66h,00  ; CHR$110 - 'n'
+DB   00h,00h,3Ch,66h,66h,66h,3Ch,00  ; CHR$111 - 'o'
+DB   00h,00h,7Ch,66h,66h,7Ch,60h,60  ; CHR$112 - 'p'
+DB   00h,00h,3Eh,66h,66h,3Eh,06h,07  ; CHR$113 - 'q'
+DB   00h,00h,6Ch,76h,60h,60h,60h,00  ; CHR$114 - 'r'
+DB   00h,00h,3Eh,60h,3Ch,06h,7Ch,00  ; CHR$115 - 's'
+DB   30h,30h,7Ch,30h,30h,30h,1Ch,00  ; CHR$116 - 't'
+DB   00h,00h,66h,66h,66h,66h,3Eh,00  ; CHR$117 - 'u'
+DB   00h,00h,66h,66h,66h,3Ch,18h,00  ; CHR$118 - 'v'
+DB   00h,00h,63h,6Bh,6Bh,7Fh,36h,00  ; CHR$119 - 'w'
+DB   00h,00h,66h,3Ch,18h,3Ch,66h,00  ; CHR$120 - 'x'
+DB   00h,00h,66h,66h,66h,3Eh,06h,3C  ; CHR$121 - 'y'
+DB   00h,00h,7Eh,0Ch,18h,30h,7Eh,00  ; CHR$122 - 'z'
+DB   0Ch,18h,18h,70h,18h,18h,0Ch,00  ; CHR$123 - '{'
+DB   18h,18h,18h,00h,18h,18h,18h,00  ; CHR$124 - '|'
+DB   30h,18h,18h,0Eh,18h,18h,30h,00  ; CHR$125 - '}'
+DB   31h,6Bh,46h,00h,00h,00h,00h,00  ; CHR$126 - '~'
+DB   00h,18h,3Ch,66h,7Eh,00h,00h,00  ; CHR$127
+;
+;
+; RESET startup
+; =============
+; ROM is paged in, executing at F000:0000
+.LFE70
+PUSH SP                        ; F000-3E70 54           T
+POP AX                         ; F000-3E71 58           X
+CMP AX,SP     ; test CPU type  ; F000-3E72 3B C4        ;D
+JNZ L3E7D                      ; F000-3E74 75 07        u.
+MOV AL,&00C                    ; F000-3E76 B0 0C        0.
+OUT &60,AL                     ; F000-3E78 E6 60        f`
+JMP L22EC                      ; F000-3E7A E9 6F E4     iod
+.L3E7D
+MOV AX,&03FF8                  ; F000-3E7D B8 F8 3F     8x?
+MOV DX,&0FFA2                  ; F000-3E80 BA A2 FF     -".
+OUT DX,AX                      ; F000-3E83 EF           o
+MOV AX,&08238                  ; F000-3E84 B8 38 82     88.
+MOV DX,&0FFA8                  ; F000-3E87 BA A8 FF     -(.
+OUT DX,AX                      ; F000-3E8A EF           o
+MOV AX,&0B9F8                  ; F000-3E8B B8 F8 B9     8x9
+MOV DX,&0FFA6                  ; F000-3E8E BA A6 FF     -&.
+OUT DX,AX                      ; F000-3E91 EF           o
+MOV AX,&0F039                  ; F000-3E92 B8 39 F0     89p
+MOV DX,&0FFA0                  ; F000-3E95 BA A0 FF     - .
+OUT DX,AX                      ; F000-3E98 EF           o
+MOV AX,&00028                  ; F000-3E99 B8 28 00     8(.
+MOV DX,&0FF52                  ; F000-3E9C BA 52 FF     -RETURN
+OUT DX,AX                      ; F000-3E9F EF           o
+MOV AX,&0C001                  ; F000-3EA0 B8 01 C0     8.@
+MOV DX,&0FF56                  ; F000-3EA3 BA 56 FF     -VDU
+OUT DX,AX                      ; F000-3EA6 EF           o
+MOV AX,&00038                  ; F000-3EA7 B8 38 00     88.
+MOV DX,&0FFA4                  ; F000-3EAA BA A4 FF     -$.
+OUT DX,AX                      ; F000-3EAD EF           o
+MOV AX,&00000                  ; F000-3EAE B8 00 00     8..
+MOV DX,&0FF38                  ; F000-3EB1 BA 38 FF     -8.
+OUT DX,AX                      ; F000-3EB4 EF           o
+JMP L22EC                      ; F000-3EB5 E9 34 E4     i4d
+;
+; Copy ROM to RAM and jump to RAM copy
+; ------------------------------------
+.L3EB8
+SUB AX,AX          ; AX=0                             ; F000-3EB8 2B C0        +@
+MOV SI,AX          ; SI=&0000 - Copy source address   ; F000-3EBA 8B F0        .p
+MOV DI,AX          ; DI=&0000 - Copy dest address     ; F000-3EBC 8B F8        .x
+MOV ES,AX          ; ES=&0000 - Copy dest segment     ; F000-3EBE 8E C0        .@
+MOV AX,F000h       ; AX=&F000 - ROM segment           ; F000-3EC0 B8 00 F0     8.p
+MOV DS,AX          ; DS=&F000 - Copy source segment   ; F000-3EC3 8E D8        .X
+MOV CX,0200h       ; CX=&0200 to copy &400 bytes      ; F000-3EC5 B9 00 02     9..
+REPE MOVSW         ; Copy interupt vectors from F000:0000 to 0000:0000  ; F000-3EC8 F3 A5          s%
+                   ; Copies &200 words from DS:SI to ES:DI
+MOV SI,L05AE       ; Copy rest of ROM from &05AE onwards  ; F000-3ECA BE AE 05     >..
+MOV DI,SI          ; Dest is same address in RAM          ; F000-3ECD 8B FE        .~
+MOV CX,1D29h       ; &05AE+2*&1D29 = &4000, rest of ROM   ; F000-3ECF B9 29 1D     9).
+REPE MOVSW         ; Copy the rest of the ROM to RAM      ; F000-3ED2 F3 A5          s%
+; Why not just copy &0000-&3FFF all in one go? Why the gap from &400-&5AE?
+; -> to avoid overwriting PROG and ADDR
+;
+JMP 0000h:L0A00    ; Jump to BIOS copy in RAM to continue ; F000-3ED4 EA 00 0A 00 00 j....
+;
+;
+; On Reset, execution starts at FFFF:0000, this is FFFF0
+; ======================================================
+ORG 3FF0h
+.LFFF0
+JMP F000h:FE70                 ; F000-3FF0 EA 70 FE 00 F0 jp~.p
+DB  "11/08/82"                 ; F000-3FF5 31 31 2F 30    11/0
+                               ; F000-3FF9 38 2F 38 32    8/82
+DW  FEFFh                      ; F000-3FFD FF FE          .~
+DB  27h                        ; F000-3FFF 27             '
+;
+; Main memory starts at 0400:0000, physical address &004000
+; DOSBOOT is loaded to 0400:0000 which is physical address &004000
