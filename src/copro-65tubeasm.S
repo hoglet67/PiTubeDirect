@@ -547,6 +547,13 @@ exec_65tube:
         bic     r0, r0, #0xC0
         msr     CPSR_c, r0
 
+        mov     r4, #0x00               // Initialize r4 (flags) to zero on power up
+                                        // This was added to fix a bug where the language transfer
+                                        // would fail if exec_65tube was entered with certain
+                                        // values of r4 (specifically, with bit 7 = 1).
+                                        // This is very strange, because r4 bit 7 is not used!
+                                        // To reproduce, initialize r4 to 0x80
+
 handle_rst:
         orr     r4, r4, #4              // Set the I bit
         bic     r4, r4, #8              // Clear the D bit
