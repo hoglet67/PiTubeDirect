@@ -488,7 +488,11 @@ void tube_wait_for_rst_active() {
 }
 
 void tube_wait_for_rst_release() {
-   while (tube_is_rst_active());
+   volatile int i;
+   do {
+      while (tube_is_rst_active());
+      for (i = 0; i < 1000000; i++);
+   } while (tube_is_rst_active());
 }
 
 void tube_reset_performance_counters() {
