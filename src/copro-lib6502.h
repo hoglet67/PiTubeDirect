@@ -2,6 +2,6 @@
 #ifndef COPRO_LIB6502_H
 #define COPRO_LIB6502_H
 
-extern void copro_lib6502_main();
+extern void copro_lib6502_emulator();
 
 #endif

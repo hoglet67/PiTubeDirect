@@ -69,6 +69,7 @@
 // if so check if we have an IRQ
 
 #include "rpi-base.h"
+#include "tube-defs.h"
         
 .text
 .global exec_65tube
@@ -512,6 +513,7 @@ opcode_jump_table:
 // End of Opcode Jump Table
 // **********************************************
 
+#ifndef USE_MULTICORE
 // **********************************************
 // Start of Event Handler Jump Table
 // **********************************************
@@ -519,10 +521,11 @@ opcode_jump_table:
 .rept 256
         .word    Event_Handler
 .endr
-
+        
 // **********************************************
 // End of Event Handler Jump Table
 // **********************************************
+#endif
 
 // **********************************************
 // Entry point to emulator
@@ -544,6 +547,13 @@ exec_65tube:
         bic     r0, r0, #0xC0
         msr     CPSR_c, r0
 
+        mov     r4, #0x00               // Initialize r4 (flags) to zero on power up
+                                        // This was added to fix a bug where the language transfer
+                                        // would fail if exec_65tube was entered with certain
+                                        // values of r4 (specifically, with bit 7 = 1).
+                                        // This is very strange, because r4 bit 7 is not used!
+                                        // To reproduce, initialize r4 to 0x80
+
 handle_rst:
         orr     r4, r4, #4              // Set the I bit
         bic     r4, r4, #8              // Clear the D bit
@@ -559,6 +569,14 @@ fetch_next_i:
         sub     sl, sl, #1
         
 fetch_next:
+#ifdef USE_MULTICORE
+        mrs     r2, CPSR                  // Preserve the 6502 flags
+        ldr     r0, =tube_mailbox         // Check the tube mailbox for "events" (e.g. tube irq)
+        ldr     r0, [r0]
+        tst     r0, #ATTN_MASK
+        bne     Event_Handler
+        msr     CPSR_flg, r2              // Restore the 6502 flags
+#endif        
         ldrb    r2, [sl], #1
         ldrb    r0, [sl], #1
         ldr     pc, [ip, r2, lsl #2]
@@ -575,18 +593,23 @@ fetch_next_check_irq:
         b       fetch_next
         
 // 6502 Event handler
-// We have come here via a branch from the second instruction table
+// if USE_MULTICORE is defined, we have come here only from fetch_next above.
+// if USE_MULTICORE is not defined, we have come here via a branch from the second instruction table
+
 Event_Handler:
+#ifndef USE_MULTICORE
         mrs     r2, CPSR                // preserve the 6502 flags
+#endif
         orr     r1, r2, #0xC0           // disable ARM IRQs and FIQs
         msr     CPSR_c, r1
         
         ldr     r1, =tube_mailbox
         ldr     r0, [r1]
+#ifndef USE_MULTICORE        
         bic     ip, ip, #1024           // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
-
-        bic     r0, r0, #0x80000000     // the attention bit
+#endif
+        bic     r0, r0, #ATTN_MASK      // the attention bit
         str     r0, [r1]                // ack the attention bit
 
         push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value
