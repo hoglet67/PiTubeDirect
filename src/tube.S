@@ -229,12 +229,16 @@ arm_fiq_handler:
         //r8-r11 are shadowed in FIQ mode, so no need to push
         //push    {r8-r11}
 
-#ifdef HAS40PINS
+#ifdef HAS_40PINS
         mov     r9, #TEST_MASK
         ldr     r8, =GPSET0
         str     r9, [r8]
 #endif
         
+        ldr     r8, =GPEDS0
+        mov     r9, #-1
+        str     r9, [r8]                // clear all Pin events
+
         ldr     r8, =GPLEV0
         ldr     r9, [r8]                // *** very expensive but necessary ***
 
@@ -328,8 +332,7 @@ post_mail2:
         orrne   r9, r9, #OVERRUN_MASK
         str     r9, tube_mailbox
 
-//#if (COPRO == COPRO_65TUBE)
-#if 0
+#if (COPRO == COPRO_65TUBE) && !defined(USE_MULTICORE)
         // Switch back to irq mode so ip is not shadowed
         mrs     r8, cpsr
         bic     r8, r8, #0x1F
@@ -353,11 +356,7 @@ post_mail2:
         
 exit:
         
-        ldr     r8, =GPEDS0
-        mov     r9, #-1
-        str     r9, [r8]                // clear all Pin events
-
-#ifdef HAS40PINS
+#ifdef HAS_40PINS
         mov     r9, #TEST_MASK
         ldr     r8, =GPCLR0
         str     r9, [r8]

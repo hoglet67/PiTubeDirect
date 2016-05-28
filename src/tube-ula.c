@@ -15,6 +15,7 @@
 #include "rpi-aux.h"
 #include "rpi-interrupts.h"
 #include "info.h"
+#include "performance.h"
 
 //#define DEBUG_TRANSFERS
 
@@ -23,6 +24,8 @@ extern volatile uint8_t tube_regs[8];
 extern volatile uint32_t gpfsel_data_idle[3];
 extern volatile uint32_t gpfsel_data_driving[3];
 const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
+
+static perf_counters_t pct;
 
 uint8_t ph1[24],ph3_1;
 uint8_t hp1,hp2,hp3[2],hp4;
@@ -310,8 +313,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 void tube_reset()
 {
-   printf("tube reset\r\n");
-
+//   printf("tube reset\r\n");
    ph1pos = hp3pos = 0;
    ph3pos = 1;
    HSTAT1 = HSTAT2 = HSTAT4 = 0x40;
@@ -413,7 +415,7 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
-#ifdef HAS40PINS
+#ifdef HAS_40PINS
   RPI_SetGpioPinFunction(TEST_PIN, FS_OUTPUT);
 #endif
 
@@ -451,6 +453,30 @@ void tube_init_hardware()
   printf("A0 = GPIO%02d = mask %08x\r\n", A0_PIN, A0_MASK); 
   printf("A1 = GPIO%02d = mask %08x\r\n", A1_PIN, A1_MASK); 
   printf("A2 = GPIO%02d = mask %08x\r\n", A2_PIN, A2_MASK); 
+
+  // Initialize performance counters
+#if defined(RPI2) || defined(RPI3) 
+   pct.num_counters = 6;
+   pct.type[0] = PERF_TYPE_L1I_CACHE;
+   pct.type[1] = PERF_TYPE_L1I_CACHE_REFILL;
+   pct.type[2] = PERF_TYPE_L1D_CACHE;
+   pct.type[3] = PERF_TYPE_L1D_CACHE_REFILL;
+   pct.type[4] = PERF_TYPE_L2D_CACHE_REFILL;
+   pct.type[5] = PERF_TYPE_INST_RETIRED;
+   pct.counter[0] = 0;
+   pct.counter[1] = 0;
+   pct.counter[2] = 0;
+   pct.counter[3] = 0;
+   pct.counter[4] = 0;
+   pct.counter[5] = 0;
+#else
+   pct.num_counters = 2;
+   pct.type[0] = PERF_TYPE_I_CACHE_MISS;
+   pct.type[1] = PERF_TYPE_D_CACHE_MISS;
+   pct.counter[0] = 0;
+   pct.counter[1] = 0;
+#endif
+
 }
 
 int tube_is_rst_active() {
@@ -463,4 +489,13 @@ void tube_wait_for_rst_active() {
 
 void tube_wait_for_rst_release() {
    while (tube_is_rst_active());
+}
+
+void tube_reset_performance_counters() {
+//   reset_performance_counters(&pct);
+}
+
+void tube_log_performance_counters() {
+//   read_performance_counters(&pct);
+//   print_performance_counters(&pct);
 }

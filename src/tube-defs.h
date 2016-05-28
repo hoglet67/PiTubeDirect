@@ -4,8 +4,13 @@
 #define TUBE_DEFS_H
 
 // Configure the particular coprocessor
+#define COPRO_ARM     0
+#define COPRO_ARM2    1
+#define COPRO_6502    2
 #define COPRO_LIB6502 3
 #define COPRO_65TUBE  4
+#define COPRO_80186   5
+#define COPRO_32016   6
 
 #ifndef COPRO
 #define COPRO COPRO_65TUBE
@@ -14,7 +19,21 @@
 // Indicates a Pi with the 40 pin GPIO connector
 // so that additional functionality (e.g. test pins) can be enabled
 #if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2) || defined(RPI3)
-#define HAS40PINS
+#define HAS_40PINS
+#endif
+
+// Pi 2/3 Multicore options
+#if defined(RPI2) || defined(RPI3)
+
+// Indicate the platform has multiple cores
+#define HAS_MULTICORE
+
+// Indicates we want to make active use of multiple cores
+#define USE_MULTICORE
+
+// Needs to match kernel_old setting in config.txt
+//#define KERNEL_OLD
+
 #endif
 
 #ifdef __ASSEMBLER__
@@ -116,7 +135,7 @@
 
 #define PINS_MASK    (A_MASK | D_MASK | RNW_MASK | NRST_MASK | NTUBE_MASK)
 
-#ifdef HAS40PINS
+#ifdef HAS_40PINS
 #define TEST_PIN     (21)
 #define TEST_MASK    (1 << TEST_PIN)
 #endif

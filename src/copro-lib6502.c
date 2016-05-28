@@ -9,12 +9,8 @@
  *
  */
 
-
 #include <stdio.h>
-#include <inttypes.h>
 #include <string.h>
-#include "startup.h"
-#include "cache.h"
 #include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
@@ -33,12 +29,16 @@ static void copro_lib6502_poweron_reset(M6502 *mpu) {
 }
 
 static void copro_lib6502_reset(M6502 *mpu) {
+  // Log ARM performance counters
+  tube_log_performance_counters();
   // Re-instate the Tube ROM on reset
   memcpy(mpu->memory + 0xf800, tuberom_6502_orig, 0x800);
   // Reset lib6502
   M6502_reset(mpu);
   // Do a tube reset
   tube_reset();
+  // Reset ARM performance counters
+  tube_reset_performance_counters();
 }
 
 static unsigned int last_nmi = 0;
@@ -91,24 +91,8 @@ static void copro_lib6502_poll(M6502 *mpu) {
    }
 }
 
-void copro_lib6502_main() {
+void copro_lib6502_emulator() {
   uint16_t addr;
-
-  tube_init_hardware();
-
-  printf("Raspberry Pi Direct lib6502 Client\r\n" );
-
-  enable_MMU_and_IDCaches();
-  _enable_unaligned_access();
-
-  // Lock the Tube Interrupt handler into cache
-#if !defined(RPI2) && !defined(RPI3)
-  lock_isr();
-#endif
-
-  printf("Initialise UART console with standard libc\r\n" );
-
-  _enable_interrupts();
 
   M6502 *mpu= M6502_new(0, 0, 0);
 
@@ -121,6 +105,6 @@ void copro_lib6502_main() {
   copro_lib6502_reset(mpu);
 
   M6502_run(mpu, copro_lib6502_poll);
-  //M6502_run(mpu);
+
   M6502_delete(mpu);
 }

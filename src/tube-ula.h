@@ -3,6 +3,8 @@
 #ifndef TUBE_ULA_H
 #define TUBE_ULA_H
 
+#include <inttypes.h>
+
 extern int tube_irq;
 
 extern void tube_host_read(uint16_t addr);
@@ -24,5 +26,9 @@ extern int tube_is_rst_active();
 extern void tube_wait_for_rst_active();
 
 extern void tube_wait_for_rst_release();
+
+extern void tube_reset_performance_counters();
+
+extern void tube_log_performance_counters();
 
 #endif

@@ -89,6 +89,6 @@ extern void read_performance_counters(perf_counters_t *pct);
 
 extern void print_performance_counters(perf_counters_t *pct);
 
-int benchmark();
+extern int benchmark();
 
 #endif

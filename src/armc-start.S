@@ -27,10 +27,10 @@
 
 //  Relocate to just below 32MB
 
-//#define KERNEL_OLD
-        
+#include "tube-defs.h"
+                
 .equ    RELOCATE_TO,      0x01F00000
-#ifdef KERNEL_OLD
+#if (defined(RPI2) || defined(RPI3)) && defined(KERNEL_OLD)
 .equ    RELOCATE_FROM,    0x00000000
 #else
 .equ    RELOCATE_FROM,    0x00008000
@@ -70,12 +70,16 @@
 .global _invalidate_icache
 .global _invalidate_dcache
 
-#if defined(RPI2) || defined(RPI3)
+#ifdef HAS_MULTICORE
 .global _get_core
 .global _init_core
 .global _spin_core
 #endif
 
+#if defined(HAS_40PINS)
+.global _toggle_test_pin
+#endif
+        
 // From the ARM ARM (Architecture Reference Manual). Make sure you get the
 // ARMv5 documentation which includes the ARMv6 documentation which is the
 // correct processor type for the Broadcom BCM2835. The ARMv6-M manuals
@@ -127,7 +131,7 @@ _c0_user_stack:                     .word   C0_USER_STACK
 _c0_undefined_stack:                .word   C0_UNDEFINED_STACK
 _c0_abort_stack:                    .word   C0_ABORT_STACK
 
-#if defined(RPI2) || defined(RPI3)
+#ifdef HAS_MULTICORE
 _c1_irq_stack:                      .word   C1_IRQ_STACK
 _c1_fiq_stack:                      .word   C1_FIQ_STACK
 _c1_svr_stack:                      .word   C1_SVR_STACK
@@ -160,7 +164,7 @@ _copy_loop:
     // execution resumes here in high memory
 _reset_:
 
-#if defined(RPI2) || defined(RPI3)
+#ifdef HAS_MULTICORE
 
 #ifdef KERNEL_OLD
         
@@ -174,6 +178,7 @@ _reset_:
     beq     _core_continue
     // Put cores 1-3 into a tight loop
 _core_loop:
+    wfi
     b       _core_loop    
 _core_continue:
 
@@ -252,7 +257,7 @@ _reset_continue:
 
     // Enable VFP ------------------------------------------------------------
 
-#if defined(RPI2) || defined(RPI3)
+#ifdef HAS_MULTICORE
     //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
     ldr     r0, =(0xf << 20)
     mcr     p15, 0, r0, c1, c0, 2
@@ -373,7 +378,7 @@ _invalidate_dcache:
     mov      pc, lr
 
 
-#if defined(RPI2) || defined(RPI3)
+#ifdef HAS_MULTICORE
 _get_core:
     mrc     p15, 0, r0, c0, c0, 5
     and     r0, #3
@@ -463,6 +468,21 @@ _spin_core:
     bl      RPI_AuxMiniUartWrite
         
 _spin_core1:
+    wfi
     b       _spin_core1
 
 #endif
+
+#ifdef HAS_40PINS
+_toggle_test_pin:        
+        mov     r1, #TEST_MASK
+_toggle_test_pin_loop:
+        ldr     r2, =GPSET0
+        str     r1, [r2]
+        ldr     r2, =GPCLR0
+        str     r1, [r2]
+        subs    r0, r0, #1
+        bne     _toggle_test_pin_loop
+        mov     pc, lr
+#endif
+
