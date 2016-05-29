@@ -202,17 +202,19 @@ static int elapsed;
       }											\
     else										\
       {											\
-	int l, h, s;									\
+	/* Algorithm taken from http://www.6502.org/tutorials/decimal_mode.html */      \
 	/* inelegant & slow, but consistent with the hw for illegal digits */		\
+	int l, s, t, v;									\
 	l= (A & 0x0F) + (B & 0x0F) + getC();						\
-	h= (A & 0xF0) + (B & 0xF0);							\
-	if (l >= 0x0A) { l -= 0x0A;  h += 0x10; }					\
-	if (h >= 0xA0) { h -= 0xA0; }							\
-	fetch();									\
-	s= h | (l & 0x0F);								\
-	/* only C is valid on NMOS 6502 */						\
-	setNVZC(s & 0x80, !(((A ^ B) & 0x80) && ((A ^ s) & 0x80)), !s, !!(h & 0x80));	\
+	if (l >= 0x0A) { l = ((l + 0x06) & 0x0F) + 0x10; }				\
+	s= (A & 0xF0) + (B & 0xF0) + l;							\
+	t= (int8_t)(A & 0xF0) + (int8_t)(B & 0xF0) + (int8_t)l;				\
+	v= (t < -128) || (t > 127);							\
+	if (s >= 0xA0) { s += 0x60; }							\
+        fetch();									\
 	A= s;										\
+	/* only C is valid on NMOS 6502 */						\
+	setNVZC(s & 0x80, v, !A, (s >= 0x100));						\
 	tick(1);									\
 	next();										\
       }											\
@@ -234,18 +236,18 @@ static int elapsed;
       }											\
     else										\
       {											\
-	/* this is verbatim ADC, with a 10's complemented operand */			\
-	int l, h, s;									\
-	B= 0x99 - B;									\
-	l= (A & 0x0F) + (B & 0x0F) + getC();						\
-	h= (A & 0xF0) + (B & 0xF0);							\
-	if (l >= 0x0A) { l -= 0x0A;  h += 0x10; }					\
-	if (h >= 0xA0) { h -= 0xA0; }							\
-	fetch();									\
-	s= h | (l & 0x0F);								\
+	/* Algorithm taken from http://www.6502.org/tutorials/decimal_mode.html */      \
+	int b= 1 - (P &0x01);								\
+	int l= (A & 0x0F) - (B & 0x0F) - b;	 					\
+	int s= A - B + getC() - 1;							\
+	int c= !(s & 0x100);								\
+	int v= (int8_t)A - (int8_t) B - b;						\
+      	if (s < 0) { s -= 0x60; } 							\
+	if (l < 0) { s -= 0x06; }							\
+	fetch(); 									\
+	A = s;										\
 	/* only C is valid on NMOS 6502 */						\
-	setNVZC(s & 0x80, !(((A ^ B) & 0x80) && ((A ^ s) & 0x80)), !s, !!(h & 0x80));	\
-	A= s;										\
+	setNVZC(s & 0x80, ((v & 0x80) > 0) ^ ((v & 0x100) != 0), !A, c);		\
 	tick(1);									\
 	next();										\
       }											\
