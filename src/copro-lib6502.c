@@ -41,23 +41,12 @@ static void copro_lib6502_reset(M6502 *mpu) {
   tube_reset_performance_counters();
 }
 
-static unsigned int last_nmi = 0;
-
 static int copro_lib6502_tube_read(M6502 *mpu, uint16_t addr, uint8_t data) {
-  data = tube_parasite_read(addr);
-  // Update NMI state as it may hve been cleared by the read
-  if ((tube_irq & 2) == 0) {
-     last_nmi = 0;
-  }
-  return data;
+  return tube_parasite_read(addr);
 }
 
 static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
   tube_parasite_write(addr, data);
-  // Update NMI state as it may hve been cleared by the write
-  if ((tube_irq & 2) == 0) {
-     last_nmi = 0;
-  }
   return 0;
 }
 
@@ -67,28 +56,24 @@ static void copro_lib6502_poll(M6502 *mpu) {
     unsigned int tube_mailbox_copy = tube_mailbox;
     tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
     unsigned int intr = tube_io_handler(tube_mailbox_copy);
-    unsigned int irq = intr & 1;
     unsigned int nmi = intr & 2;
     unsigned int rst = intr & 4;
-    // Reset the 6502 on a rst going inactive
+    // Reset the processor on a rst going inactive
     if (rst == 0 && last_rst != 0) {
       copro_lib6502_reset(mpu);
     }
-    // IRQ is level sensitive
-    if (irq) {
-      if (!(mpu->registers->p & 4)) {
-         //printf("irq!\r\n");
-        M6502_irq(mpu);
-      }
-    }
-    // NMI is edge sensitive
-    if (nmi != 0 && last_nmi == 0) {
-       //printf("nmi!\r\n");
+    // NMI is edge sensitive, so only check after mailbox activity
+    if (nmi) {
       M6502_nmi(mpu);
     }
-    last_nmi = nmi;
     last_rst = rst;
    }
+  // IRQ is level sensitive, so check between every instruction
+  if (tube_irq & 1) {
+     if (!(mpu->registers->p & 4)) {
+        M6502_irq(mpu);
+     }
+  }
 }
 
 void copro_lib6502_emulator() {
