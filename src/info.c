@@ -31,6 +31,32 @@ int get_clock_rate(int clk_id) {
    }
 }
 
+float get_temp() {
+   rpi_mailbox_property_t *buf;
+   RPI_PropertyInit();
+   RPI_PropertyAddTag(TAG_GET_TEMPERATURE, 0);
+   RPI_PropertyProcess();
+   buf = RPI_PropertyGet(TAG_GET_TEMPERATURE);
+   if (buf) {
+      return ((float)buf->data.buffer_32[1]) / 1E3F;
+   } else {
+      return 0.0F;
+   }
+}
+
+float get_voltage(int component_id) {
+   rpi_mailbox_property_t *buf;
+   RPI_PropertyInit();
+   RPI_PropertyAddTag(TAG_GET_VOLTAGE, component_id);
+   RPI_PropertyProcess();
+   buf = RPI_PropertyGet(TAG_GET_VOLTAGE);
+   if (buf) {
+      return ((float) buf->data.buffer_32[1]) / 1E6F;
+   } else {
+      return 0.0F;
+   }
+}
+
 clock_info_t * get_clock_rates(int clk_id) {
    static clock_info_t result;
    int *rp = (int *) &result;
@@ -122,5 +148,12 @@ void dump_useful_info() {
              (double) (clk_info->min_rate)  / 1.0e6,
              (double) (clk_info->max_rate)  / 1.0e6
          );
-   }   
+   }
+
+   printf("           CORE TEMP : %6.2f °C\r\n", get_temp());
+   printf("        CORE VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_CORE));
+   printf("     SDRAM_C VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_C));
+   printf("     SDRAM_P VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_P));
+   printf("     SDRAM_I VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_I));
+   
 }

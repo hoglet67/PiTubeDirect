@@ -67,6 +67,11 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
         case TAG_GET_MAX_CLOCK_RATE:
         case TAG_GET_MIN_CLOCK_RATE:
         case TAG_GET_TURBO:
+        case TAG_GET_TEMPERATURE:
+        case TAG_GET_MAX_TEMPERATURE:
+        case TAG_GET_VOLTAGE:
+        case TAG_GET_MIN_VOLTAGE:
+        case TAG_GET_MAX_VOLTAGE:
             pt[pt_index++] = 8;
             pt[pt_index++] = 0; /* Request */
             pt[pt_index++] = va_arg( vl, int ); /* ClockID */
