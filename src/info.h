@@ -26,4 +26,8 @@ extern clock_info_t *get_clock_rates(int clk_id);
 
 extern void dump_useful_info();
 
+extern char *get_cmdline();
+
+extern char *get_cmdline_prop(char *prop);
+
 #endif

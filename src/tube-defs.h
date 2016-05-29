@@ -4,13 +4,14 @@
 #define TUBE_DEFS_H
 
 // Configure the particular coprocessor
-#define COPRO_ARM     0
-#define COPRO_ARM2    1
-#define COPRO_6502    2
-#define COPRO_LIB6502 3
-#define COPRO_65TUBE  4
-#define COPRO_80186   5
-#define COPRO_32016   6
+#define UNDEFINED     0
+#define COPRO_ARM     1
+#define COPRO_ARM2    2
+#define COPRO_6502    3
+#define COPRO_LIB6502 4
+#define COPRO_65TUBE  5
+#define COPRO_80186   6
+#define COPRO_32016   7
 
 #ifndef COPRO
 #define COPRO COPRO_65TUBE

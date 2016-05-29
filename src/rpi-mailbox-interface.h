@@ -1,6 +1,10 @@
 #ifndef RPI_MAILBOX_INTERFACE_H
 #define RPI_MAILBOX_INTERFACE_H
 
+#define PROP_BUFFER_SIZE 8192
+#define PROP_SIZE        1024
+
+
 /**
     @brief An enum of the RPI->Videocore firmware mailbox property interface
     properties. Further details are available from
@@ -113,8 +117,8 @@ typedef struct {
     int byte_length;
     union {
         int value_32;
-        unsigned char buffer_8[256];
-        int buffer_32[64];
+        unsigned char buffer_8[PROP_SIZE];
+        int buffer_32[PROP_SIZE >> 2];
     } data;
     } rpi_mailbox_property_t;
 

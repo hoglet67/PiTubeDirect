@@ -8,13 +8,15 @@
 /* Make sure the property tag buffer is aligned to a 16-byte boundary because
    we only have 28-bits available in the property interface protocol to pass
    the address of the buffer to the VC. */
-static int pt[8192] __attribute__((aligned(16)));
+static int pt[PROP_BUFFER_SIZE] __attribute__((aligned(16)));
 static int pt_index = 0;
 
 //#define PRINT_PROP_DEBUG 1
 
 void RPI_PropertyInit( void )
 {
+    memset(pt, 0, PROP_BUFFER_SIZE);
+
     /* Fill in the size on-the-fly */
     pt[PT_OSIZE] = 12;
 
@@ -57,10 +59,10 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 
         case TAG_GET_CLOCKS:
         case TAG_GET_COMMAND_LINE:
-            /* Provide a 256-byte buffer */
-            pt[pt_index++] = 256;
+            /* Provide a 1024-byte buffer */
+            pt[pt_index++] = PROP_SIZE;
             pt[pt_index++] = 0; /* Request */
-            pt_index += 256 >> 2;
+            pt_index += PROP_SIZE >> 2;
             break;
 
         case TAG_GET_CLOCK_RATE:

@@ -1,5 +1,8 @@
 #include <stdio.h>
+#include <string.h>
 #include "info.h"
+
+static char cmdline[PROP_SIZE];
 
 void print_tag_value(char *name, rpi_mailbox_property_t *buf, int hex) {
    int i;
@@ -55,6 +58,58 @@ float get_voltage(int component_id) {
    } else {
       return 0.0F;
    }
+}
+
+char *get_cmdline() {
+   static int read = 0;
+   if (!read) {
+      memset(cmdline, 0, PROP_SIZE);
+      rpi_mailbox_property_t *buf;
+      RPI_PropertyInit();
+      RPI_PropertyAddTag(TAG_GET_COMMAND_LINE, 0);
+      RPI_PropertyProcess();
+      buf = RPI_PropertyGet(TAG_GET_COMMAND_LINE);
+      if (buf) {
+         memcpy(cmdline, buf->data.buffer_8, buf->byte_length);
+         cmdline[buf->byte_length] = 0;
+      } else {
+         cmdline[0] = 0;
+      }
+      read = 1;
+   }
+   return cmdline;
+}
+
+char *get_cmdline_prop(char *prop) {
+   static char ret[PROP_SIZE];
+   char *retptr = ret;
+   char *cmdline = get_cmdline();
+   char *cmdptr = cmdline;
+   int proplen = strlen(prop);
+
+   // continue until the end terminator
+   while (cmdptr && *cmdptr) {      
+      // compare the property name
+      if (strncasecmp(cmdptr, prop, proplen) == 0) {
+         // check for an equals in the expected place
+         if (*(cmdptr + proplen) == '=') {
+            // skip the equals
+            cmdptr += proplen + 1;
+            // copy the property value to the return buffer
+            while (*cmdptr != ' ' && *cmdptr != '\0') {
+               *retptr++ = *cmdptr++;
+            }
+            *retptr = '\0';
+            return ret;
+         }
+      }
+      // Skip to the next property
+      cmdptr = index(cmdptr, ' ');
+      while (cmdptr && *cmdptr == ' ') {
+         cmdptr++;
+      }
+   }
+   return NULL;
 }
 
 clock_info_t * get_clock_rates(int clk_id) {
@@ -155,5 +210,9 @@ void dump_useful_info() {
    printf("     SDRAM_C VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_C));
    printf("     SDRAM_P VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_P));
    printf("     SDRAM_I VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_I));
-   
+
+   printf("            CMD_LINE : %s\r\n", get_cmdline());
+
+   printf("               COPRO : %s\r\n", get_cmdline_prop("copro"));
+
 }

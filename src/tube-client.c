@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include "tube-defs.h"
 #include "tube.h"
@@ -7,6 +8,7 @@
 #include "rpi-aux.h"
 #include "cache.h"
 #include "performance.h"
+#include "info.h"
 
 #include "copro-lib6502.h"
 #include "copro-65tube.h"
@@ -17,6 +19,7 @@ typedef void (*func_ptr)();
 static void emulator_not_implemented();
 
 static const char * emulator_names[] = {
+   "Undefined",
    "ARM Native",
    "ARM2",
    "Beebdroid6502",
@@ -27,6 +30,7 @@ static const char * emulator_names[] = {
 };
 
 static const func_ptr emulator_functions[] = {
+   emulator_not_implemented,
    emulator_not_implemented,
    emulator_not_implemented,
    emulator_not_implemented,
@@ -71,13 +75,24 @@ static void emulator_not_implemented() {
    while (1);
 }
 
+int get_copro_number() {
+   int copro = 0;
+   char *copro_prop = get_cmdline_prop("copro");
+   if (copro_prop) {
+      copro = atoi(copro_prop);
+   }
+   if (!copro) {
+      copro = COPRO;
+   }
+   return copro;
+}
+
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
 #ifdef HAS_MULTICORE
    volatile int i;
 #endif
-   // TODO, read this from a command line param
-   int copro = COPRO;
+   int copro;
 
    tube_init_hardware();
 
@@ -90,6 +105,10 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 #endif
 
    _enable_interrupts();
+
+   // TODO: need to fix tube.S using COPRO
+
+   copro = get_copro_number();
 
    if (copro < 0 || copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
       printf("Co Pro %d has not been defined yet\r\n", copro);
