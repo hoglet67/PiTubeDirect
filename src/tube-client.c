@@ -13,6 +13,7 @@
 #include "copro-lib6502.h"
 #include "copro-65tube.h"
 #include "copro-80186.h"
+#include "copro-arm2.h"
 
 typedef void (*func_ptr)();
 
@@ -32,7 +33,7 @@ static const char * emulator_names[] = {
 static const func_ptr emulator_functions[] = {
    emulator_not_implemented,
    emulator_not_implemented,
-   emulator_not_implemented,
+   copro_arm2_emulator,
    emulator_not_implemented,
    copro_lib6502_emulator,
    copro_65tube_emulator,

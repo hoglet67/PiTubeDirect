@@ -98,6 +98,13 @@ add_executable( tube-client
     cpu80186/iop80186.h
     cpu80186/mem80186.c
     cpu80186/mem80186.h
+# ARM2
+    copro-arm2.c
+    copro-arm2.h
+    tuberom_arm.c
+    tuberom_arm.h
+    mame/arm.c
+    mame/arm.h
 )
 
 target_link_libraries (tube-client m)
