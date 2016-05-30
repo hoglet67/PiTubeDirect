@@ -2,6 +2,8 @@
 #include "tube-defs.h"
 #include "cache.h"
 
+// #define DETECT_DUMMY_READ
+
 .text
 .global tube_regs
 .global tube_mailbox
@@ -92,6 +94,21 @@ rd_wait_for_phi2_low\@:
         str     r10, [r8, #4]            // *** expensive but necessary ***
         ldr     r10, [r11, #8]
         str     r10, [r8, #8]            // *** expensive but necessary ***
+
+// In some rare cases, a read may be immediately followed by a write
+// A concrete case of this is *FX 151,230,N which uses STA &FEE0,X
+// To detect this case, on reads we wait for one more edge of Phi2
+// and the re-check the nTUBE and RNW lines for a possible write
+
+#ifdef DETECT_DUMMY_READ        
+        ldr     r8, =GPLEV0
+rd_wait_for_phi2_high\@:
+        ldr     r10, [r8]                // ** very expensive but necessary ***
+        tst     r10, #PHI2_MASK
+        beq     rd_wait_for_phi2_high\@
+        tst     r10, #(NTUBE_MASK | RNW_MASK)
+        beq     wr_wait_for_phi2_low\@
+#endif
 
         tst     r9, #A0_MASK             // don't bother emulator with status reads
         bne     post_mail\@
