@@ -54,7 +54,6 @@ enum {
 
 #define getN()	(P & flagN)
 #define getV()	(P & flagV)
-#define getB()	(P & flagB)
 #define getD()	(P & flagD)
 #define getI()	(P & flagI)
 #define getZ()	(P & flagZ)
@@ -628,8 +627,7 @@ static int elapsed;
   PC++;								\
   push(PC >> 8);						\
   push(PC & 0xff);						\
-  P |= flagB;							\
-  push(P | flagX);						\
+  push(P | flagB | flagX);						\
   P |= flagI;							\
   P &= !flagD;							\
   {								\
@@ -793,9 +791,9 @@ void M6502_irq(M6502 *mpu)
     {
       mpu->memory[0x0100 + mpu->registers->s--] = (byte)(mpu->registers->pc >> 8);
       mpu->memory[0x0100 + mpu->registers->s--] = (byte)(mpu->registers->pc & 0xff);
-      mpu->memory[0x0100 + mpu->registers->s--] = mpu->registers->p;
-      mpu->registers->p &= ~flagB;
+      mpu->memory[0x0100 + mpu->registers->s--] = (mpu->registers->p & ~flagB) | flagX;
       mpu->registers->p |=  flagI;
+      mpu->registers->p &= ~flagD;
       mpu->registers->pc = M6502_getVector(mpu, IRQ);
     }
 }
@@ -805,9 +803,9 @@ void M6502_nmi(M6502 *mpu)
 {
   mpu->memory[0x0100 + mpu->registers->s--] = (byte)(mpu->registers->pc >> 8);
   mpu->memory[0x0100 + mpu->registers->s--] = (byte)(mpu->registers->pc & 0xff);
-  mpu->memory[0x0100 + mpu->registers->s--] = mpu->registers->p;
-  mpu->registers->p &= ~flagB;
+  mpu->memory[0x0100 + mpu->registers->s--] = (mpu->registers->p & ~flagB) | flagX;
   mpu->registers->p |=  flagI;
+  mpu->registers->p &= ~flagD;
   mpu->registers->pc = M6502_getVector(mpu, NMI);
 }
 
