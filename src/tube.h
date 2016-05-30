@@ -5,7 +5,9 @@
 
 #include <inttypes.h>
 
-extern uint32_t tube_mailbox;
+extern int copro;
+
+extern volatile uint32_t tube_mailbox;
 
 extern void arm_fiq_handler_flag0();
 

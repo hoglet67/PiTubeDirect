@@ -14,34 +14,78 @@
 #include "copro-65tube.h"
 #include "copro-80186.h"
 #include "copro-arm2.h"
+#include "copro-null.h"
 
 typedef void (*func_ptr)();
 
-static void emulator_not_implemented();
 
 static const char * emulator_names[] = {
-   "Undefined",
-   "ARM Native",
+   "65C02 (65tube)",
+   "65C02 (65tube)",
+   "65C02 (lib6502)",
+   "65C02 (lib6502)",
+   "Z80",
+   "Z80",
+   "Z80",
+   "Z80",
+   "80286",
+   "6809",
+   "68000",
+   "PDP11",
    "ARM2",
-   "Beebdroid6502",
-   "Lib6502",
-   "65Tube",
-   "80186",
-   "32016"
+   "32016",
+   "Null/SPI",
+   "BIST"
 };
 
 static const func_ptr emulator_functions[] = {
-   emulator_not_implemented,
-   emulator_not_implemented,
-   copro_arm2_emulator,
-   emulator_not_implemented,
+   copro_65tube_emulator,
    copro_lib6502_emulator,
    copro_65tube_emulator,
+   copro_lib6502_emulator,
+   copro_null_emulator,
+   copro_null_emulator,
+   copro_null_emulator,
+   copro_null_emulator,
    copro_80186_emulator,
-   emulator_not_implemented
+   copro_null_emulator,
+   copro_null_emulator,
+   copro_null_emulator,
+   copro_arm2_emulator,
+   copro_null_emulator,
+   copro_null_emulator,
+   copro_null_emulator
 };
 
+int copro;
+
 static func_ptr emulator;
+
+void init_emulator() {
+   _disable_interrupts();
+
+   // Default to the normal FIQ handler
+   *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag0;
+#ifndef USE_MULTICORE   
+   // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
+   // that flag events from the ISR using the ip register
+   if (copro == COPRO_65TUBE_0 || copro == COPRO_65TUBE_1) {
+      *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
+   }
+#endif
+
+   // Make sure that copro number is valid
+   if (copro < 0 || copro >= NUM_COPROS) {
+      printf("using default co pro\r\n");
+      copro = DEFAULT_COPRO;
+   }
+
+   printf("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
+
+   emulator = emulator_functions[copro];
+   
+   _enable_interrupts();
+}
 
 #ifdef HAS_MULTICORE
 void run_core() {
@@ -61,7 +105,15 @@ void run_core() {
    _enable_unaligned_access();
    
    printf("test running on core %d\r\n", i);
-   emulator();
+
+   do {
+      // Run the emulator
+      emulator();
+
+      // Reload the emulator as copro may have changed
+      init_emulator();
+     
+   } while (1);
 }
 
 static void start_core(int core, func_ptr func) {
@@ -70,20 +122,15 @@ static void start_core(int core, func_ptr func) {
 }
 #endif
 
-static void emulator_not_implemented() {
-   printf("Co Pro has not been implemented yet\r\n");
-   printf("Halted....\r\n");
-   while (1);
-}
 
 int get_copro_number() {
-   int copro = 0;
+   int copro = -1;
    char *copro_prop = get_cmdline_prop("copro");
    if (copro_prop) {
       copro = atoi(copro_prop);
    }
-   if (!copro) {
-      copro = COPRO;
+   if (copro < 0 || copro >= NUM_COPROS) {
+      copro = DEFAULT_COPRO;
    }
    return copro;
 }
@@ -93,7 +140,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 #ifdef HAS_MULTICORE
    volatile int i;
 #endif
-   int copro;
 
    tube_init_hardware();
 
@@ -107,30 +153,16 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    copro = get_copro_number();
 
-   // Default to the normal FIQ handler
-   *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag0;
-#ifndef USE_MULTICORE   
-   // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
-   // that flag events from the ISR using the ip register
-   if (copro == COPRO_65TUBE) {
-      *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
-   }
-#endif
-   
-   _enable_interrupts();
-
    if (copro < 0 || copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
       printf("Co Pro %d has not been defined yet\r\n", copro);
       printf("Halted....\r\n");
       while (1);
    }
 
-  printf("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
-
   // Run a short set of CPU and Memory benchmarks
   benchmark();
 
-  emulator = emulator_functions[copro];
+  init_emulator();
 
 #ifdef HAS_MULTICORE
 
@@ -152,7 +184,14 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
 #else
 
-  emulator();
+  do {
+     // Run the emulator
+     emulator();
+
+     // Reload the emulator as copro may have changed
+     init_emulator();
+     
+  } while (1);
 
 #endif
 }

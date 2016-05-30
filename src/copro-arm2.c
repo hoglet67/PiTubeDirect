@@ -145,6 +145,9 @@ void copro_arm2_emulator()
 {
    static unsigned int last_rst = 0;
 
+   // Remember the current copro so we can exit if it changes
+   int last_copro = copro;
+
    copro_arm2_poweron_reset();
    copro_arm2_reset();
   
@@ -159,6 +162,10 @@ void copro_arm2_emulator()
          unsigned int rst = intr & 4;
          // Reset the processor on a rst going inactive
          if (rst == 0 && last_rst != 0) {
+            // Exit if the copro has changed
+            if (copro != last_copro) {
+               break;
+            }
             copro_arm2_reset();
          }
          // NMI is edge sensitive, so only check after mailbox activity

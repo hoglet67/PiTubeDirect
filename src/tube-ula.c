@@ -65,6 +65,8 @@ uint32_t count_p = 0;
 
 int tube_irq=0;
 
+static int tube_enabled;
+
 void tube_updateints()
 {   
    tube_irq = 0;
@@ -129,6 +131,13 @@ void tube_host_read(uint16_t addr)
 
 void tube_host_write(uint16_t addr, uint8_t val)
 {
+   if ((addr & 7) == 6) {
+      copro = val;
+      return;
+   }
+   if (!tube_enabled) {
+      return;
+   }
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
@@ -310,10 +319,10 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
    tube_updateints();
 }
 
-
 void tube_reset()
 {
    printf("tube reset\r\n");
+   tube_enabled = 1;
    ph1pos = hp3pos = 0;
    ph3pos = 1;
    HSTAT1 = HSTAT2 = HSTAT4 = 0x40;
@@ -381,7 +390,7 @@ int tube_io_handler(uint32_t mail)
    printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
 #endif
    
-   if (nrst == 0 || (tube_regs[0] & 0x20)) {
+   if (nrst == 0 || (tube_enabled && (tube_regs[0] & 0x20))) {
       return tube_irq | 4;
    } else {
       return tube_irq;
@@ -502,4 +511,12 @@ void tube_reset_performance_counters() {
 void tube_log_performance_counters() {
    read_performance_counters(&pct);
    print_performance_counters(&pct);
+}
+
+void disable_tube() {
+   int i;
+   tube_enabled = 0;
+   for (i = 0; i < 8; i++) {
+      tube_regs[i] = 0xfe;
+   }
 }

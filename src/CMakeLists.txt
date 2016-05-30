@@ -105,6 +105,9 @@ add_executable( tube-client
     tuberom_arm.h
     mame/arm.c
     mame/arm.h
+# Null co processor
+    copro-null.c
+    copro-null.h
 )
 
 target_link_libraries (tube-client m)

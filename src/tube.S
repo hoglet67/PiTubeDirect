@@ -2,7 +2,7 @@
 #include "tube-defs.h"
 #include "cache.h"
 
-// #define DETECT_DUMMY_READ
+#define DETECT_DUMMY_READ
 
 .text
 .global tube_regs
