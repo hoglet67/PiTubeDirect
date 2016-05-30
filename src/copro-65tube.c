@@ -23,6 +23,8 @@ static void copro_65tube_poweron_reset() {
   copy_test_programs(mpu_memory);
 }
 static void copro_65tube_reset() {
+  // Dump tube buffer
+  tube_dump_buffer();
   // Re-instate the Tube ROM on reset
   memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
   // Do a tube reset
@@ -34,9 +36,9 @@ void copro_65tube_emulator() {
   while (1) {
     copro_65tube_reset();
     tube_reset_performance_counters();
+    tube_wait_for_rst_release();
     exec_65tube(mpu_memory);
     tube_log_performance_counters();
-    tube_wait_for_rst_release();
   }
 }
 

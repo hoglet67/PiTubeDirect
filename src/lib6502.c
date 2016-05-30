@@ -873,7 +873,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 
 # define pollints()             externalise(); poll(mpu); internalise()
 # define begin()				fetch();  next()
-# define fetch()				if (((instrcount++)&1)==0) {pollints();} tpc= itabp[memory[PC++]]
+# define fetch()				{ pollints(); tpc= itabp[memory[PC++]];}
 # define next()				    goto *tpc
 # define dispatch(num, name, mode, cycles)	_##num: name(cycles, mode) oops();  next()
 # define end()

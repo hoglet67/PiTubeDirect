@@ -190,6 +190,10 @@ void tube_host_write(uint16_t addr, uint8_t val)
    tube_updateints();
 }
 
+int tube_triggered;
+unsigned int tube_index;
+unsigned int tube_buffer[0x10000];
+
 uint8_t tube_parasite_read(uint32_t addr)
 {
    uint8_t temp = 0;
@@ -251,11 +255,22 @@ uint8_t tube_parasite_read(uint32_t addr)
       break;
    }
    tube_updateints();
+   if (addr & 1) {
+      tube_buffer[tube_index++] = 0x9000000 | ((addr & 7) << 8) | temp;
+      tube_index &= 0xffff;
+      if (((addr & 7) == 1) && (temp == 0xc0)) {
+         tube_triggered = 0x4000;
+      }
+   }
    return temp;
 }
 
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
+   if (addr & 1) {
+      tube_buffer[tube_index++] = 0x80000000 | ((addr & 7) << 8) | val;
+      tube_index &= 0xffff;
+   }
    switch (addr & 7)
    {
    case 1: /*Register 1*/
@@ -313,7 +328,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 void tube_reset()
 {
-   printf("tube reset\r\n");
+   //printf("tube reset\r\n");
    ph1pos = hp3pos = 0;
    ph3pos = 1;
    HSTAT1 = HSTAT2 = HSTAT4 = 0x40;
@@ -476,7 +491,11 @@ void tube_init_hardware()
    pct.counter[0] = 0;
    pct.counter[1] = 0;
 #endif
-
+   tube_index = 0;
+   tube_triggered = -1;
+   for (i = 0; i < 0x10000; i++) {
+      tube_buffer[i] = 0;
+   }
 }
 
 int tube_is_rst_active() {
@@ -496,10 +515,33 @@ void tube_wait_for_rst_release() {
 }
 
 void tube_reset_performance_counters() {
-   reset_performance_counters(&pct);
+   //reset_performance_counters(&pct);
 }
 
 void tube_log_performance_counters() {
-   read_performance_counters(&pct);
-   print_performance_counters(&pct);
+   //read_performance_counters(&pct);
+   //print_performance_counters(&pct);
+}
+
+void tube_dump_buffer() {
+   int i;
+   printf("tube_index = %d\r\n", tube_index);
+   for (i = 0; i < tube_index; i++) {
+      printf("%04x\r\n", tube_buffer[i]);
+   }
+   tube_index = 0;
+   tube_triggered = -1;
+}
+
+void tube_dump_memory(uint8_t *memory, int start, int end) {
+   int i;
+   for (i = start; i < end; i++) {
+      if ((i & 15) == 0) {
+         printf("%04x : ", i);
+      }
+      printf("%02x", *(memory + i));
+      if ((i & 15) == 15) {
+         printf("\r\n");
+      }
+   }
 }

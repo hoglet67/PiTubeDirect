@@ -31,6 +31,8 @@ static void copro_lib6502_poweron_reset(M6502 *mpu) {
 static void copro_lib6502_reset(M6502 *mpu) {
   // Log ARM performance counters
   tube_log_performance_counters();
+  // Dump tube buffer
+  tube_dump_buffer();
   // Re-instate the Tube ROM on reset
   memcpy(mpu->memory + 0xf800, tuberom_6502_orig, 0x800);
   // Reset lib6502
@@ -50,6 +52,10 @@ static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
   return 0;
 }
 
+extern unsigned int tube_index;
+extern unsigned int tube_buffer[];
+extern int tube_triggered;
+
 static void copro_lib6502_poll(M6502 *mpu) {
   static unsigned int last_rst = 0;
   if (tube_mailbox & ATTN_MASK) {
@@ -68,6 +74,13 @@ static void copro_lib6502_poll(M6502 *mpu) {
     }
     last_rst = rst;
    }
+  if (tube_triggered != 0) {
+     if (tube_triggered > 0) {
+        tube_triggered--;
+     }
+     tube_buffer[tube_index++] = mpu->registers->pc;
+     tube_index &= 0xffff;
+  }
   // IRQ is level sensitive, so check between every instruction
   if (tube_irq & 1) {
      if (!(mpu->registers->p & 4)) {

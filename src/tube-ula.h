@@ -31,4 +31,8 @@ extern void tube_reset_performance_counters();
 
 extern void tube_log_performance_counters();
 
+extern void tube_dump_buffer();
+
+extern void tube_dump_memory(uint8_t *memory, int start, int end);
+
 #endif
