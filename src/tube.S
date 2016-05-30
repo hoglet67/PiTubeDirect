@@ -7,10 +7,165 @@
 .global tube_mailbox
 .global arm_irq_handler
 .global arm_fiq_handler
+.global arm_fiq_handler_flag0
+#ifndef USE_MULTICORE
+.global arm_fiq_handler_flag1
+#endif        
 .global lock_isr
 .global gpfsel_data_idle
 .global gpfsel_data_driving
 
+
+.macro FIQ_HANDLER flag_using_ip
+
+        //r8-r11 are shadowed in FIQ mode, so no need to push
+        //push    {r8-r11}
+
+#ifdef HAS_40PINS
+        mov     r9, #TEST_MASK
+        ldr     r8, =GPSET0
+        str     r9, [r8]
+#endif
+        
+        ldr     r8, =GPEDS0
+        mov     r9, #-1
+        str     r9, [r8]                // clear all Pin events
+
+        ldr     r8, =GPLEV0
+        ldr     r9, [r8]                // *** very expensive but necessary ***
+
+        tst     r9, #NRST_MASK          // test for reset
+        beq     post_mail\@
+
+        tst     r9, #NTUBE_MASK         // test for glitches
+        bne     exit\@
+
+        tst     r9, #RNW_MASK
+        beq     wr_cycle\@
+
+// READ_CYCLE
+        mov     r10, #0
+        tst     r9, #A0_MASK
+        orrne   r10, #1
+        tst     r9, #A1_MASK
+        orrne   r10, #2
+        tst     r9, #A2_MASK
+        orrne   r10, #4
+
+        ldr     r8, =tube_regs
+        ldrb    r10, [r8, r10]
+
+        mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
+        and     r11, r11, #D30_MASK
+        mov     r10, r10, LSL #D4_BASE-4
+        and     r10, r10, #D74_MASK      // high nibble in the right place
+        orr     r10, r10, r11
+
+        ldr     r8, =GPSET0
+        str     r10, [r8]                // *** expensive but necessary ***
+        eor     r10, r10, #D30_MASK
+        eor     r10, r10, #D74_MASK
+        ldr     r8, =GPCLR0
+        str     r10, [r8]                // *** expensive but necessary ***
+
+        ldr     r8, =GPFSEL0
+        ldr     r11, =(gpfsel_data_driving)
+        ldr     r10, [r11]
+        str     r10, [r8]                // *** expensive but necessary ***
+        ldr     r10, [r11, #4]
+        str     r10, [r8, #4]            // *** expensive but necessary ***
+        ldr     r10, [r11, #8]
+        str     r10, [r8, #8]            // *** expensive but necessary ***
+
+        ldr     r8, =GPLEV0
+rd_wait_for_phi2_low\@:
+        ldr     r10, [r8]                // ** very expensive but necessary ***
+        tst     r10, #PHI2_MASK
+        movne   r9, r10
+        bne     rd_wait_for_phi2_low\@
+
+        ldr     r8, =GPFSEL0
+        ldr     r11, =(gpfsel_data_idle)
+        ldr     r10, [r11]
+        str     r10, [r8]                // *** expensive but necessary ***
+        ldr     r10, [r11, #4]
+        str     r10, [r8, #4]            // *** expensive but necessary ***
+        ldr     r10, [r11, #8]
+        str     r10, [r8, #8]            // *** expensive but necessary ***
+
+        tst     r9, #A0_MASK             // don't bother emulator with status reads
+        bne     post_mail\@
+        b       exit\@
+
+// WRITE_CYCLE
+wr_cycle\@:
+
+wr_wait_for_phi2_high\@:
+        ldr     r9, [r8]
+        tst     r9, #PHI2_MASK
+        beq     wr_wait_for_phi2_high\@
+
+wr_wait_for_phi2_low\@:
+        ldr     r10, [r8]
+        tst     r10, #PHI2_MASK
+        movne   r9, r10
+        bne     wr_wait_for_phi2_low\@
+
+// At this point, cache misses will no longer disrupt the 6502 bus timings
+post_mail\@:
+        ldr     r10, =PINS_MASK
+        and     r9, r9, r10
+
+post_mail2\@:
+        orr     r9, r9, #ATTN_MASK
+
+        ldr     r10, tube_mailbox
+        tst     r10, #ATTN_MASK         // if previous message not acknowledged, then flag overrun
+        orrne   r9, r9, #OVERRUN_MASK
+        str     r9, tube_mailbox
+
+.if \flag_using_ip
+        // Switch back to irq mode so ip is not shadowed
+        mrs     r8, cpsr
+        bic     r8, r8, #0x1F
+        orr     r8, r8, #0x12
+        msr     cpsr_c, r8
+        
+        orr     ip, ip, #1024   // signal event to 6502 instruction flow
+
+        // Switch back to fiq mode, so we return correctly
+        // lr is used here because its shadowed in IRQ mode, so doesn't corrupt the normal lr
+        mrs     lr, cpsr
+        bic     lr, lr, #0x1F
+        orr     lr, lr, #0x11
+        msr     cpsr_c, lr
+
+        // Note, the above mode switching could be avoided if we reworked the register assignment
+        // in the 6502 emulator to use a register r0..r7 for signalling.
+        // I did do this as an experiment, and it's parked in a branch.
+        // I'd like to avoid making big changes to that code for now.
+.endif
+
+exit\@:
+        
+#ifdef HAS_40PINS
+        mov     r9, #TEST_MASK
+        ldr     r8, =GPCLR0
+        str     r9, [r8]
+#endif
+        
+        //r8-r11 are shadowed in FIQ mode, so no need to pop
+        //pop   {r8-r11}
+        subs    pc, lr, #4
+
+glitch\@:
+        ldr     r10, =PINS_MASK
+        and     r9, r9, r10
+        orr     r9, r9, #GLITCH_MASK
+        b       post_mail2\@
+
+.endm
+   
 // =================================================
 // LOCK the ISR CODE into cache
 // =================================================
@@ -210,168 +365,21 @@ lock_isr_into_cache_end:
 .align CACHELINE_ALIGN
 isr_code_start:
 
+// Default handlers for FIQ/IRQ do nothing
 
-// TODO list
-//        - need C code for write handling
-//        - adding overrun
-//        - need to handle NRST - as an interrupt source - optional!
-//        - very optional, make 8 data words be in expanded format
-
-// ARM IRQ handler
-
+arm_fiq_handler:
 arm_irq_handler:
         subs    pc, lr, #4
 
-// ARM FIQ handler
+// ARM FIQ handler (two versions)
 
-arm_fiq_handler:
-
-        //r8-r11 are shadowed in FIQ mode, so no need to push
-        //push    {r8-r11}
-
-#ifdef HAS_40PINS
-        mov     r9, #TEST_MASK
-        ldr     r8, =GPSET0
-        str     r9, [r8]
+#ifndef USE_MULTICORE
+arm_fiq_handler_flag1:
+FIQ_HANDLER 1
 #endif
-        
-        ldr     r8, =GPEDS0
-        mov     r9, #-1
-        str     r9, [r8]                // clear all Pin events
 
-        ldr     r8, =GPLEV0
-        ldr     r9, [r8]                // *** very expensive but necessary ***
-
-        tst     r9, #NRST_MASK          // test for reset
-        beq     post_mail
-
-        tst     r9, #NTUBE_MASK         // test for glitches
-        bne     exit
-
-        tst     r9, #RNW_MASK
-        beq     wr_cycle
-
-// READ_CYCLE
-        mov     r10, #0
-        tst     r9, #A0_MASK
-        orrne   r10, #1
-        tst     r9, #A1_MASK
-        orrne   r10, #2
-        tst     r9, #A2_MASK
-        orrne   r10, #4
-
-        ldr     r8, =tube_regs
-        ldrb    r10, [r8, r10]
-
-        mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
-        and     r11, r11, #D30_MASK
-        mov     r10, r10, LSL #D4_BASE-4
-        and     r10, r10, #D74_MASK      // high nibble in the right place
-        orr     r10, r10, r11
-
-        ldr     r8, =GPSET0
-        str     r10, [r8]                // *** expensive but necessary ***
-        eor     r10, r10, #D30_MASK
-        eor     r10, r10, #D74_MASK
-        ldr     r8, =GPCLR0
-        str     r10, [r8]                // *** expensive but necessary ***
-
-        ldr     r8, =GPFSEL0
-        ldr     r11, =(gpfsel_data_driving)
-        ldr     r10, [r11]
-        str     r10, [r8]                // *** expensive but necessary ***
-        ldr     r10, [r11, #4]
-        str     r10, [r8, #4]            // *** expensive but necessary ***
-        ldr     r10, [r11, #8]
-        str     r10, [r8, #8]            // *** expensive but necessary ***
-
-        ldr     r8, =GPLEV0
-rd_wait_for_phi2_low:
-        ldr     r10, [r8]                // ** very expensive but necessary ***
-        tst     r10, #PHI2_MASK
-        movne   r9, r10
-        bne     rd_wait_for_phi2_low
-
-        ldr     r8, =GPFSEL0
-        ldr     r11, =(gpfsel_data_idle)
-        ldr     r10, [r11]
-        str     r10, [r8]                // *** expensive but necessary ***
-        ldr     r10, [r11, #4]
-        str     r10, [r8, #4]            // *** expensive but necessary ***
-        ldr     r10, [r11, #8]
-        str     r10, [r8, #8]            // *** expensive but necessary ***
-
-        tst     r9, #A0_MASK             // don't bother emulator with status reads
-        bne     post_mail
-        b       exit
-
-// WRITE_CYCLE
-wr_cycle:
-
-wr_wait_for_phi2_high:
-        ldr     r9, [r8]
-        tst     r9, #PHI2_MASK
-        beq     wr_wait_for_phi2_high
-
-wr_wait_for_phi2_low:
-        ldr     r10, [r8]
-        tst     r10, #PHI2_MASK
-        movne   r9, r10
-        bne     wr_wait_for_phi2_low
-
-// At this point, cache misses will no longer disrupt the 6502 bus timings
-post_mail:
-        ldr     r10, =PINS_MASK
-        and     r9, r9, r10
-
-post_mail2:
-        orr     r9, r9, #ATTN_MASK
-
-        ldr     r10, tube_mailbox
-        tst     r10, #ATTN_MASK         // if previous message not acknowledged, then flag overrun
-        orrne   r9, r9, #OVERRUN_MASK
-        str     r9, tube_mailbox
-
-#if (COPRO == COPRO_65TUBE) && !defined(USE_MULTICORE)
-        // Switch back to irq mode so ip is not shadowed
-        mrs     r8, cpsr
-        bic     r8, r8, #0x1F
-        orr     r8, r8, #0x12
-        msr     cpsr_c, r8
-        
-        orr     ip, ip, #1024   // signal event to 6502 instruction flow
-
-        // Switch back to fiq mode, so we return correctly
-        // lr is used here because its shadowed in IRQ mode, so doesn't corrupt the normal lr
-        mrs     lr, cpsr
-        bic     lr, lr, #0x1F
-        orr     lr, lr, #0x11
-        msr     cpsr_c, lr
-#endif
-        
-        // Note, the above mode switching could be avoided if we reworked the register assignment
-        // in the 6502 emulator to use a register r0..r7 for signalling.
-        // I did do this as an experiment, and it's parked in a branch.
-        // I'd like to avoid making big changes to that code for now.
-        
-exit:
-        
-#ifdef HAS_40PINS
-        mov     r9, #TEST_MASK
-        ldr     r8, =GPCLR0
-        str     r9, [r8]
-#endif
-        
-        //r8-r11 are shadowed in FIQ mode, so no need to pop
-        //pop   {r8-r11}
-        subs    pc, lr, #4
-
-glitch:
-        ldr     r10, =PINS_MASK
-        and     r9, r9, r10
-        orr     r9, r9, #GLITCH_MASK
-        b       post_mail2
-
+arm_fiq_handler_flag0:
+FIQ_HANDLER 0
 
 .align CACHELINE_ALIGN
 isr_code_end:

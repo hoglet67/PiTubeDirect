@@ -104,11 +104,19 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    lock_isr();
 #endif
 
-   _enable_interrupts();
-
-   // TODO: need to fix tube.S using COPRO
-
    copro = get_copro_number();
+
+   // Default to the normal FIQ handler
+   *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag0;
+#ifndef USE_MULTICORE   
+   // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
+   // that flag events from the ISR using the ip register
+   if (copro == COPRO_65TUBE) {
+      *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
+   }
+#endif
+   
+   _enable_interrupts();
 
    if (copro < 0 || copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
       printf("Co Pro %d has not been defined yet\r\n", copro);

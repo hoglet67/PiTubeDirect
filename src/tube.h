@@ -7,6 +7,10 @@
 
 extern uint32_t tube_mailbox;
 
+extern void arm_fiq_handler_flag0();
+
+extern void arm_fiq_handler_flag1();
+
 extern void lock_isr();
 
 #endif
