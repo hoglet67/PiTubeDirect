@@ -57,7 +57,7 @@ static const func_ptr emulator_functions[] = {
    copro_null_emulator
 };
 
-int copro;
+volatile int copro;
 
 static func_ptr emulator;
 
