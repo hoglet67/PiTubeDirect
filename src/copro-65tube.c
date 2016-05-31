@@ -36,12 +36,13 @@ void copro_65tube_emulator() {
    int last_copro = copro;
 
    copro_65tube_poweron_reset();
+   copro_65tube_reset();
 
    while (copro == last_copro) {
-      copro_65tube_reset();
       tube_reset_performance_counters();
       exec_65tube(mpu_memory);
       tube_log_performance_counters();
+      copro_65tube_reset();
       tube_wait_for_rst_release();
    }
 }

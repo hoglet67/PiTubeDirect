@@ -59,8 +59,10 @@ static void copro_lib6502_poll(M6502 *mpu) {
     unsigned int nmi = intr & 2;
     unsigned int rst = intr & 4;
     // Reset the processor on a rst going inactive
-    if (rst == 0 && last_rst != 0) {
+    if (rst && !last_rst) {
       copro_lib6502_reset(mpu);
+      // Wait for rst become inactive before continuing to execute
+      tube_wait_for_rst_release();
     }
     // NMI is edge sensitive, so only check after mailbox activity
     if (nmi) {

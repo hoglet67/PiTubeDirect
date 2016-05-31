@@ -54,13 +54,15 @@ void copro_80186_emulator()
          unsigned int intr = tube_io_handler(tube_mailbox_copy);
          unsigned int nmi = intr & 2;
          unsigned int rst = intr & 4;
-         // Reset the processor on a rst going inactive
-         if (rst == 0 && last_rst != 0) {
+         // Reset the processor on active edge of rst
+         if (rst && !last_rst) {
             // Exit if the copro has changed
             if (copro != last_copro) {
                break;
             }
             copro_80186_reset();
+            // Wait for rst become inactive before continuing to execute
+            tube_wait_for_rst_release();
          }
          // NMI is edge sensitive, so only check after mailbox activity
          if (nmi) {
