@@ -4,6 +4,7 @@
 #include "rpi-interrupts.h"
 #include "tube-defs.h"
 #include "tube-ula.h"
+#include "startup.h"
 
 // From here: https://www.raspberrypi.org/forums/viewtopic.php?f=72&t=53862
 void reboot_now(void)
@@ -19,6 +20,16 @@ void reboot_now(void)
   while(1);
 }
 
+void dump_digit(unsigned int c) {
+   c &= 15;
+   if (c < 10) {
+      c = '0' + c;
+   } else {
+      c = 'A' + c - 10;
+   }
+   RPI_AuxMiniUartWrite(c);
+}
+
 void dump_hex(unsigned int value) {
   int i;
   for (i = 0; i < 8; i++) {   
@@ -32,6 +43,7 @@ void dump_hex(unsigned int value) {
 	value <<= 4;
   }
 }
+
 void dump_binary(unsigned int value) {
   int i;
   for (i = 0; i < 32; i++) {   
@@ -66,6 +78,10 @@ void dump_info(unsigned int *context, int offset, char *type) {
   // The stacked LR points one or two words afer the exception address
   addr = (unsigned int *)((reg[13] & ~3) - offset);
   dump_hex((unsigned int)addr);
+#ifdef HAS_MULTICORE
+  dump_string(" on core ");
+  dump_digit(_get_core());
+#endif  
   dump_string("\r\n");
   dump_string("Registers:\r\n");
   for (i = 0; i <= 13; i++) {
