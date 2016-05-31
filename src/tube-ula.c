@@ -321,7 +321,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 void tube_reset()
 {
-   printf("tube reset\r\n");
+   printf("tube reset - copro %d\r\n", copro);
    tube_enabled = 1;
    ph1pos = hp3pos = 0;
    ph3pos = 1;
