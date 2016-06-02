@@ -85,7 +85,7 @@ void n32016_build_matrix()
 
 void BreakPoint(uint32_t pc, uint32_t opcode)
 {
-#if 1
+#if 0
 #ifndef TEST_SUITE
    // Exec address of Bas32
    if (pc == 0x000200)

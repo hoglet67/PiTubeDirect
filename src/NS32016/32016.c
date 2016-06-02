@@ -1024,6 +1024,9 @@ void n32016_exec()
    Temp64Type temp64;
    uint32_t Function;
 
+   // Prevent uninitialized warnings
+   temp64.u64 = 0;
+
    if (tube_irq & 2)
    {
       // NMI is edge sensitive, so it should be cleared here
@@ -1310,11 +1313,13 @@ void n32016_exec()
          break;
       }
 
+#ifdef SHOW_INSTRUCTIONS
       if (Trace) {
          FredSize = OpSize;                     // Temporary hack :(
          uint32_t Temp = pc;
          ShowInstruction(startpc, &Temp, opcode, Function, OpSize.Op[0]);
       }
+#endif
 
       GetGenPhase2(Regs[0], 0);
       GetGenPhase2(Regs[1], 1);

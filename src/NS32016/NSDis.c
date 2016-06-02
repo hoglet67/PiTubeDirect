@@ -13,6 +13,9 @@
 #define HEX24 "x'%06" PRIX32
 #define HEX32 "x'%" PRIX32
 
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+
 uint32_t OpCount = 0;
 
 OperandSizeType FredSize;
