@@ -14,6 +14,7 @@
 #include "copro-65tube.h"
 #include "copro-80186.h"
 #include "copro-arm2.h"
+#include "copro-32016.h"
 #include "copro-null.h"
 
 typedef void (*func_ptr)();
@@ -52,7 +53,7 @@ static const func_ptr emulator_functions[] = {
    copro_null_emulator,
    copro_null_emulator,
    copro_arm2_emulator,
-   copro_null_emulator,
+   copro_32016_emulator,
    copro_null_emulator,
    copro_null_emulator
 };

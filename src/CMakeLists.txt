@@ -105,9 +105,28 @@ add_executable( tube-client
     tuberom_arm.h
     mame/arm.c
     mame/arm.h
+# 32016
+    copro-32016.c
+    copro-32016.h
+    NS32016/32016.c
+    NS32016/32016.h
+    NS32016/Decode.c
+    NS32016/Decode.h
+    NS32016/defs.h
+    NS32016/mem32016.c
+    NS32016/mem32016.h
+    NS32016/NDis.h
+    NS32016/NSDis.c
+    NS32016/pandora/PandoraV0_61.h
+    NS32016/pandora/PandoraV2_00.h
+    NS32016/Profile.c
+    NS32016/Profile.h
+    NS32016/Trap.c
+    NS32016/Trap.h
 # Null co processor
     copro-null.c
     copro-null.h
+
 )
 
 target_link_libraries (tube-client m)
