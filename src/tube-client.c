@@ -168,18 +168,18 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 #ifdef HAS_MULTICORE
 
   printf("main running on core %d\r\n", _get_core());
-  for (i = 0; i < 100000000; i++);
+  for (i = 0; i < 10000000; i++);
   start_core(1, _spin_core);
-  for (i = 0; i < 100000000; i++);
+  for (i = 0; i < 10000000; i++);
   start_core(2, _spin_core);
-  for (i = 0; i < 100000000; i++);
+  for (i = 0; i < 10000000; i++);
 
 #ifdef USE_MULTICORE
   start_core(3, _init_core);
   while (1);
 #else
   start_core(3, _spin_core);
-  for (i = 0; i < 100000000; i++);
+  for (i = 0; i < 10000000; i++);
   emulator();
 #endif
 
