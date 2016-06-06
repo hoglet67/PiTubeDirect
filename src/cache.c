@@ -3,7 +3,67 @@
 #include "rpi-base.h"
 #include "cache.h"
 
+// Historical Note:
+// Were seeing core 3 crashes if inner *and* outer both set to some flavour of WB (i.e. 1 or 3)
+// The point of crashing is when the data cache is enabled
+// At that point, the stack appears to vanish and the data read back is 0x55555555
+// Reason turned out to be failure to correctly invalidate the entire data cache
+
 volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
+
+#if defined(RPI2) || defined (RPI3)
+
+#define SETWAY_LEVEL_SHIFT          1
+
+// 4 ways x 128 sets x 64 bytes per line 32KB
+#define L1_DATA_CACHE_SETS        128
+#define L1_DATA_CACHE_WAYS          4
+#define L1_SETWAY_WAY_SHIFT        30   // 32-Log2(L1_DATA_CACHE_WAYS)
+#define L1_SETWAY_SET_SHIFT         6   // Log2(L1_DATA_CACHE_LINE_LENGTH)
+
+#if defined(RPI2)
+// 8 ways x 1024 sets x 64 bytes per line = 512KB
+#define L2_CACHE_SETS            1024
+#define L2_CACHE_WAYS               8
+#define L2_SETWAY_WAY_SHIFT        29   // 32-Log2(L2_CACHE_WAYS)
+#else
+// 16 ways x 512 sets x 64 bytes per line = 512KB
+#define L2_CACHE_SETS             512
+#define L2_CACHE_WAYS              16
+#define L2_SETWAY_WAY_SHIFT        28   // 32-Log2(L2_CACHE_WAYS)
+#endif
+
+#define L2_SETWAY_SET_SHIFT         6   // Log2(L2_CACHE_LINE_LENGTH)
+
+// The origin of this function is:
+// https://github.com/rsta2/uspi/blob/master/env/lib/synchronize.c
+
+void InvalidateDataCache (void)
+{
+   unsigned nSet;
+   unsigned nWay;
+   uint32_t nSetWayLevel;
+   // invalidate L1 data cache
+   for (nSet = 0; nSet < L1_DATA_CACHE_SETS; nSet++) {
+      for (nWay = 0; nWay < L1_DATA_CACHE_WAYS; nWay++) {
+         nSetWayLevel = nWay << L1_SETWAY_WAY_SHIFT
+                      | nSet << L1_SETWAY_SET_SHIFT
+                      | 0 << SETWAY_LEVEL_SHIFT;
+         asm volatile ("mcr p15, 0, %0, c7, c6,  2" : : "r" (nSetWayLevel) : "memory");   // DCISW
+      }
+   }
+
+   // invalidate L2 unified cache
+   for (nSet = 0; nSet < L2_CACHE_SETS; nSet++) {
+      for (nWay = 0; nWay < L2_CACHE_WAYS; nWay++) {
+         nSetWayLevel = nWay << L2_SETWAY_WAY_SHIFT
+                      | nSet << L2_SETWAY_SET_SHIFT
+                      | 1 << SETWAY_LEVEL_SHIFT;
+         asm volatile ("mcr p15, 0, %0, c7, c6,  2" : : "r" (nSetWayLevel) : "memory");   // DCISW
+      }
+   }
+}
+#endif
 
 void enable_MMU_and_IDCaches(void)
 {
@@ -36,10 +96,24 @@ void enable_MMU_and_IDCaches(void)
   // TEX = 000; C=0; B=1 (Shared device)
 
   // For cacheable RAM
-  // TEX = 001; C=1; B=1 (Outer and inner write back, allocate on write)
+  // TEX = 001; C=1; B=1 (Outer and inner write back, write allocate)
 
   // For non-cachable RAM
   // TEX = 001; C=0; B=0 (Outer and inner non-cacheable)
+
+  // For individual control
+  // TEX = 1BB CB=AA
+  // AA = inner policy
+  // BB = outer policy
+  // 00 = NC    (non-cacheable)
+  // 01 = WBWA  (write-back, write allocate)
+  // 10 = WT    (write-through
+  // 11 = WBNWA (write-back, no write allocate)
+  /// TEX = 100; C=0; B=1 (outer non cacheable, inner write-back, write allocate)
+
+  int aa = 1;
+  int bb = 1;
+  int shareable = 1;
 
   for (base = 0; base < cached_threshold; base++)
   {
@@ -48,7 +122,7 @@ void enable_MMU_and_IDCaches(void)
     // Values from RPI2 = 11C0E (outer and inner write back, write allocate, shareable (fast but unsafe)); works on RPI
     // Values from RPI2 = 10C0A (outer and inner write through, no write allocate, shareable)
     // Values from RPI2 = 15C0A (outer write back, write allocate, inner write through, no write allocate, shareable)
-    PageTable[base] = base << 20 | 0x01C0E;
+    PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12) | (aa << 2);
   }
   for (; base < uncached_threshold; base++)
   {
@@ -60,14 +134,20 @@ void enable_MMU_and_IDCaches(void)
     PageTable[base] = base << 20 | 0x10C16;
   }
 
-  // RPI:  bit 6 is restrict cache size to 16K (no page coloring)
-  // RPI2: bit 6 is set SMP bit, otherwise all caching disabled
+#if defined(RPI3)
+  unsigned cpuextctrl0, cpuextctrl1;
+  asm volatile ("mrrc p15, 1, %0, %1, c15" : "=r" (cpuextctrl0), "=r" (cpuextctrl1));
+  printf("extctrl = %08x %08x\r\n", cpuextctrl1, cpuextctrl0);
+#else
+  // RPI:  bit 6 of auxctrl is restrict cache size to 16K (no page coloring)
+  // RPI2: bit 6 of auxctrl is set SMP bit, otherwise all caching disabled
   unsigned auxctrl;
   asm volatile ("mrc p15, 0, %0, c1, c0,  1" : "=r" (auxctrl));
   auxctrl |= 1 << 6;
   asm volatile ("mcr p15, 0, %0, c1, c0,  1" :: "r" (auxctrl));
   asm volatile ("mrc p15, 0, %0, c1, c0,  1" : "=r" (auxctrl));
   printf("auxctrl = %08x\r\n", auxctrl);
+#endif
 
   // set domain 0 to client
   asm volatile ("mcr p15, 0, %0, c3, c0, 0" :: "r" (1));
@@ -84,8 +164,9 @@ void enable_MMU_and_IDCaches(void)
   // [Bit 0, Bit 6] indicates inner cachability: 01 = normal memory, inner write-back write-allocate cacheable
   // [Bit 4, Bit 3] indicates outer cachability: 01 = normal memory, outer write-back write-allocate cacheable
   // Bit 1 indicates sharable
-  // 4A = 0100 1010 
-  asm volatile ("mcr p15, 0, %0, c2, c0, 0" :: "r" (0x4a | (unsigned) &PageTable));
+  // 4A = 0100 1010
+  int attr = ((aa & 1) << 6) | (bb << 3) | (shareable << 1) | ((aa & 2) >> 1);
+  asm volatile ("mcr p15, 0, %0, c2, c0, 0" :: "r" (attr | (unsigned) &PageTable));
 #else
   // set TTBR0 (page table walk inner cacheable, outer non-cacheable, shareable memory)
   asm volatile ("mcr p15, 0, %0, c2, c0, 0" :: "r" (0x03 | (unsigned) &PageTable));
@@ -94,8 +175,11 @@ void enable_MMU_and_IDCaches(void)
   asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (ttbr0));
   printf("ttbr0   = %08x\r\n", ttbr0);
 
+
+  // Invalidate entire data cache
 #if defined(RPI2) || defined(RPI3)
   asm volatile ("isb" ::: "memory");
+  InvalidateDataCache();
 #else
   // invalidate data cache and flush prefetch buffer
   // NOTE: The below code seems to cause a Pi 2 to crash
@@ -114,7 +198,6 @@ void enable_MMU_and_IDCaches(void)
   // The L1 instruction cache can be used independently of the MMU
   // The L1 data cache will one be enabled if the MMU is enabled
 
-// TODO: RPI3 does nor support bit 11 (branch prefetch)
   sctrl |= 0x00001805;
   asm volatile ("mcr p15,0,%0,c1,c0,0" :: "r" (sctrl) : "memory");
   asm volatile ("mrc p15,0,%0,c1,c0,0" : "=r" (sctrl));
@@ -125,5 +208,4 @@ void enable_MMU_and_IDCaches(void)
   unsigned ctype;
   asm volatile ("mrc p15,0,%0,c0,c0,1" : "=r" (ctype));
   printf("ctype   = %08x\r\n", ctype);
-
 }
