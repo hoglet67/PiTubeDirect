@@ -1,9 +1,24 @@
 # config.txt for PiTubeDirect (https://github.com/hoglet67/PiTubeDirect)
 #
+
+# Over clocking settings for Pi 1
 arm_freq=900
 core_freq=350
 force_turbo=1
-#
+
+# Over clocking settings for Pi 3
+arm_freq=1000
+core_freq=400
+force_turbo=1
+
+# Over clocking settings for Pi Zero
+arm_freq=1000
+core_freq=400
+force_turbo=1
+
+# Disable adjusting the refresh rate of RAM every 500 ms
+disable_pvt=1
+
 # See fully annotated config.txt at
 # https://raw.githubusercontent.com/Evilpaul/RPi-config/master/config.txt
 # (via http://elinux.org/RPiconfig)
