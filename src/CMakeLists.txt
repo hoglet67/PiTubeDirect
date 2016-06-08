@@ -123,6 +123,9 @@ add_executable( tube-client
     NS32016/Profile.h
     NS32016/Trap.c
     NS32016/Trap.h
+# Z80
+    copro-z80.h
+    copro-z80.c
 # Null co processor
     copro-null.c
     copro-null.h
