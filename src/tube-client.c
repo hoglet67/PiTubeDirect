@@ -105,7 +105,7 @@ void run_core() {
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
    
-   printf("test running on core %d\r\n", i);
+   printf("emulator running on core %d\r\n", i);
 
    do {
       // Run the emulator
@@ -147,10 +147,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
 
-  // Lock the Tube Interrupt handler into cache for BCM2835 based Pis
-#if !defined(RPI2) && !defined(RPI3)
-   lock_isr();
-#endif
 
    copro = get_copro_number();
 
@@ -164,6 +160,11 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
   benchmark();
 
   init_emulator();
+
+  // Lock the Tube Interrupt handler into cache for BCM2835 based Pis
+#if !defined(RPI2) && !defined(RPI3)
+   lock_isr();
+#endif
 
 #ifdef HAS_MULTICORE
 
