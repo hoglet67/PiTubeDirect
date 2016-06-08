@@ -71,12 +71,24 @@ extern FASTWORK simz80(FASTREG PC);
 */
 
 #ifndef BIOS
-extern int in(unsigned int);
-extern void out(unsigned int, unsigned char);
-#define Input(port) in(port)
-#define Output(port, value) out(port,value)
+extern int copro_z80_read_io(unsigned int);
+extern void copro_z80_write_io(unsigned int, unsigned char);
+#define Input(port) copro_z80_read_io(port)
+#define Output(port, value) copro_z80_write_io(port,value)
 #else
 /* Define these as macros or functions if you really want to simulate I/O */
 #define Input(port)	0
 #define Output(port, value)
 #endif
+
+// Some extra functions for handling RST, IRQ and NMI
+
+extern void simz80_reset();
+
+extern void simz80_NMI();
+
+extern void simz80_IRQ();
+
+extern int simz80_is_IRQ_enabled();
+
+extern FASTWORK simz80_execute(int n);

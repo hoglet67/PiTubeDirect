@@ -29,6 +29,20 @@ char *perl_params =
 #include "mem_mmu.h"
 #include "simz80.h"
 
+/* Z80 registers */
+WORD af[2];			/* accumulator and flags (2 banks) */
+int af_sel;			/* bank select for af */
+
+struct ddregs regs[2];		/* bc,de,hl */
+int regs_sel;			/* bank select for ddregs */
+
+WORD ir;			/* other Z80 registers */
+WORD ix;
+WORD iy;
+WORD sp;
+WORD pc;
+WORD IFF;
+
 static const unsigned char partab[256] = {
 	4,0,0,4,0,4,4,0,0,4,4,0,4,0,0,4,
 	0,4,4,0,4,0,0,4,4,0,0,4,0,4,4,0,
@@ -55,13 +69,13 @@ volatile int stopsim;
 #endif
 
 #define POP(x)	do {							\
-	FASTREG y = RAM_pp(SP);						\
-	x = y + (RAM_pp(SP) << 8);					\
+	FASTREG y = GetBYTE_pp(SP);			\
+	x = y + (GetBYTE_pp(SP) << 8);		\
 } while (0)
 
 #define PUSH(x) do {							\
-	mm_RAM(SP) = (x) >> 8;						\
-	mm_RAM(SP) = x;							\
+   mm_PutBYTE(SP, (x) >> 8);           \
+   mm_PutBYTE(SP, x);                  \
 } while (0)
 
 #define JPC(cond) PC = cond ? GetWORD(PC) : PC+2
@@ -110,8 +124,9 @@ volatile int stopsim;
     sp = SP
 
 FASTWORK
-simz80(FASTREG PC)
+simz80_execute(int n)
 {
+    FASTREG PC = pc;
     FASTREG AF = af[af_sel];
     FASTREG BC = regs[regs_sel].bc;
     FASTREG DE = regs[regs_sel].de;
@@ -128,9 +143,9 @@ simz80(FASTREG PC)
 #ifdef DEBUG
     while (!stopsim) {
 #else
-    while (1) {
+    while (n--) {
 #endif
-    switch(RAM_pp(PC)) {
+   switch(GetBYTE_pp(PC)) {
 	case 0x00:			/* NOP */
 		break;
 	case 0x01:			/* LD BC,nnnn */
@@ -3037,4 +3052,32 @@ simz80(FASTREG PC)
 /* make registers visible for debugging if interrupted */
     SAVE_STATE();
     return (PC&0xffff)|0x10000;	/* flag non-bios stop */
+}
+
+// Some extra functions for handling RST, IRQ and NMI
+
+void simz80_reset() {
+   pc = 0x0000;
+   sp = 0x0000;
+}
+
+void simz80_NMI()
+{
+	FASTREG SP = sp;
+   PUSH(pc);
+   pc = 0x0066;
+   sp = SP;
+}
+
+void simz80_IRQ()
+{
+	FASTREG SP = sp;
+   IFF &= ~1;
+   PUSH(pc);
+   pc = GetWORD(0xfffe);
+   sp = SP;
+}
+
+int simz80_is_IRQ_enabled() {
+   return IFF & 1;
 }

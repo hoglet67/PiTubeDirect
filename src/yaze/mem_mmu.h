@@ -151,27 +151,19 @@ extern BYTE ram[MEMSIZE*1024];	/* RAM which is present */
 /* Some important macros. They are the interface between an access from
    the simz80-/yaze-Modules and the method of the memory access: */
 
-#define GetBYTE(a)	RAM(a)
-#define GetBYTE_pp(a)	RAM_pp(a)
-#define GetBYTE_mm(a)	RAM_mm(a)
-#define mm_GetBYTE(a)	mm_RAM(a)
-#define PutBYTE(a, v)	RAM(a) = v
-#define PutBYTE_pp(a,v)	RAM_pp(a) = v
-#define PutBYTE_mm(a,v)	RAM_mm(a) = v
-#define GetWORD(a)	(RAM(a) | (RAM((a)+1) << 8))
+extern int copro_z80_read_mem(unsigned int);
+extern void copro_z80_write_mem(unsigned int, unsigned char);
 
-/* don't work: #define GetWORD_pppp(a)	(RAM_pp(a) + (RAM_pp(a) << 8)) */
-/* make once more a try at 18.10.1999/21:45 ... with the following macro:  */
-/* works also not #define GetWORD_pppp(a) (RAM_pp(a) | (RAM_pp(a) << 8))  */
-/* I dont know what the optimizer do with such macro.
-   If someone knows about it - I'am very interessed to that knowledge.
- */
-
-#define PutWORD(a, v)							\
-    do { RAM(a) = (BYTE)(v);						\
-	 RAM((a)+1) = (v) >> 8;						\
-     } while (0)
-
+#define GetBYTE(a)	    copro_z80_read_mem(a)
+#define GetBYTE_pp(a)	 copro_z80_read_mem( (a++) )
+#define GetBYTE_mm(a)	 copro_z80_read_mem( (a--) )
+#define mm_GetBYTE(a)	 copro_z80_read_mem( (--a) )
+#define PutBYTE(a, v)	 copro_z80_write_mem(a, v)
+#define PutBYTE_pp(a,v)	 copro_z80_write_mem( (a++) , v)
+#define PutBYTE_mm(a,v)	 copro_z80_write_mem( (a--) , v)
+#define mm_PutBYTE(a,v)	 copro_z80_write_mem( (--a) , v)
+#define GetWORD(a)	    (copro_z80_read_mem(a) | ( copro_z80_read_mem( (a) + 1) << 8) )
+#define PutWORD(a, v)    { copro_z80_write_mem( (a), (BYTE)(v & 0xFF) ); copro_z80_write_mem( ((a)+1), (v)>>8 ); }
 
 /*------------------- Some macros for manipulating Z80-memory : -------*/
 

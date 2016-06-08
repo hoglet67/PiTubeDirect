@@ -126,6 +126,9 @@ add_executable( tube-client
 # Z80
     copro-z80.h
     copro-z80.c
+    yaze/simz80.h
+    yaze/simz80.c
+    yaze/mem_mmu.h
 # Null co processor
     copro-null.c
     copro-null.h
