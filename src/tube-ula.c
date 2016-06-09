@@ -11,13 +11,12 @@
 #include <inttypes.h>
 #include "tube-defs.h"
 #include "tube.h"
+#include "tube-ula.h"
 #include "rpi-gpio.h"
 #include "rpi-aux.h"
 #include "rpi-interrupts.h"
 #include "info.h"
 #include "performance.h"
-
-//#define DEBUG_TRANSFERS
 
 extern volatile uint8_t tube_regs[8];
 
@@ -66,6 +65,42 @@ uint32_t count_p = 0;
 int tube_irq=0;
 
 static int tube_enabled;
+
+#ifdef DEBUG_TUBE
+
+#define  TUBE_READ_MARKER 0x80000000
+#define TUBE_WRITE_MARKER 0x40000000
+
+unsigned int tube_index;
+unsigned int tube_buffer[0x10000];
+
+void tube_dump_buffer() {
+   int i;
+   printf("tube_index = %d\r\n", tube_index);
+   for (i = 0; i < tube_index; i++) {
+      if (tube_buffer[i] & (TUBE_READ_MARKER | TUBE_WRITE_MARKER)) {
+         if (tube_buffer[i] & TUBE_READ_MARKER) {
+            printf("Rd R");
+         }
+         if (tube_buffer[i] & TUBE_WRITE_MARKER) {
+            printf("Wr R");
+         }
+         // Covert address (1,3,5,7) to R1,R2,R3,R4
+         printf("%d = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
+      } else {
+         printf("?? %08x\r\n", tube_buffer[i]);
+      }
+   }
+}
+
+void tube_reset_buffer() {
+   int i;
+   tube_index = 0;
+   for (i = 0; i < 0x10000; i++) {
+      tube_buffer[i] = 0;
+   }
+}
+#endif
 
 void tube_updateints()
 {   
@@ -260,11 +295,23 @@ uint8_t tube_parasite_read(uint32_t addr)
       break;
    }
    tube_updateints();
+#ifdef DEBUG_TUBE
+   if (addr & 1) {
+      tube_buffer[tube_index++] = TUBE_READ_MARKER | ((addr & 7) << 8) | temp;
+      tube_index &= 0xffff;
+   }
+#endif
    return temp;
 }
 
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
+#ifdef DEBUG_TUBE
+   if (addr & 1) {
+      tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & 7) << 8) | val;
+      tube_index &= 0xffff;
+   }
+#endif
    switch (addr & 7)
    {
    case 1: /*Register 1*/
@@ -321,6 +368,12 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 void tube_reset()
 {
+#ifdef DEBUG_TUBE
+   // Dump tube buffer
+   tube_dump_buffer();
+   // Reset the tube buffer
+   tube_reset_buffer();
+#endif
    printf("tube reset - copro %d\r\n", copro);
    tube_enabled = 1;
    ph1pos = hp3pos = 0;
