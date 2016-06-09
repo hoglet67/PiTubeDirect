@@ -2150,6 +2150,7 @@ simz80_execute(int n)
 			break;
 		case 0x5F:			/* LD A,R */
 			AF = (AF & 0x29) | ((ir & 255) << 8) | (ir & 0x80) | (((ir & 255) == 0) << 6) | ((IFF & 2) << 1);
+ 			ir = (ir + 1) & 0xff;
 			break;
 		case 0x60:			/* IN H,(C) */
 			temp = Input(lreg(BC));
