@@ -21,7 +21,7 @@ extern void tube_reset();
 
 extern int tube_io_handler(uint32_t mail);
 
-extern int tube_init_hardware();
+extern void tube_init_hardware();
 
 extern int tube_is_rst_active();
 
