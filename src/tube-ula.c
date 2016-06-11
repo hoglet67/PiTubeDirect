@@ -17,6 +17,7 @@
 #include "rpi-interrupts.h"
 #include "info.h"
 #include "performance.h"
+#include "framebuffer.h"
 
 extern volatile uint8_t tube_regs[8];
 
@@ -166,6 +167,11 @@ void tube_host_read(uint16_t addr)
 
 void tube_host_write(uint16_t addr, uint8_t val)
 {
+   if ((addr & 7) == 4) {
+      // RPI_AuxMiniUartWrite(val);
+      fb_writec(val);
+      return;
+   }
    if ((addr & 7) == 6) {
       copro = val;
       return;
@@ -503,6 +509,8 @@ void tube_init_hardware()
   RPI_AuxMiniUartInit( 115200, 8 );
 
   dump_useful_info();
+
+  fb_initialize();
 
   // Precalculate the values that need to be written to the FSEL registers
   // to set the data bus GPIOs as inputs (idle) and output (driving)
