@@ -77,7 +77,7 @@ const char * type_names[] = {
    "TODO",
    "TODO",
    "TODO"
-}
+};
 
 #else
 
