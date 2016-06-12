@@ -1,10 +1,11 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
 #include "rpi-mailbox-interface.h"
 #include "framebuffer.h"
 
-#define PUTPIXEL putpixel_16bpp
+#define PUTPIXEL fb_putpixel_16bpp
 
 #define SCREEN_WIDTH    640
 #define SCREEN_HEIGHT   480
@@ -40,10 +41,22 @@ static int colour_table[] = {
 
 };
 
+// Character colour / cursor position
 static int bg_c_col = 0;
 static int fg_c_col = 15;
 static int x_c_pos  = 0;
 static int y_c_pos  = 0;
+
+// Graphics colour / cursor position
+static int bg_g_col = 0;
+static int fg_g_col = 15;
+static int x_g_pos  = 0;
+static int x_g_pos_last1 = 0;
+static int x_g_pos_last2 = 0;
+static int y_g_pos  = 0;
+static int y_g_pos_last1 = 0;
+static int y_g_pos_last2 = 0;
+static int g_mode   = 0;
 
 // 6847 font data
 
@@ -237,6 +250,7 @@ void fb_initialize() {
 
 #define NORMAL    0
 #define IN_COLOUR 1
+#define IN_PLOT   2
 
 void fb_writec(int c) {
    int i, j;
@@ -245,6 +259,7 @@ void fb_writec(int c) {
    int bg_col;
 
    static int state = NORMAL;
+   static int count = 0;
 
    if (state == IN_COLOUR) {
       state = NORMAL;
@@ -254,6 +269,56 @@ void fb_writec(int c) {
          fg_c_col = c & 15;
       }
       return;
+   } else if (state == IN_PLOT) {
+      switch (count) {
+      case 0:
+         g_mode = c;
+         break;
+      case 1:
+         x_g_pos = c;
+         break;
+      case 2:
+         x_g_pos = (x_g_pos << 8) | c;
+         break;
+      case 3:
+         y_g_pos = c;
+         break;
+      case 4:
+         y_g_pos = (y_g_pos << 8) | c;
+
+         x_g_pos_last2 = x_g_pos_last1;
+         x_g_pos_last1 = x_g_pos;
+         y_g_pos_last2 = y_g_pos_last1;
+         y_g_pos_last1 = y_g_pos;
+         
+         switch (g_mode & 7) {
+         case 0:
+            // Move relative to the last point.
+            break;
+         case 1:
+            // Draw a line, in the current graphics foreground colour, relative to the last point.
+            break;
+         case 2:
+            // Draw a line, in the logical inverse colour, relative to the last point.
+            break;
+         case 3:
+            // Draw a line, in the background colour, relative to the last point.
+            break;
+         case 4:
+            // Move to the absolute position X, Y.
+            break;
+         case 5:
+            // Draw a line, in the current foreground colour, to the absolute coordinates specified by X and Y.
+            break;
+         case 6:
+            // Draw a line, in the logical inverse colour, to the absolute coordinates specified by X and Y.
+            break;
+         case 7:
+            // Draw a line, in the current background colour, to the absolute coordinates specified by X and Y.
+            break;
+         }
+      }
+      count++;
    }
 
    switch(c) {
@@ -284,6 +349,11 @@ void fb_writec(int c) {
 
    case 17:
       state = IN_COLOUR;
+      return;
+
+   case 25:
+      state = IN_PLOT;
+      count = 0;
       return;
 
    case 30:
@@ -342,21 +412,21 @@ void fb_writes(char *string) {
    }
 }
 
-static void fb_putpixel_16bpp(int x, int y, unsigned int colour) {
-   unsiged char *fbptr = fb + y * pitch + x * 2;
+void fb_putpixel_16bpp(int x, int y, unsigned int colour) {
+   unsigned char *fbptr = fb + y * pitch + x * 2;
    *fbptr++ = (colour >> 8) & 255;
    *fbptr++ = colour  & 255;
 }
 
-static void fb_putpixel_24bpp(int x, int y, unsigned int colour) {
-   unsiged char *fbptr = fb + y * pitch + x * 3;
+void fb_putpixel_24bpp(int x, int y, unsigned int colour) {
+   unsigned char *fbptr = fb + y * pitch + x * 3;
    *fbptr++ = (colour >> 16) & 255;
    *fbptr++ = (colour >> 8) & 255;
    *fbptr++ = colour  & 255;
 }
 
-static void fb_putpixel_32bpp(int x, int y, unsigned int colour) {
-   unsiged char *fbptr = fb + y * pitch + x * 4;
+void fb_putpixel_32bpp(int x, int y, unsigned int colour) {
+   unsigned char *fbptr = fb + y * pitch + x * 4;
    *fbptr++ = (colour >> 24) & 255;
    *fbptr++ = (colour >> 16) & 255;
    *fbptr++ = (colour >> 8) & 255;
@@ -365,7 +435,7 @@ static void fb_putpixel_32bpp(int x, int y, unsigned int colour) {
 
 // Implementation of Bresenham's line drawing algorithm from here:
 // http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
-public void line(int x,int y,int x2, int y2, unsigned int color) {
+void fb_draw_line(int x,int y,int x2, int y2, unsigned int color) {
    int i;
    int w = x2 - x;
    int h = y2 - y;
@@ -373,11 +443,11 @@ public void line(int x,int y,int x2, int y2, unsigned int color) {
    if (w < 0) dx1 = -1 ; else if (w > 0) dx1 = 1;
    if (h < 0) dy1 = -1 ; else if (h > 0) dy1 = 1;
    if (w < 0) dx2 = -1 ; else if (w > 0) dx2 = 1;
-   int longest = Math.abs(w);
-   int shortest = Math.abs(h);
+   int longest = abs(w);
+   int shortest = abs(h);
    if (!(longest > shortest)) {
-      longest = Math.abs(h);
-      shortest = Math.abs(w);
+      longest = abs(h);
+      shortest = abs(w);
       if (h < 0) dy2 = -1 ; else if (h > 0) dy2 = 1;
       dx2 = 0;
    }
