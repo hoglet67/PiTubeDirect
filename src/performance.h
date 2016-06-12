@@ -3,7 +3,9 @@
 #ifndef PERFORMANCE_H
 #define PERFORMANCE_H
 
-#if defined(RPI3)
+#if defined(RPI3) ||  defined(RPI2)
+
+// TODO - More work is needed on the RPI2 performance metrics
 
 #define MAX_COUNTERS 6
 
@@ -39,10 +41,6 @@
 #define PERF_TYPE_BUS_CYCLES                 0x1D
 #define PERF_TYPE_CHAIN                      0x1E
 #define PERF_TYPE_L1D_CACHE_ALLOCATE         0x1F
-
-#elif defined(RPI2)
-
-// TODO
 
 #else
 
