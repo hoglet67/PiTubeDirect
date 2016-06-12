@@ -4,6 +4,8 @@
 #include "rpi-mailbox-interface.h"
 #include "framebuffer.h"
 
+#define PUTPIXEL putpixel_16bpp
+
 #define SCREEN_WIDTH    640
 #define SCREEN_HEIGHT   480
 #define SCREEN_DEPTH    16      /* 16 or 32-bit */
@@ -309,7 +311,7 @@ void fb_writec(int c) {
          c &= 0x1F;
       }
       c *= 12;
-      
+
       // Copy the character into the frame buffer
       for (i = 0; i < 12; i++) {
          int data = fontdata[c + i];
@@ -327,15 +329,69 @@ void fb_writec(int c) {
             data <<= 1;
          }
       }
-      
+
       // Advance the drawing position
       fb_cursor_next();
    }
-   
+
 }
 
 void fb_writes(char *string) {
    while (*string) {
       fb_writec(*string++);
+   }
+}
+
+static void fb_putpixel_16bpp(int x, int y, unsigned int colour) {
+   unsiged char *fbptr = fb + y * pitch + x * 2;
+   *fbptr++ = (colour >> 8) & 255;
+   *fbptr++ = colour  & 255;
+}
+
+static void fb_putpixel_24bpp(int x, int y, unsigned int colour) {
+   unsiged char *fbptr = fb + y * pitch + x * 3;
+   *fbptr++ = (colour >> 16) & 255;
+   *fbptr++ = (colour >> 8) & 255;
+   *fbptr++ = colour  & 255;
+}
+
+static void fb_putpixel_32bpp(int x, int y, unsigned int colour) {
+   unsiged char *fbptr = fb + y * pitch + x * 4;
+   *fbptr++ = (colour >> 24) & 255;
+   *fbptr++ = (colour >> 16) & 255;
+   *fbptr++ = (colour >> 8) & 255;
+   *fbptr++ = colour  & 255;
+}
+
+// Implementation of Bresenham's line drawing algorithm from here:
+// http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
+public void line(int x,int y,int x2, int y2, unsigned int color) {
+   int i;
+   int w = x2 - x;
+   int h = y2 - y;
+   int dx1 = 0, dy1 = 0, dx2 = 0, dy2 = 0;
+   if (w < 0) dx1 = -1 ; else if (w > 0) dx1 = 1;
+   if (h < 0) dy1 = -1 ; else if (h > 0) dy1 = 1;
+   if (w < 0) dx2 = -1 ; else if (w > 0) dx2 = 1;
+   int longest = Math.abs(w);
+   int shortest = Math.abs(h);
+   if (!(longest > shortest)) {
+      longest = Math.abs(h);
+      shortest = Math.abs(w);
+      if (h < 0) dy2 = -1 ; else if (h > 0) dy2 = 1;
+      dx2 = 0;
+   }
+   int numerator = longest >> 1 ;
+   for (i = 0; i <= longest; i++) {
+      PUTPIXEL(x, y, color);
+      numerator += shortest;
+      if (!(numerator < longest)) {
+         numerator -= longest;
+         x += dx1;
+         y += dy1;
+      } else {
+         x += dx2;
+         y += dy2;
+      }
    }
 }
