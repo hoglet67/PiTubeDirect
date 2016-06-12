@@ -6,20 +6,38 @@
 #include "rpi-mailbox-interface.h"
 #include "framebuffer.h"
 
-#define PUTPIXEL fb_putpixel_16bpp
-
 #define SCREEN_WIDTH    640
 #define SCREEN_HEIGHT   480
-#define SCREEN_DEPTH    16      /* 16 or 32-bit */
 
-// RGB565
-#define RED   0x001F
+#define BPP16
+
+#ifdef BPP32
+#define SCREEN_DEPTH    32
+
+#define PUTPIXEL fb_putpixel_32bpp
+
+#define ALPHA 0xFF000000
+#define RED   0xFFFF0000
+#define GREEN 0xFF00FF00
+#define BLUE  0xFF0000FF
+ 
+#else
+
+#define SCREEN_DEPTH    16
+
+#define PUTPIXEL fb_putpixel_16bpp
+// R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
+
+#define ALPHA 0x0000
+#define RED   0xF800
 #define GREEN 0x07E0
-#define BLUE  0xF800
+#define BLUE  0x001F
 
-#define D_RED   ((RED >> 3) & RED)
-#define D_GREEN ((GREEN >> 3) & GREEN)
-#define D_BLUE  ((BLUE >> 3) & BLUE)
+#endif
+
+#define D_RED   ((((RED & ~ALPHA)   >> 1) & RED)   | ALPHA)
+#define D_GREEN ((((GREEN & ~ALPHA) >> 1) & GREEN) | ALPHA)
+#define D_BLUE  ((((BLUE & ~ALPHA)  >> 1) & BLUE)  | ALPHA)
 
 static int colour_table[] = {
    0x0000,                   // Black
@@ -203,6 +221,7 @@ void fb_cursor_next() {
 
 void fb_initialize() {
 
+   int col, x, y;
     rpi_mailbox_property_t *mp;
 
     /* Initialise a framebuffer... */
@@ -243,11 +262,36 @@ void fb_initialize() {
         printf( "Framebuffer address: %8.8X\r\n", (unsigned int)fb );
     }
 
+    // On the Pi 2/3 the mailbox returns the address with bits 31..30 set, which is wrong
     fb = (unsigned char *)(((unsigned int) fb) & 0x3fffffff);
+
+    // Change bpp from bits to bytes
+    bpp >>= 3;
 
     fb_clear();
 
-    fb_writes("ACORN ATOM\r\n>");
+    fb_writes("\r\n\r\nACORN ATOM\r\n>");
+    
+#ifdef BPP32
+       for (y = 0; y < 16; y++) {
+          uint32_t *fbptr = (uint32_t *) (fb + pitch * y);
+          for (col = 23; col >= 0; col--) {
+             for (x = 0; x < 8; x++) {
+                *fbptr++ = 1 << col;
+             }
+          }
+       }
+#else
+       for (y = 0; y < 16; y++) {
+          uint16_t *fbptr = (uint16_t *) (fb + pitch * y);
+          for (col = 15; col >= 0; col--) {
+             for (x = 0; x < 8; x++) {
+                *fbptr++ = 1 << col;
+             }
+          }
+       }
+#endif
+    
 
     // Uncomment this for testing from the serial port
     // while (1) {
@@ -285,8 +329,10 @@ void fb_writec(int c) {
       state = NORMAL;
       if (c & 128) {
          bg_c_col = c & 15;
+         printf("bg = %d\r\n", bg_c_col);
       } else {
          fg_c_col = c & 15;
+         printf("fg = %d\r\n", fg_c_col);
       }
       return;
 
@@ -444,7 +490,7 @@ void fb_writec(int c) {
       // Copy the character into the frame buffer
       for (i = 0; i < 12; i++) {
          int data = fontdata[c + i];
-         unsigned char *fbptr = fb + x_c_pos * 16 + (y_c_pos * 12 + i) * pitch;
+         unsigned char *fbptr = fb + x_c_pos * 8 * bpp + (y_c_pos * 12 + i) * pitch;
          if (invert) {
             data ^= 0xff;
          }
@@ -453,8 +499,13 @@ void fb_writec(int c) {
 
          for (j = 0; j < 8; j++) {
             int col = (data & 0x80) ? fg_col : bg_col;
-            *fbptr++ = (col >> 8) & 255;
-            *fbptr++ = col & 255;
+#ifdef BPP32
+            *(uint32_t *)fbptr = col;
+            fbptr += 4;
+#else
+            *(uint16_t *)fbptr = col;
+            fbptr += 2;
+#endif
             data <<= 1;
          }
       }
@@ -472,27 +523,13 @@ void fb_writes(char *string) {
 }
 
 void fb_putpixel_16bpp(int x, int y, unsigned int colour) {
-   unsigned char *fbptr = fb + (height - y - 1) * pitch + x * 2;
-   colour = colour_table[colour];
-   *fbptr++ = (colour >> 8) & 255;
-   *fbptr++ = colour  & 255;
-}
-
-void fb_putpixel_24bpp(int x, int y, unsigned int colour) {
-   unsigned char *fbptr = fb + (height - y - 1) * pitch + x * 3;
-   colour = colour_table[colour];
-   *fbptr++ = (colour >> 16) & 255;
-   *fbptr++ = (colour >> 8) & 255;
-   *fbptr++ = colour  & 255;
+   uint16_t *fbptr = (uint16_t *)fb + (height - y - 1) * pitch + x * 2;
+   *fbptr = colour_table[colour];
 }
 
 void fb_putpixel_32bpp(int x, int y, unsigned int colour) {
-   unsigned char *fbptr = fb + (height - y - 1) * pitch + x * 4;
-   colour = colour_table[colour];
-   *fbptr++ = (colour >> 24) & 255;
-   *fbptr++ = (colour >> 16) & 255;
-   *fbptr++ = (colour >> 8) & 255;
-   *fbptr++ = colour  & 255;
+   uint32_t *fbptr = (uint32_t *)fb + (height - y - 1) * pitch + x * 4;
+   *fbptr = colour_table[colour];
 }
 
 // Implementation of Bresenham's line drawing algorithm from here:
