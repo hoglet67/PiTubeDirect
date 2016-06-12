@@ -17,9 +17,9 @@
 #define GREEN 0x07E0
 #define BLUE  0xF800
 
-#define D_RED   ((RED >> 2) & RED)
-#define D_GREEN ((GREEN >> 2) & GREEN)
-#define D_BLUE  ((BLUE >> 2) & BLUE)
+#define D_RED   ((RED >> 3) & RED)
+#define D_GREEN ((GREEN >> 3) & GREEN)
+#define D_BLUE  ((BLUE >> 3) & BLUE)
 
 static int colour_table[] = {
    0x0000,                   // Black
@@ -58,6 +58,7 @@ static int y_g_pos  = 0;
 static int y_g_pos_last1 = 0;
 static int y_g_pos_last2 = 0;
 static int g_mode   = 0;
+static int g_plotmode  = 0;
 
 // 6847 font data
 
@@ -256,8 +257,9 @@ void fb_initialize() {
 }
 
 #define NORMAL    0
-#define IN_COLOUR 1
-#define IN_PLOT   2
+#define IN_VDU17  1
+#define IN_VDU18  2
+#define IN_VDU25  3
 
 void update_g_cursors(int x, int y) {
    x_g_pos_last2 = x_g_pos_last1;
@@ -279,7 +281,7 @@ void fb_writec(int c) {
    static int x_tmp = 0;
    static int y_tmp = 0;
 
-   if (state == IN_COLOUR) {
+   if (state == IN_VDU17) {
       state = NORMAL;
       if (c & 128) {
          bg_c_col = c & 15;
@@ -287,8 +289,27 @@ void fb_writec(int c) {
          fg_c_col = c & 15;
       }
       return;
-   } else if (state == IN_PLOT) {
-      printf("IN_PLOT %d %d\r\n", count, c);
+
+   } else if (state == IN_VDU18) {
+      switch (count) {
+      case 0:
+         g_plotmode = c;
+         break;
+      case 1:
+         if (c & 128) {
+            bg_g_col = c & 15;
+         } else {
+            fg_g_col = c & 15;
+         }
+         break;
+      }
+      count++;
+      if (count == 2) {
+         state = NORMAL;
+      }
+      return;
+
+   } else if (state == IN_VDU25) {
       switch (count) {
       case 0:
          g_mode = c;
@@ -297,13 +318,13 @@ void fb_writec(int c) {
          x_tmp = c;
          break;
       case 2:
-         x_tmp = (x_tmp << 8) | c;
+         x_tmp |= c << 8;
          break;
       case 3:
          y_tmp = c;
          break;
       case 4:
-         y_tmp = (y_tmp << 8) | c;
+         y_tmp |= c << 8;
 
          switch (g_mode & 7) {
          case 0:
@@ -380,11 +401,17 @@ void fb_writec(int c) {
       break;
 
    case 17:
-      state = IN_COLOUR;
+      state = IN_VDU17;
+      count = 0;
+      return;
+
+   case 18:
+      state = IN_VDU18;
+      count = 0;
       return;
 
    case 25:
-      state = IN_PLOT;
+      state = IN_VDU25;
       count = 0;
       return;
 
