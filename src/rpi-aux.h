@@ -182,6 +182,7 @@ typedef struct
 extern aux_t* RPI_GetAux(void);
 extern void RPI_AuxMiniUartInit(int baud, int bits);
 extern void RPI_AuxMiniUartWrite(char c);
+extern int RPI_AuxMiniUartRead();
 extern void RPI_EnableUart(char* pMessage);
 
 #endif

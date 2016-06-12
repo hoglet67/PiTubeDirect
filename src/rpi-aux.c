@@ -75,7 +75,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   RPI_GpioBase->GPPUDCLK0 = 0;
 
   /* Disable flow control,enable transmitter and receiver! */
-  auxillary->MU_CNTL = AUX_MUCNTL_TX_ENABLE;
+  auxillary->MU_CNTL = AUX_MUCNTL_TX_ENABLE | AUX_MUCNTL_RX_ENABLE;
 }
 
 void RPI_AuxMiniUartWrite(char c)
@@ -87,6 +87,17 @@ void RPI_AuxMiniUartWrite(char c)
 
   /* Write the character to the FIFO for transmission */
   auxillary->MU_IO = c;
+}
+
+int RPI_AuxMiniUartRead()
+{
+  /* Wait until the UART has a character in the RX FIFO */
+  while ((auxillary->MU_LSR & AUX_MULSR_DATA_READY) == 0)
+  {
+  }
+  
+  /* Read the character from the FIFO */
+  return auxillary->MU_IO;
 }
 
 extern void RPI_EnableUart(char* pMessage)
