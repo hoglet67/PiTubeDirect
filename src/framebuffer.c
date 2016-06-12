@@ -8,8 +8,40 @@
 #define SCREEN_HEIGHT   480
 #define SCREEN_DEPTH    16      /* 16 or 32-bit */
 
-static int x_pos = 0;
-static int y_pos = 0;
+// RGB565
+#define RED   0x001F
+#define GREEN 0x07E0
+#define BLUE  0xF800
+
+#define D_RED   ((RED >> 2) & RED)
+#define D_GREEN ((GREEN >> 2) & GREEN)
+#define D_BLUE  ((BLUE >> 2) & BLUE)
+
+static int colour_table[] = {
+   0x0000,                   // Black
+   D_RED,                    // Dark Red
+   D_GREEN,                  // Dark Green
+   D_RED | D_GREEN,          // Dark Yellow
+   D_BLUE,                   // Dark Blue
+   D_RED | D_BLUE,           // Dark Magenta
+   D_GREEN | D_BLUE,         // Dark Cyan
+   D_RED | D_GREEN | D_BLUE, // Dark White
+
+   0x0000,                   // Dark Black
+   RED,                      // Red
+   GREEN,                    // Green
+   RED | GREEN,              // Yellow
+   BLUE,                     // Blue
+   RED | BLUE,               // Magenta
+   GREEN | BLUE,             // Cyan
+   RED | GREEN | BLUE        // White
+
+};
+
+static int bg_c_col = 0;
+static int fg_c_col = 15;
+static int x_c_pos  = 0;
+static int y_c_pos  = 0;
 
 // 6847 font data
 
@@ -92,59 +124,62 @@ void fb_scroll() {
 
 void fb_clear() {
    // clear frame buffer
-   memset((void *)fb, 0, height * pitch);
+   memset((void *)fb, colour_table[bg_c_col], height * pitch);
    // home the cursor
-   x_pos = 0;
-   y_pos = 0;
+   x_c_pos = 0;
+   y_c_pos = 0;
+   // reset the colours
+   // fg_c_col = 15;
+   // bg_c_col = 0;
 }
 
 void fb_cursor_left() {
-   if (x_pos > 0) {
-      x_pos--;
+   if (x_c_pos > 0) {
+      x_c_pos--;
    } else {
-      x_pos = 79;
+      x_c_pos = 79;
    }
 }
 
 void fb_cursor_right() {
-   if (x_pos < 79) {
-      x_pos++;
+   if (x_c_pos < 79) {
+      x_c_pos++;
    } else {
-      x_pos = 0;
+      x_c_pos = 0;
    }
 }
 
 void fb_cursor_up() {
-   if (y_pos > 0) {
-      y_pos--;
+   if (y_c_pos > 0) {
+      y_c_pos--;
    } else {
-      y_pos = 39;
+      y_c_pos = 39;
    }
 }
 
 void fb_cursor_down() {
-   if (y_pos < 39) {
-      y_pos++;
+   if (y_c_pos < 39) {
+      y_c_pos++;
    } else {
       fb_scroll();
    }
 }
 
 void fb_cursor_col0() {
-   x_pos = 0;
+   x_c_pos = 0;
 }
 
 void fb_cursor_home() {
-   x_pos = 0;
-   y_pos = 0;
+   x_c_pos = 0;
+   y_c_pos = 0;
 }
 
 
 void fb_cursor_next() {
-   if (x_pos < 79) {
-      x_pos++;
+   if (x_c_pos < 79) {
+      x_c_pos++;
    } else {
-      x_pos = 0;
+      x_c_pos = 0;
       fb_cursor_down();
    }
 }
@@ -198,10 +233,26 @@ void fb_initialize() {
     fb_writes("ACORN ATOM\r\n>");
 }
 
+#define NORMAL    0
+#define IN_COLOUR 1
+
 void fb_writec(int c) {
    int i, j;
-   unsigned char pixel;
    int invert;
+   int fg_col;
+   int bg_col;
+
+   static int state = NORMAL;
+
+   if (state == IN_COLOUR) {
+      state = NORMAL;
+      if (c & 128) {
+         bg_c_col = c & 15;
+      } else {
+         fg_c_col = c & 15;
+      }
+      return;
+   }
 
    switch(c) {
 
@@ -228,6 +279,10 @@ void fb_writec(int c) {
    case 13:
       fb_cursor_col0();
       break;
+
+   case 17:
+      state = IN_COLOUR;
+      return;
 
    case 30:
       fb_cursor_home();
@@ -258,14 +313,17 @@ void fb_writec(int c) {
       // Copy the character into the frame buffer
       for (i = 0; i < 12; i++) {
          int data = fontdata[c + i];
-         unsigned char *fbptr = fb + x_pos * 16 + (y_pos * 12 + i) * pitch;
+         unsigned char *fbptr = fb + x_c_pos * 16 + (y_c_pos * 12 + i) * pitch;
          if (invert) {
             data ^= 0xff;
          }
+         fg_col = colour_table[fg_c_col];
+         bg_col = colour_table[bg_c_col];
+
          for (j = 0; j < 8; j++) {
-            pixel =  (data & 0x80) ? 0xff : 0x00;
-            *fbptr++ = pixel;
-            *fbptr++ = pixel;
+            int col = (data & 0x80) ? fg_col : bg_col;
+            *fbptr++ = (col >> 8) & 255;
+            *fbptr++ = col & 255;
             data <<= 1;
          }
       }
