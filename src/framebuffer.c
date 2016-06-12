@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include "rpi-aux.h"
 #include "rpi-mailbox-interface.h"
 #include "framebuffer.h"
 
@@ -246,20 +247,37 @@ void fb_initialize() {
     fb_clear();
 
     fb_writes("ACORN ATOM\r\n>");
+
+    // Uncomment this for testing from the serial port
+    // while (1) {
+    //    int c = RPI_AuxMiniUartRead();
+    //    fb_writec(c);
+    // }
 }
 
 #define NORMAL    0
 #define IN_COLOUR 1
 #define IN_PLOT   2
 
+void update_g_cursors(int x, int y) {
+   x_g_pos_last2 = x_g_pos_last1;
+   x_g_pos_last1 = x_g_pos;
+   x_g_pos       = x;
+   y_g_pos_last2 = y_g_pos_last1;
+   y_g_pos_last1 = y_g_pos;
+   y_g_pos       = y;
+}
+
 void fb_writec(int c) {
    int i, j;
    int invert;
    int fg_col;
    int bg_col;
-
+   
    static int state = NORMAL;
    static int count = 0;
+   static int x_tmp = 0;
+   static int y_tmp = 0;
 
    if (state == IN_COLOUR) {
       state = NORMAL;
@@ -270,55 +288,69 @@ void fb_writec(int c) {
       }
       return;
    } else if (state == IN_PLOT) {
+      printf("IN_PLOT %d %d\r\n", count, c);
       switch (count) {
       case 0:
          g_mode = c;
          break;
       case 1:
-         x_g_pos = c;
+         x_tmp = c;
          break;
       case 2:
-         x_g_pos = (x_g_pos << 8) | c;
+         x_tmp = (x_tmp << 8) | c;
          break;
       case 3:
-         y_g_pos = c;
+         y_tmp = c;
          break;
       case 4:
-         y_g_pos = (y_g_pos << 8) | c;
+         y_tmp = (y_tmp << 8) | c;
 
-         x_g_pos_last2 = x_g_pos_last1;
-         x_g_pos_last1 = x_g_pos;
-         y_g_pos_last2 = y_g_pos_last1;
-         y_g_pos_last1 = y_g_pos;
-         
          switch (g_mode & 7) {
          case 0:
             // Move relative to the last point.
+            update_g_cursors(x_g_pos + x_tmp, y_g_pos + y_tmp);
             break;
          case 1:
             // Draw a line, in the current graphics foreground colour, relative to the last point.
+            update_g_cursors(x_g_pos + x_tmp, y_g_pos + y_tmp);
+            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, fg_g_col);
             break;
          case 2:
             // Draw a line, in the logical inverse colour, relative to the last point.
+            update_g_cursors(x_g_pos + x_tmp, y_g_pos + y_tmp);
+            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, fg_g_col ^ 15);
             break;
          case 3:
             // Draw a line, in the background colour, relative to the last point.
+            update_g_cursors(x_g_pos + x_tmp, y_g_pos + y_tmp);
+            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, bg_g_col);
             break;
-         case 4:
+         case 4:            
             // Move to the absolute position X, Y.
+            update_g_cursors(x_tmp, y_tmp);
             break;
          case 5:
             // Draw a line, in the current foreground colour, to the absolute coordinates specified by X and Y.
+            update_g_cursors(x_tmp, y_tmp);
+            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, fg_g_col);
             break;
          case 6:
             // Draw a line, in the logical inverse colour, to the absolute coordinates specified by X and Y.
+            update_g_cursors(x_tmp, y_tmp);
+            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, fg_g_col ^ 15);
             break;
          case 7:
             // Draw a line, in the current background colour, to the absolute coordinates specified by X and Y.
+            update_g_cursors(x_tmp, y_tmp);
+            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, bg_g_col);
             break;
          }
       }
       count++;
+      if (count == 5) {
+         state = NORMAL;
+      }
+      return;
    }
 
    switch(c) {
@@ -413,20 +445,23 @@ void fb_writes(char *string) {
 }
 
 void fb_putpixel_16bpp(int x, int y, unsigned int colour) {
-   unsigned char *fbptr = fb + y * pitch + x * 2;
+   unsigned char *fbptr = fb + (height - y - 1) * pitch + x * 2;
+   colour = colour_table[colour];
    *fbptr++ = (colour >> 8) & 255;
    *fbptr++ = colour  & 255;
 }
 
 void fb_putpixel_24bpp(int x, int y, unsigned int colour) {
-   unsigned char *fbptr = fb + y * pitch + x * 3;
+   unsigned char *fbptr = fb + (height - y - 1) * pitch + x * 3;
+   colour = colour_table[colour];
    *fbptr++ = (colour >> 16) & 255;
    *fbptr++ = (colour >> 8) & 255;
    *fbptr++ = colour  & 255;
 }
 
 void fb_putpixel_32bpp(int x, int y, unsigned int colour) {
-   unsigned char *fbptr = fb + y * pitch + x * 4;
+   unsigned char *fbptr = fb + (height - y - 1) * pitch + x * 4;
+   colour = colour_table[colour];
    *fbptr++ = (colour >> 24) & 255;
    *fbptr++ = (colour >> 16) & 255;
    *fbptr++ = (colour >> 8) & 255;
