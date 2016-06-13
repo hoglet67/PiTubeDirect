@@ -219,6 +219,10 @@ void fb_cursor_next() {
    }
 }
 
+void fb_cursor_invert() {
+   
+}
+
 void fb_initialize() {
 
    int col, x, y;
@@ -314,11 +318,47 @@ void update_g_cursors(int x, int y) {
    y_g_pos       = y;
 }
 
-void fb_writec(int c) {
-   int i, j;
-   int invert;
+void fb_draw_character(int c, int invert, int eor) {
    int fg_col;
    int bg_col;
+   int i;
+   int j;
+   // Map the character to a section of the 6847 font data
+   c *= 12;
+   // Copy the character into the frame buffer
+   for (i = 0; i < 12; i++) {
+      int data = fontdata[c + i];
+      unsigned char *fbptr = fb + x_c_pos * 8 * bpp + (y_c_pos * 12 + i) * pitch;
+      if (invert) {
+         data ^= 0xff;
+      }
+      fg_col = colour_table[fg_c_col];
+      bg_col = colour_table[bg_c_col];
+      
+      for (j = 0; j < 8; j++) {
+         int col = (data & 0x80) ? fg_col : bg_col;
+#ifdef BPP32
+         if (eor) {       
+            *(uint32_t *)fbptr ^= col;
+         } else {
+            *(uint32_t *)fbptr = col;
+         }
+         fbptr += 4;
+#else
+         if (eor) {       
+            *(uint16_t *)fbptr ^= col;
+         } else {
+            *(uint16_t *)fbptr = col;
+         }
+         fbptr += 2;
+#endif
+         data <<= 1;
+      }
+   }
+}
+
+void fb_writec(int c) {
+   int invert;
    
    static int state = NORMAL;
    static int count = 0;
@@ -423,27 +463,38 @@ void fb_writec(int c) {
    switch(c) {
 
    case 8:
+      fb_draw_character(32, 1, 1);
       fb_cursor_left();
+      fb_draw_character(32, 1, 1);
       break;
 
    case 9:
+      fb_draw_character(32, 1, 1);
       fb_cursor_right();
+      fb_draw_character(32, 1, 1);
       break;
 
    case 10:
+      fb_draw_character(32, 1, 1);
       fb_cursor_down();
+      fb_draw_character(32, 1, 1);
       break;
 
    case 11:
+      fb_draw_character(32, 1, 1);
       fb_cursor_up();
+      fb_draw_character(32, 1, 1);
       break;
 
    case 12:
       fb_clear();
+      fb_draw_character(32, 1, 1);
       break;
 
    case 13:
+      fb_draw_character(32, 1, 1);
       fb_cursor_col0();
+      fb_draw_character(32, 1, 1);
       break;
 
    case 17:
@@ -462,13 +513,15 @@ void fb_writec(int c) {
       return;
 
    case 30:
+      fb_draw_character(32, 1, 1);
       fb_cursor_home();
+      fb_draw_character(32, 1, 1);
       break;
 
    case 127:
+      fb_draw_character(32, 1, 1);
       fb_cursor_left();
-      fb_writec(32);
-      fb_cursor_left();
+      fb_draw_character(32, 1, 0);
       break;
 
    default:
@@ -485,35 +538,19 @@ void fb_writec(int c) {
          invert = c >= 0x60;
          c &= 0x1F;
       }
-      c *= 12;
 
-      // Copy the character into the frame buffer
-      for (i = 0; i < 12; i++) {
-         int data = fontdata[c + i];
-         unsigned char *fbptr = fb + x_c_pos * 8 * bpp + (y_c_pos * 12 + i) * pitch;
-         if (invert) {
-            data ^= 0xff;
-         }
-         fg_col = colour_table[fg_c_col];
-         bg_col = colour_table[bg_c_col];
+      // Erase the cursor
+      fb_draw_character(32, 1, 1);
 
-         for (j = 0; j < 8; j++) {
-            int col = (data & 0x80) ? fg_col : bg_col;
-#ifdef BPP32
-            *(uint32_t *)fbptr = col;
-            fbptr += 4;
-#else
-            *(uint16_t *)fbptr = col;
-            fbptr += 2;
-#endif
-            data <<= 1;
-         }
-      }
+      // Draw the next character
+      fb_draw_character(c, invert, 0);
 
       // Advance the drawing position
       fb_cursor_next();
+      
+      // Draw the cursor
+      fb_draw_character(32, 1, 1);
    }
-
 }
 
 void fb_writes(char *string) {
