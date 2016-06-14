@@ -61,28 +61,28 @@ static int colour_table[] = {
 };
 
 // Character colour / cursor position
-static int16_t c_bg_col = 0;
-static int16_t c_fg_col = 15;
-static int16_t c_x_pos  = 0;
-static int16_t c_y_pos  = 0;
+static int16_t c_bg_col;
+static int16_t c_fg_col;
+static int16_t c_x_pos;
+static int16_t c_y_pos;
 
 // Graphics colour / cursor position
-static int16_t g_bg_col      = 0;
-static int16_t g_fg_col      = 15;
-static int16_t g_x_origin    = 0;
-static int16_t g_x_pos       = 0;
-static int16_t g_x_pos_last1 = 0;
-static int16_t g_x_pos_last2 = 0;
-static int16_t g_y_origin    = 0;
-static int16_t g_y_pos       = 0;
-static int16_t g_y_pos_last1 = 0;
-static int16_t g_y_pos_last2 = 0;
-static int16_t g_mode        = 0;
-static int16_t g_plotmode    = 0;
+static int16_t g_bg_col;
+static int16_t g_fg_col;
+static int16_t g_x_origin;
+static int16_t g_x_pos;
+static int16_t g_x_pos_last1;
+static int16_t g_x_pos_last2;
+static int16_t g_y_origin;
+static int16_t g_y_pos;
+static int16_t g_y_pos_last1;
+static int16_t g_y_pos_last2;
+static int16_t g_mode;
+static int16_t g_plotmode;
 
 // 6847 font data
 
-uint8_t fontdata[] =
+uint8_t fontdata[] = 
 {
 	0x00, 0x00, 0x00, 0x1c, 0x22, 0x02, 0x1a, 0x2a, 0x2a, 0x1c, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x08, 0x14, 0x22, 0x22, 0x3e, 0x22, 0x22, 0x00, 0x00,
@@ -153,6 +153,30 @@ uint8_t fontdata[] =
 static unsigned char* fb = NULL;
 static int width = 0, height = 0, bpp = 0, pitch = 0;
 
+void fb_init_variables() {
+
+    // Character colour / cursor position
+   c_bg_col = 0;
+   c_fg_col = 15;
+   c_x_pos  = 0;
+   c_y_pos  = 0;
+
+   // Graphics colour / cursor position
+   g_bg_col      = 0;
+   g_fg_col      = 15;
+   g_x_origin    = 0;
+   g_x_pos       = 0;
+   g_x_pos_last1 = 0;
+   g_x_pos_last2 = 0;
+   g_y_origin    = 0;
+   g_y_pos       = 0;
+   g_y_pos_last1 = 0;
+   g_y_pos_last2 = 0;
+   g_mode        = 0;
+   g_plotmode    = 0;
+}
+
+
 void fb_scroll() {
    printf("scroll\r\n");
    memmove(fb, fb + 12 * pitch, (height - 12) * pitch);
@@ -160,14 +184,11 @@ void fb_scroll() {
 }
 
 void fb_clear() {
+   // initialize the cursor positions, origin, colours, etc.
+   // TODO: clearing all of these may not be strictly correct
+   fb_init_variables();
    // clear frame buffer
    memset((void *)fb, colour_table[c_bg_col], height * pitch);
-   // home the cursor
-   c_x_pos = 0;
-   c_y_pos = 0;
-   // reset the colours
-   // c_fg_col = 15;
-   // c_bg_col = 0;
 }
 
 void fb_cursor_left() {
