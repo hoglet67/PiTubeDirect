@@ -61,20 +61,20 @@ static int colour_table[] = {
 };
 
 // Character colour / cursor position
-static int bg_c_col = 0;
-static int fg_c_col = 15;
-static int x_c_pos  = 0;
-static int y_c_pos  = 0;
+static int c_bg_col = 0;
+static int c_fg_col = 15;
+static int c_x_pos  = 0;
+static int c_y_pos  = 0;
 
 // Graphics colour / cursor position
-static int bg_g_col = 0;
-static int fg_g_col = 15;
-static int x_g_pos  = 0;
-static int x_g_pos_last1 = 0;
-static int x_g_pos_last2 = 0;
-static int y_g_pos  = 0;
-static int y_g_pos_last1 = 0;
-static int y_g_pos_last2 = 0;
+static int g_bg_col = 0;
+static int g_fg_col = 15;
+static int g_x_pos  = 0;
+static int g_x_pos_last1 = 0;
+static int g_x_pos_last2 = 0;
+static int g_y_pos  = 0;
+static int g_y_pos_last1 = 0;
+static int g_y_pos_last2 = 0;
 static int g_mode   = 0;
 static int g_plotmode  = 0;
 
@@ -159,62 +159,62 @@ void fb_scroll() {
 
 void fb_clear() {
    // clear frame buffer
-   memset((void *)fb, colour_table[bg_c_col], height * pitch);
+   memset((void *)fb, colour_table[c_bg_col], height * pitch);
    // home the cursor
-   x_c_pos = 0;
-   y_c_pos = 0;
+   c_x_pos = 0;
+   c_y_pos = 0;
    // reset the colours
-   // fg_c_col = 15;
-   // bg_c_col = 0;
+   // c_fg_col = 15;
+   // c_bg_col = 0;
 }
 
 void fb_cursor_left() {
-   if (x_c_pos > 0) {
-      x_c_pos--;
+   if (c_x_pos > 0) {
+      c_x_pos--;
    } else {
-      x_c_pos = 79;
+      c_x_pos = 79;
    }
 }
 
 void fb_cursor_right() {
-   if (x_c_pos < 79) {
-      x_c_pos++;
+   if (c_x_pos < 79) {
+      c_x_pos++;
    } else {
-      x_c_pos = 0;
+      c_x_pos = 0;
    }
 }
 
 void fb_cursor_up() {
-   if (y_c_pos > 0) {
-      y_c_pos--;
+   if (c_y_pos > 0) {
+      c_y_pos--;
    } else {
-      y_c_pos = 39;
+      c_y_pos = 39;
    }
 }
 
 void fb_cursor_down() {
-   if (y_c_pos < 39) {
-      y_c_pos++;
+   if (c_y_pos < 39) {
+      c_y_pos++;
    } else {
       fb_scroll();
    }
 }
 
 void fb_cursor_col0() {
-   x_c_pos = 0;
+   c_x_pos = 0;
 }
 
 void fb_cursor_home() {
-   x_c_pos = 0;
-   y_c_pos = 0;
+   c_x_pos = 0;
+   c_y_pos = 0;
 }
 
 
 void fb_cursor_next() {
-   if (x_c_pos < 79) {
-      x_c_pos++;
+   if (c_x_pos < 79) {
+      c_x_pos++;
    } else {
-      x_c_pos = 0;
+      c_x_pos = 0;
       fb_cursor_down();
    }
 }
@@ -310,17 +310,17 @@ void fb_initialize() {
 #define IN_VDU25  3
 
 void update_g_cursors(int x, int y) {
-   x_g_pos_last2 = x_g_pos_last1;
-   x_g_pos_last1 = x_g_pos;
-   x_g_pos       = x;
-   y_g_pos_last2 = y_g_pos_last1;
-   y_g_pos_last1 = y_g_pos;
-   y_g_pos       = y;
+   g_x_pos_last2 = g_x_pos_last1;
+   g_x_pos_last1 = g_x_pos;
+   g_x_pos       = x;
+   g_y_pos_last2 = g_y_pos_last1;
+   g_y_pos_last1 = g_y_pos;
+   g_y_pos       = y;
 }
 
 void fb_draw_character(int c, int invert, int eor) {
-   int fg_col;
-   int bg_col;
+   int c_fgol;
+   int c_bgol;
    int i;
    int j;
    // Map the character to a section of the 6847 font data
@@ -328,15 +328,15 @@ void fb_draw_character(int c, int invert, int eor) {
    // Copy the character into the frame buffer
    for (i = 0; i < 12; i++) {
       int data = fontdata[c + i];
-      unsigned char *fbptr = fb + x_c_pos * 8 * bpp + (y_c_pos * 12 + i) * pitch;
+      unsigned char *fbptr = fb + c_x_pos * 8 * bpp + (c_y_pos * 12 + i) * pitch;
       if (invert) {
          data ^= 0xff;
       }
-      fg_col = colour_table[fg_c_col];
-      bg_col = colour_table[bg_c_col];
+      c_fgol = colour_table[c_fg_col];
+      c_bgol = colour_table[c_bg_col];
       
       for (j = 0; j < 8; j++) {
-         int col = (data & 0x80) ? fg_col : bg_col;
+         int col = (data & 0x80) ? c_fgol : c_bgol;
 #ifdef BPP32
          if (eor) {       
             *(uint32_t *)fbptr ^= col;
@@ -368,11 +368,11 @@ void fb_writec(int c) {
    if (state == IN_VDU17) {
       state = NORMAL;
       if (c & 128) {
-         bg_c_col = c & 15;
-         printf("bg = %d\r\n", bg_c_col);
+         c_bg_col = c & 15;
+         printf("bg = %d\r\n", c_bg_col);
       } else {
-         fg_c_col = c & 15;
-         printf("fg = %d\r\n", fg_c_col);
+         c_fg_col = c & 15;
+         printf("fg = %d\r\n", c_fg_col);
       }
       return;
 
@@ -383,9 +383,9 @@ void fb_writec(int c) {
          break;
       case 1:
          if (c & 128) {
-            bg_g_col = c & 15;
+            g_bg_col = c & 15;
          } else {
-            fg_g_col = c & 15;
+            g_fg_col = c & 15;
          }
          break;
       }
@@ -414,22 +414,22 @@ void fb_writec(int c) {
          switch (g_mode & 7) {
          case 0:
             // Move relative to the last point.
-            update_g_cursors(x_g_pos + x_tmp, y_g_pos + y_tmp);
+            update_g_cursors(g_x_pos + x_tmp, g_y_pos + y_tmp);
             break;
          case 1:
             // Draw a line, in the current graphics foreground colour, relative to the last point.
-            update_g_cursors(x_g_pos + x_tmp, y_g_pos + y_tmp);
-            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, fg_g_col);
+            update_g_cursors(g_x_pos + x_tmp, g_y_pos + y_tmp);
+            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_fg_col);
             break;
          case 2:
             // Draw a line, in the logical inverse colour, relative to the last point.
-            update_g_cursors(x_g_pos + x_tmp, y_g_pos + y_tmp);
-            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, fg_g_col ^ 15);
+            update_g_cursors(g_x_pos + x_tmp, g_y_pos + y_tmp);
+            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_fg_col ^ 15);
             break;
          case 3:
             // Draw a line, in the background colour, relative to the last point.
-            update_g_cursors(x_g_pos + x_tmp, y_g_pos + y_tmp);
-            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, bg_g_col);
+            update_g_cursors(g_x_pos + x_tmp, g_y_pos + y_tmp);
+            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_bg_col);
             break;
          case 4:            
             // Move to the absolute position X, Y.
@@ -438,17 +438,17 @@ void fb_writec(int c) {
          case 5:
             // Draw a line, in the current foreground colour, to the absolute coordinates specified by X and Y.
             update_g_cursors(x_tmp, y_tmp);
-            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, fg_g_col);
+            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_fg_col);
             break;
          case 6:
             // Draw a line, in the logical inverse colour, to the absolute coordinates specified by X and Y.
             update_g_cursors(x_tmp, y_tmp);
-            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, fg_g_col ^ 15);
+            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_fg_col ^ 15);
             break;
          case 7:
             // Draw a line, in the current background colour, to the absolute coordinates specified by X and Y.
             update_g_cursors(x_tmp, y_tmp);
-            fb_draw_line(x_g_pos_last1, y_g_pos_last1, x_g_pos, y_g_pos, bg_g_col);
+            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_bg_col);
             break;
          }
       }
