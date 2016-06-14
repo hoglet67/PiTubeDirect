@@ -61,22 +61,24 @@ static int colour_table[] = {
 };
 
 // Character colour / cursor position
-static int c_bg_col = 0;
-static int c_fg_col = 15;
-static int c_x_pos  = 0;
-static int c_y_pos  = 0;
+static int16_t c_bg_col = 0;
+static int16_t c_fg_col = 15;
+static int16_t c_x_pos  = 0;
+static int16_t c_y_pos  = 0;
 
 // Graphics colour / cursor position
-static int g_bg_col = 0;
-static int g_fg_col = 15;
-static int g_x_pos  = 0;
-static int g_x_pos_last1 = 0;
-static int g_x_pos_last2 = 0;
-static int g_y_pos  = 0;
-static int g_y_pos_last1 = 0;
-static int g_y_pos_last2 = 0;
-static int g_mode   = 0;
-static int g_plotmode  = 0;
+static int16_t g_bg_col      = 0;
+static int16_t g_fg_col      = 15;
+static int16_t g_x_origin    = 0;
+static int16_t g_x_pos       = 0;
+static int16_t g_x_pos_last1 = 0;
+static int16_t g_x_pos_last2 = 0;
+static int16_t g_y_origin    = 0;
+static int16_t g_y_pos       = 0;
+static int16_t g_y_pos_last1 = 0;
+static int16_t g_y_pos_last2 = 0;
+static int16_t g_mode        = 0;
+static int16_t g_plotmode    = 0;
 
 // 6847 font data
 
@@ -308,8 +310,9 @@ void fb_initialize() {
 #define IN_VDU17  1
 #define IN_VDU18  2
 #define IN_VDU25  3
+#define IN_VDU29  4
 
-void update_g_cursors(int x, int y) {
+void update_g_cursors(int16_t x, int16_t y) {
    g_x_pos_last2 = g_x_pos_last1;
    g_x_pos_last1 = g_x_pos;
    g_x_pos       = x;
@@ -362,8 +365,8 @@ void fb_writec(int c) {
    
    static int state = NORMAL;
    static int count = 0;
-   static int x_tmp = 0;
-   static int y_tmp = 0;
+   static int16_t x_tmp = 0;
+   static int16_t y_tmp = 0;
 
    if (state == IN_VDU17) {
       state = NORMAL;
@@ -457,7 +460,30 @@ void fb_writec(int c) {
          state = NORMAL;
       }
       return;
+   } else if (state == IN_VDU29) {
+      switch (count) {
+      case 0:
+         x_tmp = c;
+         break;
+      case 1:
+         x_tmp |= c << 8;
+         break;
+      case 2:
+         y_tmp = c;
+         break;
+      case 3:
+         y_tmp |= c << 8;
+         g_x_origin = x_tmp;
+         g_y_origin = y_tmp;
+         printf("graphics origin %d %d\r\n", g_x_origin, g_y_origin);
+      }
+      count++;
+      if (count == 4) {
+         state = NORMAL;
+      }
+      return;
    }
+
 
    switch(c) {
 
@@ -511,6 +537,11 @@ void fb_writec(int c) {
       count = 0;
       return;
 
+   case 29:
+      state = IN_VDU29;
+      count = 0;
+      return;
+
    case 30:
       fb_draw_character(32, 1, 1);
       fb_cursor_home();
@@ -558,12 +589,16 @@ void fb_writes(char *string) {
    }
 }
 
-void fb_putpixel_16bpp(int x, int y, unsigned int colour) {
+void fb_putpixel_16bpp(int16_t x, int16_t y, unsigned int colour) {
+   x += g_x_origin;
+   y += g_y_origin;
    uint16_t *fbptr = (uint16_t *)(fb + (height - y - 1) * pitch + x * 2);
    *fbptr = colour_table[colour];
 }
 
-void fb_putpixel_32bpp(int x, int y, unsigned int colour) {
+void fb_putpixel_32bpp(int16_t x, int16_t y, unsigned int colour) {
+   x += g_x_origin;
+   y += g_y_origin;
    uint32_t *fbptr = (uint32_t *)(fb + (height - y - 1) * pitch + x * 4);
    *fbptr = colour_table[colour];
 }
