@@ -411,7 +411,6 @@ void fb_writec(int c) {
          break;
       case 4:
          y_tmp |= c << 8;
-
          switch (g_mode & 7) {
          case 0:
             // Move relative to the last point.
@@ -560,12 +559,12 @@ void fb_writes(char *string) {
 }
 
 void fb_putpixel_16bpp(int x, int y, unsigned int colour) {
-   uint16_t *fbptr = (uint16_t *)fb + (height - y - 1) * pitch + x * 2;
+   uint16_t *fbptr = (uint16_t *)(fb + (height - y - 1) * pitch + x * 2);
    *fbptr = colour_table[colour];
 }
 
 void fb_putpixel_32bpp(int x, int y, unsigned int colour) {
-   uint32_t *fbptr = (uint32_t *)fb + (height - y - 1) * pitch + x * 4;
+   uint32_t *fbptr = (uint32_t *)(fb + (height - y - 1) * pitch + x * 4);
    *fbptr = colour_table[colour];
 }
 
