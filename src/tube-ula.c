@@ -382,6 +382,12 @@ void tube_reset()
    PSTAT1 = PSTAT2 = PSTAT3 = PSTAT4 = 0x40;
    HSTAT3 = 0xC0;
    tube_updateints();
+   // Clear an possible overruns that occured during reset
+   tube_mailbox = 0;
+   // With a longer debounce time, the Co Pro is still being held in
+   // reset when the host detects the Tube. So set bit 0, and also
+   // set bits 1-3 in case the write 0x8E is missed.
+   HSTAT1 |= 0x0F;
 }
 
 // Returns bit 0 set if IRQ is asserted by the tube
@@ -554,7 +560,8 @@ void tube_wait_for_rst_release() {
    volatile int i;
    do {
       while (tube_is_rst_active());
-      for (i = 0; i < 1000000; i++);
+      // Simple debounce the waits a long time and then checks again
+      for (i = 0; i < 10000000; i++);
    } while (tube_is_rst_active());
 }
 
