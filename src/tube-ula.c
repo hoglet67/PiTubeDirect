@@ -479,6 +479,8 @@ void tube_init_hardware()
 
 #ifdef HAS_40PINS
   RPI_SetGpioPinFunction(TEST_PIN, FS_OUTPUT);
+  RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
+  RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
 #endif
 
   // Configure GPIO to detect a falling edge of NTUBE and NRST
@@ -550,12 +552,42 @@ void tube_wait_for_rst_active() {
    while (!tube_is_rst_active());
 }
 
+// Debounce RST
+
+// On my Model B the characterisc of RST bounce on release is a bust
+// of short (2us) high pulses approx 2ms before a clean rising RST edge
+
+// On my Master 128 there is no RST bounce, and RST is clean
+
+// This debounce code waits for RST to go high and stay high for a period
+// set by DEBOUNCE_TIME (a of 10000 on a Pi 3 was measured at 690us)
+
+// On the Model B
+// - the first tube accesses are ~15ms after RST is released
+
+// On the Master
+// - the first tube accesses are ~13ms after RST is released
+
+#define DEBOUNCE_TIME 10000
+
 void tube_wait_for_rst_release() {
    volatile int i;
+#ifdef HAS_40PINS
+   RPI_SetGpioValue(TEST2_PIN, 1);
+#endif
    do {
+      // Wait for reset to be released
       while (tube_is_rst_active());
-      for (i = 0; i < 1000000; i++);
-   } while (tube_is_rst_active());
+      // Make sure RST stays continuously high for a further 100us
+      for (i = 0; i < DEBOUNCE_TIME && !tube_is_rst_active(); i++);
+      // Loop back if we exit the debouce loop prematurely because RST has gone active again
+   } while (i < DEBOUNCE_TIME);
+#ifdef HAS_40PINS
+   RPI_SetGpioValue(TEST2_PIN, 0);
+#endif
+   // Clear any mailbox events that occurred during reset
+   // Omit this and you sometimes see a second reset logged on reset release (65tube Co Pro)
+   tube_mailbox = 0;
 }
 
 void tube_reset_performance_counters() {
