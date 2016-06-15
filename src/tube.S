@@ -3,7 +3,9 @@
 #include "cache.h"
 
 #define DETECT_DUMMY_READ
-
+// #define DEBUG_OVERRUN
+// #define DEBUG_LATE
+        
 .text
 .global tube_regs
 .global tube_mailbox
@@ -141,6 +143,23 @@ post_mail2\@:
         orrne   r9, r9, #OVERRUN_MASK
         str     r9, tube_mailbox
 
+// Update TEST2 Pin to reflect overun state      
+#if defined(DEBUG_OVERRUN) && defined(HAS_40PINS)
+        mov     r10, #TEST2_MASK
+        ldrne   r8, =GPSET0
+        ldreq   r8, =GPCLR0
+        str     r10, [r8]
+#endif
+
+// Update TEST3 Pin to reflect late state      
+#if defined(DEBUG_LATE) && defined(HAS_40PINS)
+        mov     r10, #TEST3_MASK
+        tst     r9, #NTUBE_MASK
+        ldrne   r8, =GPSET0
+        ldreq   r8, =GPCLR0
+        str     r10, [r8]
+#endif
+        
 .if \flag_using_ip
         // Switch back to irq mode so ip is not shadowed
         mrs     r8, cpsr
