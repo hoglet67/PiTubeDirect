@@ -420,7 +420,8 @@ int tube_io_handler(uint32_t mail)
    ntube = (mail >> NTUBE_PIN) & 1;
    nrst  = (mail >> NRST_PIN) & 1;
 
-   if (mail & OVERRUN_MASK) {
+   // Only report OVERRUNs that occur when nRST is high
+   if ((mail & OVERRUN_MASK) && (mail & NRST_MASK)) {
       printf("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
 
