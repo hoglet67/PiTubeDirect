@@ -42,8 +42,8 @@ static const char * emulator_names[] = {
 
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator,
-   copro_lib6502_emulator,
    copro_65tube_emulator,
+   copro_lib6502_emulator,
    copro_lib6502_emulator,
    copro_z80_emulator,
    copro_z80_emulator,

@@ -167,6 +167,10 @@
 #ifdef HAS_40PINS
 #define TEST_PIN     (21)
 #define TEST_MASK    (1 << TEST_PIN)
+#define TEST2_PIN    (20)
+#define TEST2_MASK   (1 << TEST2_PIN)
+#define TEST3_PIN    (16)
+#define TEST3_MASK   (1 << TEST3_PIN)
 #endif
 
 #endif
