@@ -18,12 +18,10 @@ static void copro_80186_reset() {
   RomCopy();
   // Reset cpu186
   reset();
-  // Do a tube reset
-  tube_reset();
+  // Wait for rst become inactive before continuing to execute
+  tube_wait_for_rst_release();
   // Reset ARM performance counters
   tube_reset_performance_counters();
-  // Log...
-  //printf("reset 80186\r\n");
 }
 
 int copro_80186_tube_read(uint16_t addr) {
@@ -61,8 +59,6 @@ void copro_80186_emulator()
                break;
             }
             copro_80186_reset();
-            // Wait for rst become inactive before continuing to execute
-            tube_wait_for_rst_release();
          }
          // NMI is edge sensitive, so only check after mailbox activity
          if (nmi) {

@@ -312,8 +312,8 @@ static void copro_z80_reset() {
   // Reset the processor
   simz80_reset();
 
-  // Do a tube reset
-  tube_reset();
+  // Wait for rst become inactive before continuing to execute
+  tube_wait_for_rst_release();
 
   // Reset ARM performance counters
   tube_reset_performance_counters();
@@ -347,8 +347,6 @@ void copro_z80_emulator()
                break;
             }
             copro_z80_reset();
-            // Wait for rst become inactive before continuing to execute
-            tube_wait_for_rst_release();
          }
          // NMI is edge sensitive, so only check after mailbox activity
          if (nmi) {
