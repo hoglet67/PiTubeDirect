@@ -18,6 +18,7 @@
 #include "info.h"
 #include "performance.h"
 #include "framebuffer.h"
+#include "v3d.h"
 
 extern volatile uint8_t tube_regs[8];
 
@@ -515,6 +516,8 @@ void tube_init_hardware()
   dump_useful_info();
 
   fb_initialize();
+
+  v3d_initialize();
 
   // Precalculate the values that need to be written to the FSEL registers
   // to set the data bus GPIOs as inputs (idle) and output (driving)

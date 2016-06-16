@@ -87,6 +87,29 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             pt_index += 1;
             break;
 
+        case TAG_ENABLE_GPU:
+            pt[pt_index++] = 8;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = va_arg( vl, int ); /* 0 = disable, 1 = enable */
+            break;
+
+
+        case TAG_ALLOCATE_MEMORY:
+            pt[pt_index++] = 4;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = va_arg( vl, int ); /* u32: size      */
+            pt[pt_index++] = va_arg( vl, int ); /* u32: alignment */
+            pt[pt_index++] = va_arg( vl, int ); /* u32: flags     */
+            break;
+
+        case TAG_LOCK_MEMORY:
+        case TAG_RELEASE_MEMORY:
+        case TAG_UNLOCK_MEMORY:
+            pt[pt_index++] = 4;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = va_arg( vl, int ); /* u32: handle    */
+            break;
+
         case TAG_GET_PHYSICAL_SIZE:
         case TAG_SET_PHYSICAL_SIZE:
         case TAG_TEST_PHYSICAL_SIZE:
