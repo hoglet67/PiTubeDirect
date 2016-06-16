@@ -11,4 +11,12 @@ void fb_writes(char *string);
 
 void fb_draw_line(int x,int y,int x2, int y2, unsigned int color);
 
+uint32_t fb_get_address();
+
+uint32_t fb_get_width();
+
+uint32_t fb_get_height();
+
+uint32_t fb_get_mode();
+
 #endif

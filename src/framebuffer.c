@@ -6,15 +6,16 @@
 #include "rpi-mailbox-interface.h"
 #include "framebuffer.h"
 
+#define BBC_X_RESOLUTION 1280
+#define BBC_Y_RESOLUTION 1024
+
 #define SCREEN_WIDTH    640
 #define SCREEN_HEIGHT   480
 
-#define BPP16
+//#define BPP32
 
 #ifdef BPP32
 #define SCREEN_DEPTH    32
-
-#define PUTPIXEL fb_putpixel_32bpp
 
 #define ALPHA 0xFF000000
 #define RED   0xFFFF0000
@@ -25,9 +26,7 @@
 
 #define SCREEN_DEPTH    16
 
-#define PUTPIXEL fb_putpixel_16bpp
 // R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
-
 #define ALPHA 0x0000
 #define RED   0xF800
 #define GREEN 0x07E0
@@ -178,7 +177,6 @@ void fb_init_variables() {
 
 
 void fb_scroll() {
-   printf("scroll\r\n");
    memmove(fb, fb + 12 * pitch, (height - 12) * pitch);
    memset(fb + (height - 12) * pitch, 0, 12 * pitch);
 }
@@ -325,6 +323,7 @@ void fb_initialize() {
     //    int c = RPI_AuxMiniUartRead();
     //    fb_writec(c);
     // }
+
 }
 
 #define NORMAL    0
@@ -393,10 +392,14 @@ void fb_writec(int c) {
       state = NORMAL;
       if (c & 128) {
          c_bg_col = c & 15;
+#ifdef DEBUG_VDU
          printf("bg = %d\r\n", c_bg_col);
+#endif
       } else {
          c_fg_col = c & 15;
+#ifdef DEBUG_VDU
          printf("fg = %d\r\n", c_fg_col);
+#endif
       }
       return;
 
@@ -435,6 +438,9 @@ void fb_writec(int c) {
          break;
       case 4:
          y_tmp |= c << 8;
+#ifdef DEBUG_VDU
+         printf("plot %d %d %d\r\n", g_mode, x_tmp, y_tmp);
+#endif
          switch (g_mode & 7) {
          case 0:
             // Move relative to the last point.
@@ -481,6 +487,7 @@ void fb_writec(int c) {
          state = NORMAL;
       }
       return;
+
    } else if (state == IN_VDU29) {
       switch (count) {
       case 0:
@@ -496,7 +503,9 @@ void fb_writec(int c) {
          y_tmp |= c << 8;
          g_x_origin = x_tmp;
          g_y_origin = y_tmp;
+#ifdef DEBUG_VDU
          printf("graphics origin %d %d\r\n", g_x_origin, g_y_origin);
+#endif
       }
       count++;
       if (count == 4) {
@@ -610,17 +619,16 @@ void fb_writes(char *string) {
    }
 }
 
-void fb_putpixel_16bpp(int16_t x, int16_t y, unsigned int colour) {
+void fb_putpixel(int x, int y, unsigned int colour) {
    x += g_x_origin;
    y += g_y_origin;
-   uint16_t *fbptr = (uint16_t *)(fb + (height - y - 1) * pitch + x * 2);
-   *fbptr = colour_table[colour];
-}
-
-void fb_putpixel_32bpp(int16_t x, int16_t y, unsigned int colour) {
-   x += g_x_origin;
-   y += g_y_origin;
+   x = (x * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
+   y = (y * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+#ifdef BPP32
    uint32_t *fbptr = (uint32_t *)(fb + (height - y - 1) * pitch + x * 4);
+#else
+   uint16_t *fbptr = (uint16_t *)(fb + (height - y - 1) * pitch + x * 2);
+#endif
    *fbptr = colour_table[colour];
 }
 
@@ -644,7 +652,7 @@ void fb_draw_line(int x,int y,int x2, int y2, unsigned int color) {
    }
    int numerator = longest >> 1 ;
    for (i = 0; i <= longest; i++) {
-      PUTPIXEL(x, y, color);
+      fb_putpixel(x, y, color);
       numerator += shortest;
       if (!(numerator < longest)) {
          numerator -= longest;
@@ -655,4 +663,24 @@ void fb_draw_line(int x,int y,int x2, int y2, unsigned int color) {
          y += dy2;
       }
    }
+}
+
+uint32_t fb_get_address() {
+   return (uint32_t) fb;
+}
+
+uint32_t fb_get_width() {
+   return width;
+}
+
+uint32_t fb_get_height() {
+   return height;
+}
+
+uint32_t fb_get_mode() {
+#ifdef BPP32
+   return 4; // (linear rgba8888)
+#else
+   return 0; // A guess!
+#endif
 }
