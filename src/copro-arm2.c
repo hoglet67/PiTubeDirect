@@ -135,8 +135,8 @@ static void copro_arm2_reset()
   memcpy(arm2_rom, tuberom_arm_v100, 0x4000);
   // Reset the ARM device
   arm2_device_reset();
-  // Do a tube reset
-  tube_reset();
+  // Wait for rst become inactive before continuing to execute
+  tube_wait_for_rst_release();
   // Reset ARM performance counters
   tube_reset_performance_counters();
 }
@@ -167,8 +167,6 @@ void copro_arm2_emulator()
                break;
             }
             copro_arm2_reset();
-            // Wait for rst become inactive before continuing to execute
-            tube_wait_for_rst_release();
          }
          // NMI is edge sensitive, so only check after mailbox activity
          if (nmi) {

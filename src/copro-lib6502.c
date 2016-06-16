@@ -35,8 +35,8 @@ static void copro_lib6502_reset(M6502 *mpu) {
   memcpy(mpu->memory + 0xf800, tuberom_6502_orig, 0x800);
   // Reset lib6502
   M6502_reset(mpu);
-  // Do a tube reset
-  tube_reset();
+  // Wait for rst become inactive before continuing to execute
+  tube_wait_for_rst_release();
   // Reset ARM performance counters
   tube_reset_performance_counters();
 }
@@ -61,8 +61,6 @@ static void copro_lib6502_poll(M6502 *mpu) {
     // Reset the processor on a rst going inactive
     if (rst && !last_rst) {
       copro_lib6502_reset(mpu);
-      // Wait for rst become inactive before continuing to execute
-      tube_wait_for_rst_release();
     }
     // NMI is edge sensitive, so only check after mailbox activity
     if (nmi) {

@@ -176,8 +176,16 @@ void tube_host_write(uint16_t addr, uint8_t val)
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
-      if (val & 0x80) HSTAT1 |=  (val&0x3F);
-      else            HSTAT1 &= ~(val&0x3F);
+      if (val & 0x80) {
+         // Implement software tube reset
+         if (val & 0x40) {
+            tube_reset();
+         } else {
+            HSTAT1 |= (val&0x3F);
+         }
+      } else {
+         HSTAT1 &= ~(val&0x3F);
+      }
       break;
    case 1: /*Register 1*/
       hp1 = val;
@@ -368,13 +376,6 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 void tube_reset()
 {
-#ifdef DEBUG_TUBE
-   // Dump tube buffer
-   tube_dump_buffer();
-   // Reset the tube buffer
-   tube_reset_buffer();
-#endif
-   printf("tube reset - copro %d\r\n", copro);
    tube_enabled = 1;
    ph1pos = hp3pos = 0;
    ph3pos = 1;
@@ -546,7 +547,14 @@ void tube_init_hardware()
 }
 
 int tube_is_rst_active() {
-   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0);
+   // It's necessary to keep servicing the tube_mailbox
+   // otherwise a software reset sequence won't get handled properly
+   if (tube_mailbox & ATTN_MASK) {
+      unsigned int tube_mailbox_copy = tube_mailbox;
+      tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+      tube_io_handler(tube_mailbox_copy);
+   }
+   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || (tube_enabled && (tube_regs[0] & 0x20));
 }
 
 void tube_wait_for_rst_active() {
@@ -586,6 +594,8 @@ void tube_wait_for_rst_release() {
 #ifdef HAS_40PINS
    RPI_SetGpioValue(TEST2_PIN, 0);
 #endif
+   // Reset all the TUBE ULA registers
+   tube_reset();
    // Clear any mailbox events that occurred during reset
    // Omit this and you sometimes see a second reset logged on reset release (65tube Co Pro)
    tube_mailbox = 0;
@@ -596,8 +606,15 @@ void tube_reset_performance_counters() {
 }
 
 void tube_log_performance_counters() {
+#ifdef DEBUG_TUBE
+   // Dump tube buffer
+   tube_dump_buffer();
+   // Reset the tube buffer
+   tube_reset_buffer();
+#endif
    read_performance_counters(&pct);
    print_performance_counters(&pct);
+   printf("tube reset - copro %d\r\n", copro);
 }
 
 void disable_tube() {

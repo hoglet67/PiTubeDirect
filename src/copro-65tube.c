@@ -24,11 +24,12 @@ static void copro_65tube_poweron_reset() {
    // Install test programs (like sphere)
    copy_test_programs(mpu_memory);
 }
+
 static void copro_65tube_reset() {
    // Re-instate the Tube ROM on reset
    memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
-   // Do a tube reset
-   tube_reset();
+   // Wait for rst become inactive before continuing to execute
+   tube_wait_for_rst_release();
 }
 
 void copro_65tube_emulator() {
@@ -43,7 +44,6 @@ void copro_65tube_emulator() {
       exec_65tube(mpu_memory);
       tube_log_performance_counters();
       copro_65tube_reset();
-      tube_wait_for_rst_release();
    }
 }
 

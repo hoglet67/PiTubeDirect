@@ -27,8 +27,8 @@ static void copro_32016_reset() {
   tube_log_performance_counters();
   // Reset 32016
   n32016_reset_addr(PANDORA_BASE); // Start directly in the ROM
-  // Do a tube reset
-  tube_reset();
+  // Wait for rst become inactive before continuing to execute
+  tube_wait_for_rst_release();
   // Reset ARM performance counters
   tube_reset_performance_counters();
 }
@@ -59,8 +59,6 @@ void copro_32016_emulator() {
                break;
             }
             copro_32016_reset();
-            // Wait for rst become inactive before continuing to execute
-            tube_wait_for_rst_release();
          }
          // NMI is edge sensitive, so only check after mailbox activity
          // Note: 32016 uses tube_irq directly, so no nmi code here

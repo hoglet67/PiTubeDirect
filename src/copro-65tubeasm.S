@@ -563,7 +563,8 @@ handle_rst:
         b       fetch_next
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
-        pop      {r0-r12,pc}
+        msr     CPSR, r2                // re-enable ARM interrupts
+        pop     {r0-r12,pc}
 
 fetch_next_i:
         sub     sl, sl, #1
