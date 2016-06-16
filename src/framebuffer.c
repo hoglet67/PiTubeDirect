@@ -5,6 +5,7 @@
 #include "rpi-aux.h"
 #include "rpi-mailbox-interface.h"
 #include "framebuffer.h"
+#include "v3d.h"
 
 #define BBC_X_RESOLUTION 1280
 #define BBC_Y_RESOLUTION 1024
@@ -441,45 +442,43 @@ void fb_writec(int c) {
 #ifdef DEBUG_VDU
          printf("plot %d %d %d\r\n", g_mode, x_tmp, y_tmp);
 #endif
-         switch (g_mode & 7) {
-         case 0:
-            // Move relative to the last point.
+
+         if (g_mode & 4) {
+            // Absolute position X, Y.
+            update_g_cursors(x_tmp, y_tmp);
+         } else {
+            // Relative to the last point.
             update_g_cursors(g_x_pos + x_tmp, g_y_pos + y_tmp);
+         }
+
+
+         int col;
+         switch (g_mode & 3) {
+         case 0:
+            col = -1;
             break;
          case 1:
-            // Draw a line, in the current graphics foreground colour, relative to the last point.
-            update_g_cursors(g_x_pos + x_tmp, g_y_pos + y_tmp);
-            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_fg_col);
+            col = g_fg_col;
             break;
          case 2:
-            // Draw a line, in the logical inverse colour, relative to the last point.
-            update_g_cursors(g_x_pos + x_tmp, g_y_pos + y_tmp);
-            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_fg_col ^ 15);
+            col = g_fg_col ^ 15;
             break;
          case 3:
-            // Draw a line, in the background colour, relative to the last point.
-            update_g_cursors(g_x_pos + x_tmp, g_y_pos + y_tmp);
-            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_bg_col);
+            col = g_bg_col;
             break;
-         case 4:            
-            // Move to the absolute position X, Y.
-            update_g_cursors(x_tmp, y_tmp);
-            break;
-         case 5:
-            // Draw a line, in the current foreground colour, to the absolute coordinates specified by X and Y.
-            update_g_cursors(x_tmp, y_tmp);
-            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_fg_col);
-            break;
-         case 6:
-            // Draw a line, in the logical inverse colour, to the absolute coordinates specified by X and Y.
-            update_g_cursors(x_tmp, y_tmp);
-            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_fg_col ^ 15);
-            break;
-         case 7:
-            // Draw a line, in the current background colour, to the absolute coordinates specified by X and Y.
-            update_g_cursors(x_tmp, y_tmp);
-            fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, g_bg_col);
-            break;
+         }
+
+         if (col >= 0) {
+            if (g_mode < 32) {
+               // Draw a line
+               fb_draw_line(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, col);
+            } else if (g_mode >= 64 && g_mode < 72) {
+               // Plot a single pixel
+               fb_putpixel(g_x_pos, g_y_pos, g_fg_col);
+            } else if (g_mode >= 80 && g_mode < 88) {
+               // Fill a triangle
+               fb_fill_triangle(g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, col);
+            }
          }
       }
       count++;
@@ -620,10 +619,8 @@ void fb_writes(char *string) {
 }
 
 void fb_putpixel(int x, int y, unsigned int colour) {
-   x += g_x_origin;
-   y += g_y_origin;
-   x = (x * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
-   y = (y * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+   x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
 #ifdef BPP32
    uint32_t *fbptr = (uint32_t *)(fb + (height - y - 1) * pitch + x * 4);
 #else
@@ -664,6 +661,18 @@ void fb_draw_line(int x,int y,int x2, int y2, unsigned int color) {
       }
    }
 }
+
+void fb_fill_triangle(int x, int y, int x2, int y2, int x3, int y3, unsigned int colour) {
+   x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+   x2 = ((x2 + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
+   y2 = ((y2 + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+   x3 = ((x3 + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
+   y3 = ((y3 + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+   colour = colour_table[colour];
+   v3d_draw_triangle(x, y, x2, y2, x3, y3, colour);
+}
+
 
 uint32_t fb_get_address() {
    return (uint32_t) fb;

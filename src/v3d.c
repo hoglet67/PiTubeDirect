@@ -7,11 +7,13 @@
 #include "v3d.h"
 #include "framebuffer.h"
 
+// #define DEBUG_V3D
+
+
 // I/O access
 volatile unsigned *v3d;
 
-
-unsigned int mem_alloc(unsigned int size, unsigned int align, unsigned int flags)
+static unsigned int mem_alloc(unsigned int size, unsigned int align, unsigned int flags)
 {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
@@ -26,7 +28,7 @@ unsigned int mem_alloc(unsigned int size, unsigned int align, unsigned int flags
    }
 }
 
-unsigned int mem_free(unsigned int handle)
+static unsigned int mem_free(unsigned int handle)
 { 
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
@@ -41,7 +43,7 @@ unsigned int mem_free(unsigned int handle)
    }
 }
 
-unsigned int mem_lock(unsigned int handle)
+static unsigned int mem_lock(unsigned int handle)
 {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
@@ -56,7 +58,7 @@ unsigned int mem_lock(unsigned int handle)
    }
 }
 
-unsigned int mem_unlock(unsigned int handle)
+static unsigned int mem_unlock(unsigned int handle)
 {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
@@ -71,35 +73,35 @@ unsigned int mem_unlock(unsigned int handle)
    }
 }
 
-void *mapmem(unsigned int base, unsigned int size)
+static void *mapmem(unsigned int base, unsigned int size)
 {
    return (void *) (base & 0x3FFFFFFF);
 }
 
-void *unmapmem(void *addr, unsigned int size)
+static void *unmapmem(void *addr, unsigned int size)
 {
    return addr;
 }
 
 // Execute a nop control list to prove that we have contol.
 
-void addbyte(uint8_t **list, uint8_t d) {
+static void addbyte(uint8_t **list, uint8_t d) {
   *((*list)++) = d;
 }
 
-void addshort(uint8_t **list, uint16_t d) {
+static void addshort(uint8_t **list, uint16_t d) {
   *((*list)++) = (d) & 0xff;
   *((*list)++) = (d >> 8)  & 0xff;
 }
 
-void addword(uint8_t **list, uint32_t d) {
+static void addword(uint8_t **list, uint32_t d) {
   *((*list)++) = (d) & 0xff;
   *((*list)++) = (d >> 8)  & 0xff;
   *((*list)++) = (d >> 16) & 0xff;
   *((*list)++) = (d >> 24) & 0xff;
 }
 
-void addfloat(uint8_t **list, float f) {
+static void addfloat(uint8_t **list, float f) {
   uint32_t d = *((uint32_t *)&f);
   *((*list)++) = (d) & 0xff;
   *((*list)++) = (d >> 8)  & 0xff;
@@ -107,20 +109,38 @@ void addfloat(uint8_t **list, float f) {
   *((*list)++) = (d >> 24) & 0xff;
 }
 
-// Render a single triangle to memory.
-void testTriangle() {
-  int x, y;
 
+// The Bus address of the control list buffer
+static uint32_t bus_addr;
+
+// The ARM virtual address of the control list buffer
+static uint8_t *list;
+
+// The handle (used to free the control list buffer)
+static unsigned int handle;
+
+static void allocate_control_list() {
   // 8Mb, 4k alignment
-  unsigned int handle = mem_alloc(0x800000, 0x1000, MEM_FLAG_COHERENT | MEM_FLAG_ZERO);
+  handle = mem_alloc(0x800000, 0x1000, MEM_FLAG_COHERENT | MEM_FLAG_ZERO);
   if (!handle) {
     printf("Error: Unable to allocate memory\r\n");
     return;
   }
-  uint32_t bus_addr = mem_lock(handle); 
+  bus_addr = mem_lock(handle); 
   printf("bus_addr = %08"PRIx32"\r\n", bus_addr);
 
-  uint8_t *list = (uint8_t*) mapmem(bus_addr, 0x800000);
+  list = (uint8_t*) mapmem(bus_addr, 0x800000);
+}
+
+static void free_control_list() {
+  unmapmem((void *) list, 0x800000);
+  mem_unlock(handle);
+  mem_free(handle);
+}
+
+// Render a single triangle to memory.
+void v3d_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
+  int x, y;
 
   uint8_t *p = list;
 
@@ -204,8 +224,8 @@ void testTriangle() {
 // Vertex Data
   p = list + 0xa0;
   // Vertex: Top, red
-  addshort(&p, (w/2) << 4); // X in 12.4 fixed point
-  addshort(&p, (h/4) << 4); // Y in 12.4 fixed point
+  addshort(&p, x1 << 4); // X in 12.4 fixed point
+  addshort(&p, y1 << 4); // Y in 12.4 fixed point
   addfloat(&p, 1.0f); // Z
   addfloat(&p, 1.0f); // 1/W
   addfloat(&p, 1.0f); // Varying 0 (Red)
@@ -213,8 +233,8 @@ void testTriangle() {
   addfloat(&p, 0.0f); // Varying 2 (Blue)
 
   // Vertex: bottom left, Green
-  addshort(&p, (w/4) << 4); // X in 12.4 fixed point
-  addshort(&p, (h*4/5) << 4); // Y in 12.4 fixed point
+  addshort(&p, x2 << 4); // X in 12.4 fixed point
+  addshort(&p, y2 << 4); // Y in 12.4 fixed point
   addfloat(&p, 1.0f); // Z
   addfloat(&p, 1.0f); // 1/W
   addfloat(&p, 0.0f); // Varying 0 (Red)
@@ -222,8 +242,8 @@ void testTriangle() {
   addfloat(&p, 0.0f); // Varying 2 (Blue)
 
   // Vertex: bottom right, Blue
-  addshort(&p, (w*3/4) << 4); // X in 12.4 fixed point
-  addshort(&p, (h*4/5) << 4); // Y in 12.4 fixed point
+  addshort(&p, x3 << 4); // X in 12.4 fixed point
+  addshort(&p, y3 << 4); // Y in 12.4 fixed point
   addfloat(&p, 1.0f); // Z
   addfloat(&p, 1.0f); // 1/W
   addfloat(&p, 0.0f); // Varying 0 (Red)
@@ -315,35 +335,44 @@ void testTriangle() {
 
 
 // Run our control list
+#ifdef DEBUG_V3D
   printf("Binner control list constructed\r\n");
   printf("Start Address: 0x%08"PRIx32", length: 0x%x\r\n", bus_addr, length);
-
+#endif
   // Binning
 
+#ifdef DEBUG_V3D
   printf("V3D_CT0CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT0CS], v3d[V3D_CT0CA]);
+#endif
   v3d[V3D_CT0CA] = bus_addr;
   v3d[V3D_CT0EA] = bus_addr + length;
+#ifdef DEBUG_V3D
   printf("V3D_CT0CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT0CS], v3d[V3D_CT0CA]);
+#endif
 
   // Wait for control list to execute
   while(v3d[V3D_CT0CS] & 0x20);  
+#ifdef DEBUG_V3D
   printf("V3D_CT0CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT0CS], v3d[V3D_CT0CA]);
+#endif
 
   // Rendering
 
+#ifdef DEBUG_V3D
   printf("V3D_CT1CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT1CS], v3d[V3D_CT1CA]);
+#endif
   v3d[V3D_CT1CA] = bus_addr + 0xe200;
   v3d[V3D_CT1EA] = bus_addr + 0xe200 + render_length;
+#ifdef DEBUG_V3D
   printf("V3D_CT1CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT1CS], v3d[V3D_CT1CA]);
+#endif
 
   while(v3d[V3D_CT1CS] & 0x20);  
+#ifdef DEBUG_V3D
   printf("V3D_CT1CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT1CS], v3d[V3D_CT1CA]);
+#endif
   v3d[V3D_CT1CS] = 0x20;
 
-// Release resources
-  unmapmem((void *) list, 0x800000);
-  mem_unlock(handle);
-  mem_free(handle);
 }
 
 
@@ -364,8 +393,20 @@ int v3d_initialize() {
       return 1;
   }
 
+   allocate_control_list();
+
   // We now have access to the v3d registers, we should do something.
-  testTriangle();
+  unsigned int w = fb_get_width();
+  unsigned int h = fb_get_height();
+
+  v3d_draw_triangle(w / 2, h / 5, w / 4, h * 4 / 5, w * 3 / 4, h * 4 / 5, 0);
 
   return 0;
+}
+
+int v3d_close() {
+
+   free_control_list();
+
+   return 0;
 }
