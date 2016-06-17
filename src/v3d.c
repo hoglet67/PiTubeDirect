@@ -9,6 +9,7 @@
 
 // #define DEBUG_V3D
 
+#define MAGIC_COLOUR 0x12345678
 
 // I/O access
 volatile unsigned *v3d;
@@ -164,6 +165,26 @@ void v3d_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned 
   unsigned int bw = (w + 63) / 64;
   unsigned int bh = (h + 63) / 64;
 
+  float c1_r, c1_g, c1_b;
+  float c2_r, c2_g, c2_b;
+  float c3_r, c3_g, c3_b;
+
+  // Calculate the vertex colours
+
+  if (colour == MAGIC_COLOUR) {
+     c1_r = c2_g = c3_b = 1.0;
+     c1_g = c2_b = c3_r = 0.0;
+     c1_b = c2_r = c3_g = 0.0;
+  } else if (fb_get_bpp32()) {
+     c1_r = c2_r = c3_r = (float) ((colour >> 16) & 0xff) / 255.0f;  
+     c1_g = c2_g = c3_g = (float) ((colour >>  8) & 0xff) / 255.0f;  
+     c1_b = c2_b = c3_b = (float) ((colour      ) & 0xff) / 255.0f;
+  } else {
+     c1_r = c2_r = c3_r = (float) ((colour >> 11) & 0x1f) / 15.0f;  
+     c1_g = c2_g = c3_g = (float) ((colour >>  5) & 0x3f) / 31.0f;  
+     c1_b = c2_b = c3_b = (float) ((colour      ) & 0x1f) / 15.0f;
+  }
+
 // Configuration stuff
   // Tile Binning Configuration.
   //   Tile state data is 48 bytes per tile, I think it can be thrown away
@@ -242,27 +263,27 @@ void v3d_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned 
   addshort(&p, y1 << 4); // Y in 12.4 fixed point
   addfloat(&p, 1.0f); // Z
   addfloat(&p, 1.0f); // 1/W
-  addfloat(&p, 1.0f); // Varying 0 (Red)
-  addfloat(&p, 0.0f); // Varying 1 (Green)
-  addfloat(&p, 0.0f); // Varying 2 (Blue)
+  addfloat(&p, c1_r); // Varying 0 (Red)
+  addfloat(&p, c1_g); // Varying 1 (Green)
+  addfloat(&p, c1_b); // Varying 2 (Blue)
 
   // Vertex: bottom left, Green
   addshort(&p, x2 << 4); // X in 12.4 fixed point
   addshort(&p, y2 << 4); // Y in 12.4 fixed point
   addfloat(&p, 1.0f); // Z
   addfloat(&p, 1.0f); // 1/W
-  addfloat(&p, 0.0f); // Varying 0 (Red)
-  addfloat(&p, 1.0f); // Varying 1 (Green)
-  addfloat(&p, 0.0f); // Varying 2 (Blue)
+  addfloat(&p, c2_r); // Varying 0 (Red)
+  addfloat(&p, c2_g); // Varying 1 (Green)
+  addfloat(&p, c2_b); // Varying 2 (Blue)
 
   // Vertex: bottom right, Blue
   addshort(&p, x3 << 4); // X in 12.4 fixed point
   addshort(&p, y3 << 4); // Y in 12.4 fixed point
   addfloat(&p, 1.0f); // Z
   addfloat(&p, 1.0f); // 1/W
-  addfloat(&p, 0.0f); // Varying 0 (Red)
-  addfloat(&p, 0.0f); // Varying 1 (Green)
-  addfloat(&p, 1.0f); // Varying 2 (Blue)
+  addfloat(&p, c3_r); // Varying 0 (Red)
+  addfloat(&p, c3_g); // Varying 1 (Green)
+  addfloat(&p, c3_b); // Varying 2 (Blue)
 
 // Vertex list
   p = list + 0x70;
@@ -290,6 +311,23 @@ void v3d_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned 
   addword(&p, 0x100009e7); /* nop; nop; nop */
   addword(&p, 0x009e7000);
   addword(&p, 0x500009e7); /* nop; nop; sbdone */
+
+#if 0
+// fragment shader 2
+  p = list + 0xfd00;
+  addword(&p, 0x009e7000);
+  addword(&p, 0x100009e7); /* nop; nop; nop */
+  addword(&p,     colour); /* rgba <colour> */
+  addword(&p, 0xe0020ba7); /* ldi tlbc, <colour> */
+  addword(&p, 0x009e7000);
+  addword(&p, 0x500009e7); /* nop; nop; sbdone */
+  addword(&p, 0x009e7000);
+  addword(&p, 0x300009e7); /* nop; nop; thrend */
+  addword(&p, 0x009e7000);
+  addword(&p, 0x100009e7); /* nop; nop; nop */
+  addword(&p, 0x009e7000);
+  addword(&p, 0x100009e7); /* nop; nop; nop */
+#endif
 
 // Render control list
   p = list + 0xe200;
@@ -427,7 +465,7 @@ void v3d_test() {
   unsigned int w = fb_get_width();
   unsigned int h = fb_get_height();
   printf("Drawing a %d x %d triangle\r\n", w, h);
-  v3d_draw_triangle(w / 2, 0, 0, h-1, w-1, h-1, 0);
+  v3d_draw_triangle(w / 2, 0, 0, h-1, w-1, h-1, MAGIC_COLOUR);
 }
 
 int v3d_close() {
