@@ -5,6 +5,7 @@
 #define DETECT_DUMMY_READ
 // #define DEBUG_OVERRUN
 // #define DEBUG_LATE
+// #define ON_READS_SPIN_FOR_PHI2_HIGH
         
 .text
 .global tube_regs
@@ -82,6 +83,14 @@
         str     r10, [r8, #8]            // *** expensive but necessary ***
 
         ldr     r8, =GPLEV0
+        
+#ifdef ON_READS_SPIN_FOR_PHI2_HIGH
+rd_wait_for_phi2_high1\@:
+        ldr     r10, [r8]                // ** very expensive but necessary ***
+        tst     r10, #PHI2_MASK
+        beq     rd_wait_for_phi2_high1\@
+#endif
+        
 rd_wait_for_phi2_low\@:
         ldr     r10, [r8]                // ** very expensive but necessary ***
         tst     r10, #PHI2_MASK
@@ -104,10 +113,10 @@ rd_wait_for_phi2_low\@:
 
 #ifdef DETECT_DUMMY_READ        
         ldr     r8, =GPLEV0
-rd_wait_for_phi2_high\@:
+rd_wait_for_phi2_high2\@:
         ldr     r10, [r8]                // ** very expensive but necessary ***
         tst     r10, #PHI2_MASK
-        beq     rd_wait_for_phi2_high\@
+        beq     rd_wait_for_phi2_high2\@
         tst     r10, #(NTUBE_MASK | RNW_MASK)
         beq     wr_wait_for_phi2_low\@
 #endif
