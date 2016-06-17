@@ -5,7 +5,7 @@
 #define DETECT_DUMMY_READ
 // #define DEBUG_OVERRUN
 // #define DEBUG_LATE
-// #define ON_READS_SPIN_FOR_PHI2_HIGH
+ #define ON_READS_SPIN_FOR_PHI2_HIGH
         
 .text
 .global tube_regs
