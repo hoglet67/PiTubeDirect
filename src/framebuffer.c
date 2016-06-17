@@ -461,7 +461,7 @@ void fb_writec(int c) {
             col = g_fg_col;
             break;
          case 2:
-            col = g_fg_col ^ 15;
+            col = 15 - g_fg_col;
             break;
          case 3:
             col = g_bg_col;
@@ -621,10 +621,16 @@ void fb_writes(char *string) {
 void fb_putpixel(int x, int y, unsigned int colour) {
    x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
    y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+   if (x < 0  || x > SCREEN_WIDTH - 1) {
+      return;
+   }
+   if (y < 0 || y > SCREEN_HEIGHT - 1) {
+      return;
+   }
 #ifdef BPP32
-   uint32_t *fbptr = (uint32_t *)(fb + (height - y - 1) * pitch + x * 4);
+   uint32_t *fbptr = (uint32_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 4);
 #else
-   uint16_t *fbptr = (uint16_t *)(fb + (height - y - 1) * pitch + x * 2);
+   uint16_t *fbptr = (uint16_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 2);
 #endif
    *fbptr = colour_table[colour];
 }
@@ -669,6 +675,10 @@ void fb_fill_triangle(int x, int y, int x2, int y2, int x3, int y3, unsigned int
    y2 = ((y2 + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
    x3 = ((x3 + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
    y3 = ((y3 + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+   // Flip y axis
+   y = SCREEN_HEIGHT - 1 - y;
+   y2 = SCREEN_HEIGHT - 1 - y2;
+   y3 = SCREEN_HEIGHT - 1 - y3;
    colour = colour_table[colour];
    v3d_draw_triangle(x, y, x2, y2, x3, y3, colour);
 }
