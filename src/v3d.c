@@ -13,6 +13,13 @@
 // I/O access
 volatile unsigned *v3d;
 
+//#define GPU_ALLOC
+
+#ifdef GPU_ALLOC
+
+// The handle (used to free the control list buffer)
+static unsigned int handle;
+
 static unsigned int mem_alloc(unsigned int size, unsigned int align, unsigned int flags)
 {
    rpi_mailbox_property_t *buf;
@@ -73,15 +80,11 @@ static unsigned int mem_unlock(unsigned int handle)
    }
 }
 
-static void *mapmem(unsigned int base, unsigned int size)
-{
-   return (void *) (base & 0x3FFFFFFF);
-}
+#else
 
-static void *unmapmem(void *addr, unsigned int size)
-{
-   return addr;
-}
+static uint8_t v3d_buffer[1024*1048] __attribute__((aligned(0x1000)));
+
+#endif
 
 // Execute a nop control list to prove that we have contol.
 
@@ -122,10 +125,9 @@ static uint32_t bus_addr;
 // The ARM virtual address of the control list buffer
 static uint8_t *list;
 
-// The handle (used to free the control list buffer)
-static unsigned int handle;
 
 static void allocate_control_list() {
+#ifdef GPU_ALLOC
   // 8Mb, 4k alignment
   handle = mem_alloc(0x800000, 0x1000, MEM_FLAG_COHERENT | MEM_FLAG_ZERO);
   if (!handle) {
@@ -133,15 +135,21 @@ static void allocate_control_list() {
     return;
   }
   bus_addr = mem_lock(handle); 
-  printf("bus_addr = %08"PRIx32"\r\n", bus_addr);
+#else
+  bus_addr = (uint32_t) v3d_buffer;
+#endif
 
-  list = (uint8_t*) mapmem(bus_addr, 0x800000);
+  list = (uint8_t*) (bus_addr & 0x3FFFFFFF);
+
+  printf("V3D Control List bus addr = %08"PRIx32"\r\n", bus_addr);
+  printf("V3D Control List arm addr = %08"PRIx32"\r\n", (uint32_t) list);
 }
 
 static void free_control_list() {
-  unmapmem((void *) list, 0x800000);
+#ifdef GPU_ALLOC
   mem_unlock(handle);
   mem_free(handle);
+#endif
 }
 
 // Render a single triangle to memory.
@@ -343,43 +351,52 @@ void v3d_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned 
 
 
 // Run our control list
-#ifdef DEBUG_V3D
-  printf("Binner control list constructed\r\n");
+#ifdef XDEBUG_V3D
+  printf("V3D Control List Constructed\r\n");
   printf("Start Address: 0x%08"PRIx32", length: 0x%x\r\n", bus_addr, length);
 #endif
-  // Binning
 
 #ifdef DEBUG_V3D
-  printf("V3D_CT0CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT0CS], v3d[V3D_CT0CA]);
+  printf("V3D_CT0CS: 0x%08x, V3D_CT0CA: 0x%08x, V3D_CT0EA: 0x%08x\r\n", v3d[V3D_CT0CS], v3d[V3D_CT0CA], v3d[V3D_CT0EA]);
+  printf("V3D_CT1CS: 0x%08x, V3D_CT1CA: 0x%08x, V3D_CT1EA: 0x%08x\r\n", v3d[V3D_CT1CS], v3d[V3D_CT1CA], v3d[V3D_CT1EA]);
 #endif
+
+  // Binning
+
+  if (v3d[V3D_CT0CS] & 0x20) {
+     printf("Waiting for V3D_CT0CS to complete\r\n");
+     while(v3d[V3D_CT0CS] & 0x20);  
+  }
+
   v3d[V3D_CT0CA] = bus_addr;
   v3d[V3D_CT0EA] = bus_addr + length;
-#ifdef DEBUG_V3D
-  printf("V3D_CT0CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT0CS], v3d[V3D_CT0CA]);
-#endif
 
   // Wait for control list to execute
   while(v3d[V3D_CT0CS] & 0x20);  
+
 #ifdef DEBUG_V3D
-  printf("V3D_CT0CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT0CS], v3d[V3D_CT0CA]);
+  printf("V3D_CT0CS: 0x%08x, V3D_CT0CA: 0x%08x, V3D_CT0EA: 0x%08x\r\n", v3d[V3D_CT0CS], v3d[V3D_CT0CA], v3d[V3D_CT0EA]);
+  printf("V3D_CT1CS: 0x%08x, V3D_CT1CA: 0x%08x, V3D_CT1EA: 0x%08x\r\n", v3d[V3D_CT1CS], v3d[V3D_CT1CA], v3d[V3D_CT1EA]);
 #endif
 
   // Rendering
 
-#ifdef DEBUG_V3D
-  printf("V3D_CT1CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT1CS], v3d[V3D_CT1CA]);
-#endif
+  if (v3d[V3D_CT1CS] & 0x20) {
+     printf("Waiting for V3D_CT1CS to complete\r\n");
+     while(v3d[V3D_CT1CS] & 0x20);  
+  }
+
   v3d[V3D_CT1CA] = bus_addr + 0xe200;
   v3d[V3D_CT1EA] = bus_addr + 0xe200 + render_length;
-#ifdef DEBUG_V3D
-  printf("V3D_CT1CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT1CS], v3d[V3D_CT1CA]);
-#endif
 
   while(v3d[V3D_CT1CS] & 0x20);  
+
 #ifdef DEBUG_V3D
-  printf("V3D_CT1CS: 0x%08x, Address: 0x%08x\r\n", v3d[V3D_CT1CS], v3d[V3D_CT1CA]);
+  printf("V3D_CT0CS: 0x%08x, V3D_CT0CA: 0x%08x, V3D_CT0EA: 0x%08x\r\n", v3d[V3D_CT0CS], v3d[V3D_CT0CA], v3d[V3D_CT0EA]);
+  printf("V3D_CT1CS: 0x%08x, V3D_CT1CA: 0x%08x, V3D_CT1EA: 0x%08x\r\n", v3d[V3D_CT1CS], v3d[V3D_CT1CA], v3d[V3D_CT1EA]);
 #endif
-  v3d[V3D_CT1CS] = 0x20;
+
+  v3d[V3D_CT1CS] = 0x10;
 
 }
 
@@ -403,13 +420,14 @@ int v3d_initialize() {
 
    allocate_control_list();
 
-  // We now have access to the v3d registers, we should do something.
+  return 0;
+}
+
+void v3d_test() {
   unsigned int w = fb_get_width();
   unsigned int h = fb_get_height();
-
-  v3d_draw_triangle(w / 2, h / 5, w / 4, h * 4 / 5, w * 3 / 4, h * 4 / 5, 0);
-
-  return 0;
+  printf("Drawing a %d x %d triangle\r\n", w, h);
+  v3d_draw_triangle(w / 2, 0, 0, h-1, w-1, h-1, 0);
 }
 
 int v3d_close() {

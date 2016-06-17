@@ -9,6 +9,7 @@
 #include "cache.h"
 #include "performance.h"
 #include "info.h"
+#include "v3d.h"
 
 #include "copro-lib6502.h"
 #include "copro-65tube.h"
@@ -148,6 +149,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
 
+   v3d_test();
 
    copro = get_copro_number();
 
