@@ -686,10 +686,10 @@ uint32_t fb_get_height() {
    return height;
 }
 
-uint32_t fb_get_mode() {
+uint32_t fb_get_bpp32() {
 #ifdef BPP32
-   return 4; // (linear rgba8888)
+   return 1;
 #else
-   return 0; // A guess!
+   return 0;
 #endif
 }

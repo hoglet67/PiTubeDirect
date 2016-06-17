@@ -21,6 +21,6 @@ uint32_t fb_get_width();
 
 uint32_t fb_get_height();
 
-uint32_t fb_get_mode();
+uint32_t fb_get_bpp32();
 
 #endif

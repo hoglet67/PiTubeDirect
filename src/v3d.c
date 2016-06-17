@@ -102,13 +102,19 @@ static void addword(uint8_t **list, uint32_t d) {
 }
 
 static void addfloat(uint8_t **list, float f) {
+#if 0
   uint32_t d = *((uint32_t *)&f);
   *((*list)++) = (d) & 0xff;
   *((*list)++) = (d >> 8)  & 0xff;
   *((*list)++) = (d >> 16) & 0xff;
   *((*list)++) = (d >> 24) & 0xff;
+#endif
+  uint8_t *d = (uint8_t *)&f;
+  *((*list)++) = *d++;
+  *((*list)++) = *d++;
+  *((*list)++) = *d++;
+  *((*list)++) = *d++;
 }
-
 
 // The Bus address of the control list buffer
 static uint32_t bus_addr;
@@ -289,27 +295,29 @@ void v3d_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned 
 
   // Tile Rendering Mode Configuration
   addbyte(&p, 113);
-  //addword(&p, bus_addr + 0x10000); 
   addword(&p, fb_get_address()); // framebuffer addresss
   addshort(&p, w); // width
   addshort(&p, h); // height
-  //addbyte(&p, 0x04); // framebuffer mode (linear rgba8888)
-  addbyte(&p, fb_get_mode());
+  if (fb_get_bpp32()) {
+     addbyte(&p, 0x04); // framebuffer mode (linear rgba8888)
+  } else {
+     addbyte(&p, 0x08); // framebuffer mode (linear bgr565)
+  }
   addbyte(&p, 0x00);
-
-  // Do a store of the first tile to force the tile buffer to be cleared
-  // Tile Coordinates
-  addbyte(&p, 115);
-  addbyte(&p, 0);
-  addbyte(&p, 0);
-  // Store Tile Buffer General
-  addbyte(&p, 28);
-  addshort(&p, 0); // Store nothing (just clear)
-  addword(&p, 0); // no address is needed
 
   // Link all binned lists together
   for(x = 0; x < bw; x++) {
     for(y = 0; y < bh; y++) {
+
+      // Load tile buffer general
+      addbyte(&p, 29);
+      addbyte(&p, 0x01); // format = raster format; buffer to load = colour
+      if (fb_get_bpp32()) {
+         addbyte(&p, 0x00); // Pixel colour format = rgba8888
+      } else {
+         addbyte(&p, 0x02); // Pixel colour format = bgr565
+      }
+      addword(&p, fb_get_address());
 
       // Tile Coordinates
       addbyte(&p, 115);
