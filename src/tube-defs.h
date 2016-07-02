@@ -118,12 +118,14 @@
 #define A2_PIN       (3)
 #define A1_PIN       (2)
 #define A0_PIN       (27)
+#define A1_SHIFT	LSR #1
 
 #else
 
 #define A2_PIN       (1)
 #define A1_PIN       (0)
 #define A0_PIN       (21)
+#define A1_SHIFT	LSL #1
 
 #endif
 

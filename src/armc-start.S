@@ -230,7 +230,8 @@ _reset_continue:
     // Also setup the stack used for FIQs
     mov r0, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c0_fiq_stack
+    //ldr sp, _c0_fiq_stack
+    ldr sp,=GPFSEL0
 
     // Also setup the stack used for undefined exceptions
     mov r0, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )

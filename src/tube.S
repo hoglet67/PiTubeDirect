@@ -6,7 +6,15 @@
 // #define DEBUG_OVERRUN
 // #define DEBUG_LATE
 // #define ON_READS_SPIN_FOR_PHI2_HIGH
-        
+
+#define GPFBASE (GPFSEL0)
+#define GPFSEL0_offset (GPFSEL0 - GPFBASE )  // controls GPIOs 0..9
+#define GPFSEL1_offset (GPFSEL1 - GPFBASE )  // controls GPIOs 10..19
+#define GPFSEL2_offset (GPFSEL2 - GPFBASE )  // controls GPIOs 20..29
+#define GPSET0_offset  (GPSET0 - GPFBASE)
+#define GPCLR0_offset  (GPCLR0 - GPFBASE)
+#define GPLEV0_offset  (GPLEV0 - GPFBASE)
+#define GPEDS0_offset  (GPEDS0 - GPFBASE)     
 .text
 .global tube_regs
 .global tube_mailbox
@@ -20,91 +28,90 @@
 .global gpfsel_data_idle
 .global gpfsel_data_driving
 
+.macro SET_TEST_PIN_HIGH
+#ifdef HAS_40PINS
+        mov     r12, #TEST_MASK
+        str     r12, [r13,#GPSET0_offset]
+#endif
+.endm
+
+.macro SET_TEST_PIN_LOW
+ #ifdef HAS_40PINS
+        mov     r12, #TEST_MASK
+        str     r12, [r13,#GPCLR0_offset]
+#endif
+.endm
 
 .macro FIQ_HANDLER flag_using_ip
 
         //r8-r11 are shadowed in FIQ mode, so no need to push
-        //push    {r8-r11}
-
-#ifdef HAS_40PINS
-        mov     r9, #TEST_MASK
-        ldr     r8, =GPSET0
-        str     r9, [r8]
-#endif
-        
-        ldr     r8, =GPEDS0
+	// 	R13 ( sp ) is defiend to point to GPFBASE
+	//LDR	r13,=GPFBASE
+	SET_TEST_PIN_HIGH
+	
         mov     r9, #-1
-        str     r9, [r8]                // clear all Pin events
+        str     r9, [r13,#GPEDS0_offset]        // clear all Pin events
 
-        ldr     r8, =GPLEV0
-        ldr     r9, [r8]                // *** very expensive but necessary ***
+        ldr     r9, [r13,#GPLEV0_offset]        // *** very expensive but necessary ***
 
-        tst     r9, #NRST_MASK          // test for reset
+	adr     r8, gpfsel_data_driving		// free cycle get ready incase of a read cycle
+	adr     r11, tube_regs			// free cycle	
+	ldmia	r8,{r8,r10,r12}			// free cycle
+	
+        tst     r9, #NRST_MASK          	// test for reset
         beq     post_mail\@
 
-        tst     r9, #NTUBE_MASK         // test for glitches
+        tst     r9, #NTUBE_MASK         	// test for glitches
         bne     exit\@
 
         tst     r9, #RNW_MASK
         beq     wr_cycle\@
 
 // READ_CYCLE
-        mov     r10, #0
-        tst     r9, #A0_MASK
-        orrne   r10, #1
-        tst     r9, #A1_MASK
-        orrne   r10, #2
-        tst     r9, #A2_MASK
-        orrne   r10, #4
+        //stmia	r13,{r8,r10,r12}		// Doesn't work
+	str     R8, [r13,#GPFSEL0_offset]
+	str     r10, [r13, #GPFSEL1_offset]            // *** expensive but necessary ***
 
-        ldr     r8, =tube_regs
-        ldrb    r10, [r8, r10]
+	tst     r9, #A0_MASK
+	and	r9,r9,#A1_MASK+A2_MASK
+        orrne   r11, #1
 
-        mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
-        and     r11, r11, #D30_MASK
-        mov     r10, r10, LSL #D4_BASE-4
-        and     r10, r10, #D74_MASK      // high nibble in the right place
-        orr     r10, r10, r11
+        ldrb    r9, [r11,R9,A1_SHIFT]
+	str     r12, [r13, #GPFSEL2_offset]            // *** expensive but necessary ***
 
-        ldr     r8, =GPSET0
-        str     r10, [r8]                // *** expensive but necessary ***
-        eor     r10, r10, #D30_MASK
-        eor     r10, r10, #D74_MASK
-        ldr     r8, =GPCLR0
-        str     r10, [r8]                // *** expensive but necessary ***
+        and     r11, r9, #0x0F 				// get lower nibble
+	and 	r9,  r9, #0xF0 				// get upper nible
+	mov	r9,  r9,LSL #D4_BASE-4 			// move upper nibble to the correct place
+        orr     r9, r9, r11,LSL #D0_BASE 		// move lower nibble to correct place and orr it it
+	
+        str     r9, [r13,#GPSET0_offset]                // *** expensive but necessary ***
+  
+ 	SET_TEST_PIN_LOW
 
-        ldr     r8, =GPFSEL0
-        ldr     r11, =(gpfsel_data_driving)
-        ldr     r10, [r11]
-        str     r10, [r8]                // *** expensive but necessary ***
-        ldr     r10, [r11, #4]
-        str     r10, [r8, #4]            // *** expensive but necessary ***
-        ldr     r10, [r11, #8]
-        str     r10, [r8, #8]            // *** expensive but necessary ***
-
-        ldr     r8, =GPLEV0
-        
+ 	
 #ifdef ON_READS_SPIN_FOR_PHI2_HIGH
 rd_wait_for_phi2_high1\@:
-        ldr     r10, [r8]                // ** very expensive but necessary ***
+        ldr     r10, [r13,#GPLEV0_offset]                // ** very expensive but necessary ***
         tst     r10, #PHI2_MASK
         beq     rd_wait_for_phi2_high1\@
 #endif
-        
+	adr	r8,gpfsel_data_idle
+	LDMIA	R8,{r8,R11,R12}	
+
 rd_wait_for_phi2_low\@:
-        ldr     r10, [r8]                // ** very expensive but necessary ***
+        ldr     r10, [r13,#GPLEV0_offset]                // ** very expensive but necessary ***
         tst     r10, #PHI2_MASK
         movne   r9, r10
         bne     rd_wait_for_phi2_low\@
 
-        ldr     r8, =GPFSEL0
-        ldr     r11, =(gpfsel_data_idle)
-        ldr     r10, [r11]
-        str     r10, [r8]                // *** expensive but necessary ***
-        ldr     r10, [r11, #4]
-        str     r10, [r8, #4]            // *** expensive but necessary ***
-        ldr     r10, [r11, #8]
-        str     r10, [r8, #8]            // *** expensive but necessary ***
+	//STMIA	r13,{r8,R11,R12}		// Doesn't work
+        str     r8, [r13,#GPFSEL0_offset]              	// *** expensive but necessary ***
+        str     r11, [r13, #GPFSEL1_offset]            	// *** expensive but necessary ***
+        str     r12, [r13, #GPFSEL2_offset]            	// *** expensive but necessary ***
+
+        mov     r10, #D30_MASK				// Clear databus
+        orr     r10, r10, #D74_MASK
+        str     r10, [r13,#GPCLR0_offset]               // *** expensive but necessary ***
 
 // In some rare cases, a read may be immediately followed by a write
 // A concrete case of this is *FX 151,230,N which uses STA &FEE0,X
@@ -112,9 +119,8 @@ rd_wait_for_phi2_low\@:
 // and the re-check the nTUBE and RNW lines for a possible write
 
 #ifdef DETECT_DUMMY_READ        
-        ldr     r8, =GPLEV0
 rd_wait_for_phi2_high2\@:
-        ldr     r10, [r8]                // ** very expensive but necessary ***
+        ldr     r10, [r13,#GPLEV0_offset]                // ** very expensive but necessary ***
         tst     r10, #PHI2_MASK
         beq     rd_wait_for_phi2_high2\@
         tst     r10, #(NTUBE_MASK | RNW_MASK)
@@ -123,18 +129,20 @@ rd_wait_for_phi2_high2\@:
 
         tst     r9, #A0_MASK             // don't bother emulator with status reads
         bne     post_mail\@
-        b       exit\@
+
+	SET_TEST_PIN_LOW
+        subs    pc, lr, #4
 
 // WRITE_CYCLE
 wr_cycle\@:
 
 wr_wait_for_phi2_high\@:
-        ldr     r9, [r8]
+        ldr     r9, [r13,#GPLEV0_offset]
         tst     r9, #PHI2_MASK
         beq     wr_wait_for_phi2_high\@
 
 wr_wait_for_phi2_low\@:
-        ldr     r10, [r8]
+        ldr     r10, [r13,#GPLEV0_offset]
         tst     r10, #PHI2_MASK
         movne   r9, r10
         bne     wr_wait_for_phi2_low\@
@@ -155,26 +163,25 @@ post_mail2\@:
 // Update TEST2 Pin to reflect overun state      
 #if defined(DEBUG_OVERRUN) && defined(HAS_40PINS)
         mov     r10, #TEST2_MASK
-        ldrne   r8, =GPSET0
-        ldreq   r8, =GPCLR0
-        str     r10, [r8]
+        strne     r10, [r13,#GPSET0_offset]
+        streq     r10, [r13,#GPCLR0_offset]
+
 #endif
 
 // Update TEST3 Pin to reflect late state      
 #if defined(DEBUG_LATE) && defined(HAS_40PINS)
         mov     r10, #TEST3_MASK
         tst     r9, #NTUBE_MASK
-        ldrne   r8, =GPSET0
-        ldreq   r8, =GPCLR0
-        str     r10, [r8]
+        strne     r10, [r13,#GPSET0_offset]
+        streq     r10, [r13,#GPCLR0_offset]
 #endif
         
 .if \flag_using_ip
         // Switch back to irq mode so ip is not shadowed
-        mrs     r8, cpsr
-        bic     r8, r8, #0x1F
-        orr     r8, r8, #0x12
-        msr     cpsr_c, r8
+        mrs     r9, cpsr
+        bic     r9, r9, #0x1F
+        orr     r9, r9, #0x12
+        msr     cpsr_c, r9
         
         orr     ip, ip, #1024   // signal event to 6502 instruction flow
 
@@ -193,12 +200,8 @@ post_mail2\@:
 
 exit\@:
         
-#ifdef HAS_40PINS
-        mov     r9, #TEST_MASK
-        ldr     r8, =GPCLR0
-        str     r9, [r8]
-#endif
-        
+
+        SET_TEST_PIN_LOW
         //r8-r11 are shadowed in FIQ mode, so no need to pop
         //pop   {r8-r11}
         subs    pc, lr, #4
@@ -436,6 +439,16 @@ isr_code_end:
 .align CACHELINE_ALIGN
 isr_data_start:
 
+// 8 BYTES OF STATE  Muts be align to an 8 byte boundary 
+tube_regs:
+        .byte 0xfe
+        .byte 0xed
+        .byte 0xdc
+        .byte 0xcb
+        .byte 0xba
+        .byte 0xa9
+        .byte 0x98
+        .byte 0x87
 // Insert the current literal pool, so these get locked in the cache
 .ltorg
 
@@ -453,17 +466,7 @@ gpfsel_data_driving:
 // Mailbox between tube isr and events handler (in C)
 tube_mailbox:
         .word 0
-        
-// 8 BYTES OF STATE
-tube_regs:
-        .byte 0xfe
-        .byte 0xed
-        .byte 0xdc
-        .byte 0xcb
-        .byte 0xba
-        .byte 0xa9
-        .byte 0x98
-        .byte 0x87
+
 
 .align CACHELINE_ALIGN
 isr_data_end:
