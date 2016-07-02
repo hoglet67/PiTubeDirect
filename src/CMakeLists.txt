@@ -139,6 +139,6 @@ target_link_libraries (tube-client m)
 
 add_custom_command(
     TARGET tube-client POST_BUILD
-    COMMAND ${CMAKE_OBJCOPY} ./tube-client -O binary ./kernel.img
+    COMMAND ${CMAKE_OBJCOPY} ./tube-client -O binary ${KERNEL_NAME}
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Convert the ELF output file to a binary image" )
