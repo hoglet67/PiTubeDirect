@@ -1,6 +1,6 @@
 (export (version D)
   (design
-    (source /home/dmb/atom/PiTubeDirect/kicad/pitubedirect-hat-dip-v1.sch)
+    (source /home/dmb/atom/PiTubeDirect/kicad/pitubedirect-hat-dip.sch)
     (date "Fri 01 Jul 2016 18:13:42 BST")
     (tool "Eeschema 4.0.2+e4-6225~38~ubuntu14.04.1-stable")
     (sheet (number 1) (name /) (tstamps /)
@@ -9,7 +9,7 @@
         (company)
         (rev)
         (date)
-        (source pitubedirect-hat-dip-v1.sch)
+        (source pitubedirect-hat-dip.sch)
         (comment (number 1) (value ""))
         (comment (number 2) (value ""))
         (comment (number 3) (value ""))

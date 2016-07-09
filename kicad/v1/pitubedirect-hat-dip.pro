@@ -42,7 +42,7 @@ version=1
 [pcbnew]
 version=1
 PageLayoutDescrFile=
-LastNetListRead=pitubedirect-hat-dip-v1.net
+LastNetListRead=pitubedirect-hat-dip.net
 PadDrill=0.7999999999999999
 PadDrillOvalY=0.7999999999999999
 PadSizeH=1.6
