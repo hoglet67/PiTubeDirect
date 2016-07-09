@@ -10,16 +10,32 @@
 #include "performance.h"
 #include "info.h"
 
-#include "copro-lib6502.h"
+typedef void (*func_ptr)();
+
 #include "copro-65tube.h"
+
+#ifdef MINIMAL_BUILD
+
+#define NUM_COPROS 1
+
+static const char * emulator_names[] = {
+   "65C02 (65tube)"
+};
+
+static const func_ptr emulator_functions[] = {
+   copro_65tube_emulator
+};
+
+#else
+
+#include "copro-lib6502.h"
 #include "copro-80186.h"
 #include "copro-arm2.h"
 #include "copro-32016.h"
 #include "copro-null.h"
 #include "copro-z80.h"
 
-typedef void (*func_ptr)();
-
+#define NUM_COPROS 16
 
 static const char * emulator_names[] = {
    "65C02 (65tube)",
@@ -58,6 +74,8 @@ static const func_ptr emulator_functions[] = {
    copro_null_emulator,
    copro_null_emulator
 };
+
+#endif
 
 volatile int copro;
 

@@ -41,8 +41,6 @@
 #define COPRO_NULL     14
 #define COPRO_BIST     15
 
-#define NUM_COPROS     16
-
 #define DEFAULT_COPRO COPRO_65TUBE_0
 
 // Indicates a Pi with the 40 pin GPIO connector
