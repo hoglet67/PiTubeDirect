@@ -16,7 +16,7 @@ typedef void (*func_ptr)();
 
 #ifdef MINIMAL_BUILD
 
-#define NUM_COPROS 1
+#define NUM_COPROS 2
 
 static const char * emulator_names[] = {
    "65C02 (65tube)"
@@ -90,7 +90,12 @@ void init_emulator() {
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register
    if (copro == COPRO_65TUBE_0 || copro == COPRO_65TUBE_1) {
+      int i;
+      for (i = 0; i < 256; i++) {
+         Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
+      }
       *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
+
    }
 #endif
 

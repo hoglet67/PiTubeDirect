@@ -75,6 +75,12 @@
 .global exec_65tube
 .global mpu_memory
 
+#ifndef USE_MULTICORE
+.global Event_Handler_Dispatch_Table
+.global Event_Handler
+.global Event_Handler_Single_Core_Slow
+#endif
+        
 .equ    N_FLAG,      0x80000000
 .equ    Z_FLAG,      0x40000000
 .equ    C_FLAG,      0x20000000
@@ -597,6 +603,8 @@ opcode_jump_table:
 // Start of Event Handler Jump Table
 // **********************************************
 
+Event_Handler_Dispatch_Table:
+
 .rept 256
         .word    Event_Handler
 .endr
@@ -711,6 +719,57 @@ noirq:
         msr     CPSR, r2                // restore the 6502 flags and re-enable ARM interrupts
         FETCH_NEXT_MERGED               // go back to executing 6502 instructions
 
+
+#ifndef USE_MULTICORE
+
+Event_Handler_Single_Core_Slow:
+        mrs     r2, CPSR                // preserve the 6502 flags
+        
+        ldr     r1, =tube_mailbox
+        ldr     r0, [r1]
+        bic     ip, ip, #1024           // ack events
+        sub     sl, sl, #2              // set the instruction back as we haven't executed it
+
+        tst     r0, #ATTN_MASK
+        beq     noirq2
+
+        bic     r0, r0, #ATTN_MASK      // the attention bit
+        str     r0, [r1]                // ack the attention bit
+
+        push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value
+        bl      tube_io_handler
+        pop     {r1-r3,ip,lr}
+        
+        tst     r0, #4                  // Bit 2 set indicate RST is active
+        bne     exec_65tube_exit        // exit immediately if active edge seen
+
+        tst     r0, #2                  // Bit 1 set indicate NMI is active
+        bne     handle_nmi              // Take the NMI interrupt
+
+        tst     r4, #4                  // Test whether interrupts are enabled (bit 2 = 0)
+        bne     noirq2
+        tst     r0, #1                  // Bit 1 set indicate IRQ is active
+        bne     handle_irq              // Take the IRQ interrupt
+
+noirq2:
+
+        msr     CPSR, r2                // re-enable ARM interrupts
+
+        mov     r0, #300
+waste_time:
+        subs    r0, r0, #1
+        bne     waste_time
+
+        msr     CPSR, r2                // restore the 6502 flags        
+        
+        ldrb    r2, [sl], #1
+        ldrb    r0, [sl], #1
+        ldr     lr, [ip, r2, lsl #2]
+        orr     ip, ip, #1024            // Return to event handler after next instruction dispatch
+        
+        mov     pc, lr
+#endif
+                
 decimal_mode_adc:
         and     r2, r1, #15
         and     r0, r6, #0xf000000
