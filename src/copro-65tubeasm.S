@@ -80,6 +80,8 @@
 .equ    C_FLAG,      0x20000000
 
 .equ    ARM_INT_MASK,0xC0
+.equ    ARM_FIQ_MASK,0x40
+.equ    ARM_IRQ_MASK,0x80
 
 // **********************************************
 // Start of macros
@@ -773,8 +775,8 @@ decimal_mode_sbc:
 
 tube_load_handler:
         push    {r0-r3,lr}                // r0 = address, r2 = current cpsr
-//      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
-//      msr     CPSR_c, r2
+      orr     r2, r2, #ARM_IRQ_MASK     // disable ARM IRQs and FIQs
+      msr     CPSR_c, r2
 //      push    {ip}                      // push ip after disabling interrupts to avoid a race condition
         bl      tube_parasite_read
 //      pop     {ip}
@@ -783,8 +785,8 @@ tube_load_handler:
 
 tube_store_handler:
         push    {r0-r3,lr}                // r0 = address, r1 = data, r2 = current cpsr
-//      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
-//      msr     CPSR_c, r2
+      orr     r2, r2, #ARM_IRQ_MASK     // disable ARM IRQs and FIQs
+      msr     CPSR_c, r2
 //      push    {ip}                      // push ip after disabling interrupts to avoid a race condition
         bl      tube_parasite_write
 //      pop     {ip}

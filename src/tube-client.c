@@ -6,6 +6,8 @@
 #include "tube-ula.h"
 #include "startup.h"
 #include "rpi-aux.h"
+#include "rpi-armtimer.h"
+#include "rpi-interrupts.h"
 #include "cache.h"
 #include "performance.h"
 #include "info.h"
@@ -16,7 +18,7 @@ typedef void (*func_ptr)();
 
 #ifdef MINIMAL_BUILD
 
-#define NUM_COPROS 1
+#define NUM_COPROS 2
 
 static const char * emulator_names[] = {
    "65C02 (65tube)"
@@ -81,8 +83,50 @@ volatile int copro;
 
 static func_ptr emulator;
 
+void enable_arm_timer() {
+
+   static uint32_t preDivider = 0;
+
+   if (!preDivider) {
+      preDivider = RPI_GetArmTimer()->PreDivider;
+      printf("Pre Divider = %"PRId32"\r\n",  preDivider);
+   }
+
+   printf("Enabling arm timer\r\n");
+
+   /* update prescaler to give a 10MHz base clock into timer for more precision */
+   RPI_GetArmTimer()->PreDivider = ((preDivider + 1) / 10) - 1;
+
+   /* Setup the system timer interrupt at 5MHz */
+   RPI_GetArmTimer()->Load = 1;
+      
+   /* Setup the ARM Timer */
+   RPI_GetArmTimer()->Control =
+      RPI_ARMTIMER_CTRL_23BIT |
+      RPI_ARMTIMER_CTRL_ENABLE |
+      RPI_ARMTIMER_CTRL_INT_ENABLE |
+      RPI_ARMTIMER_CTRL_PRESCALE_1;
+
+   /* Enable the timer interrupt IRQ */
+   RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
+
+   printf("Done\r\n");
+
+}
+
+void disable_arm_timer() {
+   printf("Disabling arm timer\r\n");
+
+   /* Disable the timer interrupt IRQ */
+   RPI_GetIrqController()->Disable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
+
+   printf("Done\r\n");
+}
+
 void init_emulator() {
    _disable_interrupts();
+
+   printf("Init_emulator %d\r\n", copro);
 
    // Default to the normal FIQ handler
    *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag0;
@@ -91,6 +135,11 @@ void init_emulator() {
    // that flag events from the ISR using the ip register
    if (copro == COPRO_65TUBE_0 || copro == COPRO_65TUBE_1) {
       *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
+   }
+   if (copro == COPRO_65TUBE_1) {
+      enable_arm_timer();
+   } else {
+      disable_arm_timer();
    }
 #endif
 

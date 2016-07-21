@@ -67,6 +67,8 @@ file( GLOB core_files
     rpi-mailbox.h
     rpi-mailbox-interface.c
     rpi-mailbox-interface.h
+    rpi-armtimer.c
+    rpi-armtimer.h
     tube.S
     tube-ula.c
     programs.c

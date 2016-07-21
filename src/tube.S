@@ -20,7 +20,6 @@
 .global gpfsel_data_idle
 .global gpfsel_data_driving
 
-
 .macro FIQ_HANDLER flag_using_ip
 
         //r8-r11 are shadowed in FIQ mode, so no need to push
@@ -170,10 +169,10 @@ post_mail2\@:
 #endif
         
 .if \flag_using_ip
-        // Switch back to irq mode so ip is not shadowed
+        // Switch back to a different mode (abort mode) so ip is not shadowed
         mrs     r8, cpsr
         bic     r8, r8, #0x1F
-        orr     r8, r8, #0x12
+        orr     r8, r8, #0x17
         msr     cpsr_c, r8
         
         orr     ip, ip, #1024   // signal event to 6502 instruction flow
@@ -413,7 +412,36 @@ isr_code_start:
 // Default handlers for FIQ/IRQ do nothing
 
 arm_fiq_handler:
+        subs    pc, lr, #4
+
 arm_irq_handler:
+        push    {r0, r1}
+
+        ldr     r0, tube_mailbox
+        tst     r0, #ATTN_MASK         // if previous message not acknowledged, then flag overrun
+        bne     arm_irq_handler_exit
+
+        ldr     r0, =GPSET0
+        mov     r1, #TEST2_MASK
+        str     r1, [r0]
+        
+        mov     r0, #95
+time_waste_loop:
+        subs    r0, r0, #1
+        bne     time_waste_loop
+        
+        ldr     r0, =GPCLR0
+        mov     r1, #TEST2_MASK
+        str     r1, [r0]
+        
+arm_irq_handler_exit:
+
+        ldr     r0, =TIMER_IRQCLR
+        mov     r1, #1
+        str     r1, [r0]
+        ldr     r1, [r0]
+
+        pop     {r0, r1}
         subs    pc, lr, #4
 
 // ARM FIQ handler (two versions)

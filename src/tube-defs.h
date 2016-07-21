@@ -74,6 +74,8 @@
 #define GPLEV0  (PERIPHERAL_BASE + 0x200034)
 #define GPEDS0  (PERIPHERAL_BASE + 0x200040)
 
+#define TIMER_IRQCLR (PERIPHERAL_BASE + 0xB40C)
+
 #endif // __ASSEMBLER__
 
 //    A2 – Green  - Pin 5  – GPIO1  (GPIO3 on later models)
