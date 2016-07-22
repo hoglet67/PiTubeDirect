@@ -740,12 +740,49 @@ noirq:
         msr     CPSR, r2                // restore the 6502 flags and re-enable ARM interrupts
         FETCH_NEXT_MERGED               // go back to executing 6502 instructions
 
+handle_irq:
+        msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
+        INTR    -2, 0
+        FETCH_NEXT_MERGED
+
+handle_nmi:
+        msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
+        INTR    -6, 0
+        FETCH_NEXT_MERGED
 
 #ifndef USE_MULTICORE
 
+// In slowdown we patch the event handler dispatch table to a special event handler (below)
+//
+// This implements the following dispatch pattern
+// - Usual checks for events, irq, nmi
+// - delay for ~600ns
+// - execute one instruction, with bit set in ip to return immediately to event handler
+//        
+// Differences in making a slowdown singlecore event handler:
+// 
+// 1. Removed the masking of interrupts
+//     two lines
+//     we want to keep interrupts possible because we're now in the event handler really often
+//     and we're OK if ip is updated by a FIQ because we're going to recheck, next instruction
+// 
+// 2. Added an attention mask check
+//     two lines
+//     we skip straight to the time wasting if nothing to do
+//     we have to skip over the clearing of the mask in case FIQ sets it concurrently
+//     we can afford to run unwanted code in the slow case but we can't afford a race condition
+// 
+// 3. We added a time wasting loop
+//     added 4 lines or so
+//     we (redundantly) re-enable interupts first because we don't want to slow down FIQ response
+// 
+// 4. Replaced postamble of FETCH_NEXT_MERGED
+//     we added one line
+//     we restore the modified table base pointer so we will re-enter this handler
+        
 Event_Handler_Single_Core_Slow:
         mrs     r2, CPSR                // preserve the 6502 flags
-        
+                                        // interrupts are left enabled        
         ldr     r1, =tube_mailbox
         ldr     r0, [r1]
         bic     ip, ip, #1024           // ack events
@@ -765,30 +802,39 @@ Event_Handler_Single_Core_Slow:
         bne     exec_65tube_exit        // exit immediately if active edge seen
 
         tst     r0, #2                  // Bit 1 set indicate NMI is active
-        bne     handle_nmi              // Take the NMI interrupt
+        bne     handle_nmi2             // Take the NMI interrupt
 
         tst     r4, #4                  // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq2
         tst     r0, #1                  // Bit 1 set indicate IRQ is active
-        bne     handle_irq              // Take the IRQ interrupt
+        bne     handle_irq2             // Take the IRQ interrupt
 
 noirq2:
 
-        msr     CPSR, r2                // re-enable ARM interrupts
-
-        mov     r0, #300
+        mov     r0, #250
 waste_time:
         subs    r0, r0, #1
         bne     waste_time
 
         msr     CPSR, r2                // restore the 6502 flags        
-        
-        ldrb    r2, [sl], #1
+
+execute_one_instruction:
+        ldrb    r2, [sl], #1            // same as FETCH_NEXT_MERGED but set bit in ip to return immediately to event handler
         ldrb    r0, [sl], #1
         ldr     lr, [ip, r2, lsl #2]
-        orr     ip, ip, #1024            // Return to event handler after next instruction dispatch
-        
+        orr     ip, ip, #1024           // Return to event handler after next instruction dispatch        
         mov     pc, lr
+
+handle_irq2:
+        msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
+        INTR    -2, 0
+        b       execute_one_instruction
+
+handle_nmi2:
+        msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
+        INTR    -6, 0
+        b       execute_one_instruction
+        
 #endif
                 
 decimal_mode_adc:
@@ -869,16 +915,6 @@ tube_store_handler:
         bl      tube_parasite_write
 //      pop     {ip}
         pop     {r0-r3,pc}                // r2 (cpsr) is preserved
-
-handle_irq:
-        msr     CPSR, r2                  // Restore the 6502 flags and re-enable ARM interrupts
-        INTR    -2, 0
-        FETCH_NEXT_MERGED
-
-handle_nmi:
-        msr     CPSR, r2                  // Restore the 6502 flags and re-enable ARM interrupts
-        INTR    -6, 0
-        FETCH_NEXT_MERGED
 
 handle_rti:
         SPOP    r0
