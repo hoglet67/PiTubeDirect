@@ -10,7 +10,7 @@
 // r1       = scratch register
 // r2       = scratch register (used to hold CPRS normally)
 // r3       = a constant value 0f 0x0000FEF8 >> 3 (for tube register address checking)
-// r4       = 6502 flags (only D and I bits maintained here, CVZN use ARM flags)
+// r4       = 6502 flags (V, D and I bits maintained here, CZN use ARM flags)
 // r5       = a constant value of 0xFFFFFF00
 // r6       = 6502 A
 // r7       = 6502 X
@@ -87,10 +87,20 @@
 
 .equ    ARM_INT_MASK,0xC0
 
+// Mask used when poping status into r4 (RTI, PLP)
+// It selects the bits that are managed in r4, i.e. V, D, I
+// bits 7-0 are 6502 status reg bits
+// bits 31-8 are emulator control bits
+.equ    R4_MASK,     0xFFFFFF4C
+
+// Emulator control bits
+#ifdef USE_MULTICORE        
+.equ    SLOW_FLAG,   0x00000100
+#endif
+        
 // **********************************************
 // Start of macros
 // **********************************************
-
 
 #ifdef USE_MULTICORE
 
@@ -644,7 +654,21 @@ exec_65tube:
 
         mov     fp, r0                  // set fp (r11) to the 64K 6502 memory array
         ldr     ip, =opcode_jump_table  // set ip (r12) to the base address of the 6502 instruction handler
+
         ldr     r3, =(0x0000fef8 >> 3)  // initialize the constant in r3
+
+        mov     r4, #0x00               // Initialize r4 (flags) to zero on power up
+                                        // This was added to fix a bug where the language transfer
+                                        // would fail if exec_65tube was entered with certain
+                                        // values of r4 (specifically, with bit 7 = 1).
+                                        // This is very strange, because r4 bit 7 is not used!
+                                        // To reproduce, initialize r4 to 0x80
+
+#ifdef USE_MULTICORE
+        tst     r1, #1                  // Copy the slowdown bit into r4
+        orrne   r4, r4, #SLOW_FLAG
+#endif
+        
         ldr     r5, =0xffffff00         // initialize the constant in r5
 
         mov     r0, #0                  // initialize tube mailbox (between isr and event handler)
@@ -654,13 +678,6 @@ exec_65tube:
         mrs     r0, CPSR                // Enable ARM IRQs and FIQs
         bic     r0, r0, #ARM_INT_MASK
         msr     CPSR_c, r0
-
-        mov     r4, #0x00               // Initialize r4 (flags) to zero on power up
-                                        // This was added to fix a bug where the language transfer
-                                        // would fail if exec_65tube was entered with certain
-                                        // values of r4 (specifically, with bit 7 = 1).
-                                        // This is very strange, because r4 bit 7 is not used!
-                                        // To reproduce, initialize r4 to 0x80
 
 handle_rst:
         orr     r4, r4, #4              // Set the I bit
@@ -680,6 +697,11 @@ fetch_next_i:
         
 fetch_next:
         mrs     r2, CPSR                  // Preserve the 6502 flags
+
+        tst     r4, #SLOW_FLAG            // Check the slowdown bit
+        bne     waste_time                // forward branch will predict as not taken
+        
+fetch_next_check_event:
         ldr     r0, =tube_mailbox         // Check the tube mailbox for "events" (e.g. tube irq)
         ldr     r0, [r0]
         tst     r0, #ATTN_MASK
@@ -699,6 +721,14 @@ fetch_next_check_irq:
         beq     handle_irq
         msr     CPSR_flg, r2              // Restore the 6502 flags
         b       fetch_next
+
+waste_time:
+        mov     r0, #776                  // 776=4MHz on a Pi 3
+waste_time_loop:
+        subs    r0, r0, #1
+        bne     waste_time_loop
+        b       fetch_next_check_event
+        
 #endif        
         
 // 6502 Event handler
@@ -918,7 +948,8 @@ tube_store_handler:
 
 handle_rti:
         SPOP    r0
-        and     r4, r0, #0x4C
+        bfi     r4, r0, #0, #8       // preserve the other bits in r4, e.g. the slowdown bit
+        and     r4, r4, #R4_MASK
         mrs     r2, CPSR
         bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
         and     r1, r0, #0x80
@@ -1333,7 +1364,8 @@ opcode_27:
 opcode_28:
         sub     sl, sl, #1  // fix up FETCH_NEXT reading ahead two bytes
         SPOP    r0
-        and     r4, r0, #0x4C
+        bfi     r4, r0, #0, #8       // preserve the other bits in r4, e.g. the slowdown bit
+        and     r4, r4, #R4_MASK
         mrs     r2, CPSR
         bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
         and     r1, r0, #0x80

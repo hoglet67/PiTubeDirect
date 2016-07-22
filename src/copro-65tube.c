@@ -41,7 +41,7 @@ void copro_65tube_emulator() {
 
    while (copro == last_copro) {
       tube_reset_performance_counters();
-      exec_65tube(mpu_memory);
+      exec_65tube(mpu_memory, copro == COPRO_65TUBE_1 ? 1 : 0);
       tube_log_performance_counters();
       copro_65tube_reset();
    }
