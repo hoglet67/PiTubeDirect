@@ -323,6 +323,27 @@
         FETCH_NEXT_STAGE_12
 .endm
 
+.macro INTR vector setbrk                 // vector is -2 for IRQ/BRK or -6 for NMI
+        sub     r1, sl, fp                // setbrk should be 1 for BRK, 0 for IRQ/NMI
+        lsr     r0, r1, #8
+        SPUSH   r0
+        SPUSH   r1
+        movpl   r0, #0x20                 // Always set bit 5 (-) in the pushed value
+        movmi   r0, #0xA0
+        orrcs   r0, r0, #1
+        orreq   r0, r0, #2
+        orr     r0, r0, r4                // In r4 only bits 6 (V), 3 (D) and 2 (I) used; others always zero.
+.if \setbrk        
+        orr     r0, r0, #0x10             // Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
+.endif
+        SPUSH   r0
+        orr     r4, r4, #4                // Set the I bit in the 6502 status register
+        bic     r4, r4, #8                // Clear the D bit in the 6502 status register
+        add     r0, fp, #0x10000
+        ldrh    r0, [r0, #\vector]        // Fetch the vector address
+        add     sl, fp, r0                // Point to this instruction in memory
+.endm
+
 // **********************************************
 // End of macros
 // **********************************************
@@ -851,42 +872,12 @@ tube_store_handler:
 
 handle_irq:
         msr     CPSR, r2                  // Restore the 6502 flags and re-enable ARM interrupts
-        sub     r1, sl, fp
-        lsr     r0, r1, #8
-        SPUSH   r0
-        SPUSH   r1
-        movpl   r0, #0
-        movmi   r0, #0x80
-        orrcs   r0, r0, #1
-        orreq   r0, r0, #2
-        orr     r0, r0, r4
-        bic     r0, r0, #0x10             // Make sure B is clear
-        SPUSH   r0
-        orr     r4, r4, #4                // Set the I bit
-        bic     r4, r4, #8                // Clear the D bit
-        add     r0, fp, #0x10000
-        ldrh    r0, [r0, #-2]             // Fetch the address in FFFE,FFFF
-        add     sl, fp, r0                // Point to this instruction in memory
+        INTR    -2, 0
         FETCH_NEXT_MERGED
 
 handle_nmi:
         msr     CPSR, r2                  // Restore the 6502 flags and re-enable ARM interrupts
-        sub     r1, sl, fp
-        lsr     r0, r1, #8
-        SPUSH   r0
-        SPUSH   r1
-        movpl   r0, #0x20
-        movmi   r0, #0xA0
-        orrcs   r0, r0, #1
-        orreq   r0, r0, #2
-        orr     r0, r0, r4
-        bic     r0, r0, #0x10             // Make sure B is clear
-        SPUSH   r0
-        orr     r4, r4, #4                // Set the I bit
-        bic     r4, r4, #8                // Clear the D bit
-        add     r0, fp, #0x10000
-        ldrh    r0, [r0, #-6]             // Fetch the address in FFFA,FFFB
-        add     sl, fp, r0                // Point to this instruction in memory
+        INTR    -6, 0
         FETCH_NEXT_MERGED
 
 handle_rti:
@@ -1012,19 +1003,7 @@ opcode_FC:
 // Opcode 00 - BRK
 opcode_00:
         // BRK is really a two byte instruction, so no fixup needed
-        sub     r1, sl, fp
-        lsr     r0, r1, #8
-        SPUSH   r0
-        SPUSH   r1
-        movpl   r0, #0x30
-        movmi   r0, #0xB0
-        orrcs   r0, r0, #1
-        orreq   r0, r0, #2
-        orr     r0, r0, r4
-        SPUSH   r0
-        add     r0, fp, #0x10000
-        ldr     r0, [r0, #-4]
-        add     sl, fp, r0, lsr #16
+        INTR    -2, 1
         FETCH_NEXT_MERGED
 
 // Opcode 01 - ORA ($00,X)
