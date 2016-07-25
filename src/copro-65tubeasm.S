@@ -948,7 +948,9 @@ tube_store_handler:
 
 handle_rti:
         SPOP    r0
-        bfi     r4, r0, #0, #8       // preserve the other bits in r4, e.g. the slowdown bit
+        and     r0, r0, #0xff
+        and     r4, r4, #0xffffff00
+        orr     r4, r4, r0                // preserve the other bits in r4, e.g. the slowdown bit
         and     r4, r4, #R4_MASK
         mrs     r2, CPSR
         bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
@@ -1364,7 +1366,9 @@ opcode_27:
 opcode_28:
         sub     sl, sl, #1  // fix up FETCH_NEXT reading ahead two bytes
         SPOP    r0
-        bfi     r4, r0, #0, #8       // preserve the other bits in r4, e.g. the slowdown bit
+        and     r0, r0, #0xff
+        and     r4, r4, #0xffffff00
+        orr     r4, r4, r0           // preserve the other bits in r4, e.g. the slowdown bit
         and     r4, r4, #R4_MASK
         mrs     r2, CPSR
         bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
