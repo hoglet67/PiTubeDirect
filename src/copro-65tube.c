@@ -60,13 +60,13 @@ void copro_65tube_emulator() {
    copro_65tube_reset();
 
    while (copro == last_copro) {
-#ifdef HISTGRAM
+#ifdef HISTOGRAM
       copro_65tube_init_histogram();
 #endif
       tube_reset_performance_counters();
       exec_65tube(mpu_memory, copro == COPRO_65TUBE_1 ? 1 : 0);
       tube_log_performance_counters();
-#ifdef HISTGRAM
+#ifdef HISTOGRAM
       copro_65tube_dump_histogram();
 #endif
       copro_65tube_reset();
