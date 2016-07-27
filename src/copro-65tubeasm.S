@@ -233,11 +233,13 @@
 // Macro to maintain a histogram of opcodes in memory
 // Add to FETCH_NEXT
 .macro HISTOGRAM_65TUBE
+        push    {r0-r1}
         ldr     r1, =histogram_memory
-        add     r1, r0, lsl #2
-        ldr     r2, [r1]
-        add     r2, #1
-        str     r2, [r1]
+        add     r1, r2, lsl #2
+        ldr     r0, [r1]
+        add     r0, #1
+        str     r0, [r1]
+        pop     {r0-r1}
 .endm
 
 // Macros for calculating effective address in r0        
@@ -707,8 +709,14 @@ fetch_next_check_event:
         tst     r0, #ATTN_MASK
         bne     Event_Handler
         msr     CPSR_flg, r2              // Restore the 6502 flags
+
         ldrb    r2, [sl], #1
         ldrb    r0, [sl], #1
+
+#ifdef HISTOGRAM
+        HISTOGRAM_65TUBE        
+#endif
+
         ldr     pc, [ip, r2, lsl #2]
 
 fetch_next_check_irq:

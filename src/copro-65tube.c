@@ -17,7 +17,27 @@
 #include "tuberom_6502.h"
 #include "programs.h"
 #include "copro-65tube.h"
- 
+
+#ifdef HISTOGRAM
+
+unsigned int histogram_memory[0x100];
+
+void copro_65tube_init_histogram() {
+  int i;
+  for (i = 0; i < 256; i++) {
+    histogram_memory[i] = 0;
+  }
+}
+
+void copro_65tube_dump_histogram() {
+  int i;
+  for (i = 0; i < 256; i++) {
+    printf("%02x %u\r\n", i, histogram_memory[i]);
+  }
+}
+
+#endif
+
 static void copro_65tube_poweron_reset() {
    // Wipe memory
    memset(mpu_memory, 0, 0x10000);
@@ -40,9 +60,15 @@ void copro_65tube_emulator() {
    copro_65tube_reset();
 
    while (copro == last_copro) {
+#ifdef HISTGRAM
+      copro_65tube_init_histogram();
+#endif
       tube_reset_performance_counters();
       exec_65tube(mpu_memory, copro == COPRO_65TUBE_1 ? 1 : 0);
       tube_log_performance_counters();
+#ifdef HISTGRAM
+      copro_65tube_dump_histogram();
+#endif
       copro_65tube_reset();
    }
 }

@@ -61,6 +61,9 @@
 // Needs to match kernel_old setting in config.txt
 //#define KERNEL_OLD
 
+// Include instruction histogram in multi core 65tube
+//#define HISTOGRAM
+
 #endif
 
 #ifdef __ASSEMBLER__
