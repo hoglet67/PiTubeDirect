@@ -31,16 +31,11 @@ static uint32_t pc;
 uint32_t sp[2];
 Temp64Type Immediate64;
 
-#ifdef PC_SIMULATION
-uint32_t Trace = 1;
-#else
-uint32_t Trace = 0;
-#endif
-
 uint32_t startpc;
 
 RegLKU Regs[2];
 uint32_t genaddr[2];
+uint32_t *genreg[2];
 int gentype[2];
 OperandSizeType OpSize;
 
@@ -241,7 +236,7 @@ uint32_t ReadGen(uint32_t c)
 
       case Register:
       {
-         Temp = *(uint32_t*) genaddr[c];
+         Temp = *genreg[c];
          return Truncate(Temp, OpSize.Op[c]);
       }
       // No break due to return
@@ -276,7 +271,7 @@ uint64_t ReadGen64(uint32_t c)
 
       case Register:
       {
-         Temp = *(uint64_t*)genaddr[c];
+         Temp = *(uint64_t*)genreg[c];
       }
       break;
 
@@ -301,7 +296,7 @@ uint32_t ReadAddress(uint32_t c)
 {
    if (gentype[c] == Register)
    {
-      return *(uint32_t *) genaddr[c];
+      return *genreg[c];
    }
  
    return genaddr[c];
@@ -338,19 +333,19 @@ static void GetGenPhase2(RegLKU gen, int c)
          {
             case Integer:
             {
-               genaddr[c] = (uint32_t) &r[gen.OpType];
+               genreg[c] = &r[gen.OpType];
             }
             break;
 
             case SinglePrecision:
             {
-               genaddr[c] = (uint32_t) &FR.fr32[IndexLKUP[gen.OpType]];
+               genreg[c] = (uint32_t *) &FR.fr32[IndexLKUP[gen.OpType]];
             }
             break;
 
             case DoublePrecision:
             {
-               genaddr[c] = (uint32_t) &FR.fr64[gen.OpType];
+               genreg[c] = (uint32_t *) &FR.fr64[gen.OpType];
             }
             break;
          
@@ -416,7 +411,7 @@ static void GetGenPhase2(RegLKU gen, int c)
          }
          else
          {
-            genaddr[c] = *((uint32_t*) genaddr[c]) + Offset;
+            genaddr[c] = (*genreg[c]) + Offset;
          }
 
          gentype[c] = Memory;                               // Force Memory
@@ -738,7 +733,7 @@ static void handle_mei_dei_upper_write(uint64_t result)
    uint32_t temp;
    // Writing to an odd register is strictly speaking undefined
    // But BBC Basic relies on a particular behaviour that the NS32016 has in this case
-   uint32_t reg_addr = genaddr[1] + ((Regs[1].Whole & 1) ? -4 : 4);
+   uint32_t *reg_addr = genreg[1] + ((Regs[1].Whole & 1) ? -1 : 1);
    switch (OpSize.Op[0])
    {
       case sz8:
@@ -1020,11 +1015,12 @@ uint32_t ReturnCommon(void)
 void n32016_exec()
 {
    uint32_t opcode, WriteIndex;
-   uint32_t temp = 0, temp2, temp3;
+   uint32_t temp, temp2, temp3;
    Temp64Type temp64;
    uint32_t Function;
 
-   // Prevent uninitialized warnings
+   // Avoid a "might be uninitialized" warning
+   temp = 0;
    temp64.u64 = 0;
 
    if (tube_irq & 2)
@@ -1313,12 +1309,10 @@ void n32016_exec()
          break;
       }
 
-#ifdef SHOW_INSTRUCTIONS
-      if (Trace) {
-         FredSize = OpSize;                     // Temporary hack :(
-         uint32_t Temp = pc;
-         ShowInstruction(startpc, &Temp, opcode, Function, OpSize.Op[0]);
-      }
+#ifdef PC_SIMULATION
+      FredSize = OpSize;                     // Temporary hack :(
+      uint32_t Temp = pc;
+      ShowInstruction(startpc, &Temp, opcode, Function, OpSize.Op[0]);
 #endif
 
       GetGenPhase2(Regs[0], 0);
@@ -3030,16 +3024,18 @@ void n32016_exec()
             {
                switch (WriteSize)
                {
-                  case sz8:   *((uint8_t*)   genaddr[WriteIndex]) = temp;  break;
-                  case sz16:  *((uint16_t*)  genaddr[WriteIndex]) = temp;  break;
-                  case sz32:  *((uint32_t*)  genaddr[WriteIndex]) = temp;  break;
-                  case sz64:  *((uint64_t*)  genaddr[WriteIndex]) = temp64.u64;  break;
+                  case sz8:   *((uint8_t*)   genreg[WriteIndex]) = temp;  break;
+                  case sz16:  *((uint16_t*)  genreg[WriteIndex]) = temp;  break;
+                  case sz32:  *((uint32_t*)  genreg[WriteIndex]) = temp;  break;
+                  case sz64:  *((uint64_t*)  genreg[WriteIndex]) = temp64.u64;  break;
                }
 
+#ifdef PC_SIMULATION
                if (WriteSize <= sz32)
                {
                   ShowRegisterWrite(Regs[WriteIndex], Truncate(temp, WriteSize));
                }
+#endif
             }
             break;
 
