@@ -375,6 +375,7 @@ extern FILE *pTraceFile;
 
 #define PiWARN(...)  { printf("pc=%08"PRIX32": ",pc); printf(__VA_ARGS__); }
 
+extern uint32_t pc;
 extern int tubecycles;
 extern int tube_irq;
 extern uint32_t genaddr[2];

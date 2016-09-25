@@ -27,7 +27,7 @@ uint32_t r[8];
 FloatingPointRegisters FR;
 uint32_t FSR;
 
-static uint32_t pc;
+uint32_t pc;
 uint32_t sp[2];
 Temp64Type Immediate64;
 
