@@ -76,10 +76,11 @@
 
 # poll for nTube or RST being low
 Poll_loop:
-   ld       r7,GPLEV0_offset(r6)
-   btst    r7,nRST
+   # use r8 here, as post_mail expects GPIO read data in r8
+   ld       r8,GPLEV0_offset(r6)
+   btst    r8,nRST
    beq    post_mail
-   btst    r7,nTUBE
+   btst    r8,nTUBE
    bne    Poll_loop
    ld      r7,GPLEV0_offset(r6)  # check ntube again to remove glitches
    btst   r7,nTUBE
