@@ -439,21 +439,6 @@ isr_data_start:
 // Insert the current literal pool, so these get locked in the cache
 .ltorg
 
-// Some constants for controlling the data bus        
-gpfsel_data_idle:
-        .word 0
-        .word 0
-        .word 0
-
-gpfsel_data_driving:
-        .word 0
-        .word 0
-        .word 0
-
-// Mailbox between tube isr and events handler (in C)
-tube_mailbox:
-        .word 0
-        
 // 8 BYTES OF STATE
 tube_regs:
         .byte 0xfe
@@ -465,5 +450,20 @@ tube_regs:
         .byte 0x98
         .byte 0x87
 
+// Mailbox between tube isr and events handler (in C)
+tube_mailbox:
+        .word 0
+        
+// Some constants for controlling the data bus        
+gpfsel_data_idle:
+        .word 0
+        .word 0
+        .word 0
+
+gpfsel_data_driving:
+        .word 0
+        .word 0
+        .word 0
+        
 .align CACHELINE_ALIGN
 isr_data_end:
