@@ -69,6 +69,9 @@
 .global _enable_l1_cache
 .global _invalidate_icache
 .global _invalidate_dcache
+.global _clean_invalidate_dcache
+.global _invalidate_dcache_mva
+.global _clean_invalidate_dcache_mva
 
 #ifdef HAS_MULTICORE
 .global _get_core
@@ -374,9 +377,21 @@ _invalidate_icache:
 
 _invalidate_dcache:
     mov      r0, #0
+    mcr      p15, 0, r0, c7, c6, 0
+    mov      pc, lr
+
+_clean_invalidate_dcache:
+    mov      r0, #0
     mcr      p15, 0, r0, c7, c14, 0
     mov      pc, lr
 
+_invalidate_dcache_mva:
+    mcr      p15, 0, r0, c7, c6, 1
+    mov      pc, lr
+
+_clean_invalidate_dcache_mva:
+    mcr      p15, 0, r0, c7, c14, 1
+    mov      pc, lr
 
 #ifdef HAS_MULTICORE
 _get_core:

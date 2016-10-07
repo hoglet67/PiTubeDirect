@@ -25,6 +25,12 @@ extern void _invalidate_icache();
 
 extern void _invalidate_dcache();
 
+extern void _clean_invalidate_dcache();
+
+extern void _invalidate_dcache_mva(void *address);
+
+extern void _clean_invalidate_dcache_mva(void *address);
+
 extern unsigned int _get_core();
 
 extern void _init_core();

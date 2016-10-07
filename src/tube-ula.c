@@ -642,11 +642,14 @@ void start_vc_ula()
    r1 = (int) &gpfsel_data_idle; // gpfsel_data_idle
    r2 = (int) &tube_mailbox;     // tube mailbox to be replaced later with VC->ARM mailbox
    r3 = 0;
-   r4 = 0;       // address pinmap point to be done
-   r5 = TEST2_MASK;   // test2 pin
-   // re-map writeable structures into uncached region (why?)
-   r0 |= 0xc0000000;
-   r2 |= 0xc0000000;
+   r4 = 0;                       // address pinmap point to be done
+   r5 = TEST2_MASK;              // test2 pin
+   // re-map to bus addresses
+   // if the L2 cache is  enabled, the VC MMU maps physical memory to 0x40000000
+   // if the L2 cache is disabled, the VC MMU maps physical memory to 0xC0000000
+   // https://github.com/raspberrypi/firmware/wiki/Accessing-mailboxes
+   r0 |= 0x40000000;
+   r2 |= 0x40000000;
    printf("VidCore code = %08x\r\n", func);
    printf("VidCore   r0 = %08x\r\n", r0);
    printf("VidCore   r1 = %08x\r\n", r1);

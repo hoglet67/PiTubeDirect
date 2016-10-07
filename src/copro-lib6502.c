@@ -18,6 +18,7 @@
 #include "lib6502.h"
 #include "programs.h"
 #include "copro-lib6502.h"
+#include "startup.h"
 
 int tracing=0;
 
@@ -52,9 +53,17 @@ static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
 
 static void copro_lib6502_poll(M6502 *mpu) {
   static unsigned int last_rst = 0;
+#ifdef USE_GPU
+  // temp hack to get around coherency issues
+  _invalidate_dcache_mva((void*) &tube_mailbox);
+#endif
   if (tube_mailbox & ATTN_MASK) {
     unsigned int tube_mailbox_copy = tube_mailbox;
     tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+#ifdef USE_GPU
+    // temp hack to get around coherency issues
+    _clean_invalidate_dcache_mva((void *) &tube_mailbox);
+#endif
     unsigned int intr = tube_io_handler(tube_mailbox_copy);
     unsigned int nmi = intr & 2;
     unsigned int rst = intr & 4;
