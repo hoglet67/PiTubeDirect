@@ -171,6 +171,11 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
 
+#ifdef USE_GPU
+      printf("Staring VC ULA\r\n");
+      start_vc_ula();
+      printf("Done\r\n");
+#endif
 
    copro = get_copro_number();
 

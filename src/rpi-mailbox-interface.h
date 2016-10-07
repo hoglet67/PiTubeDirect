@@ -142,6 +142,7 @@ typedef struct {
 extern void RPI_PropertyInit( void );
 extern void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... );
 extern int RPI_PropertyProcess( void );
+extern void RPI_PropertyProcessNoCheck( void );
 extern rpi_mailbox_property_t* RPI_PropertyGet( rpi_mailbox_tag_t tag );
 
 #endif

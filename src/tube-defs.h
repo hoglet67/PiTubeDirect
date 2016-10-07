@@ -64,6 +64,10 @@
 // Include instruction histogram in multi core 65tube
 //#define HISTOGRAM
 
+#else
+
+#define USE_GPU
+
 #endif
 
 #ifdef __ASSEMBLER__

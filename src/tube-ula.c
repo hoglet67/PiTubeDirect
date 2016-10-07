@@ -18,6 +18,10 @@
 #include "info.h"
 #include "performance.h"
 
+#ifdef USE_GPU
+#include "tubevc.h"
+#endif
+
 extern volatile uint8_t tube_regs[8];
 
 extern volatile uint32_t gpfsel_data_idle[3];
@@ -581,9 +585,9 @@ void tube_wait_for_rst_active() {
 
 void tube_wait_for_rst_release() {
    volatile int i;
-#ifdef HAS_40PINS
-   RPI_SetGpioValue(TEST2_PIN, 1);
-#endif
+//#ifdef HAS_40PINS
+//   RPI_SetGpioValue(TEST2_PIN, 1);
+//#endif
    do {
       // Wait for reset to be released
       while (tube_is_rst_active());
@@ -591,9 +595,9 @@ void tube_wait_for_rst_release() {
       for (i = 0; i < DEBOUNCE_TIME && !tube_is_rst_active(); i++);
       // Loop back if we exit the debouce loop prematurely because RST has gone active again
    } while (i < DEBOUNCE_TIME);
-#ifdef HAS_40PINS
-   RPI_SetGpioValue(TEST2_PIN, 0);
-#endif
+//#ifdef HAS_40PINS
+//   RPI_SetGpioValue(TEST2_PIN, 0);
+//#endif
    // Reset all the TUBE ULA registers
    tube_reset();
    // Clear any mailbox events that occurred during reset
@@ -624,3 +628,24 @@ void disable_tube() {
       tube_regs[i] = 0xfe;
    }
 }
+
+#ifdef USE_GPU
+// todo : we need to sort out caches memory map etc here
+void start_vc_ula()
+{  int func,r0,r1, r2,r3,r4,r5;
+
+
+   func = (int) &tubevc_asm[0];
+   printf("VidCore code at %08x\r\n", func);
+   printf("  first word = %08x\r\n", *((unsigned int *)func));
+   r0 = (int) ((&tube_regs)+ 0xC0000000); // pointer to tube regsiters
+   r1 = (int) &gpfsel_data_idle; // gpfsel_data_idle
+   r2 = (int) ((&tube_mailbox)+ 0xC0000000);  // tube mailbox to be replaced later with VC->ARM mailbox
+   r3 = 0;
+   r4 = 0;       // address pinmap point to be done
+   r5 = TEST2_MASK;   // test2 pin    
+   RPI_PropertyInit();
+   RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
+   RPI_PropertyProcessNoCheck();
+}
+#endif

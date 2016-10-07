@@ -9,4 +9,6 @@ src/scripts/kernel7.img
 src/scripts/tube-client
 src/scripts/tube-client.cbp
 src/scripts/releases/
+vidcore/tubevc.asm
+tools/vasm/
 not_in_git/
