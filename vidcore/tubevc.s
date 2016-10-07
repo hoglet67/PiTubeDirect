@@ -58,10 +58,22 @@
    ld    r15,20(r1) # databus driving signals
 # r1 is now free
    mov r6, GPFSEL0 
-temploop:
-   st r5,GPSET0_offset(r6) #DEBUG pin
-   st r5,GPCLR0_offset(r6) #DEBUG pin                           
-   b   temploop
+
+#temploop:
+#   st r5,GPSET0_offset(r6) #DEBUG pin
+#   mov r1, 1000
+#delay1:
+#   sub r1, 1
+#   cmp r1, 0
+#   bne delay1
+#   st r5,GPCLR0_offset(r6) #DEBUG pin                           
+#   mov r1, 1000
+#delay2:
+#   sub r1, 1
+#   cmp r1, 0
+#   bne delay2
+#   b   temploop
+
 # poll for nTube or RST being low
 Poll_loop:
    ld       r7,GPLEV0_offset(r6)

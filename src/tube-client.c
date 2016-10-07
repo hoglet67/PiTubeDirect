@@ -86,7 +86,7 @@ void init_emulator() {
 
    // Default to the normal FIQ handler
    *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag0;
-#ifndef USE_MULTICORE   
+#if !defined(USE_MULTICORE) && !defined(USE_GPU)
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register
    if (copro == COPRO_65TUBE_0 || copro == COPRO_65TUBE_1) {
@@ -157,6 +157,8 @@ int get_copro_number() {
    if (copro < 0 || copro >= NUM_COPROS) {
       copro = DEFAULT_COPRO;
    }
+   // Hack, force lib6502 co pro
+   copro = 2;
    return copro;
 }
 
@@ -191,7 +193,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
   init_emulator();
 
   // Lock the Tube Interrupt handler into cache for BCM2835 based Pis
-#if !defined(RPI2) && !defined(RPI3)
+#if !defined(RPI2) && !defined(RPI3) && !defined(USE_GPU)
    lock_isr();
 #endif
 

@@ -489,6 +489,7 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
 #endif
 
+#ifndef USE_GPU
   // Configure GPIO to detect a falling edge of NTUBE and NRST
   RPI_GpioBase->GPFEN0 |= NTUBE_MASK | NRST_MASK;
 
@@ -506,6 +507,7 @@ void tube_init_hardware()
   // This line enables FIQ interrupts
   // Enable gpio_int[0] which is IRQ 49 as FIQ
   RPI_GetIrqController()->FIQ_control = 0x80 + 49;
+#endif
 
   // Initialise the UART to 57600 baud
   RPI_AuxMiniUartInit( 115200, 8 );
