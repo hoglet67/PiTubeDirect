@@ -445,9 +445,9 @@ int tube_io_handler(uint32_t mail)
       }      
    }
 
-#if TEST_MODE
+//#if TEST_MODE
    printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-#endif
+//#endif
    
    if (nrst == 0 || (tube_enabled && (tube_regs[0] & 0x20))) {
       return tube_irq | 4;
@@ -638,14 +638,22 @@ void start_vc_ula()
 
 
    func = (int) &tubevc_asm[0];
-   printf("VidCore code at %08x\r\n", func);
-   printf("  first word = %08x\r\n", *((unsigned int *)func));
-   r0 = (int) ((&tube_regs)+ 0xC0000000); // pointer to tube regsiters
+   r0 = (int) &tube_regs;        // pointer to tube regsiters
    r1 = (int) &gpfsel_data_idle; // gpfsel_data_idle
-   r2 = (int) ((&tube_mailbox)+ 0xC0000000);  // tube mailbox to be replaced later with VC->ARM mailbox
+   r2 = (int) &tube_mailbox;     // tube mailbox to be replaced later with VC->ARM mailbox
    r3 = 0;
    r4 = 0;       // address pinmap point to be done
-   r5 = TEST2_MASK;   // test2 pin    
+   r5 = TEST2_MASK;   // test2 pin
+   // re-map writeable structures into uncached region (why?)
+   r0 |= 0xc0000000;
+   r2 |= 0xc0000000;
+   printf("VidCore code = %08x\r\n", func);
+   printf("VidCore   r0 = %08x\r\n", r0);
+   printf("VidCore   r1 = %08x\r\n", r1);
+   printf("VidCore   r2 = %08x\r\n", r2);
+   printf("VidCore   r3 = %08x\r\n", r3);
+   printf("VidCore   r4 = %08x\r\n", r4);
+   printf("VidCore   r5 = %08x\r\n", r5);   
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
    RPI_PropertyProcessNoCheck();

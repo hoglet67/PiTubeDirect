@@ -209,18 +209,18 @@ int RPI_PropertyProcess( void )
 
 void RPI_PropertyProcessNoCheck( void )
 {
-#if( PRINT_PROP_DEBUG == 1 )
+//#if( PRINT_PROP_DEBUG == 1 )
     int i;
     printf( "%s Length: %d\r\n", __func__, pt[PT_OSIZE] );
-#endif
+//#endif
     /* Fill in the size of the buffer */
     pt[PT_OSIZE] = ( pt_index + 1 ) << 2;
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
-#if( PRINT_PROP_DEBUG == 1 )
+//#if( PRINT_PROP_DEBUG == 1 )
     for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
         printf( "Request: %3d %8.8X\r\n", i, pt[i] );
-#endif
+//#endif
     RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, (unsigned int)pt );
 }
 
