@@ -20,6 +20,7 @@
 
 #ifdef USE_GPU
 #include "tubevc.h"
+#include "startup.h"
 #endif
 
 extern volatile uint8_t tube_regs[8];
@@ -115,6 +116,10 @@ void tube_updateints()
    // Test for NMI
    if ((HSTAT1 & 8) && !(HSTAT1 & 16) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
    if ((HSTAT1 & 8) &&  (HSTAT1 & 16) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
+#ifdef USE_GPU
+   // Flush the tube_regs out of the ARM L1 cache or the GPU will see stale data
+   _clean_invalidate_dcache_mva((void *) &tube_regs);
+#endif
 }
 
 // 6502 Host reading the tube registers
@@ -445,9 +450,9 @@ int tube_io_handler(uint32_t mail)
       }      
    }
 
-//#if TEST_MODE
+#if TEST_MODE
    printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-//#endif
+#endif
    
    if (nrst == 0 || (tube_enabled && (tube_regs[0] & 0x20))) {
       return tube_irq | 4;
