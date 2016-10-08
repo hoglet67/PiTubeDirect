@@ -91,7 +91,6 @@ Poll_loop:
    beq      wr_cycle
    # So we are in a ready cycle
    # sort out the address bus
-   st      r5,GPSET0_offset(r6) #DEBUG pin
    mov      r8,r0
    btst   r7,A0
    orne   r8,1
@@ -114,27 +113,29 @@ Poll_loop:
    st      r14,4(r6)
    st      r15,8(r6)
 
-   st      r5,GPCLR0_offset(r6) #DEBUG pin
+   st      r5,GPSET0_offset(r6) #DEBUG pin
 
-   # spin waiting for clk high
-rd_wait_for_clk_high1:
-   ld      r7,GPLEV0_offset(r6)   
-   btst   r7,CLK
-   beq      rd_wait_for_clk_high1
+#   # spin waiting for clk high
+#rd_wait_for_clk_high1:
+#   ld      r7,GPLEV0_offset(r6)   
+#   btst   r7,CLK
+#   beq      rd_wait_for_clk_high1
    
 # spin waiting for clk low
 rd_wait_for_clk_low:
+    ld      r7,GPLEV0_offset(r6)   
    mov      r8,r7
-   ld      r7,GPLEV0_offset(r6)   
-   btst   r7,CLK
+  btst   r7,CLK
    bne      rd_wait_for_clk_low
+
+   st      r5,GPCLR0_offset(r6) #DEBUG pin
 
 # stop driving databus
    st      r9,GPCLR0_offset(r6)
    st      r10,(r6)  # Drive data bus
    st      r11,4(r6)
    st      r12,8(r6)
-
+        
 # detect dummy read
 # spin waiting for clk high
 rd_wait_for_clk_high2:
