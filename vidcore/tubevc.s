@@ -89,16 +89,23 @@ Poll_loop:
    # we now know nTube is low
    btst   r7, RnW
    beq    wr_cycle
+
    # So we are in a ready cycle
    # sort out the address bus
-   mov    r8, r0
    btst   r7, A0
-   orne   r8, 1
-   btst   r7, A1
-   orne   r8, 2
-   btst   r7, A2
-   orne   r8, 4
-   ldb    r8, (r8)      # Read byte from tube regsiters
+   and    r7, A1+A2
+
+   st     r13, (r6)  # Drive data bus
+
+   lsr    r7, 1       # A1 shift
+   orne   r7, 1
+
+   st     r14, 4(r6) # Drive data bus
+
+   or     r7, r0
+   ldb    r8, (r7)  # Read byte from tube register
+
+   st     r15, 8(r6)  # Drive data bus
 
    # Sort out the databus
    mov    r7, r8
@@ -109,9 +116,6 @@ Poll_loop:
    or     r8, r7
 
    st     r8, GPSET0_offset(r6)
-   st     r13, (r6)  # Drive data bus
-   st     r14, 4(r6)
-   st     r15, 8(r6)
 
    st     r5, GPSET0_offset(r6) #DEBUG pin
 
