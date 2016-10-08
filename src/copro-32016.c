@@ -13,6 +13,7 @@
 #include "tube-ula.h"
 #include "NS32016/32016.h"
 #include "NS32016/mem32016.h"
+#include "startup.h"
 
 #define PANDORA_BASE 0xF00000
 
@@ -47,9 +48,17 @@ void copro_32016_emulator() {
       // might need to reduce if we see LATEs
       tubecycles = 32;
       n32016_exec();
+#ifdef USE_GPU
+      // temp hack to get around coherency issues
+      _invalidate_dcache_mva((void*) &tube_mailbox);
+#endif
       if (tube_mailbox & ATTN_MASK) {
          unsigned int tube_mailbox_copy = tube_mailbox;
          tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+#ifdef USE_GPU
+         // temp hack to get around coherency issues
+         _clean_invalidate_dcache_mva((void *) &tube_mailbox);
+#endif
          unsigned int intr = tube_io_handler(tube_mailbox_copy);
          unsigned int rst = intr & 4;
          // Reset the processor on active edge of rst

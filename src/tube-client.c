@@ -157,8 +157,6 @@ int get_copro_number() {
    if (copro < 0 || copro >= NUM_COPROS) {
       copro = DEFAULT_COPRO;
    }
-   // Hack, force lib6502 co pro
-   copro = 2;
    return copro;
 }
 
