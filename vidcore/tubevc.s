@@ -93,7 +93,7 @@ Poll_loop:
    # So we are in a ready cycle
    # sort out the address bus
    btst   r7, A0
-   and    r7, A1+A2
+   and    r7, (1<<A1)+(1<<A2)
 
    st     r13, (r6)  # Drive data bus
 

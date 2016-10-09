@@ -10,5 +10,6 @@ src/scripts/tube-client
 src/scripts/tube-client.cbp
 src/scripts/releases/
 vidcore/tubevc.asm
+vidcore/tubevc.lst
 tools/vasm/
 not_in_git/
