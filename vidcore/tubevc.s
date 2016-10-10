@@ -81,9 +81,9 @@ Poll_loop:
    ld     r8, GPLEV0_offset(r6)
    btst   r8, nRST
    beq    post_mail
-   ld     r7, GPLEV0_offset(r6)  # check ntube again to remove glitches
    btst   r8, nTUBE
    bne    Poll_loop
+   ld     r7, GPLEV0_offset(r6)  # check ntube again to remove glitches
    btst   r7, nTUBE
    bne    Poll_loop
    # we now know nTube is low
