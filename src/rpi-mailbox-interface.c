@@ -81,8 +81,8 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             break;
 
         case TAG_EXECUTE_CODE:
-            pt[pt_index++] = 28; // size of the buffer
-            pt[pt_index++] = 28; // size of the data
+            pt[pt_index++] = 28;
+            pt[pt_index++] = 0; /* Request */
             pt[pt_index++] = va_arg( vl, int ); // Function pointer
             pt[pt_index++] = va_arg( vl, int ); // R0
             pt[pt_index++] = va_arg( vl, int ); // R1

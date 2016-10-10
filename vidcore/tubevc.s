@@ -49,6 +49,8 @@
 
 .org 0
 # code entry point
+#  ld r0, (r0)
+#  rts
    di
    mov    r9, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
    ld     r10, (r1)    # databus driving signals
