@@ -436,7 +436,17 @@ isr_code_end:
 .align CACHELINE_ALIGN
 isr_data_start:
 
-// 8 BYTES OF STATE
+#ifdef USE_GPU
+tube_regs:
+        .word (0xf << D4_BASE) | (0xe << D0_BASE)
+        .word (0xe << D4_BASE) | (0xd << D0_BASE)
+        .word (0xd << D4_BASE) | (0xc << D0_BASE)
+        .word (0xc << D4_BASE) | (0xb << D0_BASE)
+        .word (0xb << D4_BASE) | (0xa << D0_BASE)
+        .word (0xa << D4_BASE) | (0x9 << D0_BASE)
+        .word (0x9 << D4_BASE) | (0x8 << D0_BASE)
+        .word (0x8 << D4_BASE) | (0x7 << D0_BASE)
+#else
 tube_regs:
         .byte 0xfe
         .byte 0xed
@@ -446,6 +456,7 @@ tube_regs:
         .byte 0xa9
         .byte 0x98
         .byte 0x87
+#endif
 
 .align CACHELINE_ALIGN
 // Mailbox between tube isr and events handler (in C)

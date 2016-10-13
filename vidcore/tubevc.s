@@ -114,33 +114,19 @@ Poll_loop:
    btst   r7, RnW
    beq    wr_cycle
 
-   # So we are in a ready cycle
+   # So we are in a read cycle
    # sort out the address bus
    btst   r7, A0
    and    r7, (1<<A1)+(1<<A2)
-
-   st     r13, (r6)  # Drive data bus
-
-   lsr    r7, 1       # A1 shift
+   lsr    r7, 1                  # A1 shift
    orne   r7, 1
+   ld     r8, (r0, r7)           # Read word from tube register
+   st     r13, (r6)              # Drive data bus
+   st     r14, 4(r6)             # Drive data bus        
+   st     r15, 8(r6)             # Drive data bus
+   st     r8, GPSET0_offset(r6)  # Write word to data bus
 
-   st     r14, 4(r6) # Drive data bus
-
-   or     r7, r0
-   ldb    r8, (r7)  # Read byte from tube register
-
-   st     r15, 8(r6)  # Drive data bus
-
-   # Sort out the databus
-   lsl    r7, r8, 28    # put lower nibble at the top ( clear upper nibble)
-   lsr    r7, 28-D0D3_shift
-   lsr    r8, 4
-   lsl    r8, D4D7_shift
-   or     r8, r7
-
-   st     r8, GPSET0_offset(r6)
-
-   st     r5, GPSET0_offset(r6) #DEBUG pin
+   st     r5, GPSET0_offset(r6)  # DEBUG pin
 
 #  # spin waiting for clk high
 #rd_wait_for_clk_high1:

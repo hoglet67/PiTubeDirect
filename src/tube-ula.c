@@ -23,7 +23,40 @@
 #include "startup.h"
 #endif
 
+#ifdef USE_GPU
+
+extern volatile uint32_t tube_regs[8];
+
+#define HBIT_7 (1 << 25)
+#define HBIT_6 (1 << 24)
+#define HBIT_5 (1 << 23)
+#define HBIT_4 (1 << 22)
+#define HBIT_3 (1 << 11)
+#define HBIT_2 (1 << 10)
+#define HBIT_1 (1 << 9)
+#define HBIT_0 (1 << 8)
+
+#define BYTE_TO_WORD(data) ((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18))
+#define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) << 18) & 0xF0))
+
+#else
+
 extern volatile uint8_t tube_regs[8];
+
+#define HBIT_7 (1 << 7)
+#define HBIT_6 (1 << 6)
+#define HBIT_5 (1 << 5)
+#define HBIT_4 (1 << 4)
+#define HBIT_3 (1 << 3)
+#define HBIT_2 (1 << 2)
+#define HBIT_1 (1 << 1)
+#define HBIT_0 (1 << 0)
+
+#define BYTE_TO_WORD(data) (data)
+#define WORD_TO_BYTE(data) (data)
+
+#endif
+
 
 extern volatile uint32_t gpfsel_data_idle[3];
 extern volatile uint32_t gpfsel_data_driving[3];
@@ -111,11 +144,11 @@ void tube_updateints()
 {   
    tube_irq = 0;
    // Test for IRQ
-   if ((HSTAT1 & 2) && (PSTAT1 & 128)) tube_irq  |= 1;
-   if ((HSTAT1 & 4) && (PSTAT4 & 128)) tube_irq  |= 1;
+   if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= 1;
+   if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= 1;
    // Test for NMI
-   if ((HSTAT1 & 8) && !(HSTAT1 & 16) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
-   if ((HSTAT1 & 8) &&  (HSTAT1 & 16) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
+   if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
+   if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 #ifdef USE_GPU
    // Flush the tube_regs out of the ARM L1 cache or the GPU will see stale data
    _clean_invalidate_dcache_mva((void *) &tube_regs);
@@ -139,33 +172,33 @@ void tube_host_read(uint16_t addr)
    {
    case 1: /*Register 1*/
       if (ph1pos > 0) {
-         PH1_0 = ph1[1];
+         PH1_0 = BYTE_TO_WORD(ph1[1]);
          for (c = 1; c < 23; c++) ph1[c] = ph1[c + 1];
          ph1pos--;
          PSTAT1 |= 0x40;
-         if (!ph1pos) HSTAT1 &= ~0x80;
+         if (!ph1pos) HSTAT1 &= ~HBIT_7;
       }
       break;
    case 3: /*Register 2*/
-      if (HSTAT2 & 0x80)
+      if (HSTAT2 & HBIT_7)
       {
-         HSTAT2 &= ~0x80;
+         HSTAT2 &= ~HBIT_7;
          PSTAT2 |=  0x40;
       }
       break;
    case 5: /*Register 3*/
       if (ph3pos > 0)
       {
-         PH3_0 = PH3_1;
+         PH3_0 = BYTE_TO_WORD(PH3_1);
          ph3pos--;
          PSTAT3 |= 0x40;
-         if (!ph3pos) HSTAT3 &= ~0x80;
+         if (!ph3pos) HSTAT3 &= ~HBIT_7;
       }
       break;
    case 7: /*Register 4*/
-      if (HSTAT4 & 0x80)
+      if (HSTAT4 & HBIT_7)
       {
-         HSTAT4 &= ~0x80;
+         HSTAT4 &= ~HBIT_7;
          PSTAT4 |=  0x40;
       }
       break;
@@ -190,21 +223,21 @@ void tube_host_write(uint16_t addr, uint8_t val)
          if (val & 0x40) {
             tube_reset();
          } else {
-            HSTAT1 |= (val&0x3F);
+            HSTAT1 |= BYTE_TO_WORD(val & 0x3F);
          }
       } else {
-         HSTAT1 &= ~(val&0x3F);
+         HSTAT1 &= ~BYTE_TO_WORD(val & 0x3F);
       }
       break;
    case 1: /*Register 1*/
       hp1 = val;
       PSTAT1 |=  0x80;
-      HSTAT1 &= ~0x40;
+      HSTAT1 &= ~HBIT_6;
       break;
    case 3: /*Register 2*/
       hp2 = val;
       PSTAT2 |=  0x80;
-      HSTAT2 &= ~0x40;
+      HSTAT2 &= ~HBIT_6;
       break;
    case 5: /*Register 3*/
 #ifdef DEBUG_TRANSFERS
@@ -219,7 +252,7 @@ void tube_host_write(uint16_t addr, uint8_t val)
          if (hp3pos == 2)
          {
             PSTAT3 |=  0x80;
-            HSTAT3 &= ~0x40;
+            HSTAT3 &= ~HBIT_6;
          }
       }
       else
@@ -227,13 +260,13 @@ void tube_host_write(uint16_t addr, uint8_t val)
          hp3[0] = val;
          hp3pos = 1;
          PSTAT3 |=  0x80;
-         HSTAT3 &= ~0x40;
+         HSTAT3 &= ~HBIT_6;
       }
       break;
    case 7: /*Register 4*/
       hp4 = val;
       PSTAT4 |=  0x80;
-      HSTAT4 &= ~0x40;
+      HSTAT4 &= ~HBIT_6;
 #ifdef DEBUG_TRANSFERS
       if (val == 4) {
          printf("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
@@ -257,14 +290,14 @@ uint8_t tube_parasite_read(uint32_t addr)
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
-      temp = PSTAT1 | (HSTAT1 & 0x3F);
+      temp = PSTAT1 | (WORD_TO_BYTE(HSTAT1) & 0x3F);
       break;
    case 1: /*Register 1*/
       temp = hp1;
       if (PSTAT1 & 0x80)
       {
          PSTAT1 &= ~0x80;
-         HSTAT1 |=  0x40;
+         HSTAT1 |=  HBIT_6;
       }
       break;
    case 2: /*Register 2 stat*/
@@ -275,7 +308,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       if (PSTAT2 & 0x80)
       {
          PSTAT2 &= ~0x80;
-         HSTAT2 |=  0x40;
+         HSTAT2 |=  HBIT_6;
       }
       break;
    case 4: /*Register 3 stat*/
@@ -294,7 +327,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          hp3pos--;
          if (!hp3pos)
          {
-            HSTAT3 |=  0x40;
+            HSTAT3 |=  HBIT_6;
             PSTAT3 &= ~0x80;
          }
       }
@@ -307,7 +340,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       if (PSTAT4 & 0x80)
       {
          PSTAT4 &= ~0x80;
-         HSTAT4 |=  0x40;
+         HSTAT4 |=  HBIT_6;
       }
       break;
    }
@@ -335,26 +368,26 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
       if (ph1pos < 24)
       {
          if (ph1pos == 0) {
-            PH1_0 = val;
+            PH1_0 = BYTE_TO_WORD(val);
          } else {
             ph1[ph1pos] = val;
          }
          ph1pos++;
-         HSTAT1 |= 0x80;
+         HSTAT1 |= HBIT_7;
          if (ph1pos == 24) PSTAT1 &= ~0x40;
       }
       break;
    case 3: /*Register 2*/
-      PH2 = val;
-      HSTAT2 |=  0x80;
+      PH2 = BYTE_TO_WORD(val);
+      HSTAT2 |=  HBIT_7;
       PSTAT2 &= ~0x40;
       break;
    case 5: /*Register 3*/
-      if (HSTAT1 & 16)
+      if (HSTAT1 & HBIT_4)
       {
          if (ph3pos < 2) {
             if (ph3pos == 0) {
-               PH3_0 = val;
+               PH3_0 = BYTE_TO_WORD(val);
             } else {
                PH3_1 = val;
             }
@@ -362,21 +395,21 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          }
          if (ph3pos == 2)
          {
-            HSTAT3 |=  0x80;
+            HSTAT3 |=  HBIT_7;
             PSTAT3 &= ~0x40;
          }
       }
       else
       {
-         PH3_0 = val;
+         PH3_0 = BYTE_TO_WORD(val);
          ph3pos = 1;
-         HSTAT3 |=  0x80;
+         HSTAT3 |=  HBIT_7;
          PSTAT3 &= ~0x40;
       }
       break;
    case 7: /*Register 4*/
-      PH4 = val;
-      HSTAT4 |=  0x80;
+      PH4 = BYTE_TO_WORD(val);
+      HSTAT4 |=  HBIT_7;
       PSTAT4 &= ~0x40;
       break;
    }
@@ -388,9 +421,9 @@ void tube_reset()
    tube_enabled = 1;
    ph1pos = hp3pos = 0;
    ph3pos = 1;
-   HSTAT1 = HSTAT2 = HSTAT4 = 0x40;
+   HSTAT1 = HSTAT2 = HSTAT4 = HBIT_6;
    PSTAT1 = PSTAT2 = PSTAT3 = PSTAT4 = 0x40;
-   HSTAT3 = 0xC0;
+   HSTAT3 = HBIT_7 | HBIT_6;
    tube_updateints();
 }
 
@@ -454,7 +487,7 @@ int tube_io_handler(uint32_t mail)
    printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
 #endif
    
-   if (nrst == 0 || (tube_enabled && (tube_regs[0] & 0x20))) {
+   if (nrst == 0 || (tube_enabled && (HSTAT1 & HBIT_5))) {
       return tube_irq | 4;
    } else {
       return tube_irq;
@@ -569,7 +602,7 @@ int tube_is_rst_active() {
       tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
       tube_io_handler(tube_mailbox_copy);
    }
-   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || (tube_enabled && (tube_regs[0] & 0x20));
+   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || (tube_enabled && (HSTAT1 & HBIT_5));
 }
 
 void tube_wait_for_rst_active() {
