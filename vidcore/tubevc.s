@@ -132,8 +132,7 @@ Poll_loop:
    st     r15, 8(r6)  # Drive data bus
 
    # Sort out the databus
-   mov    r7, r8
-   lsl    r7, 28      # put lower nibble at the top ( clear upper nibble)
+   lsl    r7, r8, 28    # put lower nibble at the top ( clear upper nibble)
    lsr    r7, 28-D0D3_shift
    lsr    r8, 4
    lsl    r8, D4D7_shift
