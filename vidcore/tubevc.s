@@ -30,6 +30,7 @@
 .equ GPSET0_offset, 0x1C
 .equ GPCLR0_offset, 0x28
 .equ GPLEV0_offset, 0x34
+.equ GPEDS0_offset, 0x40
 
   # pin bit positions
 .equ nRST,          4
@@ -47,11 +48,47 @@
 .equ ATTN_MASK,    31
 .equ OVERRUN_MASK, 30
 
+.equ vector,       49
+
+.equ IC0_MASK,     0x7e002010
+.equ IC1_MASK,     0x7e002810
+
 .org 0
+
 # code entry point
 #  ld r0, (r0)
 #  rts
+        
+# disable interrupts
    di
+        
+# Setup interrupt vector
+# 0x1EC01E00 looks like the interrupt table
+# Vector 113 = 49 + 64 = GPIO0      
+
+  mov r8, (0x40000000 + 0x1EC01E00 + (113 << 2))
+  lea r9, irq_handler(pc)
+  st  r9, (r8)
+ 
+# mask ARM interrupts
+   mov r8, IC0_MASK
+   mov r9, IC1_MASK
+   mov r10, 0x0
+   mov r11, 8
+mask_all:
+   st r10, (r8)
+   st r10, (r9)
+   add r8, 4
+   add r9, 4
+   sub r11, 1
+   cmp r11, 0
+   bne mask_all   
+   
+# enable the interupt (49 + 64 = 113)
+   mov r8, IC0_MASK + 0x18
+   mov r9, 0x00000010
+   st  r9, (r8)
+        
    mov    r9, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
    ld     r10, (r1)    # databus driving signals
    ld     r11, 4(r1)   # databus driving signals
@@ -62,28 +99,13 @@
 # r1 is now free
    mov    r6, GPFSEL0
 
-#temploop:
-#  st     r5, GPSET0_offset(r6) #DEBUG pin
-#  mov    r1, 1000
-#delay1:
-#  sub    r1, 1
-#  cmp    r1, 0
-#  bne    delay1
-#  st     r5, GPCLR0_offset(r6) #DEBUG pin
-#  mov    r1, 1000
-#delay2:
-#  sub    r1, 1
-#  cmp    r1, 0
-#  bne    delay2
-#  b      temploop
-
-# poll for nTube or RST being low
+# enable interrupts
+   ei
+                
+# poll for nTube being low
 Poll_loop:
-   # use r8 here, as post_mail expects GPIO read data in r8
-   ld     r8, GPLEV0_offset(r6)
-   btst   r8, nRST
-   beq    post_mail
-   btst   r8, nTUBE
+   ld     r7, GPLEV0_offset(r6)
+   btst   r7, nTUBE
    bne    Poll_loop
    ld     r7, GPLEV0_offset(r6)  # check ntube again to remove glitches
    btst   r7, nTUBE
@@ -181,5 +203,41 @@ post_mail:
    bsetne r8, OVERRUN_MASK
    st     r8, (r2)
    b      Poll_loop
+        
+# The interrupt handler just deals with nRST being pressed
+# This saves two instructions in Poll_loop
+        
+irq_handler:
 
+   # Clear the interrupt condition
+   mov    r8, 0xffffffff
+   st     r8, GPEDS0_offset(r6)
 
+   ld     r8, GPLEV0_offset(r6)
+   btst   r8, nRST
+   bne    irq_handler_exit
+        
+   and    r8,( 1<<nTUBE+1<<nRST+1<<RnW+1<<A2+1<<A1+1<<A0+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
+   bset   r8, ATTN_MASK
+   ld     r7, (r2)  # get mailbox
+   btst   r7, ATTN_MASK
+   bsetne r8, OVERRUN_MASK
+   st     r8, (r2)
+
+irq_handler_exit:
+   rti
+
+# This code is not used
+        
+demo_irq_handler:
+
+   mov    r6, GPFSEL0
+        
+   mov    r5, 0xffffffff
+   st     r5, GPEDS0_offset(r6)
+
+   mov    r5, (1<<20)
+   st     r5, GPSET0_offset(r6) #DEBUG pin
+   st     r5, GPCLR0_offset(r6) #DEBUG pin
+        
+   rti

@@ -494,16 +494,20 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
 #endif
 
-#ifndef USE_GPU
-  // Configure GPIO to detect a falling edge of NTUBE and NRST
-  RPI_GpioBase->GPFEN0 |= NTUBE_MASK | NRST_MASK;
-
   // Configure GPIO to detect a rising edge of NRST
   // Current code does not reqire this, as emulators poll for NRST to be released
   // RPI_GpioBase->GPREN0 |= NRST_MASK;
 
+  // Configure GPIO to detect a falling edge of NRST
+  RPI_GpioBase->GPFEN0 |= NRST_MASK;
   // Make sure there are no pending detections
-  RPI_GpioBase->GPEDS0 = NTUBE_MASK | NRST_MASK;
+  RPI_GpioBase->GPEDS0 = NRST_MASK;
+
+#ifndef USE_GPU
+  // Configure GPIO to detect a falling edge of NTUBE
+  RPI_GpioBase->GPFEN0 |= NTUBE_MASK;
+  // Make sure there are no pending detections
+  RPI_GpioBase->GPEDS0 = NTUBE_MASK;
 
   // This line enables IRQ interrupts
   // Enable gpio_int[0] which is IRQ 49
