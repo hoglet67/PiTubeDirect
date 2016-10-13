@@ -620,8 +620,13 @@ static int translate(instruction *p,section *sec,taddr pc)
       c=replace(c,EN_ARITHI48);
   }
   if(e==EN_ARITHI32){
-    if(!chkval(p->op[1]->offset,sec,pc,5,0))
-      c=replace(c,EN_ARITHI48);
+	 if (p->op[2]){
+		     if(!chkval(p->op[2]->offset,sec,pc,5,0))
+				c=replace(c,EN_ARITHI48);
+	 } else
+		  
+			if(!chkval(p->op[1]->offset,sec,pc,5,0))
+				c=replace(c,EN_ARITHI48);
   }
   if(e==EN_RBRANCH16){
     symbol *base;
