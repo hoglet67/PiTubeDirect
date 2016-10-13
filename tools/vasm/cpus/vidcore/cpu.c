@@ -619,6 +619,10 @@ static int translate(instruction *p,section *sec,taddr pc)
     if(!chkval(p->op[1]->offset,sec,pc,5,0))
       c=replace(c,EN_ARITHI48);
   }
+  if(e==EN_ARITHI32){
+    if(!chkval(p->op[1]->offset,sec,pc,5,0))
+      c=replace(c,EN_ARITHI48);
+  }
   if(e==EN_RBRANCH16){
     symbol *base;
     if(find_base(p->op[0]->offset,&base,sec,pc)!=BASE_OK||!LOCREF(base)||base->sec!=sec)
