@@ -674,7 +674,7 @@ exec_65tube:
         ldr     r5, =0xffffff00         // initialize the constant in r5
 
         mov     r0, #0                  // initialize tube mailbox (between isr and event handler)
-        ldr     r1, =tube_mailbox
+        ldr     r1, =tube_mailbox_block
         str     r0, [r1]
 
         mrs     r0, CPSR                // Enable ARM IRQs and FIQs
@@ -704,7 +704,7 @@ fetch_next:
         bne     waste_time                // forward branch will predict as not taken
         
 fetch_next_check_event:
-        ldr     r0, =tube_mailbox         // Check the tube mailbox for "events" (e.g. tube irq)
+        ldr     r0, =tube_mailbox_block   // Check the tube mailbox for "events" (e.g. tube irq)
         ldr     r0, [r0]
         tst     r0, #ATTN_MASK
         bne     Event_Handler
@@ -750,7 +750,7 @@ Event_Handler:
         orr     r1, r2, #ARM_INT_MASK           // disable ARM IRQs and FIQs
         msr     CPSR_c, r1
         
-        ldr     r1, =tube_mailbox
+        ldr     r1, =tube_mailbox_block
         ldr     r0, [r1]
 #ifndef USE_MULTICORE        
         bic     ip, ip, #1024           // ack events
@@ -821,7 +821,7 @@ handle_nmi:
 Event_Handler_Single_Core_Slow:
         mrs     r2, CPSR                // preserve the 6502 flags
                                         // interrupts are left enabled        
-        ldr     r1, =tube_mailbox
+        ldr     r1, =tube_mailbox_block
         ldr     r0, [r1]
         bic     ip, ip, #1024           // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it

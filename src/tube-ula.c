@@ -15,6 +15,7 @@
 #include "rpi-gpio.h"
 #include "rpi-aux.h"
 #include "rpi-interrupts.h"
+#include "cache.h"
 #include "info.h"
 #include "performance.h"
 
@@ -23,9 +24,12 @@
 #include "startup.h"
 #endif
 
+volatile uint32_t *tube_mailbox;
+
 #ifdef USE_GPU
 
-extern volatile uint32_t tube_regs[8];
+extern volatile uint32_t tube_regs_block[8];
+static volatile uint32_t *tube_regs;
 
 #define HBIT_7 (1 << 25)
 #define HBIT_6 (1 << 24)
@@ -41,7 +45,8 @@ extern volatile uint32_t tube_regs[8];
 
 #else
 
-extern volatile uint8_t tube_regs[8];
+extern volatile uint8_t tube_regs_block[8];
+static volatile uint8_t *tube_regs;
 
 #define HBIT_7 (1 << 7)
 #define HBIT_6 (1 << 6)
@@ -151,7 +156,7 @@ void tube_updateints()
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 #ifdef USE_GPU
    // Flush the tube_regs out of the ARM L1 cache or the GPU will see stale data
-   _clean_invalidate_dcache_mva((void *) &tube_regs);
+   // _clean_invalidate_dcache_mva((void *) tube_regs);
 #endif
 }
 
@@ -592,14 +597,23 @@ void tube_init_hardware()
    pct.counter[1] = 0;
 #endif
 
+#ifdef USE_GPU
+   tube_regs = (uint32_t *)L2_CACHED_MEM_BASE;
+   tube_mailbox = (uint32_t *)(L2_CACHED_MEM_BASE + 0x20);
+   // tube_regs = &tube_regs_block[0];
+   // tube_mailbox = &tube_mailbox_block;
+#else
+   tube_regs = &tube_regs_block[0];
+   tube_mailbox = &tube_mailbox_block;
+#endif
 }
 
 int tube_is_rst_active() {
    // It's necessary to keep servicing the tube_mailbox
    // otherwise a software reset sequence won't get handled properly
-   if (tube_mailbox & ATTN_MASK) {
-      unsigned int tube_mailbox_copy = tube_mailbox;
-      tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+   if (*tube_mailbox & ATTN_MASK) {
+      unsigned int tube_mailbox_copy = *tube_mailbox;
+      *tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
       tube_io_handler(tube_mailbox_copy);
    }
    return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || (tube_enabled && (HSTAT1 & HBIT_5));
@@ -646,7 +660,7 @@ void tube_wait_for_rst_release() {
    tube_reset();
    // Clear any mailbox events that occurred during reset
    // Omit this and you sometimes see a second reset logged on reset release (65tube Co Pro)
-   tube_mailbox = 0;
+   *tube_mailbox = 0;
 }
 
 void tube_reset_performance_counters() {
@@ -680,9 +694,9 @@ void start_vc_ula()
 
 
    func = (int) &tubevc_asm[0];
-   r0 = (int) &tube_regs;        // pointer to tube regsiters
+   r0 = (int) tube_regs;         // pointer to tube regsiters
    r1 = (int) &gpfsel_data_idle; // gpfsel_data_idle
-   r2 = (int) &tube_mailbox;     // tube mailbox to be replaced later with VC->ARM mailbox
+   r2 = (int) tube_mailbox;      // tube mailbox to be replaced later with VC->ARM mailbox
    r3 = 0;
    r4 = 0;                       // address pinmap point to be done
    r5 = TEST2_MASK;              // test2 pin

@@ -72,7 +72,8 @@ void enable_MMU_and_IDCaches(void)
   printf("cpsr    = %08x\r\n", _get_cpsr());
 
   unsigned base;
-  unsigned cached_threshold = UNCACHED_MEM_BASE >> 20;
+  unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
+  unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
   unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
   
   // TLB 1MB Sector Descriptor format
@@ -115,14 +116,18 @@ void enable_MMU_and_IDCaches(void)
   int bb = 1;
   int shareable = 1;
 
-  for (base = 0; base < cached_threshold; base++)
+  for (base = 0; base < l1_cached_threshold; base++)
   {
     // Value from my original RPI code = 11C0E (outer and inner write back, write allocate, shareable)
     // bits 11..10 are the AP bits, and setting them to 11 enables user mode access as well
     // Values from RPI2 = 11C0E (outer and inner write back, write allocate, shareable (fast but unsafe)); works on RPI
     // Values from RPI2 = 10C0A (outer and inner write through, no write allocate, shareable)
     // Values from RPI2 = 15C0A (outer write back, write allocate, inner write through, no write allocate, shareable)
-    PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12) | (aa << 2);
+    PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (aa << 2);
+  }
+  for (; base < l2_cached_threshold; base++)
+  {
+     PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12);
   }
   for (; base < uncached_threshold; base++)
   {

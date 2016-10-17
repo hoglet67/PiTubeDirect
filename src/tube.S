@@ -8,8 +8,8 @@
 // #define ON_READS_SPIN_FOR_PHI2_HIGH
         
 .text
-.global tube_regs
-.global tube_mailbox
+.global tube_regs_block
+.global tube_mailbox_block
 .global arm_irq_handler
 .global arm_fiq_handler
 .global arm_fiq_handler_flag0
@@ -57,7 +57,7 @@
         tst     r9, #A2_MASK
         orrne   r10, #4
 
-        ldr     r8, =tube_regs
+        ldr     r8, =tube_regs_block
         ldrb    r10, [r8, r10]
 
         mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
@@ -147,10 +147,10 @@ post_mail\@:
 post_mail2\@:
         orr     r9, r9, #ATTN_MASK
 
-        ldr     r10, tube_mailbox
+        ldr     r10, tube_mailbox_block
         tst     r10, #ATTN_MASK         // if previous message not acknowledged, then flag overrun
         orrne   r9, r9, #OVERRUN_MASK
-        str     r9, tube_mailbox
+        str     r9, tube_mailbox_block
 
 // Update TEST2 Pin to reflect overun state      
 #if defined(DEBUG_OVERRUN) && defined(HAS_40PINS)
@@ -437,7 +437,7 @@ isr_code_end:
 isr_data_start:
 
 #ifdef USE_GPU
-tube_regs:
+tube_regs_block:
         .word (0xf << D4_BASE) | (0xe << D0_BASE)
         .word (0xe << D4_BASE) | (0xd << D0_BASE)
         .word (0xd << D4_BASE) | (0xc << D0_BASE)
@@ -447,7 +447,7 @@ tube_regs:
         .word (0x9 << D4_BASE) | (0x8 << D0_BASE)
         .word (0x8 << D4_BASE) | (0x7 << D0_BASE)
 #else
-tube_regs:
+tube_regs_block:
         .byte 0xfe
         .byte 0xed
         .byte 0xdc
@@ -460,7 +460,7 @@ tube_regs:
 
 .align CACHELINE_ALIGN
 // Mailbox between tube isr and events handler (in C)
-tube_mailbox:
+tube_mailbox_block:
         .word 0
 
 .align CACHELINE_ALIGN        

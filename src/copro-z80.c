@@ -337,14 +337,14 @@ void copro_z80_emulator()
 
 #ifdef USE_GPU
       // temp hack to get around coherency issues
-      _invalidate_dcache_mva((void*) &tube_mailbox);
+      // _invalidate_dcache_mva((void*) tube_mailbox);
 #endif
-      if (tube_mailbox & ATTN_MASK) {
-         unsigned int tube_mailbox_copy = tube_mailbox;
-         tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+      if (*tube_mailbox & ATTN_MASK) {
+         unsigned int tube_mailbox_copy = *tube_mailbox;
+         *tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
 #ifdef USE_GPU
-    // temp hack to get around coherency issues
-    _clean_invalidate_dcache_mva((void *) &tube_mailbox);
+         // temp hack to get around coherency issues
+         // _clean_invalidate_dcache_mva((void *) tube_mailbox);
 #endif
          unsigned int intr = tube_io_handler(tube_mailbox_copy);
          unsigned int nmi = intr & 2;
