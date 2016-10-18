@@ -46,7 +46,7 @@ void copro_32016_emulator() {
    while (1) {
       // 32 is actually just 4 instructions
       // might need to reduce if we see LATEs
-      tubecycles = 32;
+      tubecycles = 16;
       n32016_exec();
 #ifdef USE_GPU
       // temp hack to get around coherency issues
