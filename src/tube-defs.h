@@ -68,11 +68,20 @@
 
 #define USE_GPU
 
+#define USE_HW_MAILBOX
+
+#endif
+
+#include "rpi-base.h"
+
+#ifdef USE_HW_MAILBOX
+#define MBOX0_READ     (PERIPHERAL_BASE + 0x00B880)
+#define MBOX0_STATUS   (PERIPHERAL_BASE + 0x00B898)
+#define MBOX0_EMPTY    (0x40000000)
 #endif
 
 #ifdef __ASSEMBLER__
 
-#include "rpi-base.h"
 #define GPFSEL0 (PERIPHERAL_BASE + 0x200000)  // controls GPIOs 0..9
 #define GPFSEL1 (PERIPHERAL_BASE + 0x200004)  // controls GPIOs 10..19
 #define GPFSEL2 (PERIPHERAL_BASE + 0x200008)  // controls GPIOs 20..29

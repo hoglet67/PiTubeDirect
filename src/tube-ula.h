@@ -4,6 +4,8 @@
 #define TUBE_ULA_H
 
 #include <inttypes.h>
+#include "tube.h"
+#include "tube-defs.h"
 
 // Uncomment to checksum tube transfers
 // #define DEBUG_TRANSFERS
@@ -41,6 +43,32 @@ extern void tube_log_performance_counters();
 
 #ifdef USE_GPU
 extern void start_vc_ula();
+#endif
+
+#ifdef USE_HW_MAILBOX
+
+static volatile inline int is_mailbox_non_empty() {
+   return !((*(uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY);
+}
+
+static volatile inline unsigned int read_mailbox() {
+   return (*(uint32_t *)MBOX0_READ) >> 4;
+}
+
+#else
+
+extern volatile uint32_t *tube_mailbox;
+
+static volatile inline int is_mailbox_non_empty() {
+   return *tube_mailbox & ATTN_MASK;
+}
+
+static volatile inline unsigned int read_mailbox() {
+   unsigned int tube_mailbox_copy = *tube_mailbox;
+   *tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+   return tube_mailbox_copy;
+}
+
 #endif
 
 #endif

@@ -673,10 +673,12 @@ exec_65tube:
         
         ldr     r5, =0xffffff00         // initialize the constant in r5
 
+#if !defined(USE_HW_MAILBOX)
         mov     r0, #0                  // initialize tube mailbox (between isr and event handler)
         ldr     r1, =tube_mailbox
         ldr     r1, [r1]
         str     r0, [r1]
+#endif
 
         mrs     r0, CPSR                // Enable ARM IRQs and FIQs
         bic     r0, r0, #ARM_INT_MASK
@@ -705,11 +707,18 @@ fetch_next:
         bne     waste_time                // forward branch will predict as not taken
         
 fetch_next_check_event:
+#if defined(USE_HW_MAILBOX)
+        ldr     r0, =MBOX0_STATUS         // Check the tube mailbox for "events" (e.g. tube irq)
+        ldr     r0, [r0]
+        tst     r0, #MBOX0_EMPTY
+        beq     Event_Handler
+#else
         ldr     r0, =tube_mailbox         // Check the tube mailbox for "events" (e.g. tube irq)
         ldr     r0, [r0]
         ldr     r0, [r0]
         tst     r0, #ATTN_MASK
         bne     Event_Handler
+#endif
         msr     CPSR_flg, r2              // Restore the 6502 flags
 
         ldrb    r2, [sl], #1
@@ -733,7 +742,7 @@ fetch_next_check_irq:
         b       fetch_next
 
 waste_time:
-        mov     r0, #776                  // 776=4MHz on a Pi 3
+        mov     r0, #250                  // TODO: Recalibrate
 waste_time_loop:
         subs    r0, r0, #1
         bne     waste_time_loop
@@ -752,15 +761,23 @@ Event_Handler:
         orr     r1, r2, #ARM_INT_MASK           // disable ARM IRQs and FIQs
         msr     CPSR_c, r1
         
+#if defined(USE_HW_MAILBOX)
+        ldr     r1, =MBOX0_READ
+        ldr     r0, [r1]
+        lsr     r0, r0, #4
+#else
         ldr     r1, =tube_mailbox
         ldr     r1, [r1]
         ldr     r0, [r1]
+#endif
 #if !defined(USE_MULTICORE) && !defined(USE_GPU)
         bic     ip, ip, #1024           // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
 #endif
+#if !defined(USE_HW_MAILBOX)
         bic     r0, r0, #ATTN_MASK      // the attention bit
         str     r0, [r1]                // ack the attention bit
+#endif
 
         push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value
         bl      tube_io_handler
@@ -824,17 +841,25 @@ handle_nmi:
 Event_Handler_Single_Core_Slow:
         mrs     r2, CPSR                // preserve the 6502 flags
                                         // interrupts are left enabled        
+#if defined(USE_HW_MAILBOX)
+        ldr     r1, =MBOX0_READ
+        ldr     r0, [r1]
+        lsr     r0, r0, #4
+#else
         ldr     r1, =tube_mailbox
         ldr     r1, [r1]        
         ldr     r0, [r1]
+#endif
         bic     ip, ip, #1024           // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
 
+#if !defined(USE_HW_MAILBOX)
         tst     r0, #ATTN_MASK
         beq     noirq2
 
         bic     r0, r0, #ATTN_MASK      // the attention bit
         str     r0, [r1]                // ack the attention bit
+#endif
 
         push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value
         bl      tube_io_handler

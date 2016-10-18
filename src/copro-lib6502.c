@@ -55,17 +55,8 @@ static int last_copro;
 
 static int copro_lib6502_poll(M6502 *mpu) {
   static unsigned int last_rst = 0;
-#ifdef USE_GPU
-  // temp hack to get around coherency issues
-  // _invalidate_dcache_mva((void*) tube_mailbox);
-#endif
-  if (*tube_mailbox & ATTN_MASK) {
-    unsigned int tube_mailbox_copy = *tube_mailbox;
-    *tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
-#ifdef USE_GPU
-    // temp hack to get around coherency issues
-    // _clean_invalidate_dcache_mva((void *) tube_mailbox);
-#endif
+  if (is_mailbox_non_empty()) {
+    unsigned int tube_mailbox_copy = read_mailbox();
     unsigned int intr = tube_io_handler(tube_mailbox_copy);
     unsigned int nmi = intr & 2;
     unsigned int rst = intr & 4;

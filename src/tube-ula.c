@@ -46,7 +46,9 @@
 #include "startup.h"
 #endif
 
+#ifndef USE_HW_MAILBOX
 volatile uint32_t *tube_mailbox;
+#endif
 
 #ifdef USE_GPU
 
@@ -176,10 +178,6 @@ void tube_updateints()
    // Test for NMI
    if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
-#ifdef USE_GPU
-   // Flush the tube_regs out of the ARM L1 cache or the GPU will see stale data
-   // _clean_invalidate_dcache_mva((void *) tube_regs);
-#endif
 }
 
 // 6502 Host reading the tube registers
@@ -466,6 +464,15 @@ int tube_io_handler(uint32_t mail)
    int ntube;
    int nrst;
 
+#ifdef USE_HW_MAILBOX
+   // Sequence numbers are currently 4 bits, and are stored in bits 12..15
+   int act_seq_num;
+   static int exp_seq_num = 0;
+   // Increment the expected sequence number
+   exp_seq_num = (exp_seq_num + 1) & 15;
+   act_seq_num = (mail >> 12) & 15;
+#endif
+
    // Toggle the LED on each tube access
    static int led = 0;
 	if (led) {
@@ -491,9 +498,17 @@ int tube_io_handler(uint32_t mail)
    nrst  = (mail >> NRST_PIN) & 1;
 
    // Only report OVERRUNs that occur when nRST is high
+#ifdef USE_HW_MAILBOX
+   if ((exp_seq_num != act_seq_num) && (mail & NRST_MASK)) {
+      printf("OVERRUN: exp=%X act=%X A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", exp_seq_num, act_seq_num, addr, data, rnw, ntube, nrst); 
+   }
+   // Re-sync the sequence number regardless
+   exp_seq_num = act_seq_num;   
+#else
    if ((mail & OVERRUN_MASK) && (mail & NRST_MASK)) {
       printf("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
+#endif
 
    if (mail & GLITCH_MASK) {
       printf("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
@@ -621,21 +636,24 @@ void tube_init_hardware()
 
 #ifdef USE_GPU
    tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
-   tube_mailbox = (uint32_t *)(L2_CACHED_MEM_BASE + 0x20);
-   // tube_regs = &tube_regs_block[0];
-   // tube_mailbox = &tube_mailbox_block;
 #else
    tube_regs = &tube_regs_block[0];
+#endif
+
+#ifndef USE_HW_MAILBOX
+#ifdef USE_GPU
+   tube_mailbox = (uint32_t *)(L2_CACHED_MEM_BASE + 0x20);
+#else
    tube_mailbox = &tube_mailbox_block;
+#endif
 #endif
 }
 
 int tube_is_rst_active() {
    // It's necessary to keep servicing the tube_mailbox
    // otherwise a software reset sequence won't get handled properly
-   if (*tube_mailbox & ATTN_MASK) {
-      unsigned int tube_mailbox_copy = *tube_mailbox;
-      *tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+   if (is_mailbox_non_empty()) {
+      unsigned int tube_mailbox_copy = read_mailbox();
       tube_io_handler(tube_mailbox_copy);
    }
    return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || (tube_enabled && (HSTAT1 & HBIT_5));
@@ -680,9 +698,11 @@ void tube_wait_for_rst_release() {
 //#endif
    // Reset all the TUBE ULA registers
    tube_reset();
+#ifndef USE_HW_MAILBOX
    // Clear any mailbox events that occurred during reset
    // Omit this and you sometimes see a second reset logged on reset release (65tube Co Pro)
    *tube_mailbox = 0;
+#endif
 }
 
 void tube_reset_performance_counters() {
@@ -718,7 +738,11 @@ void start_vc_ula()
    func = (int) &tubevc_asm[0];
    r0 = (int) GPU_TUBE_REG_ADDR; //tube_regs;         // pointer to tube regsiters
    r1 = (int) &gpfsel_data_idle; // gpfsel_data_idle
+#ifdef USE_HW_MAILBOX
+   r2 = 0;
+#else
    r2 = (int) tube_mailbox;      // tube mailbox to be replaced later with VC->ARM mailbox
+#endif
    r3 = 0;
    r4 = 0;                       // address pinmap point to be done
    r5 = TEST2_MASK;              // test2 pin
@@ -726,8 +750,12 @@ void start_vc_ula()
    // if the L2 cache is  enabled, the VC MMU maps physical memory to 0x40000000
    // if the L2 cache is disabled, the VC MMU maps physical memory to 0xC0000000
    // https://github.com/raspberrypi/firmware/wiki/Accessing-mailboxes
-   r0 |= 0x40000000;
-   r2 |= 0x40000000;
+   if (r0) {
+      r0 |= 0x40000000;
+   }
+   if (r2) {
+      r2 |= 0x40000000;
+   }
    printf("VidCore code = %08x\r\n", func);
    printf("VidCore   r0 = %08x\r\n", r0);
    printf("VidCore   r1 = %08x\r\n", r1);

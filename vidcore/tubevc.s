@@ -96,6 +96,9 @@ mask_all:
    ld     r13, 12(r1)  # databus driving signals
    ld     r14, 16(r1)  # databus driving signals
    ld     r15, 20(r1)  # databus driving signals
+
+   mov    r4, 0        # 4-bit sequence number
+
 # r1 is now free
    mov    r6, GPFSEL0
 
@@ -181,13 +184,10 @@ wr_wait_for_clk_low:
 
 #
 post_mail:
-   and    r8,( 1<<nTUBE+1<<nRST+1<<RnW+1<<A2+1<<A1+1<<A0+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
-   bset   r8, ATTN_MASK
-   ld     r7, (r2)  # get mailbox
-   btst   r7, ATTN_MASK
-   bsetne r8, OVERRUN_MASK
-   st     r8, (r2)
-   b      Poll_loop
+
+   bl     do_post_mailbox
+        
+   b    Poll_loop
         
 # The interrupt handler just deals with nRST being pressed
 # This saves two instructions in Poll_loop
@@ -201,16 +201,41 @@ irq_handler:
    ld     r8, GPLEV0_offset(r6)
    btst   r8, nRST
    bne    irq_handler_exit
+
+   bl     do_post_mailbox
         
+irq_handler_exit:
+   rti
+
+
+
+
+do_post_mailbox:
+# Send to GPU->ARM mailbox (channel 10)
    and    r8,( 1<<nTUBE+1<<nRST+1<<RnW+1<<A2+1<<A1+1<<A0+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
+
+   cmp    r2, 0
+   beq    use_hw_mailbox
+
+# Use the software mailbox
    bset   r8, ATTN_MASK
    ld     r7, (r2)  # get mailbox
    btst   r7, ATTN_MASK
    bsetne r8, OVERRUN_MASK
    st     r8, (r2)
+   rts
 
-irq_handler_exit:
-   rti
+# Use the hardware mailbox
+use_hw_mailbox:
+# Add 4-bit seqence number into bits 12-15 (unused GPIO bits), and increment
+   or     r8, r4
+   add    r4, 0x1000
+   and    r4, 0xF000
+   lsl    r8, 4
+   or     r8, 0x0000000A
+   mov    r7, 0x7E00B880
+   st     r8, (r7)
+   rts        
 
 # This code is not used
         

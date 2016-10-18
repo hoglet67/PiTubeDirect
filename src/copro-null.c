@@ -25,17 +25,8 @@ void copro_null_emulator() {
    // Wait for copro to be changed via *FX 151,230,N
    // then exit on the next reset
    while (1) {
-#ifdef USE_GPU
-      // temp hack to get around coherency issues
-      // _invalidate_dcache_mva((void*) tube_mailbox);
-#endif
-      if (*tube_mailbox & ATTN_MASK) {
-         unsigned int tube_mailbox_copy = *tube_mailbox;
-         *tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
-#ifdef USE_GPU
-         // temp hack to get around coherency issues
-         // _clean_invalidate_dcache_mva((void *) tube_mailbox);
-#endif
+      if (is_mailbox_non_empty()) {
+         unsigned int tube_mailbox_copy = read_mailbox();
          // With tube disabled, only writes to reg 6 are implements
          // which update the copro global variable
          tube_io_handler(tube_mailbox_copy);
