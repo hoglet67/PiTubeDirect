@@ -123,7 +123,7 @@ void enable_MMU_and_IDCaches(void)
     // Values from RPI2 = 11C0E (outer and inner write back, write allocate, shareable (fast but unsafe)); works on RPI
     // Values from RPI2 = 10C0A (outer and inner write through, no write allocate, shareable)
     // Values from RPI2 = 15C0A (outer write back, write allocate, inner write through, no write allocate, shareable)
-    PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (aa << 2);
+    PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12) | (aa << 2);
   }
   for (; base < l2_cached_threshold; base++)
   {
