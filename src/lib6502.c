@@ -869,7 +869,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
   register void **itabp= &itab[0];
   register void  *tpc;
 
-# define pollints()             externalise(); poll(mpu); internalise()
+# define pollints()             externalise(); if (poll(mpu)) return; internalise()
 # define begin()				fetch();  next()
 # define fetch()				pollints(); tpc= itabp[memory[PC++]]
 # define next()				    goto *tpc

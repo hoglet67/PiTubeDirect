@@ -15,7 +15,7 @@ typedef M6502_Callback	M6502_CallbackTable[0x10000];
 typedef uint8_t		M6502_Memory[0x10000];
 
 // For testing for IRQ
-typedef void (*M6502_PollInterruptsCallback)(M6502 *mpu);
+typedef int (*M6502_PollInterruptsCallback)(M6502 *mpu);
 
 enum {
   M6502_NMIVector= 0xfffa,  M6502_NMIVectorLSB= 0xfffa,  M6502_NMIVectorMSB= 0xfffb,

@@ -50,7 +50,9 @@ static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
   return 0;
 }
 
-static void copro_lib6502_poll(M6502 *mpu) {
+static int last_copro;
+
+static int copro_lib6502_poll(M6502 *mpu) {
   static unsigned int last_rst = 0;
   if (tube_mailbox & ATTN_MASK) {
     unsigned int tube_mailbox_copy = tube_mailbox;
@@ -60,6 +62,10 @@ static void copro_lib6502_poll(M6502 *mpu) {
     unsigned int rst = intr & 4;
     // Reset the processor on a rst going inactive
     if (rst && !last_rst) {
+       // Exit if the copro has changed
+       if (copro != last_copro) {
+          return 1;
+       }
       copro_lib6502_reset(mpu);
     }
     // NMI is edge sensitive, so only check after mailbox activity
@@ -74,10 +80,14 @@ static void copro_lib6502_poll(M6502 *mpu) {
         M6502_irq(mpu);
      }
   }
+  return 0;
 }
 
 void copro_lib6502_emulator() {
   uint16_t addr;
+
+  // Remember the current copro so we can exit if it changes
+  last_copro = copro;
 
   M6502 *mpu= M6502_new(0, 0, 0);
 
