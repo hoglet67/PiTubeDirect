@@ -19,6 +19,28 @@
 #include "info.h"
 #include "performance.h"
 
+// For predictable timing (i.e. stalling to to cache or memory contention)
+// we need to find somewhere in I/O space to place the tube registers.
+//
+// This makes a MASSIVE improvement to the timing, compared to tube_regs
+// being placed in L2 cached memory. With this chanhe we have ~+50ns of
+// setup margin, without it we had ~-150ns in the worst (rare) case.
+//
+// These locations must allow 32 bit reads/writes of arbitrary data
+//
+// See http://elinux.org/BCM2835_registers
+//
+// We have chosen MS_MBOX_0..MS_MBOX_7, which are 8 consecutive words.
+//
+// These locations are possibly the 8 words of the ARM-GPU mailbox,
+// so we may need to change when we want to use mailboxes.
+//
+// Another option if we go back to 8-bit values tube_regs is to use
+// CPG_Param0..CPG_Param1
+
+#define GPU_TUBE_REG_ADDR 0x7e0000a0
+#define ARM_TUBE_REG_ADDR (GPU_TUBE_REG_ADDR & 0x20FFFFFF) 
+
 #ifdef USE_GPU
 #include "tubevc.h"
 #include "startup.h"
@@ -598,7 +620,7 @@ void tube_init_hardware()
 #endif
 
 #ifdef USE_GPU
-   tube_regs = (uint32_t *)L2_CACHED_MEM_BASE;
+   tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
    tube_mailbox = (uint32_t *)(L2_CACHED_MEM_BASE + 0x20);
    // tube_regs = &tube_regs_block[0];
    // tube_mailbox = &tube_mailbox_block;
@@ -694,7 +716,7 @@ void start_vc_ula()
 
 
    func = (int) &tubevc_asm[0];
-   r0 = (int) tube_regs;         // pointer to tube regsiters
+   r0 = (int) GPU_TUBE_REG_ADDR; //tube_regs;         // pointer to tube regsiters
    r1 = (int) &gpfsel_data_idle; // gpfsel_data_idle
    r2 = (int) tube_mailbox;      // tube mailbox to be replaced later with VC->ARM mailbox
    r3 = 0;
