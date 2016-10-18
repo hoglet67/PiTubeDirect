@@ -75,7 +75,7 @@
 .global exec_65tube
 .global mpu_memory
 
-#ifndef USE_MULTICORE
+#if !defined(USE_MULTICORE) && !defined(USE_GPU)
 .global Event_Handler_Dispatch_Table
 .global Event_Handler
 .global Event_Handler_Single_Core_Slow
@@ -94,7 +94,7 @@
 .equ    R4_MASK,     0xFFFFFF4C
 
 // Emulator control bits
-#ifdef USE_MULTICORE        
+#if defined(USE_MULTICORE) || defined(USE_GPU)
 .equ    SLOW_FLAG,   0x00000100
 #endif
         
@@ -102,7 +102,7 @@
 // Start of macros
 // **********************************************
 
-#ifdef USE_MULTICORE
+#if defined(USE_MULTICORE) || defined(USE_GPU)
 
 .macro FETCH_NEXT_STAGE_1_I
 .endm
@@ -631,7 +631,7 @@ opcode_jump_table:
 // End of Opcode Jump Table
 // **********************************************
 
-#ifndef USE_MULTICORE
+#if !defined(USE_MULTICORE) && !defined(USE_GPU)
 // **********************************************
 // Start of Event Handler Jump Table
 // **********************************************
@@ -666,7 +666,7 @@ exec_65tube:
                                         // This is very strange, because r4 bit 7 is not used!
                                         // To reproduce, initialize r4 to 0x80
 
-#ifdef USE_MULTICORE
+#if defined(USE_MULTICORE) || defined(USE_GPU)
         tst     r1, #1                  // Copy the slowdown bit into r4
         orrne   r4, r4, #SLOW_FLAG
 #endif
@@ -674,7 +674,8 @@ exec_65tube:
         ldr     r5, =0xffffff00         // initialize the constant in r5
 
         mov     r0, #0                  // initialize tube mailbox (between isr and event handler)
-        ldr     r1, =tube_mailbox_block
+        ldr     r1, =tube_mailbox
+        ldr     r1, [r1]
         str     r0, [r1]
 
         mrs     r0, CPSR                // Enable ARM IRQs and FIQs
@@ -693,7 +694,7 @@ exec_65tube_exit:                       // We get here from the Event handler wh
         msr     CPSR, r2                // re-enable ARM interrupts
         pop     {r0-r12,pc}
 
-#ifdef USE_MULTICORE
+#if defined(USE_MULTICORE) || defined(USE_GPU)
 fetch_next_i:
         sub     sl, sl, #1
         
@@ -704,7 +705,8 @@ fetch_next:
         bne     waste_time                // forward branch will predict as not taken
         
 fetch_next_check_event:
-        ldr     r0, =tube_mailbox_block   // Check the tube mailbox for "events" (e.g. tube irq)
+        ldr     r0, =tube_mailbox         // Check the tube mailbox for "events" (e.g. tube irq)
+        ldr     r0, [r0]
         ldr     r0, [r0]
         tst     r0, #ATTN_MASK
         bne     Event_Handler
@@ -744,15 +746,16 @@ waste_time_loop:
 // if USE_MULTICORE is not defined, we have come here via a branch from the second instruction table
 
 Event_Handler:
-#ifndef USE_MULTICORE
+#if !defined(USE_MULTICORE) && !defined(USE_GPU)
         mrs     r2, CPSR                // preserve the 6502 flags
 #endif
         orr     r1, r2, #ARM_INT_MASK           // disable ARM IRQs and FIQs
         msr     CPSR_c, r1
         
-        ldr     r1, =tube_mailbox_block
+        ldr     r1, =tube_mailbox
+        ldr     r1, [r1]
         ldr     r0, [r1]
-#ifndef USE_MULTICORE        
+#if !defined(USE_MULTICORE) && !defined(USE_GPU)
         bic     ip, ip, #1024           // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
 #endif
@@ -788,7 +791,7 @@ handle_nmi:
         INTR    -6, 0
         FETCH_NEXT_MERGED
 
-#ifndef USE_MULTICORE
+#if !defined(USE_MULTICORE) && !defined(USE_GPU)
 
 // In slowdown we patch the event handler dispatch table to a special event handler (below)
 //
@@ -821,7 +824,8 @@ handle_nmi:
 Event_Handler_Single_Core_Slow:
         mrs     r2, CPSR                // preserve the 6502 flags
                                         // interrupts are left enabled        
-        ldr     r1, =tube_mailbox_block
+        ldr     r1, =tube_mailbox
+        ldr     r1, [r1]        
         ldr     r0, [r1]
         bic     ip, ip, #1024           // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
