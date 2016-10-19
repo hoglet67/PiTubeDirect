@@ -20,6 +20,47 @@
 .global gpfsel_data_idle
 .global gpfsel_data_driving
 
+// This FIQ handler is only installed:
+// - When the GPU Mailbox is being used
+// - And when Co Pro 0/1 are selected
+// - And when we are running on a single core pi
+
+#ifdef USE_HW_MAILBOX
+.macro FIQ_MAILBOX_HANDLER
+
+        // Disable the FIQ interrupt (the C code will re-enable)
+        // This is necessary because we don't want the FIQ handler to have to read
+        // the mailbox, so the FIQ condition will not be cleared until later
+        ldr     r8, =FIQCTRL
+        mov     r9, #0
+        str     r9, [r8]
+
+        // Switch back to irq mode so ip is not shadowed
+        mrs     r8, cpsr
+        bic     r8, r8, #0x1F
+        orr     r8, r8, #0x12
+        msr     cpsr_c, r8
+        
+        orr     ip, ip, #1024   // signal event to 6502 instruction flow
+
+        // Switch back to fiq mode, so we return correctly
+        // lr is used here because its shadowed in IRQ mode, so doesn't corrupt the normal lr
+        mrs     lr, cpsr
+        bic     lr, lr, #0x1F
+        orr     lr, lr, #0x11
+        msr     cpsr_c, lr
+
+        // Note, the above mode switching could be avoided if we reworked the register assignment
+        // in the 6502 emulator to use a register r0..r7 for signalling.
+        // I did do this as an experiment, and it's parked in a branch.
+        // I'd like to avoid making big changes to that code for now.
+
+        subs    pc, lr, #4
+        
+.endm
+#endif
+
+        
 
 .macro FIQ_HANDLER flag_using_ip
 
@@ -420,7 +461,11 @@ arm_irq_handler:
 
 #ifndef USE_MULTICORE
 arm_fiq_handler_flag1:
+#ifdef USE_HW_MAILBOX
+FIQ_MAILBOX_HANDLER
+#else
 FIQ_HANDLER 1
+#endif        
 #endif
 
 arm_fiq_handler_flag0:

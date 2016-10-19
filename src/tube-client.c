@@ -86,7 +86,7 @@ void init_emulator() {
 
    // Default to the normal FIQ handler
    *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag0;
-#if !defined(USE_MULTICORE) && !defined(USE_GPU)
+#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register
    if (copro == COPRO_65TUBE_0 || copro == COPRO_65TUBE_1) {
