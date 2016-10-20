@@ -55,8 +55,12 @@
 // Indicate the platform has multiple cores
 #define HAS_MULTICORE
 
+#define USE_GPU
+
+#define USE_HW_MAILBOX
+
 // Indicates we want to make active use of multiple cores
-#define USE_MULTICORE
+//#define USE_MULTICORE
 
 // Needs to match kernel_old setting in config.txt
 //#define KERNEL_OLD

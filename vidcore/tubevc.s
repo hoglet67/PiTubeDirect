@@ -58,36 +58,36 @@
 # code entry point
 #  ld r0, (r0)
 #  rts
-        
+
 # disable interrupts
-   di
-        
+  di
+
 # Setup interrupt vector
 # 0x1EC01E00 looks like the interrupt table
 # Vector 113 = 49 + 64 = GPIO0      
 
-  mov r8, (0x40000000 + 0x1EC01E00 + (113 << 2))
-  lea r9, irq_handler(pc)
-  st  r9, (r8)
+#  mov r8, (0x40000000 + 0x1EC01E00 + (113 << 2))
+#  lea r9, irq_handler(pc)
+#  st  r9, (r8)
  
 # mask ARM interrupts
-   mov r8, IC0_MASK
-   mov r9, IC1_MASK
-   mov r10, 0x0
-   mov r11, 8
-mask_all:
-   st r10, (r8)
-   st r10, (r9)
-   add r8, 4
-   add r9, 4
-   sub r11, 1
-   cmp r11, 0
-   bne mask_all   
+#  mov r8, IC0_MASK
+#  mov r9, IC1_MASK
+#  mov r10, 0x0
+#  mov r11, 8
+#mask_all:
+#  st r10, (r8)
+#  st r10, (r9)
+#  add r8, 4
+#  add r9, 4
+#  sub r11, 1
+#  cmp r11, 0
+#  bne mask_all   
    
 # enable the interupt (49 + 64 = 113)
-   mov r8, IC0_MASK + 0x18
-   mov r9, 0x00000010
-   st  r9, (r8)
+#  mov r8, IC0_MASK + 0x18
+#  mov r9, 0x00000010
+#  st  r9, (r8)
         
    mov    r9, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
    ld     r10, (r1)    # databus driving signals
@@ -103,11 +103,13 @@ mask_all:
    mov    r6, GPFSEL0
 
 # enable interrupts
-   ei
+#  ei
                 
 # poll for nTube being low
 Poll_loop:
    ld     r7, GPLEV0_offset(r6)
+   btst   r7, nRST
+   beq    post_reset
    btst   r7, nTUBE
    bne    Poll_loop
    ld     r7, GPLEV0_offset(r6)  # check ntube again to remove glitches
@@ -182,34 +184,26 @@ wr_wait_for_clk_low:
    btst   r7, CLK
    bne    wr_wait_for_clk_low
 
-#
+# Post a message to indicate a tube register read or write
 post_mail:
-
+   bl     do_post_mailbox        
+   b      Poll_loop
+        
+# Post a message to indicate a reset
+post_reset:
+   mov    r8, r7
    bl     do_post_mailbox
+# Wait for reset to be released (so we don't overflow the mailbox)
+post_reset_loop:
+   ld     r7, GPLEV0_offset(r6)
+   btst   r7, nRST
+   beq    post_reset_loop        
+   b      Poll_loop
         
-   b    Poll_loop
+# Subroutine to post r8 to the mailbox
+# if r2 is zero then the hardware mailbox is used
+# if r2 is non zero then a software mailbox at address r2 is used
         
-# The interrupt handler just deals with nRST being pressed
-# This saves two instructions in Poll_loop
-        
-irq_handler:
-
-   # Clear the interrupt condition
-   mov    r8, 0xffffffff
-   st     r8, GPEDS0_offset(r6)
-
-   ld     r8, GPLEV0_offset(r6)
-   btst   r8, nRST
-   bne    irq_handler_exit
-
-   bl     do_post_mailbox
-        
-irq_handler_exit:
-   rti
-
-
-
-
 do_post_mailbox:
 # Send to GPU->ARM mailbox (channel 10)
    and    r8,( 1<<nTUBE+1<<nRST+1<<RnW+1<<A2+1<<A1+1<<A0+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
@@ -237,8 +231,28 @@ use_hw_mailbox:
    st     r8, (r7)
    rts        
 
+        
 # This code is not used
         
+#if 0
+        
+# The interrupt handler just deals with nRST being pressed
+# This saves two instructions in Poll_loop
+irq_handler:
+
+   # Clear the interrupt condition
+   mov    r8, 0xffffffff
+   st     r8, GPEDS0_offset(r6)
+
+   ld     r8, GPLEV0_offset(r6)
+   btst   r8, nRST
+   bne    irq_handler_exit
+
+   bl     do_post_mailbox
+        
+irq_handler_exit:
+   rti
+
 demo_irq_handler:
 
    mov    r6, GPFSEL0
@@ -251,3 +265,4 @@ demo_irq_handler:
    st     r5, GPCLR0_offset(r6) #DEBUG pin
         
    rti
+#endif

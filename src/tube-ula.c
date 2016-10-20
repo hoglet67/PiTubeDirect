@@ -39,7 +39,7 @@
 // CPG_Param0..CPG_Param1
 
 #define GPU_TUBE_REG_ADDR 0x7e0000a0
-#define ARM_TUBE_REG_ADDR (GPU_TUBE_REG_ADDR & 0x20FFFFFF) 
+#define ARM_TUBE_REG_ADDR ((GPU_TUBE_REG_ADDR & 0x00FFFFFF) | PERIPHERAL_BASE)
 
 #ifdef USE_GPU
 #include "tubevc.h"
@@ -467,9 +467,7 @@ int tube_io_handler(uint32_t mail)
 #ifdef USE_HW_MAILBOX
    // Sequence numbers are currently 4 bits, and are stored in bits 12..15
    int act_seq_num;
-   static int exp_seq_num = 0;
-   // Increment the expected sequence number
-   exp_seq_num = (exp_seq_num + 1) & 15;
+   static int exp_seq_num = -1;
    act_seq_num = (mail >> 12) & 15;
 #endif
 
@@ -499,11 +497,23 @@ int tube_io_handler(uint32_t mail)
 
    // Only report OVERRUNs that occur when nRST is high
 #ifdef USE_HW_MAILBOX
+   if (exp_seq_num < 0) {
+      // A resync is being forces
+      exp_seq_num = act_seq_num;
+   } else {
+      // Increment the expected sequence number
+      exp_seq_num = (exp_seq_num + 1) & 15;
+   }
    if ((exp_seq_num != act_seq_num) && (mail & NRST_MASK)) {
       printf("OVERRUN: exp=%X act=%X A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", exp_seq_num, act_seq_num, addr, data, rnw, ntube, nrst); 
    }
-   // Re-sync the sequence number regardless
-   exp_seq_num = act_seq_num;   
+   if (mail & NRST_MASK) {
+      // Not reset: sync to the last received sequence number
+      exp_seq_num = act_seq_num;
+   } else {
+      // Reset: Force a resync as mailbox overlow is very likely here
+      exp_seq_num = -1;
+   }
 #else
    if ((mail & OVERRUN_MASK) && (mail & NRST_MASK)) {
       printf("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
@@ -745,7 +755,11 @@ void start_vc_ula()
 #endif
    r3 = 0;
    r4 = 0;                       // address pinmap point to be done
-   r5 = TEST2_MASK;              // test2 pin
+#ifdef HAS_40PINS
+   r5 = TEST_MASK;               // test pin
+#else
+   r5 = 0;
+#endif
    // re-map to bus addresses
    // if the L2 cache is  enabled, the VC MMU maps physical memory to 0x40000000
    // if the L2 cache is disabled, the VC MMU maps physical memory to 0xC0000000

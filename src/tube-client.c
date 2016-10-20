@@ -210,10 +210,11 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 #else
   start_core(3, _spin_core);
   for (i = 0; i < 10000000; i++);
-  emulator();
 #endif
 
-#else
+#endif
+
+#ifndef USE_MULTICORE
 
   do {
      // Run the emulator
