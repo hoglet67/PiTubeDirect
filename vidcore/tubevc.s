@@ -7,23 +7,33 @@
 # Addresses passed into vc are VC based
 # gpfsel_data_idle setup
 
-# r0 pointer to shared memory ( VC address) of tube registers
-# r1 pointer to shared memory ( VC address) of gpfsel_data_idle
-# r2 pointer to shared memory ( VC address) of tube_mailbox
-# r3 pinmap pointer ** to be done)
-# r4
-# r5 debug pin (0 = no debug  xx= debug pin e.g 1<<21)
+#  r0 - pointer to shared memory ( VC address) of tube registers
+#  r1 - pointer to shared memory ( VC address) of gpfsel_data_idle
+#  r2 - pointer to shared memory ( VC address) of tube_mailbox
+#  r3 - GPIO mapping of address lines - 0x00<A2><A1><A0> where A2, A1 and A0 are the numbers of the respective GPIOs
+#  r4 - unused
+#  r5 - debug pin mask (0 = no debug  xx= debug pin e.g 1<<21)
 
 # Intenal register allocation
-# r7
-# r8
-# r9
-# r10
-# r11
-# r12
-# r13
-# r14
-# r15
+#  r0 - pointer to shared memory ( VC address) of tube registers
+#  r1 - ( 1<<nTUBE+1<<nRST+1<<RnW+1<<A2+1<<A1+1<<A0+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
+#  r2 - pointer to shared memory ( VC address) of tube_mailbox
+#  r3 - ARM_GPU_MAILBOX constant
+#  r4 - 4-bit sequence number for detecting overruns
+#  r5 - debug pin mask (0 = no debug  xx= debug pin e.g 1<<21)
+#  r6 - GPFSEL0 constant
+#  r7 - scratch register 
+#  r8 - scratch register
+#  r9 - (0xF<<D0D3_shift) + (0xF<<D4D7_shift) constant
+# r10 - data bus driving values
+# r11 - data bus driving values
+# r12 - data bus driving values
+# r13 - data bus driving values
+# r14 - data bus driving values
+# r15 - data bus driving values
+# r16 - A0 GPIO bit number
+# r17 - A1 GPIO bit number
+# r18 - A2 GPIO bit number        
 
 # GPIO registers
 .equ GPFSEL0,       0x7e200000
@@ -32,26 +42,22 @@
 .equ GPLEV0_offset, 0x34
 .equ GPEDS0_offset, 0x40
 
-  # pin bit positions
+.equ GPU_ARM_MBOX, 0x7E00B880
+
+#.equ IC0_MASK,     0x7e002010
+#.equ IC1_MASK,     0x7e002810
+        
+# fixed pin bit positions (A2..0, TEST passed in dynamically)
 .equ nRST,          4
 .equ nTUBE,        17
 .equ RnW,          18
-.equ A0,           27
-.equ A1,            2
-.equ A2,            3
 .equ CLK,           7
-
 .equ D0D3_shift,    8
 .equ D4D7_shift,   22
 
   # mail box flags
 .equ ATTN_MASK,    31
 .equ OVERRUN_MASK, 30
-
-.equ vector,       49
-
-.equ IC0_MASK,     0x7e002010
-.equ IC1_MASK,     0x7e002810
 
 .org 0
 
@@ -97,9 +103,24 @@
    ld     r14, 16(r1)  # databus driving signals
    ld     r15, 20(r1)  # databus driving signals
 
-   mov    r4, 0        # 4-bit sequence number
+   lsr    r16, r3, 0   # Extract GPIO number of A0
+   and    r16, 255
+   lsr    r17, r3, 8   # Extract GPIO number of A1
+   and    r17, 255
+   lsr    r18, r3, 16  # Extract GPIO number of A2
+   and    r18, 255
 
-# r1 is now free
+# r1, r3, r4 now free
+
+   mov    r1, (1<<nTUBE+1<<nRST+1<<RnW+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
+   bset   r1, r16
+   bset   r1, r17
+   bset   r1, r18
+
+   mov    r3, GPU_ARM_MBOX
+        
+   mov    r4, 0        # 4-bit sequence number for detecting overun
+
    mov    r6, GPFSEL0
 
 # enable interrupts
@@ -121,11 +142,14 @@ Poll_loop:
 
    # So we are in a read cycle
    # sort out the address bus
-   btst   r7, A0
-   and    r7, (1<<A1)+(1<<A2)
-   lsr    r7, 1                  # A1 shift
-   orne   r7, 1
-   ld     r8, (r0, r7)           # Read word from tube register
+   mov    r8, 0
+   btst   r7, r16
+   orne   r8, 1
+   btst   r7, r17
+   orne   r8, 2
+   btst   r7, r18
+   orne   r8, 4
+   ld     r8, (r0, r8)           # Read word from tube register
    st     r13, (r6)              # Drive data bus
    st     r14, 4(r6)             # Drive data bus        
    st     r15, 8(r6)             # Drive data bus
@@ -165,7 +189,7 @@ rd_wait_for_clk_high2:
    btst   r7, RnW
    beq    wr_wait_for_clk_high1
 rd_not_going_to_write:
-   btst   r8, A0
+   btst   r8, r16
    bne    post_mail
    b      Poll_loop
 
@@ -206,7 +230,7 @@ post_reset_loop:
         
 do_post_mailbox:
 # Send to GPU->ARM mailbox (channel 10)
-   and    r8,( 1<<nTUBE+1<<nRST+1<<RnW+1<<A2+1<<A1+1<<A0+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
+   and    r8, r1
 
    cmp    r2, 0
    beq    use_hw_mailbox
@@ -227,14 +251,12 @@ use_hw_mailbox:
    and    r4, 0xF000
    lsl    r8, 4
    or     r8, 0x0000000A
-   mov    r7, 0x7E00B880
-   st     r8, (r7)
+   st     r8, (r3)
    rts        
-
         
-# This code is not used
+# This code is not currently used
         
-#if 0
+.if 0
         
 # The interrupt handler just deals with nRST being pressed
 # This saves two instructions in Poll_loop
@@ -265,4 +287,4 @@ demo_irq_handler:
    st     r5, GPCLR0_offset(r6) #DEBUG pin
         
    rti
-#endif
+.endif

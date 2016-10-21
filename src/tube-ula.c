@@ -746,19 +746,19 @@ void start_vc_ula()
 
 
    func = (int) &tubevc_asm[0];
-   r0 = (int) GPU_TUBE_REG_ADDR; //tube_regs;         // pointer to tube regsiters
-   r1 = (int) &gpfsel_data_idle; // gpfsel_data_idle
+   r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
+   r1   = (int) &gpfsel_data_idle;       // gpfsel_data_idle
 #ifdef USE_HW_MAILBOX
-   r2 = 0;
+   r2   = 0;
 #else
-   r2 = (int) tube_mailbox;      // tube mailbox to be replaced later with VC->ARM mailbox
+   r2   = (int) tube_mailbox;            // tube mailbox to be replaced later with VC->ARM mailbox
 #endif
-   r3 = 0;
-   r4 = 0;                       // address pinmap point to be done
+   r3   = (A2_PIN << 16) | (A1_PIN << 8) | (A0_PIN); // address bus GPIO mapping
+   r4   = 0;
 #ifdef HAS_40PINS
-   r5 = TEST_MASK;               // test pin
+   r5   = TEST_MASK;                     // test pin
 #else
-   r5 = 0;
+   r5   = 0;
 #endif
    // re-map to bus addresses
    // if the L2 cache is  enabled, the VC MMU maps physical memory to 0x40000000
