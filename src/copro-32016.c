@@ -46,7 +46,7 @@ void copro_32016_emulator() {
    while (1) {
       // 32 is actually just 4 instructions
       // might need to reduce if we see LATEs
-      tubecycles = 16;
+      tubecycles = 8;
       n32016_exec();
       if (is_mailbox_non_empty()) {
          unsigned int tube_mailbox_copy = read_mailbox();
