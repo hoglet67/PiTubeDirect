@@ -900,7 +900,15 @@ Event_Handler_Single_Core_Slow:
 
 noirq2:
 
-        mov     r0, #250
+#if defined(RPIZERO)
+        mov     r0, #0x15C              // 0x15C gives 3.00MHz average on a Pi Zero at 1000/400
+#elif defined(RPI2)
+        mov     r0, #0x388              // 0x388 gives 3.01MHz average on a Pi 2 at 900/350
+#elif defined(RPI3)
+        mov     r0, #0x3F0              // 0x3F0 gives 3.00MHz average on a Pi 3 at 1000/400
+#else
+        mov     r0, #0x134              // 0x134 gives 3.02MHz average on a Pi One at 900/350
+#endif
 waste_time:
         subs    r0, r0, #1
         bne     waste_time
