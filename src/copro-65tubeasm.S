@@ -291,12 +291,12 @@
 // Macros for calculating effective address in r0        
 .macro EA_ABSOLUTE
         ldrh    r0, [regPC, #-2]
-        add     regPC, regPC, #1
+        //add     regPC, regPC, #1
 .endm
 
 .macro EA_ABSOLUTE_INDEXED reg
         ldrh    r0, [regPC, #-2]
-        add     regPC, regPC, #1
+        //add     regPC, regPC, #1
         add     r0, r0, \reg, lsr #24
         bic     r0, r0, #0x10000
 .endm
