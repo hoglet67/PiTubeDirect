@@ -163,7 +163,7 @@
 .macro FETCH_NEXT_STAGE_2_I
         mov     r0, r5
         ldrb    r5, [regPC], #1 
-        mov     pc, lr
+        FETCH_NEXT_STAGE_2
 .endm
         
 // Macros for fetching the next instruction, for two bytes
@@ -182,9 +182,8 @@
 .endm
 
 .macro FETCH_NEXT_STAGE_12
-        ldrb    r0, [regPC], #1
-        ldrb    r5, [regPC], #1 
-        mov     pc, lr
+        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_2  
 .endm
 
 .macro FETCH_NEXT_MERGED
@@ -200,20 +199,17 @@
 .endm
 
 .macro FETCH_NEXT_3B_STAGE_1
-        ldrb    r0, [regPC], #1
-        ldrb    r5, [regPC], #1 
         ldr     lr, [instt, r2, lsl #2]
+        FETCH_NEXT_STAGE_1
 .endm
         
 .macro FETCH_NEXT_3B_STAGE_2
-        mov     pc, lr
+        FETCH_NEXT_STAGE_2
 .endm     
 
 .macro FETCH_NEXT_3B_STAGE_12
-        ldr     lr, [instt, r2, lsl #2]
-        ldrb    r0, [regPC], #1
-        ldrb    r5, [regPC], #1 
-        mov     pc, lr
+        FETCH_NEXT_3B_STAGE_1
+        FETCH_NEXT_3B_STAGE_2   
 .endm
 
 .macro FETCH_NEXT_3B_MERGED
@@ -223,17 +219,18 @@
 .endm
 
 // Macro for fetching the next instruction and also checking for any pending IRQs
-// Used for instructions that can enable interrupts: CLI, PLP, RTI
+// Used for instructions that can enable interrupts: CLI, PLP
 .macro FETCH_NEXT_CHECK_IRQ
+        
         mrs     r2, CPSR                  // Preserve the 6502 flags
         tst     flags, #4                    // Test whether interrupts are enabled (bit 2 = 0)
         ldreq   r0, =tube_irq
         ldreq   r0, [r0]
         eoreq   r0, r0, #1
         tsteq   r0, #1                    // Test for IRQ
-        beq     handle_irq
+        beq     handle_irq_adjust_regPC
         msr     CPSR_flg, r2              // Restore the 6502 flags
-        FETCH_NEXT_3B_MERGED
+        FETCH_NEXT_STAGE_2_I
         .ltorg
 .endm
 
@@ -290,13 +287,11 @@
 
 // Macros for calculating effective address in r0        
 .macro EA_ABSOLUTE
-        ldrh    r0, [regPC, #-2]
-        //add     regPC, regPC, #1
+        orr r0,r0,r5,LSL #8
 .endm
 
 .macro EA_ABSOLUTE_INDEXED reg
-        ldrh    r0, [regPC, #-2]
-        //add     regPC, regPC, #1
+        EA_ABSOLUTE
         add     r0, r0, \reg, lsr #24
         bic     r0, r0, #0x10000
 .endm
@@ -319,11 +314,11 @@
 
 // Macros for reading/writing memory
 .macro LOAD_INDIRECT
-        ldrb    r1, [memry, r0]
+        ldrb    r1, [r0, memry]
 .endm
 
 .macro STORE_INDIRECT
-        strb    r1, [memry, r0]
+        strb    r1, [r0, memry]
 .endm
 
 .macro LOAD_ABSOLUTE               // r0 holds the absolute address
@@ -343,26 +338,26 @@
 .endm
 
 // Macros for additional Rockwell 65C02 and WDC 65C02 instructions
+
+// *** ToDo use the BRANCH macro tricks here too.
 .macro BBR bitnum
-        ldrb    r1, [memry, r0]
-        ldrb    r0, [regPC], #1
+        ldrb    r1, [r0, memry ]
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
-        lsleq   r0, r0, #24
-        addeq   regPC, regPC, r0, asr #24
+        lsleq   r5, r5, #24
+        addeq   regPC, regPC, r5, asr #24
         msr     CPSR_flg, r2
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_3B_MERGED
 .endm
 
 .macro BBS bitnum
-        ldrb    r1, [memry, r0]
-        ldrb    r0, [regPC], #1
+        ldrb    r1, [r0, memry ]    
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
-        lslne   r0, r0, #24
-        addne   regPC, regPC, r0, asr #24
+        lslne   r5, r5, #24
+        addne   regPC, regPC, r5, asr #24
         msr     CPSR_flg, r2
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_3B_MERGED
 .endm
 
 .macro RMB bitnum
@@ -409,13 +404,13 @@
         tst     flags, #8
         bne     decimal_mode_adc_r0
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r0, #0xff00
+        mov     r1, r0
 .else
         tst     flags, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, #0xff00
 .endif        
+        orrcs   r1, r1, #0xff00
         sxthcs r1,r1
         adcs    regA, regA, r1, ror #8
         FETCH_NEXT_STAGE_1
@@ -430,14 +425,13 @@
         tst     flags, #8
         bne     decimal_mode_sbc_r0
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r0, #0xff00
+        mov     r1, r0
 .else
         tst     flags, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
-        orrcs   r1, r1, #0xff00
-  
-.endif      
+.endif    
+        orrcs   r1, r1, #0xff00  
         sxthcs r1,r1
         sbcs    regA, regA, r1, ror #8
         FETCH_NEXT_STAGE_1
@@ -452,13 +446,13 @@
         tst     flags, #8
         bne     decimal_mode_adc_r0
         FETCH_NEXT_3B_STAGE_0
-        orrcs   r1, r0, #0xff00
+        mov     r1, r0
 .else
         tst     flags, #8
         bne     decimal_mode_adc
         FETCH_NEXT_3B_STAGE_0
-        orrcs   r1, r1, #0xff00
-.endif        
+.endif  
+        orrcs   r1, r1, #0xff00      
         sxthcs r1,r1
         adcs    regA, regA, r1, ror #8
         FETCH_NEXT_3B_STAGE_1
@@ -473,14 +467,13 @@
         tst     flags, #8
         bne     decimal_mode_sbc_r0
         FETCH_NEXT_3B_STAGE_0
-        orrcs   r1, r0, #0xff00
+        mov     r1, r0
 .else
         tst     flags, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_3B_STAGE_0
-        orrcs   r1, r1, #0xff00
-  
-.endif      
+.endif  
+        orrcs   r1, r1, #0xff00 
         sxthcs r1,r1
         sbcs    regA, regA, r1, ror #8
         FETCH_NEXT_3B_STAGE_1
@@ -489,17 +482,21 @@
         FETCH_NEXT_3B_STAGE_2     
 .endm
 
-.macro BRANCH yes,no
+.macro BRANCH yes no flag
       
-      sxtab\yes sl, sl, r0
-      ldr\no   lr, [ip, r5, lsl #2] //hidden in stall
-      ldr\yes\()b  r2, [sl,#-1]
-      ldrb    r0, [sl], #1 //hidden in stall
-      ldrb    r5, [sl], #1 //hidden in stall
+      sxtab\yes regPC, regPC, r0
+      ldr\no   lr, [instt, r5, lsl #2] //hidden in stall
+      ldr\yes\()b  r2, [regPC,#-1]
+      ldrb    r0, [regPC], #1 //hidden in stall
+      ldrb    r5, [regPC], #1 //hidden in stall
       //stall
       ldr\yes     lr, [ip, r2, lsl #2]
       //stall
-      //stall
+      
+.ifb \flag
+.else
+      msr     CPSR_flg, r2
+.endif      
       mov     pc, lr // 4 or 7 cycles depending on prediction
                   // almost certainly not predicted due to lack of cycles
 
@@ -863,7 +860,7 @@ exec_65tube_exit:                       // We get here from the Event handler wh
 
 #if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
 fetch_next_i:
-        sub     regPC, regPC, #1
+        sub     regPC, regPC, #2
         
 fetch_next:
         mrs     r2, CPSR                  // Preserve the 6502 flags
@@ -902,7 +899,7 @@ fetch_next_check_irq:
         ldreq   r0, [r0]
         eoreq   r0, r0, #1
         tsteq   r0, #1                    // Test for IRQ
-        beq     handle_irq
+        beq     handle_irq_adjust_regPC
         msr     CPSR_flg, r2              // Restore the 6502 flags
         b       fetch_next
 
@@ -940,7 +937,7 @@ Event_Handler:
 #endif
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
         bic     instt, instt, #1024           // ack events
-        sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
+        sub     regPC, regPC, #3              // set the instruction back as we haven't executed it
 #endif
 #if !defined(USE_HW_MAILBOX)
         bic     r0, r0, #ATTN_MASK      // the attention bit
@@ -966,15 +963,17 @@ noirq:
         msr     CPSR, r2                // restore the 6502 flags and re-enable ARM interrupts
         FETCH_NEXT_3B_MERGED               // go back to executing 6502 instructions
 
+handle_irq_adjust_regPC:        
+        sub     regPC, regPC ,#2
 handle_irq:
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -2, 0
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_3B_MERGED
 
 handle_nmi:
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_3B_MERGED
 
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 
@@ -1011,7 +1010,7 @@ Event_Handler_Single_Core_Slow:
                                         // interrupts are left enabled
         
         bic     instt, instt, #1024           // ack any events
-        sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
+        sub     regPC, regPC, #3              // set the instruction back as we haven't executed it
 
 #if defined(USE_HW_MAILBOX)
         ldr     r1, =MBOX0_STATUS       // poll the hardware mailbox status
@@ -1210,7 +1209,6 @@ tube_store_handler:
 
 handle_rti:
         SPOP    r0
-        and     r0, r0, #0xff
         and     flags, flags, #0xffffff00
         orr     flags, flags, r0                // preserve the other bits in flags, e.g. the slowdown bit
         and     flags, flags, #R4_MASK
@@ -1221,11 +1219,19 @@ handle_rti:
         and     r1, r0, #0x03
         orr     r2, r2, r1, lsl #29
         msr     CPSR_flg, r2
-        SPOP    r0
+        SPOP    r0 // *** TODO ldrh ( see RTS)
         SPOP    r1
         add     regPC, r0, r1, lsl #8
         add     regPC, regPC, memry
-        FETCH_NEXT_CHECK_IRQ
+        mrs     r2, CPSR                  // Preserve the 6502 flags
+        tst     flags, #4                    // Test whether interrupts are enabled (bit 2 = 0)
+        ldreq   r0, =tube_irq
+        ldreq   r0, [r0]
+        eoreq   r0, r0, #1
+        tsteq   r0, #1                    // Test for IRQ
+        beq     handle_irq
+        msr     CPSR_flg, r2              // Restore the 6502 flags
+        FETCH_NEXT_3B_MERGED   // *** TODO optimise parts sooner
 
 // Insert the current literal pool, otherwise constants are to far away and you get a build error
         .ltorg
@@ -1566,10 +1572,11 @@ opcode_1F:
 
 // Opcode 20 - JSR $0000
 opcode_20:
-        ldrh    r1, [regPC, #-2]
         sub     regSP, regSP, #1
+        sub     regPC, regPC, #1
+        EA_ABSOLUTE
         strh    regPC, [regSP], #-1
-        add     regPC, memry, r1
+        add     regPC, memry, r0
         FETCH_NEXT_3B_STAGE_0
         orr     regSP, #0x0100
         FETCH_NEXT_3B_STAGE_12
@@ -1624,9 +1631,8 @@ opcode_27:
 
 // Opcode 28 - PLP 
 opcode_28:
-        sub     regPC, regPC, #2  // fix up FETCH_NEXT reading ahead two bytes
+        FETCH_NEXT_STAGE_1_I
         SPOP    r0
-        and     r0, r0, #0xff
         and     flags, flags, #0xffffff00
         orr     flags, flags, r0           // preserve the other bits in flags, e.g. the slowdown bit
         and     flags, flags, #R4_MASK
@@ -1696,6 +1702,7 @@ opcode_2F:
 // Opcode 30 - BMI
 opcode_30:
         BRANCH mi pl
+        
 // Opcode 31 - AND ($00),Y
 opcode_31:
         EA_INDIRECT_Y
@@ -1913,12 +1920,9 @@ opcode_4F:
 
 // Opcode 50 - BVC
 opcode_50:
-        sub     regPC, regPC ,#1
         mrs     r2, CPSR
         tst     flags, #0x40
-        sxtabeq regPC, regPC, r0
-        msr     CPSR_flg, r2
-        FETCH_NEXT_3B_MERGED
+        BRANCH  eq ne msr
 
 // Opcode 51 - EOR ($00),Y
 opcode_51:
@@ -1967,8 +1971,8 @@ opcode_57:
 
 // Opcode 58 - CLI
 opcode_58:
-        sub     regPC, regPC, #2  // fix up FETCH_NEXT reading ahead two bytes
         bic     flags, flags, #4
+        FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_CHECK_IRQ
 
 // Opcode 59 - EOR $0000,Y
@@ -2074,13 +2078,11 @@ opcode_6A:
         teq     regA, #0
         FETCH_NEXT_STAGE_2_I
 
-// Opcode 6C - JMP ($0000) // **** optimise with ldrh ?
+// Opcode 6C - JMP ($0000) 
 opcode_6C:
-        add     r0, r0, r5, lsl #8
-        ldrb    r1, [r0, memry]!
-        ldrb    r0, [r0, #1]
-        add     regPC, r1, r0, lsl #8
-        add     regPC, regPC, memry
+        EA_ABSOLUTE    
+        EA_INDIRECT
+        add     regPC, r0, memry
         FETCH_NEXT_3B_MERGED
 
 // Opcode 6D - ADC_macro $0000
@@ -2104,12 +2106,9 @@ opcode_6F:
 
 // Opcode 70 - BVS
 opcode_70:
-        sub     regPC, regPC,#1 
         mrs     r2, CPSR
         tst     flags, #0x40
-        sxtabne regPC, regPC, r0
-        msr     CPSR_flg, r2
-        FETCH_NEXT_3B_MERGED
+        BRANCH  ne eq msr
 
 // Opcode 71 - ADC_macro ($00),Y
 opcode_71:
@@ -2173,7 +2172,7 @@ opcode_7A:
 // Opcode 7C - JMP ($0000,X)
 opcode_7C:
         EA_ABSOLUTE_INDEXED regX
-        ldrb    r1, [r0, memry]!
+        ldrb    r1, [r0, memry]! // *** TODO LDRH 
         ldrb    r0, [r0, #1]
         add     regPC, r1, r0, lsl #8
         add     regPC, regPC, memry
@@ -2876,7 +2875,7 @@ opcode_EF:
 
 // Opcode F0 - BEQ
 opcode_F0:
-        BRANCH eq ne 
+        BRANCH eq ne
         
 // Opcode F1 - SBC_macro ($00),Y
 opcode_F1:
