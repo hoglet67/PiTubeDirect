@@ -847,7 +847,7 @@ handle_rst:
         add     r0, memry, #0x10000
         ldrh    r0, [r0, #-4]           // Fetch the address in FFFC,FFFD
         add     regPC, memry, r0              // Point to this instruction in memory
-        FETCH_NEXT_MERGED               // Start executing instructions
+        FETCH_NEXT_3B_MERGED               // Start executing instructions
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
 #if defined(USE_HW_MAILBOX)
