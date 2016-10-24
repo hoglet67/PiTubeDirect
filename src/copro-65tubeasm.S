@@ -2202,7 +2202,11 @@ opcode_7F:
 // Opcode 80 - BRA
 opcode_80:
         sxtab   regPC, regPC, r0
-        FETCH_NEXT_3B_MERGED
+        ldrb    r2, [regPC,#-1]
+        ldrb    r0, [regPC], #1 //hidden in stall
+        ldrb    r5, [regPC], #1 //hidden in stall
+        ldr     lr, [ip, r2, lsl #2]
+        mov     pc, lr 
 
 // Opcode 81 - STA ($00,X)
 opcode_81:
