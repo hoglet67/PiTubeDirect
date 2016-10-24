@@ -1347,6 +1347,7 @@ opcode_FC:
 // Opcode 00 - BRK
 opcode_00:
         // BRK is really a two byte instruction, so no fixup needed
+        sub    regPC,regPC,#1
         INTR    -2, 1
         FETCH_NEXT_3B_MERGED
 
