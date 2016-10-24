@@ -195,11 +195,11 @@
 // and three byte instructions
 
 .macro FETCH_NEXT_3B_STAGE_0
-         ldrb    r2, [regPC], #1      
+         ldrb    r5, [regPC], #1      // reg change
 .endm
 
 .macro FETCH_NEXT_3B_STAGE_1
-        ldr     lr, [instt, r2, lsl #2]
+        ldr     lr, [instt, r5, lsl #2] // reg change
         FETCH_NEXT_STAGE_1
 .endm
         
@@ -344,20 +344,22 @@
         ldrb    r1, [r0, memry ]
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
-        lsleq   r5, r5, #24
-        addeq   regPC, regPC, r5, asr #24
-        msr     CPSR_flg, r2
-        FETCH_NEXT_3B_MERGED
+        BRANCH  eq ne msr r5
+      //  lsleq   r5, r5, #24
+      //  addeq   regPC, regPC, r5, asr #24
+      //  msr     CPSR_flg, r2
+      //  FETCH_NEXT_3B_MERGED
 .endm
 
 .macro BBS bitnum
         ldrb    r1, [r0, memry ]    
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
-        lslne   r5, r5, #24
-        addne   regPC, regPC, r5, asr #24
-        msr     CPSR_flg, r2
-        FETCH_NEXT_3B_MERGED
+        BRANCH  ne eq msr r5
+       // lslne   r5, r5, #24
+       // addne   regPC, regPC, r5, asr #24
+       // msr     CPSR_flg, r2
+       // FETCH_NEXT_3B_MERGED
 .endm
 
 .macro RMB bitnum
@@ -431,8 +433,8 @@
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0
 .endif    
-        orrcs   r1, r1, #0xff00  
-        sxthcs r1,r1
+        orrcc   r1, r1, #0xff00  
+        sxthcc r1,r1
         sbcs    regA, regA, r1, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   flags, #0x40
@@ -444,12 +446,12 @@
 
 .if \reg == r0
         tst     flags, #8
-        bne     decimal_mode_adc_r0
+        bne     decimal_mode_adc_3B_r0
         FETCH_NEXT_3B_STAGE_0
         mov     r1, r0
 .else
         tst     flags, #8
-        bne     decimal_mode_adc
+        bne     decimal_mode_adc_3B
         FETCH_NEXT_3B_STAGE_0
 .endif  
         orrcs   r1, r1, #0xff00      
@@ -465,16 +467,16 @@
 .macro SBC_3B_macro reg
 .if \reg == r0
         tst     flags, #8
-        bne     decimal_mode_sbc_r0
+        bne     decimal_mode_sbc_3B_r0
         FETCH_NEXT_3B_STAGE_0
         mov     r1, r0
 .else
         tst     flags, #8
-        bne     decimal_mode_sbc
+        bne     decimal_mode_sbc_3B
         FETCH_NEXT_3B_STAGE_0
 .endif  
-        orrcs   r1, r1, #0xff00 
-        sxthcs r1,r1
+        orrcc   r1, r1, #0xff00 
+        sxthcc r1,r1
         sbcs    regA, regA, r1, ror #8
         FETCH_NEXT_3B_STAGE_1
         bicvc   flags, #0x40
@@ -482,15 +484,15 @@
         FETCH_NEXT_3B_STAGE_2     
 .endm
 
-.macro BRANCH yes no flag
+.macro BRANCH yes no flag reg=r0
       
-      sxtab\yes regPC, regPC, r0
+      sxtab\yes regPC, regPC, \reg
       ldr\no   lr, [instt, r5, lsl #2] //hidden in stall
-      ldr\yes\()b  r2, [regPC,#-1]
+      ldr\yes\()b  r1, [regPC,#-1]
       ldrb    r0, [regPC], #1 //hidden in stall
       ldrb    r5, [regPC], #1 //hidden in stall
       //stall
-      ldr\yes     lr, [ip, r2, lsl #2]
+      ldr\yes     lr, [ip, r1, lsl #2]
       //stall
       
 .ifb \flag
