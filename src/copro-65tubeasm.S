@@ -487,19 +487,23 @@
 .macro BRANCH yes no flag reg=r0
       
       sxtab\yes regPC, regPC, \reg
-      ldr\no   lr, [instt, r5, lsl #2] //hidden in stall
 .if \reg==r5
       // if we are using R5 PC is already at the right place 
-      ldr\yes\()b  r1, [regPC],#1
+      ldrb      r1, [regPC], #1
+      ldrb      r0, [regPC], #1 //hidden in stall
+      ldrb      r5, [regPC], #1 //hidden in stall
+      //stall
+      ldr       lr, [ip, r1, lsl #2]
 .else 
       // if we are using r0 then pc is one place ahead
-      ldr\yes\()b  r1, [regPC,#-1]
-.endif      
+      ldr\no   lr, [instt, r5, lsl #2] //hidden in stall
+      ldr\yes\()b  r1, [regPC,#-1]  
       ldrb    r0, [regPC], #1 //hidden in stall
       ldrb    r5, [regPC], #1 //hidden in stall
       //stall
       ldr\yes     lr, [ip, r1, lsl #2]
       //stall
+.endif      
       
 .ifb \flag
 .else
