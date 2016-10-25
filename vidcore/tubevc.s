@@ -157,16 +157,16 @@ Poll_loop:
 
    st     r5, GPSET0_offset(r6)  # DEBUG pin
 
-#  # spin waiting for clk high
-#rd_wait_for_clk_high1:
-#  ld     r7, GPLEV0_offset(r6)
-#  btst   r7, CLK
-#  beq    rd_wait_for_clk_high1
+  # spin waiting for clk high
+rd_wait_for_clk_high1:
+  ld     r7, GPLEV0_offset(r6)
+  btst   r7, CLK
+  beq    rd_wait_for_clk_high1
 
 # spin waiting for clk low
 rd_wait_for_clk_low:
-   ld     r7, GPLEV0_offset(r6)
    mov    r8, r7
+   ld     r7, GPLEV0_offset(r6)
    btst   r7, CLK
    bne    rd_wait_for_clk_low
 
