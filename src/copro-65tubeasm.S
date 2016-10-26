@@ -195,27 +195,14 @@
 // and three byte instructions
 
 .macro FETCH_NEXT_3B_STAGE_0
-         ldrb    r5, [regPC], #1      // reg change
+         ldrb    r5, [regPC], #1    
 .endm
-
-.macro FETCH_NEXT_3B_STAGE_1
-        ldr     lr, [instt, r5, lsl #2] // reg change
-        FETCH_NEXT_STAGE_1
-.endm
-        
-.macro FETCH_NEXT_3B_STAGE_2
-        FETCH_NEXT_STAGE_2
-.endm     
-
-.macro FETCH_NEXT_3B_STAGE_12
-        FETCH_NEXT_3B_STAGE_1
-        FETCH_NEXT_3B_STAGE_2   
-.endm
-
+          
 .macro FETCH_NEXT_3B_MERGED
         FETCH_NEXT_3B_STAGE_0
-        FETCH_NEXT_3B_STAGE_1
-        FETCH_NEXT_3B_STAGE_2        
+        FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_2        
 .endm
 
 // Macro for fetching the next instruction and also checking for any pending IRQs
@@ -339,16 +326,11 @@
 
 // Macros for additional Rockwell 65C02 and WDC 65C02 instructions
 
-// *** ToDo use the BRANCH macro tricks here too.
 .macro BBR bitnum
         ldrb    r1, [r0, memry ]
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
         BRANCH  eq ne msr r5
-      //  lsleq   r5, r5, #24
-      //  addeq   regPC, regPC, r5, asr #24
-      //  msr     CPSR_flg, r2
-      //  FETCH_NEXT_3B_MERGED
 .endm
 
 .macro BBS bitnum
@@ -356,10 +338,6 @@
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
         BRANCH  ne eq msr r5
-       // lslne   r5, r5, #24
-       // addne   regPC, regPC, r5, asr #24
-       // msr     CPSR_flg, r2
-       // FETCH_NEXT_3B_MERGED
 .endm
 
 .macro RMB bitnum
@@ -403,15 +381,11 @@
 .macro ADC_macro reg
 
 .if \reg == r0
-        tst     flags, #8
-        bne     decimal_mode_adc_r0
-        FETCH_NEXT_STAGE_0
         mov     r1, r0
-.else
+.endif        
         tst     flags, #8
         bne     decimal_mode_adc
-        FETCH_NEXT_STAGE_0
-.endif        
+        FETCH_NEXT_STAGE_0       
         orrcs   r1, r1, #0xff00
         sxthcs r1,r1
         adcs    regA, regA, r1, ror #8
@@ -424,15 +398,11 @@
 
 .macro SBC_macro reg
 .if \reg == r0
-        tst     flags, #8
-        bne     decimal_mode_sbc_r0
-        FETCH_NEXT_STAGE_0
         mov     r1, r0
-.else
+.endif        
         tst     flags, #8
         bne     decimal_mode_sbc
-        FETCH_NEXT_STAGE_0
-.endif    
+        FETCH_NEXT_STAGE_0   
         orrcc   r1, r1, #0xff00  
         sxthcc r1,r1
         sbcs    regA, regA, r1, ror #8
@@ -440,48 +410,6 @@
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2     
-.endm
-
-.macro ADC_3B_macro reg
-
-.if \reg == r0
-        tst     flags, #8
-        bne     decimal_mode_adc_3B_r0
-        FETCH_NEXT_3B_STAGE_0
-        mov     r1, r0
-.else
-        tst     flags, #8
-        bne     decimal_mode_adc_3B
-        FETCH_NEXT_3B_STAGE_0
-.endif  
-        orrcs   r1, r1, #0xff00      
-        sxthcs r1,r1
-        adcs    regA, regA, r1, ror #8
-        FETCH_NEXT_3B_STAGE_1
-        bicvc   flags, #0x40
-        orrvs   flags, #0x40
-        FETCH_NEXT_3B_STAGE_2   
-
-.endm
-
-.macro SBC_3B_macro reg
-.if \reg == r0
-        tst     flags, #8
-        bne     decimal_mode_sbc_3B_r0
-        FETCH_NEXT_3B_STAGE_0
-        mov     r1, r0
-.else
-        tst     flags, #8
-        bne     decimal_mode_sbc_3B
-        FETCH_NEXT_3B_STAGE_0
-.endif  
-        orrcc   r1, r1, #0xff00 
-        sxthcc r1,r1
-        sbcs    regA, regA, r1, ror #8
-        FETCH_NEXT_3B_STAGE_1
-        bicvc   flags, #0x40
-        orrvs   flags, #0x40
-        FETCH_NEXT_3B_STAGE_2     
 .endm
 
 .macro BRANCH yes no flag reg=r0
@@ -509,10 +437,9 @@
 .else
       msr     CPSR_flg, r2
 .endif      
-      mov     pc, lr // 4 or 7 cycles depending on prediction
-                  // almost certainly not predicted due to lack of cycles
+      FETCH_NEXT_STAGE_2            // 5 cycles
 
-      // total of 14/17 cycles if taken. 10 if not taken
+      // total of 15 if taken. 11 if not taken and not recovering flags
 .endm      
 
 // **********************************************
@@ -1096,8 +1023,6 @@ handle_nmi2:
         
 #endif
         
-decimal_mode_adc_r0:
-        mov     r1, r0    
 decimal_mode_adc:
         and     r2, r1, #15
         and     r0, regA, #0xf000000
@@ -1117,8 +1042,6 @@ decimal_mode_adc:
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2
 
-decimal_mode_sbc_r0:
-        mov     r1, r0
 decimal_mode_sbc:
         and     r2, r1, #15
         and     r0, regA, #0xf000000
@@ -1135,47 +1058,7 @@ decimal_mode_sbc:
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2
-
-        
-decimal_mode_adc_3B_r0:
-        mov     r1, r0    
-decimal_mode_adc_3B:
-        and     r2, r1, #15
-        and     r0, regA, #0xf000000
-        adc     r2, r2, r0, lsr #24
-        cmp     r2, #10
-        subcs   r2, r2, #10
-        lsl     r2, r2, #24
-        lsr     r1, r1, #4
-        adc     regA, r1, regA, lsr #28
-        cmp     regA, #10
-        subcs   regA, regA, #10
-        orr     regA, r2, regA, lsl #28
-        FETCH_NEXT_3B_STAGE_0
-        teq     regA, #0
-        bicvc   flags, #0x40
-        FETCH_NEXT_3B_STAGE_1
-        orrvs   flags, #0x40
-        FETCH_NEXT_3B_STAGE_2
-
-decimal_mode_sbc_3B_r0:
-        mov     r1, r0
-decimal_mode_sbc_3B:
-        and     r2, r1, #15
-        and     r0, regA, #0xf000000
-        rscs    r2, r2, r0, lsr #24
-        addcc   r2, r2, #10
-        lsr     r1, r1, #4
-        rscs    regA, r1, regA, lsr #28
-        addcc   regA, regA, #10
-        orr     regA, r2, regA, lsl #4
-        FETCH_NEXT_3B_STAGE_0
-        lsl     regA, regA, #24
-        teq     regA, #0
-        FETCH_NEXT_3B_STAGE_1
-        bicvc   flags, #0x40
-        orrvs   flags, #0x40
-        FETCH_NEXT_3B_STAGE_2        
+     
         // Note regarding commented out code below
         //
         // The reason for disabling interrupts was to prevent an interrupt
@@ -1443,8 +1326,10 @@ opcode_0D:
         FETCH_NEXT_3B_STAGE_0
         lsl     r1, r1, #24
         orrs    regA, regA, r1
-        FETCH_NEXT_3B_STAGE_1
-        FETCH_NEXT_3B_STAGE_2
+        FETCH_NEXT_STAGE_0
+
+		  FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_2
 
 // Opcode 0E - ASL $0000
 opcode_0E:
@@ -1454,7 +1339,7 @@ opcode_0E:
         STORE_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         movs    r1, r1, lsl #24
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 0F - BBR0
 opcode_0F:
@@ -1536,8 +1421,10 @@ opcode_19:
         FETCH_NEXT_3B_STAGE_0
         lsl     r1, r1, #24
         orrs    regA, regA, r1
-        FETCH_NEXT_3B_STAGE_1
-        FETCH_NEXT_3B_STAGE_2
+        FETCH_NEXT_STAGE_0
+
+		  FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_2
 
 // Opcode 1A - INC A
 opcode_1A:
@@ -1566,8 +1453,10 @@ opcode_1D:
         FETCH_NEXT_3B_STAGE_0
         lsl     r1, r1, #24
         orrs    regA, regA, r1
-        FETCH_NEXT_3B_STAGE_1
-        FETCH_NEXT_3B_STAGE_2
+        FETCH_NEXT_STAGE_0
+
+        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_2
 
 // Opcode 1E - ASL $0000,X
 opcode_1E:
@@ -1577,7 +1466,7 @@ opcode_1E:
         STORE_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         movs    r1, r1, lsl #24
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 1F - BBR1
 opcode_1F:
@@ -1592,7 +1481,7 @@ opcode_20:
         add     regPC, memry, r0
         FETCH_NEXT_3B_STAGE_0
         orr     regSP, #0x0100
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 21 - AND ($00,X)
 opcode_21:
@@ -1687,7 +1576,7 @@ opcode_2C:
         bic     r1, r1, #N_FLAG
         orr     r1, r1, r0
         msr     CPSR_flg, r1
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 2D - AND     $0000
 opcode_2D:
@@ -1696,7 +1585,7 @@ opcode_2D:
         FETCH_NEXT_3B_STAGE_0
         lsl     r1, r1, #24
         ands    regA, regA, r1
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 2E - ROL $0000
 opcode_2E:
@@ -1706,7 +1595,7 @@ opcode_2E:
         STORE_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         lsls    r0, r1, #24
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 2F - BBR2
 opcode_2F:
@@ -1792,7 +1681,7 @@ opcode_39:
         FETCH_NEXT_3B_STAGE_0
         lsl     r1, r1, #24
         ands    regA, regA, r1
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 3A - DEC A
 opcode_3A:
@@ -1816,7 +1705,7 @@ opcode_3C:
         bic     r1, r1, #N_FLAG
         orr     r1, r1, r0
         msr     CPSR_flg, r1
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 3D - AND $0000,X
 opcode_3D:
@@ -1825,7 +1714,7 @@ opcode_3D:
         FETCH_NEXT_3B_STAGE_0
         lsl     r1, r1, #24
         ands    regA, regA, r1
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 3E - ROL $0000,X
 opcode_3E:
@@ -1835,7 +1724,7 @@ opcode_3E:
         STORE_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         lsls    r0, r1, #24
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 3F - BBR3
 opcode_3F:
@@ -1913,7 +1802,7 @@ opcode_4D:
         FETCH_NEXT_3B_STAGE_0
         lsl     r1, r1, #24
         eors    regA, regA, r1
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 4E - LSR $0000
 opcode_4E:
@@ -1924,7 +1813,7 @@ opcode_4E:
         FETCH_NEXT_3B_STAGE_0
         lsl     r0, r1, #24
         teq     r0, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 4F - BBR4
 opcode_4F:
@@ -1995,7 +1884,7 @@ opcode_59:
         FETCH_NEXT_3B_STAGE_0
         lsl     r1, r1, #24
         eors    regA, regA, r1
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 5A - PHY
 opcode_5A:
@@ -2011,7 +1900,7 @@ opcode_5D:
         FETCH_NEXT_3B_STAGE_0
         lsl     r1, r1, #24
         eors    regA, regA, r1
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 5E - LSR $0000,X
 opcode_5E:
@@ -2022,7 +1911,7 @@ opcode_5E:
         FETCH_NEXT_3B_STAGE_0
         lsl     r0, r1, #24
         teq     r0, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 5F - BBR5
 opcode_5F:
@@ -2037,7 +1926,7 @@ opcode_60:
         FETCH_NEXT_3B_STAGE_0
         bic     regSP, #0xFF00
         orr     regSP, #0x0100
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 61 - ADC ($00,X)
 opcode_61:
@@ -2102,7 +1991,8 @@ opcode_6C:
 opcode_6D:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
-        ADC_3B_macro     r1
+        FETCH_NEXT_3B_STAGE_0
+        ADC_macro     r1
 
 // Opcode 6E - ROR $0000
 opcode_6E:
@@ -2172,7 +2062,8 @@ opcode_78:
 opcode_79:
         EA_ABSOLUTE_INDEXED regY
         LOAD_ABSOLUTE
-        ADC_3B_macro     r1
+        FETCH_NEXT_3B_STAGE_0
+        ADC_macro     r1
 
 // Opcode 7A - PLY
 opcode_7A:
@@ -2195,7 +2086,8 @@ opcode_7C:
 opcode_7D:
         EA_ABSOLUTE_INDEXED regX
         LOAD_ABSOLUTE
-        ADC_3B_macro      r1
+        FETCH_NEXT_3B_STAGE_0
+        ADC_macro      r1
 
 // Opcode 7E - ROR $0000,X
 opcode_7E:
@@ -2376,7 +2268,7 @@ opcode_9C:
         EA_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         strb    instt, [memry, r0]
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 9D - STA $0000,X
 opcode_9D:
@@ -2390,7 +2282,7 @@ opcode_9E:
         EA_ABSOLUTE_INDEXED regX
         FETCH_NEXT_3B_STAGE_0
         strb    instt, [memry, r0]
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode 9F - BBS1
 opcode_9F:
@@ -2477,7 +2369,7 @@ opcode_AC:
         FETCH_NEXT_3B_STAGE_0
         lsl     regY, r1, #24
         teq     regY, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode AD - LDA $0000
 opcode_AD:
@@ -2486,7 +2378,7 @@ opcode_AD:
         FETCH_NEXT_3B_STAGE_0
         lsl     regA, r1, #24
         teq     regA, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode AE - LDX $0000
 opcode_AE:
@@ -2495,7 +2387,7 @@ opcode_AE:
         FETCH_NEXT_3B_STAGE_0
         lsl     regX, r1, #24
         teq     regX, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode AF - BBS2
 opcode_AF:
@@ -2572,7 +2464,7 @@ opcode_B9:
         FETCH_NEXT_3B_STAGE_0
         lsl     regA, r1, #24
         teq     regA, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode BA - TSX
 opcode_BA:
@@ -2588,8 +2480,9 @@ opcode_BC:
         FETCH_NEXT_3B_STAGE_0
         lsl     regY, r1, #24
         teq     regY, #0
-        FETCH_NEXT_3B_STAGE_1
-        FETCH_NEXT_3B_STAGE_2
+        FETCH_NEXT_STAGE_0
+		  FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_2
 
 // Opcode BD - LDA $0000,X
 opcode_BD:
@@ -2598,7 +2491,7 @@ opcode_BD:
         FETCH_NEXT_3B_STAGE_0
         lsl     regA, r1, #24
         teq     regA, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode BE - LDX $0000,Y
 opcode_BE:
@@ -2607,7 +2500,7 @@ opcode_BE:
         FETCH_NEXT_3B_STAGE_0
         lsl     regX, r1, #24
         teq     regX, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode BF - BBS3
 opcode_BF:
@@ -2690,7 +2583,7 @@ opcode_CC:
         LOAD_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         cmp     regY, r1, lsl #24
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode CD - CMP $0000
 opcode_CD:
@@ -2698,7 +2591,7 @@ opcode_CD:
         LOAD_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         cmp     regA, r1, lsl #24
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode CE - DEC $0000
 opcode_CE:
@@ -2709,7 +2602,7 @@ opcode_CE:
         FETCH_NEXT_3B_STAGE_0
         lsl     r0, r1, #24
         teq     r0, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode CF - BBS4
 opcode_CF:
@@ -2773,7 +2666,7 @@ opcode_D9:
         LOAD_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         cmp     regA, r1, lsl #24
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode DA - PHX
 opcode_DA:
@@ -2794,7 +2687,7 @@ opcode_DD:
         LOAD_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         cmp     regA, r1, lsl #24
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode DE - DEX $0000,X
 opcode_DE:
@@ -2805,7 +2698,7 @@ opcode_DE:
         FETCH_NEXT_3B_STAGE_0
         lsl     r0, r1, #24
         teq     r0, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode DF - BBS5
 opcode_DF:
@@ -2867,13 +2760,14 @@ opcode_EC:
         LOAD_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         cmp     regX, r1, lsl #24
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode ED - SBC_macro $0000
 opcode_ED:
         EA_ABSOLUTE
         LOAD_ABSOLUTE
-        SBC_3B_macro     r1 
+        FETCH_NEXT_3B_STAGE_0
+        SBC_macro     r1 
 
 // Opcode EE - INC $0000
 opcode_EE:
@@ -2884,7 +2778,7 @@ opcode_EE:
         FETCH_NEXT_3B_STAGE_0
         lsl     r0, r1, #24
         teq     r0, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode EF - BBS6
 opcode_EF:
@@ -2937,7 +2831,8 @@ opcode_F8:
 opcode_F9:
         EA_ABSOLUTE_INDEXED regY
         LOAD_ABSOLUTE
-        SBC_3B_macro     r1 
+        FETCH_NEXT_3B_STAGE_0
+        SBC_macro     r1 
 
 // Opcode FA - PLX
 opcode_FA:
@@ -2951,7 +2846,8 @@ opcode_FA:
 opcode_FD:
         EA_ABSOLUTE_INDEXED regX
         LOAD_ABSOLUTE
-        SBC_3B_macro     r1 
+        FETCH_NEXT_3B_STAGE_0
+        SBC_macro     r1 
 
 // Opcode FE - INC $0000,X
 opcode_FE:
@@ -2962,7 +2858,7 @@ opcode_FE:
         FETCH_NEXT_3B_STAGE_0
         lsl     r0, r1, #24
         teq     r0, #0
-        FETCH_NEXT_3B_STAGE_12
+        FETCH_NEXT_MERGED
 
 // Opcode FF - BBS7
 opcode_FF:
