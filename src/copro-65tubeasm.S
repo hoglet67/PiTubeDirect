@@ -358,14 +358,14 @@
         ldrb    r1, [r0, memry ]
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
-        BRANCH  eq ne msr r5
+        BRANCH_FLAGS  eq ne msr r5
 .endm
 
 .macro BBS bitnum
         ldrb    r1, [r0, memry ]    
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
-        BRANCH  ne eq msr r5
+        BRANCH_FLAGS  ne eq msr r5
 .endm
 
 .macro RMB bitnum
@@ -456,7 +456,23 @@
         FETCH_NEXT_STAGE_2     
 .endm
 
-.macro BRANCH yes no flag reg=r0
+.macro BRANCH yes no reg=r0
+      
+      sxtab\yes regPC, regPC, \reg
+      // stall
+      ldr\yes\()b  r5, [regPC,#-1]  
+      //stall
+      //stall
+      //stall
+      ldr     lr, [ip, r5, lsl #2]
+      ldrb    r0, [regPC], #1 //hidden in stall
+      ldrb    r5, [regPC], #1 //hidden in stall         
+      FETCH_NEXT_STAGE_2            // 5 cycles
+
+      // total of 14 if taken. 10 if not taken and not recovering flags
+.endm      
+
+.macro BRANCH_FLAGS yes no flag reg=r0
       
       sxtab\yes regPC, regPC, \reg
 .if \reg==r5
@@ -483,8 +499,8 @@
 .endif      
       FETCH_NEXT_STAGE_2            // 5 cycles
 
-      // total of 15 if taken. 11 if not taken and not recovering flags
-.endm      
+      // total of 14 if taken. 11 if not taken and not recovering flags
+.endm     
 
 .macro LOGICAL_FETCH12 logic
         FETCH_NEXT_STAGE_1
@@ -1773,7 +1789,7 @@ opcode_4F:
 opcode_50:
         mrs     r2, CPSR
         tst     flags, #0x40
-        BRANCH  eq ne msr
+        BRANCH_FLAGS  eq ne msr
 
 // Opcode 51 - EOR ($00),Y
 opcode_51:
@@ -1936,7 +1952,7 @@ opcode_6F:
 opcode_70:
         mrs     r2, CPSR
         tst     flags, #0x40
-        BRANCH  ne eq msr
+        BRANCH_FLAGS  ne eq msr
 
 // Opcode 71 - ADC_macro ($00),Y
 opcode_71:
@@ -2025,12 +2041,7 @@ opcode_7F:
 
 // Opcode 80 - BRA
 opcode_80:
-        sxtab   regPC, regPC, r0
-        ldrb    r5, [regPC,#-1]
-        ldr     lr, [ip, r5, lsl #2]
-        ldrb    r0, [regPC], #1 //hidden in stall
-        ldrb    r5, [regPC], #1 //hidden in stall
-        mov     pc, lr 
+        BRANCH al al 
 
 // Opcode 81 - STA ($00,X)
 opcode_81:
