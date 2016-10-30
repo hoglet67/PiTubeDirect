@@ -169,6 +169,11 @@
         FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_STAGE_2
 .endm
+
+.macro FETCH_NEXT_STAGE_01_I
+        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_1_I
+.endm
         
 // Macros for fetching the next instruction, for two bytes
 
@@ -1461,9 +1466,9 @@ opcode_17:
 // Opcode 18 - CLC
 opcode_18:
         FETCH_NEXT_STAGE_0_I
-        mrs     r1, CPSR
-        bic     r1, r1, #C_FLAG
-        msr     CPSR_flg, r1
+        mrscs     r1, CPSR
+        biccs     r1, r1, #C_FLAG
+        msrcs     CPSR_flg, r1
         FETCH_NEXT_STAGE_2_I
 
 // Opcode 19 - ORA $0000,Y
@@ -2021,10 +2026,10 @@ opcode_7F:
 // Opcode 80 - BRA
 opcode_80:
         sxtab   regPC, regPC, r0
-        ldrb    r2, [regPC,#-1]
+        ldrb    r5, [regPC,#-1]
+        ldr     lr, [ip, r5, lsl #2]
         ldrb    r0, [regPC], #1 //hidden in stall
         ldrb    r5, [regPC], #1 //hidden in stall
-        ldr     lr, [ip, r2, lsl #2]
         mov     pc, lr 
 
 // Opcode 81 - STA ($00,X)
@@ -2062,10 +2067,10 @@ opcode_87:
 
 // Opcode 88 - DEY
 opcode_88:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         sub     regY, regY, #0x1000000
         teq     regY, #0
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 89 - BIT #$00
 opcode_89:
@@ -2165,9 +2170,9 @@ opcode_97:
 
 // Opcode 98 - TYA
 opcode_98:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         movs    regA, regY
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 99 - STA $0000,Y
 opcode_99:
@@ -2390,17 +2395,15 @@ opcode_C1:
 
 // Opcode C4 - CPY $00
 opcode_C4:
-        FETCH_NEXT_STAGE_0
         ldrb    r1, [memry, r0]
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_01
         cmp     regY, r1, lsl #24
         FETCH_NEXT_STAGE_2
 
 // Opcode C5 - CMP $00
 opcode_C5:
-        FETCH_NEXT_STAGE_0
         ldrb    r1, [memry, r0]
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_01
         cmp     regA, r1, lsl #24
         FETCH_NEXT_STAGE_2
 
@@ -2418,10 +2421,10 @@ opcode_C7:
 
 // Opcode C8 - INY
 opcode_C8:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         add     regY, regY, #0x1000000
         teq     regY, #0
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode C9 - CMP #$00
 opcode_C9:
@@ -2431,10 +2434,10 @@ opcode_C9:
 
 // Opcode CA - DEX
 opcode_CA:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         sub     regX, regX, #0x1000000
         teq     regX, #0
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode CB - WAI
 opcode_CB:
@@ -2571,9 +2574,8 @@ opcode_E1:
 
 // Opcode E4 - CPX $00
 opcode_E4:
-        FETCH_NEXT_STAGE_0
         ldrb    r1, [memry, r0]
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_01
         cmp     regX, r1, lsl #24
         FETCH_NEXT_STAGE_2
 
@@ -2717,4 +2719,3 @@ mpu_memory:
 // **********************************************
 // End of 64K of 6502 RAM
 // **********************************************
-        
