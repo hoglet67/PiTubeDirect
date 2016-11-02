@@ -298,6 +298,12 @@
         LOAD_ABSOLUTE
 .endm
 
+.macro EA_ABSOLUTE_LOAD_PART
+        orr r0,r0,r5,LSL #8
+        FETCH_NEXT_3B_STAGE_0
+        LOAD_ABSOLUTE_PART
+.endm
+
 .macro EA_ABSOLUTE_INDEXED reg
         EA_ABSOLUTE
         add     r0, r0, \reg, lsr #24
@@ -310,6 +316,14 @@
         bic     r0, r0, #0x10000
         FETCH_NEXT_3B_STAGE_0
         LOAD_ABSOLUTE
+.endm
+
+.macro EA_ABSOLUTE_INDEXED_LOAD_PART reg
+        EA_ABSOLUTE
+        add     r0, r0, \reg, lsr #24
+        bic     r0, r0, #0x10000
+        FETCH_NEXT_3B_STAGE_0
+        LOAD_ABSOLUTE_PART
 .endm
 
 .macro EA_INDIRECT
@@ -344,9 +358,23 @@
         msr     CPSR, r2           // restore 6502 flags, including ARM interrupts
 .endm
 
+.macro LOAD_ABSOLUTE_PART               // r0 holds the absolute address
+        mrs     r2, CPSR           // preserve the 6502 flags
+        cmp     tregs, r0, lsr #3     // tregs holds the constant 0xFEF8 >> 3
+        ldrneb  r1, [memry, r0]       // normal memory read
+        bleq    tube_load_handler  // tube memory access
+
+.endm
+
 .macro STORE_ABSOLUTE              // r0 holds the absolute address
         mrs     r2, CPSR           // preserve the 6502 flags
         cmp     tregs, r0, lsr #3     // tregs holds the constant 0xFEF8 >> 3
+        strneb  r1, [memry, r0]       // normal memory write
+        bleq    tube_store_handler // tube memory access
+        msr     CPSR, r2           // restore 6502 flags, including ARM interrupts
+.endm
+
+.macro STORE_ABSOLUTE_PART
         strneb  r1, [memry, r0]       // normal memory write
         bleq    tube_store_handler // tube memory access
         msr     CPSR, r2           // restore 6502 flags, including ARM interrupts
@@ -473,30 +501,35 @@
 .endm      
 
 .macro BRANCH_FLAGS yes no flag reg=r0
-      
-      sxtab\yes regPC, regPC, \reg
+
 .if \reg==r5
+   
       // if we are using R5 PC is already at the right place 
-      ldrb      r5, [regPC], #1
-      ldr       lr, [instt, r5, lsl #2]
+      sxtab\yes regPC, regPC, \reg
+      ldrb      r1, [regPC], #1
       ldrb      r0, [regPC], #1 //hidden in stall
       ldrb      r5, [regPC], #1 //hidden in stall
-     
-.else 
-      // if we are using r0 then pc is one place ahead
-      ldr\no   lr, [instt, r5, lsl #2] //hidden in stall
-      ldr\yes\()b  r1, [regPC,#-1]  
-      ldrb    r0, [regPC], #1 //hidden in stall
-      ldrb    r5, [regPC], #1 //hidden in stall
-      //stall
-      ldr\yes     lr, [ip, r1, lsl #2]
-      //stall
-.endif      
-      
+      ldr       lr, [instt, r1, lsl #2]
 .ifb \flag
 .else
       msr     CPSR_flg, r2
+.endif          
+     
+.else 
+      // if we are using r0 then pc is one place ahead
+      sxtab\yes regPC, regPC, \reg
+      // stall
+      ldr\yes\()b  r5, [regPC,#-1]  
+.ifb \flag
+.else
+      msr     CPSR_flg, r2
+.endif  
+      //stall
+      ldr     lr, [ip, r5, lsl #2]
+      ldrb    r0, [regPC], #1 //hidden in stall
+      ldrb    r5, [regPC], #1 //hidden in stall 
 .endif      
+      
       FETCH_NEXT_STAGE_2            // 5 cycles
 
       // total of 14 if taken. 11 if not taken and not recovering flags
@@ -1416,9 +1449,9 @@ opcode_0D:
 
 // Opcode 0E - ASL $0000
 opcode_0E:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD_PART
         lsl     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_PART
         movs    r1, r1, lsl #24
         FETCH_NEXT_MERGED
 
@@ -1518,9 +1551,9 @@ opcode_1D:
 
 // Opcode 1E - ASL $0000,X
 opcode_1E:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD_PART regX
         lsl     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_PART
         FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -1683,8 +1716,7 @@ opcode_39:
 
 // Opcode 3A - DEC A
 opcode_3A:
-        FETCH_NEXT_STAGE_0_I
-        FETCH_NEXT_STAGE_1_I
+        FETCH_NEXT_STAGE_01_I
         sub     regA, regA, #0x1000000
         teq     regA, #0
         FETCH_NEXT_STAGE_2
@@ -2470,9 +2502,9 @@ opcode_CD:
 
 // Opcode CE - DEC $0000
 opcode_CE:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD_PART
         sub     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_PART
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2534,7 +2566,6 @@ opcode_D8:
 // Opcode D9 - CMP $0000,Y
 opcode_D9:
         EA_ABSOLUTE_INDEXED_LOAD regY
-        LOAD_ABSOLUTE
         FETCH_NEXT_STAGE_01
         cmp     regA, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -2561,9 +2592,9 @@ opcode_DD:
 
 // Opcode DE - DEX $0000,X
 opcode_DE:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD_PART regX
         sub     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_PART
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2631,10 +2662,10 @@ opcode_ED:
 
 // Opcode EE - INC $0000
 opcode_EE:
-        EA_ABSOLUTE_LOAD 
+        EA_ABSOLUTE_LOAD_PART 
         FETCH_NEXT_STAGE_0
         add     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_PART
         FLAGS
 
 // Opcode EF - BBS6
@@ -2703,9 +2734,9 @@ opcode_FD:
 
 // Opcode FE - INC $0000,X
 opcode_FE:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD_PART regX
         add     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_PART
         FETCH_NEXT_STAGE_0
         FLAGS
 
