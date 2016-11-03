@@ -22,6 +22,7 @@
 // r13 (sp) = normal ARM usage
 // r14 (lr) = normal ARM usage
 // r15 (pc) = normal ARM usage
+
 #define temp0     r0
 #define temp1     r1
 #define temp2     r2
@@ -35,8 +36,6 @@
 #define regPC     r10   
 #define memry     r11   
 #define instt     r12
-
-
 
 // Interrupt / Event Handling code by dp11
 // this code is not for profit
@@ -142,7 +141,7 @@
         b       fetch_next
 .endm
 
-.macro FETCH_NEXT_MERGED
+.macro FETCH_NEXT_STAGE_012
         b       fetch_next
 .endm
 
@@ -163,11 +162,6 @@
 .macro FETCH_NEXT_STAGE_1_I
         mov     r0, r5
         ldrb    r5, [regPC], #1 
-.endm
-
-.macro FETCH_NEXT_STAGE_2_I
-        FETCH_NEXT_STAGE_1_I
-        FETCH_NEXT_STAGE_2
 .endm
 
 .macro FETCH_NEXT_STAGE_01_I
@@ -209,7 +203,7 @@
         FETCH_NEXT_STAGE_2  
 .endm
 
-.macro FETCH_NEXT_MERGED
+.macro FETCH_NEXT_STAGE_012
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1
         FETCH_NEXT_STAGE_2        
@@ -240,7 +234,8 @@
         tsteq   r0, #1                    // Test for IRQ
         beq     handle_irq_adjust_regPC
         msr     CPSR_flg, r2              // Restore the 6502 flags
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_1_I
+        FETCH_NEXT_STAGE_2
         .ltorg
 .endm
 
@@ -455,18 +450,18 @@
 // instruction macros 
 
 .macro  BIT
-        FETCH_NEXT_STAGE_0
-        lsl     r0, r1, #24
-        tst     r0, regA
+        FETCH_NEXT_STAGE_01
+        lsl     r2, r1, #24
+        tst     r2, regA
         and     r1, r1, #0x40
         bic     flags, flags, #0x40
         orr     flags, flags, r1
-        and     r0, r0, #N_FLAG
+        and     r2, r2, #N_FLAG
         mrs     r1, CPSR
         bic     r1, r1, #N_FLAG
-        orr     r1, r1, r0
+        orr     r1, r1, r2
         msr     CPSR_flg, r1
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_2
 .endm
 
 .macro ADC_macro reg
@@ -920,7 +915,6 @@ exec_65tube:
         orrne   flags, flags, #SLOW_FLAG
 #endif
         
-        ldr     const, =0xffffff00         // initialize the constant in const
 
 #if defined(USE_HW_MAILBOX)
         mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
@@ -1103,7 +1097,7 @@ handle_nmi:
 //     added 4 lines or so
 //     we (redundantly) re-enable interupts first because we don't want to slow down FIQ response
 // 
-// 4. Replaced postamble of FETCH_NEXT_MERGED
+// 4. Replaced postamble of FETCH_NEXT_STAGE_012
 //     we added one line
 //     we restore the modified table base pointer so we will re-enter this handler
         
@@ -1167,7 +1161,7 @@ waste_time:
         msr     CPSR, r2                // restore the 6502 flags        
 
 execute_one_instruction:
-        ldrb    r2, [regPC], #1            // same as FETCH_NEXT_MERGED but set bit in instt to return immediately to event handler
+        ldrb    r2, [regPC], #1            // same as FETCH_NEXT_STAGE_012 but set bit in instt to return immediately to event handler
         ldrb    r0, [regPC], #1
         ldrb    r5, [regPC], #1
         ldr     lr, [instt, r2, lsl #2]
@@ -1358,8 +1352,8 @@ opcode_EA:
 opcode_EB:
 opcode_F3:
 opcode_FB:
-        FETCH_NEXT_STAGE_0_I
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_01_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 02 - NOP #$00
 // Opcode 22 - NOP #$00
@@ -1383,7 +1377,7 @@ opcode_C2:
 opcode_D4:
 opcode_E2:
 opcode_F4:
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 5C - NOP $0000
 // Opcode DC - NOP $0000
@@ -1443,8 +1437,7 @@ opcode_07:
 
 // Opcode 08 - PHP
 opcode_08:
-        FETCH_NEXT_STAGE_0_I
-        FETCH_NEXT_STAGE_1_I
+        FETCH_NEXT_STAGE_01_I
         orr     r1, flags, #0x30
         orrmi   r1, r1, #0x80
         orrcs   r1, r1, #1
@@ -1470,7 +1463,7 @@ opcode_0C:
         orreq   r2, r2, #Z_FLAG
         orr     r1, r1, regA, lsr #24
         STORE_ABSOLUTE_RMW
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 0D - ORA $0000
 opcode_0D:
@@ -1483,7 +1476,7 @@ opcode_0E:
         lsl     r1, r1, #1
         STORE_ABSOLUTE_PART
         movs    r1, r1, lsl #24
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 0F - BBR0
 opcode_0F:
@@ -1572,7 +1565,7 @@ opcode_1C:
         orreq   r2, r2, #Z_FLAG
         bic     r1, r1, regA, lsr #24
         STORE_ABSOLUTE_RMW
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 1D - ORA $0000,X
 opcode_1D:
@@ -1601,7 +1594,7 @@ opcode_20:
         FETCH_NEXT_3B_STAGE_0
         sub     regSP, regSP, #2
         orr     regSP, #0x0100
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 21 - AND ($00,X)
 opcode_21:
@@ -1674,9 +1667,9 @@ opcode_2D:
 
 // Opcode 2E - ROL $0000
 opcode_2E:
-        EA_ABSOLUTE_LOAD_PART
+        EA_ABSOLUTE_LOAD
         adc     r1, r1, r1
-        STORE_ABSOLUTE_RMW
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -1735,11 +1728,11 @@ opcode_37:
 
 // Opcode 38 - SEC
 opcode_38:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         mrscc     r1, CPSR
         orrcc     r1, r1, #C_FLAG
         msrcc     CPSR_flg, r1   // takes two cycles if carry is clear
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 39 - AND $0000,Y
 opcode_39:
@@ -1765,9 +1758,9 @@ opcode_3D:
 
 // Opcode 3E - ROL $0000,X
 opcode_3E:
-        EA_ABSOLUTE_INDEXED_LOAD_PART regX
+        EA_ABSOLUTE_INDEXED_LOAD regX
         adc     r1, r1, r1
-        STORE_ABSOLUTE_RMW
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -1819,11 +1812,11 @@ opcode_49:
 
 // Opcode 4A - LSR A
 opcode_4A:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         lsrs    r1, regA, #25
         lsl     regA, r1, #24
         teq     regA, #0
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 4C - JMP $0000
 opcode_4C:
@@ -1839,9 +1832,9 @@ opcode_4D:
 
 // Opcode 4E - LSR $0000
 opcode_4E:
-        EA_ABSOLUTE_LOAD_PART
+        EA_ABSOLUTE_LOAD
         lsrs    r1, r1, #1
-        STORE_ABSOLUTE_RMW
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -1917,9 +1910,9 @@ opcode_5D:
 
 // Opcode 5E - LSR $0000,X
 opcode_5E:
-        EA_ABSOLUTE_INDEXED_LOAD_PART regX
+        EA_ABSOLUTE_INDEXED_LOAD regX
         lsrs    r1, r1, #1
-        STORE_ABSOLUTE_RMW
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -1936,7 +1929,7 @@ opcode_60:
         FETCH_NEXT_3B_STAGE_0
         bic     regSP, #0xFF00
         orr     regSP, #0x0100
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 61 - ADC ($00,X)
 opcode_61:
@@ -1973,11 +1966,11 @@ opcode_67:
 
 // Opcode 68 - PLA
 opcode_68:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         SPOP    regA
         lsl     regA, regA, #24
         teq     regA, #0
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 69 - ADC_macro #$00
 opcode_69:
@@ -1985,12 +1978,12 @@ opcode_69:
 
 // Opcode 6A - ROR A
 opcode_6A:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         orrcs   regA, regA, #1
         rors    r1, regA, #25
         lsl     regA, r1, #24
         teq     regA, #0
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 6C - JMP ($0000) 
 opcode_6C:
@@ -2006,11 +1999,11 @@ opcode_6D:
 
 // Opcode 6E - ROR $0000
 opcode_6E:
-        EA_ABSOLUTE_LOAD_PART
+        EA_ABSOLUTE_LOAD
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
-        STORE_ABSOLUTE_RMW
-        FETCH_NEXT_MERGED
+        STORE_ABSOLUTE
+        FETCH_NEXT_STAGE_012
 
 // Opcode 6F - BBR6
 opcode_6F:
@@ -2066,9 +2059,9 @@ opcode_77:
 
 // Opcode 78 - SEI
 opcode_78:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         orr     flags, flags, #4
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 79 - ADC_macro $0000,Y
 opcode_79:
@@ -2077,11 +2070,11 @@ opcode_79:
 
 // Opcode 7A - PLY
 opcode_7A:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         SPOP    regY
         lsl     regY, regY, #24
         teq     regY, #0
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 7C - JMP ($0000,X)
 opcode_7C:
@@ -2099,11 +2092,11 @@ opcode_7D:
 
 // Opcode 7E - ROR $0000,X
 opcode_7E:
-        EA_ABSOLUTE_INDEXED_LOAD_PART regX
+        EA_ABSOLUTE_INDEXED_LOAD regX
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
-        STORE_ABSOLUTE_RMW
-        FETCH_NEXT_MERGED
+        STORE_ABSOLUTE
+        FETCH_NEXT_STAGE_012
 
 // Opcode 7F - BBR7
 opcode_7F:
@@ -2168,9 +2161,9 @@ opcode_89:
 
 // Opcode 8A - TXA
 opcode_8A:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         movs    regA, regX
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 8C - STY $0000
 opcode_8C:
@@ -2178,7 +2171,7 @@ opcode_8C:
         FETCH_NEXT_3B_STAGE_0
         lsr     r1, regY, #24
         STORE_ABSOLUTE
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 8D - STA $0000
 opcode_8D:
@@ -2186,7 +2179,7 @@ opcode_8D:
         FETCH_NEXT_3B_STAGE_0
         lsr     r1, regA, #24
         STORE_ABSOLUTE
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 8E - STX $0000
 opcode_8E:
@@ -2194,7 +2187,7 @@ opcode_8E:
         FETCH_NEXT_3B_STAGE_0
         lsr     r1, regX, #24
         STORE_ABSOLUTE
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 8F - BBS0
 opcode_8F:
@@ -2263,21 +2256,21 @@ opcode_99:
         FETCH_NEXT_3B_STAGE_0
         lsr     r1, regA, #24
         STORE_ABSOLUTE
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 9A - TXS
 opcode_9A:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         add     regSP, memry, #0x100
         add     regSP, regSP, regX, lsr #24
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode 9C - STZ $0000
 opcode_9C:
         EA_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
         strb    instt, [memry, r0]
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 9D - STA $0000,X
 opcode_9D:
@@ -2285,14 +2278,14 @@ opcode_9D:
         FETCH_NEXT_3B_STAGE_0
         lsr     r1, regA, #24
         STORE_ABSOLUTE
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 9E - STZ $0000,X
 opcode_9E:
         EA_ABSOLUTE_INDEXED regX
         FETCH_NEXT_3B_STAGE_0
         strb    instt, [memry, r0]
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode 9F - BBS1
 opcode_9F:
@@ -2339,9 +2332,9 @@ opcode_A7:
 
 // Opcode A8 - TAY
 opcode_A8:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         movs    regY, regA
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode A9 - LDA #$00
 opcode_A9:
@@ -2350,9 +2343,9 @@ opcode_A9:
 
 // Opcode AA - TAX
 opcode_AA:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         movs    regX, regA
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode AC - LDY $0000
 opcode_AC:
@@ -2422,9 +2415,9 @@ opcode_B7:
 
 // Opcode B8 - CLV
 opcode_B8:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         bic     flags, #0x40
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode B9 - LDA $0000,Y
 opcode_B9:
@@ -2434,10 +2427,10 @@ opcode_B9:
 
 // Opcode BA - TSX
 opcode_BA:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         lsl     regX, regSP, #24
         teq     regX, #0
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode BC - LDY $0000,X
 opcode_BC:
@@ -2526,20 +2519,20 @@ opcode_CA:
 // Opcode CB - WAI
 opcode_CB:
         // TODO - Implement this
-        FETCH_NEXT_STAGE_0_I
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_01_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode CC - CPY $0000
 opcode_CC:
         EA_ABSOLUTE_LOAD
         cmp     regY, r1, lsl #24
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode CD - CMP $0000
 opcode_CD:
         EA_ABSOLUTE_LOAD
         cmp     regA, r1, lsl #24
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode CE - DEC $0000
 opcode_CE:
@@ -2601,9 +2594,9 @@ opcode_D7:
 
 // Opcode D8 - CLD
 opcode_D8:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         bic     flags, flags, #8
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode D9 - CMP $0000,Y
 opcode_D9:
@@ -2622,8 +2615,8 @@ opcode_DA:
 // Opcode DB - STP
 opcode_DB:
         // TODO - Implement this
-        FETCH_NEXT_STAGE_0_I
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_01_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode DD - CMP $0000,X
 opcode_DD:
@@ -2696,7 +2689,7 @@ opcode_E9:
 opcode_EC:
         EA_ABSOLUTE_LOAD
         cmp     regX, r1, lsl #24
-        FETCH_NEXT_MERGED
+        FETCH_NEXT_STAGE_012
 
 // Opcode ED - SBC_macro $0000
 opcode_ED:
@@ -2754,9 +2747,9 @@ opcode_F7:
 
 // Opcode F8 - SED
 opcode_F8:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         orr     flags, flags, #8
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode F9 - SBC_macro $0000,Y
 opcode_F9:
@@ -2765,11 +2758,11 @@ opcode_F9:
 
 // Opcode FA - PLX
 opcode_FA:
-        FETCH_NEXT_STAGE_0_I
+        FETCH_NEXT_STAGE_01_I
         SPOP    regX
         lsl     regX, regX, #24
         teq     regX, #0
-        FETCH_NEXT_STAGE_2_I
+        FETCH_NEXT_STAGE_2
 
 // Opcode FD - SBC_macro $0000,X
 opcode_FD:
