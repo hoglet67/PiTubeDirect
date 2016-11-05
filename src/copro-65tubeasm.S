@@ -223,8 +223,8 @@
 .endm
 
 // Macro for fetching the next instruction and also checking for any pending IRQs
-// Used for instructions that can enable interrupts: CLI, PLP
-.macro FETCH_NEXT_CHECK_IRQ
+// Used for instructions that can enable interrupts: CLI, PLP , RTI
+.macro CHECK_IRQ
         
         mrs     r2, CPSR                  // Preserve the 6502 flags
         tst     flags, #4                    // Test whether interrupts are enabled (bit 2 = 0)
@@ -234,9 +234,6 @@
         tsteq   r0, #1                    // Test for IRQ
         beq     handle_irq_adjust_regPC
         msr     CPSR_flg, r2              // Restore the 6502 flags
-        FETCH_NEXT_STAGE_1_I
-        FETCH_NEXT_STAGE_2
-        .ltorg
 .endm
 
 #endif
@@ -257,6 +254,15 @@
 .macro SPOP reg
         add     regSP, regSP, #1
         bic     regSP, #0xFF00
+        ldrb    \reg, [regSP,#0x0100]!
+        // The original code was just this:
+        // ldrb    \reg, [regSP, #1]!
+.endm
+
+.macro SPOP_FETCH_STAGE_0_I reg
+        add     regSP, regSP, #1
+        bic     regSP, #0xFF00
+        FETCH_NEXT_STAGE_0_I
         ldrb    \reg, [regSP,#0x0100]!
         // The original code was just this:
         // ldrb    \reg, [regSP, #1]!
@@ -336,6 +342,13 @@
 .macro EA_INDIRECT_X
         add     r0, r0, regX, lsr #24
         and     r0, r0, #0xff
+        ldrh    r0, [r0, memry]
+.endm
+
+.macro EA_INDIRECT_X_FETCH_STAGE_0
+        add     r0, r0, regX, lsr #24
+        and     r0, r0, #0xff
+        FETCH_NEXT_STAGE_0
         ldrh    r0, [r0, memry]
 .endm
 
@@ -599,6 +612,22 @@
         FETCH_NEXT_STAGE_2
 
 .endm
+
+
+.macro  PLP
+
+        SPOP    r0
+        and     flags, flags, #0xffffff00
+        orr     flags, flags, r0           // preserve the other bits in flags, e.g. the slowdown bit
+        and     flags, flags, #R4_MASK
+        mrs     r2, CPSR
+        bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
+        and     r1, r0, #0x80
+        orr     r2, r2, r1, lsl #24
+        and     r1, r0, #0x03
+        orr     r2, r2, r1, lsl #29
+        msr     CPSR_flg, r2
+.endm        
 
 // **********************************************
 // End of macros
@@ -1260,30 +1289,16 @@ tube_store_handler:
         pop     {r0-tregs,pc}                // r2 (cpsr) is preserved
 
 handle_rti:
-        SPOP    r0
-        and     flags, flags, #0xffffff00
-        orr     flags, flags, r0                // preserve the other bits in flags, e.g. the slowdown bit
-        and     flags, flags, #R4_MASK
-        mrs     r2, CPSR
-        bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
-        and     r1, r0, #0x80
-        orr     r2, r2, r1, lsl #24
-        and     r1, r0, #0x03
-        orr     r2, r2, r1, lsl #29
-        msr     CPSR_flg, r2
-        SPOP    r0 // *** TODO ldrh ( see RTS)
-        SPOP    r1
-        add     regPC, r0, r1, lsl #8
-        add     regPC, regPC, memry
-        mrs     r2, CPSR                  // Preserve the 6502 flags
-        tst     flags, #4                    // Test whether interrupts are enabled (bit 2 = 0)
-        ldreq   r0, =tube_irq
-        ldreq   r0, [r0]
-        eoreq   r0, r0, #1
-        tsteq   r0, #1                    // Test for IRQ
-        beq     handle_irq
-        msr     CPSR_flg, r2              // Restore the 6502 flags
-        FETCH_NEXT_3B_MERGED   // *** TODO optimise parts sooner
+        PLP
+        
+        ldrh    r1, [regSP, #1]   
+        add     regSP, regSP, #2
+        bic     regSP, #0xFF00     
+        add     regPC, memry, r1
+        orr     regSP, #0x0100
+        FETCH_NEXT_3B_STAGE_0
+        CHECK_IRQ
+        FETCH_NEXT_STAGE_012 
 
 // Insert the current literal pool, otherwise constants are to far away and you get a build error
         .ltorg
@@ -1631,18 +1646,11 @@ opcode_27:
 // Opcode 28 - PLP 
 opcode_28:
         FETCH_NEXT_STAGE_0_I
-        SPOP    r0
-        and     flags, flags, #0xffffff00
-        orr     flags, flags, r0           // preserve the other bits in flags, e.g. the slowdown bit
-        and     flags, flags, #R4_MASK
-        mrs     r2, CPSR
-        bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
-        and     r1, r0, #0x80
-        orr     r2, r2, r1, lsl #24
-        and     r1, r0, #0x03
-        orr     r2, r2, r1, lsl #29
-        msr     CPSR_flg, r2
-        FETCH_NEXT_CHECK_IRQ
+        PLP
+        CHECK_IRQ
+        FETCH_NEXT_STAGE_1_I
+        FETCH_NEXT_STAGE_2
+        .ltorg
 
 // Opcode 29 - AND     #$00
 opcode_29:
@@ -1669,7 +1677,7 @@ opcode_2D:
 opcode_2E:
         EA_ABSOLUTE_LOAD
         adc     r1, r1, r1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_RMW
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -1760,7 +1768,7 @@ opcode_3D:
 opcode_3E:
         EA_ABSOLUTE_INDEXED_LOAD regX
         adc     r1, r1, r1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_RMW
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -1889,7 +1897,10 @@ opcode_57:
 opcode_58:
         bic     flags, flags, #4
         FETCH_NEXT_STAGE_0_I
-        FETCH_NEXT_CHECK_IRQ
+        CHECK_IRQ
+        FETCH_NEXT_STAGE_1_I
+        FETCH_NEXT_STAGE_2
+        .ltorg
 
 // Opcode 59 - EOR $0000,Y
 opcode_59:
@@ -1966,8 +1977,8 @@ opcode_67:
 
 // Opcode 68 - PLA
 opcode_68:
-        FETCH_NEXT_STAGE_01_I
-        SPOP    regA
+        SPOP_FETCH_STAGE_0_I    regA
+        FETCH_NEXT_STAGE_1_I
         lsl     regA, regA, #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2
@@ -1979,10 +1990,9 @@ opcode_69:
 // Opcode 6A - ROR A
 opcode_6A:
         FETCH_NEXT_STAGE_01_I
-        orrcs   regA, regA, #1
-        rors    r1, regA, #25
+        rrxs    r1, regA, #25
         lsl     regA, r1, #24
-        teq     regA, #0
+        teq     regA, #0       
         FETCH_NEXT_STAGE_2
 
 // Opcode 6C - JMP ($0000) 
@@ -2070,8 +2080,8 @@ opcode_79:
 
 // Opcode 7A - PLY
 opcode_7A:
-        FETCH_NEXT_STAGE_01_I
-        SPOP    regY
+        SPOP_FETCH_STAGE_0_I   regY
+        FETCH_NEXT_STAGE_1_I
         lsl     regY, regY, #24
         teq     regY, #0
         FETCH_NEXT_STAGE_2
@@ -2108,11 +2118,12 @@ opcode_80:
 
 // Opcode 81 - STA ($00,X)
 opcode_81:
-        EA_INDIRECT_X
-        FETCH_NEXT_STAGE_0
+        EA_INDIRECT_X_FETCH_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
         lsr     r1, regA, #24
         STORE_INDIRECT
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_2
 
 // Opcode 84 - STY $00
 opcode_84:
@@ -2758,8 +2769,8 @@ opcode_F9:
 
 // Opcode FA - PLX
 opcode_FA:
-        FETCH_NEXT_STAGE_01_I
-        SPOP    regX
+        SPOP_FETCH_STAGE_0_I    regX
+        FETCH_NEXT_STAGE_1_I
         lsl     regX, regX, #24
         teq     regX, #0
         FETCH_NEXT_STAGE_2
