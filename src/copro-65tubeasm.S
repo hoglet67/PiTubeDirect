@@ -1990,7 +1990,8 @@ opcode_69:
 // Opcode 6A - ROR A
 opcode_6A:
         FETCH_NEXT_STAGE_01_I
-        rrxs    r1, regA, #25
+        orrcs   regA, regA, #1
+        rors    r1, regA, #25
         lsl     regA, r1, #24
         teq     regA, #0       
         FETCH_NEXT_STAGE_2
