@@ -398,6 +398,7 @@
 .endm
 
 .macro STORE_ABSOLUTE_PART
+        cmp     tregs, r0, lsr #3     // tregs holds the constant 0xFEF8 >> 3
         strneb  r1, [memry, r0]       // normal memory write
         bleq    tube_store_handler // tube memory access
         msr     CPSR, r2           // restore 6502 flags, including ARM interrupts
@@ -477,34 +478,26 @@
         FETCH_NEXT_STAGE_2
 .endm
 
-.macro ADC_macro reg
-
-.if \reg == r0
-        mov     r1, r0
-.endif        
+.macro ADC_macro reg=r1      
         tst     flags, #8
         bne     decimal_mode_adc
         FETCH_NEXT_STAGE_0       
-        orrcs   r1, r1, #0xff00
-        sxthcs r1,r1
-        adcs    regA, regA, r1, ror #8
+        orrcs   \reg, \reg, #0xff00
+        sxthcs  \reg, \reg
+        adcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2   
-
 .endm
 
-.macro SBC_macro reg
-.if \reg == r0
-        mov     r1, r0
-.endif        
+.macro SBC_macro reg=r1      
         tst     flags, #8
         bne     decimal_mode_sbc
         FETCH_NEXT_STAGE_0   
-        orrcc   r1, r1, #0xff00  
-        sxthcc r1,r1
-        sbcs    regA, regA, r1, ror #8
+        orrcc   \reg, \reg, #0xff00  
+        sxthcc  \reg, \reg
+        sbcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1
         bicvc   flags, #0x40
         orrvs   flags, #0x40
@@ -579,9 +572,11 @@
 
 .macro LOGICAL_I_FETCH012 logic
         FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
         lsl     r1, r0, #24
         \logic  regA, regA, r1
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_2
 .endm  
 
 .macro  TSB 
@@ -1302,7 +1297,105 @@ handle_rti:
 
 // Insert the current literal pool, otherwise constants are to far away and you get a build error
         .ltorg
-                
+#if defined(USE_WATCHPOINT)
+// *****************************
+// *
+// * Try and use the the watchpoint monitor to detect tube access
+// * 
+// *****************************
+
+// _data_abort_vector_h // this should really be exported
+#define DATA_ABORT_ADDRESS 0x30
+
+//
+// Watchpointint
+// 
+// Entry R0 = Tube address
+//
+
+watchpointinit:
+
+// Check to see if we have already caputured the DATA_ABORT vector
+
+      LDR   R3,=DATA_ABORT_ADDRESS
+      LDR   R1,=watchpointentry
+      LDR   R2,[R3]
+      CMP   R1,R2
+      BEQ   watchpointalreadysetup
+      STR   r1,[R3]
+      LDR   r3,=olddataabortentry
+      STR   R2,[R3]
+watchpointalreadysetup:
+      // Set up watchpoint address
+      
+      // CP 14 c96 c97 Watchpoint Value WVR
+      // opcode_2 =6 Crm = 0 or 1
+      // MCR p14,opcode1,r0,crn,crm,opcode2
+      //MCR p14,opcode1,r0,crn,0,6
+      
+      
+      //write_wb_reg(96 + i, addr); opcode2 = 6
+      
+      mcr   p14,0,r0,c0,c0,6
+      ADD   R0,r0,#4
+      mcr   p14,0,r0,c0,c1,6
+      
+     // write_wb_reg(112 + i, ctrl); opccode2 = 7
+      
+      // CP14 c112-c113 WCR
+      
+      // opcode2 = 7 Crm=0 or 1, C112 C113
+      // Bits 8..5 = 1111 hit on each byte in word
+      // Bits 4..3 = 11 hit on load and store
+      // bits 2..1 = 11 user or privilged mode
+      // bit 0 = 1 watch point enable
+      
+      LDR   R0,=0x1FF
+      mcr   p14,0,r0,c0,c0,7
+      mcr   p14,0,r0,c0,c1,7
+      
+      // Set up watchpoint control
+      
+      // CP14 c1 DSCR set bit 15 debug monitor enable
+      
+      MOV      R0,#1<<15
+      // for arch v6
+      mcr   p14,0,R0, c0,c1,0
+      
+      // for arch v7 v8
+      mcr   p14,0,R0, c0,c1, 2
+      
+      //IMB
+      
+      MOV   PC,LR
+olddataabortentry:      
+     .word 0
+     
+watchpointentry:   
+      push {lr}
+      push { r0-r3}
+      
+      // Check if it is a watchpoint entry 
+      // if not try the old databort handler
+      
+      // so we have a watchpoint
+      
+      // get watchpoint address
+      MRC   p15,0,R0,c6,c0,0
+      
+      // work out which register we need to fix up
+      
+      // read or write.
+      
+      // Call Tube data handler
+      
+      pop { r0-r3}
+      pop {lr}
+      
+      // let get out of here
+
+#endif      
+        
 // **********************************************
 // Start of opcode implementations
 // **********************************************
@@ -1790,9 +1883,8 @@ opcode_41:
 
 // Opcode 45 - EOR $00
 opcode_45:
-        FETCH_NEXT_STAGE_0
         ldrb    r1, [memry, r0]
-        LOGICAL_FETCH12 eors
+        LOGICAL_FETCH012 eors
 
 // Opcode 46 - LSR $00
 opcode_46:
@@ -1990,7 +2082,8 @@ opcode_69:
 // Opcode 6A - ROR A
 opcode_6A:
         FETCH_NEXT_STAGE_01_I
-        rrxs    r1, regA, #25
+        orrcs   regA, regA, #1
+        rors    r1, regA, #25
         lsl     regA, r1, #24
         teq     regA, #0       
         FETCH_NEXT_STAGE_2
@@ -2089,9 +2182,9 @@ opcode_7A:
 // Opcode 7C - JMP ($0000,X)
 opcode_7C:
         EA_ABSOLUTE_INDEXED regX
-        ldrb    r1, [r0, memry]! // *** TODO LDRH 
-        ldrb    r0, [r0, #1]
-        add     regPC, r1, r0, lsl #8
+        ldrh    regPC, [r0, memry]
+        //ldrb    r0, [r0, #1]
+        //add     regPC, r1, r0, lsl #8
         add     regPC, regPC, memry
         FETCH_NEXT_3B_MERGED
 
@@ -2223,9 +2316,11 @@ opcode_91:
 opcode_92:
         EA_INDIRECT
         FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
         lsr     r1, regA, #24
         STORE_INDIRECT
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_2
 
 // Opcode 94 - STY $00,X
 opcode_94:
