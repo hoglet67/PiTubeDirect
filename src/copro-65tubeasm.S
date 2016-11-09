@@ -480,7 +480,11 @@
 
 .macro ADC_macro reg=r1      
         tst     flags, #8
-        bne     decimal_mode_adc
+.if \reg==r0        
+        bne     decimal_mode_adc_r0
+.else
+        bne     decimal_mode_adc    
+.endif 
         FETCH_NEXT_STAGE_0       
         orrcs   \reg, \reg, #0xff00
         sxthcs  \reg, \reg
@@ -493,7 +497,11 @@
 
 .macro SBC_macro reg=r1      
         tst     flags, #8
+.if \reg==r0         
+        bne     decimal_mode_sbc_r0
+.else
         bne     decimal_mode_sbc
+.endif 
         FETCH_NEXT_STAGE_0   
         orrcc   \reg, \reg, #0xff00  
         sxthcc  \reg, \reg
@@ -1239,6 +1247,42 @@ decimal_mode_sbc:
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2
+        
+decimal_mode_adc_r0:
+        and     r2, r0, #15
+        lsr     r1, r0, #4
+        and     r0, regA, #0xf000000
+        adc     r2, r2, r0, lsr #24
+        cmp     r2, #10
+        subcs   r2, r2, #10
+        lsl     r2, r2, #24
+        adc     regA, r1, regA, lsr #28
+        cmp     regA, #10
+        subcs   regA, regA, #10
+        orr     regA, r2, regA, lsl #28
+        FETCH_NEXT_STAGE_0
+        teq     regA, #0
+        bicvc   flags, #0x40
+        FETCH_NEXT_STAGE_1
+        orrvs   flags, #0x40
+        FETCH_NEXT_STAGE_2
+
+decimal_mode_sbc_r0:
+        and     r2, r0, #15
+        lsr     r1, r0, #4
+        and     r0, regA, #0xf000000
+        rscs    r2, r2, r0, lsr #24
+        addcc   r2, r2, #10
+        rscs    regA, r1, regA, lsr #28
+        addcc   regA, regA, #10
+        orr     regA, r2, regA, lsl #4
+        FETCH_NEXT_STAGE_0
+        lsl     regA, regA, #24
+        teq     regA, #0
+        FETCH_NEXT_STAGE_1
+        bicvc   flags, #0x40
+        orrvs   flags, #0x40
+        FETCH_NEXT_STAGE_2        
      
         // Note regarding commented out code below
         //
