@@ -364,9 +364,15 @@
 
 .macro EA_INDIRECT_Y_LOAD_FETCH_NEXT_STAGE_0
         EA_INDIRECT
-        FETCH_NEXT_STAGE_0
+#if defined(CLEAR_MEMORY_OVERFLOW)        
         EA_INDIRECT_Y
+        FETCH_NEXT_STAGE_0
         LOAD_BYTE
+#else        
+        add     r1, memry, regY, lsr #24
+        FETCH_NEXT_STAGE_0
+        ldrb    r1, [ r0, r1]
+#endif 
 .endm
 
 .macro EA_INDIRECT_X
@@ -2066,8 +2072,8 @@ opcode_60:
         ldrh    r1, [regSP, #1]
         add     regPC, memry, #1
         add     regSP, regSP, #2
-        add     regPC, regPC, r1
-        FETCH_NEXT_3B_STAGE_0
+        ldrb    r5,[regPC, r1]!
+        add     regPC, regPC, #1
         bic     regSP, #0xFF00
         orr     regSP, #0x0100
         FETCH_NEXT_STAGE_012
