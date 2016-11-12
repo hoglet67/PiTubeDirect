@@ -224,9 +224,10 @@
 
 // Macro for fetching the next instruction and also checking for any pending IRQs
 // Used for instructions that can enable interrupts: CLI, PLP , RTI
-.macro CHECK_IRQ
-        
+.macro CHECK_IRQ restoreflags=none
+.if \restoreflags==mrs        
         mrs     r2, CPSR                  // Preserve the 6502 flags
+.endif
         tst     flags, #4                    // Test whether interrupts are enabled (bit 2 = 0)
         ldreq   r0, =tube_irq
         ldreq   r0, [r0]
@@ -508,8 +509,9 @@
              
         orrcs   \reg, \reg, #0xff00
         sxthcs  \reg, \reg
+        FETCH_NEXT_STAGE_1a_OO
         adcs    regA, regA, \reg, ror #8
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_1b_OO
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2   
@@ -526,8 +528,9 @@
           
         orrcc   \reg, \reg, #0xff00  
         sxthcc  \reg, \reg
+        FETCH_NEXT_STAGE_1a_OO
         sbcs    regA, regA, \reg, ror #8
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_1b_OO
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2     
@@ -612,45 +615,40 @@
 .endm
 
 .macro FLAGS dest=r1 reg=r1
-.if \reg!=r0
-        FETCH_NEXT_STAGE_1
-.endif        
+.if \reg==r0
+        FETCH_NEXT_STAGE_1a_OO 
         lsl     \dest, \reg, #24
-.if \reg==r0        
-        FETCH_NEXT_STAGE_1
-.endif        
+        FETCH_NEXT_STAGE_1b_OO
         teq     \dest, #0
-        FETCH_NEXT_STAGE_2
-
+        FETCH_NEXT_STAGE_2 
+.else
+        FETCH_NEXT_STAGE_1
+        lsl     \dest, \reg, #24
+        teq     \dest, #0
+        FETCH_NEXT_STAGE_2 
+.endif
 .endm
 
 .macro FLAGS_OO dest=r1 reg=r1
-.if \reg!=r0
-        FETCH_NEXT_STAGE_1b_OO
-.endif        
-        lsl     \dest, \reg, #24
-.if \reg==r0        
-        FETCH_NEXT_STAGE_1
-.endif        
-        teq     \dest, #0
-        FETCH_NEXT_STAGE_2
-
+       FETCH_NEXT_STAGE_1b_OO
+       lsl     \dest, \reg, #24
+       teq     \dest, #0
+       FETCH_NEXT_STAGE_2
 .endm
-
 
 .macro  PLP
 
         SPOP    r0
-        and     flags, flags, #0xffffff00
-        orr     flags, flags, r0           // preserve the other bits in flags, e.g. the slowdown bit
-        and     flags, flags, #R4_MASK
         mrs     r2, CPSR
-        bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
+        and     flags, flags, #0xffffff00
+        orr     flags, flags, r0           // preserve the other bits in flags, e.g. the slowdown bit 
         and     r1, r0, #0x80
+        bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
         orr     r2, r2, r1, lsl #24
         and     r1, r0, #0x03
+        and     flags, flags, #R4_MASK
         orr     r2, r2, r1, lsl #29
-        msr     CPSR_flg, r2
+        //msr     CPSR_flg, r2
 .endm        
 
 // **********************************************
@@ -1234,35 +1232,36 @@ handle_nmi2:
 #endif
         
 decimal_mode_adc:
-        and     r2, r1, #15
         and     r0, regA, #0xf000000
+        and     r2, r1, #15
         adc     r2, r2, r0, lsr #24
         cmp     r2, #10
         subcs   r2, r2, #10
-        lsl     r2, r2, #24
         lsr     r1, r1, #4
+        lsl     r2, r2, #24
         adc     regA, r1, regA, lsr #28
         cmp     regA, #10
         subcs   regA, regA, #10
+        FETCH_NEXT_STAGE_1
         orr     regA, r2, regA, lsl #28
         teq     regA, #0
-        FETCH_NEXT_STAGE_1
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2
 
 decimal_mode_sbc:
-        and     r2, r1, #15
         and     r0, regA, #0xf000000
+        and     r2, r1, #15
         rscs    r2, r2, r0, lsr #24
         addcc   r2, r2, #10
         lsr     r1, r1, #4
         rscs    regA, r1, regA, lsr #28
         addcc   regA, regA, #10
+        FETCH_NEXT_STAGE_1a_OO
         orr     regA, r2, regA, lsl #4
+        FETCH_NEXT_STAGE_1b_OO
         lsl     regA, regA, #24
         teq     regA, #0
-        FETCH_NEXT_STAGE_1
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2
@@ -1271,16 +1270,17 @@ decimal_mode_adc_r0:
         and     r2, r0, #15
         lsr     r1, r0, #4
         and     r0, regA, #0xf000000
+        FETCH_NEXT_STAGE_1a_OO
         adc     r2, r2, r0, lsr #24
         cmp     r2, #10
         subcs   r2, r2, #10
-        lsl     r2, r2, #24
         adc     regA, r1, regA, lsr #28
         cmp     regA, #10
+        lsl     r2, r2, #24
         subcs   regA, regA, #10
+        FETCH_NEXT_STAGE_1b_OO
         orr     regA, r2, regA, lsl #28
         teq     regA, #0
-        FETCH_NEXT_STAGE_1
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2
@@ -1289,14 +1289,16 @@ decimal_mode_sbc_r0:
         and     r2, r0, #15
         lsr     r1, r0, #4
         and     r0, regA, #0xf000000
+        FETCH_NEXT_STAGE_1a_OO        
         rscs    r2, r2, r0, lsr #24
         addcc   r2, r2, #10
         rscs    regA, r1, regA, lsr #28
         addcc   regA, regA, #10
-        orr     regA, r2, regA, lsl #4   
+        FETCH_NEXT_STAGE_1b_OO        
+        orr     regA, r2, regA, lsl #4
+        // stall
         lsl     regA, regA, #24
         teq     regA, #0
-        FETCH_NEXT_STAGE_1
         bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2        
@@ -1640,8 +1642,9 @@ opcode_0E:
         EA_ABSOLUTE_LOAD_PART
         add     r1, r1, r1
         STORE_ABSOLUTE_PART
+        FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
-        FETCH_NEXT_STAGE_012
+        FETCH_NEXT_STAGE_2
 
 // Opcode 0F - BBR0
 opcode_0F:
@@ -1749,8 +1752,8 @@ opcode_20:
         sub     regPC, regPC, #1
         EA_ABSOLUTE
         strh    regPC, [regSP,#-1]
-        add     regPC, memry, r0
-        FETCH_NEXT_3B_STAGE_0
+        ldrb    r5, [r0, memry ]! // modified FETCH_NEXT_3B_STAGE_0
+        add     regPC, r0 ,#1
         sub     regSP, regSP, #2
         orr     regSP, #0x0100
         FETCH_NEXT_STAGE_012
@@ -1952,8 +1955,8 @@ opcode_49:
 
 // Opcode 4A - LSR A
 opcode_4A:
-        FETCH_NEXT_STAGE_01_I
         lsrs    r1, regA, #25
+        FETCH_NEXT_STAGE_01_I
         lsl     regA, r1, #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2
@@ -2024,7 +2027,7 @@ opcode_57:
 opcode_58:
         bic     flags, flags, #4
         FETCH_NEXT_STAGE_0_I
-        CHECK_IRQ
+        CHECK_IRQ mrs
         FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_STAGE_2
         .ltorg
@@ -2114,9 +2117,10 @@ opcode_69:
 
 // Opcode 6A - ROR A
 opcode_6A:
-        FETCH_NEXT_STAGE_01_I
         orrcs   regA, regA, #1
+        FETCH_NEXT_STAGE_0_I
         rors    r1, regA, #25
+        FETCH_NEXT_STAGE_1_I
         lsl     regA, r1, #24
         teq     regA, #0       
         FETCH_NEXT_STAGE_2
@@ -2816,9 +2820,9 @@ opcode_ED:
 // Opcode EE - INC $0000
 opcode_EE:
         EA_ABSOLUTE_LOAD_PART 
-        FETCH_NEXT_STAGE_0
         add     r1, r1, #1
         STORE_ABSOLUTE_PART
+        FETCH_NEXT_STAGE_0
         FLAGS
 
 // Opcode EF - BBS6
