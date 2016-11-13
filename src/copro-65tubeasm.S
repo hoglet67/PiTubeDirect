@@ -1950,7 +1950,8 @@ opcode_46:
         FETCH_NEXT_STAGE_1a_OO
         lsrs    r1, r1, #1
         STORE_BYTE
-        FLAGS_OO
+        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_2
 
 // Opcode 47 - RMB4 $00
 opcode_47:
@@ -2031,7 +2032,8 @@ opcode_56:
         FETCH_NEXT_STAGE_1a_OO
         lsrs    r1, r1, #1
         STORE_ZPX
-        FLAGS_OO
+        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_2
 
 // Opcode 57 - RMB5 $00
 opcode_57:
@@ -2138,6 +2140,14 @@ opcode_6A:
         lsl     regA, r1, #24
         teq     regA, #0       
         FETCH_NEXT_STAGE_2
+        
+        // looks a possible improvement , but regA LSB can become set from another intruction
+        //tst     regA, #1<<24
+        //orrne   regA, regA ,#1
+        //FETCH_NEXT_STAGE_0_I
+        //rrxs     regA, regA
+       // FETCH_NEXT_STAGE_1_I
+       // FETCH_NEXT_STAGE_2
 
 // Opcode 6C - JMP ($0000) 
 opcode_6C:
@@ -2301,14 +2311,11 @@ opcode_88:
 
 // Opcode 89 - BIT #$00
 opcode_89:
-        lsl     r0, r0, #24
-        mrs     r2, CPSR
-        and     r2, r2, #N_FLAG
-        tst     r0, regA
-        mrs     r1, CPSR
-        bic     r1, r1, #N_FLAG
-        orr     r1, r1, r2
         FETCH_NEXT_STAGE_0
+        mrs     r1, CPSR
+        tst     regA, r0, LSL #24
+        bic     r1, r1, #Z_FLAG
+        orreq   r1, r1, #Z_FLAG
         msr     CPSR_flg, r1
         FETCH_NEXT_STAGE_12
 
