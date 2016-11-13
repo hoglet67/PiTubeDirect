@@ -315,10 +315,10 @@
         strb    \reg, [r0, memry]
 .endm   
 
-.macro EA_ABSOLUTE_LOAD
+.macro EA_ABSOLUTE_LOAD nocarry=carry
         orr r0,r0,r5,LSL #8
         FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE
+        LOAD_ABSOLUTE \nocarry
 .endm
 
 .macro WRAP_MEMORY
@@ -334,10 +334,10 @@
         WRAP_MEMORY
 .endm
 
-.macro EA_ABSOLUTE_INDEXED_LOAD reg
+.macro EA_ABSOLUTE_INDEXED_LOAD reg nocarry
         EA_ABSOLUTE_INDEXED \reg     
         FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE
+        LOAD_ABSOLUTE \nocarry
 .endm
 
 .macro EA_INDIRECT
@@ -395,23 +395,38 @@
 
 // Macros for reading/writing memory
 
-.macro LOAD_ABSOLUTE               // r0 holds the absolute address
+.macro LOAD_ABSOLUTE nocarry=carry // r0 holds the absolute address
+.if \nocarry==carry
         lsr     r1, r0, #3
         teq     tregs, r1          // tregs holds the constant 0xFEF8 >> 3
-        ldrneb  r1, [r0, memry]       // normal memory read
+.else
+        cmp     tregs, r0, lsr #3  // tregs holds the constant 0xFEF8 >> 3   
+.endif        
+        ldrneb  r1, [r0, memry]    // normal memory read
         bleq    tube_load_handler  // tube memory access
 .endm
 
-.macro STORE_ABSOLUTE              // r0 holds the absolute address
+.macro STORE_ABSOLUTE  flags=flags            // r0 holds the absolute address
+.if \flags==flags
         mrs     r2, CPSR           // preserve the 6502 flags
-        STORE_ABSOLUTE_PART
-.endm
+        cmp     tregs, r0, lsr #3  // tregs holds the constant 0xFEF8 >> 3 
+.endif
 
-.macro STORE_ABSOLUTE_PART
-        cmp     tregs, r0, lsr #3     // tregs holds the constant 0xFEF8 >> 3
+.if \flags==carry
+        lsr     r2, r0, #3
+        teq     tregs, r2          // tregs holds the constant 0xFEF8 >> 3
+.endif
+
+.if \flags==nocarry
+        cmp     tregs, r0, lsr #3  // tregs holds the constant 0xFEF8 >> 3   
+.endif 
         strneb  r1, [r0, memry]       // normal memory write
-        bleq    tube_store_handler // tube memory access
-        msr     CPSR_flg, r2           // restore 6502 flags, including ARM interrupts
+        bleq    tube_store_handler    // tube memory access
+
+.if \flags==flags
+        msr     CPSR_flg, r2           // restore 6502 flags, including ARM 
+.endif
+        
 .endm
 
 // Macros for additional Rockwell 65C02 and WDC 65C02 instructions
@@ -1331,13 +1346,16 @@ tube_load_handler:
         mov     pc, lr
 
 tube_store_handler:
+        mrs     r2, CPSR 
         push    {r0-tregs,lr}                // r0 = address, r1 = data, r2 = current cpsr
 //      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
 //      msr     CPSR_c, r2
 //      push    {instt}                      // push instt after disabling interrupts to avoid a race condition
         bl      tube_parasite_write
 //      pop     {instt}
-        pop     {r0-tregs,pc}                // r2 (cpsr) is preserved
+        pop     {r0-tregs,lr}                // r2 (cpsr) is preserved
+        msr     CPSR_flg, r2
+        mov     pc, lr
 
 handle_rti:
         ldrh    r1, [regSP, #1]   
@@ -1616,12 +1634,13 @@ opcode_0A:
 // Opcode 0C - TSB $0000
 opcode_0C:
         mrs     r2, CPSR 
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD nocarry
         tst     r1, regA, lsr #24
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
         orr     r1, r1, regA, lsr #24
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE nocarry
+        msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_012
 
 // Opcode 0D - ORA $0000
@@ -1631,9 +1650,9 @@ opcode_0D:
 
 // Opcode 0E - ASL $0000
 opcode_0E:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD nocarry
         add     r1, r1, r1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE notest
         FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -1714,12 +1733,13 @@ opcode_1A:
 // Opcode 1C - TRB $0000
 opcode_1C:
         mrs     r2, CPSR  
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD nocarry
         tst     r1, regA, lsr #24
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
         bic     r1, r1, regA, lsr #24
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE nocarry
+        msr     CPSR_flg, r2  
         FETCH_NEXT_STAGE_012
 
 // Opcode 1D - ORA $0000,X
@@ -1729,9 +1749,9 @@ opcode_1D:
 
 // Opcode 1E - ASL $0000,X
 opcode_1E:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD regX nocarry
         add     r1, r1, r1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE notest
         FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -1814,7 +1834,7 @@ opcode_2D:
 opcode_2E:
         EA_ABSOLUTE_LOAD
         adc     r1, r1, r1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE notest
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -1900,7 +1920,7 @@ opcode_3D:
 opcode_3E:
         EA_ABSOLUTE_INDEXED_LOAD regX
         adc     r1, r1, r1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE notest
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -1969,9 +1989,9 @@ opcode_4D:
 
 // Opcode 4E - LSR $0000
 opcode_4E:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD nocarry
         lsrs    r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE carry
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2045,9 +2065,9 @@ opcode_5D:
 
 // Opcode 5E - LSR $0000,X
 opcode_5E:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD regX nocarry
         lsrs    r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE carry
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2136,7 +2156,7 @@ opcode_6E:
         EA_ABSOLUTE_LOAD
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE 
         FETCH_NEXT_STAGE_012
 
 // Opcode 6F - BBR6
@@ -2646,21 +2666,23 @@ opcode_CB:
 
 // Opcode CC - CPY $0000
 opcode_CC:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD nocarry
+        FETCH_NEXT_STAGE_01
         cmp     regY, r1, lsl #24
-        FETCH_NEXT_STAGE_012
+        FETCH_NEXT_STAGE_2
 
 // Opcode CD - CMP $0000
 opcode_CD:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD nocarry
+        FETCH_NEXT_STAGE_01
         cmp     regA, r1, lsl #24
-        FETCH_NEXT_STAGE_012
+        FETCH_NEXT_STAGE_2
 
 // Opcode CE - DEC $0000
 opcode_CE:
         EA_ABSOLUTE_LOAD
         sub     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2717,7 +2739,7 @@ opcode_D8:
 
 // Opcode D9 - CMP $0000,Y
 opcode_D9:
-        EA_ABSOLUTE_INDEXED_LOAD regY
+        EA_ABSOLUTE_INDEXED_LOAD regY nocarry
         FETCH_NEXT_STAGE_01
         cmp     regA, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -2737,16 +2759,16 @@ opcode_DB:
 
 // Opcode DD - CMP $0000,X
 opcode_DD:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD regX nocarry
         FETCH_NEXT_STAGE_01
         cmp     regA, r1, lsl #24
         FETCH_NEXT_STAGE_2
 
 // Opcode DE - DEX $0000,X
 opcode_DE:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD regX 
         sub     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2802,9 +2824,10 @@ opcode_E9:
 
 // Opcode EC - CPX $0000
 opcode_EC:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD nocarry
+        FETCH_NEXT_STAGE_01
         cmp     regX, r1, lsl #24
-        FETCH_NEXT_STAGE_012
+        FETCH_NEXT_STAGE_2
 
 // Opcode ED - SBC_macro $0000
 opcode_ED:
@@ -2813,9 +2836,9 @@ opcode_ED:
 
 // Opcode EE - INC $0000
 opcode_EE:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD 
         add     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2888,7 +2911,7 @@ opcode_FD:
 opcode_FE:
         EA_ABSOLUTE_INDEXED_LOAD regX
         add     r1, r1, #1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
