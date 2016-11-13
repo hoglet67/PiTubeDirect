@@ -321,12 +321,6 @@
         LOAD_ABSOLUTE
 .endm
 
-.macro EA_ABSOLUTE_LOAD_PART
-        orr r0,r0,r5,LSL #8
-        FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE_PART
-.endm
-
 .macro WRAP_MEMORY
 #if defined(CLEAR_MEMORY_OVERFLOW)        
         bic     r0, r0, #0x10000
@@ -344,12 +338,6 @@
         EA_ABSOLUTE_INDEXED \reg     
         FETCH_NEXT_3B_STAGE_0
         LOAD_ABSOLUTE
-.endm
-
-.macro EA_ABSOLUTE_INDEXED_LOAD_PART reg
-        EA_ABSOLUTE_INDEXED \reg
-        FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE_PART
 .endm
 
 .macro EA_INDIRECT
@@ -408,16 +396,10 @@
 // Macros for reading/writing memory
 
 .macro LOAD_ABSOLUTE               // r0 holds the absolute address
-        LOAD_ABSOLUTE_PART
-        msr     CPSR, r2           // restore 6502 flags, including ARM interrupts
-.endm
-
-.macro LOAD_ABSOLUTE_PART               // r0 holds the absolute address
-        mrs     r2, CPSR           // preserve the 6502 flags
-        cmp     tregs, r0, lsr #3     // tregs holds the constant 0xFEF8 >> 3
+        lsr     r1, r0, #3
+        teq     tregs, r1          // tregs holds the constant 0xFEF8 >> 3
         ldrneb  r1, [r0, memry]       // normal memory read
         bleq    tube_load_handler  // tube memory access
-
 .endm
 
 .macro STORE_ABSOLUTE              // r0 holds the absolute address
@@ -429,7 +411,7 @@
         cmp     tregs, r0, lsr #3     // tregs holds the constant 0xFEF8 >> 3
         strneb  r1, [r0, memry]       // normal memory write
         bleq    tube_store_handler // tube memory access
-        msr     CPSR, r2           // restore 6502 flags, including ARM interrupts
+        msr     CPSR_flg, r2           // restore 6502 flags, including ARM interrupts
 .endm
 
 // Macros for additional Rockwell 65C02 and WDC 65C02 instructions
@@ -471,14 +453,17 @@
         lsr     r0, r1, #8
         SPUSH   r0
         SPUSH   r1
+.if \setbrk          
+        movpl   r0, #0x30                 // Always set bit 5 (-) in the pushed value and Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
+        movmi   r0, #0xB0
+.else
         movpl   r0, #0x20                 // Always set bit 5 (-) in the pushed value
         movmi   r0, #0xA0
+.endif        
         orrcs   r0, r0, #1
         orreq   r0, r0, #2
         orr     r0, r0, flags                // In flags only bits 6 (V), 3 (D) and 2 (I) used; others always zero.
-.if \setbrk        
-        orr     r0, r0, #0x10             // Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
-.endif
+
         SPUSH   r0
         orr     flags, flags, #4                // Set the I bit in the 6502 status register
         bic     flags, flags, #8                // Clear the D bit in the 6502 status register
@@ -555,7 +540,7 @@
       ldrb    r5, [regPC], #1 //hidden in stall         
       FETCH_NEXT_STAGE_2            // 5 cycles
 
-      // total of 14 if taken. 10 if not taken and not recovering flags
+      // total of 14 if taken. 10 if not taken
 .endm      
 
 .macro BRANCH_FLAGS yes no flag reg=r0
@@ -590,7 +575,7 @@
       
       FETCH_NEXT_STAGE_2            // 5 cycles
 
-      // total of 14 if taken. 11 if not taken and not recovering flags
+      // total of 14 if taken. 10 if not taken and not recovering flags
 .endm     
 
 .macro LOGICAL_FETCH12 logic
@@ -1302,11 +1287,10 @@ decimal_mode_sbc_r0:
         addcc   regA, regA, #10
         FETCH_NEXT_STAGE_1b_OO        
         orr     regA, r2, regA, lsl #4
-        // stall
-        lsl     regA, regA, #24
-        teq     regA, #0
         bicvc   flags, #0x40
         orrvs   flags, #0x40
+        lsl     regA, regA, #24
+        teq     regA, #0
         FETCH_NEXT_STAGE_2        
      
         // Note regarding commented out code below
@@ -1334,6 +1318,7 @@ decimal_mode_sbc_r0:
         // emulation cycles.
 
 tube_load_handler:
+        mrs     r2, CPSR
         push    {r0-tregs,lr}                // r0 = address, r2 = current cpsr
 //      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
 //      msr     CPSR_c, r2
@@ -1341,7 +1326,9 @@ tube_load_handler:
         bl      tube_parasite_read
 //      pop     {instt}
         str     r0, [sp, #4]              // save result to r1 on the stack
-        pop     {r0-tregs,pc}                // r2 (cpsr) is preserved
+        pop     {r0-tregs,lr}                // r2 (cpsr) is preserved
+        msr     CPSR_flg, r2
+        mov     pc, lr
 
 tube_store_handler:
         push    {r0-tregs,lr}                // r0 = address, r1 = data, r2 = current cpsr
@@ -1353,8 +1340,6 @@ tube_store_handler:
         pop     {r0-tregs,pc}                // r2 (cpsr) is preserved
 
 handle_rti:
-        PLP
-        
         ldrh    r1, [regSP, #1]   
         add     regSP, regSP, #2
         bic     regSP, #0xFF00     
@@ -1630,7 +1615,8 @@ opcode_0A:
 
 // Opcode 0C - TSB $0000
 opcode_0C:
-        EA_ABSOLUTE_LOAD_PART
+        mrs     r2, CPSR 
+        EA_ABSOLUTE_LOAD
         tst     r1, regA, lsr #24
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
@@ -1645,9 +1631,9 @@ opcode_0D:
 
 // Opcode 0E - ASL $0000
 opcode_0E:
-        EA_ABSOLUTE_LOAD_PART
+        EA_ABSOLUTE_LOAD
         add     r1, r1, r1
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -1727,7 +1713,8 @@ opcode_1A:
 
 // Opcode 1C - TRB $0000
 opcode_1C:
-        EA_ABSOLUTE_LOAD_PART
+        mrs     r2, CPSR  
+        EA_ABSOLUTE_LOAD
         tst     r1, regA, lsr #24
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
@@ -1742,9 +1729,9 @@ opcode_1D:
 
 // Opcode 1E - ASL $0000,X
 opcode_1E:
-        EA_ABSOLUTE_INDEXED_LOAD_PART regX
+        EA_ABSOLUTE_INDEXED_LOAD regX
         add     r1, r1, r1
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -1827,7 +1814,7 @@ opcode_2D:
 opcode_2E:
         EA_ABSOLUTE_LOAD
         adc     r1, r1, r1
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -1913,7 +1900,7 @@ opcode_3D:
 opcode_3E:
         EA_ABSOLUTE_INDEXED_LOAD regX
         adc     r1, r1, r1
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -1924,6 +1911,7 @@ opcode_3F:
 
 // Opcode 40 - RTI
 opcode_40:
+        PLP
         b       handle_rti
 
 // Opcode 41 - EOR ($00,X)
@@ -2670,9 +2658,9 @@ opcode_CD:
 
 // Opcode CE - DEC $0000
 opcode_CE:
-        EA_ABSOLUTE_LOAD_PART
+        EA_ABSOLUTE_LOAD
         sub     r1, r1, #1
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2756,9 +2744,9 @@ opcode_DD:
 
 // Opcode DE - DEX $0000,X
 opcode_DE:
-        EA_ABSOLUTE_INDEXED_LOAD_PART regX
+        EA_ABSOLUTE_INDEXED_LOAD regX
         sub     r1, r1, #1
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2825,9 +2813,9 @@ opcode_ED:
 
 // Opcode EE - INC $0000
 opcode_EE:
-        EA_ABSOLUTE_LOAD_PART 
+        EA_ABSOLUTE_LOAD
         add     r1, r1, #1
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2898,9 +2886,9 @@ opcode_FD:
 
 // Opcode FE - INC $0000,X
 opcode_FE:
-        EA_ABSOLUTE_INDEXED_LOAD_PART regX
+        EA_ABSOLUTE_INDEXED_LOAD regX
         add     r1, r1, #1
-        STORE_ABSOLUTE_PART
+        STORE_ABSOLUTE
         FETCH_NEXT_STAGE_0
         FLAGS
 
