@@ -1330,36 +1330,37 @@ decimal_mode_sbc_r0:
         // emulation cycles.
 
 tube_load_handler:
-        mrs     r2, CPSR
-        push    {r0-r3,lr}                // r0 = address, r2 = current cpsr
+        push    {r2, lr} 
+        mrs     r2, CPSR               // Save 6502 flags
+        push    {r0-r3}                // r0 = address, r2 = current cpsr
 //      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
 //      msr     CPSR_c, r2
 //      push    {r12}                      // push instt after disabling interrupts to avoid a race condition
         bl      tube_parasite_read
 //      pop     {r12}
         str     r0, [sp, #4]              // save result to r1 on the stack
-        pop     {r0-r3,lr}                // r2 (cpsr) is preserved
+        pop     {r0-r3}                // r2 (cpsr) is preserved
         msr     CPSR_flg, r2
-        mov     pc, lr
+        pop     {r2, pc}
 
 tube_store_handler:
-        mrs     r2, CPSR 
-        push    {r0-r3,lr}                // r0 = address, r1 = data, r2 = current cpsr
+        push    {r2, lr} 
+        mrs     r2, CPSR               // save 6502 flags 
+        push    {r0-r3}                // r0 = address, r1 = data, r2 = current cpsr
 //      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
 //      msr     CPSR_c, r2
 //      push    {r12}                      // push instt after disabling interrupts to avoid a race condition
         bl      tube_parasite_write
 //      pop     {r12}
-        pop     {r0-r3,lr}                // r2 (cpsr) is preserved
+        pop     {r0-r3}                // r2 (cpsr) is preserved
         msr     CPSR_flg, r2
-        mov     pc, lr
+        pop     {r2, pc}
 
 handle_rti:
-        ldrh    r1, [regSP, #1]   
-        add     regSP, regSP, #2
-        bic     regSP, #0xFF00     
+        ldrh    r1, [regSP, #1]  
+        mov     r0, #2
+        UADD8   regSP, regSP, r0   
         add     regPC, memry, r1
-        orr     regSP, #0x0100
         FETCH_NEXT_3B_STAGE_0
         CHECK_IRQ
         FETCH_NEXT_STAGE_012 
