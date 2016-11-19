@@ -30,12 +30,12 @@
 #define flags     r4
 #define const     r5
 #define regA      r6
-#define regX      r7
+#define regX      r12
 #define regY      r8
 #define regSP     r9
 #define regPC     r10   
 #define memry     r11   
-#define instt     r12
+#define instt     r7
 
 // Interrupt / Event Handling code by dp11
 // this code is not for profit
@@ -271,6 +271,7 @@
 
 // Macro for tracing execution
 // Add to FETCH_NEXT
+// This is currently broken with all the pipline chnanges that have been done
 .macro TRACE_65TUBE
         mov     r0, regPC
         ldrb    r1, [regPC]
@@ -278,15 +279,16 @@
         push    {r2}
         orr     r2, r2, #ARM_INT_MASK
         msr     CPSR_c, r2        
-        push    {tregs-r12}
+        push    {r3-r12}
         bl      copro_65tube_trace
-        pop     {tregs-r12}
+        pop     {r3-r12}
         pop     {r2}
         msr     CPSR, r2
 .endm
 
 // Macro to maintain a histogram of opcodes in memory
 // Add to FETCH_NEXT
+// This is currently broken with all the pipline chnanges that have been done
 .macro HISTOGRAM_65TUBE
         push    {r0-r1}
         ldr     r1, =histogram_memory
@@ -506,6 +508,7 @@
 
 .macro ADC_macro reg=r1      
         tst     flags, #8
+        bic     flags, #0x40
         FETCH_NEXT_STAGE_0  
 .if \reg==r0        
         bne     decimal_mode_adc_r0
@@ -518,13 +521,13 @@
         FETCH_NEXT_STAGE_1a_OO
         adcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
-        bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2   
 .endm
 
 .macro SBC_macro reg=r1      
         tst     flags, #8
+        bic   flags, #0x40
         FETCH_NEXT_STAGE_0 
 .if \reg==r0         
         bne     decimal_mode_sbc_r0
@@ -537,20 +540,18 @@
         FETCH_NEXT_STAGE_1a_OO
         sbcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
-        bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2     
 .endm
 
 .macro BRANCH yes no reg=r0
-      
       sxtab\yes regPC, regPC, \reg
       // stall
       ldr\yes\()b  r5, [regPC,#-1]  
       //stall
       //stall
       //stall
-      ldr     lr, [ip, r5, lsl #2]
+      ldr     lr, [instt, r5, lsl #2]
       ldrb    r0, [regPC], #1 //hidden in stall
       ldrb    r5, [regPC], #1 //hidden in stall         
       FETCH_NEXT_STAGE_2            // 5 cycles
@@ -583,7 +584,7 @@
       msr     CPSR_flg, r2
 .endif  
       //stall
-      ldr     lr, [ip, r5, lsl #2]
+      ldr     lr, [instt, r5, lsl #2]
       ldrb    r0, [regPC], #1 //hidden in stall
       ldrb    r5, [regPC], #1 //hidden in stall 
 .endif      
@@ -1097,9 +1098,9 @@ Event_Handler:
         str     r0, [r1]                // ack the attention bit
 #endif
 
-        push    {r1-tregs,instt,lr}           // r0 contains the tube mailbox value
+        push    {r1-r3,r12,lr}           // r0 contains the tube mailbox value
         bl      tube_io_handler
-        pop     {r1-tregs,instt,lr}
+        pop     {r1-r3,r12,lr}
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
@@ -1185,9 +1186,9 @@ Event_Handler_Single_Core_Slow:
         str     r0, [r1]                // ack the attention bit
 #endif
 
-        push    {r1-tregs,instt,lr}           // r0 contains the tube mailbox value
+        push    {r1-r3,r12,lr}           // r0 contains the tube mailbox value
         bl      tube_io_handler
-        pop     {r1-tregs,instt,lr}
+        pop     {r1-r3,r12,lr}
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
@@ -1251,7 +1252,6 @@ decimal_mode_adc:
         FETCH_NEXT_STAGE_1
         orr     regA, r2, regA, lsl #28
         teq     regA, #0
-        bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2
 
@@ -1268,7 +1268,6 @@ decimal_mode_sbc:
         FETCH_NEXT_STAGE_1b_OO
         lsl     regA, regA, #24
         teq     regA, #0
-        bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2
         
@@ -1287,7 +1286,6 @@ decimal_mode_adc_r0:
         FETCH_NEXT_STAGE_1b_OO
         orr     regA, r2, regA, lsl #28
         teq     regA, #0
-        bicvc   flags, #0x40
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2
 
@@ -1302,7 +1300,6 @@ decimal_mode_sbc_r0:
         addcc   regA, regA, #10
         FETCH_NEXT_STAGE_1b_OO        
         orr     regA, r2, regA, lsl #4
-        bicvc   flags, #0x40
         orrvs   flags, #0x40
         lsl     regA, regA, #24
         teq     regA, #0
@@ -1334,26 +1331,26 @@ decimal_mode_sbc_r0:
 
 tube_load_handler:
         mrs     r2, CPSR
-        push    {r0-tregs,lr}                // r0 = address, r2 = current cpsr
+        push    {r0-r3,lr}                // r0 = address, r2 = current cpsr
 //      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
 //      msr     CPSR_c, r2
-//      push    {instt}                      // push instt after disabling interrupts to avoid a race condition
+//      push    {r12}                      // push instt after disabling interrupts to avoid a race condition
         bl      tube_parasite_read
-//      pop     {instt}
+//      pop     {r12}
         str     r0, [sp, #4]              // save result to r1 on the stack
-        pop     {r0-tregs,lr}                // r2 (cpsr) is preserved
+        pop     {r0-r3,lr}                // r2 (cpsr) is preserved
         msr     CPSR_flg, r2
         mov     pc, lr
 
 tube_store_handler:
         mrs     r2, CPSR 
-        push    {r0-tregs,lr}                // r0 = address, r1 = data, r2 = current cpsr
+        push    {r0-r3,lr}                // r0 = address, r1 = data, r2 = current cpsr
 //      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
 //      msr     CPSR_c, r2
-//      push    {instt}                      // push instt after disabling interrupts to avoid a race condition
+//      push    {r12}                      // push instt after disabling interrupts to avoid a race condition
         bl      tube_parasite_write
-//      pop     {instt}
-        pop     {r0-tregs,lr}                // r2 (cpsr) is preserved
+//      pop     {r12}
+        pop     {r0-r3,lr}                // r2 (cpsr) is preserved
         msr     CPSR_flg, r2
         mov     pc, lr
 
@@ -1464,10 +1461,11 @@ watchpointentry:
       pop { r0-r3}
       pop {lr}
       
-      // let get out of here
+      // lets get out of here
 
 #endif      
         
+.balign 0x20        
 // **********************************************
 // Start of opcode implementations
 // **********************************************
@@ -2069,9 +2067,9 @@ opcode_5D:
 opcode_5E:
         EA_ABSOLUTE_INDEXED_LOAD regX nocarry
         lsrs    r1, r1, #1
-        STORE_ABSOLUTE carry
-        FETCH_NEXT_STAGE_0
-        FLAGS
+        STORE_ABSOLUTE   //carry
+        FETCH_NEXT_STAGE_012
+        //FLAGS
 
 // Opcode 5F - BBR5
 opcode_5F:
@@ -2081,11 +2079,10 @@ opcode_5F:
 opcode_60:
         ldrh    r1, [regSP, #1]
         add     regPC, memry, #1
-        add     regSP, regSP, #2
+        mov     r0, #2
         ldrb    r5,[regPC, r1]!
         add     regPC, regPC, #1
-        bic     regSP, #0xFF00
-        orr     regSP, #0x0100
+        UADD8   regSP, regSP, r0
         FETCH_NEXT_STAGE_012
 
 // Opcode 61 - ADC ($00,X)

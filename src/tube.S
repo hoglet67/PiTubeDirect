@@ -6,7 +6,9 @@
 // #define DEBUG_OVERRUN
 // #define DEBUG_LATE
 // #define ON_READS_SPIN_FOR_PHI2_HIGH
-        
+     
+#define instrREG r7
+     
 .text
 .global tube_regs_block
 .global tube_mailbox_block
@@ -36,19 +38,19 @@
         str     r9, [r8]
 
         // Switch back to irq mode so ip is not shadowed
-        mrs     r8, cpsr
-        bic     r8, r8, #0x1F
-        orr     r8, r8, #0x12
-        msr     cpsr_c, r8
+      //  mrs     r8, cpsr
+      //  bic     r8, r8, #0x1F
+      //  orr     r8, r8, #0x12
+      //  msr     cpsr_c, r8
         
-        orr     ip, ip, #1024   // signal event to 6502 instruction flow
+        orr     instrREG, instrREG, #1024   // signal event to 6502 instruction flow
 
         // Switch back to fiq mode, so we return correctly
         // lr is used here because its shadowed in IRQ mode, so doesn't corrupt the normal lr
-        mrs     lr, cpsr
-        bic     lr, lr, #0x1F
-        orr     lr, lr, #0x11
-        msr     cpsr_c, lr
+      //  mrs     lr, cpsr
+      //  bic     lr, lr, #0x1F
+      //  orr     lr, lr, #0x11
+      //  msr     cpsr_c, lr
 
         // Note, the above mode switching could be avoided if we reworked the register assignment
         // in the 6502 emulator to use a register r0..r7 for signalling.
@@ -217,7 +219,7 @@ post_mail2\@:
         orr     r8, r8, #0x12
         msr     cpsr_c, r8
         
-        orr     ip, ip, #1024   // signal event to 6502 instruction flow
+        orr     instrREG, instrREG, #1024   // signal event to 6502 instruction flow
 
         // Switch back to fiq mode, so we return correctly
         // lr is used here because its shadowed in IRQ mode, so doesn't corrupt the normal lr
