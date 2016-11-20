@@ -20,7 +20,11 @@
 #include "framebuffer.h"
 #include "v3d.h"
 
+#ifdef USE_A3
+extern volatile uint8_t tube_regs[16];
+#else
 extern volatile uint8_t tube_regs[8];
+#endif
 
 extern volatile uint32_t gpfsel_data_idle[3];
 extern volatile uint32_t gpfsel_data_driving[3];
@@ -128,7 +132,7 @@ void tube_updateints()
 void tube_host_read(uint16_t addr)
 {
    int c;
-   switch (addr & 7)
+   switch (addr & A_BITS)
    {
    case 1: /*Register 1*/
       if (ph1pos > 0) {
@@ -168,19 +172,23 @@ void tube_host_read(uint16_t addr)
 
 void tube_host_write(uint16_t addr, uint8_t val)
 {
-   if ((addr & 7) == 4) {
+#ifdef USE_A3
+   if ((addr & A_BITS) == 8) {
+#else
+   if ((addr & A_BITS) == 4) {
+#endif
       // RPI_AuxMiniUartWrite(val);
       fb_writec(val);
       return;
    }
-   if ((addr & 7) == 6) {
+   if ((addr & A_BITS) == 6) {
       copro = val;
       return;
    }
    if (!tube_enabled) {
       return;
    }
-   switch (addr & 7)
+   switch (addr & A_BITS)
    {
    case 0: /*Register 1 stat*/
       if (val & 0x80) {
@@ -244,15 +252,22 @@ void tube_host_write(uint16_t addr, uint8_t val)
 #endif
       break;
    default:
-      printf("Illegal host write to %d\r\n", addr);
+      printf("Illegal host write to %X\r\n", addr);
    }
    tube_updateints();
 }
+// &FEF8
 
 uint8_t tube_parasite_read(uint32_t addr)
 {
    uint8_t temp = 0;
-   switch (addr & 7)
+#ifdef USE_A3
+   // Tube FIFOs at &FEF8..&FEFF
+   // Extra VDU FIFOs at &FEF0..&FEF7
+   // Toggle bit 3, so when ANDed with A_BITS Tube FIFOs at 0..7, and VDU FIFOs at 8..15
+   addr ^= 8;
+#endif
+   switch (addr & A_BITS)
    {
    case 0: /*Register 1 stat*/
       temp = PSTAT1 | (HSTAT1 & 0x3F);
@@ -312,7 +327,7 @@ uint8_t tube_parasite_read(uint32_t addr)
    tube_updateints();
 #ifdef DEBUG_TUBE
    if (addr & 1) {
-      tube_buffer[tube_index++] = TUBE_READ_MARKER | ((addr & 7) << 8) | temp;
+      tube_buffer[tube_index++] = TUBE_READ_MARKER | ((addr & A_BITS) << 8) | temp;
       tube_index &= 0xffff;
    }
 #endif
@@ -321,13 +336,19 @@ uint8_t tube_parasite_read(uint32_t addr)
 
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
+#ifdef USE_A3
+   // Tube FIFOs at &FEF8..&FEFF
+   // Extra VDU FIFOs at &FEF0..&FEF7
+   // Toggle bit 3, so when ANDed with A_BITS Tube FIFOs at 0..7, and VDU FIFOs at 8..15
+   addr ^= 8;
+#endif
 #ifdef DEBUG_TUBE
    if (addr & 1) {
-      tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & 7) << 8) | val;
+      tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & A_BITS) << 8) | val;
       tube_index &= 0xffff;
    }
 #endif
-   switch (addr & 7)
+   switch (addr & A_BITS)
    {
    case 1: /*Register 1*/
       if (ph1pos < 24)
@@ -423,6 +444,11 @@ int tube_io_handler(uint32_t mail)
    if (mail & A2_MASK) {
       addr += 4;
    }
+#ifdef USE_A3
+   if (mail & A3_MASK) {
+      addr += 8;
+   }
+#endif
    data  = ((mail >> D0_BASE) & 0xF) | (((mail >> D4_BASE) & 0xF) << 4);
    rnw   = (mail >> RNW_PIN) & 1;
    ntube = (mail >> NTUBE_PIN) & 1;
@@ -430,11 +456,11 @@ int tube_io_handler(uint32_t mail)
 
    // Only report OVERRUNs that occur when nRST is high
    if ((mail & OVERRUN_MASK) && (mail & NRST_MASK)) {
-      printf("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+      printf("OVERRUN: A=%X; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
 
    if (mail & GLITCH_MASK) {
-      printf("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+      printf("GLITCH: A=%X; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    } else if (nrst == 1) {
 
       if (ntube == 0) {
@@ -444,12 +470,12 @@ int tube_io_handler(uint32_t mail)
             tube_host_read(addr);
          }
       } else {
-         printf("LATE: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+         printf("LATE: A=%x; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
       }      
    }
 
 #if TEST_MODE
-   printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+   printf("A=%X; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
 #endif
    
    if (nrst == 0 || (tube_enabled && (tube_regs[0] & 0x20))) {
@@ -478,6 +504,9 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(D1_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D0_PIN, FS_INPUT);
 
+#ifdef USE_A3
+  RPI_SetGpioPinFunction(A3_PIN, FS_INPUT);
+#endif
   RPI_SetGpioPinFunction(A2_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(A1_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(A0_PIN, FS_INPUT);
@@ -527,10 +556,13 @@ void tube_init_hardware()
      printf("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
   }
 
-  // Print the GPIO numbers of A0, A1 and A2
+  // Print the GPIO numbers of A0, A1, A2 and A3
   printf("A0 = GPIO%02d = mask %08x\r\n", A0_PIN, A0_MASK); 
   printf("A1 = GPIO%02d = mask %08x\r\n", A1_PIN, A1_MASK); 
   printf("A2 = GPIO%02d = mask %08x\r\n", A2_PIN, A2_MASK); 
+#ifdef USE_A3
+  printf("A3 = GPIO%02d = mask %08x\r\n", A3_PIN, A3_MASK); 
+#endif
 
   // Initialize performance counters
 #if defined(RPI2) || defined(RPI3) 

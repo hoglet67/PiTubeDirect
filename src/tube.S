@@ -56,6 +56,10 @@
         orrne   r10, #2
         tst     r9, #A2_MASK
         orrne   r10, #4
+#ifdef USE_A3
+        tst     r9, #A3_MASK
+        orrne   r10, #8	
+#endif	
 
         ldr     r8, =tube_regs
         ldrb    r10, [r8, r10]
@@ -454,7 +458,7 @@ gpfsel_data_driving:
 tube_mailbox:
         .word 0
         
-// 8 BYTES OF STATE
+// 8/16 BYTES OF STATE
 tube_regs:
         .byte 0xfe
         .byte 0xed
@@ -464,6 +468,16 @@ tube_regs:
         .byte 0xa9
         .byte 0x98
         .byte 0x87
-
+#ifdef USE_A3	
+	.byte 0x76
+	.byte 0x65
+	.byte 0x54
+	.byte 0x43
+	.byte 0x32
+	.byte 0x21
+	.byte 0x10
+	.byte 0x0f
+#endif
+	
 .align CACHELINE_ALIGN
 isr_data_end:

@@ -3,6 +3,14 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
+#define USE_A3
+
+#ifdef USE_A3
+#define A_BITS 15
+#else
+#define A_BITS 7
+#endif
+
 // Our copro numbers match those on the matchbox
 // (many are not implemented though)
 
@@ -160,7 +168,13 @@
 #define D74_MASK     (D7_MASK | D6_MASK | D5_MASK | D4_MASK)
 #define D_MASK       (D74_MASK | D30_MASK)
 
+#ifdef USE_A3
+#define A3_PIN       (5)
+#define A3_MASK      (1 << A3_PIN)
+#define A_MASK       (A3_MASK | A2_MASK | A1_MASK | A0_MASK)
+#else
 #define A_MASK       (A2_MASK | A1_MASK | A0_MASK)
+#endif
 
 #define PINS_MASK    (A_MASK | D_MASK | RNW_MASK | NRST_MASK | NTUBE_MASK)
 
