@@ -449,6 +449,11 @@ void tube_reset()
    HSTAT1 = HSTAT2 = HSTAT4 = HBIT_6;
    PSTAT1 = PSTAT2 = PSTAT3 = PSTAT4 = 0x40;
    HSTAT3 = HBIT_7 | HBIT_6;
+   // On the Model B the initial write of &8E to FEE0 is missed
+   // If the Pi is slower in starting than the Beeb. A work around
+   // is to have the tube emulation reset to a state with interrupts
+   // enabled.
+   HSTAT1 |= HBIT_3 | HBIT_2 | HBIT_1;
    tube_updateints();
 }
 
