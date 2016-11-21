@@ -173,14 +173,18 @@ void tube_host_read(uint16_t addr)
 void tube_host_write(uint16_t addr, uint8_t val)
 {
 #ifdef USE_A3
-   if ((addr & A_BITS) == 8) {
-#else
-   if ((addr & A_BITS) == 4) {
-#endif
-      // RPI_AuxMiniUartWrite(val);
+  // Register 9 is the Atom VDU FIFO Data Register
+   if ((addr & A_BITS) == 9) {
+      // Register 8 is the Atom VDU FIFO Status Register
+      // Bit 7 is data available (parasite -> host) (not yet implemented)
+      // Bit 6 is not full (host -> parasite)
+      tube_regs[8] &= 0xBF;
       fb_writec(val);
+      tube_regs[8] |= 0x40;
       return;
    }
+#endif
+
    if ((addr & A_BITS) == 6) {
       copro = val;
       return;
@@ -410,6 +414,9 @@ void tube_reset()
    HSTAT1 = HSTAT2 = HSTAT4 = 0x40;
    PSTAT1 = PSTAT2 = PSTAT3 = PSTAT4 = 0x40;
    HSTAT3 = 0xC0;
+#ifdef USE_A3
+   tube_regs[8] = 0x40;
+#endif
    tube_updateints();
 }
 
