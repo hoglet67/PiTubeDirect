@@ -3,6 +3,18 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
+#define DEBUG
+
+#ifdef DEBUG
+#define LOG_DEBUG(...) printf(__VA_ARGS__)
+#else
+#define LOG_DEBUG(...)
+#endif
+
+#define LOG_INFO(...) printf(__VA_ARGS__)
+
+#define LOG_WARN(...) printf(__VA_ARGS__)
+
 // Our copro numbers match those on the matchbox
 // (many are not implemented though)
 

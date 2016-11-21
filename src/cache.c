@@ -68,8 +68,8 @@ void InvalidateDataCache (void)
 void enable_MMU_and_IDCaches(void)
 {
 
-  printf("enable_MMU_and_IDCaches\r\n");
-  printf("cpsr    = %08x\r\n", _get_cpsr());
+  LOG_DEBUG("enable_MMU_and_IDCaches\r\n");
+  LOG_DEBUG("cpsr    = %08x\r\n", _get_cpsr());
 
   unsigned base;
   unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
@@ -142,7 +142,7 @@ void enable_MMU_and_IDCaches(void)
 #if defined(RPI3)
   unsigned cpuextctrl0, cpuextctrl1;
   asm volatile ("mrrc p15, 1, %0, %1, c15" : "=r" (cpuextctrl0), "=r" (cpuextctrl1));
-  printf("extctrl = %08x %08x\r\n", cpuextctrl1, cpuextctrl0);
+  LOG_DEBUG("extctrl = %08x %08x\r\n", cpuextctrl1, cpuextctrl0);
 #else
   // RPI:  bit 6 of auxctrl is restrict cache size to 16K (no page coloring)
   // RPI2: bit 6 of auxctrl is set SMP bit, otherwise all caching disabled
@@ -151,7 +151,7 @@ void enable_MMU_and_IDCaches(void)
   auxctrl |= 1 << 6;
   asm volatile ("mcr p15, 0, %0, c1, c0,  1" :: "r" (auxctrl));
   asm volatile ("mrc p15, 0, %0, c1, c0,  1" : "=r" (auxctrl));
-  printf("auxctrl = %08x\r\n", auxctrl);
+  LOG_DEBUG("auxctrl = %08x\r\n", auxctrl);
 #endif
 
   // set domain 0 to client
@@ -162,7 +162,7 @@ void enable_MMU_and_IDCaches(void)
 
   unsigned ttbcr;
   asm volatile ("mrc p15, 0, %0, c2, c0, 2" : "=r" (ttbcr));
-  printf("ttbcr   = %08x\r\n", ttbcr);
+  LOG_DEBUG("ttbcr   = %08x\r\n", ttbcr);
 
 #if defined(RPI2) || defined(RPI3)
   // set TTBR0 - page table walk memory cacheability/shareable
@@ -178,7 +178,7 @@ void enable_MMU_and_IDCaches(void)
 #endif
   unsigned ttbr0;
   asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (ttbr0));
-  printf("ttbr0   = %08x\r\n", ttbr0);
+  LOG_DEBUG("ttbr0   = %08x\r\n", ttbr0);
 
 
   // Invalidate entire data cache
@@ -206,11 +206,11 @@ void enable_MMU_and_IDCaches(void)
   sctrl |= 0x00001805;
   asm volatile ("mcr p15,0,%0,c1,c0,0" :: "r" (sctrl) : "memory");
   asm volatile ("mrc p15,0,%0,c1,c0,0" : "=r" (sctrl));
-  printf("sctrl   = %08x\r\n", sctrl);
+  LOG_DEBUG("sctrl   = %08x\r\n", sctrl);
 
   // For information, show the cache type register
   // From this you can tell what type of cache is implemented
   unsigned ctype;
   asm volatile ("mrc p15,0,%0,c0,c0,1" : "=r" (ctype));
-  printf("ctype   = %08x\r\n", ctype);
+  LOG_DEBUG("ctype   = %08x\r\n", ctype);
 }
