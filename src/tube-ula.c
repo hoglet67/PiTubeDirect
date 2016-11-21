@@ -583,12 +583,12 @@ void tube_init_hardware()
   // Current code does not reqire this, as emulators poll for NRST to be released
   // RPI_GpioBase->GPREN0 |= NRST_MASK;
 
+#ifndef USE_GPU
   // Configure GPIO to detect a falling edge of NRST
   RPI_GpioBase->GPFEN0 |= NRST_MASK;
   // Make sure there are no pending detections
   RPI_GpioBase->GPEDS0 = NRST_MASK;
 
-#ifndef USE_GPU
   // Configure GPIO to detect a falling edge of NTUBE
   RPI_GpioBase->GPFEN0 |= NTUBE_MASK;
   // Make sure there are no pending detections
