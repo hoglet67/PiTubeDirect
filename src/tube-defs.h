@@ -36,22 +36,22 @@
 // 1 1 1 1 -   BIST        ( for manufacturing test purposes)
 
 // Configure the particular coprocessor
-#define COPRO_65TUBE_0  0
-#define COPRO_65TUBE_1  1
-#define COPRO_LIB6502_0 2
-#define COPRO_LIB6502_1 3
-#define COPRO_Z80_0     4
-#define COPRO_Z80_1     5
-#define COPRO_Z80_2     6
-#define COPRO_Z80_3     7
-#define COPRO_80286     8
-#define COPRO_6809      9
-#define COPRO_68000    10
-#define COPRO_PDP11    11
-#define COPRO_ARM2     12
-#define COPRO_32016    13
-#define COPRO_NULL     14
-#define COPRO_BIST     15
+#define COPRO_65TUBE_0   0
+#define COPRO_65TUBE_1   1
+#define COPRO_LIB6502_0  2
+#define COPRO_LIB6502_1  3
+#define COPRO_Z80_0      4
+#define COPRO_Z80_1      5
+#define COPRO_Z80_2      6
+#define COPRO_Z80_3      7
+#define COPRO_80286      8
+#define COPRO_6809       9
+#define COPRO_68000     10
+#define COPRO_PDP11     11
+#define COPRO_ARM2      12
+#define COPRO_32016     13
+#define COPRO_NULL      14
+#define COPRO_ARMNATIVE 15
 
 #define DEFAULT_COPRO COPRO_65TUBE_0
 

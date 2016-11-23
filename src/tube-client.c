@@ -36,6 +36,7 @@ static const func_ptr emulator_functions[] = {
 #include "copro-32016.h"
 #include "copro-null.h"
 #include "copro-z80.h"
+#include "copro-armnative.h"
 
 #define NUM_COPROS 16
 
@@ -56,7 +57,7 @@ static const char * emulator_names[] = {
    "ARM2",
    "32016",
    "Null/SPI",
-   "BIST"
+   "ARM Native"
 };
 #endif
 
@@ -76,7 +77,7 @@ static const func_ptr emulator_functions[] = {
    copro_arm2_emulator,
    copro_32016_emulator,
    copro_null_emulator,
-   copro_null_emulator
+   copro_armnative_emulator
 };
 
 #endif
@@ -99,7 +100,10 @@ void init_emulator() {
          Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
       }
       *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
-
+   }
+   if (copro == COPRO_ARMNATIVE) {
+      *((uint32_t *) 0x28) = (uint32_t) copro_armnative_swi_handler;
+      *((uint32_t *) 0x3C) = (uint32_t) copro_armnative_fiq_handler;
    }
 #endif
 
