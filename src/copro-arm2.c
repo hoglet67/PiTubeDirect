@@ -15,6 +15,7 @@
 #include "mame/arm.h"
 #include "tuberom_arm.h"
 #include "copro-arm2.h"
+#include "startup.h"
 
 #define RAM_MASK8    ((UINT32) 0x003fffff)
 #define ROM_MASK8    ((UINT32) 0x00003fff)
@@ -154,9 +155,8 @@ void copro_arm2_emulator()
    while (1)
    {
       arm2_execute_run(1);
-      if (tube_mailbox & ATTN_MASK) {
-         unsigned int tube_mailbox_copy = tube_mailbox;
-         tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+      if (is_mailbox_non_empty()) {
+         unsigned int tube_mailbox_copy = read_mailbox();
          unsigned int intr = tube_io_handler(tube_mailbox_copy);
          unsigned int nmi = intr & 2;
          unsigned int rst = intr & 4;

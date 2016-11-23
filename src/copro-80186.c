@@ -5,6 +5,7 @@
 #include "tube-ula.h"
 #include "cpu80186/cpu80186.h"
 #include "cpu80186/mem80186.h"
+#include "startup.h"
 
 static void copro_80186_poweron_reset() {
    // Wipe memory
@@ -46,9 +47,8 @@ void copro_80186_emulator()
    {
       exec86(1);
 
-      if (tube_mailbox & ATTN_MASK) {
-         unsigned int tube_mailbox_copy = tube_mailbox;
-         tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+      if (is_mailbox_non_empty()) {
+         unsigned int tube_mailbox_copy = read_mailbox();
          unsigned int intr = tube_io_handler(tube_mailbox_copy);
          unsigned int nmi = intr & 2;
          unsigned int rst = intr & 4;

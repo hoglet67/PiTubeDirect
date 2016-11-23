@@ -1,0 +1,16 @@
+# Unix
+
+TARGET =
+TARGETEXTENSION = 
+OUTFMTS = -DOUTAOUT -DOUTBIN -DOUTELF -DOUTHUNK -DOUTSREC -DOUTTOS -DOUTVOBJ
+
+CCOUT = -o 
+COPTS = -c -O2 $(OUTFMTS)
+
+LD = $(CC)
+LDOUT = $(CCOUT)
+LDFLAGS = -lm
+
+RM = rm -f
+
+include make.rules

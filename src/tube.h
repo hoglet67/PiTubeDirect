@@ -7,7 +7,9 @@
 
 extern volatile int copro;
 
-extern volatile uint32_t tube_mailbox;
+extern volatile uint32_t *tube_mailbox;
+
+extern volatile uint32_t tube_mailbox_block;
 
 extern void arm_fiq_handler_flag0();
 

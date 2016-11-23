@@ -1,0 +1,25 @@
+  "syntax error",ERROR,
+  "invalid extension",ERROR,
+  "no space before operands",WARNING,
+  "too many closing parentheses",WARNING,
+  "missing closing parentheses",WARNING,
+  "missing operand",ERROR,                                           /* 5 */
+  "garbage at end of line",WARNING,
+  "%c expected",WARNING,
+  "invalid data operand",ERROR,
+  ", expected",WARNING,
+  "identifier expected",ERROR,                                       /* 10 */
+  "",WARNING,
+  "unexpected \"%s\" without \"%s\"",ERROR,
+  "",ERROR,
+  "",ERROR,
+  "",ERROR,                                                          /* 15 */
+  "",ERROR,
+  "",ERROR,
+  "",ERROR,
+  "",ERROR,
+  "",WARNING,                                                        /* 20 */
+  "alignment too big",WARNING,
+  "label <%s> has already been defined",WARNING,
+  "skipping instruction in struct init",WARNING,
+  "last %d bytes of string constant have been cut",WARNING,

@@ -1,24 +1,25 @@
 #include <stdio.h>
 #include <string.h>
 #include "info.h"
+#include "tube-defs.h"
 
 static char cmdline[PROP_SIZE];
 
 void print_tag_value(char *name, rpi_mailbox_property_t *buf, int hex) {
    int i;
-   printf("%20s : ", name);
+   LOG_INFO("%20s : ", name);
    if (buf == NULL) {
-      printf("*** failed ***");
+      LOG_INFO("*** failed ***");
    } else {
       for (i = 0;  i < (buf->byte_length + 3) >> 2; i++) {
          if (hex) {
-            printf("%08x ", buf->data.buffer_32[i]);
+            LOG_INFO("%08x ", buf->data.buffer_32[i]);
          } else {
-            printf("%8d ", buf->data.buffer_32[i]);
+            LOG_INFO("%8d ", buf->data.buffer_32[i]);
          }
       }
    }
-   printf("\r\n");
+   LOG_INFO("\r\n");
 }
 
 int get_clock_rate(int clk_id) {
@@ -197,7 +198,7 @@ void dump_useful_info() {
 
    for (i = MIN_CLK_ID; i <= MAX_CLK_ID; i++) {
       clk_info = get_clock_rates(i);
-      printf("%15s_FREQ : %10.3f MHz %10.3f MHz %10.3f MHz\r\n",
+      LOG_INFO("%15s_FREQ : %10.3f MHz %10.3f MHz %10.3f MHz\r\n",
              clock_names[i],
              (double) (clk_info->rate)  / 1.0e6,
              (double) (clk_info->min_rate)  / 1.0e6,
@@ -205,14 +206,14 @@ void dump_useful_info() {
          );
    }
 
-   printf("           CORE TEMP : %6.2f °C\r\n", get_temp());
-   printf("        CORE VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_CORE));
-   printf("     SDRAM_C VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_C));
-   printf("     SDRAM_P VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_P));
-   printf("     SDRAM_I VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_I));
+   LOG_INFO("           CORE TEMP : %6.2f °C\r\n", get_temp());
+   LOG_INFO("        CORE VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_CORE));
+   LOG_INFO("     SDRAM_C VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_C));
+   LOG_INFO("     SDRAM_P VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_P));
+   LOG_INFO("     SDRAM_I VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_I));
 
-   printf("            CMD_LINE : %s\r\n", get_cmdline());
+   LOG_INFO("            CMD_LINE : %s\r\n", get_cmdline());
 
-   printf("               COPRO : %s\r\n", get_cmdline_prop("copro"));
+   LOG_INFO("               COPRO : %s\r\n", get_cmdline_prop("copro"));
 
 }

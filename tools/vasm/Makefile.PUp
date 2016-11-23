@@ -1,0 +1,17 @@
+# PowerUp
+
+TARGET = _pup
+TARGETEXTENSION = 
+OUTFMTS = -DOUTAOUT -DOUTBIN -DOUTELF -DOUTHUNK -DOUTSREC -DOUTTOS -DOUTVOBJ
+
+CC = vc +powerup
+CCOUT = -o 
+COPTS = -c -c99 -DAMIGA -O1 $(OUTFMTS)
+
+LD = $(CC)
+LDOUT = $(CCOUT)
+LDFLAGS = -lm
+
+RM = delete force quiet
+
+include make.rules

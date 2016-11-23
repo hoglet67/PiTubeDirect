@@ -75,7 +75,7 @@
 .global exec_65tube
 .global mpu_memory
 
-#ifndef USE_MULTICORE
+#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 .global Event_Handler_Dispatch_Table
 .global Event_Handler
 .global Event_Handler_Single_Core_Slow
@@ -94,7 +94,7 @@
 .equ    R4_MASK,     0xFFFFFF4C
 
 // Emulator control bits
-#ifdef USE_MULTICORE        
+#if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
 .equ    SLOW_FLAG,   0x00000100
 #endif
         
@@ -102,7 +102,7 @@
 // Start of macros
 // **********************************************
 
-#ifdef USE_MULTICORE
+#if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
 
 .macro FETCH_NEXT_STAGE_1_I
 .endm
@@ -631,7 +631,7 @@ opcode_jump_table:
 // End of Opcode Jump Table
 // **********************************************
 
-#ifndef USE_MULTICORE
+#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 // **********************************************
 // Start of Event Handler Jump Table
 // **********************************************
@@ -666,16 +666,26 @@ exec_65tube:
                                         // This is very strange, because r4 bit 7 is not used!
                                         // To reproduce, initialize r4 to 0x80
 
-#ifdef USE_MULTICORE
+#if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
         tst     r1, #1                  // Copy the slowdown bit into r4
         orrne   r4, r4, #SLOW_FLAG
 #endif
         
         ldr     r5, =0xffffff00         // initialize the constant in r5
 
+#if defined(USE_HW_MAILBOX)
+        mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
+        ldr     r1, =MBOX0_CONFIG       // to generate interrupts when data is present
+        str     r0, [r1]
+        mov     r0, #0x80 + 65          // route that to FIQ
+        ldr     r1, =FIQCTRL
+        str     r0, [r1]
+#else        
         mov     r0, #0                  // initialize tube mailbox (between isr and event handler)
         ldr     r1, =tube_mailbox
+        ldr     r1, [r1]
         str     r0, [r1]
+#endif
 
         mrs     r0, CPSR                // Enable ARM IRQs and FIQs
         bic     r0, r0, #ARM_INT_MASK
@@ -690,10 +700,18 @@ handle_rst:
         FETCH_NEXT_MERGED               // Start executing instructions
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
+#if defined(USE_HW_MAILBOX)
+        mov     r0, #0                  // disable mailbox hardware to generate interrupts
+        ldr     r1, =MBOX0_CONFIG       // when data is present
+        str     r0, [r1]
+        mov     r0, #0                  // disable FIQ
+        ldr     r1, =FIQCTRL
+        str     r0, [r1]
+#endif        
         msr     CPSR, r2                // re-enable ARM interrupts
         pop     {r0-r12,pc}
 
-#ifdef USE_MULTICORE
+#if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
 fetch_next_i:
         sub     sl, sl, #1
         
@@ -704,10 +722,18 @@ fetch_next:
         bne     waste_time                // forward branch will predict as not taken
         
 fetch_next_check_event:
+#if defined(USE_HW_MAILBOX)
+        ldr     r0, =MBOX0_STATUS         // Check the tube mailbox for "events" (e.g. tube irq)
+        ldr     r0, [r0]
+        tst     r0, #MBOX0_EMPTY
+        beq     Event_Handler
+#else
         ldr     r0, =tube_mailbox         // Check the tube mailbox for "events" (e.g. tube irq)
+        ldr     r0, [r0]
         ldr     r0, [r0]
         tst     r0, #ATTN_MASK
         bne     Event_Handler
+#endif
         msr     CPSR_flg, r2              // Restore the 6502 flags
 
         ldrb    r2, [sl], #1
@@ -731,7 +757,7 @@ fetch_next_check_irq:
         b       fetch_next
 
 waste_time:
-        mov     r0, #776                  // 776=4MHz on a Pi 3
+        mov     r0, #250                  // TODO: Recalibrate
 waste_time_loop:
         subs    r0, r0, #1
         bne     waste_time_loop
@@ -744,20 +770,32 @@ waste_time_loop:
 // if USE_MULTICORE is not defined, we have come here via a branch from the second instruction table
 
 Event_Handler:
-#ifndef USE_MULTICORE
+#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
         mrs     r2, CPSR                // preserve the 6502 flags
 #endif
         orr     r1, r2, #ARM_INT_MASK           // disable ARM IRQs and FIQs
         msr     CPSR_c, r1
         
-        ldr     r1, =tube_mailbox
+#if defined(USE_HW_MAILBOX)
+        ldr     r1, =FIQCTRL            // Re-enable ARM Mailbox FIQ interrupt
+        mov     r0, #0xC1               // It's safe to do this before reading the mailbox
+        str     r0, [r1]                // As ARM FIQ interrupts currently disabled
+        ldr     r1, =MBOX0_READ
         ldr     r0, [r1]
-#ifndef USE_MULTICORE        
+        lsr     r0, r0, #4
+#else
+        ldr     r1, =tube_mailbox
+        ldr     r1, [r1]
+        ldr     r0, [r1]
+#endif
+#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
         bic     ip, ip, #1024           // ack events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
 #endif
+#if !defined(USE_HW_MAILBOX)
         bic     r0, r0, #ATTN_MASK      // the attention bit
         str     r0, [r1]                // ack the attention bit
+#endif
 
         push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value
         bl      tube_io_handler
@@ -788,7 +826,7 @@ handle_nmi:
         INTR    -6, 0
         FETCH_NEXT_MERGED
 
-#ifndef USE_MULTICORE
+#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 
 // In slowdown we patch the event handler dispatch table to a special event handler (below)
 //
@@ -820,17 +858,30 @@ handle_nmi:
         
 Event_Handler_Single_Core_Slow:
         mrs     r2, CPSR                // preserve the 6502 flags
-                                        // interrupts are left enabled        
-        ldr     r1, =tube_mailbox
-        ldr     r0, [r1]
-        bic     ip, ip, #1024           // ack events
+                                        // interrupts are left enabled
+        
+        bic     ip, ip, #1024           // ack any events
         sub     sl, sl, #2              // set the instruction back as we haven't executed it
 
+#if defined(USE_HW_MAILBOX)
+        ldr     r1, =MBOX0_STATUS       // poll the hardware mailbox status
+        ldr     r0, [r1]
+        tst     r0, #MBOX0_EMPTY        // test if there are any messages
+        bne     noirq2
+        
+        ldr     r1, =MBOX0_READ         // read the top message off the mailbox
+        ldr     r0, [r1]
+        lsr     r0, r0, #4
+#else        
+        ldr     r1, =tube_mailbox
+        ldr     r1, [r1]        
+        ldr     r0, [r1]
         tst     r0, #ATTN_MASK
         beq     noirq2
 
         bic     r0, r0, #ATTN_MASK      // the attention bit
         str     r0, [r1]                // ack the attention bit
+#endif
 
         push    {r1-r3,ip,lr}           // r0 contains the tube mailbox value
         bl      tube_io_handler
@@ -849,7 +900,15 @@ Event_Handler_Single_Core_Slow:
 
 noirq2:
 
-        mov     r0, #250
+#if defined(RPIZERO)
+        mov     r0, #0x15C              // 0x15C gives 3.00MHz average on a Pi Zero at 1000/400
+#elif defined(RPI2)
+        mov     r0, #0x388              // 0x388 gives 3.01MHz average on a Pi 2 at 900/350
+#elif defined(RPI3)
+        mov     r0, #0x3F0              // 0x3F0 gives 3.00MHz average on a Pi 3 at 1000/400
+#else
+        mov     r0, #0x134              // 0x134 gives 3.02MHz average on a Pi One at 900/350
+#endif
 waste_time:
         subs    r0, r0, #1
         bne     waste_time

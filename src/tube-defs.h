@@ -3,6 +3,18 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
+#define DEBUG
+
+#ifdef DEBUG
+#define LOG_DEBUG(...) printf(__VA_ARGS__)
+#else
+#define LOG_DEBUG(...)
+#endif
+
+#define LOG_INFO(...) printf(__VA_ARGS__)
+
+#define LOG_WARN(...) printf(__VA_ARGS__)
+
 // Our copro numbers match those on the matchbox
 // (many are not implemented though)
 
@@ -55,8 +67,12 @@
 // Indicate the platform has multiple cores
 #define HAS_MULTICORE
 
+#define USE_GPU
+
+#define USE_HW_MAILBOX
+
 // Indicates we want to make active use of multiple cores
-#define USE_MULTICORE
+//#define USE_MULTICORE
 
 // Needs to match kernel_old setting in config.txt
 //#define KERNEL_OLD
@@ -64,11 +80,26 @@
 // Include instruction histogram in multi core 65tube
 //#define HISTOGRAM
 
+#else
+
+#define USE_GPU
+
+#define USE_HW_MAILBOX
+
+#endif
+
+#include "rpi-base.h"
+
+#ifdef USE_HW_MAILBOX
+#define MBOX0_READ      (PERIPHERAL_BASE + 0x00B880)
+#define MBOX0_STATUS    (PERIPHERAL_BASE + 0x00B898)
+#define MBOX0_CONFIG    (PERIPHERAL_BASE + 0x00B89C)
+#define MBOX0_EMPTY     (0x40000000)
+#define MBOX0_DATAIRQEN (0x00000001)
 #endif
 
 #ifdef __ASSEMBLER__
 
-#include "rpi-base.h"
 #define GPFSEL0 (PERIPHERAL_BASE + 0x200000)  // controls GPIOs 0..9
 #define GPFSEL1 (PERIPHERAL_BASE + 0x200004)  // controls GPIOs 10..19
 #define GPFSEL2 (PERIPHERAL_BASE + 0x200008)  // controls GPIOs 20..29
@@ -76,6 +107,7 @@
 #define GPCLR0  (PERIPHERAL_BASE + 0x200028)
 #define GPLEV0  (PERIPHERAL_BASE + 0x200034)
 #define GPEDS0  (PERIPHERAL_BASE + 0x200040)
+#define FIQCTRL (PERIPHERAL_BASE + 0x00B20C)
 
 #endif // __ASSEMBLER__
 

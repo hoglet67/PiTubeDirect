@@ -18,9 +18,11 @@ typedef void (*func_ptr)();
 
 #define NUM_COPROS 2
 
+#ifdef DEBUG
 static const char * emulator_names[] = {
    "65C02 (65tube)"
 };
+#endif
 
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator
@@ -37,6 +39,7 @@ static const func_ptr emulator_functions[] = {
 
 #define NUM_COPROS 16
 
+#ifdef DEBUG
 static const char * emulator_names[] = {
    "65C02 (65tube)",
    "65C02 (65tube)",
@@ -55,6 +58,7 @@ static const char * emulator_names[] = {
    "Null/SPI",
    "BIST"
 };
+#endif
 
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator,
@@ -86,7 +90,7 @@ void init_emulator() {
 
    // Default to the normal FIQ handler
    *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag0;
-#ifndef USE_MULTICORE   
+#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register
    if (copro == COPRO_65TUBE_0 || copro == COPRO_65TUBE_1) {
@@ -101,11 +105,11 @@ void init_emulator() {
 
    // Make sure that copro number is valid
    if (copro < 0 || copro >= NUM_COPROS) {
-      printf("using default co pro\r\n");
+      LOG_DEBUG("using default co pro\r\n");
       copro = DEFAULT_COPRO;
    }
 
-   printf("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
+   LOG_DEBUG("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
 
    emulator = emulator_functions[copro];
    
@@ -114,9 +118,10 @@ void init_emulator() {
 
 #ifdef HAS_MULTICORE
 void run_core() {
-   int i;
    // Write first line without using printf
    // In case the VFP unit is not enabled
+#ifdef DEBUG
+   int i;
 	RPI_AuxMiniUartWrite('C');
 	RPI_AuxMiniUartWrite('O');
 	RPI_AuxMiniUartWrite('R');
@@ -125,11 +130,14 @@ void run_core() {
 	RPI_AuxMiniUartWrite('0' + i);
 	RPI_AuxMiniUartWrite('\r');
 	RPI_AuxMiniUartWrite('\n');
+#endif
    
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
-   
-   printf("emulator running on core %d\r\n", i);
+
+#ifdef DEBUG   
+   LOG_DEBUG("emulator running on core %d\r\n", i);
+#endif
 
    do {
       // Run the emulator
@@ -142,7 +150,7 @@ void run_core() {
 }
 
 static void start_core(int core, func_ptr func) {
-   printf("starting core %d\r\n", core);
+   LOG_DEBUG("starting core %d\r\n", core);
    *(unsigned int *)(0x4000008C + 0x10 * core) = (unsigned int) func;
 }
 #endif
@@ -168,31 +176,38 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    tube_init_hardware();
 
+   copro = get_copro_number();
+
+#ifdef USE_GPU
+      LOG_DEBUG("Staring VC ULA\r\n");
+      start_vc_ula();
+      LOG_DEBUG("Done\r\n");
+#endif
+
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
 
-
-   copro = get_copro_number();
-
    if (copro < 0 || copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
-      printf("Co Pro %d has not been defined yet\r\n", copro);
-      printf("Halted....\r\n");
+      LOG_DEBUG("Co Pro %d has not been defined yet\r\n", copro);
+      LOG_DEBUG("Halted....\r\n");
       while (1);
    }
 
+#ifdef DEBUG
   // Run a short set of CPU and Memory benchmarks
   benchmark();
+#endif
 
   init_emulator();
 
   // Lock the Tube Interrupt handler into cache for BCM2835 based Pis
-#if !defined(RPI2) && !defined(RPI3)
+#if !defined(RPI2) && !defined(RPI3) && !defined(USE_GPU)
    lock_isr();
 #endif
 
 #ifdef HAS_MULTICORE
 
-  printf("main running on core %d\r\n", _get_core());
+  LOG_DEBUG("main running on core %d\r\n", _get_core());
   for (i = 0; i < 10000000; i++);
   start_core(1, _spin_core);
   for (i = 0; i < 10000000; i++);
@@ -205,10 +220,11 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 #else
   start_core(3, _spin_core);
   for (i = 0; i < 10000000; i++);
-  emulator();
 #endif
 
-#else
+#endif
+
+#ifndef USE_MULTICORE
 
   do {
      // Run the emulator

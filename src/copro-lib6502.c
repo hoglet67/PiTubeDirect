@@ -18,6 +18,7 @@
 #include "lib6502.h"
 #include "programs.h"
 #include "copro-lib6502.h"
+#include "startup.h"
 
 int tracing=0;
 
@@ -54,9 +55,8 @@ static int last_copro;
 
 static int copro_lib6502_poll(M6502 *mpu) {
   static unsigned int last_rst = 0;
-  if (tube_mailbox & ATTN_MASK) {
-    unsigned int tube_mailbox_copy = tube_mailbox;
-    tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+  if (is_mailbox_non_empty()) {
+    unsigned int tube_mailbox_copy = read_mailbox();
     unsigned int intr = tube_io_handler(tube_mailbox_copy);
     unsigned int nmi = intr & 2;
     unsigned int rst = intr & 4;

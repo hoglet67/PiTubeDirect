@@ -8,8 +8,8 @@
 // #define ON_READS_SPIN_FOR_PHI2_HIGH
         
 .text
-.global tube_regs
-.global tube_mailbox
+.global tube_regs_block
+.global tube_mailbox_block
 .global arm_irq_handler
 .global arm_fiq_handler
 .global arm_fiq_handler_flag0
@@ -20,6 +20,47 @@
 .global gpfsel_data_idle
 .global gpfsel_data_driving
 
+// This FIQ handler is only installed:
+// - When the GPU Mailbox is being used
+// - And when Co Pro 0/1 are selected
+// - And when we are running on a single core pi
+
+#ifdef USE_HW_MAILBOX
+.macro FIQ_MAILBOX_HANDLER
+
+        // Disable the FIQ interrupt (the C code will re-enable)
+        // This is necessary because we don't want the FIQ handler to have to read
+        // the mailbox, so the FIQ condition will not be cleared until later
+        ldr     r8, =FIQCTRL
+        mov     r9, #0
+        str     r9, [r8]
+
+        // Switch back to irq mode so ip is not shadowed
+        mrs     r8, cpsr
+        bic     r8, r8, #0x1F
+        orr     r8, r8, #0x12
+        msr     cpsr_c, r8
+        
+        orr     ip, ip, #1024   // signal event to 6502 instruction flow
+
+        // Switch back to fiq mode, so we return correctly
+        // lr is used here because its shadowed in IRQ mode, so doesn't corrupt the normal lr
+        mrs     lr, cpsr
+        bic     lr, lr, #0x1F
+        orr     lr, lr, #0x11
+        msr     cpsr_c, lr
+
+        // Note, the above mode switching could be avoided if we reworked the register assignment
+        // in the 6502 emulator to use a register r0..r7 for signalling.
+        // I did do this as an experiment, and it's parked in a branch.
+        // I'd like to avoid making big changes to that code for now.
+
+        subs    pc, lr, #4
+        
+.endm
+#endif
+
+        
 
 .macro FIQ_HANDLER flag_using_ip
 
@@ -57,7 +98,7 @@
         tst     r9, #A2_MASK
         orrne   r10, #4
 
-        ldr     r8, =tube_regs
+        ldr     r8, =tube_regs_block
         ldrb    r10, [r8, r10]
 
         mov     r11, r10, LSL #D0_BASE  // low nibble now aligned to GPIO
@@ -147,10 +188,10 @@ post_mail\@:
 post_mail2\@:
         orr     r9, r9, #ATTN_MASK
 
-        ldr     r10, tube_mailbox
+        ldr     r10, tube_mailbox_block
         tst     r10, #ATTN_MASK         // if previous message not acknowledged, then flag overrun
         orrne   r9, r9, #OVERRUN_MASK
-        str     r9, tube_mailbox
+        str     r9, tube_mailbox_block
 
 // Update TEST2 Pin to reflect overun state      
 #if defined(DEBUG_OVERRUN) && defined(HAS_40PINS)
@@ -420,7 +461,11 @@ arm_irq_handler:
 
 #ifndef USE_MULTICORE
 arm_fiq_handler_flag1:
+#ifdef USE_HW_MAILBOX
+FIQ_MAILBOX_HANDLER
+#else
 FIQ_HANDLER 1
+#endif        
 #endif
 
 arm_fiq_handler_flag0:
@@ -436,9 +481,34 @@ isr_code_end:
 .align CACHELINE_ALIGN
 isr_data_start:
 
-// Insert the current literal pool, so these get locked in the cache
-.ltorg
+#ifdef USE_GPU
+tube_regs_block:
+        .word (0xf << D4_BASE) | (0xe << D0_BASE)
+        .word (0xe << D4_BASE) | (0xd << D0_BASE)
+        .word (0xd << D4_BASE) | (0xc << D0_BASE)
+        .word (0xc << D4_BASE) | (0xb << D0_BASE)
+        .word (0xb << D4_BASE) | (0xa << D0_BASE)
+        .word (0xa << D4_BASE) | (0x9 << D0_BASE)
+        .word (0x9 << D4_BASE) | (0x8 << D0_BASE)
+        .word (0x8 << D4_BASE) | (0x7 << D0_BASE)
+#else
+tube_regs_block:
+        .byte 0xfe
+        .byte 0xed
+        .byte 0xdc
+        .byte 0xcb
+        .byte 0xba
+        .byte 0xa9
+        .byte 0x98
+        .byte 0x87
+#endif
 
+.align CACHELINE_ALIGN
+// Mailbox between tube isr and events handler (in C)
+tube_mailbox_block:
+        .word 0
+
+.align CACHELINE_ALIGN        
 // Some constants for controlling the data bus        
 gpfsel_data_idle:
         .word 0
@@ -450,20 +520,8 @@ gpfsel_data_driving:
         .word 0
         .word 0
 
-// Mailbox between tube isr and events handler (in C)
-tube_mailbox:
-        .word 0
+ // Insert the current literal pool, so these get locked in the cache
+.ltorg
         
-// 8 BYTES OF STATE
-tube_regs:
-        .byte 0xfe
-        .byte 0xed
-        .byte 0xdc
-        .byte 0xcb
-        .byte 0xba
-        .byte 0xa9
-        .byte 0x98
-        .byte 0x87
-
 .align CACHELINE_ALIGN
 isr_data_end:

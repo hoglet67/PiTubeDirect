@@ -75,6 +75,8 @@ file( GLOB core_files
     info.h
     performance.c
     performance.h
+    tubevc.c
+    tubevc.h
 )
 
 # 6502 Co Processor using 65tube Implementation

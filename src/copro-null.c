@@ -11,6 +11,7 @@
 #include "tube.h"
 #include "tube-ula.h"
 #include "copro-null.h"
+#include "startup.h"
 
 void copro_null_emulator() {
    // Remember the current copro so we can exit if it changes
@@ -24,9 +25,8 @@ void copro_null_emulator() {
    // Wait for copro to be changed via *FX 151,230,N
    // then exit on the next reset
    while (1) {
-      if (tube_mailbox & ATTN_MASK) {
-         unsigned int tube_mailbox_copy = tube_mailbox;
-         tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
+      if (is_mailbox_non_empty()) {
+         unsigned int tube_mailbox_copy = read_mailbox();
          // With tube disabled, only writes to reg 6 are implements
          // which update the copro global variable
          tube_io_handler(tube_mailbox_copy);
