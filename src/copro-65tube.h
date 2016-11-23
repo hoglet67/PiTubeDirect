@@ -6,7 +6,7 @@ extern void copro_65tube_emulator();
 
 extern void exec_65tube(unsigned char *memory, int slowdown);
 
-extern unsigned char mpu_memory[];
+//extern unsigned char mpu_memory[];
 
 #ifndef USE_MULTICORE
 extern uint32_t Event_Handler_Dispatch_Table[];

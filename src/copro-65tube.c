@@ -38,14 +38,14 @@ void copro_65tube_dump_histogram() {
 
 #endif
 
-static void copro_65tube_poweron_reset() {
+static void copro_65tube_poweron_reset(unsigned char mpu_memory[]) {
    // Wipe memory
    memset(mpu_memory, 0, 0x10000);
    // Install test programs (like sphere)
    copy_test_programs(mpu_memory);
 }
 
-static void copro_65tube_reset() {
+static void copro_65tube_reset(unsigned char mpu_memory[]) {
    // Re-instate the Tube ROM on reset
    memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
    // Wait for rst become inactive before continuing to execute
@@ -55,21 +55,29 @@ static void copro_65tube_reset() {
 void copro_65tube_emulator() {
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
-
-   copro_65tube_poweron_reset();
-   copro_65tube_reset();
+   unsigned char *addr;
+   unsigned char mpu_memory[128*1024]; // allocate 2x the amount of ram
+   
+   addr = &mpu_memory[0];
+   
+   addr += 64*1024; // move half way into ram
+   
+   addr -= ((unsigned int)(&mpu_memory[0]) % (64*1024)); // round down to 64K boundary
+   
+   copro_65tube_poweron_reset(addr);
+   copro_65tube_reset(addr);
 
    while (copro == last_copro) {
 #ifdef HISTOGRAM
       copro_65tube_init_histogram();
 #endif
       tube_reset_performance_counters();
-      exec_65tube(mpu_memory, copro == COPRO_65TUBE_1 ? 1 : 0);
+      exec_65tube(addr, copro == COPRO_65TUBE_1 ? 1 : 0);
       tube_log_performance_counters();
 #ifdef HISTOGRAM
       copro_65tube_dump_histogram();
 #endif
-      copro_65tube_reset();
+      copro_65tube_reset(addr);
    }
 }
 

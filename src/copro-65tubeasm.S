@@ -87,7 +87,7 @@
         
 .text
 .global exec_65tube
-.global mpu_memory
+//.global mpu_memory
 
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 .global Event_Handler_Dispatch_Table
@@ -2932,11 +2932,11 @@ opcode_FF:
 // Start of 64K of 6502 RAM
 // **********************************************
         
-.balign 0x10000
-mpu_memory:
-.rept 16384
-.word 0
-.endr
+//.balign 0x10000
+//mpu_memory:
+//.rept 16384
+//.word 0
+//.endr
 
 // **********************************************
 // End of 64K of 6502 RAM
