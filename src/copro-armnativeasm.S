@@ -33,10 +33,12 @@ copro_armnative_disable_mailbox:
         str     r0, [r1]
         mov     pc, lr
 
+#ifdef USE_REENTRANT_FIQ_HANDLER
+        
 copro_armnative_fiq_handler:
 
-        push    {r0-r7, lr}            // Save everything that is not shadowed
-        
+        push    {r0-r12, lr}           // Save everything that is not shadowed
+
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
         ldr     r0, [r1]
         lsr     r0, r0, #4             // Shift so it looks like the format of the software mailbox
@@ -44,11 +46,65 @@ copro_armnative_fiq_handler:
         bl      tube_io_handler        // Update the Tube ULA emulation
 
         tst     r0, #7                 // Test for IRQ, NMI or RST
-        blne    copro_armnative_tube_interrupt_handler
+        beq     no_tube_intr
+        
+        ldr     r1, =in_tube_intr      // Get the address of the in_tube_intr flag
+        ldr     r0, [r1]
+        tst     r0, #1                 // Test if we are in tube_interrput_handler          
+        bne     no_tube_intr           // Yes, so don't call it again
+        
+        mrs     r0, spsr               // Get the saved psr
+        push    {r0,r1}                // Store spsr onto stack so we are re-entrant
+        
+        mov     r0, #1            
+        str     r0, [r1]               // Set the in_tube_intr flag        
+                                     
+        mrs     r0, CPSR               // Re-enable ARM FIQ interrupts
+        bic     r0, #CPSR_FIQ
+        msr     CPSR_c, r0
+
+        bl      copro_armnative_tube_interrupt_handler
+        
+        mrs     r0, CPSR               // Disable ARM FIQ interrupts
+        orr     r0, #CPSR_FIQ
+        msr     CPSR_c, r0
+
+        ldr     r1, =in_tube_intr      // Get the address of the in_tube_intr flag
+        mov     r0, #0            
+        str     r0, [r1]               // Clear the in_tube_intr flag        
+        
+        pop     {r0, r1}               // Get spsr from stack.
+        msr     spsr_cf, r0            // Restore spsr.
+        
+no_tube_intr:
+        
+        pop     {r0-r12, lr}
+        subs    pc, lr, #4             // Return from ISR
+
+in_tube_intr:
+        .word   0
+        
+#else
+
+copro_armnative_fiq_handler:
+
+        push    {r0-r7, lr}            // Save everything that is not shadowed
+        
+        ldr     r1, =MBOX0_READ        // Read the GPU mailbox
+        ldr     r0, [r1]
+        lsr     r0, r0, #4             // Shift so it looks like the format of the software mailbox
+
+        push    {r0}
+        bl      tube_io_handler        // Update the Tube ULA emulation
+        pop     {r0}
+        
+        bl      copro_armnative_tube_interrupt_handler
         
         pop     {r0-r7, lr}
         subs    pc, lr, #4             // Return from ISR
 
+
+#endif
         
 copro_armnative_swi_handler:
     stmfd    sp!, {r0-r11,r12,lr} // Store registers.

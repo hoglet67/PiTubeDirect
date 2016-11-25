@@ -5,7 +5,7 @@
 
 #include "tube-env.h"
 
-#define DEBUG_ARM 1
+#define DEBUG_ARM 0
 
 #define tubeRead tube_parasite_read
 

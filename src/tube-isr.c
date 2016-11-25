@@ -12,11 +12,315 @@
 #include "tube-isr.h"
 
 volatile unsigned char *address;
-
 volatile unsigned int count;
 volatile unsigned int signature;
 
 ErrorBlock_type isrErrorBlock;
+
+#ifdef TUBE_ISR_STATE_MACHINE
+
+// Host-to-Client transfers
+// ------------------------
+// Escape   R1: flag, b7=1
+// Event    R1: &00 Y X A
+// Error    R4: &FF R2: &00 err string &00
+// Transfer R4: action ID block sync R3: data
+//
+// idle
+// event_r1_y
+// event_r1_x
+// event_r1_a
+// error_r2_00
+// error_r2_err
+// error_r2_string
+// transfer_r4_id
+// transfer_r4_a3
+// transfer_r4_a2
+// transfer_r4_a1
+// transfer_r4_a0
+// transfer_r4_sync
+// transfer_r3
+
+typedef enum {
+  IDLE,            // 0
+  EVENT_R1_Y,      // 1
+  EVENT_R1_X,      // 2
+  EVENT_R1_A,      // 3
+  ERROR_R2_00,     // 4
+  ERROR_R2_ERR,    // 5
+  ERROR_R2_STRING, // 6
+  TRANSFER_R4_ID,  // 7
+  TRANSFER_R4_A3,  // 8
+  TRANSFER_R4_A2,  // 9
+  TRANSFER_R4_A1,  // 10
+  TRANSFER_R4_A0,  // 11
+  TRANSFER_R4_SYNC,// 12
+  TRANSFER_R3      // 13
+} tih_state_type;
+
+void copro_armnative_tube_interrupt_handler(uint32_t mail) {
+  static tih_state_type state = IDLE;
+  static unsigned char a;
+  static unsigned char x;
+  static unsigned char y;
+  static unsigned char type;
+  static ErrorBlock_type *eblk;
+  static char *emsg;
+  static unsigned char id;
+  static unsigned char a3;
+  static unsigned char a2;
+  static unsigned char a1;
+  static unsigned char a0;
+
+  int addr;
+  int rnw;
+  int ntube;
+  int nrst;
+  int unexpected = 0;
+
+  addr = 0;
+  if (mail & A0_MASK) {
+    addr += 1;
+  }
+  if (mail & A1_MASK) {
+    addr += 2;
+  }
+  if (mail & A2_MASK) {
+    addr += 4;
+  }
+
+  rnw   = (mail >> RNW_PIN) & 1;
+  ntube = (mail >> NTUBE_PIN) & 1;
+  nrst  = (mail >> NRST_PIN) & 1;
+  
+  // State machine updates on tube write cycles
+
+  if (nrst == 1 && ntube == 0 && rnw == 0) {
+
+    switch (state) {
+      
+    case IDLE:
+      if (addr == 1) {
+        // R1 interrupt
+        unsigned char flag = tubeRead(R1_DATA);
+        if (flag & 0x80) {
+          // Escape
+          // The escape handler is called with the escape flag value in R11
+          // That's with this wrapper achieves
+          _escape_handler_wrapper(flag & 0x40, env->handler[ESCAPE_HANDLER].handler);
+        } else {
+          state = EVENT_R1_Y;
+        }
+      } else if (addr == 7) {
+        // R4 interrupt
+        type = tubeRead(R4_DATA);
+        if (type == 0xff) {
+          state = ERROR_R2_00;
+        } else {
+          state = TRANSFER_R4_ID;
+        }
+      }
+      break;
+
+    case EVENT_R1_Y:
+      if (addr == 1) {
+        y = tubeRead(R1_DATA);
+        state = EVENT_R1_X;
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case EVENT_R1_X:
+      if (addr == 1) {
+        x = tubeRead(R1_DATA);
+        state = EVENT_R1_A;
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case EVENT_R1_A:
+      if (addr == 1) {
+        a = tubeRead(R1_DATA);
+        env->handler[EVENT_HANDLER].handler(a, x, y);
+        state = IDLE;
+      } else {
+        unexpected = 1;
+      }
+      break;
+      
+    case ERROR_R2_00:
+      if (addr == 3) {
+        tubeRead(R2_DATA); // Always 0
+        state = ERROR_R2_ERR;
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case ERROR_R2_ERR:
+      if (addr == 3) {
+        // Build the error block
+        eblk = &isrErrorBlock;
+        emsg = eblk->errorMsg;
+        eblk->errorNum = tubeRead(R2_DATA);
+        state = ERROR_R2_STRING;
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case ERROR_R2_STRING:
+      if (addr == 3) {
+        unsigned char c = tubeRead(R2_DATA);
+        *emsg++ = c;
+        if (c) {
+          state = ERROR_R2_STRING;
+        } else {
+          // SWI OS_GenerateError need the error block in R0
+          OS_GenerateError(eblk);
+          state = IDLE;
+        }
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case TRANSFER_R4_ID:
+      if (addr == 7) {
+        id = tubeRead(R4_DATA);
+        if (type == 5) {
+          if (DEBUG_ARM) {
+            printf("Transfer = %02x %02x\r\n", type, id);
+          }
+          state = IDLE;
+        } else {
+          state = TRANSFER_R4_A3;
+        }
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case TRANSFER_R4_A3:
+      if (addr == 7) {
+        a3 = tubeRead(R4_DATA);
+        state = TRANSFER_R4_A2;
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case TRANSFER_R4_A2:
+      if (addr == 7) {
+        a2 = tubeRead(R4_DATA);
+        state = TRANSFER_R4_A1;
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case TRANSFER_R4_A1:
+      if (addr == 7) {
+        a1 = tubeRead(R4_DATA);
+        state = TRANSFER_R4_A0;
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case TRANSFER_R4_A0:
+      if (addr == 7) {
+        a0 = tubeRead(R4_DATA);
+        address = (unsigned char *)((a3 << 24) + (a2 << 16) + (a1 << 8) + a0);
+        if (DEBUG_ARM) {
+          printf("Transfer = %02x %02x %08x\r\n", type, id, (unsigned int)address);
+        }
+        state = TRANSFER_R4_SYNC;
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case TRANSFER_R4_SYNC:
+      if (addr == 7) {
+        tubeRead(R4_DATA);
+        count = 0;
+        signature = 0;
+        if (type == 0 || type == 1)  {
+          state = TRANSFER_R3;
+        } else if (type == 4) {
+          state = IDLE;
+        } else {
+          printf("Unexpected transfer type %d\r\n", type);
+          state = IDLE;
+        }
+      } else if (addr == 0) {
+        // A write to the tube control register is expected at this point
+      } else {
+        unexpected = 1;
+      }
+      break;
+
+    case TRANSFER_R3:
+      if (addr == 5 && type == 1) {
+          // Read the R3 data register, which should also clear the NMI
+          *address = tubeRead(R3_DATA);
+          count++;
+          signature += *address++;
+          signature *= 13;
+      } else if (addr == 7) {
+        // R4 interrupt
+        if (DEBUG_ARM) {
+          printf("count = %0x signature = %0x\r\n", count, signature);
+        }
+        type = tubeRead(R4_DATA);
+        if (type == 0xff) {
+          state = ERROR_R2_00;
+        } else {
+          state = TRANSFER_R4_ID;
+        }
+      }
+      break;
+    }
+  }
+
+  // State machine updates on tube read cycles
+  
+  if (nrst == 1 && ntube == 0 && rnw == 1) {
+    
+    switch (state) {      
+      
+    case TRANSFER_R3:
+      if (addr == 5 && type == 0) {
+        // Write the R3 data register, which should also clear the NMI
+        tubeWrite(R3_DATA, *address);
+        count++;
+        signature += *address++;
+        signature *= 13;
+      }
+      break;
+    default:
+      break;
+ 
+    }
+    
+  }
+  
+  if (unexpected) {
+    if (rnw == 0) {
+      printf("Unexpected write to %d in state %d\r\n", addr, state);
+    } else {
+      printf("Unexpected read from %d in state %d\r\n", addr, state);
+    }
+    state = IDLE;
+  }
+}
+
+
+#else
+
 
 // single byte parasite -> host (e.g. *SAVE)
 void type_0_data_transfer(void) {
@@ -172,3 +476,5 @@ void copro_armnative_tube_interrupt_handler(void) {
     }
   }
 }
+
+#endif
