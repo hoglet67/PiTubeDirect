@@ -12,6 +12,7 @@
 
 .equ    CPSR_MODE_USER,         0x10
 .equ    CPSR_FIQ_INHIBIT,       0x40
+.equ    CPSR_IRQ_INHIBIT,       0x80
 
 copro_armnative_enable_mailbox:
         mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
@@ -107,7 +108,7 @@ _user_exec:
 _error_handler_wrapper:
 
     // Move to user mode
-    mov      r4, #(CPSR_MODE_USER | CPSR_FIQ_INHIBIT )
+    mov      r4, #(CPSR_MODE_USER | CPSR_IRQ_INHIBIT )
     msr      cpsr_c, r4
 
     // Continue execution of the error handler
@@ -136,7 +137,7 @@ _exit_handler_wrapper:
     mov      r12, r0
 
     // Move to user mode
-    mov      r4, #(CPSR_MODE_USER | CPSR_FIQ_INHIBIT )
+    mov      r4, #(CPSR_MODE_USER | CPSR_IRQ_INHIBIT )
     msr      cpsr_c, r4
 
     // Continue execution of the exit handler
