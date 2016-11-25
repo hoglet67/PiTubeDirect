@@ -81,11 +81,16 @@ volatile int copro;
 
 static func_ptr emulator;
 
+
+// This magic number come form cache.c where we have relocated the vectors to 
+// Might be better to just read the vector pointer register instead.
+#define FIQ_VECTOR ((0x81<<20)+0x3C)
+
 void init_emulator() {
    _disable_interrupts();
 
    // Default to the normal FIQ handler
-   *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag0;
+   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag0;
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register
@@ -94,7 +99,7 @@ void init_emulator() {
       for (i = 0; i < 256; i++) {
          Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
       }
-      *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
+      *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
 
    }
 #endif

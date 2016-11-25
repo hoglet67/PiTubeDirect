@@ -8,6 +8,7 @@
 // The point of crashing is when the data cache is enabled
 // At that point, the stack appears to vanish and the data read back is 0x55555555
 // Reason turned out to be failure to correctly invalidate the entire data cache
+   
 
 volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
 
@@ -139,6 +140,15 @@ void enable_MMU_and_IDCaches(void)
     PageTable[base] = base << 20 | 0x10C16;
   }
 
+  // move phyiscal ram page 0 away from virtual 0x 0 to new locaton with the vectors
+  PageTable[l2_cached_threshold+1]= PageTable[0];
+
+  // place unused phyical Page at 0;
+  PageTable[0]=PageTable[0] |  ((l2_cached_threshold+1) <<20);
+  
+  // relocate the vector pointer to the moved page 
+  asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" ((l2_cached_threshold+1)<<20)); 
+  
 #if defined(RPI3)
   unsigned cpuextctrl0, cpuextctrl1;
   asm volatile ("mrrc p15, 1, %0, %1, c15" : "=r" (cpuextctrl0), "=r" (cpuextctrl1));
@@ -196,6 +206,7 @@ void enable_MMU_and_IDCaches(void)
   //   branch prediction and extended page table on
   unsigned sctrl;
   asm volatile ("mrc p15,0,%0,c1,c0,0" : "=r" (sctrl));
+  // Bit 13 enable vector relocation
   // Bit 12 enables the L1 instruction cache
   // Bit 11 enables branch pre-fetching
   // Bit  2 enables the L1 data cache
