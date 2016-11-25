@@ -203,14 +203,19 @@ static void initEnv() {
 // Tube Reset protocol
 static void tube_Reset() {
   // Send the reset message
-  printf( "Sending banner\r\n" );
+  if (DEBUG_ARM) {
+    printf( "Sending banner\r\n" );
+  }
   sendString(R1_ID, 0x00, banner);
   sendByte(R1_ID, 0x00);
-  printf( "Banner sent, awaiting response\r\n" );
-
+  if (DEBUG_ARM) {
+    printf( "Banner sent, awaiting response\r\n" );
+  }
   // Wait for the reponse in R2
   receiveByte(R2_ID);
-  printf( "Received response\r\n" );
+  if (DEBUG_ARM) {
+    printf( "Received response\r\n" );
+  }
 }
 
 
