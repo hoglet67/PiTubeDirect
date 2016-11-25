@@ -256,7 +256,14 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         tubeRead(R4_DATA);
         count = 0;
         signature = 0;
-        if (type == 0 || type == 1)  {
+        if (type == 0) {
+          state = TRANSFER_R3;
+          // For a copro->host transfer, send the first byte in response to the sync byte
+          tubeWrite(R3_DATA, *address);
+          count++;
+          signature += *address++;
+          signature *= 13;
+        } else if (type == 1) {
           state = TRANSFER_R3;
         } else if (type == 4) {
           state = IDLE;
