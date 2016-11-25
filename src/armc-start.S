@@ -313,8 +313,8 @@ _enable_interrupts:
 
 _disable_interrupts:
     mrs     r0, cpsr
-    orr     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
-    msr     cpsr_c, r0
+    orr     r1, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
+    msr     cpsr_c, r1
     mov     pc, lr
 
 _undefined_instruction_handler_:

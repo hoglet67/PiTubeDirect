@@ -12,6 +12,26 @@
 
 static int debug = 0;
 
+unsigned char tubeRead(unsigned char addr)
+{
+  unsigned char ret;
+  int cpsr = _disable_interrupts();
+  ret = tube_parasite_read(addr);
+  if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+  }
+  return ret;
+}
+
+void tubeWrite(unsigned char addr, unsigned char byte)
+{
+  int cpsr = _disable_interrupts();
+  tube_parasite_write(addr, byte);
+  if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+  }
+}
+
 void setTubeLibDebug(int d)
 {
   debug = d;

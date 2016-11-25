@@ -25,6 +25,10 @@
 #define A_BIT 0x80
 #define F_BIT 0x40
 
+unsigned char tubeRead(unsigned char addr);
+
+void tubeWrite(unsigned char addr, unsigned char byte);
+
 void setTubeLibDebug(int d);
 
 void sendByte(unsigned char reg, unsigned char byte);

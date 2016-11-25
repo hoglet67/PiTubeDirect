@@ -20,10 +20,6 @@
 
 #include "tube-env.h"
 
-#define tubeRead tube_parasite_read
-
-#define tubeWrite tube_parasite_write
-
 extern void copro_armnative_fiq_handler();
 extern void copro_armnative_swi_handler();
 extern void copro_armnative_enable_mailbox();
