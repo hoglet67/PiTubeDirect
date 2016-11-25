@@ -1,5 +1,6 @@
 #include "tube-defs.h"
-
+#include "copro-armnative.h"
+        
 .global copro_armnative_enable_mailbox
 .global copro_armnative_disable_mailbox
 .global copro_armnative_fiq_handler
@@ -11,6 +12,8 @@
 .global _exit_handler_wrapper
 
 .equ    CPSR_MODE_USER,         0x10
+.equ    CPSR_MODE_FIQ,          0x11
+.equ    CPSR_MODE_SYSTEM,       0x1F
 .equ    CPSR_FIQ_INHIBIT,       0x40
 .equ    CPSR_IRQ_INHIBIT,       0x80
 
@@ -37,7 +40,7 @@ copro_armnative_disable_mailbox:
         
 copro_armnative_fiq_handler:
 
-        push    {r0-r12, lr}           // Save everything that is not shadowed
+        push    {r0-r8,lr}             // Save register state to FIQ stack
 
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
         ldr     r0, [r1]
@@ -53,32 +56,49 @@ copro_armnative_fiq_handler:
         tst     r0, #1                 // Test if we are in tube_interrput_handler          
         bne     no_tube_intr           // Yes, so don't call it again
         
-        mrs     r0, spsr               // Get the saved psr
-        push    {r0,r1}                // Store spsr onto stack so we are re-entrant
-        
         mov     r0, #1            
         str     r0, [r1]               // Set the in_tube_intr flag        
                                      
-        mrs     r0, CPSR               // Re-enable ARM FIQ interrupts
-        bic     r0, #CPSR_FIQ
+        mrs     r0, spsr               // Get the saved psr
+        push    {r0, r1}               // Store spsr onto stack so we are re-entrant
+
+                                       // Switch to system mode
+        msr     CPSR_c, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT)
+                                       // User mode registers now in play
+        
+        push    {r0-r3}                // Save non-callee saved registers
+        and     r1, sp, #4             // Ensure stack is 8-byte aligned before calling C
+        sub     sp, sp, r1        
+        push    {r1, lr}               // push stack alignment offset and LR 
+        
+        mrs     r0, CPSR               // Re-enable ARM FIQ and IRQ interrupts
+        bic     r0, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
         msr     CPSR_c, r0
 
         bl      copro_armnative_tube_interrupt_handler
         
-        mrs     r0, CPSR               // Disable ARM FIQ interrupts
-        orr     r0, #CPSR_FIQ
+        mrs     r0, CPSR               // Disable ARM FIQ and IRQ interrupts
+        orr     r0, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
         msr     CPSR_c, r0
+        
+        pop     {r1, lr}               // Restore LR and stack aligment offset
+        add     sp, sp, r1             // Undo stack alignment (if any)
+        pop     {r0-r3}                // Restore non-callee saved registers and LR
 
-        ldr     r1, =in_tube_intr      // Get the address of the in_tube_intr flag
-        mov     r0, #0            
-        str     r0, [r1]               // Clear the in_tube_intr flag        
+                                       // Return to FIQ mode
+        msr     CPSR_c, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT)
+                                       // FIQ mode registers now in play
         
         pop     {r0, r1}               // Get spsr from stack.
         msr     spsr_cf, r0            // Restore spsr.
+
+        ldr     r1, =in_tube_intr      // Get the address of the in_tube_intr flag
+        mov     r0, #0            
+        str     r0, [r1]               // Clear the in_tube_intr flag
         
 no_tube_intr:
         
-        pop     {r0-r12, lr}
+        pop     {r0-r8, lr}            // Restore register state from FIQ stack
         subs    pc, lr, #4             // Return from ISR
 
 in_tube_intr:
@@ -164,7 +184,7 @@ _user_exec:
 _error_handler_wrapper:
 
     // Move to user mode
-    mov      r4, #(CPSR_MODE_USER | CPSR_IRQ_INHIBIT )
+    mov      r4, #CPSR_MODE_USER
     msr      cpsr_c, r4
 
     // Continue execution of the error handler
@@ -193,7 +213,7 @@ _exit_handler_wrapper:
     mov      r12, r0
 
     // Move to user mode
-    mov      r4, #(CPSR_MODE_USER | CPSR_IRQ_INHIBIT )
+    mov      r4, #CPSR_MODE_USER
     msr      cpsr_c, r4
 
     // Continue execution of the exit handler

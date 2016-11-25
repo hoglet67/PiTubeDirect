@@ -3,9 +3,24 @@
 #ifndef COPRO_ARMNATIVE_H
 #define COPRO_ARMNATIVE_H
 
+#ifdef __ASSEMBLER__
+
+// If this is defines, a reentrant form of the FIQ handler is installed
+#define USE_REENTRANT_FIQ_HANDLER
+
+#else
+
 #include "tube-env.h"
 
-#define DEBUG_ARM 0
+// If this is defined, the tube interrupt handler is implemented as a state machine
+// Otherwise, it is implemented as code that may block
+//#define TUBE_ISR_STATE_MACHINE
+
+#define DEBUG_ARM 1
+
+#define DEBUG_TRANSFER 0
+
+#define DEBUG_TRANSFER_CRC 0
 
 #define tubeRead tube_parasite_read
 
@@ -21,5 +36,7 @@ extern void _escape_handler_wrapper(unsigned int escapeFlag, EnvironmentHandler_
 extern void _exit_handler_wrapper(unsigned int r12, EnvironmentHandler_type exitHandler);
 
 extern void copro_armnative_emulator();
+
+#endif
 
 #endif

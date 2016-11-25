@@ -191,7 +191,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
       if (addr == 7) {
         id = tubeRead(R4_DATA);
         if (type == 5) {
-          if (DEBUG_ARM) {
+          if (DEBUG_TRANSFER) {
             printf("Transfer = %02x %02x\r\n", type, id);
           }
           state = IDLE;
@@ -234,7 +234,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
       if (addr == 7) {
         a0 = tubeRead(R4_DATA);
         address = (unsigned char *)((a3 << 24) + (a2 << 16) + (a1 << 8) + a0);
-        if (DEBUG_ARM) {
+        if (DEBUG_TRANSFER) {
           printf("Transfer = %02x %02x %08x\r\n", type, id, (unsigned int)address);
         }
         state = TRANSFER_R4_SYNC;
@@ -272,7 +272,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           signature *= 13;
       } else if (addr == 7) {
         // R4 interrupt
-        if (DEBUG_ARM) {
+        if (DEBUG_TRANSFER_CRC) {
           printf("count = %0x signature = %0x\r\n", count, signature);
         }
         type = tubeRead(R4_DATA);
@@ -328,9 +328,9 @@ void type_0_data_transfer(void) {
   // Terminate the data transfer if IRQ falls (e.g. interrupt from tube release)
   while (1) {
     // Wait for a mailbox message
-    if (((*(uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY) == 0) {
+    if (((*(volatile uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY) == 0) {
       // Forward the message to the tube handler
-      mailbox = (*(uint32_t *)MBOX0_READ) >> 4;
+      mailbox = (*(volatile uint32_t *)MBOX0_READ) >> 4;
       intr = tube_io_handler(mailbox);
       // If there is an IRQ condition, terminate the transfer
       if (intr & 1) {
@@ -354,9 +354,9 @@ void type_1_data_transfer(void) {
   // Terminate the data transfer if IRQ falls (e.g. interrupt from tube release)
   while (1) {
     // Wait for a mailbox message
-    if (((*(uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY) == 0) {
+    if (((*(volatile uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY) == 0) {
       // Forward the message to the tube handler
-      mailbox = (*(uint32_t *)MBOX0_READ) >> 4;
+      mailbox = (*(volatile uint32_t *)MBOX0_READ) >> 4;
       intr = tube_io_handler(mailbox);
       // If there is an IRQ condition, terminate the transfer
       if (intr & 1) {
@@ -391,7 +391,7 @@ void copro_armnative_tube_interrupt_handler(void) {
   // Check for R1 interrupt
   if (tubeRead(R1_STATUS) & A_BIT) {
     if (DEBUG_ARM) {
-      printf("R1 irq\r\n");
+      printf("R1 irq, cpsr=%08x\r\n", _get_cpsr());
     }
     unsigned char flag = tubeRead(R1_DATA);
     if (flag & 0x80) {
@@ -411,10 +411,10 @@ void copro_armnative_tube_interrupt_handler(void) {
   // Check for R4 interrupt
   if (tubeRead(R4_STATUS) & A_BIT) {
     if (DEBUG_ARM) {
-      printf("R4 irq\r\n");
+      printf("R4 irq, cpsr=%08x\r\n", _get_cpsr());
     }
     unsigned char type = tubeRead(R4_DATA);
-    if (DEBUG_ARM) {
+    if (DEBUG_TRANSFER) {
       printf("R4 type = %02x\r\n",type);
     }
     if (type == 0xff) {
@@ -433,11 +433,11 @@ void copro_armnative_tube_interrupt_handler(void) {
         unsigned char a1 = receiveByte(R4_ID);
         unsigned char a0 = receiveByte(R4_ID);
         address = (unsigned char *)((a3 << 24) + (a2 << 16) + (a1 << 8) + a0);
-        if (DEBUG_ARM) {
+        if (DEBUG_TRANSFER) {
           printf("Transfer = %02x %02x %08x\r\n", type, id, (unsigned int)address);
         }
       } else {
-        if (DEBUG_ARM) {
+        if (DEBUG_TRANSFER) {
           printf("Transfer = %02x %02x\r\n", type, id);
         }
       }
@@ -447,21 +447,30 @@ void copro_armnative_tube_interrupt_handler(void) {
         // Every thing else has a sync byte
         receiveByte(R4_ID);
       }
-      // The data transfers are done by polling the GPIO bits for IRQ and NMI
+      // The data transfers are done by polling the mailbox directly
+      // so disable interrupts to prevent the FIQ handler reading the mailbox
       count = 0;
       signature = 0;
       switch (type) {
       case 0:
+        _disable_interrupts();
         type_0_data_transfer();
+        _enable_interrupts();
         break;
       case 1:
+        _disable_interrupts();
         type_1_data_transfer();
+        _enable_interrupts();
         break;
       case 2:
+        _disable_interrupts();
         type_2_data_transfer();
+        _enable_interrupts();
         break;
       case 3:
+        _disable_interrupts();
         type_3_data_transfer();
+        _enable_interrupts();
         break;
       case 6:
         type_6_data_transfer();
@@ -470,8 +479,13 @@ void copro_armnative_tube_interrupt_handler(void) {
         type_7_data_transfer();
         break;
       }
-      if (DEBUG_ARM) {
+      if (DEBUG_TRANSFER_CRC) {
         printf("count = %0x signature = %0x\r\n", count, signature);
+      }
+      // type 0..3 data transfers will be terminated by an interrupt, so call
+      // ourselves recursively or this will be not be processed
+      if (type < 4) {
+        copro_armnative_tube_interrupt_handler();
       }
     }
   }
