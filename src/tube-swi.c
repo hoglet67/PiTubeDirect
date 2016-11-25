@@ -152,7 +152,7 @@ SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_SWI_Not_Known,         // (&42) -- OS_ReadMonotonicTime
   tube_SWI_Not_Known,         // (&43) -- OS_SubstituteArgs
   tube_SWI_Not_Known,         // (&44) -- OS_PrettyPrintCode
-  tube_SWI_Not_Known,         // (&45) -- OS_Plot
+  tube_Plot,                  // (&45) -- OS_Plot
   tube_WriteN,                // (&46) -- OS_WriteN
   tube_SWI_Not_Known,         // (&47) -- OS_AddToVector
   tube_SWI_Not_Known,         // (&48) -- OS_WriteEnv
@@ -687,6 +687,15 @@ void tube_ChangeEnvironment(unsigned int *reg) {
     printf("%08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3]);
   }
 
+}
+
+void tube_Plot(unsigned int *reg) {
+    sendByte(R1_ID, 25);
+    sendByte(R1_ID, reg[0]);
+    sendByte(R1_ID, reg[1]);
+    sendByte(R1_ID, reg[1] >> 8);
+    sendByte(R1_ID, reg[2]);
+    sendByte(R1_ID, reg[2] >> 8);
 }
 
 void tube_WriteN(unsigned int *reg) {

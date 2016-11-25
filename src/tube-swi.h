@@ -66,6 +66,7 @@ void tube_EnterOS(unsigned int *reg);           // &16
 void tube_Mouse(unsigned int *reg);             // &1C
 void tube_GenerateError(unsigned int *reg);     // &2B
 void tube_ChangeEnvironment(unsigned int *reg); // &40
+void tube_Plot(unsigned int *reg);              // &45
 void tube_WriteN(unsigned int *reg);            // &46
 void tube_BASICTrans_HELP(unsigned int *reg);   // &42C80
 void tube_BASICTrans_Error(unsigned int *reg);  // &42C81
