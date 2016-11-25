@@ -3,11 +3,6 @@
 #ifndef TUBE_SWI_H
 #define TUBE_SWI_H
 
-#include <setjmp.h>
-
-// A setjmp/longjmp buffer with the state to re-enter OS
-extern jmp_buf enterOS;
-
 // The bit position of the error handling bit in the SWI number
 #define ERROR_BIT (1 << 17)
 

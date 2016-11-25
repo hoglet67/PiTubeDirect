@@ -10,7 +10,7 @@
 .global _error_handler_wrapper
 .global _escape_handler_wrapper
 .global _exit_handler_wrapper
-
+        
 .equ    CPSR_MODE_USER,         0x10
 .equ    CPSR_MODE_FIQ,          0x11
 .equ    CPSR_MODE_SYSTEM,       0x1F
@@ -37,7 +37,9 @@ copro_armnative_disable_mailbox:
         mov     pc, lr
 
 #ifdef USE_REENTRANT_FIQ_HANDLER
-        
+
+.global clear_in_tube_int_flag
+
 copro_armnative_fiq_handler:
 
         push    {r0-r8,lr}             // Save register state to FIQ stack
@@ -48,7 +50,10 @@ copro_armnative_fiq_handler:
         
         bl      tube_io_handler        // Update the Tube ULA emulation
 
-        tst     r0, #7                 // Test for IRQ, NMI or RST
+        tst     r0, #4                 // Test for RST
+        blne    copro_armnative_reset
+        
+        tst     r0, #3                 // Test for IRQ or NMI
         beq     no_tube_intr
         
         ldr     r1, =in_tube_intr      // Get the address of the in_tube_intr flag
@@ -103,7 +108,14 @@ no_tube_intr:
 
 in_tube_intr:
         .word   0
-        
+
+
+clear_in_tube_int_flag:
+        ldr     r1, =in_tube_intr      // Get the address of the in_tube_intr flag
+        mov     r0, #0            
+        str     r0, [r1]               // Clear the in_tube_intr flag
+        mov     pc, lr
+
 #else
 
 copro_armnative_fiq_handler:

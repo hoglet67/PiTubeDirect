@@ -12,8 +12,6 @@
 
 #define NUM_SWI_HANDLERS 0x80
 
-jmp_buf enterOS;
-
 const int osword_in_len[] = {
   0,  // OSWORD 0x00
   0,

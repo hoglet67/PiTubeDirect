@@ -43,22 +43,30 @@
 
 #include "startup.h"
 #include "swi.h"
+#include "tube.h"
 #include "tube-lib.h"
 #include "tube-env.h"
 #include "tube-swi.h"
 #include "tube-isr.h"
+#include "tube-ula.h"
 
-unsigned int defaultEscapeFlag;
+static int last_copro;
 
-Environment_type defaultEnvironment;
+static jmp_buf reboot;
 
-ErrorBuffer_type defaultErrorBuffer;
+static jmp_buf enterOS;
+
+static unsigned int defaultEscapeFlag;
+
+static Environment_type defaultEnvironment;
+
+static ErrorBuffer_type defaultErrorBuffer;
+
+static const char *banner = "ARM1176 Co Processor 1000MHz\r\n\n";
+
+static const char *prompt = "arm>*";
 
 Environment_type *env = &defaultEnvironment;
-
-const char *banner = "ARM1176 Co Processor 1000MHz\r\n\n";
-
-const char *prompt = "arm>*";
 
 /***********************************************************
  * Default Handlers
@@ -247,13 +255,40 @@ static int cli_loop() {
   return 0;
 }
 
+void copro_armnative_reset() {
+  if (DEBUG_ARM) {
+    printf("Invoking reset handler\r\n");
+  }
+  // Move back to supervisor mode
+  swi(SWI_OS_EnterOS);
+  // Jump back to the boot message
+  longjmp(reboot, 1);  
+}
+
 /***********************************************************
- * Main function - we'll never return from here
+ * copro_armnative_emulator
  ***********************************************************/
 
 void copro_armnative_emulator() {
 
+  // Disable interrupts!
+  _disable_interrupts();
+
+  // Record our copro number
+  last_copro = copro;
+
+  // Active the mailbox
   copro_armnative_enable_mailbox();
+
+  // When a reset occurs, we want to return to here
+  setjmp(reboot);
+
+  if (copro != last_copro) {
+    // Deactive the mailbox
+    copro_armnative_disable_mailbox();
+    // Allow another copro to be selected
+    return;
+  }
 
   // Initialize the environment structure
   initEnv();
@@ -263,14 +298,28 @@ void copro_armnative_emulator() {
   // where R4 errors happened during the startup message
   setjmp(enterOS);
 
+  // Log ARM performance counters
+  tube_log_performance_counters();
+
+  // Wait for rst become inactive before continuing to execute
+  tube_wait_for_rst_release();
+
+  // Reset ARM performance counters
+  tube_reset_performance_counters();
+
+  // Enable interrupts!
+  _enable_interrupts();
+
   // Send reset message
   tube_Reset();
 
   // When the default exit handler is called, we return here
   setjmp(enterOS);
 
-  // Enable interrupts!
-  _enable_interrupts();
+  // Make sure the reentrant interrupt flag is clear
+#ifdef USE_REENTRANT_FIQ_HANDLER
+  clear_in_tube_int_flag();
+#endif
 
   // Execute cli_loop as a normal user program
   user_exec_fn(cli_loop, 0);
