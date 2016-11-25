@@ -38,8 +38,8 @@ copro_armnative_disable_mailbox:
 
 #ifdef USE_REENTRANT_FIQ_HANDLER
 
-.global clear_in_tube_int_flag
-
+.global in_tube_intr_flag
+      
 copro_armnative_fiq_handler:
 
         push    {r0-r8,lr}             // Save register state to FIQ stack
@@ -56,7 +56,7 @@ copro_armnative_fiq_handler:
         tst     r0, #3                 // Test for IRQ or NMI
         beq     no_tube_intr
         
-        ldr     r1, =in_tube_intr      // Get the address of the in_tube_intr flag
+        ldr     r1, =in_tube_intr_flag // Get the address of the in_tube_intr flag
         ldr     r0, [r1]
         tst     r0, #1                 // Test if we are in tube_interrput_handler          
         bne     no_tube_intr           // Yes, so don't call it again
@@ -97,7 +97,7 @@ copro_armnative_fiq_handler:
         pop     {r0, r1}               // Get spsr from stack.
         msr     spsr_cf, r0            // Restore spsr.
 
-        ldr     r1, =in_tube_intr      // Get the address of the in_tube_intr flag
+        ldr     r1, =in_tube_intr_flag // Get the address of the in_tube_intr flag
         mov     r0, #0            
         str     r0, [r1]               // Clear the in_tube_intr flag
         
@@ -106,16 +106,9 @@ no_tube_intr:
         pop     {r0-r8, lr}            // Restore register state from FIQ stack
         subs    pc, lr, #4             // Return from ISR
 
-in_tube_intr:
+in_tube_intr_flag:
         .word   0
-
-
-clear_in_tube_int_flag:
-        ldr     r1, =in_tube_intr      // Get the address of the in_tube_intr flag
-        mov     r0, #0            
-        str     r0, [r1]               // Clear the in_tube_intr flag
-        mov     pc, lr
-
+        
 #else
 
 copro_armnative_fiq_handler:

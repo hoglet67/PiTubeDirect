@@ -304,11 +304,11 @@ void copro_armnative_emulator() {
   // Wait for rst become inactive before continuing to execute
   tube_wait_for_rst_release();
 
-  // Reset ARM performance counters
-  tube_reset_performance_counters();
-
   // Enable interrupts!
   _enable_interrupts();
+
+  // Reset ARM performance counters
+  tube_reset_performance_counters();
 
   // Send reset message
   tube_Reset();
@@ -318,7 +318,7 @@ void copro_armnative_emulator() {
 
   // Make sure the reentrant interrupt flag is clear
 #ifdef USE_REENTRANT_FIQ_HANDLER
-  clear_in_tube_int_flag();
+  in_tube_intr_flag = 0;
 #endif
 
   // Execute cli_loop as a normal user program
