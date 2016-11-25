@@ -14,7 +14,7 @@
 
 #define DEBUG_TRANSFER 0
 
-#define DEBUG_TRANSFER_CRC 1
+#define DEBUG_TRANSFER_CRC 0
 
 #if !defined(__ASSEMBLER__)
 
