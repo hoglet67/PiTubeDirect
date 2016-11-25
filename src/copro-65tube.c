@@ -55,29 +55,29 @@ static void copro_65tube_reset(unsigned char mpu_memory[]) {
 void copro_65tube_emulator() {
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
-   unsigned char *addr;
-   unsigned char mpu_memory[128*1024]; // allocate 2x the amount of ram
+  // unsigned char *addr;
+   __attribute__ ((aligned (64*1024))) unsigned char mpu_memory[64*1024]; // allocate the amount of ram
    
-   addr = &mpu_memory[0];
+   //addr = &mpu_memory[0];
    
-   addr += 64*1024; // move half way into ram
+   //addr += 64*1024; // move half way into ram
    
-   addr -= ((unsigned int)(&mpu_memory[0]) % (64*1024)); // round down to 64K boundary
+   //addr -= ((unsigned int)(&mpu_memory[0]) % (64*1024)); // round down to 64K boundary
    
-   copro_65tube_poweron_reset(addr);
-   copro_65tube_reset(addr);
+   copro_65tube_poweron_reset(mpu_memory);
+   copro_65tube_reset(mpu_memory);
 
    while (copro == last_copro) {
 #ifdef HISTOGRAM
       copro_65tube_init_histogram();
 #endif
       tube_reset_performance_counters();
-      exec_65tube(addr, copro == COPRO_65TUBE_1 ? 1 : 0);
+      exec_65tube(mpu_memory, copro == COPRO_65TUBE_1 ? 1 : 0);
       tube_log_performance_counters();
 #ifdef HISTOGRAM
       copro_65tube_dump_histogram();
 #endif
-      copro_65tube_reset(addr);
+      copro_65tube_reset(mpu_memory);
    }
 }
 
