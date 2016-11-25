@@ -4,17 +4,17 @@
 #define COPRO_ARMNATIVE_H
 
 // If this is defines, a reentrant form of the FIQ handler is installed
-#define USE_REENTRANT_FIQ_HANDLER
+//#define USE_REENTRANT_FIQ_HANDLER
 
 // If this is defined, the tube interrupt handler is implemented as a state machine
 // Otherwise, it is implemented as code that may block
-//#define TUBE_ISR_STATE_MACHINE
+#define TUBE_ISR_STATE_MACHINE
 
 #define DEBUG_ARM 0
 
 #define DEBUG_TRANSFER 0
 
-#define DEBUG_TRANSFER_CRC 0
+#define DEBUG_TRANSFER_CRC 1
 
 #if !defined(__ASSEMBLER__)
 
