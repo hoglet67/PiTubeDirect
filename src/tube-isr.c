@@ -93,6 +93,13 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   ntube = (mail >> NTUBE_PIN) & 1;
   nrst  = (mail >> NRST_PIN) & 1;
   
+  // Handle a reset
+  if (nrst == 0) {
+    state = IDLE;
+    copro_armnative_reset();
+    // This never returns as it uses longjmp
+  }
+
   // State machine updates on tube write cycles
 
   if (nrst == 1 && ntube == 0 && rnw == 0) {
@@ -178,9 +185,10 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         if (c) {
           state = ERROR_R2_STRING;
         } else {
+          state = IDLE;
           // SWI OS_GenerateError need the error block in R0
           OS_GenerateError(eblk);
-          state = IDLE;
+          // OS_GenerateError() probably never returns
         }
       } else {
         unexpected = 1;
