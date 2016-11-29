@@ -11,6 +11,7 @@
    
 
 volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
+volatile __attribute__ ((aligned (0x4000))) unsigned PageTable2[256];
 
 #if defined(RPI2) || defined (RPI3)
 
@@ -144,8 +145,18 @@ void enable_MMU_and_IDCaches(void)
   PageTable[l2_cached_threshold+1]= PageTable[0];
 
   // place unused phyical Page at 0;
-  PageTable[0]=PageTable[0] |  ((l2_cached_threshold+1) <<20);
+ // PageTable[0]=PageTable[0] |  ((l2_cached_threshold+1) <<20);
+  PageTable[0] = (unsigned int) (&PageTable2[0]);
+  PageTable[0] +=1;
   
+   for (base = 0; base < 256; base++)
+  {
+   PageTable2[base] = ((l2_cached_threshold+1) <<20) | (base<<12) | 0xFF0| 0xE; 
+  }
+ 
+  // Make page 64K point to page 0 
+  PageTable2[64*1024/(4*1024)]=PageTable2[0]; 
+ 
   // relocate the vector pointer to the moved page 
   asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" ((l2_cached_threshold+1)<<20)); 
   
