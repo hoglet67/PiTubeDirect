@@ -48,11 +48,11 @@ extern void start_vc_ula();
 #ifdef USE_HW_MAILBOX
 
 static volatile inline int is_mailbox_non_empty() {
-   return !((*(uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY);
+   return !((*(volatile uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY);
 }
 
 static volatile inline unsigned int read_mailbox() {
-   return (*(uint32_t *)MBOX0_READ) >> 4;
+   return (*(volatile uint32_t *)MBOX0_READ) >> 4;
 }
 
 #else
