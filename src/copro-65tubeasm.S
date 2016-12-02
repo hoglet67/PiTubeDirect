@@ -216,10 +216,14 @@
 .endm
           
 .macro FETCH_NEXT_3B_MERGED
-        FETCH_NEXT_3B_STAGE_0
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1
-        FETCH_NEXT_STAGE_2        
+      ldrb    lr, [regPC], #1  //4 cycles
+      FETCH_NEXT_STAGE_1  
+      ldr     pc, [instt, lr, lsl #2] // 8 cycles total 12 cycles 4 words
+      
+//        FETCH_NEXT_3B_STAGE_0 // 4 cycles
+//        FETCH_NEXT_STAGE_0  //1
+//        FETCH_NEXT_STAGE_1  //2
+//        FETCH_NEXT_STAGE_2  //5       total 12 cycles 5 words
 .endm
 
 // Macro for fetching the next instruction and also checking for any pending IRQs
@@ -305,7 +309,11 @@
 .endm
 
 .macro LOAD_BYTE
+#if defined(USE_MEMORY_POINTER)
         ldrb    r1, [ r0, memry]
+#else
+        ldrb    r1, [ r0]
+#endif        
 .endm        
 
 .macro LOAD_BYTE_FETCH_NEXT_STAGE_0
@@ -314,7 +322,11 @@
 .endm   
 
 .macro STORE_BYTE reg=r1
+#if defined(USE_MEMORY_POINTER)
         strb    \reg, [r0, memry]
+#else
+        strb    \reg, [r0]
+#endif        
 .endm   
 
 .macro EA_ABSOLUTE_LOAD nocarry=carry
@@ -342,8 +354,12 @@
         LOAD_ABSOLUTE \nocarry
 .endm
 
-.macro EA_INDIRECT
-        ldrh    r0, [r0, memry]
+.macro EA_INDIRECT reg=r0
+#if defined(USE_MEMORY_POINTER)
+        ldrh    \reg, [r0, memry]
+#else
+         ldrh    \reg, [r0]
+#endif        
 .endm
 
 .macro EA_INDIRECT_LOAD_FETCH_NEXT_STAGE_0
@@ -358,10 +374,15 @@
         EA_INDIRECT_Y
         FETCH_NEXT_STAGE_0
         LOAD_BYTE
-#else        
+#else      
+ #if defined(USE_MEMORY_POINTER)  
         add     r1, memry, regY, lsr #24
         FETCH_NEXT_STAGE_0
         ldrb    r1, [ r0, r1]
+ #else
+        FETCH_NEXT_STAGE_0
+        ldrb    r1, [ r0,  regY, lsr #24]
+ #endif 
 #endif 
 .endm
 
@@ -387,24 +408,55 @@
         WRAP_MEMORY
 .endm
 
+.macro SETUP_ZPX reg
+ #if defined(USE_MEMORY_POINTER)
+        add     r0, \reg, r0, lsl #24
+#else
+        add     r2,r0, \reg, lsr #24
+        bic     r2,r2,#0x100
+#endif
+.endm
+        
+        
 .macro  STORE_ZPX reg=r1
+#if defined(USE_MEMORY_POINTER)
         strb    \reg, [memry, r0, lsr #24]
+#else
+        strb    \reg, [r2]
+#endif        
 .endm
 
-.macro  LOAD_ZPX
+.macro  LOAD_ZPX reg=regX fetch=FETCH    
+#if defined(USE_MEMORY_POINTER)
+        add     r0, \reg, r0, lsl #24
+.if \fetch==FETCH        
+        FETCH_NEXT_STAGE_0
+.endif  
         ldrb    r1, [memry, r0, lsr #24]
+#else
+        add     r2,r0, \reg, lsr #24
+        bic     r2,r2,#0x100
+.if \fetch==FETCH        
+        FETCH_NEXT_STAGE_0
+.endif  
+        ldrb    r1, [r2]
+#endif        
 .endm
 
 // Macros for reading/writing memory
 
 .macro LOAD_ABSOLUTE nocarry=carry // r0 holds the absolute address
 .if \nocarry==carry
-        lsr     r1, r0, #3
-        teq     tregs, r1          // tregs holds the constant 0xFEF8 >> 3
+        lsr     lr, r0, #3
+        teq     tregs, lr          // tregs holds the constant 0xFEF8 >> 3
 .else
         cmp     tregs, r0, lsr #3  // tregs holds the constant 0xFEF8 >> 3   
-.endif        
+.endif       
+#if defined(USE_MEMORY_POINTER) 
         ldrneb  r1, [r0, memry]    // normal memory read
+#else
+        ldrneb  r1, [r0]    // normal memory read
+#endif        
         bleq    tube_load_handler  // tube memory access
 .endm
 
@@ -422,7 +474,11 @@
 .if \flags==nocarry
         cmp     tregs, r0, lsr #3  // tregs holds the constant 0xFEF8 >> 3   
 .endif 
+#if defined(USE_MEMORY_POINTER) 
         strneb  r1, [r0, memry]       // normal memory write
+#else
+        strneb  r1, [r0]       // normal memory write
+#endif        
         bleq    tube_store_handler    // tube memory access
 
 .if \flags==flags
@@ -466,10 +522,17 @@
 .endm
 
 .macro INTR vector setbrk                 // vector is -2 for IRQ/BRK or -6 for NMI
+#if defined(USE_MEMORY_POINTER)
         sub     r1, regPC, memry                // setbrk should be 1 for BRK, 0 for IRQ/NMI
         lsr     r0, r1, #8
         SPUSH   r0
         SPUSH   r1
+#else
+                    // setbrk should be 1 for BRK, 0 for IRQ/NMI
+        lsr     r0, regPC, #8
+        SPUSH   r0
+        SPUSH   regPC
+#endif        
 .if \setbrk          
         movpl   r0, #0x30                 // Always set bit 5 (-) in the pushed value and Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
         movmi   r0, #0xB0
@@ -484,9 +547,15 @@
         SPUSH   r0
         orr     flags, flags, #4                // Set the I bit in the 6502 status register
         bic     flags, flags, #8                // Clear the D bit in the 6502 status register
+#if defined(USE_MEMORY_POINTER)        
         add     r0, memry, #0x10000
         ldrh    r0, [r0, #\vector]        // Fetch the vector address
         add     regPC, memry, r0                // Point to this instruction in memory
+#else
+        mov    r0, #0x10000
+        ldrh    regPC, [r0, #\vector]        // Fetch the vector address
+                       // Point to this instruction in memory
+#endif        
 .endm
 
 // instruction macros 
@@ -515,9 +584,12 @@
 .else
         bne     decimal_mode_adc    
 .endif 
-             
+#if defined(USE_MEMORY_POINTER)             
         orrcs   \reg, \reg, #0xff00
         sxthcs  \reg, \reg
+#else
+        orrcs   \reg, \reg, memry    // memry here is a const of 0xFFFFFF00
+#endif        
         FETCH_NEXT_STAGE_1a_OO
         adcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
@@ -535,8 +607,12 @@
         bne     decimal_mode_sbc
 .endif 
           
+#if defined(USE_MEMORY_POINTER)          
         orrcc   \reg, \reg, #0xff00  
         sxthcc  \reg, \reg
+#else
+        orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
+#endif        
         FETCH_NEXT_STAGE_1a_OO
         sbcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
@@ -955,8 +1031,12 @@ Event_Handler_Dispatch_Table:
 
 exec_65tube:
         push    {r0-r12,lr}
-
+#if defined(USE_MEMORY_POINTER)
         mov     memry, r0                  // set memry (memry) to the 64K 6502 memory array
+#else
+        mov     memry, #0xFFFFFF00
+#endif        
+        
         ldr     instt, =opcode_jump_table  // set instt (r12) to the base address of the 6502 instruction handler
 
         ldr     tregs, =(0x0000fef8 >> 3)  // initialize the constant in tregs
@@ -995,9 +1075,15 @@ exec_65tube:
 handle_rst:
         orr     flags, flags, #4              // Set the I bit
         bic     flags, flags, #8              // Clear the D bit
+#if defined(USE_MEMORY_POINTER)        
         add     r0, memry, #0x10000
         ldrh    r0, [r0, #-4]           // Fetch the address in FFFC,FFFD
         add     regPC, memry, r0              // Point to this instruction in memory
+#else
+        mov    r0, #0x10000
+        ldrh    regPC, [r0, #-4]        // Fetch the vector address
+
+#endif        
         FETCH_NEXT_3B_MERGED               // Start executing instructions
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
@@ -1357,10 +1443,16 @@ tube_store_handler:
         pop     {r2, pc}
 
 handle_rti:
+#if defined(USE_MEMORY_POINTER)
         ldrh    r1, [regSP, #1]  
         mov     r0, #2
         UADD8   regSP, regSP, r0   
         add     regPC, memry, r1
+#else
+        ldrh    regPC, [regSP, #1]  
+        mov     r0, #2
+        UADD8   regSP, regSP, r0   
+#endif        
         FETCH_NEXT_3B_STAGE_0
         CHECK_IRQ
         FETCH_NEXT_STAGE_012 
@@ -1688,15 +1780,11 @@ opcode_14:
 
 // Opcode 15 - ORA $00,X
 opcode_15:
-        add     r0, regX, r0, lsl #24
-        FETCH_NEXT_STAGE_0
         LOAD_ZPX
         LOGICAL_FETCH12 orrs
         
 // Opcode 16 - ASL $00, X
 opcode_16:
-        add     r0, regX, r0, lsl #24
-        FETCH_NEXT_STAGE_0
         LOAD_ZPX
         FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, r1
@@ -1761,12 +1849,18 @@ opcode_1F:
 
 // Opcode 20 - JSR $0000
 opcode_20:
-        sub     regPC, regPC, #1
-        EA_ABSOLUTE
-        strh    regPC, [regSP,#-1]
-        ldrb    r5, [r0, memry ]! // modified FETCH_NEXT_3B_STAGE_0
-        add     regPC, r0 ,#1
-        sub     regSP, regSP, #2
+        sub     lr, regPC, #1
+        orr     regPC,r0,r5,LSL #8  
+        sub     regSP, regSP, #2 
+        
+#if defined(USE_MEMORY_POINTER)  
+        ldrb    r5, [regPC, memry ]! // modified FETCH_NEXT_3B_STAGE_0
+        add     regPC, regPC ,#1
+#else
+        ldrb    r5, [regPC],#1 // modified FETCH_NEXT_3B_STAGE_0    
+        //stall
+#endif
+        strh    lr, [regSP,#1] 
         orr     regSP, #0x0100
         FETCH_NEXT_STAGE_012
 
@@ -1858,21 +1952,17 @@ opcode_32:
 
 // Opcode 34 - BIT $00,X
 opcode_34:
-        add     r0, regX, r0, lsl #24
-        LOAD_ZPX
+        LOAD_ZPX regX NOFETCH
         BIT
 
 // Opcode 35 - AND $00,X
 opcode_35:
-        add     r0, regX, r0, lsl #24
-        FETCH_NEXT_STAGE_0
         LOAD_ZPX
         LOGICAL_FETCH12 ands
 
 // Opcode 36 - ROL $00,X
 opcode_36:
-        add     r0, regX, r0, lsl #24
-        LOAD_ZPX
+        LOAD_ZPX regX NOFETCH
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         adc     r1, r1, r1
@@ -1977,8 +2067,13 @@ opcode_4A:
 
 // Opcode 4C - JMP $0000
 opcode_4C:
+#if defined(USE_MEMORY_POINTER)
         EA_ABSOLUTE
         add     regPC, r0, memry
+#else        
+        orr     regPC,r0,r5,LSL #8
+        //stall
+#endif        
         FETCH_NEXT_3B_MERGED
 
 // Opcode 4D - EOR $0000
@@ -2018,15 +2113,12 @@ opcode_52:
 
 // Opcode 55 - EOR $00,X
 opcode_55:
-        add     r0, regX, r0, lsl #24
-        FETCH_NEXT_STAGE_0
         LOAD_ZPX
         LOGICAL_FETCH12 eors
 
 // Opcode 56 - LSR $00,X
 opcode_56:
-        add     r0, regX, r0, lsl #24
-        LOAD_ZPX
+        LOAD_ZPX regX NOFETCH
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         lsrs    r1, r1, #1
@@ -2078,10 +2170,16 @@ opcode_5F:
 
 // Opcode 60 - RTS 
 opcode_60:
-        ldrh    r1, [regSP, #1]
-        add     regPC, memry, #1
+        ldrh    regPC, [regSP, #1]
+#if defined(USE_MEMORY_POINTER)        
+        add     r1, memry, #1
         mov     r0, #2
         ldrb    r5,[regPC, r1]!
+#else
+        // stall
+        mov     r0, #2
+        ldrb    r5,[regPC, #1]!
+#endif        
         add     regPC, regPC, #1
         UADD8   regSP, regSP, r0
         FETCH_NEXT_STAGE_012
@@ -2149,9 +2247,13 @@ opcode_6A:
 
 // Opcode 6C - JMP ($0000) 
 opcode_6C:
-        EA_ABSOLUTE    
+        EA_ABSOLUTE  
+#if defined(USE_MEMORY_POINTER)        
         EA_INDIRECT
         add     regPC, r0, memry
+#else
+         EA_INDIRECT regPC
+#endif        
         FETCH_NEXT_3B_MERGED
 
 // Opcode 6D - ADC_macro $0000
@@ -2192,21 +2294,19 @@ opcode_72:
 
 // Opcode 74 - STZ $00,X
 opcode_74:
-        add     r0, regX, r0, lsl #24
+        SETUP_ZPX regX 
         FETCH_NEXT_STAGE_0
         STORE_ZPX  instt
         FETCH_NEXT_STAGE_12
 
 // Opcode 75 - ADC_macro $00,X
 opcode_75:
-        add     r0, regX, r0, lsl #24
-        LOAD_ZPX
+        LOAD_ZPX regX NOFETCH
         ADC_macro     r1 
 
 // Opcode 76 - ROR $00,X
 opcode_76:
-        add     r0, regX, r0, lsl #24
-        LOAD_ZPX
+        LOAD_ZPX regX NOFETCH
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         orrcs   r1, r1, #0x100
@@ -2241,8 +2341,12 @@ opcode_7A:
 // Opcode 7C - JMP ($0000,X)
 opcode_7C:
         EA_ABSOLUTE_INDEXED regX
+#if defined(USE_MEMORY_POINTER)        
         EA_INDIRECT
         add     regPC, r0, memry
+#else
+        EA_INDIRECT regPC
+#endif        
         FETCH_NEXT_3B_MERGED
 
 // Opcode 7D - ADC_macro $0000,X
@@ -2379,7 +2483,7 @@ opcode_92:
 // Opcode 94 - STY $00,X
 opcode_94:
         FETCH_NEXT_STAGE_0
-        add     r0, regX, r0, lsl #24
+        SETUP_ZPX regX
         lsr     r1, regY, #24
         STORE_ZPX
         FETCH_NEXT_STAGE_12
@@ -2387,7 +2491,7 @@ opcode_94:
 // Opcode 95 - STA $00,X
 opcode_95:
         FETCH_NEXT_STAGE_0
-        add     r0, regX, r0, lsl #24
+        SETUP_ZPX regX //add     r0, regX, r0, lsl #24
         lsr     r1, regA, #24
         STORE_ZPX
         FETCH_NEXT_STAGE_12
@@ -2395,7 +2499,7 @@ opcode_95:
 // Opcode 96 - STX $00,Y
 opcode_96:
         FETCH_NEXT_STAGE_0
-        add     r0, regY, r0, lsl #24
+        SETUP_ZPX regY // add     r0, regY, r0, lsl #24
         lsr     r1, regX, #24
         STORE_ZPX
         FETCH_NEXT_STAGE_12
@@ -2421,7 +2525,11 @@ opcode_99:
 // Opcode 9A - TXS
 opcode_9A:
         FETCH_NEXT_STAGE_01_I
+#if defined(USE_MEMORY_POINTER)        
         add     regSP, memry, #0x100
+#else
+        mov     regSP,#0x100
+#endif        
         add     regSP, regSP, regX, lsr #24
         FETCH_NEXT_STAGE_2
 
@@ -2540,23 +2648,17 @@ opcode_B2:
 
 // Opcode B4 - LDY $00,X
 opcode_B4:   
-        add     r0, regX, r0, lsl #24
-        FETCH_NEXT_STAGE_0
         LOAD_ZPX
         FLAGS   regY
 
 // Opcode B5 - LDA $00,X
 opcode_B5:
-        add     r0, regX, r0, lsl #24
-        FETCH_NEXT_STAGE_0
         LOAD_ZPX
         FLAGS   regA
 
 // Opcode B6 - LDX $00,Y
 opcode_B6:
-        add     r0, regY, r0, lsl #24
-        FETCH_NEXT_STAGE_0
-        LOAD_ZPX
+        LOAD_ZPX regY
         FLAGS   regX
 
 // Opcode B7 - SMB3 $00
@@ -2715,8 +2817,6 @@ opcode_D2:
 
 // Opcode D5 - CMP $00,X
 opcode_D5:
-        add     r0, regX, r0, lsl #24
-        FETCH_NEXT_STAGE_0
         LOAD_ZPX
         FETCH_NEXT_STAGE_1
         cmp     regA, r1, lsl #24
@@ -2724,8 +2824,7 @@ opcode_D5:
 
 // Opcode D6 - DEC $00,X
 opcode_D6:
-        add     r0, regX, r0, lsl #24
-        LOAD_ZPX
+        LOAD_ZPX regX NOFETCH
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
@@ -2870,14 +2969,12 @@ opcode_F2:
 
 // Opcode F5 - SBC_macro $00,X
 opcode_F5:
-        add     r0, regX, r0, lsl #24
-        LOAD_ZPX
+        LOAD_ZPX regX NOFETCH
         SBC_macro     r1 
 
 // Opcode F6 - INC $00,X
 opcode_F6:
-        add     r0, regX, r0, lsl #24
-        LOAD_ZPX
+        LOAD_ZPX regX NOFETCH
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
