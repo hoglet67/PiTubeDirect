@@ -380,8 +380,9 @@
         FETCH_NEXT_STAGE_0
         ldrb    r1, [ r0, r1]
  #else
+        lsr     r2, regY, #24
         FETCH_NEXT_STAGE_0
-        ldrb    r1, [ r0,  regY, lsr #24]
+        ldrb    r1, [ r0, r2]
  #endif 
 #endif 
 .endm
@@ -588,7 +589,7 @@
         orrcs   \reg, \reg, #0xff00
         sxthcs  \reg, \reg
 #else
-        orrcs   \reg, \reg, memry    // memry here is a const of 0xFFFFFF00
+        orrcs   \reg, \reg, memry    
 #endif        
         FETCH_NEXT_STAGE_1a_OO
         adcs    regA, regA, \reg, ror #8
