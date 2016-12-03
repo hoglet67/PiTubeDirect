@@ -8,8 +8,11 @@
 // The point of crashing is when the data cache is enabled
 // At that point, the stack appears to vanish and the data read back is 0x55555555
 // Reason turned out to be failure to correctly invalidate the entire data cache
-   
 
+const unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
+const unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
+const unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
+   
 volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
 volatile __attribute__ ((aligned (0x4000))) unsigned PageTable2[256];
 
@@ -67,6 +70,13 @@ void InvalidateDataCache (void)
 }
 #endif
 
+void map_4k_page(int logical, int physical) {
+  // Invalidate the data TLB before changing mapping
+  _invalidate_dtlb((void *)(logical << 12));
+  // Setup the 4K page table entry
+  PageTable2[logical] = ((l2_cached_threshold+1) <<20) | (physical<<12) | 0xFF0| 0xE; 
+}
+
 void enable_MMU_and_IDCaches(void)
 {
 
@@ -74,9 +84,6 @@ void enable_MMU_and_IDCaches(void)
   printf("cpsr    = %08x\r\n", _get_cpsr());
 
   unsigned base;
-  unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
-  unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
-  unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
   
   // TLB 1MB Sector Descriptor format
   // 31..20 Section Base Address
@@ -149,13 +156,13 @@ void enable_MMU_and_IDCaches(void)
   PageTable[0] = (unsigned int) (&PageTable2[0]);
   PageTable[0] +=1;
   
-   for (base = 0; base < 256; base++)
+  for (base = 0; base < 256; base++)
   {
-   PageTable2[base] = ((l2_cached_threshold+1) <<20) | (base<<12) | 0xFF0| 0xE; 
+    map_4k_page(base, base);
   }
  
-  // Make page 64K point to page 0 
-  PageTable2[64*1024/(4*1024)]=PageTable2[0]; 
+  // Make page 64K point to page 0
+  map_4k_page(16, 0);
  
   // relocate the vector pointer to the moved page 
   asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" ((l2_cached_threshold+1)<<20)); 

@@ -72,7 +72,9 @@
 .global _clean_invalidate_dcache
 .global _invalidate_dcache_mva
 .global _clean_invalidate_dcache_mva
-
+.global _invalidate_dtlb
+.global _invalidate_dtlb_mva
+        
 #ifdef HAS_MULTICORE
 .global _get_core
 .global _init_core
@@ -393,6 +395,15 @@ _clean_invalidate_dcache_mva:
     mcr      p15, 0, r0, c7, c14, 1
     mov      pc, lr
 
+_invalidate_dtlb:
+    mov      r0, #0
+    mcr      p15, 0, r0, c8, c6, 0
+    mov      pc, lr
+
+_invalidate_dtlb_mva:
+    mcr      p15, 0, r0, c8, c6, 1
+    mov      pc, lr
+        
 #ifdef HAS_MULTICORE
 _get_core:
     mrc     p15, 0, r0, c0, c0, 5

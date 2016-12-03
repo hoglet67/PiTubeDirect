@@ -312,6 +312,9 @@ void tube_host_write(uint16_t addr, uint8_t val)
 uint8_t tube_parasite_read(uint32_t addr)
 {
    uint8_t temp = 0;
+   if ((addr & 0xFFF8) != 0xFEF8) {
+     return 0xAA;
+   }
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
@@ -379,6 +382,9 @@ uint8_t tube_parasite_read(uint32_t addr)
    return temp;
 }
 
+// On the 6502:
+// - the tube registers are accessed at 0xFEF8-0xFEFF
+// - the bank select registers are accessed at 0xFEE0-0xFEE7
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
 #ifdef DEBUG_TUBE
@@ -387,6 +393,21 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
       tube_index &= 0xffff;
    }
 #endif
+   // Implement write only bank selection registers for 8x 8K pages
+   if ((addr & 0xFFF8) == 0xFEE0) {
+     int logical = (addr & 7) << 1;
+     int physical = (val & 0x7F) << 1;
+     map_4k_page(logical, physical);
+     map_4k_page(logical + 1, physical + 1);
+     // Page 0 must also be mapped as page 16 (64K)
+     if (logical == 0) {
+       printf("Remapping page zero!\r\n");
+       map_4k_page(16, physical);
+     }
+     return;
+   } else if ((addr & 0xFFF8) != 0xFEF8) {
+     return;
+   }
    switch (addr & 7)
    {
    case 1: /*Register 1*/

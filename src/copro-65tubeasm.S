@@ -9,7 +9,7 @@
 // r0       = scratch register
 // r1       = scratch register
 // r2       = scratch register (used to hold CPRS normally)
-// tregs       = a constant value 0f 0x0000FEF8 >> 3 (for tube register address checking)
+// tregs       = a constant value 0f 0x0000FEE0 >> 5 (for tube register address checking)
 // flags       = 6502 flags (V, D and I bits maintained here, CZN use ARM flags)
 // const       = a constant value of 0xFFFFFF00
 // r6    regA       = 6502 A
@@ -447,10 +447,10 @@
 
 .macro LOAD_ABSOLUTE nocarry=carry // r0 holds the absolute address
 .if \nocarry==carry
-        lsr     lr, r0, #3
-        teq     tregs, lr          // tregs holds the constant 0xFEF8 >> 3
+        lsr     lr, r0, #5
+        teq     tregs, lr          // tregs holds the constant 0xFEE0 >> 5
 .else
-        cmp     tregs, r0, lsr #3  // tregs holds the constant 0xFEF8 >> 3   
+        cmp     tregs, r0, lsr #5  // tregs holds the constant 0xFEE0 >> 5   
 .endif       
 #if defined(USE_MEMORY_POINTER) 
         ldrneb  r1, [r0, memry]    // normal memory read
@@ -463,16 +463,16 @@
 .macro STORE_ABSOLUTE  flags=flags            // r0 holds the absolute address
 .if \flags==flags
         mrs     r2, CPSR           // preserve the 6502 flags
-        cmp     tregs, r0, lsr #3  // tregs holds the constant 0xFEF8 >> 3 
+        cmp     tregs, r0, lsr #5  // tregs holds the constant 0xFEE0 >> 5 
 .endif
 
 .if \flags==carry
-        lsr     r2, r0, #3
-        teq     tregs, r2          // tregs holds the constant 0xFEF8 >> 3
+        lsr     r2, r0, #5
+        teq     tregs, r2          // tregs holds the constant 0xFEE0 >> 5
 .endif
 
 .if \flags==nocarry
-        cmp     tregs, r0, lsr #3  // tregs holds the constant 0xFEF8 >> 3   
+        cmp     tregs, r0, lsr #5  // tregs holds the constant 0xFEE0 >> 5   
 .endif 
 #if defined(USE_MEMORY_POINTER) 
         strneb  r1, [r0, memry]       // normal memory write
@@ -1039,7 +1039,7 @@ exec_65tube:
         
         ldr     instt, =opcode_jump_table  // set instt (r12) to the base address of the 6502 instruction handler
 
-        ldr     tregs, =(0x0000fef8 >> 3)  // initialize the constant in tregs
+        ldr     tregs, =(0x0000fee0 >> 5)  // initialize the constant in tregs
 
         mov     flags, #0x00               // Initialize flags (flags) to zero on power up
                                         // This was added to fix a bug where the language transfer
