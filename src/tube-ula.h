@@ -25,6 +25,8 @@ extern uint8_t tube_parasite_read(uint32_t addr);
 
 extern void tube_parasite_write(uint32_t addr, uint8_t val);
 
+extern void tube_parasite_write_banksel(uint32_t addr, uint8_t val);
+
 extern void tube_reset();
 
 extern int tube_io_handler(uint32_t mail);

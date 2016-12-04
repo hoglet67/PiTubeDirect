@@ -312,9 +312,6 @@ void tube_host_write(uint16_t addr, uint8_t val)
 uint8_t tube_parasite_read(uint32_t addr)
 {
    uint8_t temp = 0;
-   if ((addr & 0xFFF8) != 0xFEF8) {
-     return 0xAA;
-   }
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
@@ -382,19 +379,16 @@ uint8_t tube_parasite_read(uint32_t addr)
    return temp;
 }
 
-// On the 6502:
+// Special IO write wrapper for the 65Tube Co Pro:
 // - the tube registers are accessed at 0xFEF8-0xFEFF
 // - the bank select registers are accessed at 0xFEE0-0xFEE7
-void tube_parasite_write(uint32_t addr, uint8_t val)
+void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
 {
-#ifdef DEBUG_TUBE
-   if (addr & 1) {
-      tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & 7) << 8) | val;
-      tube_index &= 0xffff;
-   }
-#endif
-   // Implement write only bank selection registers for 8x 8K pages
-   if ((addr & 0xFFF8) == 0xFEE0) {
+  if ((addr & 0xFFF8) == 0xFEF8) {
+    // Tube writes get passed on to original code
+    tube_parasite_write(addr, val);
+  } else if ((addr & 0xFFF8) == 0xFEE0) {
+     // Implement write only bank selection registers for 8x 8K pages
      int logical = (addr & 7) << 1;
      int physical = (val & 0x7F) << 1;
      map_4k_page(logical, physical);
@@ -404,10 +398,17 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
        printf("Remapping page zero!\r\n");
        map_4k_page(16, physical);
      }
-     return;
-   } else if ((addr & 0xFFF8) != 0xFEF8) {
-     return;
+  }
+}
+
+void tube_parasite_write(uint32_t addr, uint8_t val)
+{
+#ifdef DEBUG_TUBE
+   if (addr & 1) {
+      tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & 7) << 8) | val;
+      tube_index &= 0xffff;
    }
+#endif
    switch (addr & 7)
    {
    case 1: /*Register 1*/

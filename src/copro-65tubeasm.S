@@ -1436,7 +1436,7 @@ tube_store_handler:
 //      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
 //      msr     CPSR_c, r2
 //      push    {r12}                      // push instt after disabling interrupts to avoid a race condition
-        bl      tube_parasite_write
+        bl      tube_parasite_write_banksel
 //      pop     {r12}
         pop     {r0-r3}                // r2 (cpsr) is preserved
         msr     CPSR_flg, r2
