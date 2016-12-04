@@ -160,8 +160,12 @@ _user_exec:
     mrs      r0, spsr             // Get spsr    
     stmfd    sp!, {r0}            // Save spsr, as this (and lr) will be corrupted by nested swis
 
+#if defined(RPI2) || defined(RPI3)
+    bl       CleanDataCache
+#else        
     mov      r0, #0                  // New code may have just been written to memory, so
     mcr      p15, 0, r0, c7, c10, 0  // Clean entire data cache
+#endif
         
     mrs      r0, cpsr
     bic      r0, r0, #0x1f

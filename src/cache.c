@@ -63,6 +63,32 @@ void InvalidateDataCache (void)
       }
    }
 }
+
+void CleanDataCache (void)
+{
+   unsigned nSet;
+   unsigned nWay;
+   uint32_t nSetWayLevel;
+   // clean L1 data cache
+   for (nSet = 0; nSet < L1_DATA_CACHE_SETS; nSet++) {
+      for (nWay = 0; nWay < L1_DATA_CACHE_WAYS; nWay++) {
+         nSetWayLevel = nWay << L1_SETWAY_WAY_SHIFT
+                      | nSet << L1_SETWAY_SET_SHIFT
+                      | 0 << SETWAY_LEVEL_SHIFT;
+         asm volatile ("mcr p15, 0, %0, c7, c10,  2" : : "r" (nSetWayLevel) : "memory");
+      }
+   }
+
+   // clean L2 unified cache
+   for (nSet = 0; nSet < L2_CACHE_SETS; nSet++) {
+      for (nWay = 0; nWay < L2_CACHE_WAYS; nWay++) {
+         nSetWayLevel = nWay << L2_SETWAY_WAY_SHIFT
+                      | nSet << L2_SETWAY_SET_SHIFT
+                      | 1 << SETWAY_LEVEL_SHIFT;
+         asm volatile ("mcr p15, 0, %0, c7, c10,  2" : : "r" (nSetWayLevel) : "memory");
+      }
+   }
+}
 #endif
 
 void enable_MMU_and_IDCaches(void)
