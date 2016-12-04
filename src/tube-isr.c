@@ -265,7 +265,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           signature *= 13;
         } else if (type == 1) {
           state = TRANSFER_R3;
-        } else if (type == 4) {
+        } else if (type == 4  || type == 6 || type == 7) {
           state = IDLE;
         } else {
           printf("Unexpected transfer type %d\r\n", type);
