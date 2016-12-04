@@ -18,9 +18,11 @@ typedef void (*func_ptr)();
 
 #define NUM_COPROS 2
 
+#ifdef DEBUG
 static const char * emulator_names[] = {
    "65C02 (65tube)"
 };
+#endif
 
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator
@@ -34,9 +36,11 @@ static const func_ptr emulator_functions[] = {
 #include "copro-32016.h"
 #include "copro-null.h"
 #include "copro-z80.h"
+#include "copro-armnative.h"
 
 #define NUM_COPROS 16
 
+#ifdef DEBUG
 static const char * emulator_names[] = {
    "65C02 (65tube)",
    "65C02 (65tube)",
@@ -53,8 +57,9 @@ static const char * emulator_names[] = {
    "ARM2",
    "32016",
    "Null/SPI",
-   "BIST"
+   "ARM Native"
 };
+#endif
 
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator,
@@ -72,7 +77,7 @@ static const func_ptr emulator_functions[] = {
    copro_arm2_emulator,
    copro_32016_emulator,
    copro_null_emulator,
-   copro_null_emulator
+   copro_armnative_emulator
 };
 
 #endif
@@ -84,6 +89,7 @@ static func_ptr emulator;
 
 // This magic number come form cache.c where we have relocated the vectors to 
 // Might be better to just read the vector pointer register instead.
+#define SWI_VECTOR (HIGH_VECTORS_BASE + 0x28)
 #define FIQ_VECTOR (HIGH_VECTORS_BASE + 0x3C)
 
 void init_emulator() {
@@ -100,17 +106,20 @@ void init_emulator() {
          Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
       }
       *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
-
+   }
+   if (copro == COPRO_ARMNATIVE) {
+      *((uint32_t *) SWI_VECTOR) = (uint32_t) copro_armnative_swi_handler;
+      *((uint32_t *) FIQ_VECTOR) = (uint32_t) copro_armnative_fiq_handler;
    }
 #endif
 
    // Make sure that copro number is valid
    if (copro < 0 || copro >= NUM_COPROS) {
-      printf("using default co pro\r\n");
+      LOG_DEBUG("using default co pro\r\n");
       copro = DEFAULT_COPRO;
    }
 
-   printf("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
+   LOG_DEBUG("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
 
    emulator = emulator_functions[copro];
    
@@ -119,9 +128,10 @@ void init_emulator() {
 
 #ifdef HAS_MULTICORE
 void run_core() {
-   int i;
    // Write first line without using printf
    // In case the VFP unit is not enabled
+#ifdef DEBUG
+   int i;
 	RPI_AuxMiniUartWrite('C');
 	RPI_AuxMiniUartWrite('O');
 	RPI_AuxMiniUartWrite('R');
@@ -130,11 +140,14 @@ void run_core() {
 	RPI_AuxMiniUartWrite('0' + i);
 	RPI_AuxMiniUartWrite('\r');
 	RPI_AuxMiniUartWrite('\n');
+#endif
    
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
-   
-   printf("emulator running on core %d\r\n", i);
+
+#ifdef DEBUG   
+   LOG_DEBUG("emulator running on core %d\r\n", i);
+#endif
 
    do {
       // Run the emulator
@@ -147,7 +160,7 @@ void run_core() {
 }
 
 static void start_core(int core, func_ptr func) {
-   printf("starting core %d\r\n", core);
+   LOG_DEBUG("starting core %d\r\n", core);
    *(unsigned int *)(0x4000008C + 0x10 * core) = (unsigned int) func;
 }
 #endif
@@ -173,25 +186,27 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    tube_init_hardware();
 
+   copro = get_copro_number();
+
 #ifdef USE_GPU
-      printf("Staring VC ULA\r\n");
+      LOG_DEBUG("Staring VC ULA\r\n");
       start_vc_ula();
-      printf("Done\r\n");
+      LOG_DEBUG("Done\r\n");
 #endif
 
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
 
-   copro = get_copro_number();
-
    if (copro < 0 || copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
-      printf("Co Pro %d has not been defined yet\r\n", copro);
-      printf("Halted....\r\n");
+      LOG_DEBUG("Co Pro %d has not been defined yet\r\n", copro);
+      LOG_DEBUG("Halted....\r\n");
       while (1);
    }
 
+#ifdef DEBUG
   // Run a short set of CPU and Memory benchmarks
   benchmark();
+#endif
 
   init_emulator();
 
@@ -202,7 +217,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
 #ifdef HAS_MULTICORE
 
-  printf("main running on core %d\r\n", _get_core());
+  LOG_DEBUG("main running on core %d\r\n", _get_core());
   for (i = 0; i < 10000000; i++);
   start_core(1, _spin_core);
   for (i = 0; i < 10000000; i++);

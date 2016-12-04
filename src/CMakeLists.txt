@@ -160,6 +160,44 @@ file( GLOB copro_null_files
     copro-null.h
 )
 
+# ARM
+file( GLOB copro_arm_files
+    copro-armnative.c
+    copro-armnativeasm.S
+    copro-armnative.h
+    rpi-armtimer.c
+    rpi-armtimer.h
+    rpi-systimer.c
+    rpi-systimer.h
+    swi.c
+    swi.h
+    tube-env.h
+    tube-swi.c
+    tube-swi.h
+    tube-isr.c
+    tube-isr.h
+    tube-lib.c
+    tube-lib.h
+    tube-commands.c
+    tube-commands.h
+    darm/armv7.c
+    darm/armv7-tbl.c
+    darm/armv7-tbl.h
+    darm/darm.c
+    darm/darm.h
+    darm/darm-internal.h
+    darm/darm-tbl.c
+    darm/darm-tbl.h
+    darm/thumb2.c
+    darm/thumb2-decoder.c
+    darm/thumb2.h
+    darm/thumb2-tbl.c
+    darm/thumb2-tbl.h
+    darm/thumb.c
+    darm/thumb-tbl.c
+    darm/thumb-tbl.h
+)
+
 if( ${MINIMAL_BUILD} )
 
   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMINIMAL_BUILD=1" )
@@ -182,6 +220,7 @@ else()
         ${copro_32016_files}
         ${copro_z80_files}
         ${copro_null_files}
+        ${copro_arm_files}
     )
 
 endif()

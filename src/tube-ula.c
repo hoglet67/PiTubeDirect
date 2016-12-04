@@ -143,19 +143,19 @@ unsigned int tube_buffer[0x10000];
 
 void tube_dump_buffer() {
    int i;
-   printf("tube_index = %d\r\n", tube_index);
+   LOG_INFO("tube_index = %d\r\n", tube_index);
    for (i = 0; i < tube_index; i++) {
       if (tube_buffer[i] & (TUBE_READ_MARKER | TUBE_WRITE_MARKER)) {
          if (tube_buffer[i] & TUBE_READ_MARKER) {
-            printf("Rd R");
+            LOG_INFO("Rd R");
          }
          if (tube_buffer[i] & TUBE_WRITE_MARKER) {
-            printf("Wr R");
+            LOG_INFO("Wr R");
          }
          // Covert address (1,3,5,7) to R1,R2,R3,R4
-         printf("%d = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
+         LOG_INFO("%d = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
       } else {
-         printf("?? %08x\r\n", tube_buffer[i]);
+         LOG_INFO("?? %08x\r\n", tube_buffer[i]);
       }
    }
 }
@@ -294,8 +294,8 @@ void tube_host_write(uint16_t addr, uint8_t val)
       HSTAT4 &= ~HBIT_6;
 #ifdef DEBUG_TRANSFERS
       if (val == 4) {
-         printf("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
-         printf("checksum_p = %08"PRIX32" %08"PRIX32"\r\n", count_p, checksum_p);
+         LOG_INFO("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
+         LOG_INFO("checksum_p = %08"PRIX32" %08"PRIX32"\r\n", count_p, checksum_p);
          checksum_h = 0;
          checksum_p = 0;
          count_h = 0;
@@ -304,7 +304,7 @@ void tube_host_write(uint16_t addr, uint8_t val)
 #endif
       break;
    default:
-      printf("Illegal host write to %d\r\n", addr);
+      LOG_WARN("Illegal host write to %d\r\n", addr);
    }
    tube_updateints();
 }
@@ -471,6 +471,11 @@ void tube_reset()
    HSTAT1 = HSTAT2 = HSTAT4 = HBIT_6;
    PSTAT1 = PSTAT2 = PSTAT3 = PSTAT4 = 0x40;
    HSTAT3 = HBIT_7 | HBIT_6;
+   // On the Model B the initial write of &8E to FEE0 is missed
+   // If the Pi is slower in starting than the Beeb. A work around
+   // is to have the tube emulation reset to a state with interrupts
+   // enabled.
+   HSTAT1 |= HBIT_3 | HBIT_2 | HBIT_1;
    tube_updateints();
 }
 
@@ -527,7 +532,7 @@ int tube_io_handler(uint32_t mail)
       exp_seq_num = (exp_seq_num + 1) & 15;
    }
    if ((exp_seq_num != act_seq_num) && (mail & NRST_MASK)) {
-      printf("OVERRUN: exp=%X act=%X A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", exp_seq_num, act_seq_num, addr, data, rnw, ntube, nrst); 
+      LOG_WARN("OVERRUN: exp=%X act=%X A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", exp_seq_num, act_seq_num, addr, data, rnw, ntube, nrst); 
    }
    if (mail & NRST_MASK) {
       // Not reset: sync to the last received sequence number
@@ -538,12 +543,12 @@ int tube_io_handler(uint32_t mail)
    }
 #else
    if ((mail & OVERRUN_MASK) && (mail & NRST_MASK)) {
-      printf("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+      LOG_WARN("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
 #endif
 
    if (mail & GLITCH_MASK) {
-      printf("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+      LOG_WARN("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    } else if (nrst == 1) {
 
       if (ntube == 0) {
@@ -553,12 +558,12 @@ int tube_io_handler(uint32_t mail)
             tube_host_read(addr);
          }
       } else {
-         printf("LATE: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+         LOG_WARN("LATE: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
       }      
    }
 
 #if TEST_MODE
-   printf("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+   LOG_INFO("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
 #endif
    
    if (nrst == 0 || (tube_enabled && (HSTAT1 & HBIT_5))) {
@@ -605,12 +610,12 @@ void tube_init_hardware()
   // Current code does not reqire this, as emulators poll for NRST to be released
   // RPI_GpioBase->GPREN0 |= NRST_MASK;
 
+#ifndef USE_GPU
   // Configure GPIO to detect a falling edge of NRST
   RPI_GpioBase->GPFEN0 |= NRST_MASK;
   // Make sure there are no pending detections
   RPI_GpioBase->GPEDS0 = NRST_MASK;
 
-#ifndef USE_GPU
   // Configure GPIO to detect a falling edge of NTUBE
   RPI_GpioBase->GPFEN0 |= NTUBE_MASK;
   // Make sure there are no pending detections
@@ -628,20 +633,22 @@ void tube_init_hardware()
   // Initialise the UART to 57600 baud
   RPI_AuxMiniUartInit( 115200, 8 );
 
+#ifdef DEBUG
   dump_useful_info();
+#endif
 
   // Precalculate the values that need to be written to the FSEL registers
   // to set the data bus GPIOs as inputs (idle) and output (driving)
   for (i = 0; i < 3; i++) {
      gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
      gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
-     printf("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
+     LOG_DEBUG("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
   }
 
   // Print the GPIO numbers of A0, A1 and A2
-  printf("A0 = GPIO%02d = mask %08x\r\n", A0_PIN, A0_MASK); 
-  printf("A1 = GPIO%02d = mask %08x\r\n", A1_PIN, A1_MASK); 
-  printf("A2 = GPIO%02d = mask %08x\r\n", A2_PIN, A2_MASK); 
+  LOG_DEBUG("A0 = GPIO%02d = mask %08x\r\n", A0_PIN, A0_MASK); 
+  LOG_DEBUG("A1 = GPIO%02d = mask %08x\r\n", A1_PIN, A1_MASK); 
+  LOG_DEBUG("A2 = GPIO%02d = mask %08x\r\n", A2_PIN, A2_MASK); 
 
   // Initialize performance counters
 #if defined(RPI2) || defined(RPI3) 
@@ -748,9 +755,19 @@ void tube_log_performance_counters() {
    // Reset the tube buffer
    tube_reset_buffer();
 #endif
+#ifdef DEBUG
    read_performance_counters(&pct);
    print_performance_counters(&pct);
-   printf("tube reset - copro %d\r\n", copro);
+#endif
+   LOG_DEBUG("tube reset - copro %d\r\n", copro);
+#ifdef DEBUG_TRANSFERS
+   LOG_INFO("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
+   LOG_INFO("checksum_p = %08"PRIX32" %08"PRIX32"\r\n", count_p, checksum_p);
+   checksum_h = 0;
+   checksum_p = 0;
+   count_h = 0;
+   count_p = 0;
+#endif
 }
 
 void disable_tube() {
@@ -792,13 +809,13 @@ void start_vc_ula()
    if (r2) {
       r2 |= 0x40000000;
    }
-   printf("VidCore code = %08x\r\n", func);
-   printf("VidCore   r0 = %08x\r\n", r0);
-   printf("VidCore   r1 = %08x\r\n", r1);
-   printf("VidCore   r2 = %08x\r\n", r2);
-   printf("VidCore   r3 = %08x\r\n", r3);
-   printf("VidCore   r4 = %08x\r\n", r4);
-   printf("VidCore   r5 = %08x\r\n", r5);   
+   LOG_DEBUG("VidCore code = %08x\r\n", func);
+   LOG_DEBUG("VidCore   r0 = %08x\r\n", r0);
+   LOG_DEBUG("VidCore   r1 = %08x\r\n", r1);
+   LOG_DEBUG("VidCore   r2 = %08x\r\n", r2);
+   LOG_DEBUG("VidCore   r3 = %08x\r\n", r3);
+   LOG_DEBUG("VidCore   r4 = %08x\r\n", r4);
+   LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);   
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
    RPI_PropertyProcessNoCheck();
@@ -809,9 +826,9 @@ void start_vc_ula()
 //    RPI_PropertyProcess();
 //    buf = RPI_PropertyGet(TAG_EXECUTE_CODE);
 //    if (buf) {
-//       printf("%08x %08x\r\n", r0, buf->data.buffer_32[0]);
+//       LOG_DEBUG("%08x %08x\r\n", r0, buf->data.buffer_32[0]);
 //    } else {
-//       printf("%08x ?\r\n", r0);
+//       LOG_DEBUG("%08x ?\r\n", r0);
 //    }
 // }
 }

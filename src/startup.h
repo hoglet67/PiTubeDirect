@@ -11,7 +11,7 @@ extern void _start( void );
 
 extern void _enable_interrupts( void );
 
-extern void _disable_interrupts( void );
+extern int _disable_interrupts( void );
 
 extern unsigned int _get_cpsr();
 

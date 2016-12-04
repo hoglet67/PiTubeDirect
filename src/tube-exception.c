@@ -65,7 +65,7 @@ void dump_info(unsigned int *context, int offset, char *type) {
   unsigned int *addr;
   unsigned int *reg;
   unsigned int flags;
-  int i;
+  int i, j;
   int rstlow;
   int led;
 
@@ -85,9 +85,10 @@ void dump_info(unsigned int *context, int offset, char *type) {
   dump_string("\r\n");
   dump_string("Registers:\r\n");
   for (i = 0; i <= 13; i++) {
+    j = (i < 13) ? i : 14; // slot 13 actually holds the link register
 	dump_string("  r[");
-	RPI_AuxMiniUartWrite('0' + (i / 10));  
-	RPI_AuxMiniUartWrite('0' + (i % 10));  
+	RPI_AuxMiniUartWrite('0' + (j / 10));  
+	RPI_AuxMiniUartWrite('0' + (j % 10));  
 	dump_string("]=");
 	dump_hex(reg[i]);
 	dump_string("\r\n");
