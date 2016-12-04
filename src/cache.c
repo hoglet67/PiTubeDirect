@@ -17,6 +17,10 @@ const unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
 volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
 volatile __attribute__ ((aligned (0x4000))) unsigned PageTable2[NUM_4K_PAGES];
 
+int aa = 1;
+int bb = 1;
+int shareable = 1;
+
 #if defined(RPI2) || defined (RPI3)
 
 #define SETWAY_LEVEL_SHIFT          1
@@ -71,11 +75,23 @@ void InvalidateDataCache (void)
 }
 #endif
 
+// TLB 4KB Section Descriptor format
+// 31..12 Section Base Address
+// 11..9        - unused, set to zero
+// 8..6   TEX   - type extension- TEX, C, B used together, see below
+// 5..4   AP    - access ctrl   - set to 11 for full access from user and super modes
+// 3      C     - cacheable     - TEX, C, B used together, see below
+// 2      B     - bufferable    - TEX, C, B used together, see below
+// 1      1
+// 0      1                     
+
 void map_4k_page(int logical, int physical) {
   // Invalidate the data TLB before changing mapping
   _invalidate_dtlb_mva((void *)(logical << 12));
   // Setup the 4K page table entry
-  PageTable2[logical] = (physical<<12) | 0xFF0| 0xE; 
+  // XP (bit23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
+  // Second level descriptors use extended small page format so inner/outer cacheing can be controlled 
+  PageTable2[logical] = (physical<<12) | 0x133 | (bb << 6) | (aa << 2);
 }
 
 void enable_MMU_and_IDCaches(void)
@@ -122,10 +138,6 @@ void enable_MMU_and_IDCaches(void)
   // 10 = WT    (write-through
   // 11 = WBNWA (write-back, no write allocate)
   /// TEX = 100; C=0; B=1 (outer non cacheable, inner write-back, write allocate)
-
-  int aa = 1;
-  int bb = 1;
-  int shareable = 1;
 
   for (base = 0; base < l1_cached_threshold; base++)
   {

@@ -1420,27 +1420,27 @@ tube_load_handler:
         push    {r2, lr} 
         mrs     r2, CPSR               // Save 6502 flags
         push    {r0-r3}                // r0 = address, r2 = current cpsr
-//      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
-//      msr     CPSR_c, r2
+        orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
+        msr     CPSR_c, r2
 //      push    {r12}                      // push instt after disabling interrupts to avoid a race condition
         bl      tube_parasite_read
 //      pop     {r12}
         str     r0, [sp, #4]              // save result to r1 on the stack
         pop     {r0-r3}                // r2 (cpsr) is preserved
-        msr     CPSR_flg, r2
+        msr     CPSR, r2
         pop     {r2, pc}
 
 tube_store_handler:
         push    {r2, lr} 
         mrs     r2, CPSR               // save 6502 flags 
         push    {r0-r3}                // r0 = address, r1 = data, r2 = current cpsr
-//      orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
-//      msr     CPSR_c, r2
+        orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
+        msr     CPSR_c, r2
 //      push    {r12}                      // push instt after disabling interrupts to avoid a race condition
         bl      tube_parasite_write_banksel
 //      pop     {r12}
         pop     {r0-r3}                // r2 (cpsr) is preserved
-        msr     CPSR_flg, r2
+        msr     CPSR, r2
         pop     {r2, pc}
 
 handle_rti:
