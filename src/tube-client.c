@@ -84,7 +84,7 @@ static func_ptr emulator;
 
 // This magic number come form cache.c where we have relocated the vectors to 
 // Might be better to just read the vector pointer register instead.
-#define FIQ_VECTOR ((0x81<<20)+0x3C)
+#define FIQ_VECTOR (HIGH_VECTORS_BASE + 0x3C)
 
 void init_emulator() {
    _disable_interrupts();

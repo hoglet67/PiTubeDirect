@@ -390,7 +390,7 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
   } else if ((addr & 0xFFF8) == 0xFEE0) {
      // Implement write only bank selection registers for 8x 8K pages
      int logical = (addr & 7) << 1;
-     int physical = (val & 0x7F) << 1;
+     int physical = (val << 1);
      map_4k_page(logical, physical);
      map_4k_page(logical + 1, physical + 1);
      // Page 0 must also be mapped as page 16 (64K)

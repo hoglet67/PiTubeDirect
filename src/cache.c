@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "startup.h"
 #include "rpi-base.h"
 #include "cache.h"
@@ -14,7 +15,7 @@ const unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
 const unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
    
 volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
-volatile __attribute__ ((aligned (0x4000))) unsigned PageTable2[256];
+volatile __attribute__ ((aligned (0x4000))) unsigned PageTable2[NUM_4K_PAGES];
 
 #if defined(RPI2) || defined (RPI3)
 
@@ -74,7 +75,7 @@ void map_4k_page(int logical, int physical) {
   // Invalidate the data TLB before changing mapping
   _invalidate_dtlb_mva((void *)(logical << 12));
   // Setup the 4K page table entry
-  PageTable2[logical] = ((l2_cached_threshold+1) <<20) | (physical<<12) | 0xFF0| 0xE; 
+  PageTable2[logical] = (physical<<12) | 0xFF0| 0xE; 
 }
 
 void enable_MMU_and_IDCaches(void)
@@ -83,6 +84,7 @@ void enable_MMU_and_IDCaches(void)
   printf("enable_MMU_and_IDCaches\r\n");
   printf("cpsr    = %08x\r\n", _get_cpsr());
 
+  unsigned i;
   unsigned base;
   
   // TLB 1MB Sector Descriptor format
@@ -148,24 +150,31 @@ void enable_MMU_and_IDCaches(void)
     PageTable[base] = base << 20 | 0x10C16;
   }
 
-  // move phyiscal ram page 0 away from virtual 0x 0 to new locaton with the vectors
-  PageTable[l2_cached_threshold+1]= PageTable[0];
+  // suppress a warning as we really do want to copy from src address 0!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnonnull"
+  // copy vectors from virtual address zero to a higher unused location
+  memcpy((void *)HIGH_VECTORS_BASE, (void *)0, 0x1000);
+#pragma GCC diagnostic pop
 
-  // place unused phyical Page at 0;
- // PageTable[0]=PageTable[0] |  ((l2_cached_threshold+1) <<20);
-  PageTable[0] = (unsigned int) (&PageTable2[0]);
-  PageTable[0] +=1;
-  
-  for (base = 0; base < 256; base++)
+  // replace the first N 1MB entries with second level page tables, giving N x 256 4K pages
+  for (i = 0; i < NUM_4K_PAGES >> 8; i++)
+  {
+    PageTable[i] = (unsigned int) (&PageTable2[i << 8]);
+    PageTable[i] +=1;
+  }
+
+  // populate the second level page tables  
+  for (base = 0; base < NUM_4K_PAGES; base++)
   {
     map_4k_page(base, base);
   }
  
-  // Make page 64K point to page 0
+  // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
   map_4k_page(16, 0);
  
   // relocate the vector pointer to the moved page 
-  asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" ((l2_cached_threshold+1)<<20)); 
+  asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" (HIGH_VECTORS_BASE)); 
   
 #if defined(RPI3)
   unsigned cpuextctrl0, cpuextctrl1;
