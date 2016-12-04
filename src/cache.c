@@ -72,7 +72,7 @@ void InvalidateDataCache (void)
 
 void map_4k_page(int logical, int physical) {
   // Invalidate the data TLB before changing mapping
-  _invalidate_dtlb((void *)(logical << 12));
+  _invalidate_dtlb_mva((void *)(logical << 12));
   // Setup the 4K page table entry
   PageTable2[logical] = ((l2_cached_threshold+1) <<20) | (physical<<12) | 0xFF0| 0xE; 
 }
