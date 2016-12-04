@@ -151,7 +151,9 @@ void enable_MMU_and_IDCaches(void)
   
    for (base = 0; base < 256; base++)
   {
-   PageTable2[base] = ((l2_cached_threshold+1) <<20) | (base<<12) | 0xFF0| 0xE; 
+   // XP (bit23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
+   // Second level descriptors use extended small page format so inner/outer cacheing can be controlled 
+   PageTable2[base] = ((l2_cached_threshold+1) <<20) | (base<<12) | 0x133 | (bb << 6) | (aa << 2);
   }
  
   // Make page 64K point to page 0 
