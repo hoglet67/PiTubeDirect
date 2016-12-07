@@ -107,6 +107,8 @@ void init_emulator() {
       }
       *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
    }
+#endif
+#ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
       *((uint32_t *) SWI_VECTOR) = (uint32_t) copro_armnative_swi_handler;
       *((uint32_t *) FIQ_VECTOR) = (uint32_t) copro_armnative_fiq_handler;
