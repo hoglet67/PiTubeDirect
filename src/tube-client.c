@@ -36,6 +36,7 @@ static const func_ptr emulator_functions[] = {
 #include "copro-32016.h"
 #include "copro-null.h"
 #include "copro-z80.h"
+#include "copro-mc6809.h"
 #include "copro-armnative.h"
 
 #define NUM_COPROS 16
@@ -71,7 +72,7 @@ static const func_ptr emulator_functions[] = {
    copro_z80_emulator,
    copro_z80_emulator,
    copro_80186_emulator,
-   copro_null_emulator,
+   copro_mc6809_emulator,
    copro_null_emulator,
    copro_null_emulator,
    copro_arm2_emulator,
@@ -101,6 +102,8 @@ void init_emulator() {
       }
       *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
    }
+#endif
+#ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
       *((uint32_t *) 0x28) = (uint32_t) copro_armnative_swi_handler;
       *((uint32_t *) 0x3C) = (uint32_t) copro_armnative_fiq_handler;
