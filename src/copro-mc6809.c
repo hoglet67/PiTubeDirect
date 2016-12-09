@@ -9,14 +9,21 @@
 #include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
-#include "mc6809/mc6809.h"
 #include "startup.h"
+
+#include "copro-mc6809.h"
+
+#ifdef USE_HD6309
+#include "mc6809/hd6309.h"
+#else
+#include "mc6809/mc6809.h"
+#endif
 
 struct MC6809 *mc6809;
 
 static int overlay_rom = 0;
 
-unsigned char copro_mc6809_ram[0x10000];
+static unsigned char *copro_mc6809_ram;
 
 // http://mdfs.net/Software/Tube/6809/Client09.bin
 // MD5sum = 853e3aea82287c0a3626e9fd727366cd  C
@@ -118,7 +125,7 @@ unsigned char copro_mc6809_rom[0x800] = {
   0xfc, 0xa2, 0x35, 0x02, 0xbd, 0xfc, 0xde, 0xbd, 0xfa, 0xb4, 0x35, 0x10,
   0x34, 0x02, 0x30, 0x02, 0x10, 0x8e, 0x00, 0x10, 0xbd, 0xfc, 0xbb, 0x30,
   0x1e, 0x35, 0xa2, 0x34, 0x22, 0x86, 0x16, 0xbd, 0xfc, 0xde, 0x10, 0x8e,
- 0x00, 0x0d, 0xbd, 0xfc, 0xab, 0x35, 0x02, 0xbd, 0xfc, 0xde, 0x10, 0x8e,
+  0x00, 0x0d, 0xbd, 0xfc, 0xab, 0x35, 0x02, 0xbd, 0xfc, 0xde, 0x10, 0x8e,
   0x00, 0x0d, 0xbd, 0xfc, 0xbb, 0x35, 0x20, 0x7e, 0xfa, 0xb0, 0xa6, 0x80,
   0x8d, 0x38, 0x81, 0x0d, 0x26, 0xf8, 0x39, 0x34, 0x04, 0x1f, 0x20, 0x3a,
   0x35, 0x04, 0xa6, 0x82, 0x8d, 0x28, 0x31, 0x3f, 0x26, 0xf8, 0x39, 0x34,
@@ -196,7 +203,7 @@ unsigned char copro_mc6809_rom[0x800] = {
 
 static int debug = 0;
 
-void copro_mc6809_mem_cycle(void *unused, int rnw, int addr) {
+static void copro_mc6809_mem_cycle(void *sptr, _Bool rnw, uint16_t addr) {
    if (rnw) {
       // read cycle
       if ((addr & 0xFFF0) == 0xFEE0) {
@@ -225,6 +232,8 @@ void copro_mc6809_mem_cycle(void *unused, int rnw, int addr) {
 }
 
 static void copro_mc6809_poweron_reset() {
+   // Initialize memory pointer to zero (the start of the 2MB of memory shared with the 6502)
+   copro_mc6809_ram = (unsigned char *) 0;
    // Wipe memory
    memset(copro_mc6809_ram, 0, 0x10000);
 }
@@ -249,7 +258,11 @@ static void copro_mc6809_reset() {
 void copro_mc6809_emulator()
 {
 
+#ifdef USE_HD6309
+   mc6809 = hd6309_new();
+#else
    mc6809 = mc6809_new();
+#endif
 
 	mc6809->mem_cycle = DELEGATE_AS2(void, bool, uint16, copro_mc6809_mem_cycle, (void *)0);
 
@@ -289,10 +302,6 @@ void copro_mc6809_emulator()
          last_rst = rst;
       }
       // IRQ is level sensitive, so check between every instruction
-      if (tube_irq & 1) {
-         MC6809_FIRQ_SET(mc6809, 1);
-      } else {
-         MC6809_FIRQ_SET(mc6809, 0);
-      }
+      MC6809_FIRQ_SET(mc6809, tube_irq & 1);
    }
 }

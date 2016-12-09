@@ -158,12 +158,16 @@ file( GLOB copro_z80_files
 file( GLOB copro_6809_files
     copro-mc6809.h
     copro-mc6809.c
+    mc6809/config.h
+    mc6809/pl-endian.h
     mc6809/delegate.c
     mc6809/delegate.h
     mc6809/xalloc.h
     mc6809/xmalloc.c
     mc6809/mc6809.c
     mc6809/mc6809.h
+    mc6809/hd6309.c
+    mc6809/hd6309.h
 )
 
 # Null co processor

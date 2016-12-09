@@ -52,7 +52,11 @@ static const char * emulator_names[] = {
    "Z80",
    "Z80",
    "80286",
-   "6809",
+#ifdef USE_HD6309
+   "HD6309",
+#else
+   "MC6809",
+#endif
    "68000",
    "PDP11",
    "ARM2",
