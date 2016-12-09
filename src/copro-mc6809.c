@@ -295,7 +295,6 @@ void copro_mc6809_emulator()
          }
          // NMI is edge sensitive, so only check after mailbox activity
          if (nmi) {
-            overlay_rom = 1;
             MC6809_IRQ_SET(mc6809, 1);
          }
 
