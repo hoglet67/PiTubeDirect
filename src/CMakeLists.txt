@@ -94,7 +94,7 @@ file( GLOB copro_lib6502_files
     lib6502.h
 )
 
-# Shared
+# Shared 6502 files
 file( GLOB shared_6502_files
     tuberom_6502.h
     tuberom_6502.c
@@ -154,7 +154,7 @@ file( GLOB copro_z80_files
     yaze/mem_mmu.h
 )
 
-# 6809
+# 6809 (version based on xroar emulator)
 file( GLOB copro_6809_files
     copro-mc6809.h
     copro-mc6809.c
@@ -168,6 +168,20 @@ file( GLOB copro_6809_files
     mc6809/mc6809.h
     mc6809/hd6309.c
     mc6809/hd6309.h
+)
+
+# 6809 (version based on Sean Conner emulator)
+file( GLOB copro_6809sc_files
+    copro-mc6809sc.h
+    copro-mc6809sc.c
+    mc6809sc/mc6809.c
+    mc6809sc/mc6809.h
+)
+
+# Shared 6809 files
+file( GLOB shared_6809_files
+  tuberom_6809.h
+  tuberom_6809.c
 )
 
 # Null co processor
@@ -222,7 +236,6 @@ if( ${MINIMAL_BUILD} )
         ${core_files}
         ${copro_65tube_files}
         ${shared_6502_files}
-        ${copro_6809_files}
     )
 
 else()
@@ -237,6 +250,8 @@ else()
         ${copro_32016_files}
         ${copro_z80_files}
         ${copro_6809_files}
+        ${copro_6809sc_files}
+        ${shared_6809_files}
         ${copro_null_files}
         ${copro_arm_files}
     )

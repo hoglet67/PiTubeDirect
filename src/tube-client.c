@@ -37,6 +37,7 @@ static const func_ptr emulator_functions[] = {
 #include "copro-null.h"
 #include "copro-z80.h"
 #include "copro-mc6809.h"
+#include "copro-mc6809sc.h"
 #include "copro-armnative.h"
 
 #define NUM_COPROS 16
@@ -53,11 +54,11 @@ static const char * emulator_names[] = {
    "Z80",
    "80286",
 #ifdef USE_HD6309
-   "HD6309",
+   "HD6309 (xroar)",
 #else
-   "MC6809",
+   "MC6809 (xroar)",
 #endif
-   "68000",
+   "MC6809 (Sean Conner)",
    "PDP11",
    "ARM2",
    "32016",
@@ -77,7 +78,7 @@ static const func_ptr emulator_functions[] = {
    copro_z80_emulator,
    copro_80186_emulator,
    copro_mc6809_emulator,
-   copro_null_emulator,
+   copro_mc6809sc_emulator,
    copro_null_emulator,
    copro_arm2_emulator,
    copro_32016_emulator,
@@ -120,7 +121,7 @@ void init_emulator() {
       copro = DEFAULT_COPRO;
    }
 
-   LOG_DEBUG("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
+   LOG_INFO("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
 
    emulator = emulator_functions[copro];
    
