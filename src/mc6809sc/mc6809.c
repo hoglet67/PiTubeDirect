@@ -3004,7 +3004,7 @@ static mc6809byte__t op_neg(mc6809__t *const cpu,const mc6809byte__t src)
   cpu->cc.n = (res >  0x7F);
   cpu->cc.z = (res == 0x00);
   cpu->cc.v = (src == 0x80);
-  cpu->cc.c = (src >  0x7F);
+  cpu->cc.c = (src != 0x00); // Fix by DMB, was (src >  0x7F)
   return res;
 }
 
@@ -3313,7 +3313,7 @@ static mc6809byte__t op_adc(
   cpu->cc.h = (ci  &  0x10); 
   cpu->cc.n = (res >  0x7F);
   cpu->cc.z = (res == 0x00);
-  cpu->cc.c = (res <= dest) || (res <= src);
+  cpu->cc.c = (res < dest) || (res < src); // Fix by DMB, was (res <= dest) || (res <= src), incorrect when src==dest==cin==0
   cpu->cc.v  = ((ci & 0x80) != 0) ^ cpu->cc.c;
   return res;
 }
