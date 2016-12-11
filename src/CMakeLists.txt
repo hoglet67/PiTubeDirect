@@ -178,6 +178,14 @@ file( GLOB copro_6809sc_files
     mc6809sc/mc6809.h
 )
 
+# 6809 (version based on Neal Crook emulator)
+file( GLOB copro_6809nc_files
+    copro-mc6809nc.h
+    copro-mc6809nc.c
+    mc6809nc/mc6809.c
+    mc6809nc/mc6809.h
+)
+
 # Shared 6809 files
 file( GLOB shared_6809_files
   tuberom_6809.h
@@ -251,6 +259,7 @@ else()
         ${copro_z80_files}
         ${copro_6809_files}
         ${copro_6809sc_files}
+        ${copro_6809nc_files}
         ${shared_6809_files}
         ${copro_null_files}
         ${copro_arm_files}

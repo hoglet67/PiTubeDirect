@@ -38,6 +38,7 @@ static const func_ptr emulator_functions[] = {
 #include "copro-z80.h"
 #include "copro-mc6809.h"
 #include "copro-mc6809sc.h"
+#include "copro-mc6809nc.h"
 #include "copro-armnative.h"
 
 #define NUM_COPROS 16
@@ -59,7 +60,7 @@ static const char * emulator_names[] = {
    "MC6809 (xroar)",
 #endif
    "MC6809 (Sean Conner)",
-   "PDP11",
+   "MC6809 (Neal Crook)",
    "ARM2",
    "32016",
    "Null/SPI",
@@ -79,7 +80,7 @@ static const func_ptr emulator_functions[] = {
    copro_80186_emulator,
    copro_mc6809_emulator,
    copro_mc6809sc_emulator,
-   copro_null_emulator,
+   copro_mc6809nc_emulator,
    copro_arm2_emulator,
    copro_32016_emulator,
    copro_null_emulator,
