@@ -36,26 +36,8 @@
         ldr     r8, =FIQCTRL
         mov     r9, #0
         str     r9, [r8]
-
-        // Switch back to irq mode so ip is not shadowed
-      //  mrs     r8, cpsr
-      //  bic     r8, r8, #0x1F
-      //  orr     r8, r8, #0x12
-      //  msr     cpsr_c, r8
         
         orr     instrREG, instrREG, #1024   // signal event to 6502 instruction flow
-
-        // Switch back to fiq mode, so we return correctly
-        // lr is used here because its shadowed in IRQ mode, so doesn't corrupt the normal lr
-      //  mrs     lr, cpsr
-      //  bic     lr, lr, #0x1F
-      //  orr     lr, lr, #0x11
-      //  msr     cpsr_c, lr
-
-        // Note, the above mode switching could be avoided if we reworked the register assignment
-        // in the 6502 emulator to use a register r0..r7 for signalling.
-        // I did do this as an experiment, and it's parked in a branch.
-        // I'd like to avoid making big changes to that code for now.
 
         subs    pc, lr, #4
         
@@ -253,12 +235,12 @@ glitch\@:
         b       post_mail2\@
 
 .endm
-   
+ 
 // =================================================
 // LOCK the ISR CODE into cache
 // =================================================
 CACHELINE_ALIGN = 5
-        
+#if !defined(RPI2) && !defined(RPI3) && !defined(USE_GPU)          
 lock_isr:
     push    {lr}
 
@@ -445,7 +427,7 @@ isr_stack_end_ptr:
 
 .align CACHELINE_ALIGN
 lock_isr_into_cache_end:
-
+#endif
 // =================================================
 // ISR CODE
 // =================================================
@@ -469,10 +451,10 @@ FIQ_MAILBOX_HANDLER
 FIQ_HANDLER 1
 #endif        
 #endif
-
+#ifndef USE_GPU
 arm_fiq_handler_flag0:
 FIQ_HANDLER 0
-
+#endif
 .align CACHELINE_ALIGN
 isr_code_end:
 
@@ -505,11 +487,6 @@ tube_regs_block:
         .byte 0x87
 #endif
 
-.align CACHELINE_ALIGN
-// Mailbox between tube isr and events handler (in C)
-tube_mailbox_block:
-        .word 0
-
 .align CACHELINE_ALIGN        
 // Some constants for controlling the data bus        
 gpfsel_data_idle:
@@ -521,7 +498,10 @@ gpfsel_data_driving:
         .word 0
         .word 0
         .word 0
-
+        
+// Mailbox between tube isr and events handler (in C)
+tube_mailbox_block:
+        .word 0
  // Insert the current literal pool, so these get locked in the cache
 .ltorg
         

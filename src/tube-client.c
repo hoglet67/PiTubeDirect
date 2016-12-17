@@ -95,8 +95,11 @@ static func_ptr emulator;
 void init_emulator() {
    _disable_interrupts();
 
+#if !defined(USE_GPU)  
    // Default to the normal FIQ handler
    *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag0;
+#endif
+   
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register

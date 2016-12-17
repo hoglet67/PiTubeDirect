@@ -23,7 +23,7 @@
 // we need to find somewhere in I/O space to place the tube registers.
 //
 // This makes a MASSIVE improvement to the timing, compared to tube_regs
-// being placed in L2 cached memory. With this chanhe we have ~+50ns of
+// being placed in L2 cached memory. With this change we have ~+50ns of
 // setup margin, without it we had ~-150ns in the worst (rare) case.
 //
 // These locations must allow 32 bit reads/writes of arbitrary data
@@ -89,7 +89,7 @@ static volatile uint8_t *tube_regs;
 
 extern volatile uint32_t gpfsel_data_idle[3];
 extern volatile uint32_t gpfsel_data_driving[3];
-const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
+const static uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 
 static perf_counters_t pct;
 
