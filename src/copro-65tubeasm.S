@@ -161,7 +161,7 @@
 
 .macro FETCH_NEXT_STAGE_1_I
         mov     r0, r5
-        ldrb    r5, [regPC], #1 
+        ldrb    r5, [regPC, #1]!        
 .endm
 
 .macro FETCH_NEXT_STAGE_01_I
@@ -176,16 +176,16 @@
 .endm
 
 .macro FETCH_NEXT_STAGE_1
-        ldrb    r0, [regPC], #1
-        ldrb    r5, [regPC], #1   
+        ldrb    r0, [regPC, #1]!
+        ldrb    r5, [regPC, #1]!  
 .endm
 
 .macro FETCH_NEXT_STAGE_1a_OO
-        ldrb    r5, [regPC, #1] 
+        ldrb    r5, [regPC, #2]! 
 .endm
 
 .macro FETCH_NEXT_STAGE_1b_OO
-        ldrb    r0, [regPC], #2   
+        ldrb    r0, [regPC, #-1]   
 .endm
         
 .macro FETCH_NEXT_STAGE_2
@@ -211,12 +211,30 @@
 
 // and three byte instructions
 
-.macro FETCH_NEXT_3B_STAGE_0
-         ldrb    r5, [regPC], #1    
+.macro FETCH_NEXT_3B_STAGE_0 sub=NOBSUB
+.if \sub==SUBPC
+      ldrb    r5, [regPC]  //4 cycles
+.else      
+.if \sub==indirect
+      ldrb    r5, [r0,r5,LSL #8]!//, #1  //5 cycles
+      mov     regPC,r0 
+.else
+      ldrb    r5, [regPC, #1]!  //4 cycles
+.endif 
+.endif     
 .endm
           
-.macro FETCH_NEXT_3B_MERGED
-      ldrb    lr, [regPC], #1  //4 cycles
+.macro FETCH_NEXT_3B_MERGED sub=NOBSUB
+.if \sub==SUBPC
+      ldrb    lr, [regPC]  //4 cycles
+.else      
+.if \sub==indirect
+      ldrb    lr, [r0,r5,LSL #8]!//, #1  //5 cycles
+      mov     regPC,r0 
+.else
+      ldrb    lr, [regPC, #1]!  //4 cycles
+.endif 
+.endif     
       FETCH_NEXT_STAGE_1  
       ldr     pc, [instt, lr, lsl #2] // 8 cycles total 12 cycles 4 words
       
@@ -229,11 +247,12 @@
 // Macro for fetching the next instruction and also checking for any pending IRQs
 // Used for instructions that can enable interrupts: CLI, PLP , RTI
 .macro CHECK_IRQ restoreflags=none
+        ldr   r0, =tube_irq
 .if \restoreflags==mrs        
         mrs     r2, CPSR                  // Preserve the 6502 flags
 .endif
         tst     flags, #4                    // Test whether interrupts are enabled (bit 2 = 0)
-        ldreq   r0, =tube_irq
+        
         ldreq   r0, [r0]
         eoreq   r0, r0, #1
         tsteq   r0, #1                    // Test for IRQ
@@ -275,10 +294,10 @@
 
 // Macro for tracing execution
 // Add to FETCH_NEXT
-// This is currently broken with all the pipline chnanges that have been done
+// This is currently broken with all the pipline changes that have been done
 .macro TRACE_65TUBE
-        mov     r0, regPC
-        ldrb    r1, [regPC]
+        add     r0, regPC, #1
+        ldrb    r1, [regPC, #1]
         mrs     r2, CPSR
         push    {r2}
         orr     r2, r2, #ARM_INT_MASK
@@ -524,12 +543,15 @@
 
 .macro INTR vector setbrk                 // vector is -2 for IRQ/BRK or -6 for NMI
 #if defined(USE_MEMORY_POINTER)
-        sub     r1, regPC, memry                // setbrk should be 1 for BRK, 0 for IRQ/NMI
+        sub     r1, regPC, memry                // setbrk should be 1 for 
+        //add     r1, #1  
+        BRK, 0 for IRQ/NMI
         lsr     r0, r1, #8
         SPUSH   r0
         SPUSH   r1
 #else
                     // setbrk should be 1 for BRK, 0 for IRQ/NMI
+        //add     regPC, #1            
         lsr     r0, regPC, #8
         SPUSH   r0
         SPUSH   regPC
@@ -555,7 +577,7 @@
 #else
         mov    r0, #0x10000
         ldrh    regPC, [r0, #\vector]        // Fetch the vector address
-                       // Point to this instruction in memory
+        // Point to this instruction in memory
 #endif        
 .endm
 
@@ -624,13 +646,13 @@
 .macro BRANCH yes no reg=r0
       sxtab\yes regPC, regPC, \reg
       // stall
-      ldr\yes\()b  r5, [regPC,#-1]  
+      ldr\yes\()b  r5, [regPC]  
       //stall
       //stall
       //stall
       ldr     lr, [instt, r5, lsl #2]
-      ldrb    r0, [regPC], #1 //hidden in stall
-      ldrb    r5, [regPC], #1 //hidden in stall         
+      ldrb    r0, [regPC, #1]! //hidden in stall
+      ldrb    r5, [regPC, #1]! //hidden in stall         
       FETCH_NEXT_STAGE_2            // 5 cycles
 
       // total of 14 if taken. 10 if not taken
@@ -642,9 +664,9 @@
    
       // if we are using R5 PC is already at the right place 
       sxtab\yes regPC, regPC, \reg
-      ldrb      r1, [regPC], #1
-      ldrb      r0, [regPC], #1 //hidden in stall
-      ldrb      r5, [regPC], #1 //hidden in stall
+      ldrb      r1, [regPC, #1]!
+      ldrb      r0, [regPC, #1]! //hidden in stall
+      ldrb      r5, [regPC, #1]! //hidden in stall
       ldr       lr, [instt, r1, lsl #2]
 .ifb \flag
 .else
@@ -655,15 +677,15 @@
       // if we are using r0 then pc is one place ahead
       sxtab\yes regPC, regPC, \reg
       // stall
-      ldr\yes\()b  r5, [regPC,#-1]  
+      ldr\yes\()b  r5, [regPC]  
 .ifb \flag
 .else
       msr     CPSR_flg, r2
 .endif  
       //stall
       ldr     lr, [instt, r5, lsl #2]
-      ldrb    r0, [regPC], #1 //hidden in stall
-      ldrb    r5, [regPC], #1 //hidden in stall 
+      ldrb    r0, [regPC, #1]! //hidden in stall
+      ldrb    r5, [regPC, #1]! //hidden in stall 
 .endif      
       
       FETCH_NEXT_STAGE_2            // 5 cycles
@@ -1084,8 +1106,8 @@ handle_rst:
         mov    r0, #0x10000
         ldrh    regPC, [r0, #-4]        // Fetch the vector address
 
-#endif        
-        FETCH_NEXT_3B_MERGED               // Start executing instructions
+#endif
+        FETCH_NEXT_3B_MERGED  SUBPC             // Start executing instructions
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
 #if defined(USE_HW_MAILBOX)
@@ -1101,7 +1123,7 @@ exec_65tube_exit:                       // We get here from the Event handler wh
 
 #if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
 fetch_next_i:
-        sub     regPC, regPC, #2
+        sub     regPC, regPC, #1
         
 fetch_next:
         mrs     r2, CPSR                  // Preserve the 6502 flags
@@ -1124,8 +1146,8 @@ fetch_next_check_event:
 #endif
         msr     CPSR_flg, r2              // Restore the 6502 flags
 
-        ldrb    r2, [regPC], #1
-        ldrb    r0, [regPC], #1
+        ldrb    r2, [regPC, #1]!
+        ldrb    r0, [regPC, #1]!
 
 #ifdef HISTOGRAM
         HISTOGRAM_65TUBE        
@@ -1178,16 +1200,16 @@ Event_Handler:
 #endif
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
         bic     instt, instt, #1024           // ack events
-        sub     regPC, regPC, #3              // set the instruction back as we haven't executed it
+        sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
 #endif
 #if !defined(USE_HW_MAILBOX)
         bic     r0, r0, #ATTN_MASK      // the attention bit
         str     r0, [r1]                // ack the attention bit
 #endif
 
-        push    {r1-r3,r12,lr}           // r0 contains the tube mailbox value
+        push    {r2-r3,r12}           // r0 contains the tube mailbox value
         bl      tube_io_handler
-        pop     {r1-r3,r12,lr}
+        pop     {r2-r3,r12}
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
@@ -1201,20 +1223,21 @@ Event_Handler:
         bne     handle_irq              // Take the IRQ interrupt
 
 noirq:
+        FETCH_NEXT_3B_STAGE_0  SUBPC
         msr     CPSR, r2                // restore the 6502 flags and re-enable ARM interrupts
-        FETCH_NEXT_3B_MERGED               // go back to executing 6502 instructions
+        FETCH_NEXT_STAGE_012            // go back to executing 6502 instructions        
 
 handle_irq_adjust_regPC:        
-        sub     regPC, regPC ,#2
+        sub     regPC, regPC ,#1
 handle_irq:
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -2, 0
-        FETCH_NEXT_3B_MERGED
+        FETCH_NEXT_3B_MERGED SUBPC
 
 handle_nmi:
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
-        FETCH_NEXT_3B_MERGED
+        FETCH_NEXT_3B_MERGED SUBPC
 
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 
@@ -1251,7 +1274,7 @@ Event_Handler_Single_Core_Slow:
                                         // interrupts are left enabled
         
         bic     instt, instt, #1024           // ack any events
-        sub     regPC, regPC, #3              // set the instruction back as we haven't executed it
+        sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
 
 #if defined(USE_HW_MAILBOX)
         ldr     r1, =MBOX0_STATUS       // poll the hardware mailbox status
@@ -1289,6 +1312,7 @@ Event_Handler_Single_Core_Slow:
         bne     handle_irq2             // Take the IRQ interrupt
 
 noirq2:
+       // Might need sub regPC,#1
 
 #if defined(RPIZERO)
         mov     r0, #0x15C              // 0x15C gives 3.00MHz average on a Pi Zero at 1000/400
@@ -1306,9 +1330,9 @@ waste_time:
         msr     CPSR, r2                // restore the 6502 flags        
 
 execute_one_instruction:
-        ldrb    r2, [regPC], #1            // same as FETCH_NEXT_STAGE_012 but set bit in instt to return immediately to event handler
-        ldrb    r0, [regPC], #1
-        ldrb    r5, [regPC], #1
+        ldrb    r2, [regPC]            // same as FETCH_NEXT_STAGE_012 but set bit in instt to return immediately to event handler
+        ldrb    r0, [regPC, #1]!
+        ldrb    r5, [regPC, #1]!
         ldr     lr, [instt, r2, lsl #2]
         orr     instt, instt, #1024           // Return to event handler after next instruction dispatch        
         mov     pc, lr
@@ -1454,6 +1478,7 @@ handle_rti:
         mov     r0, #2
         UADD8   regSP, regSP, r0   
 #endif        
+        sub    regPC ,#1 
         FETCH_NEXT_3B_STAGE_0
         CHECK_IRQ
         FETCH_NEXT_STAGE_012 
@@ -1663,9 +1688,9 @@ opcode_FC:
 // Opcode 00 - BRK
 opcode_00:
         // BRK is really a two byte instruction, so no fixup needed
-        sub    regPC,regPC,#1
+        //sub    regPC,regPC,#1
         INTR    -2, 1
-        FETCH_NEXT_3B_MERGED
+        FETCH_NEXT_3B_MERGED SUBPC
 
 // Opcode 01 - ORA ($00,X)
 opcode_01:
@@ -1847,24 +1872,31 @@ opcode_1E:
 // Opcode 1F - BBR1
 opcode_1F:
         BBR 1
-
+//.balign 0x10
 // Opcode 20 - JSR $0000
 opcode_20:
-        sub     lr, regPC, #1
-        orr     regPC,r0,r5,LSL #8  
-        sub     regSP, regSP, #2 
         
-#if defined(USE_MEMORY_POINTER)  
+#if defined(USE_MEMORY_POINTER) 
+        sub     regSP, regSP, #2  
+        mov     lr, regPC
+        orr     regPC,r0,r5,LSL #8   
         ldrb    r5, [regPC, memry ]! // modified FETCH_NEXT_3B_STAGE_0
-        add     regPC, regPC ,#1
+     //   add     regPC, regPC ,#1
+     strh    lr, [regSP,#1]
 #else
-        ldrb    r5, [regPC],#1 // modified FETCH_NEXT_3B_STAGE_0    
-        //stall
+        orr     r0,r0,r5,LSL #8 
+        sub     regSP, regSP, #2
+        mov     r1,r1          // ****** NOP in stall ???? ******
+        ldrb    r5, [r0]//,r5,LSL #8]!//,#1 // modified FETCH_NEXT_3B_STAGE_0 
+        strh    regPC, [regSP,#1]
+        
+         
+        mov     regPC,r0  
 #endif
-        strh    lr, [regSP,#1] 
+        
         orr     regSP, #0x0100
         FETCH_NEXT_STAGE_012
-
+.balign 0x10
 // Opcode 21 - AND ($00,X)
 opcode_21:
         EA_INDIRECT_X_FETCH_STAGE_0
@@ -2072,10 +2104,10 @@ opcode_4C:
         EA_ABSOLUTE
         add     regPC, r0, memry
 #else        
-        orr     regPC,r0,r5,LSL #8
+       // orr     regPC,r0,r5,LSL #8
         //stall
 #endif        
-        FETCH_NEXT_3B_MERGED
+        FETCH_NEXT_3B_MERGED indirect
 
 // Opcode 4D - EOR $0000
 opcode_4D:
@@ -2181,7 +2213,7 @@ opcode_60:
         mov     r0, #2
         ldrb    r5,[regPC, #1]!
 #endif        
-        add     regPC, regPC, #1
+        //add     regPC, regPC, #1
         UADD8   regSP, regSP, r0
         FETCH_NEXT_STAGE_012
 
@@ -2255,7 +2287,7 @@ opcode_6C:
 #else
          EA_INDIRECT regPC
 #endif        
-        FETCH_NEXT_3B_MERGED
+        FETCH_NEXT_3B_MERGED SUBPC
 
 // Opcode 6D - ADC_macro $0000
 opcode_6D:
@@ -2348,7 +2380,7 @@ opcode_7C:
 #else
         EA_INDIRECT regPC
 #endif        
-        FETCH_NEXT_3B_MERGED
+        FETCH_NEXT_3B_MERGED SUBPC
 
 // Opcode 7D - ADC_macro $0000,X
 opcode_7D:
