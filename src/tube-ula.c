@@ -169,7 +169,7 @@ void tube_reset_buffer() {
 }
 #endif
 
-void tube_updateints()
+static void tube_updateints()
 {   
    tube_irq = 0;
    // Test for IRQ
@@ -190,7 +190,7 @@ void tube_updateints()
 // Reading of status registers has no side effects, so nothing to
 // do here for even registers (all handled in the FIQ handler).
 
-void tube_host_read(uint16_t addr)
+static void tube_host_read(uint16_t addr)
 {
    int c;
    switch (addr & 7)
@@ -231,7 +231,7 @@ void tube_host_read(uint16_t addr)
    tube_updateints();
 }
 
-void tube_host_write(uint16_t addr, uint8_t val)
+static void tube_host_write(uint16_t addr, uint8_t val)
 {
    if ((addr & 7) == 6) {
       copro = val;

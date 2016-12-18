@@ -17,9 +17,9 @@ extern int tube_irq;
 
 extern void disable_tube();
 
-extern void tube_host_read(uint16_t addr);
+//extern void tube_host_read(uint16_t addr);
 
-extern void tube_host_write(uint16_t addr, uint8_t val);
+//extern void tube_host_write(uint16_t addr, uint8_t val);
 
 extern uint8_t tube_parasite_read(uint32_t addr);
 
