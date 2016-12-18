@@ -22,24 +22,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 /* SEE limits and BYTE-, WORD- and FASTREG - defintions im MEM_MMU.h */
 
 /* two sets of accumulator / flags */
+/*
 extern WORD af[2];
 extern int af_sel;
+*/
 
-/* two sets of 16-bit registers */
-extern struct ddregs {
-	WORD bc;
-	WORD de;
-	WORD hl;
-} regs[2];
-extern int regs_sel;
 
+//extern int regs_sel;
+/*
 extern WORD ir;
 extern WORD ix;
 extern WORD iy;
 extern WORD sp;
 extern WORD pc;
 extern WORD IFF;
-
+*/
 /* see definitions for memory in mem_mmu.h */
 
 #ifdef DEBUG
