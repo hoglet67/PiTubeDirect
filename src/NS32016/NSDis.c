@@ -405,7 +405,7 @@ void AddInstructionText(uint32_t Function, uint32_t opcode, uint32_t OperandSize
    }
 }
 
-void AddASCII(opcode, Format)
+static void AddASCII(uint32_t opcode, uint32_t Format)
 {
    if (Format < sizeof(FormatSizes))
    {
