@@ -5,8 +5,8 @@
 // if DORMANN_65C02 is defined, the Dormann 6502 tests are included at #3400
 // (if both, then the 6502 take precidence)
 
-#define DORMANN_6502
-// #define DORMANN_65C02
+//#define DORMANN_6502
+ #define DORMANN_65C02
 
 //  SPHERE
 //  Benchmark and demo from a Solidisk disc, via Michael Firth
