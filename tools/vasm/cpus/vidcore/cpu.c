@@ -611,22 +611,13 @@ static int translate(instruction *p,section *sec,taddr pc)
       if(!chkval(p->op[2]->offset,sec,pc,6,1)&&(!strcmp("add",mnemonics[c].name)||!strcmp("sub",mnemonics[c].name)))
 	c=replace(c,EN_ADD48);
     }else{
-      if((c<32)&&(!chkval(p->op[1]->offset,sec,pc,6,1)))
+      if((mnemonics[c].ext.code<32)&&(!chkval(p->op[1]->offset,sec,pc,6,1)))
 	c=replace(c,EN_ARITHI48);
     }
   }
   if(e==EN_ARITHI16){
     if(!chkval(p->op[1]->offset,sec,pc,5,0))
       c=replace(c,EN_ARITHI48);
-  }
-  if(e==EN_ARITHI32){
-	 if (p->op[2]){
-		     if(!chkval(p->op[2]->offset,sec,pc,5,0))
-				c=replace(c,EN_ARITHI48);
-	 } else
-		  
-			if(!chkval(p->op[1]->offset,sec,pc,5,0))
-				c=replace(c,EN_ARITHI48);
   }
   if(e==EN_RBRANCH16){
     symbol *base;
