@@ -42,11 +42,12 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPROFILING" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-ip" )
-
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdata-sections -ffunction-sections --specs=nano.specs --specs=nosys.specs -u _printf_float" )
 
 
 # Set the linker flags so that we use our "custom" linker script
-set( CMAKE_EXE_LINKER_FLAGS "-Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
+
+set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections  -Wl,-unresolved-symbols=ignore-in-object-files -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
 
 file( GLOB core_files
     armc-cstartup.c
