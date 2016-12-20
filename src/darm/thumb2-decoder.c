@@ -619,18 +619,18 @@ darm_instr_t thumb2_branch_misc_ctrl(darm_t *d, uint16_t w, uint16_t w2)
     d->instr_imm_type = T_THUMB2_NO_IMM;
     d->instr_flag_type = T_THUMB2_NO_FLAG;
 
-    if(op1 == 0 && op == 0xfe) {
+    if(op1 == 0 && op == 0x7e) {
         // TODO return I_HVC
         return I_NOP;
     }
-    else if(op1 == 0 && op == 0xff) {
+    else if(op1 == 0 && op == 0x7f) {
         return I_SMC;
     }
     else if((op1 & b101) == 1) {
         d->instr_flag_type = T_THUMB2_S_FLAG;
         return I_B;
     }
-    else if(op1 == 2 && op == 0xff) {
+    else if(op1 == 2 && op == 0x7f) {
         return I_UDF;
     }
     else if((op1 & b101) == 0) {
