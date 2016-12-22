@@ -40,7 +40,7 @@ void copro_65tube_dump_histogram() {
 
 static void copro_65tube_poweron_reset(unsigned char mpu_memory[]) {
    // Wipe memory
-   memset(mpu_memory, 0, 0x10000);
+   memset(mpu_memory, 0, 0xF800); // only need to goto 0xF800 as rom will be put in later 
    // Install test programs (like sphere)
    copy_test_programs(mpu_memory);
 }
