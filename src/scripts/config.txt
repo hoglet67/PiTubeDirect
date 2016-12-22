@@ -19,7 +19,8 @@ force_turbo=1
 # Disable adjusting the refresh rate of RAM every 500 ms
 disable_pvt=1
 
-bootcode_delay=0
+boot_delay=0
+kernel_address=0x1f00000
 gpu_mem=16
 start_file=start_cd.elf
 fixup_file=fixup_cd.dat
