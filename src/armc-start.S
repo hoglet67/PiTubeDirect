@@ -123,6 +123,7 @@ _unused_handler_h:                  .word   _reset_
 _interrupt_vector_h:                .word   arm_irq_handler
 _fast_interrupt_vector_h:           .word   arm_fiq_handler
 
+.section ".text._reset_"
 _reset_:
 
 #ifdef HAS_MULTICORE
@@ -252,27 +253,31 @@ _reset_continue:
     b      _cstartup
 
 
-.section ".text"
+.section ".text._get_stack_pointer"
 _get_stack_pointer:
     mov     r0, sp
     mov     pc, lr
-.section ".text"
+    
+.section ".text._get_cpsr"
 _get_cpsr:
     mrs     r0, cpsr
     mov     pc, lr
-.section ".text"
+    
+.section ".text._enable_interrupts"
 _enable_interrupts:
     mrs     r0, cpsr
     bic     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r0
     mov     pc, lr
-.section ".text"
+
+.section ".text._disable_interrupts"
 _disable_interrupts:
     mrs     r0, cpsr
     orr     r1, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r1
     mov     pc, lr
 
+.section ".text._undefined_instruction_handler_"
 _undefined_instruction_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -280,6 +285,7 @@ _undefined_instruction_handler_:
     mov      r0, sp
     bl       undefined_instruction_handler
 
+.section ".text._prefetch_abort_handler_"    
 _prefetch_abort_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -287,6 +293,7 @@ _prefetch_abort_handler_:
     mov      r0, sp
     bl       prefetch_abort_handler
 
+.section ".text._data_abort_handler_"    
 _data_abort_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -294,15 +301,16 @@ _data_abort_handler_:
     mov      r0, sp
     bl       data_abort_handler
 
+.section ".text._swi_handler_"    
 _swi_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
     stmfd    sp!, {r0}            // Store spsr onto stack.
     mov      r0, sp
     bl       swi_handler
-.section ".text"
-_enable_unaligned_access:
 
+.section ".text._enable_unaligned_access"
+_enable_unaligned_access:
     mrc      p15, 0, r0, c1, c0, 0   // read SCTLR
     bic      r0, r0, #2              // A (no unaligned access fault)
     orr      r0, r0, #1 << 22        // U (v6 unaligned access model)
@@ -310,7 +318,7 @@ _enable_unaligned_access:
     mov      pc, lr
 
     // Enable L1 Cache -------------------------------------------------------
-.section ".text"
+.section ".text._enable_l1_cache"
 _enable_l1_cache:
 
     // R0 = System Control Register
@@ -325,35 +333,42 @@ _enable_l1_cache:
     mcr p15,0,r0,c1,c0,0
 
     mov      pc, lr
-.section ".text"
+
+.section ".text._invalidate_icache"
 _invalidate_icache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c5, 0
     mov      pc, lr
-.section ".text"
+    
+.section ".text._invalidate_dcache"
 _invalidate_dcache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c6, 0
     mov      pc, lr
-.section ".text"
+    
+.section ".text._clean_invalidate_dcache"
 _clean_invalidate_dcache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c14, 0
     mov      pc, lr
-.section ".text"
+    
+.section ".text._invalidate_dcache_mva"
 _invalidate_dcache_mva:
     mcr      p15, 0, r0, c7, c6, 1
     mov      pc, lr
-.section ".text"
+    
+.section ".text._clean_invalidate_dcache_mva"
 _clean_invalidate_dcache_mva:
     mcr      p15, 0, r0, c7, c14, 1
     mov      pc, lr
-.section ".text"
+    
+.section ".text._invalidate_dtlb"
 _invalidate_dtlb:
     mov      r0, #0
     mcr      p15, 0, r0, c8, c6, 0
     mov      pc, lr
-.section ".text"
+    
+.section ".text._invalidate_dtlb_mva"
 _invalidate_dtlb_mva:
     mcr      p15, 0, r0, c8, c6, 1
     mov      pc, lr
@@ -455,7 +470,7 @@ _spin_core1:
 #endif
 
 #ifdef HAS_40PINS
-.section ".text"
+.section ".text._toggle_test_pin"
 _toggle_test_pin:        
         mov     r1, #TEST_MASK
 _toggle_test_pin_loop:
