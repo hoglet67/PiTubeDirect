@@ -464,7 +464,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 }
 
 void tube_reset()
-{
+{   
    tube_enabled = 1;
    ph1pos = hp3pos = 0;
    ph3pos = 1;
@@ -582,6 +582,7 @@ void tube_init_hardware()
   // peripheral register to enable LED pin as an output
   RPI_GpioBase->LED_GPFSEL |= LED_GPFBIT;
 
+  LED_ON();
   // Configure our pins as inputs
   RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
@@ -686,6 +687,9 @@ void tube_init_hardware()
    tube_mailbox = &tube_mailbox_block;
 #endif
 #endif
+   
+   hp1 = hp2 = hp4 = hp3[0]= hp3[1]=0;
+  
 }
 
 int tube_is_rst_active() {

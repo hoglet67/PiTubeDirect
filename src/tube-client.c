@@ -171,7 +171,7 @@ static void start_core(int core, func_ptr func) {
 #endif
 
 
-int get_copro_number() {
+static int get_copro_number() {
    int copro = -1;
    char *copro_prop = get_cmdline_prop("copro");
    if (copro_prop) {
