@@ -3070,6 +3070,11 @@ simz80_execute(int n)
 void simz80_reset() {
    pc = 0x0000;
    sp = 0x0000;
+   IFF = 0;
+   af[0] = 0;
+   af[1] = 0;
+   af_sel = 0;
+   regs_sel = 0;
 }
 
 void simz80_NMI()
