@@ -131,7 +131,7 @@ void init_emulator() {
       copro = DEFAULT_COPRO;
    }
 
-   LOG_INFO("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
+   LOG_DEBUG("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
 
    emulator = emulator_functions[copro];
    
