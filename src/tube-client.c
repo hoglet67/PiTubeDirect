@@ -36,6 +36,9 @@ static const func_ptr emulator_functions[] = {
 #include "copro-32016.h"
 #include "copro-null.h"
 #include "copro-z80.h"
+#include "copro-mc6809.h"
+#include "copro-mc6809sc.h"
+#include "copro-mc6809nc.h"
 #include "copro-armnative.h"
 
 #define NUM_COPROS 16
@@ -51,9 +54,13 @@ static const char * emulator_names[] = {
    "Z80",
    "Z80",
    "80286",
-   "6809",
-   "68000",
-   "PDP11",
+#ifdef USE_HD6309
+   "HD6309 (xroar)",
+#else
+   "MC6809 (xroar)",
+#endif
+   "MC6809 (Sean Conner)",
+   "MC6809 (Neal Crook)",
    "ARM2",
    "32016",
    "Null/SPI",
@@ -71,9 +78,9 @@ static const func_ptr emulator_functions[] = {
    copro_z80_emulator,
    copro_z80_emulator,
    copro_80186_emulator,
-   copro_null_emulator,
-   copro_null_emulator,
-   copro_null_emulator,
+   copro_mc6809_emulator,
+   copro_mc6809sc_emulator,
+   copro_mc6809nc_emulator,
    copro_arm2_emulator,
    copro_32016_emulator,
    copro_null_emulator,
@@ -101,6 +108,8 @@ void init_emulator() {
       }
       *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
    }
+#endif
+#ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
       *((uint32_t *) 0x28) = (uint32_t) copro_armnative_swi_handler;
       *((uint32_t *) 0x3C) = (uint32_t) copro_armnative_fiq_handler;
@@ -113,7 +122,7 @@ void init_emulator() {
       copro = DEFAULT_COPRO;
    }
 
-   LOG_DEBUG("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
+   LOG_INFO("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
 
    emulator = emulator_functions[copro];
    
