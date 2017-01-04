@@ -31,6 +31,10 @@ extern void _invalidate_dcache_mva(void *address);
 
 extern void _clean_invalidate_dcache_mva(void *address);
 
+extern void _invalidate_dtlb();
+
+extern void _invalidate_dtlb_mva(void *address);
+
 extern unsigned int _get_core();
 
 extern void _init_core();

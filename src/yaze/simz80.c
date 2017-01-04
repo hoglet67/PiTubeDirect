@@ -19,29 +19,38 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 
 /* This file was generated from simz80.pl
    with the following choice of options */
-char *perl_params =
+   /*
+static char *perl_params =
     "combine=0,"
     "optab=0,"
     "cb_inline=1,"
     "dfd_inline=1,"
     "ed_inline=1";
-
+*/
 #include "mem_mmu.h"
 #include "simz80.h"
 
 /* Z80 registers */
-WORD af[2];			/* accumulator and flags (2 banks) */
-int af_sel;			/* bank select for af */
+static WORD af[2];			/* accumulator and flags (2 banks) */
+static int af_sel;			/* bank select for af */
 
-struct ddregs regs[2];		/* bc,de,hl */
-int regs_sel;			/* bank select for ddregs */
+/* two sets of 16-bit registers */
 
-WORD ir;			/* other Z80 registers */
-WORD ix;
-WORD iy;
-WORD sp;
-WORD pc;
-WORD IFF;
+static struct ddregs {
+	WORD bc;
+	WORD de;
+	WORD hl;
+} regs[2];
+
+//struct ddregs regs[2];		/* bc,de,hl */
+static int regs_sel;			/* bank select for ddregs */
+
+static WORD ir;			/* other Z80 registers */
+static WORD ix;
+static WORD iy;
+static WORD sp;
+static WORD pc;
+static WORD IFF;
 
 static const unsigned char partab[256] = {
 	4,0,0,4,0,4,4,0,0,4,4,0,4,0,0,4,
@@ -3061,6 +3070,11 @@ simz80_execute(int n)
 void simz80_reset() {
    pc = 0x0000;
    sp = 0x0000;
+   IFF = 0;
+   af[0] = 0;
+   af[1] = 0;
+   af_sel = 0;
+   regs_sel = 0;
 }
 
 void simz80_NMI()

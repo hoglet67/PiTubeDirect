@@ -93,11 +93,20 @@ volatile int copro;
 
 static func_ptr emulator;
 
+
+// This magic number come form cache.c where we have relocated the vectors to 
+// Might be better to just read the vector pointer register instead.
+#define SWI_VECTOR (HIGH_VECTORS_BASE + 0x28)
+#define FIQ_VECTOR (HIGH_VECTORS_BASE + 0x3C)
+
 void init_emulator() {
    _disable_interrupts();
 
+#if !defined(USE_GPU)  
    // Default to the normal FIQ handler
-   *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag0;
+   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag0;
+#endif
+   
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register
@@ -106,13 +115,13 @@ void init_emulator() {
       for (i = 0; i < 256; i++) {
          Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
       }
-      *((uint32_t *) 0x3C) = (uint32_t) arm_fiq_handler_flag1;
+      *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
    }
 #endif
 #ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
-      *((uint32_t *) 0x28) = (uint32_t) copro_armnative_swi_handler;
-      *((uint32_t *) 0x3C) = (uint32_t) copro_armnative_fiq_handler;
+      *((uint32_t *) SWI_VECTOR) = (uint32_t) copro_armnative_swi_handler;
+      *((uint32_t *) FIQ_VECTOR) = (uint32_t) copro_armnative_fiq_handler;
    }
 #endif
 
@@ -169,7 +178,7 @@ static void start_core(int core, func_ptr func) {
 #endif
 
 
-int get_copro_number() {
+static int get_copro_number() {
    int copro = -1;
    char *copro_prop = get_cmdline_prop("copro");
    if (copro_prop) {

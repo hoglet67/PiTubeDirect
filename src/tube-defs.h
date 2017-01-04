@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define DEBUG
+#define NDEBUG
 
 #ifdef DEBUG
 #define LOG_DEBUG(...) printf(__VA_ARGS__)
