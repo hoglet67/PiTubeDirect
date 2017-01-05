@@ -634,6 +634,9 @@ void tube_init_hardware()
   // Initialise the UART to 57600 baud
   RPI_AuxMiniUartInit( 115200, 8 );
 
+  // Pre-populate info string
+  get_info_string();
+
 #ifdef DEBUG
   dump_useful_info();
 #endif

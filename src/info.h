@@ -11,6 +11,8 @@ typedef struct {
    int max_rate;
 } clock_info_t;
 
+extern char *get_info_string();
+
 extern int get_clock_rate(int clk_id);
 
 extern float get_temp();

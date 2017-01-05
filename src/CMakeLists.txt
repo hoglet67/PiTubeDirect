@@ -276,3 +276,23 @@ add_custom_command(
     COMMAND ${CMAKE_OBJCOPY} ./tube-client -O binary ${KERNEL_NAME}
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Convert the ELF output file to a binary image" )
+
+# Generate a header file with the current git version in it
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+add_custom_target(
+  gitversion ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/gitversion.h)
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gitversion.h
+    COMMAND bash version.sh > ${CMAKE_CURRENT_BINARY_DIR}/gitversion.h
+)
+
+set_source_files_properties(
+    ${CMAKE_CURRENT_BINARY_DIR}/gitversion.h
+    PROPERTIES GENERATED TRUE
+    HEADER_FILE_ONLY TRUE)
+
+add_dependencies(tube-client gitversion)
+

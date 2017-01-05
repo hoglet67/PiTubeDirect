@@ -3,6 +3,8 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
+#define RELEASENAME "Anaconda-dev"
+
 #define NDEBUG
 
 #ifdef DEBUG

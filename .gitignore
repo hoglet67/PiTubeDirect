@@ -9,6 +9,7 @@ src/scripts/kernel7.img
 src/scripts/tube-client
 src/scripts/tube-client.cbp
 src/scripts/releases/
+src/scripts/gitversion.h
 vidcore/tubevc.asm
 vidcore/tubevc.lst
 tools/vasm/obj/
