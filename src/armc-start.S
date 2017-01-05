@@ -447,6 +447,7 @@ _init_continue:
 
     // If main does return for some reason, just catch it and stay here.
 _spin_core:
+#ifdef DEBUG        
     mov     r0, #'S'    
     bl      RPI_AuxMiniUartWrite
     mov     r0, #'P'    
@@ -462,7 +463,7 @@ _spin_core:
     bl      RPI_AuxMiniUartWrite
     mov     r0, #'\n'    
     bl      RPI_AuxMiniUartWrite
-        
+#endif        
 _spin_core1:
     wfi
     b       _spin_core1
