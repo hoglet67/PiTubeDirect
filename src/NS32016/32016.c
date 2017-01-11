@@ -563,44 +563,13 @@ static uint32_t bcd_sub(uint32_t a, uint32_t b, int size, uint32_t *carry)
 
 static uint32_t AddCommon(uint32_t a, uint32_t b, uint32_t cin)
 {
-   uint32_t sum = a + (b + cin);
-
-   if (b == 0xffffffff && cin == 1)
-   {
-      C_FLAG = 1;
-      F_FLAG = 0;
-   }
+   uint32_t sum = a + b + cin;
+   if (cin == 0)
+      C_FLAG = TEST(sum < a || sum < b);
    else
-   {
-      // Overflow can only happen in the following cases:
-      //   A is positive, B is positive, sum is negative
-      //   A is negative, B is negative, sum is positive
-      // So the test on the sign bits is (A ^ sum) & (B ^ sum)
-      // Note: this test implies sign A == sign B
-      switch (OpSize.Op[0])
-      {
-         case sz8:
-            {
-               C_FLAG = TEST(sum & 0x100);
-               F_FLAG = TEST((a ^ sum) & (b ^ sum) & 0x80);
-            }
-            break;
+      C_FLAG = TEST(sum <= a || sum <= b);
+   F_FLAG = TEST((a ^ sum) & (b ^ sum) & 0x80000000);
 
-         case sz16:
-            {
-               C_FLAG = TEST(sum & 0x10000);
-               F_FLAG = TEST((a ^ sum) & (b ^ sum) & 0x8000);
-            }
-            break;
-
-         case sz32:
-            {
-               C_FLAG = TEST(sum < a);
-               F_FLAG = TEST((a ^ sum) & (b ^ sum) & 0x80000000);
-            }
-            break;
-      }
-   }
    //PiTRACE("ADD FLAGS: C=%d F=%d\n", C_FLAG, F_FLAG);
 
    return sum;
@@ -608,44 +577,13 @@ static uint32_t AddCommon(uint32_t a, uint32_t b, uint32_t cin)
 
 static uint32_t SubCommon(uint32_t a, uint32_t b, uint32_t cin)
 {
-   uint32_t diff = a - (b + cin);
-
-   if (b == 0xffffffff && cin == 1)
-   {
-      C_FLAG = 1;
-      F_FLAG = 0;
-   }
+   uint32_t diff = a - b - cin;
+   if (cin == 0)
+      C_FLAG = TEST(a < b);
    else
-   {
-      // Overflow can only happen in the following cases:
-      //   A is positive, B is negative, diff is negative
-      //   A is negative, B is positive, diff is positive
-      // So the test on the sign bits is (A ^ B) & (A ^ diff)
-      // Note: this test implies sign diff == sign B
-      switch (OpSize.Op[0])
-      {
-         case sz8:
-            {
-               C_FLAG = TEST(diff & 0x100);
-               F_FLAG = TEST((a ^ b) & (a ^ diff) & 0x80);
-            }
-            break;
+      C_FLAG = TEST(a <= b);
+   F_FLAG = TEST((a ^ b) & (a ^ diff) & 0x80000000);
 
-         case sz16:
-            {
-               C_FLAG = TEST(diff & 0x10000);
-               F_FLAG = TEST((a ^ b) & (a ^ diff) & 0x8000);
-            }
-            break;
-
-         case sz32:
-            {
-               C_FLAG = TEST(diff > a);
-               F_FLAG = TEST((a ^ b) & (a ^ diff) & 0x80000000);
-            }
-            break;
-      }
-   }
    //PiTRACE("SUB FLAGS: C=%d F=%d\n", C_FLAG, F_FLAG);
 
    return diff;
@@ -1552,6 +1490,7 @@ void n32016_exec()
             NIBBLE_EXTEND(temp2);
             temp = ReadGen(0);
 
+            SIGN_EXTEND(OpSize.Op[0], temp);
             temp = AddCommon(temp, temp2, 0);
          }
          break;
@@ -1784,6 +1723,7 @@ void n32016_exec()
             temp2 = ReadGen(0);
             temp = ReadGen(1);
 
+            SIGN_EXTEND(OpSize.Op[0], temp);
             temp = AddCommon(temp, temp2, 0);
          }
          break;
@@ -1811,6 +1751,7 @@ void n32016_exec()
             temp = ReadGen(1);
 
             temp3 = C_FLAG;
+            SIGN_EXTEND(OpSize.Op[0], temp);
             temp = AddCommon(temp, temp2, temp3);
          }
          break;
@@ -1833,6 +1774,8 @@ void n32016_exec()
          {
             temp2 = ReadGen(0);
             temp = ReadGen(1);
+            SIGN_EXTEND(OpSize.Op[0], temp);
+            SIGN_EXTEND(OpSize.Op[0], temp2);
             temp = SubCommon(temp, temp2, 0);
          }
          break;
@@ -1842,6 +1785,8 @@ void n32016_exec()
             temp2 = ReadGen(0);
             temp = ReadGen(1);
             temp3 = C_FLAG;
+            SIGN_EXTEND(OpSize.Op[0], temp);
+            SIGN_EXTEND(OpSize.Op[0], temp2);
             temp = SubCommon(temp, temp2, temp3);
          }
          break;
@@ -2148,6 +2093,7 @@ void n32016_exec()
          {
             temp = 0;
             temp2 = ReadGen(0);
+            SIGN_EXTEND(OpSize.Op[0], temp2);
             temp = SubCommon(temp, temp2, 0);
          }
          break;
