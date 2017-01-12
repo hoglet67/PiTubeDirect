@@ -12,7 +12,7 @@ do
     ./clobber.sh
     ./configure_${MODEL}.sh
     make -B -j
-    mv kernel*.img ${DIR}/kernel${MODEL}.img
+    mv kernel*.img ${DIR}
 done
 
 cp config.txt ${DIR}/config.txt
