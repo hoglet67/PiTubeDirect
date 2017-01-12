@@ -239,6 +239,13 @@ file( GLOB copro_arm_files
     darm/thumb-tbl.h
 )
 
+if( ${DEBUG} )
+
+  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG=1" )
+
+endif()
+
+
 if( ${MINIMAL_BUILD} )
 
   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMINIMAL_BUILD=1" )
