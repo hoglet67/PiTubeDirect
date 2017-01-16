@@ -11,8 +11,8 @@ kernel=kernelrpizero.img
 [pi1]
 arm_freq=700
 core_freq=350
-#kernel=kernelpi.img
-kernel=kernelpibplus.img
+kernel=kernelrpi.img
+#kernel=kernelrpibplus.img
 
 #swap the above to lines if you an original rpi ( 26 pins)
 
