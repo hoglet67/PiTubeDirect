@@ -14,7 +14,7 @@ core_freq=350
 kernel=kernelrpi.img
 #kernel=kernelrpibplus.img
 
-#swap the above to lines if you an original rpi ( 26 pins)
+#swap the above to lines if you an original rpi B+ ( 40 pins)
 
 # Over clocking settings for Pi 2
 [pi2]
