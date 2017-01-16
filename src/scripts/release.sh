@@ -15,6 +15,8 @@ do
     mv kernel*.img ${DIR}
 done
 
+cp -a firmware/* ${DIR}
+
 cp config.txt ${DIR}/config.txt
 cd releases
 zip -qr ${NAME}.zip ${NAME}
