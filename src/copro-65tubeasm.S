@@ -1315,13 +1315,13 @@ noirq2:
        // Might need sub regPC,#1
 
 #if defined(RPIZERO)
-        mov     r0, #0x15C              // 0x15C gives 3.00MHz average on a Pi Zero at 1000/400
+        mov     r0, #0x158              // 0x158 gives 3.04MHz average on a Pi Zero at 1000/400
 #elif defined(RPI2)
         mov     r0, #0x388              // 0x388 gives 3.01MHz average on a Pi 2 at 900/350
 #elif defined(RPI3)
-        mov     r0, #0x3F0              // 0x3F0 gives 3.00MHz average on a Pi 3 at 1000/400
+        mov     r0, #0x4C0              // 0x3F0 gives 3.02MHz average on a Pi 3 at 1200/400
 #else
-        mov     r0, #0x134              // 0x134 gives 3.02MHz average on a Pi One at 900/350
+        mov     r0, #0x0EE              // 0x0EE gives 3.01MHz average on a Pi One at 700/350
 #endif
 waste_time:
         subs    r0, r0, #1
