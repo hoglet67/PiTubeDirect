@@ -24,6 +24,16 @@ done
 
 cp -a firmware/* ${DIR}
 
+# Create a simple README.txt file
+cat >${DIR}/README.txt <<EOF
+PiTubeDirect
+
+(c) 2017 David Banks (hoglet)
+
+  git version: $(grep GITVERSION gitversion.h  | cut -d\" -f2)
+build version: ${NAME}
+EOF
+
 cp config.txt ${DIR}/config.txt
 cd releases/${NAME}
 zip -qr ../${NAME}.zip .
