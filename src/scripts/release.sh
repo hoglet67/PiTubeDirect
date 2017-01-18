@@ -25,9 +25,9 @@ done
 cp -a firmware/* ${DIR}
 
 cp config.txt ${DIR}/config.txt
-cd releases
-zip -qr ${NAME}.zip ${NAME}
-cd ..
+cd releases/${NAME}
+zip -qr ../${NAME}.zip .
+cd ../..
 
 unzip -l releases/${NAME}.zip
  
