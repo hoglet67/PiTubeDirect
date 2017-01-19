@@ -5,19 +5,39 @@ set -e
 
 NAME=PiTubeDirect_$(date +"%Y%m%d_%H%M")_$USER
 
+DIR=releases/${NAME}
+mkdir -p ${DIR}/debug
+
 for MODEL in rpi3 rpi2 rpi rpibplus rpizero 
 do    
-    DIR=releases/${NAME}/${MODEL}
-    mkdir -p ${DIR}
+    # compile normal kernel
     ./clobber.sh
     ./configure_${MODEL}.sh
-    make -B
-    cp kernel*.img ${DIR}
+    make -B -j
+    mv kernel*.img ${DIR}
+    # compile debug kernel
+    ./clobber.sh
+    ./configure_${MODEL}.sh -DDEBUG=1
+    make -B -j
+    mv kernel*.img ${DIR}/debug
 done
 
-cd releases
-zip -qr ${NAME}.zip ${NAME}
-cd ..
+cp -a firmware/* ${DIR}
+
+# Create a simple README.txt file
+cat >${DIR}/README.txt <<EOF
+PiTubeDirect
+
+(c) 2017 David Banks (hoglet)
+
+  git version: $(grep GITVERSION gitversion.h  | cut -d\" -f2)
+build version: ${NAME}
+EOF
+
+cp config.txt ${DIR}/config.txt
+cd releases/${NAME}
+zip -qr ../${NAME}.zip .
+cd ../..
 
 unzip -l releases/${NAME}.zip
  

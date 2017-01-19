@@ -28,29 +28,23 @@
 //  Relocate to just below 32MB
 
 #include "tube-defs.h"
-                
-.equ    RELOCATE_TO,      0x01F00000
-#if (defined(RPI2) || defined(RPI3)) && defined(KERNEL_OLD)
-.equ    RELOCATE_FROM,    0x00000000
-#else
-.equ    RELOCATE_FROM,    0x00008000
-#endif
-.equ    RELOCATE_LENGTH,  0x00100000
 
-.equ    C0_SVR_STACK,        0x01F00000
-.equ    C0_IRQ_STACK,        0x01EF0000
-.equ    C0_FIQ_STACK,        0x01EE0000
-.equ    C0_USER_STACK,       0x01ED0000
-.equ    C0_ABORT_STACK,      0x01EC0000
-.equ    C0_UNDEFINED_STACK,  0x01EB0000
+.equ    STACK_SIZE,           0x00100000 
+
+.equ    C0_SVR_STACK,        0 
+.equ    C0_IRQ_STACK,        (STACK_SIZE*1)
+.equ    C0_FIQ_STACK,        STACK_SIZE*2
+.equ    C0_USER_STACK,       STACK_SIZE*4
+.equ    C0_ABORT_STACK,      STACK_SIZE*5
+.equ    C0_UNDEFINED_STACK,  STACK_SIZE*6
 
 #if defined(RPI2) || defined(RPI3)
-.equ    C1_SVR_STACK,        0x01EA0000
-.equ    C1_IRQ_STACK,        0x01E90000
-.equ    C1_FIQ_STACK,        0x01E80000
-.equ    C1_USER_STACK,       0x01E70000
-.equ    C1_ABORT_STACK,      0x01E60000
-.equ    C1_UNDEFINED_STACK,  0x01E50000
+.equ    C1_SVR_STACK,        STACK_SIZE*7
+.equ    C1_IRQ_STACK,        STACK_SIZE*8
+.equ    C1_FIQ_STACK,        STACK_SIZE*9
+.equ    C1_USER_STACK,       STACK_SIZE*10
+.equ    C1_ABORT_STACK,      STACK_SIZE*11
+.equ    C1_UNDEFINED_STACK,  STACK_SIZE*12
 #endif
 
 .equ    SCTLR_ENABLE_DATA_CACHE,        0x4
@@ -72,7 +66,9 @@
 .global _clean_invalidate_dcache
 .global _invalidate_dcache_mva
 .global _clean_invalidate_dcache_mva
-
+.global _invalidate_dtlb
+.global _invalidate_dtlb_mva
+        
 #ifdef HAS_MULTICORE
 .global _get_core
 .global _init_core
@@ -118,7 +114,7 @@ _start:
     ldr pc, _interrupt_vector_h
     ldr pc, _fast_interrupt_vector_h
 
-_reset_h:                           .word   _copy_to_high_memory - RELOCATE_TO + RELOCATE_FROM
+_reset_h:                           .word   _reset_ 
 _undefined_instruction_vector_h:    .word   _undefined_instruction_handler_
 _software_interrupt_vector_h:       .word   _swi_handler_
 _prefetch_abort_vector_h:           .word   _prefetch_abort_handler_
@@ -127,44 +123,7 @@ _unused_handler_h:                  .word   _reset_
 _interrupt_vector_h:                .word   arm_irq_handler
 _fast_interrupt_vector_h:           .word   arm_fiq_handler
 
-_c0_irq_stack:                      .word   C0_IRQ_STACK
-_c0_fiq_stack:                      .word   C0_FIQ_STACK
-_c0_svr_stack:                      .word   C0_SVR_STACK
-_c0_user_stack:                     .word   C0_USER_STACK
-_c0_undefined_stack:                .word   C0_UNDEFINED_STACK
-_c0_abort_stack:                    .word   C0_ABORT_STACK
-
-#ifdef HAS_MULTICORE
-_c1_irq_stack:                      .word   C1_IRQ_STACK
-_c1_fiq_stack:                      .word   C1_FIQ_STACK
-_c1_svr_stack:                      .word   C1_SVR_STACK
-_c1_user_stack:                     .word   C1_USER_STACK
-_c1_undefined_stack:                .word   C1_UNDEFINED_STACK
-_c1_abort_stack:                    .word   C1_ABORT_STACK
-#endif
-
-_patch_data:                        .word _reset_
-_patch_address:                     .word _reset_h
-
-_copy_to_high_memory:
-    // We need to copy ourself to high memory
-    mov     r0, #RELOCATE_FROM
-    mov     r1, #RELOCATE_TO
-    mov     r2, #RELOCATE_LENGTH
-_copy_loop:
-    // copy 16 bytes
-    ldmia   r0!,{r3, r4, r5, r6}
-    stmia   r1!,{r3, r4, r5, r6}
-    subs    r2, r2, #16
-    bge     _copy_loop
-    // patch the reset vector to bypass the copy code
-    ldr     r0, _patch_data
-    ldr     r1, _patch_address
-    str     r0, [r1]
-    // jump to high memory
-    mov     pc, r0
-
-    // execution resumes here in high memory
+.section ".text._reset_"
 _reset_:
 
 #ifdef HAS_MULTICORE
@@ -211,11 +170,11 @@ _reset_continue:
 #endif
 
 #endif
-        
+            
     // We enter execution in supervisor mode. For more information on
     // processor modes see ARM Section A2.2 (Processor Modes)
 
-    mov     r0, #RELOCATE_TO
+    ldr     r0,=_start
     mov     r1, #0x00000000
     ldmia   r0!,{r2, r3, r4, r5, r6, r7, r8, r9}
     stmia   r1!,{r2, r3, r4, r5, r6, r7, r8, r9}
@@ -223,32 +182,33 @@ _reset_continue:
     stmia   r1!,{r2, r3, r4, r5, r6, r7, r8, r9}
 
     // Initialise Stack Pointers ---------------------------------------------
-
+    ldr     r4,=_start
+    
     // We're going to use interrupt mode, so setup the interrupt mode
     // stack pointer which differs to the application stack pointer:
     mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c0_irq_stack
+    sub sp, r4, #C0_IRQ_STACK
 
     // Also setup the stack used for FIQs
     mov r0, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c0_fiq_stack
+    sub sp, r4, #C0_FIQ_STACK
 
     // Also setup the stack used for undefined exceptions
     mov r0, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c0_undefined_stack
+    sub sp, r4, #C0_UNDEFINED_STACK
 
     // Also setup the stack used for prefetch and data abort exceptions
     mov r0, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c0_abort_stack
+    sub sp, r4, #C0_ABORT_STACK
 
     // Finally, a user/system mode stack, although the application will likely reset this
     mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c0_user_stack
+    sub sp, r4, #C0_USER_STACK
 
     // Switch back to supervisor mode (our application mode) and
     // set the stack pointer. Remember that the stack works its way
@@ -256,7 +216,7 @@ _reset_continue:
     // application.
     mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c0_svr_stack
+    sub sp, r4, #C0_SVR_STACK
 
     // Enable VFP ------------------------------------------------------------
 
@@ -289,34 +249,35 @@ _reset_continue:
     // The c-startup function which we never return from. This function will
     // initialise the ro data section (most things that have the const
     // declaration) and initialise the bss section variables to 0 (generally
-    // known as automatics). It'll then call main, which should never return.
-    bl      _cstartup
-
-    // If main does return for some reason, just catch it and stay here.
-_inf_loop:
-    b       _inf_loop
+    // known as automatics). It'll then call main
+    b      _cstartup
 
 
+.section ".text._get_stack_pointer"
 _get_stack_pointer:
     mov     r0, sp
     mov     pc, lr
-
+    
+.section ".text._get_cpsr"
 _get_cpsr:
     mrs     r0, cpsr
     mov     pc, lr
-
+    
+.section ".text._enable_interrupts"
 _enable_interrupts:
     mrs     r0, cpsr
     bic     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r0
     mov     pc, lr
 
+.section ".text._disable_interrupts"
 _disable_interrupts:
     mrs     r0, cpsr
     orr     r1, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r1
     mov     pc, lr
 
+.section ".text._undefined_instruction_handler_"
 _undefined_instruction_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -324,6 +285,7 @@ _undefined_instruction_handler_:
     mov      r0, sp
     bl       undefined_instruction_handler
 
+.section ".text._prefetch_abort_handler_"    
 _prefetch_abort_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -331,6 +293,7 @@ _prefetch_abort_handler_:
     mov      r0, sp
     bl       prefetch_abort_handler
 
+.section ".text._data_abort_handler_"    
 _data_abort_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -338,6 +301,7 @@ _data_abort_handler_:
     mov      r0, sp
     bl       data_abort_handler
 
+.section ".text._swi_handler_"    
 _swi_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -345,8 +309,8 @@ _swi_handler_:
     mov      r0, sp
     bl       swi_handler
 
+.section ".text._enable_unaligned_access"
 _enable_unaligned_access:
-
     mrc      p15, 0, r0, c1, c0, 0   // read SCTLR
     bic      r0, r0, #2              // A (no unaligned access fault)
     orr      r0, r0, #1 << 22        // U (v6 unaligned access model)
@@ -354,7 +318,7 @@ _enable_unaligned_access:
     mov      pc, lr
 
     // Enable L1 Cache -------------------------------------------------------
-
+.section ".text._enable_l1_cache"
 _enable_l1_cache:
 
     // R0 = System Control Register
@@ -370,29 +334,45 @@ _enable_l1_cache:
 
     mov      pc, lr
 
+.section ".text._invalidate_icache"
 _invalidate_icache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c5, 0
     mov      pc, lr
-
+    
+.section ".text._invalidate_dcache"
 _invalidate_dcache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c6, 0
     mov      pc, lr
-
+    
+.section ".text._clean_invalidate_dcache"
 _clean_invalidate_dcache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c14, 0
     mov      pc, lr
-
+    
+.section ".text._invalidate_dcache_mva"
 _invalidate_dcache_mva:
     mcr      p15, 0, r0, c7, c6, 1
     mov      pc, lr
-
+    
+.section ".text._clean_invalidate_dcache_mva"
 _clean_invalidate_dcache_mva:
     mcr      p15, 0, r0, c7, c14, 1
     mov      pc, lr
-
+    
+.section ".text._invalidate_dtlb"
+_invalidate_dtlb:
+    mov      r0, #0
+    mcr      p15, 0, r0, c8, c6, 0
+    mov      pc, lr
+    
+.section ".text._invalidate_dtlb_mva"
+_invalidate_dtlb_mva:
+    mcr      p15, 0, r0, c8, c6, 1
+    mov      pc, lr
+        
 #ifdef HAS_MULTICORE
 _get_core:
     mrc     p15, 0, r0, c0, c0, 5
@@ -416,33 +396,34 @@ _init_not_in_hyp_mode:
     msr    cpsr_c, r0
 
 _init_continue:
+    ldr  r4,=start
     // Initialise Stack Pointers ---------------------------------------------
 
     // We're going to use interrupt mode, so setup the interrupt mode
     // stack pointer which differs to the application stack pointer:
     mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c1_irq_stack
+    sub sp, r4, # C1_IRQ_STACK
 
     // Also setup the stack used for FIQs
     mov r0, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c1_fiq_stack
+    sub sp, r4, # C1_FIQ_STACK
 
     // Also setup the stack used for undefined exceptions
     mov r0, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c1_undefined_stack
+    sub sp, r4, # C1_UNDEFINED_STACK
 
     // Also setup the stack used for prefetch and data abort exceptions
     mov r0, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c1_abort_stack
+    sub sp, r4, # C1_ABORT_STACK
 
     // Finally, a user/system mode stack, although the application will likely reset this
     mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c1_user_stack
+    sub sp, r4, # C1_USER_STACK
 
     // Switch back to supervisor mode (our application mode) and
     // set the stack pointer. Remember that the stack works its way
@@ -450,7 +431,7 @@ _init_continue:
     // application.
     mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     msr cpsr_c, r0
-    ldr sp, _c1_svr_stack
+    sub sp, r4, # C1_SVR_STACK
 
     // Enable VFP ------------------------------------------------------------
 
@@ -466,6 +447,7 @@ _init_continue:
 
     // If main does return for some reason, just catch it and stay here.
 _spin_core:
+#ifdef DEBUG        
     mov     r0, #'S'    
     bl      RPI_AuxMiniUartWrite
     mov     r0, #'P'    
@@ -481,7 +463,7 @@ _spin_core:
     bl      RPI_AuxMiniUartWrite
     mov     r0, #'\n'    
     bl      RPI_AuxMiniUartWrite
-        
+#endif        
 _spin_core1:
     wfi
     b       _spin_core1
@@ -489,6 +471,7 @@ _spin_core1:
 #endif
 
 #ifdef HAS_40PINS
+.section ".text._toggle_test_pin"
 _toggle_test_pin:        
         mov     r1, #TEST_MASK
 _toggle_test_pin_loop:

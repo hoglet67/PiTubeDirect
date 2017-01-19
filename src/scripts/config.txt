@@ -1,23 +1,54 @@
 # config.txt for PiTubeDirect (https://github.com/hoglet67/PiTubeDirect)
 #
 
-# Over clocking settings for Pi 1
+# Settings for Pi Zero
+[pi0]
+arm_freq=1000
+core_freq=400
+kernel=kernelrpizero.img
+# Debug kernel (needs a 115200 serial connection)
+#kernel=debug/kernelrpizero.img
+
+# Settings for Pi 1 Model B and B+
+# Use kernelrpi.img for Pi 1 Model B Rev 1.0
+# Use kernelrpibplus.img for all other Pi 1 models (inc B+)
+[pi1]
+arm_freq=700
+core_freq=350
+kernel=kernelrpi.img
+#kernel=kernelrpibplus.img
+# Debug kernel (needs a 115200 serial connection)
+#kernel=debug/kernelrpi.img
+#kernel=debug/kernelrpibplus.img
+
+# Settings for Pi 2
+[pi2]
 arm_freq=900
 core_freq=350
-force_turbo=1
+kernel=kernelrpi2.img
+# Debug kernel (needs a 115200 serial connection)
+#kernel=debug/kernelrpi2.img
 
-# Over clocking settings for Pi 3
-arm_freq=1000
+# Settings for Pi 3
+[pi3]
+arm_freq=1200
 core_freq=400
-force_turbo=1
+kernel=kernelrpi3.img
+# Debug kernel (needs a 115200 serial connection)
+#kernel=debug/kernelrpi3.img
 
-# Over clocking settings for Pi Zero
-arm_freq=1000
-core_freq=400
+# Global settings
+[all]
 force_turbo=1
 
 # Disable adjusting the refresh rate of RAM every 500 ms
 disable_pvt=1
+
+boot_delay=0
+kernel_address=0x1f00000
+gpu_mem=16
+start_file=start_cd.elf
+fixup_file=fixup_cd.dat
 
 # See fully annotated config.txt at
 # https://raw.githubusercontent.com/Evilpaul/RPi-config/master/config.txt

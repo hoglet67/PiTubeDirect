@@ -5,6 +5,8 @@
 
 static char cmdline[PROP_SIZE];
 
+static char info_string[PROP_SIZE];
+
 void print_tag_value(char *name, rpi_mailbox_property_t *buf, int hex) {
    int i;
    LOG_INFO("%20s : ", name);
@@ -20,6 +22,19 @@ void print_tag_value(char *name, rpi_mailbox_property_t *buf, int hex) {
       }
    }
    LOG_INFO("\r\n");
+}
+
+int get_revision() {
+   rpi_mailbox_property_t *buf;
+   RPI_PropertyInit();
+   RPI_PropertyAddTag(TAG_GET_BOARD_REVISION);
+   RPI_PropertyProcess();
+   buf = RPI_PropertyGet(TAG_GET_BOARD_REVISION);
+   if (buf) {
+      return buf->data.buffer_32[0];
+   } else {
+      return 0;
+   }
 }
 
 int get_clock_rate(int clk_id) {
@@ -59,6 +74,19 @@ float get_voltage(int component_id) {
    } else {
       return 0.0F;
    }
+}
+
+// Model
+// Speed
+// Temp
+
+char *get_info_string() {
+   static int read = 0;
+   if (!read) {
+      sprintf(info_string, "%x %04d/%03dMHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, get_temp());
+      read = 1;
+   }
+   return info_string;
 }
 
 char *get_cmdline() {

@@ -38,14 +38,14 @@ void copro_65tube_dump_histogram() {
 
 #endif
 
-static void copro_65tube_poweron_reset() {
+static void copro_65tube_poweron_reset(unsigned char mpu_memory[]) {
    // Wipe memory
-   memset(mpu_memory, 0, 0x10000);
+   memset(mpu_memory, 0, 0xF800); // only need to goto 0xF800 as rom will be put in later 
    // Install test programs (like sphere)
    copy_test_programs(mpu_memory);
 }
 
-static void copro_65tube_reset() {
+static void copro_65tube_reset(unsigned char mpu_memory[]) {
    // Re-instate the Tube ROM on reset
    memcpy(mpu_memory + 0xf800, tuberom_6502_orig, 0x800);
    // Wait for rst become inactive before continuing to execute
@@ -55,9 +55,11 @@ static void copro_65tube_reset() {
 void copro_65tube_emulator() {
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
-
-   copro_65tube_poweron_reset();
-   copro_65tube_reset();
+  // unsigned char *addr;
+   //__attribute__ ((aligned (64*1024))) unsigned char mpu_memory[64*1024]; // allocate the amount of ram
+   unsigned char * mpu_memory = 0; // now the arm vectors have moved we can set the core memory to start at 0
+   copro_65tube_poweron_reset(mpu_memory);
+   copro_65tube_reset(mpu_memory);
 
    while (copro == last_copro) {
 #ifdef HISTOGRAM
@@ -69,7 +71,7 @@ void copro_65tube_emulator() {
 #ifdef HISTOGRAM
       copro_65tube_dump_histogram();
 #endif
-      copro_65tube_reset();
+      copro_65tube_reset(mpu_memory);
    }
 }
 

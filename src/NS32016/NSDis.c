@@ -405,7 +405,8 @@ void AddInstructionText(uint32_t Function, uint32_t opcode, uint32_t OperandSize
    }
 }
 
-void AddASCII(opcode, Format)
+#ifdef SHOW_INSTRUCTIONS
+static void AddASCII(uint32_t opcode, uint32_t Format)
 {
    if (Format < sizeof(FormatSizes))
    {
@@ -428,7 +429,6 @@ void AddASCII(opcode, Format)
    }
 }
 
-#ifdef SHOW_INSTRUCTIONS
 void ShowInstruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, uint32_t Function, uint32_t OperandSize)
 {
    static uint32_t old_pc = 0xFFFFFFFF;

@@ -67,4 +67,4 @@ set( CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
 # Just add the BPLUS definition for conditional compiling
 add_definitions( -DRPIBPLUS=1 )
 
-set( KERNEL_NAME "./kernel.img" )
+set( KERNEL_NAME "./kernelrpibplus.img" )

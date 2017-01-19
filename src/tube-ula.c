@@ -23,7 +23,7 @@
 // we need to find somewhere in I/O space to place the tube registers.
 //
 // This makes a MASSIVE improvement to the timing, compared to tube_regs
-// being placed in L2 cached memory. With this chanhe we have ~+50ns of
+// being placed in L2 cached memory. With this change we have ~+50ns of
 // setup margin, without it we had ~-150ns in the worst (rare) case.
 //
 // These locations must allow 32 bit reads/writes of arbitrary data
@@ -89,7 +89,7 @@ static volatile uint8_t *tube_regs;
 
 extern volatile uint32_t gpfsel_data_idle[3];
 extern volatile uint32_t gpfsel_data_driving[3];
-const uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
+const static uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 
 static perf_counters_t pct;
 
@@ -169,7 +169,7 @@ void tube_reset_buffer() {
 }
 #endif
 
-void tube_updateints()
+static void tube_updateints()
 {   
    tube_irq = 0;
    // Test for IRQ
@@ -190,7 +190,7 @@ void tube_updateints()
 // Reading of status registers has no side effects, so nothing to
 // do here for even registers (all handled in the FIQ handler).
 
-void tube_host_read(uint16_t addr)
+static void tube_host_read(uint16_t addr)
 {
    int c;
    switch (addr & 7)
@@ -231,7 +231,7 @@ void tube_host_read(uint16_t addr)
    tube_updateints();
 }
 
-void tube_host_write(uint16_t addr, uint8_t val)
+static void tube_host_write(uint16_t addr, uint8_t val)
 {
    if ((addr & 7) == 6) {
       copro = val;
@@ -379,6 +379,28 @@ uint8_t tube_parasite_read(uint32_t addr)
    return temp;
 }
 
+// Special IO write wrapper for the 65Tube Co Pro:
+// - the tube registers are accessed at 0xFEF8-0xFEFF
+// - the bank select registers are accessed at 0xFEE0-0xFEE7
+void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
+{
+  if ((addr & 0xFFF8) == 0xFEF8) {
+    // Tube writes get passed on to original code
+    tube_parasite_write(addr, val);
+  } else if ((addr & 0xFFF8) == 0xFEE0) {
+     // Implement write only bank selection registers for 8x 8K pages
+     int logical = (addr & 7) << 1;
+     int physical = (val << 1);
+     map_4k_page(logical, physical);
+     map_4k_page(logical + 1, physical + 1);
+     // Page 0 must also be mapped as page 16 (64K)
+     if (logical == 0) {
+       printf("Remapping page zero!\r\n");
+       map_4k_page(16, physical);
+     }
+  }
+}
+
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
 #ifdef DEBUG_TUBE
@@ -442,7 +464,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 }
 
 void tube_reset()
-{
+{   
    tube_enabled = 1;
    ph1pos = hp3pos = 0;
    ph3pos = 1;
@@ -560,6 +582,7 @@ void tube_init_hardware()
   // peripheral register to enable LED pin as an output
   RPI_GpioBase->LED_GPFSEL |= LED_GPFBIT;
 
+  LED_ON();
   // Configure our pins as inputs
   RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
@@ -610,6 +633,9 @@ void tube_init_hardware()
 
   // Initialise the UART to 57600 baud
   RPI_AuxMiniUartInit( 115200, 8 );
+
+  // Pre-populate info string
+  get_info_string();
 
 #ifdef DEBUG
   dump_useful_info();
@@ -664,6 +690,9 @@ void tube_init_hardware()
    tube_mailbox = &tube_mailbox_block;
 #endif
 #endif
+   
+   hp1 = hp2 = hp4 = hp3[0]= hp3[1]=0;
+  
 }
 
 int tube_is_rst_active() {

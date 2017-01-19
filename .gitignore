@@ -4,11 +4,11 @@ src/scripts/CMakeCache.txt
 src/scripts/CMakeFiles/
 src/scripts/Makefile
 src/scripts/cmake_install.cmake
-src/scripts/kernel.img
-src/scripts/kernel7.img
+src/scripts/kernel*.img
 src/scripts/tube-client
 src/scripts/tube-client.cbp
 src/scripts/releases/
+src/scripts/gitversion.h
 vidcore/tubevc.asm
 vidcore/tubevc.lst
 tools/vasm/obj/
