@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Anaconda"
+#define RELEASENAME "Boa-dev"
 
 #define NDEBUG
 
