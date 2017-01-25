@@ -216,7 +216,7 @@ static void tube_host_read(uint16_t addr)
       {
          PH3_0 = BYTE_TO_WORD(PH3_1);
          ph3pos--;
-         PSTAT3 |= 0x40;
+         PSTAT3 |= 0xC0;
          if (!ph3pos) HSTAT3 &= ~HBIT_7;
       }
       break;
@@ -451,7 +451,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          PH3_0 = BYTE_TO_WORD(val);
          ph3pos = 1;
          HSTAT3 |=  HBIT_7;
-         PSTAT3 &= ~0x40;
+         PSTAT3 &= ~0xC0;
       }
       break;
    case 7: /*Register 4*/
