@@ -20,8 +20,6 @@
 
 #define CXP_UNUSED_WORD 0xAAAA
 
-int nsoutput = 0;
-
 ProcessorRegisters PR;
 uint32_t r[8];
 FloatingPointRegisters FR;
