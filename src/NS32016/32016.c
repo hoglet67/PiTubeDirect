@@ -101,6 +101,8 @@ void n32016_reset_addr(uint32_t StartAddress)
 
    pc = StartAddress;
    psr = 0;
+   
+   FSR = 0;
 
    //PR.BPC = 0x20F; //Example Breakpoint
    PR.BPC = 0xFFFFFFFF;
