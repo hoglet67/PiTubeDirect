@@ -1723,7 +1723,8 @@ void n32016_exec()
             temp2 = ReadGen(0);
             temp = ReadGen(1);
 
-            SIGN_EXTEND(OpSize.Op[0], temp);
+            SIGN_EXTEND(OpSize.Op[0], temp2);
+            SIGN_EXTEND(OpSize.Op[1], temp);
             temp = AddCommon(temp, temp2, 0);
          }
          break;
@@ -1751,7 +1752,8 @@ void n32016_exec()
             temp = ReadGen(1);
 
             temp3 = C_FLAG;
-            SIGN_EXTEND(OpSize.Op[0], temp);
+            SIGN_EXTEND(OpSize.Op[0], temp2);
+            SIGN_EXTEND(OpSize.Op[1], temp);
             temp = AddCommon(temp, temp2, temp3);
          }
          break;
@@ -1774,8 +1776,8 @@ void n32016_exec()
          {
             temp2 = ReadGen(0);
             temp = ReadGen(1);
-            SIGN_EXTEND(OpSize.Op[0], temp);
             SIGN_EXTEND(OpSize.Op[0], temp2);
+            SIGN_EXTEND(OpSize.Op[1], temp);
             temp = SubCommon(temp, temp2, 0);
          }
          break;
@@ -1785,8 +1787,8 @@ void n32016_exec()
             temp2 = ReadGen(0);
             temp = ReadGen(1);
             temp3 = C_FLAG;
-            SIGN_EXTEND(OpSize.Op[0], temp);
             SIGN_EXTEND(OpSize.Op[0], temp2);
+            SIGN_EXTEND(OpSize.Op[1], temp);
             temp = SubCommon(temp, temp2, temp3);
          }
          break;
