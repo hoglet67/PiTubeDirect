@@ -4,7 +4,7 @@ which uses two cheap chips to interface a Raspberry Pi to the Tube connector.
 
 The Pi emulates one of a number of CPUs, and also the Tube interface chip.
 
-A Pi Zero can emulate a 6502 Second Processor running at 140MHz.
+A Pi Zero can emulate a 6502 Second Processor running at 274MHz.
 
 For more information, see the project [Wiki](../../wiki).
 
