@@ -20,8 +20,6 @@
 
 #define CXP_UNUSED_WORD 0xAAAA
 
-int nsoutput = 0;
-
 ProcessorRegisters PR;
 uint32_t r[8];
 FloatingPointRegisters FR;
@@ -103,6 +101,8 @@ void n32016_reset_addr(uint32_t StartAddress)
 
    pc = StartAddress;
    psr = 0;
+   
+   FSR = 0;
 
    //PR.BPC = 0x20F; //Example Breakpoint
    PR.BPC = 0xFFFFFFFF;

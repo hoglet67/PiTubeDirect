@@ -13,12 +13,12 @@
 // flags       = 6502 flags (V, D and I bits maintained here, CZN use ARM flags)
 // const       = a constant value of 0xFFFFFF00
 // r6    regA       = 6502 A
-// r7    regX       = 6502 X
+// r12    regX       = 6502 X
 // r8    regY       = 6502 Y
 // regSP       = 6502 SP
 // regPC (sl) = 6502 PC
-// memry (memry) = base address of 64KB of flat memory
-// r12 (instt) = base address of 64-byte aligned instruction implementations
+// r11 memry (memry) = base address of 64KB of flat memory
+// r7 (instt) = base address of 64-byte aligned instruction implementations
 // r13 (sp) = normal ARM usage
 // r14 (lr) = normal ARM usage
 // r15 (pc) = normal ARM usage
@@ -82,12 +82,10 @@
 // Check for IRQs enabled ( R4)
 // if so check if we have an IRQ
 
-#include "rpi-base.h"
 #include "tube-defs.h"
         
 .text
 .global exec_65tube
-//.global mpu_memory
 
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 .global Event_Handler_Dispatch_Table
@@ -247,12 +245,11 @@
 // Macro for fetching the next instruction and also checking for any pending IRQs
 // Used for instructions that can enable interrupts: CLI, PLP , RTI
 .macro CHECK_IRQ restoreflags=none
-        ldr   r0, =tube_irq
+        ldr     r0, =tube_irq
 .if \restoreflags==mrs        
         mrs     r2, CPSR                  // Preserve the 6502 flags
 .endif
         tst     flags, #4                    // Test whether interrupts are enabled (bit 2 = 0)
-        
         ldreq   r0, [r0]
         eoreq   r0, r0, #1
         tsteq   r0, #1                    // Test for IRQ
@@ -324,7 +321,7 @@
 
 // Macros for calculating effective address in r0        
 .macro EA_ABSOLUTE
-        orr r0,r0,r5,LSL #8
+        orr     r0,r0,r5,LSL #8
 .endm
 
 .macro LOAD_BYTE
@@ -349,7 +346,7 @@
 .endm   
 
 .macro EA_ABSOLUTE_LOAD nocarry=carry
-        orr r0,r0,r5,LSL #8
+        orr     r0,r0,r5,LSL #8
         FETCH_NEXT_3B_STAGE_0
         LOAD_ABSOLUTE \nocarry
 .endm
@@ -359,7 +356,6 @@
         bic     r0, r0, #0x10000
 #endif
 .endm  
-
 
 .macro EA_ABSOLUTE_INDEXED reg
         EA_ABSOLUTE
@@ -429,7 +425,7 @@
 .endm
 
 .macro SETUP_ZPX reg
- #if defined(USE_MEMORY_POINTER)
+#if defined(USE_MEMORY_POINTER)
         add     r0, \reg, r0, lsl #24
 #else
         add     r2,r0, \reg, lsr #24
@@ -611,7 +607,7 @@
         orrcs   \reg, \reg, #0xff00
         sxthcs  \reg, \reg
 #else
-        orrcs   \reg, \reg, memry    
+        orrcs   \reg, \reg, memry         // memry has been reused and is 0xFFFFFF00 
 #endif        
         FETCH_NEXT_STAGE_1a_OO
         adcs    regA, regA, \reg, ror #8
@@ -622,7 +618,7 @@
 
 .macro SBC_macro reg=r1      
         tst     flags, #8
-        bic   flags, #0x40
+        bic     flags, #0x40
         FETCH_NEXT_STAGE_0 
 .if \reg==r0         
         bne     decimal_mode_sbc_r0
@@ -1053,7 +1049,7 @@ Event_Handler_Dispatch_Table:
 // **********************************************
 
 exec_65tube:
-        push    {r0-r12,lr}
+        push    {r4-r11,lr}
 #if defined(USE_MEMORY_POINTER)
         mov     memry, r0                  // set memry (memry) to the 64K 6502 memory array
 #else
@@ -1119,7 +1115,7 @@ exec_65tube_exit:                       // We get here from the Event handler wh
         str     r0, [r1]
 #endif        
         msr     CPSR, r2                // re-enable ARM interrupts
-        pop     {r0-r12,pc}
+        pop     {r4-r11,pc}
 
 #if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
 fetch_next_i:
@@ -1156,9 +1152,9 @@ fetch_next_check_event:
         ldr     pc, [instt, r2, lsl #2]
 
 fetch_next_check_irq:
+        ldr     r0, =tube_irq
         mrs     r2, CPSR                  // Preserve the 6502 flags
         tst     flags, #4                    // Test whether interrupts are enabled (bit 2 = 0)
-        ldreq   r0, =tube_irq
         ldreq   r0, [r0]
         eoreq   r0, r0, #1
         tsteq   r0, #1                    // Test for IRQ
@@ -1207,7 +1203,7 @@ Event_Handler:
         str     r0, [r1]                // ack the attention bit
 #endif
 
-        push    {r2-r3,r12}           // r0 contains the tube mailbox value
+        push    {r2-r3,r12}             // r0 contains the tube mailbox value
         bl      tube_io_handler
         pop     {r2-r3,r12}
         
@@ -1217,7 +1213,7 @@ Event_Handler:
         tst     r0, #2                  // Bit 1 set indicate NMI is active
         bne     handle_nmi              // Take the NMI interrupt
 
-        tst     flags, #4                  // Test whether interrupts are enabled (bit 2 = 0)
+        tst     flags, #4               // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq
         tst     r0, #1                  // Bit 1 set indicate IRQ is active
         bne     handle_irq              // Take the IRQ interrupt
@@ -1415,57 +1411,21 @@ decimal_mode_sbc_r0:
         lsl     regA, regA, #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2        
-     
-        // Note regarding commented out code below
-        //
-        // The reason for disabling interrupts was to prevent an interrupt
-        // notification (via register instt) being "lost" as instt is pushed
-        // then later popped. If an interrupt was allowed to occur in between
-        // then the pop would overwrite the flag set in register instt by the
-        // interrupt handler.
-        //
-        // In PiTubeDirect, because interrupts are using to provide the host
-        // 6502 with read data, interrupt latency is critical. We cannot affort
-        // ever to disable interrupts, or reads are late, and the 6502 get
-        // incorrect data (or worse, a bus conflict with a later cycle).
-        //
-        // Instead of disabling interrupts, we have compiled with -ffixed-sl
-        // prevent the C compiler using instt (r12). It's normally a valid scratch
-        // register.
-        //
-        // If the C code calls any system libraries (e.g. printf) then it's
-        // likely that instt will get corrupted, so we need to be very careful.
-        //
-        // It's probably woth redesigning the way the ISR notifies the main
-        // code to invoke the event handler. This will only cost a few more
-        // emulation cycles.
 
 tube_load_handler:
-        push    {r2, lr} 
-        mrs     r2, CPSR               // Save 6502 flags
-        push    {r0-r3}                // r0 = address, r2 = current cpsr
-        orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
-        msr     CPSR_c, r2
-//      push    {r12}                      // push instt after disabling interrupts to avoid a race condition
+        push    {r0,r2,r3,r5,r12,lr} 
+        mrs     r5, CPSR               // Save 6502 flags
         bl      tube_parasite_read
-//      pop     {r12}
-        str     r0, [sp, #4]              // save result to r1 on the stack
-        pop     {r0-r3}                // r2 (cpsr) is preserved
-        msr     CPSR, r2
-        pop     {r2, pc}
+        mov     r1,r0
+        msr     CPSR_flg, r5
+        pop     {r0,r2,r3,r5,r12,pc}
 
 tube_store_handler:
-        push    {r2, lr} 
-        mrs     r2, CPSR               // save 6502 flags 
-        push    {r0-r3}                // r0 = address, r1 = data, r2 = current cpsr
-        orr     r2, r2, #ARM_INT_MASK     // disable ARM IRQs and FIQs
-        msr     CPSR_c, r2
-//      push    {r12}                      // push instt after disabling interrupts to avoid a race condition
+        push    {r1-r3,r12, lr} 
+      //  mrs     r5, CPSR               // Save 6502 flags
         bl      tube_parasite_write_banksel
-//      pop     {r12}
-        pop     {r0-r3}                // r2 (cpsr) is preserved
-        msr     CPSR, r2
-        pop     {r2, pc}
+       // msr     CPSR_flg, r5
+        pop     {r1-r3,r12, pc}
 
 handle_rti:
 #if defined(USE_MEMORY_POINTER)
@@ -1889,8 +1849,6 @@ opcode_20:
         mov     r1,r1          // ****** NOP in stall ???? ******
         ldrb    r5, [r0]//,r5,LSL #8]!//,#1 // modified FETCH_NEXT_3B_STAGE_0 
         strh    regPC, [regSP,#1]
-        
-         
         mov     regPC,r0  
 #endif
         
@@ -2114,7 +2072,6 @@ opcode_4D:
         EA_ABSOLUTE_LOAD
         LOGICAL_FETCH012 eors
 
-
 // Opcode 4E - LSR $0000
 opcode_4E:
         EA_ABSOLUTE_LOAD nocarry
@@ -2126,7 +2083,6 @@ opcode_4E:
 // Opcode 4F - BBR4
 opcode_4F:
         BBR 4
-
 
 // Opcode 50 - BVC
 opcode_50:
@@ -2270,7 +2226,7 @@ opcode_6A:
         teq     regA, #0       
         FETCH_NEXT_STAGE_2
         
-        // looks a possible improvement , but regA LSB can become set from another intruction
+        // looks a possible improvement , but regA LSB can become set from another instruction
         //tst     regA, #1<<24
         //orrne   regA, regA ,#1
         //FETCH_NEXT_STAGE_0_I
@@ -3056,18 +3012,4 @@ opcode_FF:
 
 // **********************************************
 // End of opcode implementations
-// **********************************************
-                
-// **********************************************
-// Start of 64K of 6502 RAM
-// **********************************************
-        
-//.balign 0x10000
-//mpu_memory:
-//.rept 16384
-//.word 0
-//.endr
-
-// **********************************************
-// End of 64K of 6502 RAM
 // **********************************************
