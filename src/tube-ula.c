@@ -143,7 +143,7 @@ unsigned int tube_buffer[0x10000];
 
 void tube_dump_buffer() {
    int i;
-   LOG_INFO("tube_index = %d\r\n", tube_index);
+   LOG_INFO("tube_index = %u\r\n", tube_index);
    for (i = 0; i < tube_index; i++) {
       if (tube_buffer[i] & (TUBE_READ_MARKER | TUBE_WRITE_MARKER)) {
          if (tube_buffer[i] & TUBE_READ_MARKER) {
@@ -153,7 +153,7 @@ void tube_dump_buffer() {
             LOG_INFO("Wr R");
          }
          // Covert address (1,3,5,7) to R1,R2,R3,R4
-         LOG_INFO("%d = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
+         LOG_INFO("%u = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
       } else {
          LOG_INFO("?? %08x\r\n", tube_buffer[i]);
       }

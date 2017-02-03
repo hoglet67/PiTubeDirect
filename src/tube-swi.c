@@ -247,7 +247,7 @@ void handler_not_implemented(char *type) {
 
 // For an undefined environment handler (i.e. where num >= NUM_HANDLERS)
 void handler_not_defined(unsigned int num) {
-  printf("Handler %d not defined\r\n", num);
+  printf("Handler %u not defined\r\n", num);
 }
 
 // For an unimplemented SWI

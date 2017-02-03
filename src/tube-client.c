@@ -223,7 +223,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
 #ifdef HAS_MULTICORE
 
-  LOG_DEBUG("main running on core %d\r\n", _get_core());
+  LOG_DEBUG("main running on core %u\r\n", _get_core());
   for (i = 0; i < 10000000; i++);
   start_core(1, _spin_core);
   for (i = 0; i < 10000000; i++);
