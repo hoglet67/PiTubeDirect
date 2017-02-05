@@ -5,7 +5,7 @@
 
 #include <inttypes.h>
 
-extern volatile int copro;
+extern volatile unsigned int copro;
 
 extern volatile uint32_t *tube_mailbox;
 
