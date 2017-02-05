@@ -174,8 +174,8 @@
 .endm
 
 .macro FETCH_NEXT_STAGE_1
-        ldrb    r0, [regPC, #1]!
-        ldrb    r5, [regPC, #1]!  
+        ldrb    r0, [regPC, #1]
+        ldrb    r5, [regPC, #2]!  
 .endm
 
 .macro FETCH_NEXT_STAGE_1a_OO
@@ -1183,6 +1183,11 @@ Event_Handler:
         msr     CPSR_c, r1
         
 #if defined(USE_HW_MAILBOX)
+
+        //ldr     r1, =FIQCTRL
+        //mov     r0, #0
+        //str     r0, [r1]
+        
         ldr     r1, =FIQCTRL            // Re-enable ARM Mailbox FIQ interrupt
         mov     r0, #0xC1               // It's safe to do this before reading the mailbox
         str     r0, [r1]                // As ARM FIQ interrupts currently disabled
@@ -1422,9 +1427,7 @@ tube_load_handler:
 
 tube_store_handler:
         push    {r1-r3,r12, lr} 
-      //  mrs     r5, CPSR               // Save 6502 flags
         bl      tube_parasite_write_banksel
-       // msr     CPSR_flg, r5
         pop     {r1-r3,r12, pc}
 
 handle_rti:
@@ -1577,6 +1580,8 @@ watchpointentry:
 // Opcode D3 - NOP
 // Opcode E3 - NOP
 // Opcode EA - NOP
+// Opcode EB - NOP
+// Opcode F3 - NOP
 // Opcode FB - NOP
 opcode_03:
 opcode_0B:
