@@ -234,7 +234,8 @@ static void tube_host_read(uint16_t addr)
 static void tube_host_write(uint16_t addr, uint8_t val)
 {
    if ((addr & 7) == 6) {
-      copro = val;
+      copro = val & 0x0F;
+      co_options = val;
       return;
    }
    if (!tube_enabled) {

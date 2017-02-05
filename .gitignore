@@ -15,3 +15,6 @@ tools/vasm/obj/
 tools/vasm/vasmvidcore_std
 tools/vasm/vobjdump
 not_in_git/
+.cproject
+.project
+.settings/language.settings.xml

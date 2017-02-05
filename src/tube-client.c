@@ -83,7 +83,7 @@ static const func_ptr emulator_functions[] = {
 
 #endif
 
-volatile int copro;
+volatile int copro, co_options;
 
 static func_ptr emulator;
 

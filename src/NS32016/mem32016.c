@@ -34,6 +34,10 @@
 
 uint8_t ns32016ram[MEG16];
 
+#ifndef RAM_SIZE
+static uint32_t RAM_SIZE = MEG1;
+#endif
+
 void init_ram(void)
 {
 #ifdef TEST_SUITE
@@ -47,6 +51,22 @@ void init_ram(void)
    for (Address = 0; Address < MEG16; Address += sizeof(PandoraV2_00))
    {
       memcpy(ns32016ram + Address, PandoraV2_00, sizeof(PandoraV2_00));
+   }
+#endif
+
+#ifndef RAM_SIZE
+   switch ((co_options >> 4) & 0x0F)
+   {
+      default:
+      case 0: RAM_SIZE = MEG1; break;
+      case 1: RAM_SIZE = K128; break;
+      case 2: RAM_SIZE = K256; break;
+      case 3: RAM_SIZE = K512; break;
+      case 4: RAM_SIZE = K640; break;
+      case 5: RAM_SIZE = MEG2; break;
+      case 6: RAM_SIZE = MEG4; break;
+      case 7: RAM_SIZE = MEG8; break;
+      case 8: RAM_SIZE = MEG15; break;
    }
 #endif
 }

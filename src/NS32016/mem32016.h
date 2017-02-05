@@ -1,7 +1,7 @@
 #define IO_BASE         0xFFFFF0
 
 //#define PANDORA_BASE    0xF00000
-#define RAM_SIZE        MEG1
+//#define RAM_SIZE        MEG1
 
 //#define TEST_SUITE
 #ifdef TEST_SUITE
