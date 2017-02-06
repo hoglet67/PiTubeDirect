@@ -80,6 +80,8 @@ static const func_ptr emulator_functions[] = {
 #endif
 
 volatile unsigned int copro;
+volatile unsigned int copro_speed;
+int arm_speed;
 
 static func_ptr emulator;
 
@@ -170,6 +172,7 @@ static void start_core(int core, func_ptr func) {
 static unsigned int get_copro_number() {
    unsigned int copro = DEFAULT_COPRO;
    char *copro_prop = get_cmdline_prop("copro");
+   
    if (copro_prop) {
       copro = atoi(copro_prop);
    }
@@ -179,6 +182,20 @@ static unsigned int get_copro_number() {
    return copro;
 }
 
+static void get_copro_speed() {
+   char *copro_prop = get_cmdline_prop("copro_speed");
+   copro_speed = 4; // default to 4MHz 
+   if (copro_prop) {
+      copro_speed = atoi(copro_prop);
+   }
+   if (copro_speed > 255){
+      copro_speed = 0;
+   }
+   if (copro_speed !=0)
+      copro_speed = (arm_speed/(1000000/65536) / copro_speed);
+}
+
+
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
 #ifdef HAS_MULTICORE
@@ -186,9 +203,10 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 #endif
 
    tube_init_hardware();
-
+   arm_speed = get_clock_rate(ARM_CLK_ID);
    copro = get_copro_number();
-
+   get_copro_speed();
+   
 #ifdef USE_GPU
       LOG_DEBUG("Staring VC ULA\r\n");
       start_vc_ula();
@@ -197,12 +215,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
-
-   if (copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
-      LOG_DEBUG("Co Pro %d has not been defined yet\r\n", copro);
-      LOG_DEBUG("Halted....\r\n");
-      while (1);
-   }
 
 #ifdef DEBUG
   // Run a short set of CPU and Memory benchmarks

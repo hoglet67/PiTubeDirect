@@ -1045,8 +1045,29 @@ Event_Handler_Dispatch_Table:
 #endif
 
 // **********************************************
+// Instruction timings
+// **********************************************
+
+// First byte is the number of cycles the instruction takes ( minus 1 for known jmps RTS as new pc will be detected and so extra cycle will be added)
+// Second byte signifies number of bytes of instruction ) ie where PC will be 
+
+timing_table:
+.byte 7,0
+.byte 7,0
+
+
+
+   
+// **********************************************
 // Entry point to emulator
 // **********************************************
+//
+// R0 Points to memory 
+// R1 Slow down bit
+
+// Globals used
+//   copro_speed 
+                          
 
 exec_65tube:
         push    {r4-r11,lr}
@@ -1070,8 +1091,24 @@ exec_65tube:
 #if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
         tst     r1, #1                  // Copy the slowdown bit into flags
         orrne   flags, flags, #SLOW_FLAG
-#endif
         
+#endif
+      tst     r1, #1                  // test slow down bit  
+      beq     noslowsetup
+        // setup ARM cycle counter
+#if defined(RPI2)|| defined(RPI3)
+      mrc      p15,0,r0,c9,c12,0
+      BIC      r0,r0,#8  
+      mcr      p15,0,r0,c9,c12,0
+      mrc      p15,0,r0,c9,c13,0
+#else
+      MRC      p15, 0, r0, c15, c12, 0    // Read Performance Monitor Control Register
+      BIC      r0 ,r0, #8                // clear div 64 bit
+      MCR      p15, 0, r0, c15, c12, 0    // Write Performance Monitor Control Register
+      MRC      p15, 0, r0, c15, c12, 1    // Read Cycle Counter Register    
+#endif        
+      str      r0,targettime
+noslowsetup:
 
 #if defined(USE_HW_MAILBOX)
         mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
@@ -1242,6 +1279,11 @@ handle_nmi:
 
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 
+lastPC:
+   .word 0
+targettime:
+   .word 0
+   
 // In slowdown we patch the event handler dispatch table to a special event handler (below)
 //
 // This implements the following dispatch pattern
@@ -1297,9 +1339,9 @@ Event_Handler_Single_Core_Slow:
         str     r0, [r1]                // ack the attention bit
 #endif
 
-        push    {r1-r3,r12,lr}           // r0 contains the tube mailbox value
+        push    {r2-r3,r12}           // r0 contains the tube mailbox value
         bl      tube_io_handler
-        pop     {r1-r3,r12,lr}
+        pop     {r2-r3,r12}
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
@@ -1313,20 +1355,37 @@ Event_Handler_Single_Core_Slow:
         bne     handle_irq2             // Take the IRQ interrupt
 
 noirq2:
-       // Might need sub regPC,#1
-
-#if defined(RPIZERO)
-        mov     r0, #0x158              // 0x158 gives 3.04MHz average on a Pi Zero at 1000/400
-#elif defined(RPI2)
-        mov     r0, #0x388              // 0x388 gives 3.01MHz average on a Pi 2 at 900/350
-#elif defined(RPI3)
-        mov     r0, #0x4C0              // 0x3F0 gives 3.02MHz average on a Pi 3 at 1200/400
+        ldrb    r0, [regPC]             // get next instruction
+        ldr     r1,=timing_table
+        ldr     lr,lastPC
+        ldrb    r0,[r1,r0,LSL#1]!        // get instruction time
+        ldrb    r1,[r1,#1]             // get instruction length
+        cmp     lr,regPC
+        ldr     lr,=copro_speed
+        add     r1,r1,regPC
+        str     r1,lastPC
+        ADDNE   r0,r0,#1                // branch has occured so add an extra cycle  
+        
+        ldr     lr,[lr]                 // load copro_speed 
+        // get last time
+        LDR     r1,targettime
+        MUL     r0,lr,r0
+        
+        // add on new time
+        ADD    lr,r1,r0,LSR #16        // shift by 16 
+        // save time new time.
+        str    lr,targettime
+        
+        // loop until current time(R0) > nexttime(R1) ( nb deal with wrap around)
+waste_time:       
+#if defined(RPI2)|| defined(RPI3)
+      mrc      p15, 0, lr, c9, c13, 0
 #else
-        mov     r0, #0x0EE              // 0x0EE gives 3.01MHz average on a Pi One at 700/350
-#endif
-waste_time:
-        subs    r0, r0, #1
-        bne     waste_time
+      MRC      p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register    
+#endif        
+         sub   lr,lr,r1          // if this goes negative we are running too slow
+         CMP   lr,r0,LSR #16
+         BCS   waste_time
 
         msr     CPSR, r2                // restore the 6502 flags        
 

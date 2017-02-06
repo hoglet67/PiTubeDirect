@@ -237,6 +237,13 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       copro = val;
       return;
    }
+   if ((addr & 7) == 4) {
+      if (val == 0)
+         copro_speed = 0;
+      else
+         copro_speed = (arm_speed/(1000000/65536) / val);
+      return; 
+   }
    if (!tube_enabled) {
       return;
    }

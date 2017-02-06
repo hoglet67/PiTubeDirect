@@ -7,6 +7,10 @@
 
 extern volatile unsigned int copro;
 
+extern volatile unsigned int copro_speed;
+
+extern int arm_speed;
+
 extern volatile uint32_t *tube_mailbox;
 
 extern volatile uint32_t tube_mailbox_block;
