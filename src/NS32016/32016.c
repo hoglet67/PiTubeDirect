@@ -2622,6 +2622,7 @@ void n32016_exec()
             }
             SIGN_EXTEND(OpSize.Op[0], temp);  // upper bound
             SIGN_EXTEND(OpSize.Op[0], temp2); // lower bound
+            SIGN_EXTEND(OpSize.Op[0], temp3); // index
 
             //PiTRACE("Reg = %u Bounds [%u - %u] Index = %u", 0, temp, temp2, temp3);
 
