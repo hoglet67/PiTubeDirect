@@ -235,13 +235,15 @@ static void tube_host_write(uint16_t addr, uint8_t val)
 {
    if ((addr & 7) == 6) {
       copro = val;
+      LOG_DEBUG("New Copro = %d\n", copro);
       return;
    }
    if ((addr & 7) == 4) {
       if (val == 0)
          copro_speed = 0;
       else
-         copro_speed = (arm_speed/(1000000/65536) / val);
+         copro_speed = (arm_speed/(1000000/256) / val);
+      LOG_DEBUG("New speed Copro = %d, %d\n", val, copro_speed);
       return; 
    }
    if (!tube_enabled) {

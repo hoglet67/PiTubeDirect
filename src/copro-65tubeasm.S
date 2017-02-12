@@ -1351,10 +1351,10 @@ exec_65tube:
       beq     noslowsetup
         // setup ARM cycle counter
 #if defined(RPI2)|| defined(RPI3)
-      mrc      p15,0,r0,c9,c12,0
-      BIC      r0,r0,#8  
-      mcr      p15,0,r0,c9,c12,0
-      mrc      p15,0,r0,c9,c13,0
+      mrc      p15 ,0, r0, c9, c12, 0
+      BIC      r0, r0, #8  
+      mcr      p15, 0, r0, c9, c12, 0
+      mrc      p15, 0, r0, c9, c13, 0
 #else
       MRC      p15, 0, r0, c15, c12, 0    // Read Performance Monitor Control Register
       BIC      r0 ,r0, #8                // clear div 64 bit
@@ -1570,8 +1570,8 @@ Event_Handler_Single_Core_Slow:
         mrs     r2, CPSR                // preserve the 6502 flags
                                         // interrupts are left enabled
         
-        bic     instt, instt, #1024           // ack any events
-        sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
+        bic     instt, instt, #1024     // ack any events
+        sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
 
 #if defined(USE_HW_MAILBOX)
         ldr     r1, =MBOX0_STATUS       // poll the hardware mailbox status
@@ -1593,7 +1593,7 @@ Event_Handler_Single_Core_Slow:
         str     r0, [r1]                // ack the attention bit
 #endif
 
-        push    {r2-r3,r12}           // r0 contains the tube mailbox value
+        push    {r2-r3,r12}             // r0 contains the tube mailbox value
         bl      tube_io_handler
         pop     {r2-r3,r12}
         
@@ -1603,7 +1603,7 @@ Event_Handler_Single_Core_Slow:
         tst     r0, #2                  // Bit 1 set indicate NMI is active
         bne     handle_nmi2             // Take the NMI interrupt
 
-        tst     flags, #4                  // Test whether interrupts are enabled (bit 2 = 0)
+        tst     flags, #4               // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq2
         tst     r0, #1                  // Bit 1 set indicate IRQ is active
         bne     handle_irq2             // Take the IRQ interrupt
@@ -1612,43 +1612,43 @@ noirq2:
         ldrb    r0, [regPC]             // get next instruction
         ldr     r1,=timing_table
         ldr     lr,lastPC
-        ldrb    r0,[r1,r0,LSL#1]!        // get instruction time
-        ldrb    r1,[r1,#1]             // get instruction length
+        ldrb    r0,[r1,r0,LSL#1]!       // get instruction time
+        ldrb    r1,[r1,#1]              // get instruction length
         cmp     lr,regPC
         ldr     lr,=copro_speed
         add     r1,r1,regPC
         str     r1,lastPC
         ADDNE   r0,r0,#1                // branch has occured so add an extra cycle  
         
-        ldr     lr,[lr]                 // load copro_speed 
+        ldr     lr,[lr]                 // load copro_speed
         // get last time
         LDR     r1,targettime
         MUL     r0,lr,r0
         
         // add on new time
-        ADD    lr,r1,r0,LSR #16        // shift by 16 
+        ADD    lr,r1,r0,LSR #8         // shift by 16 
         // save time new time.
         str    lr,targettime
         
         // loop until current time(R0) > nexttime(R1) ( nb deal with wrap around)
 waste_time:       
 #if defined(RPI2)|| defined(RPI3)
-      mrc      p15, 0, lr, c9, c13, 0
+        mrc     p15, 0, lr, c9, c13, 0
 #else
-      MRC      p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register    
+        MRC     p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register    
 #endif        
-         sub   lr,lr,r1          // if this goes negative we are running too slow
-         CMP   lr,r0,LSR #16
-         BCS   waste_time
+        sub     lr,lr,r1          // if this goes negative we are running too slow
+        CMP     lr,r0,LSR #8
+        BCC     waste_time
 
         msr     CPSR, r2                // restore the 6502 flags        
 
 execute_one_instruction:
         ldrb    r2, [regPC]            // same as FETCH_NEXT_STAGE_012 but set bit in instt to return immediately to event handler
-        ldrb    r0, [regPC, #1]!
-        ldrb    r5, [regPC, #1]!
+        ldrb    r0, [regPC, #1]
+        ldrb    r5, [regPC, #2]!
         ldr     lr, [instt, r2, lsl #2]
-        orr     instt, instt, #1024           // Return to event handler after next instruction dispatch        
+        orr     instt, instt, #1024    // Return to event handler after next instruction dispatch        
         mov     pc, lr
 
 handle_irq2:
