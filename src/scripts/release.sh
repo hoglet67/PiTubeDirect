@@ -34,7 +34,7 @@ PiTubeDirect
 build version: ${NAME}
 EOF
 
-cp config.txt ${DIR}/config.txt
+cp config.txt cmdline.txt ${DIR}
 cd releases/${NAME}
 zip -qr ../${NAME}.zip .
 cd ../..
