@@ -115,9 +115,18 @@ void map_4k_page(int logical, int physical) {
   // Invalidate the data TLB before changing mapping
   _invalidate_dtlb_mva((void *)(logical << 12));
   // Setup the 4K page table entry
-  // XP (bit23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
   // Second level descriptors use extended small page format so inner/outer cacheing can be controlled 
+  // Pi 0/1:
+  //   XP (bit 23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
+  // Pi 2/3:
+  //   XP (bit 23) in SCTRL no longer exists, and we see to be using ARMv6 table formats
+  //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
+  //   (this was the cause of issue #27)
+#if defined(RPI2) || defined (RPI3)
+  PageTable2[logical] = (physical<<12) | 0x132 | (bb << 6) | (aa << 2);
+#else
   PageTable2[logical] = (physical<<12) | 0x133 | (bb << 6) | (aa << 2);
+#endif
 }
 
 void enable_MMU_and_IDCaches(void)
