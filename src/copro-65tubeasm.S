@@ -187,7 +187,7 @@
 .endm
         
 .macro FETCH_NEXT_STAGE_2
-        mov     pc, lr
+        bx lr
 .endm
 
 .macro FETCH_NEXT_STAGE_01
@@ -1431,8 +1431,8 @@ fetch_next_check_event:
 #endif
         msr     CPSR_flg, r2              // Restore the 6502 flags
 
-        ldrb    r2, [regPC, #1]!
-        ldrb    r0, [regPC, #1]!
+        ldrb    r2, [regPC, #1]
+        ldrb    r0, [regPC, #2]!
 
 #ifdef HISTOGRAM
         HISTOGRAM_65TUBE        
@@ -1613,10 +1613,13 @@ noirq2:
         ldrb    r0,[r1,r0,LSL#1]!       // get instruction time
         ldrb    r1,[r1,#1]              // get instruction length
         cmp     lr,regPC
+        ADDNE   r0,r0,#1  
+         
+        //ldr     lr,[r1,#2]
+         
         ldr     lr,=copro_speed
         add     r1,r1,regPC
         str     r1,lastPC
-        ADDNE   r0,r0,#1                // branch has occured so add an extra cycle  
         
         ldr     lr,[lr]                 // load copro_speed
         // get last time
@@ -1647,7 +1650,7 @@ execute_one_instruction:
         ldrb    r5, [regPC, #2]!
         ldr     lr, [instt, r2, lsl #2]
         orr     instt, instt, #1024    // Return to event handler after next instruction dispatch        
-        mov     pc, lr
+        bx      lr
 
 handle_irq2:
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
