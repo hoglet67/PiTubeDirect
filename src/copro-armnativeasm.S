@@ -161,7 +161,9 @@ _user_exec:
     stmfd    sp!, {r0}            // Save spsr, as this (and lr) will be corrupted by nested swis
 
 #if defined(RPI2) || defined(RPI3)
+    stmfd    sp!, {r0-r3}         // Save the _user_exec params
     bl       CleanDataCache
+    ldmfd    sp!, {r0-r3}         // Restore the _user_exec params
 #else        
     mov      r0, #0                  // New code may have just been written to memory, so
     mcr      p15, 0, r0, c7, c10, 0  // Clean entire data cache
