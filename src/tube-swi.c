@@ -1,5 +1,9 @@
 // tube-swi.c
 //
+// 23-Nov-2016   DMB:
+//           Code imported from PiTubeClient project
+// 25-Nov-2016   DMB:
+//           Implemented OS_Plot (SWI &45)
 // 02-Feb-2017   JGH:
 //           Updated comments
 //           Corrected in-length of OSWORD A=&05 (=IOMEM)
@@ -9,6 +13,8 @@
 //           Added SWI_Mouse
 //           OSBYTE &8E/&9D don't return parameters
 //           Corrected R1 return from OSBYTE &80+
+// 14-Feb-2017   JGH and DMB:
+//           Updated code entry to check code header
 
 #include <stdio.h>
 #include <string.h>
@@ -225,6 +231,20 @@ SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_SWI_Not_Known          // (&7F) -- OS_HeapSort32
 };
 
+// A helper method to make generating errors easier
+void generate_error(void * address, unsigned int errorNum, char *errorMsg) {
+  // Get the current handler's error buffer
+  ErrorBuffer_type *ebuf = (ErrorBuffer_type *)env->handler[ERROR_HANDLER].address;
+  // Copy the error address into the handler's error block
+  ebuf->errorAddr = address;
+  // Copy the error number into the handler's error block
+  ebuf->errorBlock.errorNum = errorNum;
+  // Copy the error string into the handler's error block
+  strcpy(ebuf->errorBlock.errorMsg, errorMsg);
+  // The wrapper drops back to user mode and calls the handler
+  _error_handler_wrapper(ebuf, env->handler[ERROR_HANDLER].handler);
+}
+
 void updateOverflow(unsigned char ovf, unsigned int *reg) {
   // The PSW is on the stack two words before the registers
   reg-= 2;
@@ -322,13 +342,52 @@ int user_exec_fn(FunctionPtr_Type f, int param ) {
 }
 
 void user_exec_raw(volatile unsigned char *address) {
+  int off, type;
+  int carry = 0, r0 = 0; int r1 = 0; int r12 = 0;   // Entry parameters
+
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
   }
+
+// JGH: set up parameters and find correct entry address
+  off=address[7];
+  if (address[off+0]==0 && address[off+1]=='(' && address[off+2]=='C' && address[off+3]==')') {
+    // BBC header
+    type = address[6];
+    if ((type & 0x4F) != 0x4D) {
+      generate_error((void *) address, 249, "This is not ARM code");
+      return;
+    } else {
+      r0 = 1;       // Entering code with a BBC header
+      carry = 1;    // Set Carry = not entering from RESET
+    }
+  } else {
+    if (address[19] == 0 && address[23] == 0 && address[27] == 0) {
+      // RISC OS module header
+      off=address[16] + 256 * address[1] + 65536 * address[2];
+      r0 = (unsigned int) address + off; // R0=>module title
+    } else {
+      // No header, r0 should point to *command used to run code
+      r0 = (unsigned int) env->commandBuffer;
+    }
+  }
+      
+  if (address[3]==0) {
+    off=address[0]+256*address[1]+65536*address[2];
+    address=address+off;      // Entry word is offset, not branch
+  }
+  // Bit zero of the address param is used by _user_exec as the carry
+  address = (unsigned char *) (((unsigned int) address) | carry);
+
   // setTubeLibDebug(1);
   // The machine code version in copro-armnativeasm.S does the real work
   // of dropping down to user mode
-  _user_exec(address, 0, 0, 0);
+
+  _user_exec(address, r0, r1, r12);
+  // r0>255 - points to startup command/module name
+  // r0=1   - BBC code header
+  // r0=0   - raw code
+
   if (DEBUG_ARM) {
     printf("Execution returned from %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
   }
@@ -668,16 +727,8 @@ void tube_Mouse(unsigned int *reg) {
 void tube_GenerateError(unsigned int *reg) {
   // The error block is passed to the SWI in reg 0
   ErrorBlock_type *eblk = (ErrorBlock_type *)reg[0];
-  // Get the current handler's error buffer
-  ErrorBuffer_type *ebuf = (ErrorBuffer_type *)env->handler[ERROR_HANDLER].address;
-  // Fill in the error address from the stacked link register
-  ebuf->errorAddr = (void *) reg[13];
-  // Copy the error number into the handler's error block
-  ebuf->errorBlock.errorNum = eblk->errorNum;
-  // Copy the error string into the handler's error block
-  strcpy(ebuf->errorBlock.errorMsg, eblk->errorMsg);
-  // The wrapper drops back to user mode and calls the handler
-  _error_handler_wrapper(ebuf, env->handler[ERROR_HANDLER].handler);
+  // Error address from the stacked link register
+  generate_error((void *)reg[13], eblk->errorNum, eblk->errorMsg);
 }
 
 // Entry:
