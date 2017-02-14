@@ -7,6 +7,7 @@
 //           Corrected printf formatting of an error message
 //           Corrected mask to detect OS_WriteI
 //           Added SWI_Mouse
+//           OSBYTE &8E/&9D don't return parameters
 
 #include <stdio.h>
 #include <string.h>
@@ -425,6 +426,20 @@ void tube_Byte(unsigned int *reg) {
     sendByte(R2_ID, x);
     sendByte(R2_ID, y);
     sendByte(R2_ID, a);
+
+    // JGH: OSBYTE &8E and &9D do not return any data.
+    if (a == 0x8E) {
+       // OSBYTE &8E returns a 1-byte OSCLI acknowledgement
+       if (receiveByte(R2_ID) & 0x80) {
+          user_exec_raw(address);
+       }
+       return;
+    }
+    if (a == 0x9D) {
+       // OSBYTE &9D immediately returns.
+       return;
+    }
+
     cy = receiveByte(R2_ID) & 0x80;
     y = receiveByte(R2_ID);
     x = receiveByte(R2_ID);
