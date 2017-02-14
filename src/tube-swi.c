@@ -2,7 +2,7 @@
 //
 // 02-Feb-2017   JGH:
 //           Updated comments
-
+//           Corrected in-length of OSWORD A=&05 (=IOMEM)
 
 #include <stdio.h>
 #include <string.h>
@@ -24,7 +24,7 @@ const int osword_in_len[] = {
   5,   //  2  TIME=
   0,   //  3  =IntTimer
   5,   //  4  IntTimer=
-  2,   //  5  =IOMEM
+  4,   //  5  =IOMEM   JGH: must send full 4-byte address
   5,   //  6  IOMEM=
   8,   //  7  SOUND
   14,  //  8  ENVELOPE
