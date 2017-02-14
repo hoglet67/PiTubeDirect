@@ -173,6 +173,14 @@
         ldr     lr, [instt, r5, lsl #2]
 .endm
 
+.macro FETCH_NEXT_STAGE_1a
+        ldrb    r0, [regPC, #1]
+.endm
+
+.macro FETCH_NEXT_STAGE_1b
+        ldrb    r5, [regPC, #2]!  
+.endm
+
 .macro FETCH_NEXT_STAGE_1
         ldrb    r0, [regPC, #1]
         ldrb    r5, [regPC, #2]!  
@@ -608,10 +616,16 @@
         sxthcs  \reg, \reg
 #else
         orrcs   \reg, \reg, memry         // memry has been reused and is 0xFFFFFF00 
-#endif        
+#endif     
+.if \reg==r0    
         FETCH_NEXT_STAGE_1a_OO
         adcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
+.else
+        FETCH_NEXT_STAGE_1a
+        adcs    regA, regA, \reg, ror #8
+        FETCH_NEXT_STAGE_1b
+.endif          
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2   
 .endm
@@ -631,10 +645,17 @@
         sxthcc  \reg, \reg
 #else
         orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
-#endif        
+#endif  
+.if \reg==r0        
         FETCH_NEXT_STAGE_1a_OO
         sbcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
+.else
+        FETCH_NEXT_STAGE_1a
+        sbcs    regA, regA, \reg, ror #8
+        FETCH_NEXT_STAGE_1b
+
+.endif
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2     
 .endm
@@ -647,8 +668,8 @@
       //stall
       //stall
       ldr     lr, [instt, r5, lsl #2]
-      ldrb    r0, [regPC, #1]! //hidden in stall
-      ldrb    r5, [regPC, #1]! //hidden in stall         
+      ldrb    r0, [regPC, #1]  //hidden in stall
+      ldrb    r5, [regPC, #2]! //hidden in stall         
       FETCH_NEXT_STAGE_2            // 5 cycles
 
       // total of 14 if taken. 10 if not taken
@@ -660,9 +681,9 @@
    
       // if we are using R5 PC is already at the right place 
       sxtab\yes regPC, regPC, \reg
-      ldrb      r1, [regPC, #1]!
-      ldrb      r0, [regPC, #1]! //hidden in stall
-      ldrb      r5, [regPC, #1]! //hidden in stall
+      ldrb      r1, [regPC, #1]
+      ldrb      r0, [regPC, #2]  //hidden in stall
+      ldrb      r5, [regPC, #3]! //hidden in stall
       ldr       lr, [instt, r1, lsl #2]
 .ifb \flag
 .else
@@ -680,8 +701,8 @@
 .endif  
       //stall
       ldr     lr, [instt, r5, lsl #2]
-      ldrb    r0, [regPC, #1]! //hidden in stall
-      ldrb    r5, [regPC, #1]! //hidden in stall 
+      ldrb    r0, [regPC, #1]  //hidden in stall
+      ldrb    r5, [regPC, #2]! //hidden in stall 
 .endif      
       
       FETCH_NEXT_STAGE_2            // 5 cycles
@@ -698,7 +719,7 @@
 
 
 .macro LOGICAL_FETCH012 logic reg=r1
-.if \reg==r1
+.if \reg!=r0
         FETCH_NEXT_STAGE_01
         lsl     r1, r1, #24
         \logic  regA, regA, r1
@@ -717,10 +738,9 @@
 .endm
 
 .macro FLAGS dest=r1 reg=r1
-.if \reg==r0
-        FETCH_NEXT_STAGE_1a_OO 
+.if \reg==r0 
         lsl     \dest, \reg, #24
-        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_1
         teq     \dest, #0
         FETCH_NEXT_STAGE_2 
 .else
@@ -1689,9 +1709,9 @@ decimal_mode_sbc:
         lsr     r1, r1, #4
         rscs    regA, r1, regA, lsr #28
         addcc   regA, regA, #10
-        FETCH_NEXT_STAGE_1a_OO
+        FETCH_NEXT_STAGE_1a
         orr     regA, r2, regA, lsl #4
-        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_1b
         lsl     regA, regA, #24
         teq     regA, #0
         orrvs   flags, #0x40
