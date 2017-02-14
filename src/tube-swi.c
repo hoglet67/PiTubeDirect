@@ -3,6 +3,7 @@
 // 02-Feb-2017   JGH:
 //           Updated comments
 //           Corrected in-length of OSWORD A=&05 (=IOMEM)
+//           Corrected OSWORD &80+ block transfer
 
 #include <stdio.h>
 #include <string.h>
@@ -454,8 +455,14 @@ void tube_Word(unsigned int *reg) {
     out_len = 16;
   } else {
     // TODO: Check with JGH whether it is correct to update block to exclude the lengths
-    in_len = *block++;
-    out_len = *block++;
+    // JGH: No, the lengths are the entire block, including the lengths
+    //      For example, &02,&02 is the shortest possible control block
+    //                   &03,&03,nn sends and receives three bytes, two lengths plus one byte of data
+//    in_len = *block++;
+//    out_len = *block++;
+
+    in_len = block[0];
+    out_len = block[1];
   }
   // OSWORD   R2: &08 A in_length block out_length  block
   sendByte(R2_ID, 0x08);
