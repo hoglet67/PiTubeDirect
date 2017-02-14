@@ -1,3 +1,9 @@
+// tube-swi.c
+//
+// 02-Feb-2017   JGH:
+//           Updated comments
+
+
 #include <stdio.h>
 #include <string.h>
 
@@ -13,51 +19,51 @@
 #define NUM_SWI_HANDLERS 0x80
 
 const int osword_in_len[] = {
-  0,  // OSWORD 0x00
-  0,
-  5,
-  0,
-  5,
-  2,
-  5,
-  8,
-  14,
-  4,
-  1,
-  1,
-  5,
-  0,
-  8,
-  25,
-  16,
-  13,
-  0,
-  8,
-  128  // OSWORD 0x14
+  0,   // OSWORD 0x00
+  0,   //  1  =TIME
+  5,   //  2  TIME=
+  0,   //  3  =IntTimer
+  5,   //  4  IntTimer=
+  2,   //  5  =IOMEM
+  5,   //  6  IOMEM=
+  8,   //  7  SOUND
+  14,  //  8  ENVELOPE
+  4,   //  9  =POINT()
+  1,   // 10  =CHR$()
+  1,   // 11  =Palette
+  5,   // 12  Pallette=
+  0,   // 13  =Coords
+  8,   // 14  =RTC
+  25,  // 15  RTC=
+  16,  // 16  NetTx
+  13,  // 17  NetRx
+  0,   // 18  NetArgs
+  8,   // 19  NetInfo
+  128  // 20  NetFSOp
 };
 
 const int osword_out_len[] = {
-  0,  // OSWORD 0x00
-  5,
-  0,
-  5,
-  0,
-  5,
-  0,
-  0,
-  0,
-  5,
-  9,
-  5,
-  0,
-  8,
-  25,
-  1,
-  13,
-  13,
-  128,
-  8,
-  128  // OSWORD 0x14
+  0,   // OSWORD 0x00
+  5,   //  1  =TIME
+  0,   //  2  TIME=
+  5,   //  3  =IntTimer
+  0,   //  4  IntTimer=
+  5,   //  5  =IOMEM
+  0,   //  6  IOMEM=
+  0,   //  7  SOUND
+  0,   //  8  ENVELOPE
+  5,   //  9  =POINT()
+  9,   // 10  =CHR$()
+  5,   // 11  =Palette
+  0,   // 12  Palette=
+  8,   // 13  =Coords
+  25,  // 14  =RTC
+  1,   // 15  RTC=
+  13,  // 16  NetTx
+  13,  // 17  NetRx
+  128, // 18  NetArgs
+  8,   // 19  NetInfo
+  128  // 20  NetFSOp
 };
 
 // Basic 135 uses the following on startup
@@ -300,7 +306,7 @@ int user_exec_fn(FunctionPtr_Type f, int param ) {
     printf("Execution passing to %08x cpsr = %08x param = %s\r\n", (unsigned int)f, _get_cpsr(), (unsigned char *)param);
   }
   // setTubeLibDebug(1);
-  // The machine code version in armc-startup.S does the real work
+  // The machine code version in copro-armnativeasm.S does the real work
   // of dropping down to user mode
   ret = _user_exec((unsigned char *)f, param, 0, 0);
   if (DEBUG_ARM) {
@@ -314,7 +320,7 @@ void user_exec_raw(volatile unsigned char *address) {
     printf("Execution passing to %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
   }
   // setTubeLibDebug(1);
-  // The machine code version in armc-startup.S does the real work
+  // The machine code version in copro-armnativeasm.S does the real work
   // of dropping down to user mode
   _user_exec(address, 0, 0, 0);
   if (DEBUG_ARM) {
@@ -372,7 +378,7 @@ void tube_NewLine(unsigned int *reg) {
 void tube_ReadC(unsigned int *reg) {
   // OSRDCH   R2: &00                               Cy A
   sendByte(R2_ID, 0x00);
-  // On exit, the Carry flag indicaes validity
+  // On exit, the Carry flag indicates validity
   updateCarry(receiveByte(R2_ID) & 0x80, reg);
   // On exit, R0 contains the character
   reg[0] = receiveByte(R2_ID);
@@ -506,7 +512,7 @@ void tube_BGet(unsigned int *reg) {
   sendByte(R2_ID, 0x0E);
   // Y = R1 is the file namdle
   sendByte(R2_ID, reg[1]);
-  // On exit, the Carry flag indicaes validity
+  // On exit, the Carry flag indicates validity
   updateCarry(receiveByte(R2_ID) & 0x80, reg);
   // On exit, R0 contains the character
   reg[0] = receiveByte(R2_ID);
@@ -519,7 +525,7 @@ void tube_BPut(unsigned int *reg) {
   sendByte(R2_ID, reg[1]);
   // A = R0 is the character
   sendByte(R2_ID, reg[0]);
-  // Response is always 7F so ingnored
+  // Response is always 7F so ignored
   receiveByte(R2_ID);
 }
 
@@ -709,20 +715,20 @@ void tube_WriteN(unsigned int *reg) {
 // The purpose of this call is to lookup and output (via OS_WriteC) a help message for a given BASIC keyword.
 
 void tube_BASICTrans_HELP(unsigned int *reg) {
-  // Return with V set to indicate an error
+  // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
 }
 
 // The purpose of this call is to lookup an error message. The buffer pointer to by R1 must be at least 252 bytes long.
 
 void tube_BASICTrans_Error(unsigned int *reg) {
-  // Return with V set to indicate an error
+  // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
 }
 
 // The purpose of this call is to lookup and display (via OS_WriteC) a message.
 
 void tube_BASICTrans_Message(unsigned int *reg) {
-  // Return with V set to indicate an error
+  // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
 }
