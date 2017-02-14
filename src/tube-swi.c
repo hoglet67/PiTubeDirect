@@ -5,6 +5,7 @@
 //           Corrected in-length of OSWORD A=&05 (=IOMEM)
 //           Corrected OSWORD &80+ block transfer
 //           Corrected printf formatting of an error message
+//           Corrected mask to detect OS_WriteI
 
 #include <stdio.h>
 #include <string.h>
@@ -280,8 +281,8 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
   if (num < NUM_SWI_HANDLERS) {
     // Invoke one of the fixed handlers
     SWIHandler_Table[num](reg);
-  } else if ((num & 0xFF00) == 0x0100) {
-    // SWI's 0x100 - 0x1FF are OS_WriteI
+  } else if ((num & 0xFFFFFF00) == 0x0100) {      // JGH
+    // SWIs 0x100 - 0x1FF are OS_WriteI
     tube_WriteC(&num);
   } else if (num == 0x42c80) {
     tube_BASICTrans_HELP(reg);
