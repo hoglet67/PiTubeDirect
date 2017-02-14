@@ -15,7 +15,8 @@
 //           Corrected R1 return from OSBYTE &80+
 // 14-Feb-2017   JGH and DMB:
 //           Updated code entry to check code header
-
+// 14-Feb-2017   DMB:
+//           Implemented OS_ReadPoint (SWI &32)
 #include <stdio.h>
 #include <string.h>
 
@@ -151,7 +152,7 @@ SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_SWI_Not_Known,         // (&2F) -- OS_ReadPalette
   tube_SWI_Not_Known,         // (&30) -- OS_ServiceCall
   tube_SWI_Not_Known,         // (&31) -- OS_ReadVduVariables
-  tube_SWI_Not_Known,         // (&32) -- OS_ReadPoint
+  tube_ReadPoint,             // (&32) -- OS_ReadPoint
   tube_SWI_Not_Known,         // (&33) -- OS_UpCall
   tube_SWI_Not_Known,         // (&34) -- OS_CallAVector
   tube_SWI_Not_Known,         // (&35) -- OS_ReadModeVariable
@@ -729,6 +730,32 @@ void tube_GenerateError(unsigned int *reg) {
   ErrorBlock_type *eblk = (ErrorBlock_type *)reg[0];
   // Error address from the stacked link register
   generate_error((void *)reg[13], eblk->errorNum, eblk->errorMsg);
+}
+
+// Entry:
+// R0   X coordinate
+// R1   Y coordinate
+//
+// Exit:
+// R0   preserved
+// R1   preserved
+// R2   colour
+// Map to OSWORD A=&9; 
+void tube_ReadPoint(unsigned int *reg) {
+  // OSWORD   R2: &08 A in_length block out_length  block
+  sendByte(R2_ID, 0x08);
+  sendByte(R2_ID, 0x09);        // OSWORD A=&09
+  sendByte(R2_ID, 0x04);        // inlen = 4
+  sendByte(R2_ID, reg[0]);      // LSB of X coord
+  sendByte(R2_ID, reg[0] >> 8); // MSB of X coord
+  sendByte(R2_ID, reg[1]);      // LSB of Y coord
+  sendByte(R2_ID, reg[1] >> 8); // MSB of Y coord
+  sendByte(R2_ID, 0x05);        // outlen = 5
+  receiveByte(R2_ID);           // LSB of X coord
+  receiveByte(R2_ID);           // MSB of X coord
+  receiveByte(R2_ID);           // LSB of Y coord
+  receiveByte(R2_ID);           // MSB of Y coord
+  reg[2] = receiveByte(R2_ID);  // logical colour of point, or 0xFF is the point is off screen
 }
 
 // Entry:
