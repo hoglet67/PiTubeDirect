@@ -8,6 +8,7 @@
 //           Corrected mask to detect OS_WriteI
 //           Added SWI_Mouse
 //           OSBYTE &8E/&9D don't return parameters
+//           Corrected R1 return from OSBYTE &80+
 
 #include <stdio.h>
 #include <string.h>
@@ -443,7 +444,7 @@ void tube_Byte(unsigned int *reg) {
     cy = receiveByte(R2_ID) & 0x80;
     y = receiveByte(R2_ID);
     x = receiveByte(R2_ID);
-    reg[1] = x;
+    reg[1] = x | (y << 8);      // JGH
     reg[2] = y;
     updateCarry(cy, reg);
   }
