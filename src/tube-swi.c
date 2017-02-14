@@ -6,6 +6,7 @@
 //           Corrected OSWORD &80+ block transfer
 //           Corrected printf formatting of an error message
 //           Corrected mask to detect OS_WriteI
+//           Added SWI_Mouse
 
 #include <stdio.h>
 #include <string.h>
@@ -628,6 +629,24 @@ void tube_EnterOS(unsigned int *reg) {
 }
 
 void tube_Mouse(unsigned int *reg) {
+  // JGH: Read Mouse settings
+  int msX, msY, msZ;
+  
+  reg[0]=128; reg[1]=7; reg[2]=0;
+  tube_Byte(reg);      // ADVAL(7)
+  msX=reg[1];         // Mouse X
+
+  reg[0]=128; reg[1]=8; reg[2]=0;
+  tube_Byte(reg);      // ADVAL(8)
+  msY=reg[1];         // Mouse Y
+
+  reg[0]=128; reg[1]=9; reg[2]=0;
+  tube_Byte(reg);      // ADVAL(9)
+  msZ=reg[1];         // Mouse Z (buttons)
+  
+  reg[0]=msX;
+  reg[1]=msY;
+  reg[2]=msZ;
 }
 
 void tube_GenerateError(unsigned int *reg) {
