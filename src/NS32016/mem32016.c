@@ -123,16 +123,18 @@ uint32_t read_x32(uint32_t addr)
 uint64_t read_x64(uint32_t addr)
 {
    addr &= 0xFFFFFF;
-   // ARM doesn't support unalizged 64-bit loads, so the following
+   // ARM doesn't support unaligned 64-bit loads, so the following
    // results in a Data Abort exception:
    // return *((uint64_t*) (ns32016ram + addr))
    return (((uint64_t) read_x32(addr + 4)) << 32) + read_x32(addr);
 }
 
+
+// As this function returns uint32_t it *should* only be used for size 1, 2 or 4
 uint32_t read_n(uint32_t addr, uint32_t Size)
 {
    addr &= 0xFFFFFF;
-   if (Size <= sizeof(uint64_t))
+   if (Size <= sizeof(uint32_t))
    {
       if ((addr + Size) <= IO_BASE)
       {
@@ -140,9 +142,11 @@ uint32_t read_n(uint32_t addr, uint32_t Size)
          memcpy(&Result, ns32016ram + addr, Size);
          return Result;
       }
+      PiWARN("Bad read_n() addr @ %06" PRIX32 " size %" PRIX32 "\n", addr, Size);
+   } else {
+      PiWARN("Bad read_n() size @ %06" PRIX32 " size %" PRIX32 "\n", addr, Size);
    }
 
-   PiWARN("Bad Read @ %06" PRIX32 "\n", addr);
    return 0;
 }
 
@@ -238,7 +242,7 @@ void write_x64(uint32_t addr, uint64_t val)
 #ifdef NS_FAST_RAM
    if (addr <= (RAM_SIZE - sizeof(uint64_t)))
    {
-      // ARM doesn't support unalizged 64-bit stores, so the following
+      // ARM doesn't support unaligned 64-bit stores, so the following
       // results in a Data Abort exception:
       // *((uint64_t*) (ns32016ram + addr)) = val;
       write_x32(addr, (uint32_t) val);
