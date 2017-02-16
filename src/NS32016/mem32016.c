@@ -238,7 +238,11 @@ void write_x64(uint32_t addr, uint64_t val)
 #ifdef NS_FAST_RAM
    if (addr <= (RAM_SIZE - sizeof(uint64_t)))
    {
-      *((uint64_t*) (ns32016ram + addr)) = val;
+      // ARM doesn't support unalizged 64-bit stores, so the following
+      // results in a Data Abort exception:
+      // *((uint64_t*) (ns32016ram + addr)) = val;
+      write_x32(addr, (uint32_t) val);
+      write_x32(addr + 4, (uint32_t) (val >> 32));
       return;
    }
 #endif
