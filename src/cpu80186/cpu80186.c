@@ -2300,15 +2300,13 @@ void exec86(uint32_t execloops)
           break;
         }
 
-        putmem8 (useseg, getreg16 (regsi) , portin (regs.wordregs[regdx]));
+        putmem8 (segregs[reges], getreg16 (regdi) , portin (regs.wordregs[regdx]));
         if (df)
         {
-          putreg16 (regsi, getreg16 (regsi) - 1);
           putreg16 (regdi, getreg16 (regdi) - 1);
         }
         else
         {
-          putreg16 (regsi, getreg16 (regsi) + 1);
           putreg16 (regdi, getreg16 (regdi) + 1);
         }
 
@@ -2333,15 +2331,13 @@ void exec86(uint32_t execloops)
           break;
         }
 
-        putmem16 (useseg, getreg16 (regsi) , portin16 (regs.wordregs[regdx]));
+        putmem16 (segregs[reges], getreg16 (regdi) , portin16 (regs.wordregs[regdx]));
         if (df)
         {
-          putreg16 (regsi, getreg16 (regsi) - 2);
           putreg16 (regdi, getreg16 (regdi) - 2);
         }
         else
         {
-          putreg16 (regsi, getreg16 (regsi) + 2);
           putreg16 (regdi, getreg16 (regdi) + 2);
         }
 
@@ -2369,12 +2365,10 @@ void exec86(uint32_t execloops)
         if (df)
         {
           putreg16 (regsi, getreg16 (regsi) - 1);
-          putreg16 (regdi, getreg16 (regdi) - 1);
         }
         else
         {
           putreg16 (regsi, getreg16 (regsi) + 1);
-          putreg16 (regdi, getreg16 (regdi) + 1);
         }
 
         if (reptype)
@@ -2401,12 +2395,10 @@ void exec86(uint32_t execloops)
         if (df)
         {
           putreg16 (regsi, getreg16 (regsi) - 2);
-          putreg16 (regdi, getreg16 (regdi) - 2);
         }
         else
         {
           putreg16 (regsi, getreg16 (regsi) + 2);
-          putreg16 (regdi, getreg16 (regdi) + 2);
         }
 
         if (reptype)
