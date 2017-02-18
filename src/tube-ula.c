@@ -634,8 +634,8 @@ void tube_init_hardware()
   // Initialise the UART to 57600 baud
   RPI_AuxMiniUartInit( 115200, 8 );
 
-  // Pre-populate info string
-  get_info_string();
+  // Initialise the info system with cached values (as we break the GPU property interface)
+  init_info();
 
 #ifdef DEBUG
   dump_useful_info();
