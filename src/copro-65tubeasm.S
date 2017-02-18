@@ -1676,7 +1676,7 @@ noirq2:
         MUL     r0,lr,r0
         
         // add on new time
-        ADD    lr,r1,r0,LSR #8         // shift by 16 
+        ADD    lr,r1,r0,LSR #8         // shift by 8 
         // save time new time.
         str    lr,targettime
         
