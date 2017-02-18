@@ -290,7 +290,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       checksum_h += val;
       count_h++;
 #endif
-      if (HSTAT1 & 16)
+      if (HSTAT1 & HBIT_4)
       {
          if (hp3pos < 2)
             hp3[hp3pos++] = val;
