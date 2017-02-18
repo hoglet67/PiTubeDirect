@@ -191,8 +191,9 @@ static void get_copro_speed() {
    if (copro_speed > 255){
       copro_speed = 0;
    }
+   LOG_DEBUG("emulator speed %d\r\n", copro_speed);
    if (copro_speed !=0)
-      copro_speed = (arm_speed/(1000000/65536) / copro_speed);
+      copro_speed = (arm_speed/(1000000/256) / copro_speed);
 }
 
 
