@@ -104,11 +104,11 @@
    ld     r15, 20(r1)  # databus driving signals
 
    lsr    r16, r3, 0   # Extract GPIO number of A0
-   and    r16, 255
+   and    r16, 31
    lsr    r17, r3, 8   # Extract GPIO number of A1
-   and    r17, 255
+   and    r17, 31
    lsr    r18, r3, 16  # Extract GPIO number of A2
-   and    r18, 255
+   and    r18, 31
 
 # r1, r3, r4 now free
 
@@ -159,13 +159,17 @@ Poll_loop:
 
   # spin waiting for clk high
 rd_wait_for_clk_high1:
-  ld     r7, GPLEV0_offset(r6)
-  btst   r7, CLK
-  beq    rd_wait_for_clk_high1
-
+   ld     r7, GPLEV0_offset(r6)
+   btst   r7, CLK
+   beq    rd_wait_for_clk_high1
+# we now have half a cycle to do post mail ( 500ns early)
+   mov    r8,r7
+   btst   r8, r16
+   beq    rd_wait_for_clk_low
+   bl     do_post_mailbox
+   
 # spin waiting for clk low
 rd_wait_for_clk_low:
-   mov    r8, r7
    ld     r7, GPLEV0_offset(r6)
    btst   r7, CLK
    bne    rd_wait_for_clk_low
@@ -185,13 +189,9 @@ rd_wait_for_clk_high2:
    btst   r7, CLK
    beq    rd_wait_for_clk_high2
    btst   r7, nTUBE
-   bne    rd_not_going_to_write
+   bne    Poll_loop
    btst   r7, RnW
-   beq    wr_wait_for_clk_high1
-rd_not_going_to_write:
-   btst   r8, r16
-   bne    post_mail
-   b      Poll_loop
+   bne    Poll_loop
 
 wr_cycle:
 
