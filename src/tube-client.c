@@ -16,8 +16,6 @@ typedef void (*func_ptr)();
 
 #ifdef MINIMAL_BUILD
 
-#define NUM_COPROS 2
-
 #ifdef DEBUG
 static const char * emulator_names[] = {
    "65C02 (65tube)"
@@ -38,8 +36,6 @@ static const func_ptr emulator_functions[] = {
 #include "copro-z80.h"
 #include "copro-mc6809nc.h"
 #include "copro-armnative.h"
-
-#define NUM_COPROS 16
 
 #ifdef DEBUG
 static const char * emulator_names[] = {
@@ -83,10 +79,11 @@ static const func_ptr emulator_functions[] = {
 
 #endif
 
-volatile int copro;
+volatile unsigned int copro;
+volatile unsigned int copro_speed;
+int arm_speed;
 
 static func_ptr emulator;
-
 
 // This magic number come form cache.c where we have relocated the vectors to 
 // Might be better to just read the vector pointer register instead.
@@ -120,12 +117,12 @@ void init_emulator() {
 #endif
 
    // Make sure that copro number is valid
-   if (copro < 0 || copro >= NUM_COPROS) {
+   if (copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
       LOG_DEBUG("using default co pro\r\n");
       copro = DEFAULT_COPRO;
    }
 
-   LOG_DEBUG("Raspberry Pi Direct %s Client\r\n", emulator_names[copro]);
+   LOG_DEBUG("Raspberry Pi Direct %d %s Client\r\n", copro,emulator_names[copro]);
 
    emulator = emulator_functions[copro];
    
@@ -172,17 +169,33 @@ static void start_core(int core, func_ptr func) {
 #endif
 
 
-static int get_copro_number() {
-   int copro = -1;
+static unsigned int get_copro_number() {
+   unsigned int copro = DEFAULT_COPRO;
    char *copro_prop = get_cmdline_prop("copro");
+   
    if (copro_prop) {
       copro = atoi(copro_prop);
    }
-   if (copro < 0 || copro >= NUM_COPROS) {
+   if (copro >= sizeof(emulator_functions) / sizeof(func_ptr)){
       copro = DEFAULT_COPRO;
    }
    return copro;
 }
+
+static void get_copro_speed() {
+   char *copro_prop = get_cmdline_prop("copro1_speed");
+   copro_speed = 4; // default to 4MHz 
+   if (copro_prop) {
+      copro_speed = atoi(copro_prop);
+   }
+   if (copro_speed > 255){
+      copro_speed = 0;
+   }
+   LOG_DEBUG("emulator speed %d\r\n", copro_speed);
+   if (copro_speed !=0)
+      copro_speed = (arm_speed/(1000000/256) / copro_speed);
+}
+
 
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
@@ -191,9 +204,10 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 #endif
 
    tube_init_hardware();
-
+   arm_speed = get_clock_rate(ARM_CLK_ID);
    copro = get_copro_number();
-
+   get_copro_speed();
+   
 #ifdef USE_GPU
       LOG_DEBUG("Staring VC ULA\r\n");
       start_vc_ula();
@@ -202,12 +216,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
-
-   if (copro < 0 || copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
-      LOG_DEBUG("Co Pro %d has not been defined yet\r\n", copro);
-      LOG_DEBUG("Halted....\r\n");
-      while (1);
-   }
 
 #ifdef DEBUG
   // Run a short set of CPU and Memory benchmarks

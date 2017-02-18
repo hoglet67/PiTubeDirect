@@ -173,9 +173,17 @@
         ldr     lr, [instt, r5, lsl #2]
 .endm
 
+.macro FETCH_NEXT_STAGE_1a
+        ldrb    r0, [regPC, #1]
+.endm
+
+.macro FETCH_NEXT_STAGE_1b
+        ldrb    r5, [regPC, #2]!  
+.endm
+
 .macro FETCH_NEXT_STAGE_1
-        ldrb    r0, [regPC, #1]!
-        ldrb    r5, [regPC, #1]!  
+        ldrb    r0, [regPC, #1]
+        ldrb    r5, [regPC, #2]!  
 .endm
 
 .macro FETCH_NEXT_STAGE_1a_OO
@@ -187,7 +195,7 @@
 .endm
         
 .macro FETCH_NEXT_STAGE_2
-        mov     pc, lr
+        bx lr
 .endm
 
 .macro FETCH_NEXT_STAGE_01
@@ -351,6 +359,12 @@
         LOAD_ABSOLUTE \nocarry
 .endm
 
+.macro EA_ABSOLUTE_LOAD_NOCHECK nocarry=carry
+        orr     r0,r0,r5,LSL #8
+        FETCH_NEXT_3B_STAGE_0
+        LOAD_ABSOLUTE_NOCHECK \nocarry
+.endm
+
 .macro WRAP_MEMORY
 #if defined(CLEAR_MEMORY_OVERFLOW)        
         bic     r0, r0, #0x10000
@@ -367,6 +381,12 @@
         EA_ABSOLUTE_INDEXED \reg     
         FETCH_NEXT_3B_STAGE_0
         LOAD_ABSOLUTE \nocarry
+.endm
+
+.macro EA_ABSOLUTE_INDEXED_LOAD_NOCHECK reg nocarry
+        EA_ABSOLUTE_INDEXED \reg     
+        FETCH_NEXT_3B_STAGE_0
+        LOAD_ABSOLUTE_NOCHECK \nocarry
 .endm
 
 .macro EA_INDIRECT reg=r0
@@ -476,6 +496,14 @@
         bleq    tube_load_handler  // tube memory access
 .endm
 
+.macro LOAD_ABSOLUTE_NOCHECK nocarry=carry // r0 holds the absolute address
+#if defined(USE_MEMORY_POINTER) 
+        ldrb  r1, [r0, memry]    // normal memory read
+#else
+        ldrb  r1, [r0]    // normal memory read
+#endif        
+.endm
+
 .macro STORE_ABSOLUTE  flags=flags            // r0 holds the absolute address
 .if \flags==flags
         mrs     r2, CPSR           // preserve the 6502 flags
@@ -501,6 +529,15 @@
         msr     CPSR_flg, r2           // restore 6502 flags, including ARM 
 .endif
         
+.endm
+
+
+.macro STORE_ABSOLUTE_NOCHECK flags
+#if defined(USE_MEMORY_POINTER) 
+        strb  r1, [r0, memry]       // normal memory write
+#else
+        strb  r1, [r0]       // normal memory write
+#endif  
 .endm
 
 // Macros for additional Rockwell 65C02 and WDC 65C02 instructions
@@ -608,10 +645,16 @@
         sxthcs  \reg, \reg
 #else
         orrcs   \reg, \reg, memry         // memry has been reused and is 0xFFFFFF00 
-#endif        
+#endif     
+.if \reg==r0    
         FETCH_NEXT_STAGE_1a_OO
         adcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
+.else
+        FETCH_NEXT_STAGE_1a
+        adcs    regA, regA, \reg, ror #8
+        FETCH_NEXT_STAGE_1b
+.endif          
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2   
 .endm
@@ -631,10 +674,17 @@
         sxthcc  \reg, \reg
 #else
         orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
-#endif        
+#endif  
+.if \reg==r0        
         FETCH_NEXT_STAGE_1a_OO
         sbcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
+.else
+        FETCH_NEXT_STAGE_1a
+        sbcs    regA, regA, \reg, ror #8
+        FETCH_NEXT_STAGE_1b
+
+.endif
         orrvs   flags, #0x40
         FETCH_NEXT_STAGE_2     
 .endm
@@ -647,8 +697,8 @@
       //stall
       //stall
       ldr     lr, [instt, r5, lsl #2]
-      ldrb    r0, [regPC, #1]! //hidden in stall
-      ldrb    r5, [regPC, #1]! //hidden in stall         
+      ldrb    r0, [regPC, #1]  //hidden in stall
+      ldrb    r5, [regPC, #2]! //hidden in stall         
       FETCH_NEXT_STAGE_2            // 5 cycles
 
       // total of 14 if taken. 10 if not taken
@@ -660,9 +710,9 @@
    
       // if we are using R5 PC is already at the right place 
       sxtab\yes regPC, regPC, \reg
-      ldrb      r1, [regPC, #1]!
-      ldrb      r0, [regPC, #1]! //hidden in stall
-      ldrb      r5, [regPC, #1]! //hidden in stall
+      ldrb      r1, [regPC, #1]
+      ldrb      r0, [regPC, #2]  //hidden in stall
+      ldrb      r5, [regPC, #3]! //hidden in stall
       ldr       lr, [instt, r1, lsl #2]
 .ifb \flag
 .else
@@ -680,8 +730,8 @@
 .endif  
       //stall
       ldr     lr, [instt, r5, lsl #2]
-      ldrb    r0, [regPC, #1]! //hidden in stall
-      ldrb    r5, [regPC, #1]! //hidden in stall 
+      ldrb    r0, [regPC, #1]  //hidden in stall
+      ldrb    r5, [regPC, #2]! //hidden in stall 
 .endif      
       
       FETCH_NEXT_STAGE_2            // 5 cycles
@@ -698,7 +748,7 @@
 
 
 .macro LOGICAL_FETCH012 logic reg=r1
-.if \reg==r1
+.if \reg!=r0
         FETCH_NEXT_STAGE_01
         lsl     r1, r1, #24
         \logic  regA, regA, r1
@@ -717,10 +767,9 @@
 .endm
 
 .macro FLAGS dest=r1 reg=r1
-.if \reg==r0
-        FETCH_NEXT_STAGE_1a_OO 
+.if \reg==r0 
         lsl     \dest, \reg, #24
-        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_1
         teq     \dest, #0
         FETCH_NEXT_STAGE_2 
 .else
@@ -1045,8 +1094,281 @@ Event_Handler_Dispatch_Table:
 #endif
 
 // **********************************************
+// Instruction timings
+// **********************************************
+
+// First byte is the number of cycles the instruction takes ( minus 1 for known jmps RTS as new pc will be detected and so extra cycle will be added)
+// Second byte signifies number of bytes of instruction ) ie where PC will be 
+
+timing_table:
+.byte	7	,	1	//	0
+.byte	6	,	2	//	1
+.byte	2	,	2	//	2
+.byte	1	,	1	//	3
+.byte	5	,	2	//	4
+.byte	3	,	2	//	5
+.byte	5	,	2	//	6
+.byte	5	,	2	//	7
+.byte	3	,	1	//	8
+.byte	2	,	2	//	9
+.byte	2	,	1	//	A
+.byte	1	,	1	//	B
+.byte	6	,	3	//	C
+.byte	4	,	3	//	D
+.byte	6	,	3	//	E
+.byte	5	,	3	//	F
+.byte	2	,	2	//	10
+.byte	5	,	2	//	11
+.byte	5	,	2	//	12
+.byte	1	,	1	//	13
+.byte	5	,	2	//	14
+.byte	4	,	2	//	15
+.byte	6	,	2	//	16
+.byte	5	,	2	//	17
+.byte	2	,	1	//	18
+.byte	4	,	3	//	19
+.byte	2	,	1	//	1A
+.byte	1	,	1	//	1B
+.byte	6	,	3	//	1C
+.byte	4	,	3	//	1D
+.byte	7	,	3	//	1E
+.byte	5	,	3	//	1F
+.byte	5	,	3	//	20
+.byte	6	,	2	//	21
+.byte	2	,	2	//	22
+.byte	1	,	1	//	23
+.byte	3	,	2	//	24
+.byte	3	,	2	//	25
+.byte	5	,	2	//	26
+.byte	5	,	2	//	27
+.byte	4	,	1	//	28
+.byte	2	,	2	//	29
+.byte	2	,	1	//	2A
+.byte	1	,	1	//	2B
+.byte	4	,	3	//	2C
+.byte	4	,	3	//	2D
+.byte	6	,	3	//	2E
+.byte	5	,	3	//	2F
+.byte	2	,	2	//	30
+.byte	5	,	2	//	31
+.byte	5	,	2	//	32
+.byte	1	,	1	//	33
+.byte	4	,	2	//	34
+.byte	4	,	2	//	35
+.byte	6	,	2	//	36
+.byte	5	,	2	//	37
+.byte	2	,	1	//	38
+.byte	4	,	3	//	39
+.byte	2	,	1	//	3A
+.byte	1	,	1	//	3B
+.byte	4	,	3	//	3C
+.byte	4	,	3	//	3D
+.byte	7	,	3	//	3E
+.byte	5	,	3	//	3F
+.byte	5	,	1	//	40
+.byte	6	,	2	//	41
+.byte	2	,	2	//	42
+.byte	1	,	1	//	43
+.byte	3	,	2	//	44
+.byte	3	,	2	//	45
+.byte	5	,	2	//	46
+.byte	5	,	2	//	47
+.byte	3	,	1	//	48
+.byte	2	,	2	//	49
+.byte	2	,	1	//	4A
+.byte	1	,	1	//	4B
+.byte	2	,	3	//	4C
+.byte	4	,	3	//	4D
+.byte	6	,	3	//	4E
+.byte	5	,	3	//	4F
+.byte	2	,	2	//	50
+.byte	5	,	2	//	51
+.byte	5	,	2	//	52
+.byte	1	,	1	//	53
+.byte	4	,	2	//	54
+.byte	4	,	2	//	55
+.byte	6	,	2	//	56
+.byte	5	,	2	//	57
+.byte	2	,	1	//	58
+.byte	4	,	3	//	59
+.byte	3	,	1	//	5A
+.byte	1	,	1	//	5B
+.byte	8	,	3	//	5C
+.byte	4	,	3	//	5D
+.byte	7	,	3	//	5E
+.byte	5	,	3	//	5F
+.byte	5	,	1	//	60
+.byte	6	,	2	//	61
+.byte	2	,	2	//	62
+.byte	1	,	1	//	63
+.byte	3	,	2	//	64
+.byte	3	,	2	//	65
+.byte	5	,	2	//	66
+.byte	5	,	2	//	67
+.byte	4	,	1	//	68
+.byte	2	,	2	//	69
+.byte	2	,	1	//	6A
+.byte	1	,	1	//	6B
+.byte	5	,	3	//	6C
+.byte	4	,	3	//	6D
+.byte	6	,	3	//	6E
+.byte	5	,	3	//	6F
+.byte	2	,	2	//	70
+.byte	5	,	2	//	71
+.byte	5	,	2	//	72
+.byte	1	,	1	//	73
+.byte	4	,	2	//	74
+.byte	4	,	2	//	75
+.byte	6	,	2	//	76
+.byte	5	,	2	//	77
+.byte	2	,	1	//	78
+.byte	4	,	3	//	79
+.byte	4	,	1	//	7A
+.byte	1	,	1	//	7B
+.byte	5	,	3	//	7C
+.byte	4	,	3	//	7D
+.byte	7	,	3	//	7E
+.byte	5	,	3	//	7F
+.byte	3	,	2	//	80
+.byte	6	,	2	//	81
+.byte	2	,	2	//	82
+.byte	1	,	1	//	83
+.byte	3	,	2	//	84
+.byte	3	,	2	//	85
+.byte	3	,	2	//	86
+.byte	5	,	2	//	87
+.byte	2	,	1	//	88
+.byte	2	,	2	//	89
+.byte	2	,	1	//	8A
+.byte	1	,	1	//	8B
+.byte	4	,	3	//	8C
+.byte	4	,	3	//	8D
+.byte	4	,	3	//	8E
+.byte	5	,	3	//	8F
+.byte	2	,	2	//	90
+.byte	6	,	2	//	91
+.byte	5	,	2	//	92
+.byte	1	,	1	//	93
+.byte	4	,	2	//	94
+.byte	4	,	2	//	95
+.byte	4	,	2	//	96
+.byte	5	,	2	//	97
+.byte	2	,	1	//	98
+.byte	5	,	3	//	99
+.byte	2	,	1	//	9A
+.byte	1	,	1	//	9B
+.byte	4	,	3	//	9C
+.byte	5	,	3	//	9D
+.byte	5	,	3	//	9E
+.byte	5	,	3	//	9F
+.byte	2	,	2	//	A0
+.byte	6	,	2	//	A1
+.byte	2	,	2	//	A2
+.byte	1	,	1	//	A3
+.byte	3	,	2	//	A4
+.byte	3	,	2	//	A5
+.byte	3	,	2	//	A6
+.byte	5	,	2	//	A7
+.byte	2	,	1	//	A8
+.byte	2	,	2	//	A9
+.byte	2	,	1	//	AA
+.byte	1	,	1	//	AB
+.byte	4	,	3	//	AC
+.byte	4	,	3	//	AD
+.byte	4	,	3	//	AE
+.byte	5	,	3	//	AF
+.byte	2	,	2	//	B0
+.byte	5	,	2	//	B1
+.byte	5	,	2	//	B2
+.byte	1	,	1	//	B3
+.byte	4	,	2	//	B4
+.byte	4	,	2	//	B5
+.byte	4	,	2	//	B6
+.byte	5	,	2	//	B7
+.byte	2	,	1	//	B8
+.byte	4	,	3	//	B9
+.byte	2	,	1	//	BA
+.byte	1	,	1	//	BB
+.byte	4	,	3	//	BC
+.byte	4	,	3	//	BD
+.byte	4	,	3	//	BE
+.byte	5	,	3	//	BF
+.byte	2	,	2	//	C0
+.byte	6	,	2	//	C1
+.byte	2	,	2	//	C2
+.byte	1	,	1	//	C3
+.byte	3	,	2	//	C4
+.byte	3	,	2	//	C5
+.byte	5	,	2	//	C6
+.byte	5	,	2	//	C7
+.byte	2	,	1	//	C8
+.byte	2	,	2	//	C9
+.byte	2	,	1	//	CA
+.byte	2	,	1	//	CB
+.byte	4	,	3	//	CC
+.byte	4	,	3	//	CD
+.byte	6	,	3	//	CE
+.byte	5	,	3	//	CF
+.byte	2	,	2	//	D0
+.byte	5	,	2	//	D1
+.byte	5	,	2	//	D2
+.byte	1	,	1	//	D3
+.byte	4	,	2	//	D4
+.byte	4	,	2	//	D5
+.byte	6	,	2	//	D6
+.byte	5	,	2	//	D7
+.byte	2	,	1	//	D8
+.byte	4	,	3	//	D9
+.byte	3	,	1	//	DA
+.byte	2	,	1	//	DB
+.byte	4	,	3	//	DC
+.byte	4	,	3	//	DD
+.byte	7	,	3	//	DE
+.byte	5	,	3	//	DF
+.byte	2	,	2	//	E0
+.byte	6	,	2	//	E1
+.byte	2	,	2	//	E2
+.byte	1	,	1	//	E3
+.byte	3	,	2	//	E4
+.byte	3	,	2	//	E5
+.byte	5	,	2	//	E6
+.byte	5	,	2	//	E7
+.byte	2	,	1	//	E8
+.byte	2	,	2	//	E9
+.byte	2	,	1	//	EA
+.byte	1	,	1	//	EB
+.byte	4	,	3	//	EC
+.byte	4	,	3	//	ED
+.byte	6	,	3	//	EE
+.byte	5	,	3	//	EF
+.byte	2	,	2	//	F0
+.byte	5	,	2	//	F1
+.byte	5	,	2	//	F2
+.byte	1	,	1	//	F3
+.byte	4	,	2	//	F4
+.byte	4	,	2	//	F5
+.byte	6	,	2	//	F6
+.byte	5	,	2	//	F7
+.byte	2	,	1	//	F8
+.byte	4	,	3	//	F9
+.byte	4	,	1	//	FA
+.byte	1	,	1	//	FB
+.byte	4	,	3	//	FC
+.byte	4	,	3	//	FD
+.byte	7	,	3	//	FE
+.byte	5	,	3	//	FF
+
+   
+// **********************************************
 // Entry point to emulator
 // **********************************************
+//
+// R0 Points to memory 
+// R1 Slow down bit
+
+// Globals used
+//   copro_speed 
+                          
 
 exec_65tube:
         push    {r4-r11,lr}
@@ -1070,8 +1392,24 @@ exec_65tube:
 #if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
         tst     r1, #1                  // Copy the slowdown bit into flags
         orrne   flags, flags, #SLOW_FLAG
-#endif
         
+#endif
+      tst     r1, #1                  // test slow down bit  
+      beq     noslowsetup
+        // setup ARM cycle counter
+#if defined(RPI2)|| defined(RPI3)
+      mrc      p15 ,0, r0, c9, c12, 0
+      BIC      r0, r0, #8  
+      mcr      p15, 0, r0, c9, c12, 0
+      mrc      p15, 0, r0, c9, c13, 0
+#else
+      MRC      p15, 0, r0, c15, c12, 0    // Read Performance Monitor Control Register
+      BIC      r0 ,r0, #8                // clear div 64 bit
+      MCR      p15, 0, r0, c15, c12, 0    // Write Performance Monitor Control Register
+      MRC      p15, 0, r0, c15, c12, 1    // Read Cycle Counter Register    
+#endif        
+      str      r0,targettime
+noslowsetup:
 
 #if defined(USE_HW_MAILBOX)
         mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
@@ -1142,8 +1480,8 @@ fetch_next_check_event:
 #endif
         msr     CPSR_flg, r2              // Restore the 6502 flags
 
-        ldrb    r2, [regPC, #1]!
-        ldrb    r0, [regPC, #1]!
+        ldrb    r2, [regPC, #1]
+        ldrb    r0, [regPC, #2]!
 
 #ifdef HISTOGRAM
         HISTOGRAM_65TUBE        
@@ -1183,6 +1521,11 @@ Event_Handler:
         msr     CPSR_c, r1
         
 #if defined(USE_HW_MAILBOX)
+
+        //ldr     r1, =FIQCTRL
+        //mov     r0, #0
+        //str     r0, [r1]
+        
         ldr     r1, =FIQCTRL            // Re-enable ARM Mailbox FIQ interrupt
         mov     r0, #0xC1               // It's safe to do this before reading the mailbox
         str     r0, [r1]                // As ARM FIQ interrupts currently disabled
@@ -1237,6 +1580,11 @@ handle_nmi:
 
 #if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 
+lastPC:
+   .word 0
+targettime:
+   .word 0
+   
 // In slowdown we patch the event handler dispatch table to a special event handler (below)
 //
 // This implements the following dispatch pattern
@@ -1269,8 +1617,8 @@ Event_Handler_Single_Core_Slow:
         mrs     r2, CPSR                // preserve the 6502 flags
                                         // interrupts are left enabled
         
-        bic     instt, instt, #1024           // ack any events
-        sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
+        bic     instt, instt, #1024     // ack any events
+        sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
 
 #if defined(USE_HW_MAILBOX)
         ldr     r1, =MBOX0_STATUS       // poll the hardware mailbox status
@@ -1292,9 +1640,9 @@ Event_Handler_Single_Core_Slow:
         str     r0, [r1]                // ack the attention bit
 #endif
 
-        push    {r1-r3,r12,lr}           // r0 contains the tube mailbox value
+        push    {r2-r3,r12}             // r0 contains the tube mailbox value
         bl      tube_io_handler
-        pop     {r1-r3,r12,lr}
+        pop     {r2-r3,r12}
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
@@ -1302,36 +1650,56 @@ Event_Handler_Single_Core_Slow:
         tst     r0, #2                  // Bit 1 set indicate NMI is active
         bne     handle_nmi2             // Take the NMI interrupt
 
-        tst     flags, #4                  // Test whether interrupts are enabled (bit 2 = 0)
+        tst     flags, #4               // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq2
         tst     r0, #1                  // Bit 1 set indicate IRQ is active
         bne     handle_irq2             // Take the IRQ interrupt
 
 noirq2:
-       // Might need sub regPC,#1
-
-#if defined(RPIZERO)
-        mov     r0, #0x158              // 0x158 gives 3.04MHz average on a Pi Zero at 1000/400
-#elif defined(RPI2)
-        mov     r0, #0x388              // 0x388 gives 3.01MHz average on a Pi 2 at 900/350
-#elif defined(RPI3)
-        mov     r0, #0x4C0              // 0x3F0 gives 3.02MHz average on a Pi 3 at 1200/400
+        ldrb    r0, [regPC]             // get next instruction
+        ldr     r1,=timing_table
+        ldr     lr,lastPC
+        ldrb    r0,[r1,r0,LSL#1]!       // get instruction time
+        ldrb    r1,[r1,#1]              // get instruction length
+        cmp     lr,regPC
+        ADDNE   r0,r0,#1  
+         
+        //ldr     lr,[r1,#2]
+         
+        ldr     lr,=copro_speed
+        add     r1,r1,regPC
+        str     r1,lastPC
+        
+        ldr     lr,[lr]                 // load copro_speed
+        // get last time
+        LDR     r1,targettime
+        MUL     r0,lr,r0
+        
+        // add on new time
+        ADD    lr,r1,r0,LSR #8         // shift by 8 
+        // save time new time.
+        str    lr,targettime
+        
+        // loop until current time(R0) > nexttime(R1) ( nb deal with wrap around)
+waste_time:       
+#if defined(RPI2)|| defined(RPI3)
+        mrc     p15, 0, lr, c9, c13, 0
 #else
-        mov     r0, #0x0EE              // 0x0EE gives 3.01MHz average on a Pi One at 700/350
-#endif
-waste_time:
-        subs    r0, r0, #1
-        bne     waste_time
+        MRC     p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register    
+#endif        
+        sub     lr,lr,r1          // if this goes negative we are running too slow
+        CMP     lr,r0,LSR #8
+        BCC     waste_time
 
         msr     CPSR, r2                // restore the 6502 flags        
 
 execute_one_instruction:
         ldrb    r2, [regPC]            // same as FETCH_NEXT_STAGE_012 but set bit in instt to return immediately to event handler
-        ldrb    r0, [regPC, #1]!
-        ldrb    r5, [regPC, #1]!
+        ldrb    r0, [regPC, #1]
+        ldrb    r5, [regPC, #2]!
         ldr     lr, [instt, r2, lsl #2]
-        orr     instt, instt, #1024           // Return to event handler after next instruction dispatch        
-        mov     pc, lr
+        orr     instt, instt, #1024    // Return to event handler after next instruction dispatch        
+        bx      lr
 
 handle_irq2:
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
@@ -1370,9 +1738,9 @@ decimal_mode_sbc:
         lsr     r1, r1, #4
         rscs    regA, r1, regA, lsr #28
         addcc   regA, regA, #10
-        FETCH_NEXT_STAGE_1a_OO
+        FETCH_NEXT_STAGE_1a
         orr     regA, r2, regA, lsl #4
-        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_1b
         lsl     regA, regA, #24
         teq     regA, #0
         orrvs   flags, #0x40
@@ -1422,9 +1790,7 @@ tube_load_handler:
 
 tube_store_handler:
         push    {r1-r3,r12, lr} 
-      //  mrs     r5, CPSR               // Save 6502 flags
         bl      tube_parasite_write_banksel
-       // msr     CPSR_flg, r5
         pop     {r1-r3,r12, pc}
 
 handle_rti:
@@ -1577,6 +1943,8 @@ watchpointentry:
 // Opcode D3 - NOP
 // Opcode E3 - NOP
 // Opcode EA - NOP
+// Opcode EB - NOP
+// Opcode F3 - NOP
 // Opcode FB - NOP
 opcode_03:
 opcode_0B:
@@ -1711,12 +2079,12 @@ opcode_0A:
 // Opcode 0C - TSB $0000
 opcode_0C:
         mrs     r2, CPSR 
-        EA_ABSOLUTE_LOAD nocarry
+        EA_ABSOLUTE_LOAD_NOCHECK nocarry
         tst     r1, regA, lsr #24
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
         orr     r1, r1, regA, lsr #24
-        STORE_ABSOLUTE nocarry
+        STORE_ABSOLUTE_NOCHECK nocarry
         msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_012
 
@@ -1727,9 +2095,9 @@ opcode_0D:
 
 // Opcode 0E - ASL $0000
 opcode_0E:
-        EA_ABSOLUTE_LOAD nocarry
+        EA_ABSOLUTE_LOAD_NOCHECK nocarry
         add     r1, r1, r1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -1806,12 +2174,12 @@ opcode_1A:
 // Opcode 1C - TRB $0000
 opcode_1C:
         mrs     r2, CPSR  
-        EA_ABSOLUTE_LOAD nocarry
+        EA_ABSOLUTE_LOAD_NOCHECK nocarry
         tst     r1, regA, lsr #24
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
         bic     r1, r1, regA, lsr #24
-        STORE_ABSOLUTE nocarry
+        STORE_ABSOLUTE_NOCHECK nocarry
         msr     CPSR_flg, r2  
         FETCH_NEXT_STAGE_012
 
@@ -1822,9 +2190,9 @@ opcode_1D:
 
 // Opcode 1E - ASL $0000,X
 opcode_1E:
-        EA_ABSOLUTE_INDEXED_LOAD regX nocarry
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry
         add     r1, r1, r1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -1916,9 +2284,9 @@ opcode_2D:
 
 // Opcode 2E - ROL $0000
 opcode_2E:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD_NOCHECK
         adc     r1, r1, r1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -1998,9 +2366,9 @@ opcode_3D:
 
 // Opcode 3E - ROL $0000,X
 opcode_3E:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX
         adc     r1, r1, r1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -2074,9 +2442,9 @@ opcode_4D:
 
 // Opcode 4E - LSR $0000
 opcode_4E:
-        EA_ABSOLUTE_LOAD nocarry
+        EA_ABSOLUTE_LOAD_NOCHECK nocarry
         lsrs    r1, r1, #1
-        STORE_ABSOLUTE carry
+        STORE_ABSOLUTE_NOCHECK carry
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2147,9 +2515,9 @@ opcode_5D:
 
 // Opcode 5E - LSR $0000,X
 opcode_5E:
-        EA_ABSOLUTE_INDEXED_LOAD regX nocarry
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry
         lsrs    r1, r1, #1
-        STORE_ABSOLUTE   //carry
+        STORE_ABSOLUTE_NOCHECK   //carry
         FETCH_NEXT_STAGE_012
         //FLAGS
 
@@ -2252,10 +2620,10 @@ opcode_6D:
 
 // Opcode 6E - ROR $0000
 opcode_6E:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD_NOCHECK
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
-        STORE_ABSOLUTE 
+        STORE_ABSOLUTE_NOCHECK 
         FETCH_NEXT_STAGE_012
 
 // Opcode 6F - BBR6
@@ -2345,10 +2713,10 @@ opcode_7D:
 
 // Opcode 7E - ROR $0000,X
 opcode_7E:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_NOCHECK
         FETCH_NEXT_STAGE_012
 
 // Opcode 7F - BBR7
@@ -2776,9 +3144,9 @@ opcode_CD:
 
 // Opcode CE - DEC $0000
 opcode_CE:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD_NOCHECK
         sub     r1, r1, #1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2859,9 +3227,9 @@ opcode_DD:
 
 // Opcode DE - DEX $0000,X
 opcode_DE:
-        EA_ABSOLUTE_INDEXED_LOAD regX 
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX 
         sub     r1, r1, #1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2929,9 +3297,9 @@ opcode_ED:
 
 // Opcode EE - INC $0000
 opcode_EE:
-        EA_ABSOLUTE_LOAD 
+        EA_ABSOLUTE_LOAD_NOCHECK 
         add     r1, r1, #1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -3000,9 +3368,9 @@ opcode_FD:
 
 // Opcode FE - INC $0000,X
 opcode_FE:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX
         add     r1, r1, #1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
