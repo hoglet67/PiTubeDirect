@@ -539,13 +539,7 @@ void HandleMemSingle(UINT32 insn)
         rnv = (R15 & ADDRESS_MASK) - off;
       }
 
-      if (insn & INSN_SDT_W)
-      {
-        SetRegister(rn,rnv);
-        if (ARM_DEBUG_CORE && rn == eR15)
-        logerror("writeback R15 %08x\n", R15);
-      }
-      else if (rn == eR15)
+      if (rn == eR15)
       {
         rnv = rnv + 8;
       }
@@ -589,7 +583,7 @@ void HandleMemSingle(UINT32 insn)
            
            In other cases, 4 is subracted from R15 here to account for pipelining.
            */
-          if ((cpu_read32(rnv)&3)==0)
+          if (m_copro_type == ARM_COPRO_TYPE_VL86C020 || (cpu_read32(rnv)&3)==0)
           R15 -= 4;
 
           CYCLE_COUNT(S_CYCLE + N_CYCLE);
@@ -619,6 +613,17 @@ void HandleMemSingle(UINT32 insn)
         cpu_write32(rnv, rd == eR15 ? R15 + 8 : GetRegister(rd));
       }
     }
+  /* Do pre-indexing writeback */
+  if ((insn & INSN_SDT_P) && (insn & INSN_SDT_W))
+  {
+    if ((insn & INSN_SDT_L) && rd == rn)
+      SetRegister(rn, GetRegister(rd));
+    else
+      SetRegister(rn, rnv);
+
+    if (ARM_DEBUG_CORE && rn == eR15)
+      logerror("writeback R15 %08x\n", R15);
+  }
 
     /* Do post-indexing writeback */
   if (!(insn & INSN_SDT_P)/* && (insn&INSN_SDT_W)*/)
