@@ -184,7 +184,7 @@ static unsigned int get_copro_number() {
 
 static void get_copro_speed() {
    char *copro_prop = get_cmdline_prop("copro1_speed");
-   copro_speed = 4; // default to 4MHz 
+   copro_speed = 3; // default to 3MHz 
    if (copro_prop) {
       copro_speed = atoi(copro_prop);
    }
