@@ -579,7 +579,7 @@ void HandleMemSingle(UINT32 insn)
       {
         if (rd == eR15)
         {
-          R15 = (cpu_read32(rnv) & ADDRESS_MASK) | (R15 & PSR_MASK) | (R15 & MODE_MASK);
+          R15 = (cpu_read32(rnv) & ADDRESS_MASK) | (R15 & PSR_MASK) | (R15 & IRQ_MASK) | (R15 & MODE_MASK);
 
           /*
            The docs are explicit in that the bottom bits should be masked off
@@ -1256,7 +1256,7 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
       if (k)
       {
         while (k > 32) k -= 32;
-        if (pCarry) *pCarry = rm & SIGN_BIT;
+        if (pCarry) *pCarry = rm & (1 << (k - 1));
         return ROR(rm, k);
       }
       else
