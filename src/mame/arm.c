@@ -1209,7 +1209,13 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
   switch (t >> 1)
   {
     case 0: /* LSL */
-      if (pCarry)
+      if (k >= 32)
+      {
+        if (pCarry)
+          *pCarry = (k == 32) ? rm & 1 : 0;
+        return 0;
+      }
+      else if (pCarry)
       {
         *pCarry = k ? (rm & (1 << (32 - k))) : (R15& C_MASK);
       }
