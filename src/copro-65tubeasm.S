@@ -359,6 +359,12 @@
         LOAD_ABSOLUTE \nocarry
 .endm
 
+.macro EA_ABSOLUTE_LOAD_NOCHECK nocarry=carry
+        orr     r0,r0,r5,LSL #8
+        FETCH_NEXT_3B_STAGE_0
+        LOAD_ABSOLUTE_NOCHECK \nocarry
+.endm
+
 .macro WRAP_MEMORY
 #if defined(CLEAR_MEMORY_OVERFLOW)        
         bic     r0, r0, #0x10000
@@ -375,6 +381,12 @@
         EA_ABSOLUTE_INDEXED \reg     
         FETCH_NEXT_3B_STAGE_0
         LOAD_ABSOLUTE \nocarry
+.endm
+
+.macro EA_ABSOLUTE_INDEXED_LOAD_NOCHECK reg nocarry
+        EA_ABSOLUTE_INDEXED \reg     
+        FETCH_NEXT_3B_STAGE_0
+        LOAD_ABSOLUTE_NOCHECK \nocarry
 .endm
 
 .macro EA_INDIRECT reg=r0
@@ -484,6 +496,14 @@
         bleq    tube_load_handler  // tube memory access
 .endm
 
+.macro LOAD_ABSOLUTE_NOCHECK nocarry=carry // r0 holds the absolute address
+#if defined(USE_MEMORY_POINTER) 
+        ldrb  r1, [r0, memry]    // normal memory read
+#else
+        ldrb  r1, [r0]    // normal memory read
+#endif        
+.endm
+
 .macro STORE_ABSOLUTE  flags=flags            // r0 holds the absolute address
 .if \flags==flags
         mrs     r2, CPSR           // preserve the 6502 flags
@@ -509,6 +529,15 @@
         msr     CPSR_flg, r2           // restore 6502 flags, including ARM 
 .endif
         
+.endm
+
+
+.macro STORE_ABSOLUTE_NOCHECK flags
+#if defined(USE_MEMORY_POINTER) 
+        strb  r1, [r0, memry]       // normal memory write
+#else
+        strb  r1, [r0]       // normal memory write
+#endif  
 .endm
 
 // Macros for additional Rockwell 65C02 and WDC 65C02 instructions
@@ -2050,12 +2079,12 @@ opcode_0A:
 // Opcode 0C - TSB $0000
 opcode_0C:
         mrs     r2, CPSR 
-        EA_ABSOLUTE_LOAD nocarry
+        EA_ABSOLUTE_LOAD_NOCHECK nocarry
         tst     r1, regA, lsr #24
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
         orr     r1, r1, regA, lsr #24
-        STORE_ABSOLUTE nocarry
+        STORE_ABSOLUTE_NOCHECK nocarry
         msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_012
 
@@ -2066,9 +2095,9 @@ opcode_0D:
 
 // Opcode 0E - ASL $0000
 opcode_0E:
-        EA_ABSOLUTE_LOAD nocarry
+        EA_ABSOLUTE_LOAD_NOCHECK nocarry
         add     r1, r1, r1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -2145,12 +2174,12 @@ opcode_1A:
 // Opcode 1C - TRB $0000
 opcode_1C:
         mrs     r2, CPSR  
-        EA_ABSOLUTE_LOAD nocarry
+        EA_ABSOLUTE_LOAD_NOCHECK nocarry
         tst     r1, regA, lsr #24
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
         bic     r1, r1, regA, lsr #24
-        STORE_ABSOLUTE nocarry
+        STORE_ABSOLUTE_NOCHECK nocarry
         msr     CPSR_flg, r2  
         FETCH_NEXT_STAGE_012
 
@@ -2161,9 +2190,9 @@ opcode_1D:
 
 // Opcode 1E - ASL $0000,X
 opcode_1E:
-        EA_ABSOLUTE_INDEXED_LOAD regX nocarry
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry
         add     r1, r1, r1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_01
         movs    r1, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -2255,9 +2284,9 @@ opcode_2D:
 
 // Opcode 2E - ROL $0000
 opcode_2E:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD_NOCHECK
         adc     r1, r1, r1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -2337,9 +2366,9 @@ opcode_3D:
 
 // Opcode 3E - ROL $0000,X
 opcode_3E:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX
         adc     r1, r1, r1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_01
         lsls    r1, r1, #24
         FETCH_NEXT_STAGE_2
@@ -2413,9 +2442,9 @@ opcode_4D:
 
 // Opcode 4E - LSR $0000
 opcode_4E:
-        EA_ABSOLUTE_LOAD nocarry
+        EA_ABSOLUTE_LOAD_NOCHECK nocarry
         lsrs    r1, r1, #1
-        STORE_ABSOLUTE carry
+        STORE_ABSOLUTE_NOCHECK carry
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -2486,9 +2515,9 @@ opcode_5D:
 
 // Opcode 5E - LSR $0000,X
 opcode_5E:
-        EA_ABSOLUTE_INDEXED_LOAD regX nocarry
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry
         lsrs    r1, r1, #1
-        STORE_ABSOLUTE   //carry
+        STORE_ABSOLUTE_NOCHECK   //carry
         FETCH_NEXT_STAGE_012
         //FLAGS
 
@@ -2591,10 +2620,10 @@ opcode_6D:
 
 // Opcode 6E - ROR $0000
 opcode_6E:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD_NOCHECK
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
-        STORE_ABSOLUTE 
+        STORE_ABSOLUTE_NOCHECK 
         FETCH_NEXT_STAGE_012
 
 // Opcode 6F - BBR6
@@ -2684,10 +2713,10 @@ opcode_7D:
 
 // Opcode 7E - ROR $0000,X
 opcode_7E:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE_NOCHECK
         FETCH_NEXT_STAGE_012
 
 // Opcode 7F - BBR7
@@ -3115,9 +3144,9 @@ opcode_CD:
 
 // Opcode CE - DEC $0000
 opcode_CE:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD_NOCHECK
         sub     r1, r1, #1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -3198,9 +3227,9 @@ opcode_DD:
 
 // Opcode DE - DEX $0000,X
 opcode_DE:
-        EA_ABSOLUTE_INDEXED_LOAD regX 
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX 
         sub     r1, r1, #1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -3268,9 +3297,9 @@ opcode_ED:
 
 // Opcode EE - INC $0000
 opcode_EE:
-        EA_ABSOLUTE_LOAD 
+        EA_ABSOLUTE_LOAD_NOCHECK 
         add     r1, r1, #1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
@@ -3339,9 +3368,9 @@ opcode_FD:
 
 // Opcode FE - INC $0000,X
 opcode_FE:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX
         add     r1, r1, #1
-        STORE_ABSOLUTE notest
+        STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
         FLAGS
 
