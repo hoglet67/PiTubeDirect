@@ -28,7 +28,7 @@ __attribute__ ((noinline)) int OS_Write0(const char *cptr) {
 }
 
 #pragma GCC diagnostic ignored "-Wreturn-type"
-__attribute__ ((noinline)) __attribute__ ((target("arm"))) int OS_ReadC(unsigned int *flags) {
+__attribute__ ((noinline)) int OS_ReadC(unsigned int *flags) {
   asm volatile
     (
      "push    {r4,lr}          \r\n"
@@ -60,7 +60,7 @@ __attribute__ ((noinline)) void OS_CLI(const char *cptr) {
      );
 }
 
-__attribute__ ((noinline)) __attribute__ ((target("arm"))) void OS_Byte(unsigned int a, unsigned int x, unsigned int y, unsigned int *retx, unsigned int *rety) {
+__attribute__ ((noinline)) void OS_Byte(unsigned int a, unsigned int x, unsigned int y, unsigned int *retx, unsigned int *rety) {
   asm volatile
     (
      "push    {r4,lr}          \r\n"
@@ -82,7 +82,7 @@ __attribute__ ((noinline)) __attribute__ ((target("arm"))) void OS_Byte(unsigned
      );
 }
 
-__attribute__ ((noinline)) __attribute__ ((target("arm"))) void OS_ReadLine(const char *buffer, int buflen, int minAscii, int maxAscii, unsigned int *flags, int *length) {
+__attribute__ ((noinline)) void OS_ReadLine(const char *buffer, int buflen, int minAscii, int maxAscii, unsigned int *flags, int *length) {
   asm volatile
     (
      "push    {r4,lr}          \r\n"
