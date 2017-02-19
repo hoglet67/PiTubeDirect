@@ -518,6 +518,7 @@ void tube_Word(unsigned int *reg) {
   int out_len;
   unsigned char a = reg[0] & 0xff;
   unsigned char *block;
+  int i;
   // Note that call with R0b=0 (Acorn MOS RDLN) does nothing, the ReadLine call should be used instead.
   // Ref: http://chrisacorns.computinghistory.org.uk/docs/Acorn/OEM/AcornOEM_ARMUtilitiesRM.pdf
   if (a == 0) {
@@ -543,6 +544,19 @@ void tube_Word(unsigned int *reg) {
     in_len = block[0];
     out_len = block[1];
   }
+
+  // Implement sub-reason codes of OSWORD A=&0E (Read CMOS Clock)
+  if (a == 0x0e) {
+    if (block[0] != 0x00) {
+      printf("OSWORD A=&0E sub-reason %d not implemented\r\n", block[0]);
+      // Return something, as this gets used in a files load/exec address on SAVE in Basic
+      for (i = 0; i < 8; i++) {
+        block[i] = 0xFF;
+      }
+      return;
+    }
+  }
+
   // OSWORD   R2: &08 A in_length block out_length  block
   sendByte(R2_ID, 0x08);
   sendByte(R2_ID, a);
