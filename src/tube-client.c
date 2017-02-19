@@ -122,7 +122,7 @@ void init_emulator() {
       copro = DEFAULT_COPRO;
    }
 
-   LOG_DEBUG("Raspberry Pi Direct %d %s Client\r\n", copro,emulator_names[copro]);
+   LOG_DEBUG("Raspberry Pi Direct %u %s Client\r\n", copro,emulator_names[copro]);
 
    emulator = emulator_functions[copro];
    
@@ -191,7 +191,7 @@ static void get_copro_speed() {
    if (copro_speed > 255){
       copro_speed = 0;
    }
-   LOG_DEBUG("emulator speed %d\r\n", copro_speed);
+   LOG_DEBUG("emulator speed %u\r\n", copro_speed);
    if (copro_speed !=0)
       copro_speed = (arm_speed/(1000000/256) / copro_speed);
 }

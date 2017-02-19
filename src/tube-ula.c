@@ -279,7 +279,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          copro_speed = 0;
       else
          copro_speed = (arm_speed/(1000000/256) / val);
-      LOG_DEBUG("New speed Copro = %d, %d\n", val, copro_speed);
+      LOG_DEBUG("New speed Copro = %u, %u\n", val, copro_speed);
       return; 
    
    case 5: /*Register 3*/
@@ -311,7 +311,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       break;
    case 6:  
       copro = val;
-      LOG_DEBUG("New Copro = %d\n", copro);
+      LOG_DEBUG("New Copro = %u\n", copro);
       return;
    case 7: /*Register 4*/
       if (!tube_enabled)
@@ -800,7 +800,7 @@ void tube_log_performance_counters() {
    read_performance_counters(&pct);
    print_performance_counters(&pct);
 #endif
-   LOG_DEBUG("tube reset - copro %d\r\n", copro);
+   LOG_DEBUG("tube reset - copro %u\r\n", copro);
 #ifdef DEBUG_TRANSFERS
    LOG_INFO("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
    LOG_INFO("checksum_p = %08"PRIX32" %08"PRIX32"\r\n", count_p, checksum_p);

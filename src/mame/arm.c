@@ -760,7 +760,7 @@ void HandleALU(UINT32 insn)
   {
     /* Arithmetic operations */
     case OPCODE_SBC:
-      rd = (rn - op2 - (R15& C_MASK ? 0 : 1));
+      rd = (rn - op2 - ((R15& C_MASK) ? 0 : 1));
       HandleALUSubFlags(rd, rn, op2);
       break;
       case OPCODE_CMP:
@@ -769,7 +769,7 @@ void HandleALU(UINT32 insn)
       HandleALUSubFlags(rd, rn, op2);
       break;
       case OPCODE_RSC:
-      rd = (op2 - rn - (R15 & C_MASK ? 0 : 1));
+      rd = (op2 - rn - ((R15 & C_MASK) ? 0 : 1));
       HandleALUSubFlags(rd, op2, rn);
       break;
       case OPCODE_RSB:
@@ -1062,7 +1062,7 @@ void HandleMemBlock(UINT32 insn)
           if ((insn&(1<<rb))==0)
           SetModeRegister(mode, rb, GetModeRegister(mode, rb) + result * 4);
           else if (ARM_DEBUG_CORE)
-          logerror("%08x:  Illegal LDRM writeback to base register (%d)\n",R15, rb);
+          logerror("%08x:  Illegal LDRM writeback to base register (%u)\n",R15, rb);
         }
       }
       else
@@ -1077,15 +1077,15 @@ void HandleMemBlock(UINT32 insn)
         }
 
               // S Flag Set, but R15 not in list = Transfers to User Bank
-      if ((insn & INSN_BDT_S) && !(insn & 0x8000))
-      {
-        int curmode = MODE;
-        R15 = R15 & ~MODE_MASK;
-        result = loadDec( insn&0xffff, rbp, insn&INSN_BDT_S, &deferredR15, &defer );
-        R15 = R15 | curmode;
-      }
-      else
-        result = loadDec( insn&0xffff, rbp, insn&INSN_BDT_S, &deferredR15, &defer );
+        if ((insn & INSN_BDT_S) && !(insn & 0x8000))
+        {
+          int curmode = MODE;
+          R15 = R15 & ~MODE_MASK;
+          result = loadDec( insn&0xffff, rbp, insn&INSN_BDT_S, &deferredR15, &defer );
+          R15 = R15 | curmode;
+        }
+        else
+          result = loadDec( insn&0xffff, rbp, insn&INSN_BDT_S, &deferredR15, &defer );
 
         if (insn & INSN_BDT_W)
         {
@@ -1248,7 +1248,7 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
       k = 32;
       if (pCarry) *pCarry = (rm & (1 << (k - 1)));
       if (k >= 32)
-      return rm & SIGN_BIT ? 0xffffffffu : 0;
+      return (rm & SIGN_BIT) ? 0xffffffffu : 0;
       else
       {
         if (rm & SIGN_BIT)
@@ -1349,7 +1349,7 @@ void HandleCoProVL86C020(UINT32 insn)
   }
   else
   {
-    printf("%08x:  Unimplemented VL86C020 copro instruction %08x %d %d\n", R15& 0x3ffffff, insn,rn,crn);
+    printf("%08x:  Unimplemented VL86C020 copro instruction %08x %u %u\n", R15& 0x3ffffff, insn,rn,crn);
     //debugger_break(machine());
   }
 }
@@ -1367,7 +1367,7 @@ void HandleCoPro(UINT32 insn)
     SetRegister(rn, m_coproRegister[crn]);
 
     if (ARM_DEBUG_COPRO)
-      logerror("%08x:  Copro read CR%d (%08x) to R%d\n", R15, crn, m_coproRegister[crn], rn);
+      logerror("%08x:  Copro read CR%u (%08x) to R%u\n", R15, crn, m_coproRegister[crn], rn);
     }
     /* MCR - transfer main register to copro register */
     else if( (insn&0x0f100010)==0x0e000010 )
@@ -1420,7 +1420,7 @@ void HandleCoPro(UINT32 insn)
       }
 
       if (ARM_DEBUG_COPRO)
-      logerror("%08x:  Copro write R%d (%08x) to CR%d\n", R15, rn, GetRegister(rn), crn);
+      logerror("%08x:  Copro write R%u (%08x) to CR%u\n", R15, rn, GetRegister(rn), crn);
     }
     /* CDP - perform copro operation */
     else if( (insn&0x0f000010)==0x0e000000 )
