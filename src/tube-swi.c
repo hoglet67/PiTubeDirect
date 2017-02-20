@@ -17,6 +17,12 @@
 //           Updated code entry to check code header
 // 14-Feb-2017   DMB:
 //           Implemented OS_ReadPoint (SWI &32)
+// 19-Feb-2017   JGH:
+//           tube_CLI prepares environment for later collection by OS_GetEnv.
+//           Fixed typo fetching address of module title.
+//           exec_raw temporarily doesn't swap in module title to commandBuffer
+//           as we need a static buffer for that to work.
+
 #include <stdio.h>
 #include <string.h>
 
@@ -343,40 +349,61 @@ int user_exec_fn(FunctionPtr_Type f, int param ) {
 }
 
 void user_exec_raw(volatile unsigned char *address) {
-  int off, type;
-  int carry = 0, r0 = 0; int r1 = 0; int r12 = 0;   // Entry parameters
+  int off;
+  int carry = 0, r0 = 0; int r1 = 0; int r12 = 0;	// Entry parameters
 
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
   }
 
 // JGH: set up parameters and find correct entry address
+// tube_CLI has already set commandBuffer="filename parameters"
+// If we enter a module this needs to be changed to "modulename parameters"
+//
+// On entry to code, registers need to be:
+// r0=>command line if >255, 0=raw code, 1=BBC header
+// r1=>command tail
+// r12=workspace - pass as zero to say 'none allocated, you must claim some'
+// r13=stack
+// r14=return address
+
   off=address[7];
   if (address[off+0]==0 && address[off+1]=='(' && address[off+2]=='C' && address[off+3]==')') {
     // BBC header
-    type = address[6];
-    if ((type & 0x4F) != 0x4D) {
+    if ((address[6] & 0x4F) != 0x4D) {
       generate_error((void *) address, 249, "This is not ARM code");
       return;
     } else {
       r0 = 1;       // Entering code with a BBC header
       carry = 1;    // Set Carry = not entering from RESET
+			// ToDo: Should use ROM title as commandBuffer startup command
     }
   } else {
     if (address[19] == 0 && address[23] == 0 && address[27] == 0) {
       // RISC OS module header
-      off=address[16] + 256 * address[1] + 65536 * address[2];
-      r0 = (unsigned int) address + off; // R0=>module title
-    } else {
-      // No header, r0 should point to *command used to run code
-      r0 = (unsigned int) env->commandBuffer;
+      off=address[16] + 256 * address[17] + 65536 * address[18];
+      r0 = (unsigned int) address + off;		// R0=>module title
+
+// We need to do commandBuffer=moduleTitle+" "+MID$(commandBuffer,offset_to_space)
+// which means we need some string space to construct a new string.
+// Real hardware has a static command line buffer for this use, similar to &DC00 on the Master.
+// For the moment, just use the the existing *command string until we sort out a static
+// commandBuffer string space
+// This is also needed for OS_SetEnv which copies a new environement string to commandBuffer
+
     }
+    r0 = (unsigned int) env->commandBuffer;
   }
+
+  r1 = (unsigned int) env->commandBuffer;
+  while (*r1 > ' ') r1++;				// Step past command
+  while (*r1 == ' ') r1++;				// Step past spaces, r1=>command tail
       
   if (address[3]==0) {
     off=address[0]+256*address[1]+65536*address[2];
-    address=address+off;      // Entry word is offset, not branch
+    address=address+off;      				// Entry word is offset, not branch
   }
+
   // Bit zero of the address param is used by _user_exec as the carry
   address = (unsigned char *) (((unsigned int) address) | carry);
 
@@ -385,9 +412,10 @@ void user_exec_raw(volatile unsigned char *address) {
   // of dropping down to user mode
 
   _user_exec(address, r0, r1, r12);
-  // r0>255 - points to startup command/module name
-  // r0=1   - BBC code header
-  // r0=0   - raw code
+  // r0=>startup command string if r0>255, 0=raw, 1=bbc header)
+  // r1=>startup command parameters. Code should not rely on R1 but should call OS_GetEnv,
+  //     but it is provided to assist Utility code which does not have an environment
+  // r12=0 - no workspace allocated
 
   if (DEBUG_ARM) {
     printf("Execution returned from %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
@@ -452,8 +480,68 @@ void tube_ReadC(unsigned int *reg) {
 
 void tube_CLI(unsigned int *reg) {
   char *ptr = (char *)(*reg);
-  // dispatchCmd returns 0 if command handled locally
-  if (dispatchCmd(ptr)) {
+  char *lptr = ptr;
+  int run=0;
+
+// We need to prepare the environment in case code is entered
+// Command buffer is:
+// * ** ***foobar   hazel sheila
+//         ^
+//   *  **  *  /  foobar   hazel   sheila
+//                ^
+// *  *** * ** RUN   foobar   hazel  sheila
+// *  *** * ** RU.   foobar   hazel  sheila
+// *  *** * ** R.    foobar   hazel  sheila
+//                   ^
+
+  while (*lptr==' ' || *lptr=='*') lptr++;		// Skip leading spaces and stars
+// Now at:
+// *foobar hazel
+//  ^
+// */foobar hazel
+//  ^
+// */ foobar hazel
+//  ^
+// *RUN foobar hazel
+//  ^
+
+  if (lptr[0]=='/') {
+    if (lptr[1]==' ') {
+      run=1;						// */<spc>filename, need to skip to filename
+    } else {
+      lptr++;						// */filename, step to filename
+    }
+  } else {
+    if ((lptr[0] & 0xDF)=='R') {			// Might be *RUN
+      if (lptr[1]=='.') run=1;				// *R. file, need to skip to filename
+      if ((lptr[1] & 0xDF)=='U') {
+        if (lptr[2]=='.') run=1;			// *RU. file, need to skip to filename
+      } else {
+        if ((lptr[2] & 0xDF)=='N' && lptr[3]<'A') run=1; // *RUN file, need to skip to filename
+      }
+    }
+  }
+
+  if (run) {
+    while (*lptr>' ') lptr++;				// Skip 'RUN' command or '/' shortcut
+    while (*lptr==' ') lptr++;				// Skip to start of filename
+  }
+// Now at:
+// *foobar hazel
+//  ^
+// */foobar hazel
+//   ^
+// */ foobar hazel
+//    ^
+// *RUN foobar hazel
+//      ^
+
+// Fake an OS_SetEnv call
+  env->commandBuffer = lptr;				// Parameters for this *command
+//  env->handler[MEMORY_LIMIT_HANDLER].handler=???;	// Can't remember if these are set now or later
+//  env->timeBuffer=now_centiseconds();			// Will need to check real hardware
+
+  if (dispatchCmd(ptr)) {			// dispatchCmd returns 0 if command was handled locally
     // OSCLI    R2: &02 string &0D                    &7F or &80
     sendByte(R2_ID, 0x02);
     sendString(R2_ID, 0x0D, ptr);
@@ -490,8 +578,9 @@ void tube_Byte(unsigned int *reg) {
 
     // JGH: OSBYTE &8E and &9D do not return any data.
     if (a == 0x8E) {
-       // OSBYTE &8E returns a 1-byte OSCLI acknowledgement
+	// OSBYTE &8E returns a 1-byte OSCLI acknowledgement
        if (receiveByte(R2_ID) & 0x80) {
+          env->commandBuffer = "\x0D";		// Null command line
           user_exec_raw(address);
        }
        return;
@@ -685,12 +774,9 @@ void tube_ReadLine(unsigned int *reg) {
 }
 
 void tube_GetEnv(unsigned int *reg) {
-  // R0 address of the command string (0 terminated) which ran the program
-  reg[0] = (unsigned int) env->commandBuffer;
-  // R1 address of the permitted RAM limit for example &10000 for 64K machine
-  reg[1] = (unsigned int) env->handler[MEMORY_LIMIT_HANDLER].handler;
-  // R2 address of 5 bytes - the time the program started running
-  reg[2] = (unsigned int) env->timeBuffer;
+  reg[0] = (unsigned int) env->commandBuffer;				// R0 => command string (0 terminated) which ran the program
+  reg[1] = (unsigned int) env->handler[MEMORY_LIMIT_HANDLER].handler;	// R1 = permitted RAM limit for example &10000 for 64K machine
+  reg[2] = (unsigned int) env->timeBuffer;				// R2 => 5 bytes - the time the program started running
   if (DEBUG_ARM) {
     printf("%08x %08x %08x\r\n", reg[0], reg[1], reg[2]);
   }
