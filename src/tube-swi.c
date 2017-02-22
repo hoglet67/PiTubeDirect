@@ -389,15 +389,15 @@ void user_exec_raw(volatile unsigned char *address) {
 // Real hardware has a static command line buffer for this use, similar to &DC00 on the Master.
 // For the moment, just use the the existing *command string until we sort out a static
 // commandBuffer string space
-// This is also needed for OS_SetEnv which copies a new environement string to commandBuffer
+// This is also needed for OS_SetEnv which copies a new environment string to commandBuffer
 
     }
     r0 = (unsigned int) env->commandBuffer;
   }
 
   r1 = (unsigned int) env->commandBuffer;
-  while (*r1 > ' ') r1++;				// Step past command
-  while (*r1 == ' ') r1++;				// Step past spaces, r1=>command tail
+  while (*(char*)r1 > ' ') r1++;			// Step past command
+  while (*(char*)r1 == ' ') r1++;			// Step past spaces, r1=>command tail
       
   if (address[3]==0) {
     off=address[0]+256*address[1]+65536*address[2];
@@ -537,11 +537,16 @@ void tube_CLI(unsigned int *reg) {
 //      ^
 
 // Fake an OS_SetEnv call
-  env->commandBuffer = lptr;				// Parameters for this *command
+  run=0;
+  while(*lptr >= ' ') {					// Copy this command to environment string
+    env->commandBuffer[run]=*lptr;
+    run++; lptr++;
+  }
+  env->commandBuffer[run]=0x0D;
 //  env->handler[MEMORY_LIMIT_HANDLER].handler=???;	// Can't remember if these are set now or later
 //  env->timeBuffer=now_centiseconds();			// Will need to check real hardware
 
-  if (dispatchCmd(ptr)) {			// dispatchCmd returns 0 if command was handled locally
+  if (dispatchCmd(ptr)) {				// dispatchCmd returns 0 if command was handled locally
     // OSCLI    R2: &02 string &0D                    &7F or &80
     sendByte(R2_ID, 0x02);
     sendString(R2_ID, 0x0D, ptr);
@@ -580,7 +585,7 @@ void tube_Byte(unsigned int *reg) {
     if (a == 0x8E) {
 	// OSBYTE &8E returns a 1-byte OSCLI acknowledgement
        if (receiveByte(R2_ID) & 0x80) {
-          env->commandBuffer = "\x0D";		// Null command line
+          env->commandBuffer[0] = 0x0D;		// Null command line
           user_exec_raw(address);
        }
        return;
