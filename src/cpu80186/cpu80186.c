@@ -169,8 +169,7 @@ void flag_sbb8(uint8_t v1, uint8_t v2, uint8_t v3)
   //v1 = destination operand, v2 = source operand, v3 = carry flag */
   uint16_t dst;
 
-  (uint8_t) v2 += (uint8_t) v3;
-  dst = (uint16_t) v1 - (uint16_t) v2;
+  dst = (uint16_t) v1 - (uint16_t) v2 - v3;
   flag_szp8((uint8_t) dst);
   if (dst & 0xFF00)
   {
@@ -205,8 +204,7 @@ void flag_sbb16(uint16_t v1, uint16_t v2, uint16_t v3)
   /* v1 = destination operand, v2 = source operand, v3 = carry flag */
   uint32_t dst;
 
-  (uint16_t) v2 += (uint16_t) v3; /* careful! FFFF+1 must be zero. */
-  dst = (uint32_t) v1 - (uint32_t) v2;
+  dst = (uint32_t) v1 - (uint32_t) v2 - v3;
   flag_szp16((uint16_t) dst);
   if (dst & 0xFFFF0000)
   {
