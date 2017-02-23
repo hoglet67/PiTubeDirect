@@ -1850,26 +1850,13 @@ void exec86(uint32_t execloops)
           {
             cf = 1;
           }
-          else
-          {
-            cf = 0;
-          }
-
           af = 1;
-        }
-        else
-        {
-          af = 0;
         }
 
         if (((regs.byteregs[regal] & 0xF0) > 0x90) || (cf == 1))
         {
           regs.byteregs[regal] = regs.byteregs[regal] + 0x60;
           cf = 1;
-        }
-        else
-        {
-          cf = 0;
         }
 
         regs.byteregs[regal] = regs.byteregs[regal] & 255;
