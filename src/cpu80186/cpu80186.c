@@ -2978,7 +2978,7 @@ void exec86(uint32_t execloops)
         break;
 
         case 0x9C: /* 9C PUSHF */
-        push(makeflagsword() | 0xF800);
+        push(makeflagsword() | 0xF000);
         break;
 
         case 0x9D: /* 9D POPF */
