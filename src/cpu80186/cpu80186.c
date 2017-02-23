@@ -1640,11 +1640,6 @@ void exec86(uint32_t execloops)
         oper1 = getreg16(reg);
         oper2 = readrm16(rm);
         op_or16();
-        if ((oper1 == 0xF802) && (oper2 == 0xF802))
-        {
-          sf = 0; /* cheap hack to make Wolf 3D think we're a 286 so it plays */
-        }
-
         putreg16(reg, res16);
       break;
 
