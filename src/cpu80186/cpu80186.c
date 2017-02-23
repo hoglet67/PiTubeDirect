@@ -1416,59 +1416,6 @@ void intcall86(uint8_t intnum)
   if (intnum == 0x19)
     didbootstrap = 1;
 
-#if 0
-  switch (intnum)
-  {
-    case 0x10:
-    //updatedscreen = 1;
-    if ((regs.byteregs[regah]==0x00) || (regs.byteregs[regah]==0x10))
-    {
-      oldregax = regs.wordregs[regax];
-      vidinterrupt();
-      regs.wordregs[regax] = oldregax;
-      if (regs.byteregs[regah]==0x10) return;
-      if (vidmode==9) return;
-    }
-    if ((regs.byteregs[regah]==0x1A) && (lastint10ax!=0x0100))
-    {          //the 0x0100 is a cheap hack to make it not do this if DOS EDIT/QBASIC
-      regs.byteregs[regal] = 0x1A;
-      regs.byteregs[regbl] = 0x8;
-      return;
-    }
-    lastint10ax = regs.wordregs[regax];
-    break;
-
-#ifndef DISK_CONTROLLER_ATA
-    case 0x19:          //bootstrap
-    if (bootdrive<255)
-    {          //read first sector of boot drive into 07C0:0000 and execute it
-      regs.byteregs[regdl] = bootdrive;
-      readdisk (regs.byteregs[regdl], 0x07C0, 0x0000, 0, 1, 0, 1);
-      segregs[regcs] = 0x0000;
-      ip = 0x7C00;
-    }
-    else
-    {
-      segregs[regcs] = 0xF600;          //start ROM BASIC at bootstrap if requested
-      ip = 0x0000;
-    }
-    return;
-
-    case 0x13:
-    case 0xFD:
-    diskhandler();
-    return;
-#endif
-#ifdef NETWORKING_OLDCARD
-    case 0xFC:
-#ifdef NETWORKING_ENABLED
-    nethandler();
-#endif
-    return;
-#endif
-  }
-#endif
-
   push(makeflagsword());
   push(segregs[regcs]);
   push(ip);
