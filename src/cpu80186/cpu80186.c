@@ -56,7 +56,7 @@ static const uint8_t parity[0x100] =
 
 uint8_t opcode, segoverride, reptype, bootdrive = 0, hdcount = 0;
 uint16_t segregs[4], savecs, saveip, ip, useseg, oldsp;
-uint8_t tempcf, oldcf, cf, pf, af, zf, sf, tf, ifl, df, of, mode, reg, rm;
+uint8_t tempcf, oldcf, cf, pf, af, zf, sf, tf, ifl, df, of, mode, reg, rm, oldal;
 uint16_t oper1, oper2, res16, disp16, temp16, dummy, stacksize, frametemp;
 uint8_t oper1b, oper2b, res8, disp8, temp8, nestlev, addrbyte;
 uint32_t temp1, temp2, temp3, temp4, temp5, temp32, tempaddr32, ea;
@@ -758,6 +758,30 @@ void writerm8(uint8_t rmval, uint8_t value)
   {
     putreg8(rmval, value);
   }
+}
+
+void op_daa_das(int8_t low_nibble, int8_t high_nibble) {
+  oldal = regs.byteregs[regal];
+  oldcf = cf;
+
+  if (((regs.byteregs[regal] & 0xF) > 9) || (af == 1))
+  {
+    oper1 = regs.byteregs[regal] + low_nibble;
+    regs.byteregs[regal] = oper1;
+    if (oper1 & 0xFF00)
+    {
+      cf = 1;
+    }
+    af = 1;
+  }
+  
+  if ((oldal > 0x99) || (oldcf == 1))
+  {
+    regs.byteregs[regal] = regs.byteregs[regal] + high_nibble;
+    cf = 1;
+  }
+  
+  flag_szp8(regs.byteregs[regal]);
 }
 
 uint8_t op_grp2_8(uint8_t cnt)
@@ -1842,25 +1866,7 @@ void exec86(uint32_t execloops)
       break;
 
       case 0x27: /* 27 DAA */
-        if (((regs.byteregs[regal] & 0xF) > 9) || (af == 1))
-        {
-          oper1 = regs.byteregs[regal] + 6;
-          regs.byteregs[regal] = oper1 & 255;
-          if (oper1 & 0xFF00)
-          {
-            cf = 1;
-          }
-          af = 1;
-        }
-
-        if (((regs.byteregs[regal] & 0xF0) > 0x90) || (cf == 1))
-        {
-          regs.byteregs[regal] = regs.byteregs[regal] + 0x60;
-          cf = 1;
-        }
-
-        regs.byteregs[regal] = regs.byteregs[regal] & 255;
-        flag_szp8(regs.byteregs[regal]);
+        op_daa_das(0x06, 0x60);
       break;
 
       case 0x28: /* 28 SUB Eb Gb */
@@ -1916,37 +1922,7 @@ void exec86(uint32_t execloops)
       break;
 
       case 0x2F: /* 2F DAS */
-        if (((regs.byteregs[regal] & 15) > 9) || (af == 1))
-        {
-          oper1 = regs.byteregs[regal] - 6;
-          regs.byteregs[regal] = oper1 & 255;
-          if (oper1 & 0xFF00)
-          {
-            cf = 1;
-          }
-          else
-          {
-            cf = 0;
-          }
-
-          af = 1;
-        }
-        else
-        {
-          af = 0;
-        }
-
-        if (((regs.byteregs[regal] & 0xF0) > 0x90) || (cf == 1))
-        {
-          regs.byteregs[regal] = regs.byteregs[regal] - 0x60;
-          cf = 1;
-        }
-        else
-        {
-          cf = 0;
-        }
-
-        flag_szp8(regs.byteregs[regal]);
+        op_daa_das(-0x06, -0x60);
       break;
 
       case 0x30: /* 30 XOR Eb Gb */
