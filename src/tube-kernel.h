@@ -26,10 +26,8 @@
 #define ZP_DEBUGGER	ZP_BASE+0x300;	// Debugger workspace
 #define ZP_VECTORS	ZP_BASE+0x380;	// Software vectors 0-31
 #define ZP_ENVIRONMENT	ZP_BASE+0x400;	// Program environment
-#define ZP_ENVTIME	ZP_BASE+0x4F8;	// Environment 5-byte time, &4F8 fits into 8 bits
-//			// 0x4FD
-//			// 0x4FE
-#define ZP_ESCAPE	ZP_BASE+0x4FF;	// Supervisor's Escape flag
+#define ZP_ENVTIME	ZP_BASE+0x478;	// Environment 5-byte time, &478 fits into 8 bits
+#define ZP_ESCAPE	ZP_BASE+0x47F;	// Supervisor's Escape flag
 #define ZP_MODULE	ZP_BASE+0x500;	// Module handler workspace
 #define ZP_ENVSTRING	ZP_BASE+0xE00;	// Environment string
 #define ZP_STRING	ZP_BASE+0xF00;	// Supervisor string space
@@ -82,7 +80,7 @@
 //
 // &0300 Debugger workspace, Brazil and RISC OS allocate 128 bytes here
 //
-// &0380 Software vectors
+// &0380 Software vectors - see Kernel.s.ArthurSWIs for fuller implementation
 //  &0380 - &00 UserV
 //  &0384 - &01 ErrorV
 //  &0388 - &02 IRQV
@@ -116,7 +114,7 @@
 //  &03F8 - &1E ChangeEnvironmentV
 //  &03FC - &1F SpriteV     unused on parasite
 //
-// &0400 Environment, three words per handler
+// &0400 Environment, up to three words per handler
 //        Environment handler addresses
 //  &0400  0 MemoryLimit               MEMTOP
 //  &0404  1 Undefined Instruction     UNDHAND
@@ -144,21 +142,21 @@
 //  &0454 10 Event                     R12
 //  &0458 11 Exit                      R12
 //  &045C 12 Ununsed SWI               R12
-//  &0460 13 Exception register dump   unused
-//  &0464 14 Application space         unused
-//  &0468 15 Current Active Object     unused
-//  &046C 16 UpCall                    R12
+//  &0460 16 UpCall                    R12
 //
 //       Environment handler buffers
-//  &0470  6 Error handler             ERRBUFF
-//  &0474  7 CallBack                  regbuffer
-//  &0478  8 BreakPoint                regbuffer
-//  &047C
+//  &0464  6 Error handler             ERRBUFF
+//  &0468  7 CallBack                  regbuffer
+//  &046C  8 BreakPoint                regbuffer
+//  &0470
+//  &0474
+//  &0478  Environment 5-byte time - updated locally on parasite
+//  &047D
+//  &047E
+//  &047F  Supervisor Escape flag
 //
-//  &04F8  Environment 5-byte time - updated locally on parasite
-//  &04FD
-//  &04FE
-//  &04FF  Supervisor Escape flag
+// &0480 Temporarily use for software vector R12 values
+// &0500
 //
 // &0E00 ^^^^ Initial RESET stack while finding top of RAM
 // &0E00 Environment string, error buffer
