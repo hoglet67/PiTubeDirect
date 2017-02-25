@@ -25,7 +25,7 @@ uint32_t r[8];
 FloatingPointRegisters FR;
 uint32_t FSR;
 
-uint32_t pc;
+static uint32_t pc;
 uint32_t sp[2];
 Temp64Type Immediate64;
 
@@ -106,6 +106,11 @@ void n32016_reset_addr(uint32_t StartAddress)
 
    //PR.BPC = 0x20F; //Example Breakpoint
    PR.BPC = 0xFFFFFFFF;
+}
+
+uint32_t n32016_get_pc()
+{
+   return pc;
 }
 
 static void pushd(uint32_t val)

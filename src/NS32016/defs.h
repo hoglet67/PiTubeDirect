@@ -1,6 +1,6 @@
 #define BYTE_SWAP
 
-#if defined(WIN32) && !defined(BEEBEM)
+#if defined(WIN32) && !defined(BEM)
 #define SWAP16 _byteswap_ushort
 #define SWAP32 _byteswap_ulong
 #else

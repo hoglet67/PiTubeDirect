@@ -91,7 +91,7 @@ enum Operands
    FrameRelative,
    StackRelative,
    StaticRelative,
-   
+
    IllegalOperand,
    Immediate,
    Absolute,
@@ -221,7 +221,7 @@ typedef union
 //  7 F3:L
 //  8 F4:L F4:F
 //  9 F4:L F5:F
-// 10 F5:L 
+// 10 F5:L
 // 11 F5:L
 // 12 F6:L F6:F
 // 13 F6:L F7:F
@@ -242,7 +242,7 @@ typedef union
    uint64_t    u64;
    int64_t     s64;
 } Temp64Type;
-  
+
 typedef union
 {
    float       f32;
@@ -301,7 +301,7 @@ typedef union
       uint8_t UpperByte;
    };
 
-   uint16_t Whole;   
+   uint16_t Whole;
 } RegLKU;
 
 extern uint32_t sp[2];
@@ -332,6 +332,7 @@ extern void n32016_reset_addr(uint32_t StartAddress);
 extern void n32016_exec();
 extern void n32016_close();
 extern void n32016_build_matrix();
+extern uint32_t n32016_get_pc();
 extern void BreakPoint(uint32_t pc, uint32_t opcode);
 extern int32_t GetDisplacement(uint32_t* pPC);
 
@@ -370,12 +371,11 @@ extern FILE *pTraceFile;
 #elif defined(TRACE_TO_CONSOLE)
 #define PiTRACE printf
 #else
-#define PiTRACE(...)
+static inline void PiTRACE(const char *fmt, ...) {}
 #endif
 
-#define PiWARN(...)  { printf("pc=%08"PRIX32": ",pc); printf(__VA_ARGS__); }
+#define PiWARN(...)  { printf("pc=%08"PRIX32": ",n32016_get_pc()); printf(__VA_ARGS__); }
 
-extern uint32_t pc;
 extern int tubecycles;
 extern int tube_irq;
 extern uint32_t genaddr[2];
@@ -389,7 +389,7 @@ extern const uint8_t FormatSizes[FormatCount + 1];
 #define PrintSP(str)
 #endif
 
-#define READ_PC_BYTE() read_x8(pc++) 
+#define READ_PC_BYTE() read_x8(pc++)
 
 #define SIGN_EXTEND(size, reg) \
   if ((size == sz8) && (reg & 0x80)) { \

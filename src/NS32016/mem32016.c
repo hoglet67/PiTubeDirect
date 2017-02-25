@@ -12,13 +12,11 @@
 #include "32016.h"
 #include "mem32016.h"
 
-//#ifdef BEEBEM
+#ifdef BEM
+#include "../tube.h"
+#else
 #include "../tube-ula.h"
-#define tubeRead tube_parasite_read
-#define tubeWrite tube_parasite_write
-//#else
-//#include "../bare-metal/tube-lib.h"
-//#endif
+#endif
 
 #ifdef TEST_SUITE
 #if TEST_SUITE == 0
@@ -84,7 +82,7 @@ uint8_t read_x8(uint32_t addr)
 
    if ((addr & 0xFFFFF1) == 0xFFFFF0)
    {
-      return tubeRead(addr >> 1);
+      return tube_parasite_read(addr >> 1);
    }
 
    PiWARN("Bad Read @ %06" PRIX32 "\n", addr);
@@ -166,7 +164,7 @@ void write_x8(uint32_t addr, uint8_t val)
 
    if ((addr & 0xFFFFF1) == 0xFFFFF0)
    {
-      tubeWrite(addr >> 1, val);
+      tube_parasite_write(addr >> 1, val);
       return;
    }
 

@@ -13,14 +13,11 @@
 #define HEX24 "x'%06" PRIX32
 #define HEX32 "x'%" PRIX32
 
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-
 uint32_t OpCount = 0;
 
 OperandSizeType FredSize;
 
-const char LPRLookUp[16][20] = 
+const char LPRLookUp[16][20] =
 {
    "UPSR",
    "DCR",
@@ -94,7 +91,7 @@ const char InstuctionText[InstructionCount][8] =
    // FORMAT 0
    "BEQ", "BNE", "BCS", "BCC", "BH", "BLS", "BGT", "BLE", "BFS", "BFC", "BLO", "BHS", "BLT", "BGE", "BR", "BN",
 
-   // FORMAT 1	
+   // FORMAT 1
    "BSR", "RET", "CXP", "RXP", "RETT", "RETI", "SAVE", "RESTORE", "ENTER", "EXIT", "NOP", "WAIT", "DIA", "FLAG", "SVC", "BPT",
 
    // FORMAT 2
@@ -252,8 +249,8 @@ void GetOperandText(uint32_t Start, uint32_t* pPC, RegLKU Pattern, uint32_t c)
             int32_t d = GetDisplacement(pPC);
 #if 1
             PiTRACE("* + %" PRId32, d);
-            
-#else            
+
+#else
             PiTRACE("&06%" PRIX32 "[PC]", Start + d);
 #endif
          }
@@ -416,7 +413,7 @@ static void AddASCII(uint32_t opcode, uint32_t Format)
       for (Count = 0; Count < 4; Count++)
       {
          if (Count < Len)
-         { 
+         {
             uint8_t Data = opcode & 0xFF;
             PiTRACE("%c", (Data < 0x20) ? '.' : Data);
             opcode >>= 8;
@@ -450,9 +447,9 @@ void ShowInstruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, uint32_t 
             // No break due to return
          }
       }
-      
+
       old_pc = StartPc;
-         
+
 #ifdef WIN32
       if (OpCount > 25000)
       {
@@ -462,7 +459,7 @@ void ShowInstruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, uint32_t 
       OpCount++;
       //PiTRACE("#%08"PRIu32" ", OpCount);
 #endif
-        
+
       PiTRACE("&%06" PRIX32 " ", StartPc);
       PiTRACE("[%08" PRIX32 "] ", opcode);
       uint32_t Format = Function >> 4;
@@ -526,7 +523,7 @@ void ShowInstruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, uint32_t 
                ShowRegs(read_x8((*pPC)++), 1);    //Access directly we do not want tube reads!
             }
             break;
-  
+
             case ENTER:
             {
                ShowRegs(read_x8((*pPC)++), 0);    //Access directly we do not want tube reads!
@@ -535,7 +532,7 @@ void ShowInstruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, uint32_t 
             }
             break;
 
-            case RET:               
+            case RET:
             case CXP:
             case RXP:
             {
@@ -546,7 +543,7 @@ void ShowInstruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, uint32_t 
 
             case ACB:
             {
-               int32_t d = GetDisplacement(pPC); 
+               int32_t d = GetDisplacement(pPC);
                PiTRACE("PC x+'%" PRId32 "", d);
             }
             break;
@@ -679,7 +676,7 @@ static void getgen(int gen, int c, uint32_t* pPC)
 
 void Decode(uint32_t* pPC)
 {
-   uint32_t StartPc = *pPC;
+   //uint32_t StartPc = *pPC;
    uint32_t opcode = read_x32(*pPC);
    uint32_t Function = FunctionLookup[opcode & 0xFF];
    uint32_t Format = Function >> 4;
