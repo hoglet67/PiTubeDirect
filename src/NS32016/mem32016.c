@@ -149,7 +149,7 @@ uint32_t read_n(uint32_t addr, uint32_t Size)
 }
 
 void write_x8(uint32_t addr, uint8_t val)
-{ 
+{
    addr &= 0xFFFFFF;
 
 #ifdef TRACE_WRITEs
@@ -308,7 +308,7 @@ uint32_t LoadBinary(const char *pFileName, uint32_t Location)
       rewind(pFile);
 
       if ((Location + FileSize) < MEG16)
-      { 
+      {
          End = fread(ns32016ram + Location, sizeof(uint8_t), FileSize, pFile) + Location;
       }
 

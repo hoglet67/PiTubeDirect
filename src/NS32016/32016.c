@@ -101,7 +101,7 @@ void n32016_reset_addr(uint32_t StartAddress)
 
    pc = StartAddress;
    psr = 0;
-   
+
    FSR = 0;
 
    //PR.BPC = 0x20F; //Example Breakpoint
@@ -245,7 +245,7 @@ uint32_t ReadGen(uint32_t c)
          return Truncate(Temp, OpSize.Op[c]);
       }
       // No break due to return
-     
+
       case TOS:
       {
          return PopArbitary(OpSize.Op[c]);
@@ -303,7 +303,7 @@ uint32_t ReadAddress(uint32_t c)
    {
       return *genreg[c];
    }
- 
+
    return genaddr[c];
 }
 
@@ -353,8 +353,8 @@ static void GetGenPhase2(RegLKU gen, int c)
                genreg[c] = (uint32_t *) &FR.fr64[gen.OpType];
             }
             break;
-         
-            default:         
+
+            default:
             {
                PiWARN("Illegal RegType value: %u\n", gen.RegType)
             }
@@ -879,7 +879,7 @@ uint32_t BitPrefix(void)
       OpSize.Op[1] = sz8;
       bit = ((uint32_t) Offset) & 7;
    }
-   
+
    WriteSize = OpSize.Op[1];
 
    return BIT(bit);
@@ -906,12 +906,12 @@ void TakeInterrupt(uint32_t IntBase)
 
    psr &= ~0xF00;
    pushd((temp << 16) | mod);
-   
+
    while (read_x8(pc) == 0xB2)                                    // Do not stack the address of a WAIT instruction!
    {
       pc++;
    }
-   
+
    pushd(pc);
    temp = read_x32(IntBase);
    mod = temp & 0xFFFF;
@@ -989,7 +989,7 @@ void n32016_exec()
       WriteSize      = szVaries;                                            // The size a result may be written as
       WriteIndex     = 1;                                                   // Default to writing operand 0
       OpSize.Whole   = 0;
- 
+
       Regs[0].Whole  =
       Regs[1].Whole  = 0xFFFF;
 
@@ -1488,7 +1488,7 @@ void n32016_exec()
          // No break due to goto
 
          // Format 2
-         
+
          case ADDQ:
          {
             temp2 = (opcode >> 7) & 0xF;
@@ -1635,7 +1635,7 @@ void n32016_exec()
             continue;
          }
          // No break due to continue
-     
+
          // Format 3
 
          case CXPD:
@@ -1663,7 +1663,7 @@ void n32016_exec()
                   GOTO_TRAP(PrivilegedInstruction);
                }
             }
- 
+
             temp = ReadGen(0);
             psr &= ~temp;
             continue;
@@ -1687,7 +1687,7 @@ void n32016_exec()
                   GOTO_TRAP(PrivilegedInstruction);
                }
             }
-            
+
             temp = ReadGen(0);
             psr |= temp;
             continue;
@@ -1944,7 +1944,7 @@ void n32016_exec()
             temp  = ReadGen(1);
 
             WarnIfShiftInvalid(temp2,  OpSize.Op[1]);
- 
+
 #if 1
             temp3 = OpSize.Op[1] * 8;                             // Bit size, compiler will switch to a shift all by itself ;)
 
@@ -2196,7 +2196,7 @@ void n32016_exec()
             F_FLAG = 0;
          }
          break;
- 
+
          // FORMAT 7
 
          case MOVM:
@@ -2231,7 +2231,7 @@ void n32016_exec()
             {
                temp  = read_n(First, temp4);
                temp2 = read_n(Second, temp4);
- 
+
                if (CompareCommon(temp, temp2) == 0)
                {
                   break;
@@ -2364,7 +2364,7 @@ void n32016_exec()
 
          case DEI:
          {
-            int size = OpSize.Op[0] << 3;                      // 8, 16  or 32 
+            int size = OpSize.Op[0] << 3;                      // 8, 16  or 32
             temp = ReadGen(0); // src
             if (temp == 0)
             {
@@ -2472,7 +2472,7 @@ void n32016_exec()
          break;
 
          // Format 8
- 
+
          case EXT:
          {
             uint32_t c;
@@ -2783,7 +2783,7 @@ void n32016_exec()
             }
          }
          break;
- 
+
          // Format 11
          case ADDf:
          {
@@ -2845,7 +2845,7 @@ void n32016_exec()
             continue;
          }
          // No break due to continue
- 
+
          case SUBf:
          {
             if (Regs[0].RegType == DoublePrecision)
@@ -2861,7 +2861,7 @@ void n32016_exec()
                Temp32Type Src, Dst;
                Src.u32 = ReadGen(0);
                Dst.u32 = ReadGen(1);
- 
+
                Dst.f32 -= Src.f32;
                temp = Dst.u32;
             }
@@ -2947,7 +2947,7 @@ void n32016_exec()
             }
          }
          break;
-  
+
          default:
          {
             if (Function < TRAP)
@@ -2975,7 +2975,7 @@ void n32016_exec()
                }
             }
             break;
-            
+
             case Register:
             {
                switch (WriteSize)

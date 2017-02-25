@@ -10,9 +10,9 @@
 
 typedef union
 {
-   uint32_t	u32;
+   uint32_t u32;
    int32_t s32;
-   
+
    struct
    {
       uint8_t DoNotUse_u8_3;
