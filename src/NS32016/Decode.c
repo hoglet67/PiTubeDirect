@@ -16,7 +16,7 @@ const uint8_t FormatSizes[FormatCount + 1] =
    1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1
 };
 
-#define FUNC(FORMAT, OFFSET) (((FORMAT) << 4) + (OFFSET)) 
+#define FUNC(FORMAT, OFFSET) (((FORMAT) << 4) + (OFFSET))
 
 uint8_t GetFunction(uint8_t FirstByte)
 {

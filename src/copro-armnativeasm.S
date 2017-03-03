@@ -17,6 +17,8 @@
 .equ    CPSR_FIQ_INHIBIT,       0x40
 .equ    CPSR_IRQ_INHIBIT,       0x80
 
+.equ    C_FLAG,      0x20000000
+
 copro_armnative_enable_mailbox:
         mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
         ldr     r1, =MBOX0_CONFIG       // to generate interrupts when data is present
@@ -161,21 +163,34 @@ _user_exec:
     stmfd    sp!, {r0}            // Save spsr, as this (and lr) will be corrupted by nested swis
 
 #if defined(RPI2) || defined(RPI3)
+    stmfd    sp!, {r0-r3}         // Save the _user_exec params
     bl       CleanDataCache
+    ldmfd    sp!, {r0-r3}         // Restore the _user_exec params
 #else        
     mov      r0, #0                  // New code may have just been written to memory, so
     mcr      p15, 0, r0, c7, c10, 0  // Clean entire data cache
 #endif
+    mov      r0, #0
+    mcr      p15, 0, r0, c7, c5, 0   // Invalidate entire instruction cache
+    mcr      p15, 0, r0, c7, c5, 4   // Flush the prefetch buffer
         
     mrs      r0, cpsr
     bic      r0, r0, #0x1f
     orr      r0, r0, #CPSR_MODE_USER
     msr      cpsr_c, r0           // Change to user mode
 
+
+    tst      r4, #1               // Bit 0 of the address is used to indicate the carry flag value
+    mrs      r0, CPSR                          
+    biceq    r0, r0, #C_FLAG      // Set/Clear the carry flag accordingly
+    orrne    r0, r0, #C_FLAG
+    msr      CPSR_flg, r0
+        
+    bic      r4, #1               // Now clear this bit, as we should always be jumping to a 32-bit aligned address
+        
     mov      r0, r1               // Copy the params
     mov      r1, r2
     mov      r2, r3
-        
     blx      r4                   // Call the address of the user program        
                                   // On return, the exit code is now in R0
     

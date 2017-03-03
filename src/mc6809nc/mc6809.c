@@ -525,10 +525,10 @@ unsigned get_cc (void)
 void set_cc (unsigned arg)
 {
   EFI = arg & (E_FLAG | F_FLAG | I_FLAG);
-  H = (arg & H_FLAG ? 0x10 : 0);
-  N = (arg & N_FLAG ? 0x80 : 0);
+  H = ((arg & H_FLAG )? 0x10 : 0);
+  N = ((arg & N_FLAG )? 0x80 : 0);
   Z = (~arg) & Z_FLAG;
-  OV = (arg & V_FLAG ? 0x80 : 0);
+  OV = ((arg & V_FLAG) ? 0x80 : 0);
   C = arg & C_FLAG;
   cc_changed = 1;
 }

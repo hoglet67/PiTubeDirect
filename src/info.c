@@ -7,6 +7,12 @@ static char cmdline[PROP_SIZE];
 
 static char info_string[PROP_SIZE];
 
+extern void init_info() {
+  get_speed();
+  get_info_string();
+  get_cmdline();
+}
+
 void print_tag_value(char *name, rpi_mailbox_property_t *buf, int hex) {
    int i;
    LOG_INFO("%20s : ", name);
@@ -79,6 +85,14 @@ float get_voltage(int component_id) {
 // Model
 // Speed
 // Temp
+
+int get_speed() {
+   static int speed = 0;
+   if (!speed) {
+     speed = get_clock_rate(ARM_CLK_ID) / 1000000;
+   }
+   return speed;
+}
 
 char *get_info_string() {
    static int read = 0;

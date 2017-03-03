@@ -128,8 +128,9 @@ uint32_t count_p = 0;
 //
 // Bit 0 is the tube asserting irq
 // Bit 1 is the tube asserting nmi
+// Bit 2 is the tube asserting reset
 
-int tube_irq=0;
+int tube_irq;
 
 static int tube_enabled;
 
@@ -143,7 +144,7 @@ unsigned int tube_buffer[0x10000];
 
 void tube_dump_buffer() {
    int i;
-   LOG_INFO("tube_index = %d\r\n", tube_index);
+   LOG_INFO("tube_index = %u\r\n", tube_index);
    for (i = 0; i < tube_index; i++) {
       if (tube_buffer[i] & (TUBE_READ_MARKER | TUBE_WRITE_MARKER)) {
          if (tube_buffer[i] & TUBE_READ_MARKER) {
@@ -153,7 +154,7 @@ void tube_dump_buffer() {
             LOG_INFO("Wr R");
          }
          // Covert address (1,3,5,7) to R1,R2,R3,R4
-         LOG_INFO("%d = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
+         LOG_INFO("%u = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
       } else {
          LOG_INFO("?? %08x\r\n", tube_buffer[i]);
       }
@@ -169,13 +170,18 @@ void tube_reset_buffer() {
 }
 #endif
 
-static void tube_updateints()
+static void tube_updateints_IRQ()
 {   
-   tube_irq = 0;
    // Test for IRQ
+   tube_irq = tube_irq & (0xFF - 1);
    if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= 1;
    if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= 1;
+}
+
+static void tube_updateints_NMI()
+{   
    // Test for NMI
+   tube_irq = tube_irq &(0xFF - 2);
    if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 }
@@ -203,6 +209,7 @@ static void tube_host_read(uint16_t addr)
          PSTAT1 |= 0x40;
          if (!ph1pos) HSTAT1 &= ~HBIT_7;
       }
+      tube_updateints_IRQ();
       break;
    case 3: /*Register 2*/
       if (HSTAT2 & HBIT_7)
@@ -216,9 +223,10 @@ static void tube_host_read(uint16_t addr)
       {
          PH3_0 = BYTE_TO_WORD(PH3_1);
          ph3pos--;
-         PSTAT3 |= 0x40;
+         PSTAT3 |= 0xC0;
          if (!ph3pos) HSTAT3 &= ~HBIT_7;
       }
+      tube_updateints_NMI();
       break;
    case 7: /*Register 4*/
       if (HSTAT4 & HBIT_7)
@@ -226,23 +234,18 @@ static void tube_host_read(uint16_t addr)
          HSTAT4 &= ~HBIT_7;
          PSTAT4 |=  0x40;
       }
+      tube_updateints_IRQ();
       break;
    }
-   tube_updateints();
 }
 
 static void tube_host_write(uint16_t addr, uint8_t val)
 {
-   if ((addr & 7) == 6) {
-      copro = val;
-      return;
-   }
-   if (!tube_enabled) {
-      return;
-   }
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
+      if (!tube_enabled)
+          return;
       if (val & 0x80) {
          // Implement software tube reset
          if (val & 0x40) {
@@ -253,24 +256,41 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       } else {
          HSTAT1 &= ~BYTE_TO_WORD(val & 0x3F);
       }
+      tube_updateints_IRQ();
+      tube_updateints_NMI();
       break;
    case 1: /*Register 1*/
+      if (!tube_enabled)
+            return;
       hp1 = val;
       PSTAT1 |=  0x80;
       HSTAT1 &= ~HBIT_6;
+      tube_updateints_IRQ();
       break;
    case 3: /*Register 2*/
+      if (!tube_enabled)
+         return;
       hp2 = val;
       PSTAT2 |=  0x80;
       HSTAT2 &= ~HBIT_6;
       break;
+   case 4:
+      if (val == 0)
+         copro_speed = 0;
+      else
+         copro_speed = (arm_speed/(1000000/256) / val);
+      LOG_DEBUG("New speed Copro = %u, %u\n", val, copro_speed);
+      return; 
+   
    case 5: /*Register 3*/
+      if (!tube_enabled)
+         return;
 #ifdef DEBUG_TRANSFERS
       checksum_h *= 13;
       checksum_h += val;
       count_h++;
 #endif
-      if (HSTAT1 & 16)
+      if (HSTAT1 & HBIT_4)
       {
          if (hp3pos < 2)
             hp3[hp3pos++] = val;
@@ -287,8 +307,15 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          PSTAT3 |=  0x80;
          HSTAT3 &= ~HBIT_6;
       }
+      tube_updateints_NMI();
       break;
+   case 6:  
+      copro = val;
+      LOG_DEBUG("New Copro = %u\n", copro);
+      return;
    case 7: /*Register 4*/
+      if (!tube_enabled)
+            return;
       hp4 = val;
       PSTAT4 |=  0x80;
       HSTAT4 &= ~HBIT_6;
@@ -302,11 +329,11 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          count_p = 0;
       }
 #endif
+      tube_updateints_IRQ();
       break;
    default:
       LOG_WARN("Illegal host write to %d\r\n", addr);
    }
-   tube_updateints();
 }
 
 uint8_t tube_parasite_read(uint32_t addr)
@@ -324,6 +351,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          PSTAT1 &= ~0x80;
          HSTAT1 |=  HBIT_6;
       }
+      tube_updateints_IRQ();
       break;
    case 2: /*Register 2 stat*/
       temp = PSTAT2;
@@ -356,6 +384,7 @@ uint8_t tube_parasite_read(uint32_t addr)
             PSTAT3 &= ~0x80;
          }
       }
+      tube_updateints_NMI();
       break;
    case 6: /*Register 4 stat*/
       temp = PSTAT4;
@@ -367,9 +396,10 @@ uint8_t tube_parasite_read(uint32_t addr)
          PSTAT4 &= ~0x80;
          HSTAT4 |=  HBIT_6;
       }
+      tube_updateints_IRQ();
       break;
    }
-   tube_updateints();
+  
 #ifdef DEBUG_TUBE
    if (addr & 1) {
       tube_buffer[tube_index++] = TUBE_READ_MARKER | ((addr & 7) << 8) | temp;
@@ -423,6 +453,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          HSTAT1 |= HBIT_7;
          if (ph1pos == 24) PSTAT1 &= ~0x40;
       }
+      tube_updateints_IRQ();
       break;
    case 3: /*Register 2*/
       PH2 = BYTE_TO_WORD(val);
@@ -451,21 +482,23 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          PH3_0 = BYTE_TO_WORD(val);
          ph3pos = 1;
          HSTAT3 |=  HBIT_7;
-         PSTAT3 &= ~0x40;
+         PSTAT3 &= ~0xC0;
       }
+      tube_updateints_NMI();
       break;
    case 7: /*Register 4*/
       PH4 = BYTE_TO_WORD(val);
       HSTAT4 |=  HBIT_7;
       PSTAT4 &= ~0x40;
+      tube_updateints_IRQ();
       break;
    }
-   tube_updateints();
 }
 
 void tube_reset()
 {   
    tube_enabled = 1;
+   tube_irq = 0;
    ph1pos = hp3pos = 0;
    ph3pos = 1;
    HSTAT1 = HSTAT2 = HSTAT4 = HBIT_6;
@@ -476,7 +509,8 @@ void tube_reset()
    // is to have the tube emulation reset to a state with interrupts
    // enabled.
    HSTAT1 |= HBIT_3 | HBIT_2 | HBIT_1;
-   tube_updateints();
+   tube_updateints_IRQ();
+   tube_updateints_NMI();
 }
 
 // Returns bit 0 set if IRQ is asserted by the tube
@@ -634,8 +668,8 @@ void tube_init_hardware()
   // Initialise the UART to 57600 baud
   RPI_AuxMiniUartInit( 115200, 8 );
 
-  // Pre-populate info string
-  get_info_string();
+  // Initialise the info system with cached values (as we break the GPU property interface)
+  init_info();
 
 #ifdef DEBUG
   dump_useful_info();
@@ -766,7 +800,7 @@ void tube_log_performance_counters() {
    read_performance_counters(&pct);
    print_performance_counters(&pct);
 #endif
-   LOG_DEBUG("tube reset - copro %d\r\n", copro);
+   LOG_DEBUG("tube reset - copro %u\r\n", copro);
 #ifdef DEBUG_TRANSFERS
    LOG_INFO("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
    LOG_INFO("checksum_p = %08"PRIX32" %08"PRIX32"\r\n", count_p, checksum_p);

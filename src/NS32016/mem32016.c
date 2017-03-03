@@ -12,13 +12,11 @@
 #include "32016.h"
 #include "mem32016.h"
 
-//#ifdef BEEBEM
+#ifdef BEM
+#include "../tube.h"
+#else
 #include "../tube-ula.h"
-#define tubeRead tube_parasite_read
-#define tubeWrite tube_parasite_write
-//#else
-//#include "../bare-metal/tube-lib.h"
-//#endif
+#endif
 
 #ifdef TEST_SUITE
 #if TEST_SUITE == 0
@@ -84,7 +82,7 @@ uint8_t read_x8(uint32_t addr)
 
    if ((addr & 0xFFFFF1) == 0xFFFFF0)
    {
-      return tubeRead(addr >> 1);
+      return tube_parasite_read(addr >> 1);
    }
 
    PiWARN("Bad Read @ %06" PRIX32 "\n", addr);
@@ -123,16 +121,18 @@ uint32_t read_x32(uint32_t addr)
 uint64_t read_x64(uint32_t addr)
 {
    addr &= 0xFFFFFF;
-   // ARM doesn't support unalizged 64-bit loads, so the following
+   // ARM doesn't support unaligned 64-bit loads, so the following
    // results in a Data Abort exception:
    // return *((uint64_t*) (ns32016ram + addr))
    return (((uint64_t) read_x32(addr + 4)) << 32) + read_x32(addr);
 }
 
+
+// As this function returns uint32_t it *should* only be used for size 1, 2 or 4
 uint32_t read_n(uint32_t addr, uint32_t Size)
 {
    addr &= 0xFFFFFF;
-   if (Size <= sizeof(uint64_t))
+   if (Size <= sizeof(uint32_t))
    {
       if ((addr + Size) <= IO_BASE)
       {
@@ -140,14 +140,16 @@ uint32_t read_n(uint32_t addr, uint32_t Size)
          memcpy(&Result, ns32016ram + addr, Size);
          return Result;
       }
+      PiWARN("Bad read_n() addr @ %06" PRIX32 " size %" PRIX32 "\n", addr, Size);
+   } else {
+      PiWARN("Bad read_n() size @ %06" PRIX32 " size %" PRIX32 "\n", addr, Size);
    }
 
-   PiWARN("Bad Read @ %06" PRIX32 "\n", addr);
    return 0;
 }
 
 void write_x8(uint32_t addr, uint8_t val)
-{ 
+{
    addr &= 0xFFFFFF;
 
 #ifdef TRACE_WRITEs
@@ -162,7 +164,7 @@ void write_x8(uint32_t addr, uint8_t val)
 
    if ((addr & 0xFFFFF1) == 0xFFFFF0)
    {
-      tubeWrite(addr >> 1, val);
+      tube_parasite_write(addr >> 1, val);
       return;
    }
 
@@ -238,7 +240,11 @@ void write_x64(uint32_t addr, uint64_t val)
 #ifdef NS_FAST_RAM
    if (addr <= (RAM_SIZE - sizeof(uint64_t)))
    {
-      *((uint64_t*) (ns32016ram + addr)) = val;
+      // ARM doesn't support unaligned 64-bit stores, so the following
+      // results in a Data Abort exception:
+      // *((uint64_t*) (ns32016ram + addr)) = val;
+      write_x32(addr, (uint32_t) val);
+      write_x32(addr + 4, (uint32_t) (val >> 32));
       return;
    }
 #endif
@@ -302,7 +308,7 @@ uint32_t LoadBinary(const char *pFileName, uint32_t Location)
       rewind(pFile);
 
       if ((Location + FileSize) < MEG16)
-      { 
+      {
          End = fread(ns32016ram + Location, sizeof(uint8_t), FileSize, pFile) + Location;
       }
 

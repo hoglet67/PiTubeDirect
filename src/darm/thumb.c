@@ -152,7 +152,7 @@ static int thumb_disasm(darm_t *d, uint16_t w)
         }
 
     case T_THUMB_BRANCH_REG:
-        d->instr = (w >> 7) & 1 ? I_BLX : I_BX;
+        d->instr = ((w >> 7) & 1 )? I_BLX : I_BX;
         d->Rm = (w >> 3) & b1111;
         return 0;
 
@@ -201,7 +201,7 @@ static int thumb_disasm(darm_t *d, uint16_t w)
         return 0;
 
     case T_THUMB_MOD_SP_IMM:
-        d->instr = (w >> 7) & 1 ? I_SUB : I_ADD;
+        d->instr = ((w >> 7) & 1 )? I_SUB : I_ADD;
         d->Rd = d->Rn = SP;
         d->I = B_SET;
         d->imm = (w & 0x7f) << 2;
@@ -315,7 +315,7 @@ static int thumb_disasm(darm_t *d, uint16_t w)
         return 0;
 
     case T_THUMB_CBZ:
-        d->instr = (w >> 11) & 1 ? I_CBNZ : I_CBZ;
+        d->instr = ((w >> 11) & 1 ) ? I_CBNZ : I_CBZ;
         d->Rn = w & b111;
         d->Rm = PC;
         d->U = B_SET;
