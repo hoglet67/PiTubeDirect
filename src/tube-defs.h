@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Boa-rc1"
+#define RELEASENAME "Boa"
 
 #define NDEBUG
 
