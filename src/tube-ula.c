@@ -96,7 +96,8 @@ static perf_counters_t pct;
 uint8_t ph1[24],ph3_1;
 uint8_t hp1,hp2,hp3[2],hp4;
 uint8_t pstat[4];
-int ph1pos,ph3pos,hp3pos;
+int ph3pos,hp3pos;
+int ph1rdpos,ph1wrpos,ph1len;
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
@@ -190,7 +191,8 @@ static void tube_reset()
 {   
    tube_enabled = 1;
    tube_irq &= ~(4+2+1);
-   ph1pos = hp3pos = 0;
+   hp3pos = 0;
+   ph1rdpos = ph1wrpos = ph1len = 0;
    ph3pos = 1;
    HSTAT1 = HSTAT2 = HSTAT4 = HBIT_6;
    PSTAT1 = PSTAT2 = PSTAT3 = PSTAT4 = 0x40;
@@ -216,16 +218,22 @@ static void tube_reset()
 
 static void tube_host_read(uint16_t addr)
 {
-   int c;
    switch (addr & 7)
    {
    case 1: /*Register 1*/
-      if (ph1pos > 0) {
-         PH1_0 = BYTE_TO_WORD(ph1[1]);
-         for (c = 1; c < 23; c++) ph1[c] = ph1[c + 1];
-         ph1pos--;
+      if (ph1len > 0) {
+         PH1_0 = BYTE_TO_WORD(ph1[ph1rdpos]);
+           //for (c = 1; c < 23; c++) ph1[c] = ph1[c + 1];
+         ph1len--;
+         if ( ph1len != 0)
+         {
+            if (ph1rdpos== 23)
+               ph1rdpos =0; 
+            else
+               ph1rdpos++;
+         }
          PSTAT1 |= 0x40;
-         if (!ph1pos) HSTAT1 &= ~HBIT_7;
+         if (!ph1len) HSTAT1 &= ~HBIT_7;
       }
       // tube_updateints_IRQ(); // the above can't change the irq status
       break;
@@ -474,16 +482,21 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
    switch (addr & 7)
    {
    case 1: /*Register 1*/
-      if (ph1pos < 24)
+      if (ph1len < 24)
       {
-         if (ph1pos == 0) {
+         if (ph1len == 0) {
             PH1_0 = BYTE_TO_WORD(val);
          } else {
-            ph1[ph1pos] = val;
+            ph1[ph1wrpos] = val;
+            if (ph1wrpos== 23)
+               ph1wrpos =0; 
+            else
+               ph1wrpos++;
          }
-         ph1pos++;
+
+         ph1len++;
          HSTAT1 |= HBIT_7;
-         if (ph1pos == 24) PSTAT1 &= ~0x40;
+         if (ph1len == 24) PSTAT1 &= ~0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the IRQ flags
       break;
