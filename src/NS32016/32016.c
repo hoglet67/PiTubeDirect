@@ -351,7 +351,7 @@ static void GetGenPhase2(RegLKU gen, int c)
          
             default:         
             {
-               PiWARN("Illegal RegType value: %d\n", gen.RegType)
+               PiWARN("Illegal RegType value: %u\n", gen.RegType)
             }
          }
 
@@ -3003,7 +3003,6 @@ void n32016_exec()
             case OpImmediate:
             {
                GOTO_TRAP(IllegalWritingImmediate);
-               goto DoTrap;
             }
          }
       } else {

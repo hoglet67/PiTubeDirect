@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #include "tube-defs.h"
 #include "tube.h"
@@ -90,6 +91,16 @@ static func_ptr emulator;
 #define SWI_VECTOR (HIGH_VECTORS_BASE + 0x28)
 #define FIQ_VECTOR (HIGH_VECTORS_BASE + 0x3C)
 
+unsigned char * copro_mem_reset(int length)
+{
+     // Wipe memory
+     // Memory starts at zero now vectors have moved.
+   unsigned char * mpu_memory = 0;  
+   memset(mpu_memory, 0, length);
+   // return pointer to memory
+   return mpu_memory;
+}
+
 void init_emulator() {
    _disable_interrupts();
 
@@ -122,7 +133,7 @@ void init_emulator() {
       copro = DEFAULT_COPRO;
    }
 
-   LOG_DEBUG("Raspberry Pi Direct %d %s Client\r\n", copro,emulator_names[copro]);
+   LOG_DEBUG("Raspberry Pi Direct %u %s Client\r\n", copro,emulator_names[copro]);
 
    emulator = emulator_functions[copro];
    
@@ -191,7 +202,7 @@ static void get_copro_speed() {
    if (copro_speed > 255){
       copro_speed = 0;
    }
-   LOG_DEBUG("emulator speed %d\r\n", copro_speed);
+   LOG_DEBUG("emulator speed %u\r\n", copro_speed);
    if (copro_speed !=0)
       copro_speed = (arm_speed/(1000000/256) / copro_speed);
 }
@@ -231,7 +242,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
 #ifdef HAS_MULTICORE
 
-  LOG_DEBUG("main running on core %d\r\n", _get_core());
+  LOG_DEBUG("main running on core %u\r\n", _get_core());
   for (i = 0; i < 10000000; i++);
   start_core(1, _spin_core);
   for (i = 0; i < 10000000; i++);

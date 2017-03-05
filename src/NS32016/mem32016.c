@@ -11,6 +11,7 @@
 #include <string.h>
 #include "32016.h"
 #include "mem32016.h"
+#include "../tube-client.h"
 
 //#ifdef BEEBEM
 #include "../tube-ula.h"
@@ -32,12 +33,12 @@
 #include "pandora/PandoraV2_00.h"
 #endif
 
-uint8_t ns32016ram[MEG16];
+uint8_t * ns32016ram;
 
 void init_ram(void)
 {
+   ns32016ram = copro_mem_reset(MEG16);
 #ifdef TEST_SUITE
-   memset(ns32016ram, 0, sizeof(ns32016ram));
    memcpy(ns32016ram, ROM, sizeof(ROM));
 #elif defined(PANDORA_BASE)
    memcpy(ns32016ram + PANDORA_BASE, PandoraV2_00, sizeof(PandoraV2_00));
