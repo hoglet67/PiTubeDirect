@@ -145,7 +145,7 @@ unsigned int tube_buffer[0x10000];
 
 void tube_dump_buffer() {
    int i;
-   LOG_INFO("tube_index = %d\r\n", tube_index);
+   LOG_INFO("tube_index = %u\r\n", tube_index);
    for (i = 0; i < tube_index; i++) {
       if (tube_buffer[i] & (TUBE_READ_MARKER | TUBE_WRITE_MARKER)) {
          if (tube_buffer[i] & TUBE_READ_MARKER) {
@@ -155,7 +155,7 @@ void tube_dump_buffer() {
             LOG_INFO("Wr R");
          }
          // Covert address (1,3,5,7) to R1,R2,R3,R4
-         LOG_INFO("%d = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
+         LOG_INFO("%u = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
       } else {
          LOG_INFO("?? %08x\r\n", tube_buffer[i]);
       }
@@ -227,13 +227,13 @@ static void tube_host_read(uint16_t addr)
          ph1len--;
          if ( ph1len != 0)
          {
+            HSTAT1 &= ~HBIT_7;
             if (ph1rdpos== 23)
                ph1rdpos =0; 
             else
                ph1rdpos++;
          }
          PSTAT1 |= 0x40;
-         if (!ph1len) HSTAT1 &= ~HBIT_7;
       }
       // tube_updateints_IRQ(); // the above can't change the irq status
       break;
@@ -311,7 +311,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          copro_speed = 0;
       else
          copro_speed = (arm_speed/(1000000/256) / val);
-         LOG_DEBUG("New speed Copro = %d, %d\r\n", val, copro_speed);
+         LOG_DEBUG("New speed Copro = %u, %u\r\n", val, copro_speed);
       return; 
    
    case 5: /*Register 3*/
@@ -345,7 +345,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       break;
    case 6:  
       copro = val;
-      LOG_DEBUG("New Copro = %d\r\n", copro);
+      LOG_DEBUG("New Copro = %u\r\n", copro);
       return;
    case 7: /*Register 4*/
      // if (!tube_enabled)
@@ -834,7 +834,7 @@ void tube_log_performance_counters() {
    read_performance_counters(&pct);
    print_performance_counters(&pct);
 #endif
-   LOG_DEBUG("tube reset - copro %d\r\n", copro);
+   LOG_DEBUG("tube reset - copro %u\r\n", copro);
 #ifdef DEBUG_TRANSFERS
    LOG_INFO("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
    LOG_INFO("checksum_p = %08"PRIX32" %08"PRIX32"\r\n", count_p, checksum_p);
