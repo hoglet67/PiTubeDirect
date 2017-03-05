@@ -4,17 +4,17 @@
  * (c) 2016 David Banks
  */
 #include <stdio.h>
-#include <string.h>
+
 #include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
 #include "yaze/mem_mmu.h"
 #include "yaze/simz80.h"
-#include "startup.h"
+#include "tube-client.h"
 
 static int overlay_rom = 0;
 
-unsigned char copro_z80_ram[0x10000];
+unsigned char *copro_z80_ram;
 
 static const unsigned char copro_z80_rom[0x1000] = {
   0xf3, 0x11, 0x00, 0xf0, 0x21, 0x00, 0x00, 0x01, 0x00, 0x10, 0xed, 0xb0, 0xc3, 0x80, 0xf2, 0x43,
@@ -298,11 +298,6 @@ void copro_z80_write_io(unsigned int addr, unsigned char data) {
    tube_parasite_write(addr & 7, data);
 }
 
-static void copro_z80_poweron_reset() {
-   // Wipe memory
-   memset(copro_z80_ram, 0, 0x10000);
-}
-
 static void copro_z80_reset() {
   // Log ARM performance counters
   tube_log_performance_counters();
@@ -327,7 +322,7 @@ void copro_z80_emulator()
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
 
-   copro_z80_poweron_reset(); 
+   copro_z80_ram = copro_mem_reset(0x10000); 
    copro_z80_reset();
   
    while (1)

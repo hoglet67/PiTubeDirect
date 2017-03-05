@@ -17,7 +17,7 @@ void copro_null_emulator() {
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
 
-   printf("This Co Pro has not been implemented yet\r\n");
+   printf("This is the NULL copro\r\n");
 
    // Disable the tube, so the Beeb doesn't hang
    disable_tube();

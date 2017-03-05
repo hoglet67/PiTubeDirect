@@ -16,6 +16,7 @@
 #include "tuberom_arm.h"
 #include "copro-arm2.h"
 #include "startup.h"
+#include "tube-client.h"
 
 #define RAM_MASK8    ((UINT32) 0x003fffff)
 #define ROM_MASK8    ((UINT32) 0x00003fff)
@@ -23,10 +24,11 @@
 #define ROM_MASK32   ((UINT32) 0x00003ffc)
 
 // 4MB of RAM starting at 0x00000000
-UINT8 arm2_ram[1024 * 1024 * 4] __attribute__((aligned(0x10000)));
+#define ARM_RAM_SIZE 1024 * 1024 * 4
+UINT8 * arm2_ram;
 
 // 16KB of ROM starting at 0x03000000
-UINT8 arm2_rom[0x4000] __attribute__((aligned(0x10000)));
+//UINT8 arm2_rom[0x4000] __attribute__((aligned(0x10000)));
 
 #define R15 arm2_getR15()
 
@@ -45,7 +47,7 @@ UINT8 copro_arm2_read8(int addr)
     case 1:
       return tube_parasite_read((addr >> 2) & 7);
     case 3:
-      return *(UINT8*) (arm2_rom + (addr & ROM_MASK8));
+      return *(UINT8*) (tuberom_arm_v100+(addr & ROM_MASK8));
   }
   return 0;
 
@@ -70,7 +72,7 @@ UINT32 copro_arm2_read32(int addr)
       result = tube_parasite_read((addr >> 2) & 7);
     break;
     case 3:
-      result = *(UINT32*) (arm2_rom + (addr & ROM_MASK32));
+      result = *(UINT32*) (tuberom_arm_v100+(addr & ROM_MASK32));
     break;
     default:
       result = 0;
@@ -124,7 +126,7 @@ void copro_arm2_write32(int addr, UINT32 data)
 static void copro_arm2_poweron_reset()
 {
   // Wipe memory
-  memset(arm2_ram, 0, sizeof(arm2_ram));
+  arm2_ram = copro_mem_reset(ARM_RAM_SIZE);
 }
 
 static void copro_arm2_reset()
@@ -133,7 +135,7 @@ static void copro_arm2_reset()
   tube_log_performance_counters();
   // Re-instate the Tube ROM on reset
   memcpy(arm2_ram, tuberom_arm_v100, 0x4000);
-  memcpy(arm2_rom, tuberom_arm_v100, 0x4000);
+  //memcpy(arm2_rom, tuberom_arm_v100, 0x4000);
   // Reset the ARM device
   arm2_device_reset();
   // Wait for rst become inactive before continuing to execute

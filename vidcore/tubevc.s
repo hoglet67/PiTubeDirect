@@ -128,28 +128,30 @@
                 
 # poll for nTube being low
 Poll_loop:
-   ld     r7, GPLEV0_offset(r6)
-   btst   r7, nRST
+   mov    r7, r0
+Poll_tube_low:
+   ld     r8, GPLEV0_offset(r6)
+   btst   r8, nRST
    beq    post_reset
-   btst   r7, nTUBE
-   bne    Poll_loop
-   ld     r7, GPLEV0_offset(r6)  # check ntube again to remove glitches
-   btst   r7, nTUBE
-   bne    Poll_loop
+   btst   r8, nTUBE
+   bne    Poll_tube_low
+   ld     r8, GPLEV0_offset(r6)  # check ntube again to remove glitches
+   btst   r8, nTUBE
+   bne    Poll_tube_low
    # we now know nTube is low
-   btst   r7, RnW
+   btst   r8, RnW
    beq    wr_cycle
 
    # So we are in a read cycle
    # sort out the address bus
-   mov    r8, 0
-   btst   r7, r16
-   orne   r8, 1
-   btst   r7, r17
-   orne   r8, 2
-   btst   r7, r18
-   orne   r8, 4
-   ld     r8, (r0, r8)           # Read word from tube register
+   
+   btst   r8, r16
+   orne   r7, 4
+   btst   r8, r17
+   orne   r7, 8
+   btst   r8, r18
+   orne   r7, 16
+   ld     r8, (r7)               # Read word from tube register
    st     r13, (r6)              # Drive data bus
    st     r14, 4(r6)             # Drive data bus        
    st     r15, 8(r6)             # Drive data bus
@@ -159,11 +161,10 @@ Poll_loop:
 
   # spin waiting for clk high
 rd_wait_for_clk_high1:
-   ld     r7, GPLEV0_offset(r6)
-   btst   r7, CLK
+   ld     r8, GPLEV0_offset(r6)
+   btst   r8, CLK
    beq    rd_wait_for_clk_high1
-# we now have half a cycle to do post mail ( 500ns early)
-   mov    r8,r7
+# we now have half a cycle to do post mail
    btst   r8, r16
    beq    rd_wait_for_clk_low
    bl     do_post_mailbox
@@ -215,7 +216,6 @@ post_mail:
         
 # Post a message to indicate a reset
 post_reset:
-   mov    r8, r7
    bl     do_post_mailbox
 # Wait for reset to be released (so we don't overflow the mailbox)
 post_reset_loop:

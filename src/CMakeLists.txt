@@ -40,7 +40,7 @@ project( tube-client C ASM )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPROFILING -fomit-frame-pointer" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fomit-frame-pointer" )
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-ip" )
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-delete-null-pointer-checks -fdata-sections -ffunction-sections ")

@@ -15,6 +15,7 @@
 #include "copro-mc6809sc.h"
 
 #include "mc6809sc/mc6809.h"
+#include "tube-client.h"
 
 
 static int overlay_rom = 0;
@@ -86,9 +87,7 @@ static void copro_mc6809sc_fault(mc6809__t *cpuptr, mc6809fault__t fault) {
 
 static void copro_mc6809_poweron_reset() {
    // Initialize memory pointer to zero (the start of the 2MB of memory shared with the 6502)
-   copro_mc6809_ram = (unsigned char *) 0;
-   // Wipe memory
-   memset(copro_mc6809_ram, 0, 0x10000);
+   copro_mc6809_ram = copro_mem_reset(0x10000);
 }
 
 static void copro_mc6809_reset() {

@@ -1,6 +1,6 @@
-#ifdef WIN32
+
 #define DECLARE_RAM
-#endif
+
 
 #define SIXTEEN_K		0x04000
 #define ONE_MEG		0x100000
@@ -21,7 +21,7 @@ enum cpu80186_memory
 
 // Use Declare RAM when building on a machine with an REAL OS!
 #ifdef DECLARE_RAM
-extern uint8_t RAM[ONE_MEG];
+extern uint8_t* RAM;
 #else
 extern uint8_t* RAM;
 #endif
