@@ -134,7 +134,7 @@ static int armv7_disas_uncond(darm_t *d, uint32_t w)
     case b011:
         // if the 24th bit is set, then this is a PLD instruction, otherwise
         // it's a PLI instruction
-        d->instr = (w >> 24) & 1 ? I_PLD : I_PLI;
+        d->instr = ((w >> 24) & 1 )? I_PLD : I_PLI;
 
         d->Rn = (w >> 16) & b1111;
         d->U = (w >> 23) & 1;
@@ -189,7 +189,7 @@ static int armv7_disas_uncond(darm_t *d, uint32_t w)
             d->opc1 = (w >> 20) & b1111;
         }
         else {
-            d->instr = (w >> 20) & 1 ? I_MRC2 : I_MCR2;
+            d->instr = ((w >> 20) & 1 )? I_MRC2 : I_MCR2;
             d->opc1 = (w >> 21) & b111;
             d->Rt = (w >> 12) & b1111;
         }

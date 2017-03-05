@@ -493,11 +493,11 @@ void HandleBranch(UINT32 insn)
   /* Sign-extend the 24-bit offset in our calculations */
   if (off & 0x2000000u)
   {
-    R15-= ((~(off | 0xfc000000u)) + 1) - 8;
+    R15 = ((R15 - (((~(off | 0xfc000000u)) + 1) - 8)) & ADDRESS_MASK) | (R15 & ~ADDRESS_MASK);
   }
   else
   {
-    R15 += off + 8;
+    R15 = ((R15 + (off + 8)) & ADDRESS_MASK) | (R15 & ~ADDRESS_MASK);
   }
   CYCLE_COUNT(2 * S_CYCLE + N_CYCLE);
 }
@@ -539,13 +539,7 @@ void HandleMemSingle(UINT32 insn)
         rnv = (R15 & ADDRESS_MASK) - off;
       }
 
-      if (insn & INSN_SDT_W)
-      {
-        SetRegister(rn,rnv);
-        if (ARM_DEBUG_CORE && rn == eR15)
-        logerror("writeback R15 %08x\n", R15);
-      }
-      else if (rn == eR15)
+      if (rn == eR15)
       {
         rnv = rnv + 8;
       }
@@ -579,7 +573,7 @@ void HandleMemSingle(UINT32 insn)
       {
         if (rd == eR15)
         {
-          R15 = (cpu_read32(rnv) & ADDRESS_MASK) | (R15 & PSR_MASK) | (R15 & MODE_MASK);
+          R15 = (cpu_read32(rnv) & ADDRESS_MASK) | (R15 & PSR_MASK) | (R15 & IRQ_MASK) | (R15 & MODE_MASK);
 
           /*
            The docs are explicit in that the bottom bits should be masked off
@@ -589,7 +583,7 @@ void HandleMemSingle(UINT32 insn)
            
            In other cases, 4 is subracted from R15 here to account for pipelining.
            */
-          if ((cpu_read32(rnv)&3)==0)
+          if (m_copro_type == ARM_COPRO_TYPE_VL86C020 || (cpu_read32(rnv)&3)==0)
           R15 -= 4;
 
           CYCLE_COUNT(S_CYCLE + N_CYCLE);
@@ -619,6 +613,17 @@ void HandleMemSingle(UINT32 insn)
         cpu_write32(rnv, rd == eR15 ? R15 + 8 : GetRegister(rd));
       }
     }
+  /* Do pre-indexing writeback */
+  if ((insn & INSN_SDT_P) && (insn & INSN_SDT_W))
+  {
+    if ((insn & INSN_SDT_L) && rd == rn)
+      SetRegister(rn, GetRegister(rd));
+    else
+      SetRegister(rn, rnv);
+
+    if (ARM_DEBUG_CORE && rn == eR15)
+      logerror("writeback R15 %08x\n", R15);
+  }
 
     /* Do post-indexing writeback */
   if (!(insn & INSN_SDT_P)/* && (insn&INSN_SDT_W)*/)
@@ -755,7 +760,7 @@ void HandleALU(UINT32 insn)
   {
     /* Arithmetic operations */
     case OPCODE_SBC:
-      rd = (rn - op2 - (R15& C_MASK ? 0 : 1));
+      rd = (rn - op2 - ((R15& C_MASK) ? 0 : 1));
       HandleALUSubFlags(rd, rn, op2);
       break;
       case OPCODE_CMP:
@@ -764,7 +769,7 @@ void HandleALU(UINT32 insn)
       HandleALUSubFlags(rd, rn, op2);
       break;
       case OPCODE_RSC:
-      rd = (op2 - rn - (R15 & C_MASK ? 0 : 1));
+      rd = (op2 - rn - ((R15 & C_MASK) ? 0 : 1));
       HandleALUSubFlags(rd, op2, rn);
       break;
       case OPCODE_RSB:
@@ -1021,7 +1026,16 @@ void HandleMemBlock(UINT32 insn)
       if (!(insn & INSN_BDT_P))
         rbp = rbp + (-4);
 
-      result = loadInc(insn & 0xffff, rbp, insn & INSN_BDT_S);
+      // S Flag Set, but R15 not in list = Transfers to User Bank
+      if ((insn & INSN_BDT_S) && !(insn & 0x8000))
+      {
+        int curmode = MODE;
+        R15 = R15 & ~MODE_MASK;
+        result = loadInc( insn & 0xffff, rbp, insn&INSN_BDT_S );
+        R15 = R15 | curmode;
+      }
+      else
+        result = loadInc(insn & 0xffff, rbp, insn & INSN_BDT_S);
 
       if (insn & 0x8000)
       {
@@ -1048,7 +1062,7 @@ void HandleMemBlock(UINT32 insn)
           if ((insn&(1<<rb))==0)
           SetModeRegister(mode, rb, GetModeRegister(mode, rb) + result * 4);
           else if (ARM_DEBUG_CORE)
-          logerror("%08x:  Illegal LDRM writeback to base register (%d)\n",R15, rb);
+          logerror("%08x:  Illegal LDRM writeback to base register (%u)\n",R15, rb);
         }
       }
       else
@@ -1062,7 +1076,16 @@ void HandleMemBlock(UINT32 insn)
           rbp = rbp - (- 4);
         }
 
-        result = loadDec( insn&0xffff, rbp, insn&INSN_BDT_S, &deferredR15, &defer );
+              // S Flag Set, but R15 not in list = Transfers to User Bank
+        if ((insn & INSN_BDT_S) && !(insn & 0x8000))
+        {
+          int curmode = MODE;
+          R15 = R15 & ~MODE_MASK;
+          result = loadDec( insn&0xffff, rbp, insn&INSN_BDT_S, &deferredR15, &defer );
+          R15 = R15 | curmode;
+        }
+        else
+          result = loadDec( insn&0xffff, rbp, insn&INSN_BDT_S, &deferredR15, &defer );
 
         if (insn & INSN_BDT_W)
         {
@@ -1109,7 +1132,16 @@ void HandleMemBlock(UINT32 insn)
         {
           rbp = rbp + (- 4);
         }
-        result = storeInc( insn&0xffff, rbp );
+        // S bit set = Transfers to User Bank
+        if (insn & INSN_BDT_S)
+        {
+          int curmode = MODE;
+          R15 = R15 & ~MODE_MASK;
+          result = storeInc( insn&0xffff, rbp );
+          R15 = R15 | curmode;
+        }
+        else
+          result = storeInc( insn&0xffff, rbp );
         if( insn & INSN_BDT_W )
         {
           SetRegister(rb,GetRegister(rb)+result*4);
@@ -1122,7 +1154,16 @@ void HandleMemBlock(UINT32 insn)
         {
           rbp = rbp - (- 4);
         }
-        result = storeDec( insn&0xffff, rbp );
+        // S bit set = Transfers to User Bank
+        if (insn & INSN_BDT_S)
+        {
+          int curmode = MODE;
+          R15 = R15 & ~MODE_MASK;
+          result = storeDec( insn&0xffff, rbp );
+          R15 = R15 | curmode;
+        }
+        else
+          result = storeDec( insn&0xffff, rbp );
         if( insn & INSN_BDT_W )
         {
           SetRegister(rb,GetRegister(rb)-result*4);
@@ -1173,7 +1214,13 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
   switch (t >> 1)
   {
     case 0: /* LSL */
-      if (pCarry)
+      if (k >= 32)
+      {
+        if (pCarry)
+          *pCarry = (k == 32) ? rm & 1 : 0;
+        return 0;
+      }
+      else if (pCarry)
       {
         *pCarry = k ? (rm & (1 << (32 - k))) : (R15& C_MASK);
       }
@@ -1201,7 +1248,7 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
       k = 32;
       if (pCarry) *pCarry = (rm & (1 << (k - 1)));
       if (k >= 32)
-      return rm & SIGN_BIT ? 0xffffffffu : 0;
+      return (rm & SIGN_BIT) ? 0xffffffffu : 0;
       else
       {
         if (rm & SIGN_BIT)
@@ -1214,7 +1261,7 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
       if (k)
       {
         while (k > 32) k -= 32;
-        if (pCarry) *pCarry = rm & SIGN_BIT;
+        if (pCarry) *pCarry = rm & (1 << (k - 1));
         return ROR(rm, k);
       }
       else
@@ -1302,7 +1349,7 @@ void HandleCoProVL86C020(UINT32 insn)
   }
   else
   {
-    printf("%08x:  Unimplemented VL86C020 copro instruction %08x %d %d\n", R15& 0x3ffffff, insn,rn,crn);
+    printf("%08x:  Unimplemented VL86C020 copro instruction %08x %u %u\n", R15& 0x3ffffff, insn,rn,crn);
     //debugger_break(machine());
   }
 }
@@ -1320,7 +1367,7 @@ void HandleCoPro(UINT32 insn)
     SetRegister(rn, m_coproRegister[crn]);
 
     if (ARM_DEBUG_COPRO)
-      logerror("%08x:  Copro read CR%d (%08x) to R%d\n", R15, crn, m_coproRegister[crn], rn);
+      logerror("%08x:  Copro read CR%u (%08x) to R%u\n", R15, crn, m_coproRegister[crn], rn);
     }
     /* MCR - transfer main register to copro register */
     else if( (insn&0x0f100010)==0x0e000010 )
@@ -1373,7 +1420,7 @@ void HandleCoPro(UINT32 insn)
       }
 
       if (ARM_DEBUG_COPRO)
-      logerror("%08x:  Copro write R%d (%08x) to CR%d\n", R15, rn, GetRegister(rn), crn);
+      logerror("%08x:  Copro write R%u (%08x) to CR%u\n", R15, rn, GetRegister(rn), crn);
     }
     /* CDP - perform copro operation */
     else if( (insn&0x0f000010)==0x0e000000 )

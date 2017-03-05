@@ -41,6 +41,7 @@
 #include "rpi-interrupts.h"
 #include "rpi-systimer.h"
 
+#include "info.h"
 #include "startup.h"
 #include "swi.h"
 #include "tube.h"
@@ -62,7 +63,7 @@ static Environment_type defaultEnvironment;
 
 static ErrorBuffer_type defaultErrorBuffer;
 
-static const char *banner = "ARM1176 Co Processor 1000MHz\r\n\n";
+static char banner[80];
 
 static const char *prompt = "arm>*";
 
@@ -294,6 +295,9 @@ void copro_armnative_emulator() {
     // Allow another copro to be selected
     return;
   }
+
+  // Create the startup banner
+  sprintf(banner, "Native ARM Co Processor %dMHz\r\n\n", get_speed());
 
   // Initialize the environment structure
   initEnv();

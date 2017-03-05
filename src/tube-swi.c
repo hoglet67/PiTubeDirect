@@ -1,3 +1,28 @@
+// tube-swi.c
+//
+// 23-Nov-2016   DMB:
+//           Code imported from PiTubeClient project
+// 25-Nov-2016   DMB:
+//           Implemented OS_Plot (SWI &45)
+// 02-Feb-2017   JGH:
+//           Updated comments
+//           Corrected in-length of OSWORD A=&05 (=IOMEM)
+//           Corrected OSWORD &80+ block transfer
+//           Corrected printf formatting of an error message
+//           Corrected mask to detect OS_WriteI
+//           Added SWI_Mouse
+//           OSBYTE &8E/&9D don't return parameters
+//           Corrected R1 return from OSBYTE &80+
+// 14-Feb-2017   JGH and DMB:
+//           Updated code entry to check code header
+// 14-Feb-2017   DMB:
+//           Implemented OS_ReadPoint (SWI &32)
+// 19-Feb-2017   JGH:
+//           tube_CLI prepares environment for later collection by OS_GetEnv.
+//           Fixed typo fetching address of module title.
+//           exec_raw temporarily doesn't swap in module title to commandBuffer
+//           as we need a static buffer for that to work.
+
 #include <stdio.h>
 #include <string.h>
 
@@ -13,51 +38,51 @@
 #define NUM_SWI_HANDLERS 0x80
 
 const int osword_in_len[] = {
-  0,  // OSWORD 0x00
-  0,
-  5,
-  0,
-  5,
-  2,
-  5,
-  8,
-  14,
-  4,
-  1,
-  1,
-  5,
-  0,
-  8,
-  25,
-  16,
-  13,
-  0,
-  8,
-  128  // OSWORD 0x14
+  0,   // OSWORD 0x00
+  0,   //  1  =TIME
+  5,   //  2  TIME=
+  0,   //  3  =IntTimer
+  5,   //  4  IntTimer=
+  4,   //  5  =IOMEM   JGH: must send full 4-byte address
+  5,   //  6  IOMEM=
+  8,   //  7  SOUND
+  14,  //  8  ENVELOPE
+  4,   //  9  =POINT()
+  1,   // 10  =CHR$()
+  1,   // 11  =Palette
+  5,   // 12  Pallette=
+  0,   // 13  =Coords
+  8,   // 14  =RTC
+  25,  // 15  RTC=
+  16,  // 16  NetTx
+  13,  // 17  NetRx
+  0,   // 18  NetArgs
+  8,   // 19  NetInfo
+  128  // 20  NetFSOp
 };
 
 const int osword_out_len[] = {
-  0,  // OSWORD 0x00
-  5,
-  0,
-  5,
-  0,
-  5,
-  0,
-  0,
-  0,
-  5,
-  9,
-  5,
-  0,
-  8,
-  25,
-  1,
-  13,
-  13,
-  128,
-  8,
-  128  // OSWORD 0x14
+  0,   // OSWORD 0x00
+  5,   //  1  =TIME
+  0,   //  2  TIME=
+  5,   //  3  =IntTimer
+  0,   //  4  IntTimer=
+  5,   //  5  =IOMEM
+  0,   //  6  IOMEM=
+  0,   //  7  SOUND
+  0,   //  8  ENVELOPE
+  5,   //  9  =POINT()
+  9,   // 10  =CHR$()
+  5,   // 11  =Palette
+  0,   // 12  Palette=
+  8,   // 13  =Coords
+  25,  // 14  =RTC
+  1,   // 15  RTC=
+  13,  // 16  NetTx
+  13,  // 17  NetRx
+  128, // 18  NetArgs
+  8,   // 19  NetInfo
+  128  // 20  NetFSOp
 };
 
 // Basic 135 uses the following on startup
@@ -133,7 +158,7 @@ SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_SWI_Not_Known,         // (&2F) -- OS_ReadPalette
   tube_SWI_Not_Known,         // (&30) -- OS_ServiceCall
   tube_SWI_Not_Known,         // (&31) -- OS_ReadVduVariables
-  tube_SWI_Not_Known,         // (&32) -- OS_ReadPoint
+  tube_ReadPoint,             // (&32) -- OS_ReadPoint
   tube_SWI_Not_Known,         // (&33) -- OS_UpCall
   tube_SWI_Not_Known,         // (&34) -- OS_CallAVector
   tube_SWI_Not_Known,         // (&35) -- OS_ReadModeVariable
@@ -213,6 +238,20 @@ SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_SWI_Not_Known          // (&7F) -- OS_HeapSort32
 };
 
+// A helper method to make generating errors easier
+void generate_error(void * address, unsigned int errorNum, char *errorMsg) {
+  // Get the current handler's error buffer
+  ErrorBuffer_type *ebuf = (ErrorBuffer_type *)env->handler[ERROR_HANDLER].address;
+  // Copy the error address into the handler's error block
+  ebuf->errorAddr = address;
+  // Copy the error number into the handler's error block
+  ebuf->errorBlock.errorNum = errorNum;
+  // Copy the error string into the handler's error block
+  strcpy(ebuf->errorBlock.errorMsg, errorMsg);
+  // The wrapper drops back to user mode and calls the handler
+  _error_handler_wrapper(ebuf, env->handler[ERROR_HANDLER].handler);
+}
+
 void updateOverflow(unsigned char ovf, unsigned int *reg) {
   // The PSW is on the stack two words before the registers
   reg-= 2;
@@ -247,7 +286,7 @@ void handler_not_implemented(char *type) {
 
 // For an undefined environment handler (i.e. where num >= NUM_HANDLERS)
 void handler_not_defined(unsigned int num) {
-  printf("Handler %d not defined\r\n", num);
+  printf("Handler 0x%x not defined\r\n", num);
 }
 
 // For an unimplemented SWI
@@ -272,8 +311,8 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
   if (num < NUM_SWI_HANDLERS) {
     // Invoke one of the fixed handlers
     SWIHandler_Table[num](reg);
-  } else if ((num & 0xFF00) == 0x0100) {
-    // SWI's 0x100 - 0x1FF are OS_WriteI
+  } else if ((num & 0xFFFFFF00) == 0x0100) {      // JGH
+    // SWIs 0x100 - 0x1FF are OS_WriteI
     tube_WriteC(&num);
   } else if (num == 0x42c80) {
     tube_BASICTrans_HELP(reg);
@@ -300,7 +339,7 @@ int user_exec_fn(FunctionPtr_Type f, int param ) {
     printf("Execution passing to %08x cpsr = %08x param = %s\r\n", (unsigned int)f, _get_cpsr(), (unsigned char *)param);
   }
   // setTubeLibDebug(1);
-  // The machine code version in armc-startup.S does the real work
+  // The machine code version in copro-armnativeasm.S does the real work
   // of dropping down to user mode
   ret = _user_exec((unsigned char *)f, param, 0, 0);
   if (DEBUG_ARM) {
@@ -310,13 +349,74 @@ int user_exec_fn(FunctionPtr_Type f, int param ) {
 }
 
 void user_exec_raw(volatile unsigned char *address) {
+  int off;
+  int carry = 0, r0 = 0; int r1 = 0; int r12 = 0;	// Entry parameters
+
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
   }
+
+// JGH: set up parameters and find correct entry address
+// tube_CLI has already set commandBuffer="filename parameters"
+// If we enter a module this needs to be changed to "modulename parameters"
+//
+// On entry to code, registers need to be:
+// r0=>command line if >255, 0=raw code, 1=BBC header
+// r1=>command tail
+// r12=workspace - pass as zero to say 'none allocated, you must claim some'
+// r13=stack
+// r14=return address
+
+  off=address[7];
+  if (address[off+0]==0 && address[off+1]=='(' && address[off+2]=='C' && address[off+3]==')') {
+    // BBC header
+    if ((address[6] & 0x4F) != 0x4D) {
+      generate_error((void *) address, 249, "This is not ARM code");
+      return;
+    } else {
+      r0 = 1;       // Entering code with a BBC header
+      carry = 1;    // Set Carry = not entering from RESET
+			// ToDo: Should use ROM title as commandBuffer startup command
+    }
+  } else {
+    if (address[19] == 0 && address[23] == 0 && address[27] == 0) {
+      // RISC OS module header
+      off=address[16] + 256 * address[17] + 65536 * address[18];
+      r0 = (unsigned int) address + off;		// R0=>module title
+
+// We need to do commandBuffer=moduleTitle+" "+MID$(commandBuffer,offset_to_space)
+// which means we need some string space to construct a new string.
+// Real hardware has a static command line buffer for this use, similar to &DC00 on the Master.
+// For the moment, just use the the existing *command string until we sort out a static
+// commandBuffer string space
+// This is also needed for OS_SetEnv which copies a new environment string to commandBuffer
+
+    }
+    r0 = (unsigned int) env->commandBuffer;
+  }
+
+  r1 = (unsigned int) env->commandBuffer;
+  while (*(char*)r1 > ' ') r1++;			// Step past command
+  while (*(char*)r1 == ' ') r1++;			// Step past spaces, r1=>command tail
+      
+  if (address[3]==0) {
+    off=address[0]+256*address[1]+65536*address[2];
+    address=address+off;      				// Entry word is offset, not branch
+  }
+
+  // Bit zero of the address param is used by _user_exec as the carry
+  address = (unsigned char *) (((unsigned int) address) | carry);
+
   // setTubeLibDebug(1);
-  // The machine code version in armc-startup.S does the real work
+  // The machine code version in copro-armnativeasm.S does the real work
   // of dropping down to user mode
-  _user_exec(address, 0, 0, 0);
+
+  _user_exec(address, r0, r1, r12);
+  // r0=>startup command string if r0>255, 0=raw, 1=bbc header)
+  // r1=>startup command parameters. Code should not rely on R1 but should call OS_GetEnv,
+  //     but it is provided to assist Utility code which does not have an environment
+  // r12=0 - no workspace allocated
+
   if (DEBUG_ARM) {
     printf("Execution returned from %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
   }
@@ -372,7 +472,7 @@ void tube_NewLine(unsigned int *reg) {
 void tube_ReadC(unsigned int *reg) {
   // OSRDCH   R2: &00                               Cy A
   sendByte(R2_ID, 0x00);
-  // On exit, the Carry flag indicaes validity
+  // On exit, the Carry flag indicates validity
   updateCarry(receiveByte(R2_ID) & 0x80, reg);
   // On exit, R0 contains the character
   reg[0] = receiveByte(R2_ID);
@@ -380,8 +480,73 @@ void tube_ReadC(unsigned int *reg) {
 
 void tube_CLI(unsigned int *reg) {
   char *ptr = (char *)(*reg);
-  // dispatchCmd returns 0 if command handled locally
-  if (dispatchCmd(ptr)) {
+  char *lptr = ptr;
+  int run=0;
+
+// We need to prepare the environment in case code is entered
+// Command buffer is:
+// * ** ***foobar   hazel sheila
+//         ^
+//   *  **  *  /  foobar   hazel   sheila
+//                ^
+// *  *** * ** RUN   foobar   hazel  sheila
+// *  *** * ** RU.   foobar   hazel  sheila
+// *  *** * ** R.    foobar   hazel  sheila
+//                   ^
+
+  while (*lptr==' ' || *lptr=='*') lptr++;		// Skip leading spaces and stars
+// Now at:
+// *foobar hazel
+//  ^
+// */foobar hazel
+//  ^
+// */ foobar hazel
+//  ^
+// *RUN foobar hazel
+//  ^
+
+  if (lptr[0]=='/') {
+    if (lptr[1]==' ') {
+      run=1;						// */<spc>filename, need to skip to filename
+    } else {
+      lptr++;						// */filename, step to filename
+    }
+  } else {
+    if ((lptr[0] & 0xDF)=='R') {			// Might be *RUN
+      if (lptr[1]=='.') run=1;				// *R. file, need to skip to filename
+      if ((lptr[1] & 0xDF)=='U') {
+        if (lptr[2]=='.') run=1;			// *RU. file, need to skip to filename
+      } else {
+        if ((lptr[2] & 0xDF)=='N' && lptr[3]<'A') run=1; // *RUN file, need to skip to filename
+      }
+    }
+  }
+
+  if (run) {
+    while (*lptr>' ') lptr++;				// Skip 'RUN' command or '/' shortcut
+    while (*lptr==' ') lptr++;				// Skip to start of filename
+  }
+// Now at:
+// *foobar hazel
+//  ^
+// */foobar hazel
+//   ^
+// */ foobar hazel
+//    ^
+// *RUN foobar hazel
+//      ^
+
+// Fake an OS_SetEnv call
+  run=0;
+  while(*lptr >= ' ') {					// Copy this command to environment string
+    env->commandBuffer[run]=*lptr;
+    run++; lptr++;
+  }
+  env->commandBuffer[run]=0x0D;
+//  env->handler[MEMORY_LIMIT_HANDLER].handler=???;	// Can't remember if these are set now or later
+//  env->timeBuffer=now_centiseconds();			// Will need to check real hardware
+
+  if (dispatchCmd(ptr)) {				// dispatchCmd returns 0 if command was handled locally
     // OSCLI    R2: &02 string &0D                    &7F or &80
     sendByte(R2_ID, 0x02);
     sendString(R2_ID, 0x0D, ptr);
@@ -415,10 +580,25 @@ void tube_Byte(unsigned int *reg) {
     sendByte(R2_ID, x);
     sendByte(R2_ID, y);
     sendByte(R2_ID, a);
+
+    // JGH: OSBYTE &8E and &9D do not return any data.
+    if (a == 0x8E) {
+	// OSBYTE &8E returns a 1-byte OSCLI acknowledgement
+       if (receiveByte(R2_ID) & 0x80) {
+          env->commandBuffer[0] = 0x0D;		// Null command line
+          user_exec_raw(address);
+       }
+       return;
+    }
+    if (a == 0x9D) {
+       // OSBYTE &9D immediately returns.
+       return;
+    }
+
     cy = receiveByte(R2_ID) & 0x80;
     y = receiveByte(R2_ID);
     x = receiveByte(R2_ID);
-    reg[1] = x;
+    reg[1] = x | (y << 8);      // JGH
     reg[2] = y;
     updateCarry(cy, reg);
   }
@@ -432,6 +612,7 @@ void tube_Word(unsigned int *reg) {
   int out_len;
   unsigned char a = reg[0] & 0xff;
   unsigned char *block;
+  int i;
   // Note that call with R0b=0 (Acorn MOS RDLN) does nothing, the ReadLine call should be used instead.
   // Ref: http://chrisacorns.computinghistory.org.uk/docs/Acorn/OEM/AcornOEM_ARMUtilitiesRM.pdf
   if (a == 0) {
@@ -448,9 +629,28 @@ void tube_Word(unsigned int *reg) {
     out_len = 16;
   } else {
     // TODO: Check with JGH whether it is correct to update block to exclude the lengths
-    in_len = *block++;
-    out_len = *block++;
+    // JGH: No, the lengths are the entire block, including the lengths
+    //      For example, &02,&02 is the shortest possible control block
+    //                   &03,&03,nn sends and receives three bytes, two lengths plus one byte of data
+//    in_len = *block++;
+//    out_len = *block++;
+
+    in_len = block[0];
+    out_len = block[1];
   }
+
+  // Implement sub-reason codes of OSWORD A=&0E (Read CMOS Clock)
+  if (a == 0x0e) {
+    if (block[0] != 0x00) {
+      printf("OSWORD A=&0E sub-reason %d not implemented\r\n", block[0]);
+      // Return something, as this gets used in a files load/exec address on SAVE in Basic
+      for (i = 0; i < 8; i++) {
+        block[i] = 0xFF;
+      }
+      return;
+    }
+  }
+
   // OSWORD   R2: &08 A in_length block out_length  block
   sendByte(R2_ID, 0x08);
   sendByte(R2_ID, a);
@@ -506,7 +706,7 @@ void tube_BGet(unsigned int *reg) {
   sendByte(R2_ID, 0x0E);
   // Y = R1 is the file namdle
   sendByte(R2_ID, reg[1]);
-  // On exit, the Carry flag indicaes validity
+  // On exit, the Carry flag indicates validity
   updateCarry(receiveByte(R2_ID) & 0x80, reg);
   // On exit, R0 contains the character
   reg[0] = receiveByte(R2_ID);
@@ -519,7 +719,7 @@ void tube_BPut(unsigned int *reg) {
   sendByte(R2_ID, reg[1]);
   // A = R0 is the character
   sendByte(R2_ID, reg[0]);
-  // Response is always 7F so ingnored
+  // Response is always 7F so ignored
   receiveByte(R2_ID);
 }
 
@@ -579,12 +779,9 @@ void tube_ReadLine(unsigned int *reg) {
 }
 
 void tube_GetEnv(unsigned int *reg) {
-  // R0 address of the command string (0 terminated) which ran the program
-  reg[0] = (unsigned int) env->commandBuffer;
-  // R1 address of the permitted RAM limit for example &10000 for 64K machine
-  reg[1] = (unsigned int) env->handler[MEMORY_LIMIT_HANDLER].handler;
-  // R2 address of 5 bytes - the time the program started running
-  reg[2] = (unsigned int) env->timeBuffer;
+  reg[0] = (unsigned int) env->commandBuffer;				// R0 => command string (0 terminated) which ran the program
+  reg[1] = (unsigned int) env->handler[MEMORY_LIMIT_HANDLER].handler;	// R1 = permitted RAM limit for example &10000 for 64K machine
+  reg[2] = (unsigned int) env->timeBuffer;				// R2 => 5 bytes - the time the program started running
   if (DEBUG_ARM) {
     printf("%08x %08x %08x\r\n", reg[0], reg[1], reg[2]);
   }
@@ -613,21 +810,57 @@ void tube_EnterOS(unsigned int *reg) {
 }
 
 void tube_Mouse(unsigned int *reg) {
+  // JGH: Read Mouse settings
+  int msX, msY, msZ;
+  
+  reg[0]=128; reg[1]=7; reg[2]=0;
+  tube_Byte(reg);      // ADVAL(7)
+  msX=reg[1];         // Mouse X
+
+  reg[0]=128; reg[1]=8; reg[2]=0;
+  tube_Byte(reg);      // ADVAL(8)
+  msY=reg[1];         // Mouse Y
+
+  reg[0]=128; reg[1]=9; reg[2]=0;
+  tube_Byte(reg);      // ADVAL(9)
+  msZ=reg[1];         // Mouse Z (buttons)
+  
+  reg[0]=msX;
+  reg[1]=msY;
+  reg[2]=msZ;
 }
 
 void tube_GenerateError(unsigned int *reg) {
   // The error block is passed to the SWI in reg 0
   ErrorBlock_type *eblk = (ErrorBlock_type *)reg[0];
-  // Get the current handler's error buffer
-  ErrorBuffer_type *ebuf = (ErrorBuffer_type *)env->handler[ERROR_HANDLER].address;
-  // Fill in the error address from the stacked link register
-  ebuf->errorAddr = (void *) reg[13];
-  // Copy the error number into the handler's error block
-  ebuf->errorBlock.errorNum = eblk->errorNum;
-  // Copy the error string into the handler's error block
-  strcpy(ebuf->errorBlock.errorMsg, eblk->errorMsg);
-  // The wrapper drops back to user mode and calls the handler
-  _error_handler_wrapper(ebuf, env->handler[ERROR_HANDLER].handler);
+  // Error address from the stacked link register
+  generate_error((void *)reg[13], eblk->errorNum, eblk->errorMsg);
+}
+
+// Entry:
+// R0   X coordinate
+// R1   Y coordinate
+//
+// Exit:
+// R0   preserved
+// R1   preserved
+// R2   colour
+// Map to OSWORD A=&9; 
+void tube_ReadPoint(unsigned int *reg) {
+  // OSWORD   R2: &08 A in_length block out_length  block
+  sendByte(R2_ID, 0x08);
+  sendByte(R2_ID, 0x09);        // OSWORD A=&09
+  sendByte(R2_ID, 0x04);        // inlen = 4
+  sendByte(R2_ID, reg[0]);      // LSB of X coord
+  sendByte(R2_ID, reg[0] >> 8); // MSB of X coord
+  sendByte(R2_ID, reg[1]);      // LSB of Y coord
+  sendByte(R2_ID, reg[1] >> 8); // MSB of Y coord
+  sendByte(R2_ID, 0x05);        // outlen = 5
+  receiveByte(R2_ID);           // LSB of X coord
+  receiveByte(R2_ID);           // MSB of X coord
+  receiveByte(R2_ID);           // LSB of Y coord
+  receiveByte(R2_ID);           // MSB of Y coord
+  reg[2] = receiveByte(R2_ID);  // logical colour of point, or 0xFF is the point is off screen
 }
 
 // Entry:
@@ -709,20 +942,20 @@ void tube_WriteN(unsigned int *reg) {
 // The purpose of this call is to lookup and output (via OS_WriteC) a help message for a given BASIC keyword.
 
 void tube_BASICTrans_HELP(unsigned int *reg) {
-  // Return with V set to indicate an error
+  // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
 }
 
 // The purpose of this call is to lookup an error message. The buffer pointer to by R1 must be at least 252 bytes long.
 
 void tube_BASICTrans_Error(unsigned int *reg) {
-  // Return with V set to indicate an error
+  // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
 }
 
 // The purpose of this call is to lookup and display (via OS_WriteC) a message.
 
 void tube_BASICTrans_Message(unsigned int *reg) {
-  // Return with V set to indicate an error
+  // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
 }

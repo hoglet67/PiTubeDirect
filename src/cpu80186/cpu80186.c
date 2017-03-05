@@ -22,7 +22,18 @@
 // Soft 80186 Second Processor
 // Copyright (C)2015-2016 Simon R. Ellwood BEng (FordP)
 //#include "config.h"
-// #define TRACE_LAST_N 1000
+
+// To enable instruction tracing, define TRACE_N to the size of the trace buffer
+// Each instruction takes two slots in the trace buffer. The tracing trigger etc
+// is defined in trace_instruction(), edit as needed. Register values can also be
+// dumped at particular addresses, and are also written into the trace buffer
+// so that executing of the co pro is not distupted by slow serial debug output.
+// #define TRACE_N 10000
+
+// To see the instructions prior to a illegal instruction, also define TRACE_LAST_N which
+// traces all instruction to a circular buffer, and dumps this on an illegal instruction
+// #define TRACE_LAST_N
+
 #define CPU_V20
 
 #include <stdint.h>
@@ -45,7 +56,7 @@ static const uint8_t parity[0x100] =
 
 uint8_t opcode, segoverride, reptype, bootdrive = 0, hdcount = 0;
 uint16_t segregs[4], savecs, saveip, ip, useseg, oldsp;
-uint8_t tempcf, oldcf, cf, pf, af, zf, sf, tf, ifl, df, of, mode, reg, rm;
+uint8_t tempcf, oldcf, cf, pf, af, zf, sf, tf, ifl, df, of, mode, reg, rm, oldal;
 uint16_t oper1, oper2, res16, disp16, temp16, dummy, stacksize, frametemp;
 uint8_t oper1b, oper2b, res8, disp8, temp8, nestlev, addrbyte;
 uint32_t temp1, temp2, temp3, temp4, temp5, temp32, tempaddr32, ea;
@@ -62,13 +73,6 @@ uint8_t ethif;
 
 extern uint8_t verbose;
 
-#ifdef TRACE_LAST_N
-extern int i386_dasm_one();
-unsigned int trace_ip[TRACE_LAST_N];
-unsigned int trace_cs[TRACE_LAST_N];
-unsigned int trace_opcode[TRACE_LAST_N];
-int trace_index = 0;
-#endif
 
 void intcall86(uint8_t intnum);
 
@@ -90,6 +94,185 @@ void intcall86(uint8_t intnum);
 	df = (temp16 >> 10) & 1; \
 	of = (temp16 >> 11) & 1; \
 }
+
+#ifdef TRACE_N
+extern int i386_dasm_one();
+unsigned int trace_data[TRACE_N];
+
+// Each slot in the trace buffer uses the following format:
+// <type:4> <data:28>
+
+#define TYPE_OFFSET     28
+#define DATA_MASK       ((1 << TYPE_OFFSET) - 1)
+
+#define TYPE_FETCH_CS   0
+#define TYPE_FETCH_IP   1
+#define TYPE_REG_AX     2
+#define TYPE_REG_BX     3
+#define TYPE_REG_CX     4
+#define TYPE_REG_DX     5
+#define TYPE_REG_SI     6
+#define TYPE_REG_DI     7 
+#define TYPE_REG_BP     8
+#define TYPE_REG_SP     9
+#define TYPE_REG_IP    10
+#define TYPE_REG_CS    11
+#define TYPE_REG_DS    12
+#define TYPE_REG_ES    13
+#define TYPE_REG_SS    14
+#define TYPE_REG_FLAGS 15
+
+int trace_index = 0;
+
+static void trace_dump_item(unsigned int item) {
+  int i;
+  int len;
+  char buffer[256];
+  static unsigned int cs = 0;
+  unsigned int type = item >> TYPE_OFFSET;
+  unsigned int data = item & DATA_MASK;
+  unsigned int addr;
+  switch (type) {
+  case TYPE_FETCH_CS:
+    cs = data;
+    break;
+  case TYPE_FETCH_IP:
+    addr = (cs << 4) + data;
+    len = i386_dasm_one(buffer, addr, 0, 0);
+    len = len & 0xf;
+    printf("%04x:%04x - ", cs, data);
+    for (i = 0; i < 8; i++) {
+      if (i < len) {
+        printf("%02x ", RAM[addr + i]);
+      } else {
+        printf("   ");
+      }
+    }
+    printf(" : %s\r\n", buffer);
+    break;
+  case TYPE_REG_AX:
+    printf("AX=%04x\r\n", data);
+    break;
+  case TYPE_REG_BX:
+    printf("BX=%04x\r\n", data);
+    break;
+  case TYPE_REG_CX:
+    printf("CX=%04x\r\n", data);
+    break;
+  case TYPE_REG_DX:
+    printf("DX=%04x\r\n", data);
+    break;
+  case TYPE_REG_SI:
+    printf("SI=%04x\r\n", data);
+    break;
+  case TYPE_REG_DI:
+    printf("DI=%04x\r\n", data);
+    break;
+  case TYPE_REG_BP:
+    printf("BP=%04x\r\n", data);
+    break;
+  case TYPE_REG_SP:
+    printf("SP=%04x\r\n", data);
+    break;
+  case TYPE_REG_IP:
+    printf("IP=%04x\r\n", data);
+    break;
+  case TYPE_REG_CS:
+    printf("CS=%04x\r\n", data);
+    break;
+  case TYPE_REG_DS:
+    printf("DS=%04x\r\n", data);
+    break;
+  case TYPE_REG_ES:
+    printf("ES=%04x\r\n", data);
+    break;
+  case TYPE_REG_SS:
+    printf("SS=%04x\r\n", data);
+    break;
+  case TYPE_REG_FLAGS:
+    printf("FLAGS=%04x\r\n", data);
+    break;     
+  }
+}
+
+static void trace_dump_buffer() {
+  int i;
+#ifdef TRACE_LAST_N
+  // If the trace buffer is circular, dump the oldest part first
+  for (i = trace_index; i < TRACE_N; i++) {
+    trace_dump_item(trace_data[i]);
+  }
+#endif
+  for (i = 0; i < trace_index; i++) {
+    trace_dump_item(trace_data[i]);
+  }
+}
+
+#ifdef TRACE_LAST_N
+static void trace_write(unsigned int type, unsigned int value) {
+  trace_data[trace_index] = (type << TYPE_OFFSET) | (value & DATA_MASK);
+  if (trace_index < TRACE_N) {
+    trace_index++;
+  } else {
+    trace_index = 0;
+  }
+}
+#else
+static void trace_write(unsigned int type, unsigned int value) {
+  if (trace_index < TRACE_N) {
+    trace_data[trace_index] = (type << TYPE_OFFSET) | (value & DATA_MASK);
+    trace_index++;
+  }
+}
+#endif
+
+static void trace_dump_regs() {
+  trace_write(TYPE_REG_AX, getreg16(regax));
+  trace_write(TYPE_REG_BX, getreg16(regbx));
+  trace_write(TYPE_REG_CX, getreg16(regcx));
+  trace_write(TYPE_REG_DX, getreg16(regdx));
+  trace_write(TYPE_REG_DI, getreg16(regdi));
+  trace_write(TYPE_REG_SI, getreg16(regsi));
+  trace_write(TYPE_REG_BP, getreg16(regbp));
+  trace_write(TYPE_REG_SP, getreg16(regsp));
+  trace_write(TYPE_REG_IP, saveip);
+  trace_write(TYPE_REG_CS, savecs);
+  trace_write(TYPE_REG_DS, getreg16(regds));
+  trace_write(TYPE_REG_ES, getreg16(reges));
+  trace_write(TYPE_REG_SS, getreg16(regss));
+  trace_write(TYPE_REG_FLAGS, makeflagsword());
+}
+
+#ifdef TRACE_LAST_N
+// In this case, tracing is on all the time, and the buffer is circular
+static void trace_instruction(uint16_t cs, uint16_t pc) {
+    trace_write(TYPE_FETCH_CS, cs);
+    trace_write(TYPE_FETCH_IP, pc);
+}
+#else
+// In this case tracing is selecttive, and the buffer is dumped when full 
+static void trace_instruction(uint16_t cs, uint16_t pc) {
+  static int tracing = 0;
+  // Trace for TRACE_N instructions (the size of the trace 
+  if (pc == 0x22d8) {
+    tracing = 1;
+  }
+  if (tracing) {
+    if (pc == 0x276d || pc == 0x276f) {
+      trace_dump_regs();
+    }
+    trace_write(TYPE_FETCH_CS, cs);
+    trace_write(TYPE_FETCH_IP, pc);
+    if (trace_index == TRACE_N) {
+      trace_dump_buffer();
+      trace_index = 0;
+      tracing = 0;
+    }
+  }
+}
+#endif
+
+#endif
 
 void flag_szp8(uint8_t value)
 {
@@ -169,8 +352,7 @@ void flag_sbb8(uint8_t v1, uint8_t v2, uint8_t v3)
   //v1 = destination operand, v2 = source operand, v3 = carry flag */
   uint16_t dst;
 
-  v2 += v3;
-  dst = (uint16_t) v1 - (uint16_t) v2;
+  dst = (uint16_t) v1 - (uint16_t) v2 - v3;
   flag_szp8((uint8_t) dst);
   if (dst & 0xFF00)
   {
@@ -205,8 +387,7 @@ void flag_sbb16(uint16_t v1, uint16_t v2, uint16_t v3)
   /* v1 = destination operand, v2 = source operand, v3 = carry flag */
   uint32_t dst;
 
-  v2 += v3;
-  dst = (uint32_t) v1 - (uint32_t) v2;
+  dst = (uint32_t) v1 - (uint32_t) v2 - v3;
   flag_szp16((uint16_t) dst);
   if (dst & 0xFFFF0000)
   {
@@ -577,6 +758,30 @@ void writerm8(uint8_t rmval, uint8_t value)
   {
     putreg8(rmval, value);
   }
+}
+
+void op_daa_das(int8_t low_nibble, int8_t high_nibble) {
+  oldal = regs.byteregs[regal];
+  oldcf = cf;
+
+  if (((regs.byteregs[regal] & 0xF) > 9) || (af == 1))
+  {
+    oper1 = regs.byteregs[regal] + low_nibble;
+    regs.byteregs[regal] = oper1;
+    if (oper1 & 0xFF00)
+    {
+      cf = 1;
+    }
+    af = 1;
+  }
+  
+  if ((oldal > 0x99) || (oldcf == 1))
+  {
+    regs.byteregs[regal] = regs.byteregs[regal] + high_nibble;
+    cf = 1;
+  }
+  
+  flag_szp8(regs.byteregs[regal]);
 }
 
 uint8_t op_grp2_8(uint8_t cnt)
@@ -1235,59 +1440,6 @@ void intcall86(uint8_t intnum)
   if (intnum == 0x19)
     didbootstrap = 1;
 
-#if 0
-  switch (intnum)
-  {
-    case 0x10:
-    //updatedscreen = 1;
-    if ((regs.byteregs[regah]==0x00) || (regs.byteregs[regah]==0x10))
-    {
-      oldregax = regs.wordregs[regax];
-      vidinterrupt();
-      regs.wordregs[regax] = oldregax;
-      if (regs.byteregs[regah]==0x10) return;
-      if (vidmode==9) return;
-    }
-    if ((regs.byteregs[regah]==0x1A) && (lastint10ax!=0x0100))
-    {          //the 0x0100 is a cheap hack to make it not do this if DOS EDIT/QBASIC
-      regs.byteregs[regal] = 0x1A;
-      regs.byteregs[regbl] = 0x8;
-      return;
-    }
-    lastint10ax = regs.wordregs[regax];
-    break;
-
-#ifndef DISK_CONTROLLER_ATA
-    case 0x19:          //bootstrap
-    if (bootdrive<255)
-    {          //read first sector of boot drive into 07C0:0000 and execute it
-      regs.byteregs[regdl] = bootdrive;
-      readdisk (regs.byteregs[regdl], 0x07C0, 0x0000, 0, 1, 0, 1);
-      segregs[regcs] = 0x0000;
-      ip = 0x7C00;
-    }
-    else
-    {
-      segregs[regcs] = 0xF600;          //start ROM BASIC at bootstrap if requested
-      ip = 0x0000;
-    }
-    return;
-
-    case 0x13:
-    case 0xFD:
-    diskhandler();
-    return;
-#endif
-#ifdef NETWORKING_OLDCARD
-    case 0xFC:
-#ifdef NETWORKING_ENABLED
-    nethandler();
-#endif
-    return;
-#endif
-  }
-#endif
-
   push(makeflagsword());
   push(segregs[regcs]);
   push(ip);
@@ -1368,15 +1520,8 @@ void exec86(uint32_t execloops)
       savecs = segregs[regcs];
       saveip = ip;
       opcode = getmem8(segregs[regcs], ip);
-#ifdef TRACE_LAST_N
-      trace_cs[trace_index] = savecs;
-      trace_ip[trace_index] = saveip;
-      trace_opcode[trace_index] = opcode;
-      trace_index++;
-      if (trace_index == TRACE_LAST_N)
-      {
-        trace_index = 0;
-      };
+#ifdef TRACE_N
+      trace_instruction(savecs, saveip);
 #endif
       StepIP(1);
 
@@ -1519,11 +1664,6 @@ void exec86(uint32_t execloops)
         oper1 = getreg16(reg);
         oper2 = readrm16(rm);
         op_or16();
-        if ((oper1 == 0xF802) && (oper2 == 0xF802))
-        {
-          sf = 0; /* cheap hack to make Wolf 3D think we're a 286 so it plays */
-        }
-
         putreg16(reg, res16);
       break;
 
@@ -1726,38 +1866,7 @@ void exec86(uint32_t execloops)
       break;
 
       case 0x27: /* 27 DAA */
-        if (((regs.byteregs[regal] & 0xF) > 9) || (af == 1))
-        {
-          oper1 = regs.byteregs[regal] + 6;
-          regs.byteregs[regal] = oper1 & 255;
-          if (oper1 & 0xFF00)
-          {
-            cf = 1;
-          }
-          else
-          {
-            cf = 0;
-          }
-
-          af = 1;
-        }
-        else
-        {
-          af = 0;
-        }
-
-        if (((regs.byteregs[regal] & 0xF0) > 0x90) || (cf == 1))
-        {
-          regs.byteregs[regal] = regs.byteregs[regal] + 0x60;
-          cf = 1;
-        }
-        else
-        {
-          cf = 0;
-        }
-
-        regs.byteregs[regal] = regs.byteregs[regal] & 255;
-        flag_szp8(regs.byteregs[regal]);
+        op_daa_das(0x06, 0x60);
       break;
 
       case 0x28: /* 28 SUB Eb Gb */
@@ -1813,37 +1922,7 @@ void exec86(uint32_t execloops)
       break;
 
       case 0x2F: /* 2F DAS */
-        if (((regs.byteregs[regal] & 15) > 9) || (af == 1))
-        {
-          oper1 = regs.byteregs[regal] - 6;
-          regs.byteregs[regal] = oper1 & 255;
-          if (oper1 & 0xFF00)
-          {
-            cf = 1;
-          }
-          else
-          {
-            cf = 0;
-          }
-
-          af = 1;
-        }
-        else
-        {
-          af = 0;
-        }
-
-        if (((regs.byteregs[regal] & 0xF0) > 0x90) || (cf == 1))
-        {
-          regs.byteregs[regal] = regs.byteregs[regal] - 0x60;
-          cf = 1;
-        }
-        else
-        {
-          cf = 0;
-        }
-
-        flag_szp8(regs.byteregs[regal]);
+        op_daa_das(-0x06, -0x60);
       break;
 
       case 0x30: /* 30 XOR Eb Gb */
@@ -2300,15 +2379,13 @@ void exec86(uint32_t execloops)
           break;
         }
 
-        putmem8 (useseg, getreg16 (regsi) , portin (regs.wordregs[regdx]));
+        putmem8 (segregs[reges], getreg16 (regdi) , portin (regs.wordregs[regdx]));
         if (df)
         {
-          putreg16 (regsi, getreg16 (regsi) - 1);
           putreg16 (regdi, getreg16 (regdi) - 1);
         }
         else
         {
-          putreg16 (regsi, getreg16 (regsi) + 1);
           putreg16 (regdi, getreg16 (regdi) + 1);
         }
 
@@ -2333,15 +2410,13 @@ void exec86(uint32_t execloops)
           break;
         }
 
-        putmem16 (useseg, getreg16 (regsi) , portin16 (regs.wordregs[regdx]));
+        putmem16 (segregs[reges], getreg16 (regdi) , portin16 (regs.wordregs[regdx]));
         if (df)
         {
-          putreg16 (regsi, getreg16 (regsi) - 2);
           putreg16 (regdi, getreg16 (regdi) - 2);
         }
         else
         {
-          putreg16 (regsi, getreg16 (regsi) + 2);
           putreg16 (regdi, getreg16 (regdi) + 2);
         }
 
@@ -2369,12 +2444,10 @@ void exec86(uint32_t execloops)
         if (df)
         {
           putreg16 (regsi, getreg16 (regsi) - 1);
-          putreg16 (regdi, getreg16 (regdi) - 1);
         }
         else
         {
           putreg16 (regsi, getreg16 (regsi) + 1);
-          putreg16 (regdi, getreg16 (regdi) + 1);
         }
 
         if (reptype)
@@ -2401,12 +2474,10 @@ void exec86(uint32_t execloops)
         if (df)
         {
           putreg16 (regsi, getreg16 (regsi) - 2);
-          putreg16 (regdi, getreg16 (regdi) - 2);
         }
         else
         {
           putreg16 (regsi, getreg16 (regsi) + 2);
-          putreg16 (regdi, getreg16 (regdi) + 2);
         }
 
         if (reptype)
@@ -2812,7 +2883,7 @@ void exec86(uint32_t execloops)
         break;
 
         case 0x9C: /* 9C PUSHF */
-        push(makeflagsword() | 0xF800);
+        push(makeflagsword() | 0xF000);
         break;
 
         case 0x9D: /* 9D POPF */
@@ -3698,35 +3769,8 @@ void exec86(uint32_t execloops)
         {
           printf("Illegal opcode: %02X @ %04X:%04X\n", opcode, savecs, saveip);
 #ifdef TRACE_LAST_N
-          {
-            int i, j;
-            int len;
-            char buffer[256];
-            for (i = 0; i < TRACE_LAST_N; i++)
-            {
-              int addr = (trace_cs[trace_index] << 4) + trace_ip[trace_index];
-              len = i386_dasm_one(buffer, addr, 0, 0);
-              len = len & 0xf;
-              printf("%04x:%04x - ", trace_cs[trace_index], trace_ip[trace_index]);
-              for (j = 0; j < 8; j++)
-              {
-                if (j < len)
-                {
-                  printf("%02x ", RAM[addr + j]);
-                }
-                else
-                {
-                  printf("	 ");
-                }
-              }
-              printf(" : %s\r\n", buffer);
-              trace_index++;
-              if (trace_index == TRACE_LAST_N)
-              {
-                trace_index = 0;
-              }
-            }
-          }
+          trace_dump_regs();
+          trace_dump_buffer();
 #endif
         }
         break;
