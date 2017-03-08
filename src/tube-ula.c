@@ -227,12 +227,12 @@ static void tube_host_read(uint16_t addr)
          ph1len--;
          if ( ph1len != 0)
          {
-            HSTAT1 &= ~HBIT_7;
             if (ph1rdpos== 23)
                ph1rdpos =0; 
             else
                ph1rdpos++;
          }
+         if (!ph1len) HSTAT1 &= ~HBIT_7;
          PSTAT1 |= 0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the irq status

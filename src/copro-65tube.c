@@ -18,6 +18,7 @@
 #include "tuberom_6502.h"
 #include "programs.h"
 #include "copro-65tube.h"
+#include "cache.h"
 
 #ifdef HISTOGRAM
 
@@ -63,6 +64,9 @@ void copro_65tube_emulator() {
    unsigned char * mpu_memory; // now the arm vectors have moved we can set the core memory to start at 0
    mpu_memory = copro_65tube_poweron_reset();
    copro_65tube_reset(mpu_memory);
+   
+     // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
+  map_4k_page(16, 0);
 
    while (copro == last_copro) {
 #ifdef HISTOGRAM
@@ -76,5 +80,8 @@ void copro_65tube_emulator() {
 #endif
       copro_65tube_reset(mpu_memory);
    }
+   
+     // restore memory mapping
+  map_4k_page(16, 16);
 }
 

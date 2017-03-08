@@ -9,7 +9,7 @@
    we only have 28-bits available in the property interface protocol to pass
    the address of the buffer to the VC. */
 static int pt[PROP_BUFFER_SIZE] __attribute__((aligned(16)));
-static int pt_index = 0;
+static int pt_index ;
 
 //#define PRINT_PROP_DEBUG 1
 
