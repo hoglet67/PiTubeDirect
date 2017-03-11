@@ -81,7 +81,12 @@ void copro_65tube_emulator() {
       copro_65tube_reset(mpu_memory);
    }
    
-     // restore memory mapping
-  map_4k_page(16, 16);
+   // restore memory mapping
+   {
+     int i;
+     for ( i= 0 ; i<17; i++ )
+        map_4k_page(i, i);
+   }
+  
 }
 
