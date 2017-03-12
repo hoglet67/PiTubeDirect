@@ -83,6 +83,19 @@
 #define AUX_MUSTAT_RX_FIFO_LEVEL    ( 7 << 16 )
 #define AUX_MUSTAT_TX_FIFO_LEVEL    ( 7 << 24 )
 
+// Interrupt enables are incorrect on page 12 of:
+//     https://www.raspberrypi.org/wp-content/uploads/2012/02/BCM2835-ARM-Peripherals.pdf
+// See errata:
+//     http://elinux.org/BCM2835_datasheet_errata#p12
+#define AUX_MUIER_TX_INT            ( (1 << 1) )
+#define AUX_MUIER_RX_INT            ( (1 << 0 )| (1 << 2) )
+
+#define AUX_MUIIR_INT_NOT_PENDING   ( 1 << 0 )
+#define AUX_MUIIR_INT_IS_TX         ( 1 << 1 )
+#define AUX_MUIIR_INT_IS_RX         ( 1 << 2 )
+
+
+
 #define FSEL0(x)        ( x )
 #define FSEL1(x)        ( x << 3 )
 #define FSEL2(x)        ( x << 6 )

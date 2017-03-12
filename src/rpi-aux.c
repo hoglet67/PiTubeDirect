@@ -9,12 +9,60 @@
  http://elinux.org/BCM2835_datasheet_errata */
 #define FALLBACK_SYS_FREQ    250000000
 
+#define USE_IRQ
+
+#define TX_BUFFER_SIZE 65536  // Must be a power of 2
+
 static aux_t* auxillary = (aux_t*) AUX_BASE;
 
 aux_t* RPI_GetAux(void)
 {
   return auxillary;
 }
+
+#if defined(USE_IRQ)
+
+#include "rpi-interrupts.h"
+
+// Note, at the point the MiniUART is initialized, low vectors are in use
+#define IRQ_VECTOR 0x38
+
+static char tx_buffer[TX_BUFFER_SIZE];
+static int tx_head;
+static int tx_tail;
+
+static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
+
+  while (1) {
+
+    int iir = auxillary->MU_IIR;
+
+    if (iir & AUX_MUIIR_INT_NOT_PENDING) {
+      /* No more interrupts */
+      break;
+    }
+
+    /* Handle TxEmpty interrupt */
+    if (iir & AUX_MUIIR_INT_IS_TX) {
+      if (tx_tail != tx_head) {
+        /* Transmit the character */
+        tx_tail = (tx_tail + 1) & (TX_BUFFER_SIZE - 1);
+        auxillary->MU_IO = tx_buffer[tx_tail];
+      } else {
+        /* Disable TxEmpty interrupt */
+        auxillary->MU_IER &= ~AUX_MUIER_TX_INT;
+      }
+    }
+
+    /* Handle RxReady interrupt */
+    if (iir & AUX_MUIIR_INT_IS_RX) {
+      /* For now just echo all received characters */
+      RPI_AuxMiniUartWrite(auxillary->MU_IO & 0xFF);
+    }
+
+  }
+}
+#endif
 
 void RPI_AuxMiniUartInit(int baud, int bits)
 {
@@ -34,11 +82,6 @@ void RPI_AuxMiniUartInit(int baud, int bits)
    peripheral. You can not even read or write the registers */
   auxillary->ENABLES = AUX_ENA_MINIUART;
 
-  /* Disable interrupts for now */
-  /* auxillary->IRQ &= ~AUX_IRQ_MU; */
-
-  auxillary->MU_IER = 0;
-
   /* Disable flow control,enable transmitter and receiver! */
   auxillary->MU_CNTL = 0;
 
@@ -52,41 +95,60 @@ void RPI_AuxMiniUartInit(int baud, int bits)
 
   /* Disable all interrupts from MU and clear the fifos */
   auxillary->MU_IER = 0;
-
   auxillary->MU_IIR = 0xC6;
 
-  /* Transposed calculation from Section 2.2.1 of the ARM peripherals
-   manual */
+  /* Transposed calculation from Section 2.2.1 of the ARM peripherals manual */
   auxillary->MU_BAUD = ( sys_freq / (8 * baud)) - 1;
+
+#ifdef USE_IRQ
+  tx_head = tx_tail = 0;
+  *((uint32_t *) IRQ_VECTOR) = (uint32_t) RPI_AuxMiniUartIRQHandler;
+  RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
+  auxillary->MU_IER |= AUX_MUIER_RX_INT;  
+#endif
 
   /* Setup GPIO 14 and 15 as alternative function 5 which is
    UART 1 TXD/RXD. These need to be set before enabling the UART */
   RPI_SetGpioPinFunction(RPI_GPIO14, FS_ALT5);
   RPI_SetGpioPinFunction(RPI_GPIO15, FS_ALT5);
 
+  // Note: the delay values are important, with 150 the receiver did not work!
   RPI_GpioBase->GPPUD = 0;
-  for (i = 0; i < 150; i++)
+  for (i = 0; i < 1000; i++)
   {
   }
-  RPI_GpioBase->GPPUDCLK0 = (1 << 14);
-  for (i = 0; i < 150; i++)
+  RPI_GpioBase->GPPUDCLK0 = (1 << 14) | (1 << 15);
+  for (i = 0; i < 1000; i++)
   {
   }
   RPI_GpioBase->GPPUDCLK0 = 0;
 
   /* Disable flow control,enable transmitter and receiver! */
-  auxillary->MU_CNTL = AUX_MUCNTL_TX_ENABLE;
+  auxillary->MU_CNTL = AUX_MUCNTL_TX_ENABLE | AUX_MUCNTL_RX_ENABLE;
 }
 
 void RPI_AuxMiniUartWrite(char c)
 {
+#ifdef USE_IRQ
+  int tmp_head = (tx_head + 1) & (TX_BUFFER_SIZE - 1);
+  
+  /* Wait for space in buffer */
+  while (tmp_head == tx_tail) {
+  }
+
+  tx_buffer[tmp_head] = c;
+  tx_head = tmp_head;
+
+  /* Enable TxEmpty interrupt */
+  auxillary->MU_IER |= AUX_MUIER_TX_INT;
+#else
   /* Wait until the UART has an empty space in the FIFO */
   while ((auxillary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)
   {
   }
-
   /* Write the character to the FIFO for transmission */
   auxillary->MU_IO = c;
+#endif
 }
 
 extern void RPI_EnableUart(char* pMessage)
