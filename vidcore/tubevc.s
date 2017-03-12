@@ -59,6 +59,9 @@
 .equ ATTN_MASK,    31
 .equ OVERRUN_MASK, 30
 
+.equ RESET_MAILBOX_BIT, 12
+.equ RW_MAILBOX_BIT, 11
+
 .org 0
 
 # code entry point
@@ -165,9 +168,12 @@ rd_wait_for_clk_high1:
    btst   r8, CLK
    beq    rd_wait_for_clk_high1
 # we now have half a cycle to do post mail
-   btst   r8, r16
+   btst   r8, r16               # no need to post mail if A0 = 0
    beq    rd_wait_for_clk_low
-   bl     do_post_mailbox
+   sub    r7, r0                # just get the address bits
+   lsl    r7, 6                 # put address bits in correct place
+   bset   r7, RW_MAILBOX_BIT    # set read bit
+   st     r7, (r3)              # store in mail box
    
 # spin waiting for clk low
 rd_wait_for_clk_low:
@@ -209,21 +215,36 @@ wr_wait_for_clk_low:
    btst   r7, CLK
    bne    wr_wait_for_clk_low
 
-# Post a message to indicate a tube register read or write
-post_mail:
-   bl     do_post_mailbox        
+# Post a message to indicate a tube register write
+
+#  move databus to correct position
+   lsr    r7,r8, D0D3_shift
+   lsr    r4,r8, D4D7_shift -4
+   and    r7, 0x0F
+   and    r4, 0xF0
+   or     r7, r4 
+
+#  move address bit to correct position
+   btst   r8, r16
+   bsetne r7, 8
+   btst   r8, r17
+   bsetne r7, 9
+   btst   r8, r18
+   bsetne r7, 10
+   st     r7, (r3)      # post mail
    b      Poll_loop
         
 # Post a message to indicate a reset
 post_reset:
-   bl     do_post_mailbox
+   mov    r7, 1<<RESET_MAILBOX_BIT
+   st     r7, (r3) 
 # Wait for reset to be released (so we don't overflow the mailbox)
 post_reset_loop:
    ld     r7, GPLEV0_offset(r6)
    btst   r7, nRST
    beq    post_reset_loop        
    b      Poll_loop
-        
+.if 0        
 # Subroutine to post r8 to the mailbox
 # if r2 is zero then the hardware mailbox is used
 # if r2 is non zero then a software mailbox at address r2 is used
@@ -253,7 +274,7 @@ use_hw_mailbox:
    or     r8, 0x0000000A
    st     r8, (r3)
    rts        
-        
+.endif        
 # This code is not currently used
         
 .if 0

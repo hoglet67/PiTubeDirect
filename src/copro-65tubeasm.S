@@ -1531,7 +1531,7 @@ Event_Handler:
         str     r0, [r1]                // As ARM FIQ interrupts currently disabled
         ldr     r1, =MBOX0_READ
         ldr     r0, [r1]
-        lsr     r0, r0, #4
+        //lsr     r0, r0, #4
 #else
         ldr     r1, =tube_mailbox
         ldr     r1, [r1]

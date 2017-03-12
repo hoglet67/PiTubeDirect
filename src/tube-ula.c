@@ -554,6 +554,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 int tube_io_handler(uint32_t mail)
 {
    int addr;
+#ifndef USE_GPU   
    int data;
    int rnw;
    int ntube;
@@ -565,7 +566,7 @@ int tube_io_handler(uint32_t mail)
    static int exp_seq_num = -1;
    act_seq_num = (mail >> 12) & 15;
 #endif
-
+#endif
    // Toggle the LED on each tube access
    static int led = 0;
 	if (led) {
@@ -574,7 +575,25 @@ int tube_io_handler(uint32_t mail)
 	  LED_ON();
 	}
 	led = ~led;
-
+#ifdef USE_GPU       
+   
+   if ((mail >> 12) & 1)        // Check for Reset
+      return tube_irq | 4;      // Set reset Flag
+   else    
+   {
+        addr = (mail>>8) & 7;
+        if ( ( (mail >>11 ) & 1) == 0) {  // Check read write flag
+            tube_host_write(addr, mail & 0xFF);
+        } else {
+            tube_host_read(addr);
+        }
+        if ((tube_enabled && (HSTAT1 & HBIT_5))) {
+            return tube_irq | 4;
+        } else {
+        return tube_irq & 3;
+        }
+   }
+#else        
    addr = 0;
    if (mail & A0_MASK) {
       addr += 1;
@@ -614,6 +633,7 @@ int tube_io_handler(uint32_t mail)
       LOG_WARN("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
 #endif
+   
 
    if (mail & GLITCH_MASK) {
       LOG_WARN("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
@@ -639,6 +659,7 @@ int tube_io_handler(uint32_t mail)
    } else {
       return tube_irq & 3;
    }
+#endif
 }
 
 

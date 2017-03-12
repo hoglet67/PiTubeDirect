@@ -54,7 +54,7 @@ static volatile inline int is_mailbox_non_empty() {
 }
 
 static volatile inline unsigned int read_mailbox() {
-   return (*(volatile uint32_t *)MBOX0_READ) >> 4;
+   return (*(volatile uint32_t *)MBOX0_READ);
 }
 
 #else
