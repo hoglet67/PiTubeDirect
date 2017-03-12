@@ -282,12 +282,20 @@ int copro_z80_read_mem(unsigned int addr) {
    if (overlay_rom) {
       return copro_z80_rom[addr & 0xfff];
    } else {
+#if USE_MEMORY_POINTER       
       return copro_z80_ram[addr & 0xffff];
+#else
+      return *(unsigned char *)(addr & 0xffff);
+#endif      
    }
 }
 
 void copro_z80_write_mem(unsigned int addr, unsigned char data) {
+#ifdef USE_MEMORY_POINTER
    copro_z80_ram[addr & 0xffff] = data;
+#else 
+   *(unsigned char *)(addr & 0xffff) = data;
+#endif   
 }
 
 int copro_z80_read_io(unsigned int addr) {
