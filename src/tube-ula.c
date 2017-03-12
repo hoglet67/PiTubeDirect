@@ -90,7 +90,7 @@ static volatile uint8_t *tube_regs;
 extern volatile uint32_t gpfsel_data_idle[3];
 extern volatile uint32_t gpfsel_data_driving[3];
 const static uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
-
+static char copro_command =0;
 static perf_counters_t pct;
 
 uint8_t ph1[24],ph3_1;
@@ -187,6 +187,25 @@ static void tube_updateints_NMI()
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 }
 */
+void copro_command_excute(unsigned char copro_command,unsigned char val)
+{
+    switch (copro_command)
+    {
+      case 0 :      
+          if (val == 0)
+             copro_speed = 0;
+          else
+             copro_speed = (arm_speed/(1000000/256) / val);
+          LOG_DEBUG("New speed Copro = %u, %u\n", val, copro_speed);
+          return; 
+      
+      default :
+          
+          break;
+    }
+          
+}      
+      
 static void tube_reset()
 {   
    tube_enabled = 1;
@@ -299,6 +318,9 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       HSTAT1 &= ~HBIT_6;
       if (HSTAT1 & HBIT_1) tube_irq  |= 1;//tube_updateints_IRQ();
       break;
+   case 2:
+      copro_command = val;   
+      break;
    case 3: /*Register 2*/
       //if (!tube_enabled)
       //  return;
@@ -307,13 +329,8 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       HSTAT2 &= ~HBIT_6;
       break;
    case 4:
-      if (val == 0)
-         copro_speed = 0;
-      else
-         copro_speed = (arm_speed/(1000000/256) / val);
-      LOG_DEBUG("New speed Copro = %u, %u\n", val, copro_speed);
-      return; 
-   
+      copro_command_excute(copro_command,val);
+      break;
    case 5: /*Register 3*/
      // if (!tube_enabled)
      //    return;
