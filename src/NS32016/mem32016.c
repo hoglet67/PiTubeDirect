@@ -31,7 +31,7 @@
 #include "pandora/PandoraV2_00.h"
 #endif
 
-uint8_t * ns32016ram;
+static uint8_t * ns32016ram;
 
 void init_ram(void)
 {
@@ -78,7 +78,11 @@ uint8_t read_x8(uint32_t addr)
 
    if (addr < IO_BASE)
    {
+#ifdef USE_MEMORY_POINTER       
       return ns32016ram[addr];
+#else
+      return *(unsigned char *)(addr);
+#endif      
    }
 
    if ((addr & 0xFFFFF1) == 0xFFFFF0)
@@ -98,7 +102,12 @@ uint16_t read_x16(uint32_t addr)
 #ifdef NS_FAST_RAM
    if (addr < IO_BASE)
    {
+#ifdef USE_MEMORY_POINTER      
       return *((uint16_t*) (ns32016ram + addr));
+#else
+      return *((uint16_t*) ( addr));
+#endif      
+      
    }
 #endif
 
@@ -112,7 +121,11 @@ uint32_t read_x32(uint32_t addr)
 #ifdef NS_FAST_RAM
    if (addr < IO_BASE)
    {
+#ifdef USE_MEMORY_POINTER       
       return *((uint32_t*) (ns32016ram + addr));
+#else
+      return *((uint32_t*) (addr));
+#endif      
    }
 #endif
 
@@ -159,7 +172,11 @@ void write_x8(uint32_t addr, uint8_t val)
 
    if (addr <= (RAM_SIZE - sizeof(uint8_t)))
    {
+#ifdef USE_MEMORY_POINTER       
       ns32016ram[addr] = val;
+#else
+      *(unsigned char *)(addr) = val;
+#endif      
       return;
    }
 
@@ -199,7 +216,11 @@ void write_x16(uint32_t addr, uint16_t val)
 #ifdef NS_FAST_RAM
    if (addr <= (RAM_SIZE - sizeof(uint16_t)))
    {
+#ifdef USE_MEMORY_POINTER       
       *((uint16_t*) (ns32016ram + addr)) = val;
+#else
+      *((uint16_t*) (addr)) = val;
+#endif      
       return;
    }
 #endif
@@ -219,7 +240,11 @@ void write_x32(uint32_t addr, uint32_t val)
 #ifdef NS_FAST_RAM
    if (addr <= (RAM_SIZE - sizeof(uint32_t)))
    {
+#ifdef USE_MEMORY_POINTER
       *((uint32_t*) (ns32016ram + addr)) = val;
+#else
+      *((uint32_t*) (addr)) = val;
+#endif      
       return;
    }
 #endif
