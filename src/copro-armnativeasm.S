@@ -48,7 +48,6 @@ copro_armnative_fiq_handler:
 
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
         ldr     r0, [r1]
-        lsr     r0, r0, #4             // Shift so it looks like the format of the software mailbox
         
         bl      tube_io_handler        // Update the Tube ULA emulation
 
@@ -119,8 +118,7 @@ copro_armnative_fiq_handler:
         
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
         ldr     r0, [r1]
-        lsr     r0, r0, #4             // Shift so it looks like the format of the software mailbox
-
+   
         push    {r0}
         bl      tube_io_handler        // Update the Tube ULA emulation
         pop     {r0}

@@ -26,9 +26,10 @@
 #include "cpu80186.h"
 #include "mem80186.h"
 #include "Client86_v1_01.h"
+#include "../tube-client.h"
 
 #ifdef DECLARE_RAM
-uint8_t RAM[ONE_MEG];
+uint8_t* RAM;//[ONE_MEG];
 #else
 uint8_t* RAM = (uint8_t*) m186_RamBase;
 #endif
@@ -59,7 +60,8 @@ uint16_t readw86(uint32_t addr32)
 
 void Cleari80186Ram(void)
 {
-  memset(RAM, 0, ONE_MEG);
+  //memset(RAM, 0, ONE_MEG);
+  RAM = copro_mem_reset(ONE_MEG);
 }
 
 // The ARM must call RomCopy before starting the Processor

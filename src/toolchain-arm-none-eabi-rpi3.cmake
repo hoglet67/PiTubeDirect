@@ -56,10 +56,16 @@ set( CMAKE_OBJCOPY      ${TC_PATH}${CROSS_COMPILE}objcopy
     CACHE FILEPATH "The toolchain objcopy command " FORCE )
 
 # Set the CMAKE C flags (which should also be used by the assembler!
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon-vfpv4" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon-vfpv4" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard" )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a" )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=cortex-a7" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=cortex-a7" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-a53" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=cortex-a7" )
+
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=cortex-a53" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=crypto-neon-fp-armv8" )
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
 set( CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )

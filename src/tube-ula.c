@@ -96,7 +96,8 @@ static perf_counters_t pct;
 uint8_t ph1[24],ph3_1;
 uint8_t hp1,hp2,hp3[2],hp4;
 uint8_t pstat[4];
-int ph1pos,ph3pos,hp3pos;
+int ph3pos,hp3pos;
+int ph1rdpos,ph1wrpos,ph1len;
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
@@ -169,7 +170,7 @@ void tube_reset_buffer() {
    }
 }
 #endif
-
+/*
 static void tube_updateints_IRQ()
 {   
    // Test for IRQ
@@ -185,6 +186,25 @@ static void tube_updateints_NMI()
    if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 }
+*/
+static void tube_reset()
+{   
+   tube_enabled = 1;
+   tube_irq &= ~(4+2+1);
+   hp3pos = 0;
+   ph1rdpos = ph1wrpos = ph1len = 0;
+   ph3pos = 1;
+   HSTAT1 = HSTAT2 = HSTAT4 = HBIT_6;
+   PSTAT1 = PSTAT2 = PSTAT3 = PSTAT4 = 0x40;
+   HSTAT3 = HBIT_7 | HBIT_6;
+   // On the Model B the initial write of &8E to FEE0 is missed
+   // If the Pi is slower in starting than the Beeb. A work around
+   // is to have the tube emulation reset to a state with interrupts
+   // enabled.
+   HSTAT1 |= HBIT_3 | HBIT_2 | HBIT_1;
+   //tube_updateints_IRQ();
+   //tube_updateints_NMI();
+}
 
 // 6502 Host reading the tube registers
 //
@@ -198,18 +218,24 @@ static void tube_updateints_NMI()
 
 static void tube_host_read(uint16_t addr)
 {
-   int c;
    switch (addr & 7)
    {
    case 1: /*Register 1*/
-      if (ph1pos > 0) {
-         PH1_0 = BYTE_TO_WORD(ph1[1]);
-         for (c = 1; c < 23; c++) ph1[c] = ph1[c + 1];
-         ph1pos--;
+      if (ph1len > 0) {
+         PH1_0 = BYTE_TO_WORD(ph1[ph1rdpos]);
+           //for (c = 1; c < 23; c++) ph1[c] = ph1[c + 1];
+         ph1len--;
+         if ( ph1len != 0)
+         {
+            if (ph1rdpos== 23)
+               ph1rdpos =0; 
+            else
+               ph1rdpos++;
+         }
+         if (!ph1len) HSTAT1 &= ~HBIT_7;
          PSTAT1 |= 0x40;
-         if (!ph1pos) HSTAT1 &= ~HBIT_7;
       }
-      tube_updateints_IRQ();
+      // tube_updateints_IRQ(); // the above can't change the irq status
       break;
    case 3: /*Register 2*/
       if (HSTAT2 & HBIT_7)
@@ -225,8 +251,9 @@ static void tube_host_read(uint16_t addr)
          ph3pos--;
          PSTAT3 |= 0xC0;
          if (!ph3pos) HSTAT3 &= ~HBIT_7;
+         if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=2;
+         //tube_updateints_NMI();
       }
-      tube_updateints_NMI();
       break;
    case 7: /*Register 4*/
       if (HSTAT4 & HBIT_7)
@@ -234,7 +261,7 @@ static void tube_host_read(uint16_t addr)
          HSTAT4 &= ~HBIT_7;
          PSTAT4 |=  0x40;
       }
-      tube_updateints_IRQ();
+      // tube_updateints_IRQ(); // the above can't change the irq status
       break;
    }
 }
@@ -244,8 +271,10 @@ static void tube_host_write(uint16_t addr, uint8_t val)
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
+      
       if (!tube_enabled)
-          return;
+         return;
+    
       if (val & 0x80) {
          // Implement software tube reset
          if (val & 0x40) {
@@ -256,20 +285,23 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       } else {
          HSTAT1 &= ~BYTE_TO_WORD(val & 0x3F);
       }
-      tube_updateints_IRQ();
-      tube_updateints_NMI();
+      tube_irq = 0;
+      if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= 1;
+      if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= 1;
+      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
+      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
       break;
    case 1: /*Register 1*/
-      if (!tube_enabled)
-            return;
+      //if (!tube_enabled)
+      //      return;
       hp1 = val;
       PSTAT1 |=  0x80;
       HSTAT1 &= ~HBIT_6;
-      tube_updateints_IRQ();
+      if (HSTAT1 & HBIT_1) tube_irq  |= 1;//tube_updateints_IRQ();
       break;
    case 3: /*Register 2*/
-      if (!tube_enabled)
-         return;
+      //if (!tube_enabled)
+      //  return;
       hp2 = val;
       PSTAT2 |=  0x80;
       HSTAT2 &= ~HBIT_6;
@@ -283,8 +315,8 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       return; 
    
    case 5: /*Register 3*/
-      if (!tube_enabled)
-         return;
+     // if (!tube_enabled)
+     //    return;
 #ifdef DEBUG_TRANSFERS
       checksum_h *= 13;
       checksum_h += val;
@@ -299,6 +331,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
             PSTAT3 |=  0x80;
             HSTAT3 &= ~HBIT_6;
          }
+         if ((HSTAT1 & HBIT_3) && (hp3pos > 1)) tube_irq|=2;
       }
       else
       {
@@ -306,16 +339,17 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          hp3pos = 1;
          PSTAT3 |=  0x80;
          HSTAT3 &= ~HBIT_6;
+         if (HSTAT1 & HBIT_3) tube_irq|=2;
       }
-      tube_updateints_NMI();
+      //tube_updateints_NMI();
       break;
    case 6:  
       copro = val;
       LOG_DEBUG("New Copro = %u\n", copro);
       return;
    case 7: /*Register 4*/
-      if (!tube_enabled)
-            return;
+     // if (!tube_enabled)
+     //       return;
       hp4 = val;
       PSTAT4 |=  0x80;
       HSTAT4 &= ~HBIT_6;
@@ -329,7 +363,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          count_p = 0;
       }
 #endif
-      tube_updateints_IRQ();
+       if (HSTAT1 & HBIT_2) tube_irq  |= 1; //tube_updateints_IRQ();
       break;
    default:
       LOG_WARN("Illegal host write to %d\r\n", addr);
@@ -338,7 +372,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
 
 uint8_t tube_parasite_read(uint32_t addr)
 {
-   uint8_t temp = 0;
+   uint8_t temp ;
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
@@ -350,8 +384,9 @@ uint8_t tube_parasite_read(uint32_t addr)
       {
          PSTAT1 &= ~0x80;
          HSTAT1 |=  HBIT_6;
+         //tube_updateints_IRQ(); // clear irq if required reg 4 isnt irqing
+         if (!(PSTAT4 & 128)) tube_irq = tube_irq & (0xFF - 1);
       }
-      tube_updateints_IRQ();
       break;
    case 2: /*Register 2 stat*/
       temp = PSTAT2;
@@ -383,8 +418,12 @@ uint8_t tube_parasite_read(uint32_t addr)
             HSTAT3 |=  HBIT_6;
             PSTAT3 &= ~0x80;
          }
-      }
-      tube_updateints_NMI();
+         //tube_updateints_NMI();
+         // here we want to only really clear NMI if required, but setting irq might be simpler
+         tube_irq = tube_irq &(0xFF - 2);
+         if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0))) tube_irq|=2;
+         if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=2;
+      }   
       break;
    case 6: /*Register 4 stat*/
       temp = PSTAT4;
@@ -395,8 +434,9 @@ uint8_t tube_parasite_read(uint32_t addr)
       {
          PSTAT4 &= ~0x80;
          HSTAT4 |=  HBIT_6;
+         //tube_updateints_IRQ(); // clear irq if  reg 1 isnt irqing
+         if (!(PSTAT1 & 128)) tube_irq = tube_irq & (0xFF - 1);
       }
-      tube_updateints_IRQ();
       break;
    }
   
@@ -442,18 +482,23 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
    switch (addr & 7)
    {
    case 1: /*Register 1*/
-      if (ph1pos < 24)
+      if (ph1len < 24)
       {
-         if (ph1pos == 0) {
+         if (ph1len == 0) {
             PH1_0 = BYTE_TO_WORD(val);
          } else {
-            ph1[ph1pos] = val;
+            ph1[ph1wrpos] = val;
+            if (ph1wrpos== 23)
+               ph1wrpos =0; 
+            else
+               ph1wrpos++;
          }
-         ph1pos++;
+
+         ph1len++;
          HSTAT1 |= HBIT_7;
-         if (ph1pos == 24) PSTAT1 &= ~0x40;
+         if (ph1len == 24) PSTAT1 &= ~0x40;
       }
-      tube_updateints_IRQ();
+      // tube_updateints_IRQ(); // the above can't change the IRQ flags
       break;
    case 3: /*Register 2*/
       PH2 = BYTE_TO_WORD(val);
@@ -476,6 +521,8 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
             HSTAT3 |=  HBIT_7;
             PSTAT3 &= ~0x40;
          }
+         //NMI if other case isn't seting it
+         if (!(hp3pos > 1) ) tube_irq = tube_irq &(0xFF - 2);
       }
       else
       {
@@ -483,34 +530,21 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          ph3pos = 1;
          HSTAT3 |=  HBIT_7;
          PSTAT3 &= ~0xC0;
+         tube_irq = tube_irq &(0xFF - 2);
+         //NMI if other case isn't seting it
+         if (!(hp3pos > 0) ) tube_irq = tube_irq &(0xFF - 2);
       }
-      tube_updateints_NMI();
+      //tube_updateints_NMI();
+      // here we want to only clear NMI if required
+      
       break;
    case 7: /*Register 4*/
       PH4 = BYTE_TO_WORD(val);
       HSTAT4 |=  HBIT_7;
       PSTAT4 &= ~0x40;
-      tube_updateints_IRQ();
+      // tube_updateints_IRQ(); // the above can't change IRQ flag
       break;
    }
-}
-
-void tube_reset()
-{   
-   tube_enabled = 1;
-   tube_irq = 0;
-   ph1pos = hp3pos = 0;
-   ph3pos = 1;
-   HSTAT1 = HSTAT2 = HSTAT4 = HBIT_6;
-   PSTAT1 = PSTAT2 = PSTAT3 = PSTAT4 = 0x40;
-   HSTAT3 = HBIT_7 | HBIT_6;
-   // On the Model B the initial write of &8E to FEE0 is missed
-   // If the Pi is slower in starting than the Beeb. A work around
-   // is to have the tube emulation reset to a state with interrupts
-   // enabled.
-   HSTAT1 |= HBIT_3 | HBIT_2 | HBIT_1;
-   tube_updateints_IRQ();
-   tube_updateints_NMI();
 }
 
 // Returns bit 0 set if IRQ is asserted by the tube
@@ -520,6 +554,7 @@ void tube_reset()
 int tube_io_handler(uint32_t mail)
 {
    int addr;
+#ifndef USE_GPU   
    int data;
    int rnw;
    int ntube;
@@ -531,7 +566,7 @@ int tube_io_handler(uint32_t mail)
    static int exp_seq_num = -1;
    act_seq_num = (mail >> 12) & 15;
 #endif
-
+#endif
    // Toggle the LED on each tube access
    static int led = 0;
 	if (led) {
@@ -540,7 +575,25 @@ int tube_io_handler(uint32_t mail)
 	  LED_ON();
 	}
 	led = ~led;
-
+#ifdef USE_GPU       
+   
+   if ((mail >> 12) & 1)        // Check for Reset
+      return tube_irq | 4;      // Set reset Flag
+   else    
+   {
+        addr = (mail>>8) & 7;
+        if ( ( (mail >>11 ) & 1) == 0) {  // Check read write flag
+            tube_host_write(addr, mail & 0xFF);
+        } else {
+            tube_host_read(addr);
+        }
+        if ((tube_enabled && (HSTAT1 & HBIT_5))) {
+            return tube_irq | 4;
+        } else {
+        return tube_irq & 3;
+        }
+   }
+#else        
    addr = 0;
    if (mail & A0_MASK) {
       addr += 1;
@@ -580,6 +633,7 @@ int tube_io_handler(uint32_t mail)
       LOG_WARN("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
 #endif
+   
 
    if (mail & GLITCH_MASK) {
       LOG_WARN("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
@@ -603,8 +657,9 @@ int tube_io_handler(uint32_t mail)
    if (nrst == 0 || (tube_enabled && (HSTAT1 & HBIT_5))) {
       return tube_irq | 4;
    } else {
-      return tube_irq;
+      return tube_irq & 3;
    }
+#endif
 }
 
 
@@ -738,14 +793,14 @@ int tube_is_rst_active() {
    }
    return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || (tube_enabled && (HSTAT1 & HBIT_5));
 }
-
-void tube_wait_for_rst_active() {
+#if 0
+static void tube_wait_for_rst_active() {
    while (!tube_is_rst_active());
 }
-
+#endif
 // Debounce RST
 
-// On my Model B the characterisc of RST bounce on release is a bust
+// On my Model B the characterisc of RST bounce on release is a burst
 // of short (2us) high pulses approx 2ms before a clean rising RST edge
 
 // On my Master 128 there is no RST bounce, and RST is clean

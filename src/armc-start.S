@@ -373,11 +373,7 @@ _invalidate_dtlb_mva:
     mcr      p15, 0, r0, c8, c6, 1
     mov      pc, lr
         
-#ifdef HAS_MULTICORE
-_get_core:
-    mrc     p15, 0, r0, c0, c0, 5
-    and     r0, #3
-    mov     pc, lr
+#ifdef USE_MULTICORE
 
 _init_core:
     // On a Raspberry Pi 2 we enter in HYP mode, and need to force a switch to supervisor mode
@@ -396,7 +392,7 @@ _init_not_in_hyp_mode:
     msr    cpsr_c, r0
 
 _init_continue:
-    ldr  r4,=start
+    ldr  r4,=_start
     // Initialise Stack Pointers ---------------------------------------------
 
     // We're going to use interrupt mode, so setup the interrupt mode
@@ -444,7 +440,10 @@ _init_continue:
     vmsr    fpexc, r0
 
     bl      run_core
+#endif
 
+#ifdef HAS_MULTICORE
+    
     // If main does return for some reason, just catch it and stay here.
 _spin_core:
 #ifdef DEBUG        
@@ -467,7 +466,12 @@ _spin_core:
 _spin_core1:
     wfi
     b       _spin_core1
-
+    
+_get_core:
+    mrc     p15, 0, r0, c0, c0, 5
+    and     r0, #3
+    mov     pc, lr
+    
 #endif
 
 #ifdef HAS_40PINS

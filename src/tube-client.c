@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #include "tube-defs.h"
 #include "tube.h"
@@ -61,8 +62,13 @@ static const char * emulator_names[] = {
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator,
    copro_65tube_emulator,
+#if DEBUG   
    copro_lib6502_emulator,
    copro_lib6502_emulator,
+#else
+   copro_65tube_emulator,
+   copro_65tube_emulator,
+#endif
    copro_z80_emulator,
    copro_z80_emulator,
    copro_z80_emulator,
@@ -89,6 +95,16 @@ static func_ptr emulator;
 // Might be better to just read the vector pointer register instead.
 #define SWI_VECTOR (HIGH_VECTORS_BASE + 0x28)
 #define FIQ_VECTOR (HIGH_VECTORS_BASE + 0x3C)
+
+unsigned char * copro_mem_reset(int length)
+{
+     // Wipe memory
+     // Memory starts at zero now vectors have moved.
+   unsigned char * mpu_memory = 0;  
+   memset(mpu_memory, 0, length);
+   // return pointer to memory
+   return mpu_memory;
+}
 
 void init_emulator() {
    _disable_interrupts();

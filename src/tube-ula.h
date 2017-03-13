@@ -27,7 +27,7 @@ extern void tube_parasite_write(uint32_t addr, uint8_t val);
 
 extern void tube_parasite_write_banksel(uint32_t addr, uint8_t val);
 
-extern void tube_reset();
+//extern void tube_reset();
 
 extern int tube_io_handler(uint32_t mail);
 
@@ -35,7 +35,7 @@ extern void tube_init_hardware();
 
 extern int tube_is_rst_active();
 
-extern void tube_wait_for_rst_active();
+//extern void tube_wait_for_rst_active();
 
 extern void tube_wait_for_rst_release();
 
@@ -54,7 +54,7 @@ static volatile inline int is_mailbox_non_empty() {
 }
 
 static volatile inline unsigned int read_mailbox() {
-   return (*(volatile uint32_t *)MBOX0_READ) >> 4;
+   return (*(volatile uint32_t *)MBOX0_READ);
 }
 
 #else

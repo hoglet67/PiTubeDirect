@@ -15,6 +15,7 @@
 #include "copro-mc6809nc.h"
 
 #include "mc6809nc/mc6809.h"
+#include "tube-client.h"
 
 static int overlay_rom = 0;
 
@@ -54,9 +55,7 @@ uint8_t copro_mc6809nc_read(uint16_t addr) {
 
 static void copro_mc6809_poweron_reset() {
    // Initialize memory pointer to zero (the start of the 2MB of memory shared with the 6502)
-   copro_mc6809_ram = (unsigned char *) 0;
-   // Wipe memory
-   memset(copro_mc6809_ram, 0, 0x10000);
+   copro_mc6809_ram = copro_mem_reset(0x10000);
 }
 
 static void copro_mc6809_reset() {

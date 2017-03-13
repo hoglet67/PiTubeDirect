@@ -14,8 +14,8 @@ const static unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
 const static unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
 const static unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
    
-volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
-volatile __attribute__ ((aligned (0x4000))) unsigned PageTable2[NUM_4K_PAGES];
+volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
+volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
 
 const static int aa = 1;
 const static int bb = 1;
@@ -216,9 +216,6 @@ void enable_MMU_and_IDCaches(void)
   {
     map_4k_page(base, base);
   }
- 
-  // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
-  map_4k_page(16, 0);
  
   // relocate the vector pointer to the moved page 
   asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" (HIGH_VECTORS_BASE)); 

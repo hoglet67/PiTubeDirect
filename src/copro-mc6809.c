@@ -11,6 +11,7 @@
 #include "tube-ula.h"
 #include "startup.h"
 #include "tuberom_6809.h"
+#include "tube-client.h"
 
 #include "copro-mc6809.h"
 
@@ -60,9 +61,7 @@ static void copro_mc6809_mem_cycle(void *sptr, _Bool rnw, uint16_t addr) {
 
 static void copro_mc6809_poweron_reset() {
    // Initialize memory pointer to zero (the start of the 2MB of memory shared with the 6502)
-   copro_mc6809_ram = (unsigned char *) 0;
-   // Wipe memory
-   memset(copro_mc6809_ram, 0, 0x10000);
+   copro_mc6809_ram = copro_mem_reset(0x10000);
 }
 
 static void copro_mc6809_reset() {
