@@ -3,6 +3,7 @@
 #include "rpi-base.h"
 #include "rpi-gpio.h"
 #include "info.h"
+#include "debugger/debugger.h"
 
 /* Define the system clock frequency in MHz for the baud rate calculation.
  This is clearly defined on the BCM2835 datasheet errata page:
@@ -42,6 +43,12 @@ static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
       break;
     }
 
+    /* Handle RxReady interrupt */
+    if (iir & AUX_MUIIR_INT_IS_RX) {
+      /* Forward all received characters to the debugger */
+      debugger_rx_char(auxillary->MU_IO & 0xFF);
+    }
+
     /* Handle TxEmpty interrupt */
     if (iir & AUX_MUIIR_INT_IS_TX) {
       if (tx_tail != tx_head) {
@@ -53,13 +60,6 @@ static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
         auxillary->MU_IER &= ~AUX_MUIER_TX_INT;
       }
     }
-
-    /* Handle RxReady interrupt */
-    if (iir & AUX_MUIIR_INT_IS_RX) {
-      /* For now just echo all received characters */
-      RPI_AuxMiniUartWrite(auxillary->MU_IO & 0xFF);
-    }
-
   }
 }
 #endif

@@ -242,6 +242,12 @@ file( GLOB copro_arm_files
     darm/thumb-tbl.h
 )
 
+# Interactive debugger
+file( GLOB debugger_files
+    debugger/debugger.c
+    debugger/debugger.h
+)
+
 if( ${DEBUG} )
 
   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG=1" )
@@ -255,6 +261,7 @@ if( ${MINIMAL_BUILD} )
 
     add_executable( tube-client
         ${core_files}
+        ${debugger_files}
         ${copro_65tube_files}
         ${shared_6502_files}
     )
@@ -263,6 +270,7 @@ else()
 
     add_executable( tube-client
         ${core_files}
+        ${debugger_files}
         ${copro_65tube_files}
         ${copro_lib6502_files}
         ${shared_6502_files}
