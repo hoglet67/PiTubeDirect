@@ -11,6 +11,9 @@
 #include <string.h>
 #include "32016.h"
 #include "mem32016.h"
+#include "debug.h"
+#include "../cpu_debug.h"
+
 #include "../tube-client.h"
 
 #ifdef BEM
@@ -72,7 +75,7 @@ void dump_ram(void)
 // FFFFFC - R4 status
 // FFFFFE - R4 data
 
-uint8_t read_x8(uint32_t addr)
+uint8_t raw_read_x8(uint32_t addr)
 {
    addr &= 0xFFFFFF;
 
@@ -95,21 +98,31 @@ uint8_t read_x8(uint32_t addr)
    return 0;
 }
 
+uint8_t read_x8(uint32_t addr)
+{
+   if (n32016_debug_enabled) {
+      return debug_memread(&n32016_cpu_debug, addr);
+   } else {
+      return raw_read_x8(addr);
+   }
+}
+
 uint16_t read_x16(uint32_t addr)
 {
    addr &= 0xFFFFFF;
 
+   if (!n32016_debug_enabled) {
 #ifdef NS_FAST_RAM
-   if (addr < IO_BASE)
-   {
+      if (addr < IO_BASE)
+      {
 #ifdef USE_MEMORY_POINTER      
-      return *((uint16_t*) (ns32016ram + addr));
+         return *((uint16_t*) (ns32016ram + addr));
 #else
-      return *((uint16_t*) ( addr));
+         return *((uint16_t*) ( addr));
 #endif      
-      
-   }
+      }
 #endif
+   }
 
    return read_x8(addr) | (read_x8(addr + 1) << 8);
 }
@@ -118,16 +131,18 @@ uint32_t read_x32(uint32_t addr)
 {
    addr &= 0xFFFFFF;
 
+   if (!n32016_debug_enabled) {
 #ifdef NS_FAST_RAM
-   if (addr < IO_BASE)
-   {
+      if (addr < IO_BASE)
+      {
 #ifdef USE_MEMORY_POINTER       
-      return *((uint32_t*) (ns32016ram + addr));
+         return *((uint32_t*) (ns32016ram + addr));
 #else
-      return *((uint32_t*) (addr));
+         return *((uint32_t*) (addr));
 #endif      
-   }
+      }
 #endif
+   }
 
    return read_x8(addr) | (read_x8(addr + 1) << 8) | (read_x8(addr + 2) << 16) | (read_x8(addr + 3) << 24);
 }
@@ -150,9 +165,13 @@ uint32_t read_n(uint32_t addr, uint32_t Size)
    {
       if ((addr + Size) <= IO_BASE)
       {
-         uint32_t Result = 0;
-         memcpy(&Result, ns32016ram + addr, Size);
-         return Result;
+         if (Size == 1) {
+            return read_x8(addr);
+         } else if (Size == 2) {
+            return read_x16(addr);
+         } else {
+            return read_x32(addr);
+         }
       }
       PiWARN("Bad read_n() addr @ %06" PRIX32 " size %" PRIX32 "\n", addr, Size);
    } else {

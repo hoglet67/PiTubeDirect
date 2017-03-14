@@ -333,6 +333,7 @@ extern void n32016_exec();
 extern void n32016_close();
 extern void n32016_build_matrix();
 extern uint32_t n32016_get_pc();
+extern void n32016_set_pc(uint32_t value);
 extern void BreakPoint(uint32_t pc, uint32_t opcode);
 extern int32_t GetDisplacement(uint32_t* pPC);
 
@@ -340,20 +341,6 @@ extern ProcessorRegisters PR;
 extern uint32_t r[8];
 extern RegLKU Regs[2];
 extern OperandSizeType FredSize;
-
-extern void Disassemble(uint32_t Location, uint32_t End);
-
-#ifdef INSTRUCTION_PROFILING
-extern void DisassembleUsingITrace(uint32_t Location, uint32_t End);
-extern uint32_t IP[MEG16];
-#endif
-
-
-#ifdef SHOW_INSTRUCTIONS
-extern void ShowInstruction(uint32_t pc, uint32_t* pPC, uint32_t opcode, uint32_t Function, uint32_t OperandSize);
-#else
-#define ShowInstruction(...)
-#endif
 
 #if 1
 extern void ShowRegisterWrite(RegLKU RegIn, uint32_t Value);

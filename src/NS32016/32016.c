@@ -113,6 +113,11 @@ uint32_t n32016_get_pc()
    return pc;
 }
 
+void n32016_set_pc(uint32_t value)
+{
+   pc = value;
+}
+
 static void pushd(uint32_t val)
 {
    DEC_SP(4);
@@ -1255,9 +1260,8 @@ void n32016_exec()
       }
 
 #ifdef PC_SIMULATION
-      FredSize = OpSize;                     // Temporary hack :(
       uint32_t Temp = pc;
-      ShowInstruction(startpc, &Temp, opcode, Function, OpSize.Op[0]);
+      n32016_show_instruction(startpc, &Temp, opcode, Function, &OpSize);
 #endif
 
       GetGenPhase2(Regs[0], 0);

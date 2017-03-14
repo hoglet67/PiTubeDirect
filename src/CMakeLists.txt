@@ -149,6 +149,8 @@ file( GLOB copro_32016_files
     NS32016/Profile.h
     NS32016/Trap.c
     NS32016/Trap.h
+    NS32016/debug.c
+    NS32016/debug.h
 )
 
 # Z80
@@ -246,6 +248,7 @@ file( GLOB copro_arm_files
 file( GLOB debugger_files
     debugger/debugger.c
     debugger/debugger.h
+    cpu_debug.h
 )
 
 if( ${DEBUG} )
