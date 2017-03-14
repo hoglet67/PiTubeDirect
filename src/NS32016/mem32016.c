@@ -28,7 +28,12 @@
 #define ROM fpu_test
 #endif
 #else
+// #include "pandora/PandoraV0_61.h"
+// #define PANDORA_VERSION PandoraV0_61
+// #include "pandora/PandoraV1_00.h"
+// #define PANDORA_VERSION PandoraV1_00
 #include "pandora/PandoraV2_00.h"
+#define PANDORA_VERSION PandoraV2_00
 #endif
 
 static uint8_t * ns32016ram;
@@ -39,13 +44,13 @@ void init_ram(void)
 #ifdef TEST_SUITE
    memcpy(ns32016ram, ROM, sizeof(ROM));
 #elif defined(PANDORA_BASE)
-   memcpy(ns32016ram + PANDORA_BASE, PandoraV2_00, sizeof(PandoraV2_00));
+   memcpy(ns32016ram + PANDORA_BASE, PANDORA_VERSION, sizeof(PANDORA_VERSION));
 #else
    uint32_t Address;
 
-   for (Address = 0; Address < MEG16; Address += sizeof(PandoraV2_00))
+   for (Address = 0; Address < MEG16; Address += sizeof(PANDORA_VERSION))
    {
-      memcpy(ns32016ram + Address, PandoraV2_00, sizeof(PandoraV2_00));
+      memcpy(ns32016ram + Address, PANDORA_VERSION, sizeof(PANDORA_VERSION));
    }
 #endif
 }
