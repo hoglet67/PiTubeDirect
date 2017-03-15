@@ -124,7 +124,7 @@ static volatile int stopped = 0;
 
 // When single stepping, trace (i.e. log) event N instructions
 // Setting this to 0 will disable logging
-static int tracing = 0;
+static int tracing = 1;
 
 static int trace_counter = 0;
 
@@ -146,6 +146,16 @@ cpu_debug_t *getCpu() {
  * Hooks from CPU Emulation
  ********************************************************/
 
+static void noprompt() {
+   RPI_AuxMiniUartWrite(13);
+}
+
+static void prompt() {
+   RPI_AuxMiniUartWrite('>');
+   RPI_AuxMiniUartWrite('>');
+   RPI_AuxMiniUartWrite(' ');
+}
+
 static void cpu_stop() {
 //   if (!stopped) {
 //      printf("Stopped\r\n");
@@ -163,7 +173,9 @@ static void cpu_continue() {
 static void disassemble_addr(uint32_t addr) {
    cpu_debug_t *cpu = getCpu();
    cpu->disassemble(addr, strbuf, sizeof(strbuf));
+   noprompt();
    printf("%s\r\n", &strbuf[0]);
+   prompt();
 }
 
 
@@ -188,11 +200,16 @@ static inline void generic_memory_access(cpu_debug_t *cpu, uint32_t addr, uint32
    if (ptr) {
       uint32_t pc = cpu->get_instr_addr();
       if (ptr->mode == MODE_BREAK) {
+         noprompt();
          printf("%s breakpoint hit at %"PRIx32" : %"PRIx32" = %"PRIx32"\r\n", type, pc, addr, value);
+         prompt();
          disassemble_addr(pc);
       } else {
+         noprompt();
          printf("%s watchpoint hit at %"PRIx32" : %"PRIx32" = %"PRIx32"\r\n", type, pc, addr, value);
+         prompt();
       }
+      prompt();
    }
 }
 
@@ -211,11 +228,15 @@ void debug_preexec (cpu_debug_t *cpu, uint32_t addr) {
 
    if (ptr) {
       if (ptr->mode == MODE_BREAK) {
+         noprompt();
          printf("Exec breakpoint hit at %"PRIx32"\r\n", addr);
+         prompt();
          show = 1;
 
       } else {
+         noprompt();
          printf("Exec watchpoint hit at %"PRIx32"\r\n", addr);
+         prompt();
       }
    }
 
@@ -302,7 +323,7 @@ static void doCmdHelp(char *params) {
    }
 }
 
-void doCmdRegs(char *params) {
+static void doCmdRegs(char *params) {
    cpu_debug_t *cpu = getCpu();
    const char **regs = cpu->reg_names;
    int i = 0;
@@ -314,7 +335,7 @@ void doCmdRegs(char *params) {
    }
 }
 
-void doCmdDis(char *params) {
+static void doCmdDis(char *params) {
    cpu_debug_t *cpu = getCpu();
    int i;
    sscanf(params, "%x", &memAddr);
@@ -386,7 +407,7 @@ static void doCmdMem(char *params) {
    memAddr += 0x100;
 }
 
-void doCmdReadMem(char *params) {
+static void doCmdReadMem(char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -395,7 +416,7 @@ void doCmdReadMem(char *params) {
    printf("Rd: %04X = %02X\r\n", addr, data);
 }
 
-void doCmdWriteMem(char *params) {
+static void doCmdWriteMem(char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -405,7 +426,7 @@ void doCmdWriteMem(char *params) {
 }
 
 
-void doCmdStep(char *params) {
+static void doCmdStep(char *params) {
   int i = 1;
   sscanf(params, "%d", &i);
   if (i <= 0) {
@@ -422,7 +443,7 @@ void doCmdStep(char *params) {
   cpu_continue();
 }
 
-void doCmdTrace(char *params) {
+static void doCmdTrace(char *params) {
   int i = 1;
   sscanf(params, "%d", &i);
   if (i <= 0) {
@@ -438,7 +459,7 @@ void doCmdTrace(char *params) {
   }
 }
 
-void genericList(char *type, breakpoint_t *list) {
+static void genericList(char *type, breakpoint_t *list) {
    int i = 0;
    printf("%s Breakpoints\r\n", type);
    while (list[i].mode != MODE_LAST) {
@@ -450,33 +471,33 @@ void genericList(char *type, breakpoint_t *list) {
    }
 }
 
-void doCmdList(char *params) {
+static void doCmdList(char *params) {
   genericList("Exec", exec_breakpoints);
   genericList("Mem Rd", mem_rd_breakpoints);
   genericList("Mem Wr", mem_wr_breakpoints);
 }
 
-void doCmdBreakI(char *params) {
+static void doCmdBreakI(char *params) {
    genericBreakpoint(params, "Exec", exec_breakpoints, MODE_BREAK);
 }
 
-void doCmdWatchI(char *params) {
+static void doCmdWatchI(char *params) {
    genericBreakpoint(params, "Exec", exec_breakpoints, MODE_WATCH);
 }
 
-void doCmdBreakRdMem(char *params) {
+static void doCmdBreakRdMem(char *params) {
    genericBreakpoint(params, "Mem Rd", mem_rd_breakpoints, MODE_BREAK);
 }
 
-void doCmdWatchRdMem(char *params) {
+static void doCmdWatchRdMem(char *params) {
    genericBreakpoint(params, "Mem Rd", mem_rd_breakpoints, MODE_WATCH);
 }
 
-void doCmdBreakWrMem(char *params) {
+static void doCmdBreakWrMem(char *params) {
    genericBreakpoint(params, "Mem Wr", mem_wr_breakpoints, MODE_BREAK);
 }
 
-void doCmdWatchWrMem(char *params) {
+static void doCmdWatchWrMem(char *params) {
    genericBreakpoint(params, "Mem Wr", mem_wr_breakpoints, MODE_WATCH);
 }
 
@@ -511,7 +532,7 @@ int genericClear(uint32_t addr, char *type, breakpoint_t *list) {
 }
 
 
-void doCmdClear(char *params) {
+static void doCmdClear(char *params) {
    int found = 0;
    unsigned int addr = 0;
 
@@ -524,13 +545,14 @@ void doCmdClear(char *params) {
    }
 }
 
-void doCmdContinue(char *params) {
+static void doCmdContinue(char *params) {
    stepping = 0;
+   printf("Running\r\n");
    cpu_continue();
 }
 
 
-void updateDebugFlag() {
+static void updateDebugFlag() {
    cpu_debug_t *cpu = getCpu();
    int enable = 0;
    if (stepping) {
@@ -592,15 +614,17 @@ void debugger_rx_char(char c) {
       }
    } else if (c == 13) {
       // Handle return
+      if (i == 0) {		
+         while (cmd[i]) {		
+            RPI_AuxMiniUartWrite(cmd[i++]);		
+         }		
+      } else {		
+         cmd[i] = 0;		
+      }
       RPI_AuxMiniUartWrite(10);
       RPI_AuxMiniUartWrite(13);
-      if (i > 0) {
-         cmd[i] = 0;
-         dispatchCmd(cmd);
-      }
-      RPI_AuxMiniUartWrite('>');
-      RPI_AuxMiniUartWrite('>');
-      RPI_AuxMiniUartWrite(' ');
+      dispatchCmd(cmd);
+      prompt();
       i = 0;
    } else if (c >= 32) {
       // Handle any other non-control character
