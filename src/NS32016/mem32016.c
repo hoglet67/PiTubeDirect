@@ -11,10 +11,12 @@
 #include <string.h>
 #include "32016.h"
 #include "mem32016.h"
+#include "../tube-client.h"
+
+#ifdef INCLUDE_DEBUGGER
 #include "debug.h"
 #include "../cpu_debug.h"
-
-#include "../tube-client.h"
+#endif
 
 #ifdef BEM
 #include "../tube.h"
@@ -75,17 +77,29 @@ void dump_ram(void)
 // FFFFFC - R4 status
 // FFFFFE - R4 data
 
-uint8_t raw_read_x8(uint32_t addr)
+
+uint8_t read_x8(uint32_t addr)
+#ifdef INCLUDE_DEBUGGER
+{
+   uint8_t val = read_x8_internal(addr);   
+   if (n32016_debug_enabled)
+   {
+      debug_memread(&n32016_cpu_debug, addr, val, 1);
+   }
+   return val;
+}
+uint8_t read_x8_internal(uint32_t addr)
+#endif
 {
    addr &= 0xFFFFFF;
 
    if (addr < IO_BASE)
    {
-#ifdef USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
       return ns32016ram[addr];
 #else
       return *(unsigned char *)(addr);
-#endif      
+#endif
    }
 
    if ((addr & 0xFFFFF1) == 0xFFFFF0)
@@ -98,31 +112,28 @@ uint8_t raw_read_x8(uint32_t addr)
    return 0;
 }
 
-uint8_t read_x8(uint32_t addr)
-{
-   if (n32016_debug_enabled) {
-      return debug_memread(&n32016_cpu_debug, addr);
-   } else {
-      return raw_read_x8(addr);
-   }
-}
-
 uint16_t read_x16(uint32_t addr)
 {
    addr &= 0xFFFFFF;
 
-   if (!n32016_debug_enabled) {
 #ifdef NS_FAST_RAM
-      if (addr < IO_BASE)
-      {
-#ifdef USE_MEMORY_POINTER      
-         return *((uint16_t*) (ns32016ram + addr));
+   if (addr < IO_BASE)
+   {
+      uint16_t val;
+#ifdef USE_MEMORY_POINTER
+      val = *((uint16_t*) (ns32016ram + addr));
 #else
-         return *((uint16_t*) ( addr));
-#endif      
+      val = *((uint16_t*) ( addr));
+#endif
+#ifdef INCLUDE_DEBUGGER
+      if (n32016_debug_enabled)
+      {
+         debug_memread(&n32016_cpu_debug, addr, val, 2);
       }
 #endif
+      return val;
    }
+#endif
 
    return read_x8(addr) | (read_x8(addr + 1) << 8);
 }
@@ -131,18 +142,24 @@ uint32_t read_x32(uint32_t addr)
 {
    addr &= 0xFFFFFF;
 
-   if (!n32016_debug_enabled) {
 #ifdef NS_FAST_RAM
-      if (addr < IO_BASE)
-      {
-#ifdef USE_MEMORY_POINTER       
-         return *((uint32_t*) (ns32016ram + addr));
+   if (addr < IO_BASE)
+   {
+      uint32_t val;
+#ifdef USE_MEMORY_POINTER
+      val = *((uint32_t*) (ns32016ram + addr));
 #else
-         return *((uint32_t*) (addr));
-#endif      
+      val = *((uint32_t*) (addr));
+#endif
+#ifdef INCLUDE_DEBUGGER
+      if (n32016_debug_enabled)
+      {
+         debug_memread(&n32016_cpu_debug, addr, val, 3);
       }
 #endif
+      return val;
    }
+#endif
 
    return read_x8(addr) | (read_x8(addr + 1) << 8) | (read_x8(addr + 2) << 16) | (read_x8(addr + 3) << 24);
 }
@@ -156,46 +173,45 @@ uint64_t read_x64(uint32_t addr)
    return (((uint64_t) read_x32(addr + 4)) << 32) + read_x32(addr);
 }
 
-
 // As this function returns uint32_t it *should* only be used for size 1, 2 or 4
 uint32_t read_n(uint32_t addr, uint32_t Size)
 {
    addr &= 0xFFFFFF;
-   if (Size <= sizeof(uint32_t))
+   switch (Size)
    {
-      if ((addr + Size) <= IO_BASE)
-      {
-         if (Size == 1) {
-            return read_x8(addr);
-         } else if (Size == 2) {
-            return read_x16(addr);
-         } else {
-            return read_x32(addr);
-         }
-      }
-      PiWARN("Bad read_n() addr @ %06" PRIX32 " size %" PRIX32 "\n", addr, Size);
-   } else {
+   case sz8:
+      return read_x8(addr);
+   case sz16:
+      return read_x16(addr);
+   case sz32:
+      return read_x32(addr);
+   default:
       PiWARN("Bad read_n() size @ %06" PRIX32 " size %" PRIX32 "\n", addr, Size);
+      return 0;
    }
-
-   return 0;
 }
 
 void write_x8(uint32_t addr, uint8_t val)
+#ifdef INCLUDE_DEBUGGER
+{
+   if (n32016_debug_enabled)
+   {
+      debug_memwrite(&n32016_cpu_debug, addr, val, 1);
+   }
+   write_x8_internal(addr, val);   
+}
+void write_x8_internal(uint32_t addr, uint8_t val)
+#endif
 {
    addr &= 0xFFFFFF;
 
-#ifdef TRACE_WRITEs
-   PiTRACE(" @%06"PRIX32" = %02"PRIX8"\n", addr, val);
-#endif
-
    if (addr <= (RAM_SIZE - sizeof(uint8_t)))
    {
-#ifdef USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
       ns32016ram[addr] = val;
 #else
       *(unsigned char *)(addr) = val;
-#endif      
+#endif
       return;
    }
 
@@ -228,18 +244,20 @@ void write_x16(uint32_t addr, uint16_t val)
 {
    addr &= 0xFFFFFF;
 
-#ifdef TRACE_WRITEs
-   PiTRACE(" @%06"PRIX32" = %04"PRIX16"\n", addr, val);
-#endif
-
 #ifdef NS_FAST_RAM
    if (addr <= (RAM_SIZE - sizeof(uint16_t)))
    {
-#ifdef USE_MEMORY_POINTER       
+#ifdef INCLUDE_DEBUGGER
+      if (n32016_debug_enabled)
+      {
+         debug_memwrite(&n32016_cpu_debug, addr, val, 2);
+      }
+#endif
+#ifdef USE_MEMORY_POINTER
       *((uint16_t*) (ns32016ram + addr)) = val;
 #else
       *((uint16_t*) (addr)) = val;
-#endif      
+#endif
       return;
    }
 #endif
@@ -252,18 +270,20 @@ void write_x32(uint32_t addr, uint32_t val)
 {
    addr &= 0xFFFFFF;
 
-#ifdef TRACE_WRITEs
-   PiTRACE(" @%06"PRIX32" = %06"PRIX32"\n", addr, val);
-#endif
-
 #ifdef NS_FAST_RAM
    if (addr <= (RAM_SIZE - sizeof(uint32_t)))
    {
+#ifdef INCLUDE_DEBUGGER
+      if (n32016_debug_enabled)
+      {
+         debug_memwrite(&n32016_cpu_debug, addr, val, 4);
+      }
+#endif
 #ifdef USE_MEMORY_POINTER
       *((uint32_t*) (ns32016ram + addr)) = val;
 #else
       *((uint32_t*) (addr)) = val;
-#endif      
+#endif
       return;
    }
 #endif
@@ -277,10 +297,6 @@ void write_x32(uint32_t addr, uint32_t val)
 void write_x64(uint32_t addr, uint64_t val)
 {
    addr &= 0xFFFFFF;
-
-#ifdef TRACE_WRITEs
-   PiTRACE(" @%06"PRIX32" = %016"PRIX64"\n", addr, val);
-#endif
 
 #ifdef NS_FAST_RAM
    if (addr <= (RAM_SIZE - sizeof(uint64_t)))
@@ -308,23 +324,12 @@ void write_Arbitary(uint32_t addr, void* pData, uint32_t Size)
 {
    addr &= 0xFFFFFF;
 
-#ifdef TRACE_WRITEs
-   uint32_t Index;
-   register uint8_t* pV = (uint8_t*) pData;
-
-   PiTRACE("?@%06"PRIX32" =", addr);
-
-   for (Index = 0; Index < Size; Index++)
-   {
-      PiTRACE("%02"PRIX8, pV[Index]);
-   }
-   PiTRACE("\n");
-#endif
-
-   //addr &= MEM_MASK;
-
 #ifdef NS_FAST_RAM
-   if ((addr + Size) <= RAM_SIZE)
+#ifdef INCLUDE_DEBUGGER
+   if ((addr + Size) <= RAM_SIZE && !n32016_debug_enabled) 
+#else
+   if ((addr + Size) <= RAM_SIZE) 
+#endif
    {
       memcpy(ns32016ram + addr, pData, Size);
       return;
@@ -337,29 +342,3 @@ void write_Arbitary(uint32_t addr, void* pData, uint32_t Size)
       write_x8(addr++, *pValue++);
    }
 }
-
-#if 0
-uint32_t LoadBinary(const char *pFileName, uint32_t Location)
-{
-   FILE* pFile = fopen(pFileName, "rb");
-   uint32_t End = 0;
-
-   if (pFile)
-   {
-      long FileSize;
-
-      fseek(pFile, 0, SEEK_END);
-      FileSize = ftell(pFile);
-      rewind(pFile);
-
-      if ((Location + FileSize) < MEG16)
-      {
-         End = fread(ns32016ram + Location, sizeof(uint8_t), FileSize, pFile) + Location;
-      }
-
-      fclose(pFile);
-   }
-
-   return End;
-}
-#endif

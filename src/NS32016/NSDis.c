@@ -16,6 +16,10 @@
 
 // #define ADD_ASCII
 
+static inline uint32_t read_x32_internal(uint32_t addr) {
+   return read_x8(addr) | (read_x8(addr + 1) << 8) | (read_x8(addr + 2) << 16) | (read_x8(addr + 3) << 24);
+}
+
 static const char LPRLookUp[16][20] =
 {
    "UPSR",
@@ -207,7 +211,7 @@ static void GetOperandText(uint32_t Start, uint32_t* pPC, RegLKU Pattern, uint32
             int32_t Value;
             MultiReg temp3;
 
-            temp3.u32 = SWAP32(read_x32(*pPC));
+            temp3.u32 = SWAP32(read_x32_internal(*pPC));
             if (OperandSize->Op[c] == sz8)
                Value = temp3.u8;
             else if (OperandSize->Op[c] == sz16)
@@ -518,25 +522,25 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
          {
             case SAVE:
             {
-               ShowRegs(read_x8((*pPC)++), 0);    //Access directly we do not want tube reads!
+               ShowRegs(read_x8_internal((*pPC)++), 0);    //Access directly we do not want tube reads!
             }
             break;
 
             case RESTORE:
             {
-               ShowRegs(read_x8((*pPC)++), 1);    //Access directly we do not want tube reads!
+               ShowRegs(read_x8_internal((*pPC)++), 1);    //Access directly we do not want tube reads!
             }
             break;
 
             case EXIT:
             {
-               ShowRegs(read_x8((*pPC)++), 1);    //Access directly we do not want tube reads!
+               ShowRegs(read_x8_internal((*pPC)++), 1);    //Access directly we do not want tube reads!
             }
             break;
 
             case ENTER:
             {
-               ShowRegs(read_x8((*pPC)++), 0);    //Access directly we do not want tube reads!
+               ShowRegs(read_x8_internal((*pPC)++), 0);    //Access directly we do not want tube reads!
                int32_t d = GetDisplacement(pPC);
                StringAppend(" " HEX32 "", d);
             }
@@ -591,7 +595,7 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
             case INSS:
             case EXTS:
             {
-               uint8_t Value = read_x8((*pPC)++);
+               uint8_t Value = read_x8_internal((*pPC)++);
                StringAppend(",%" PRIu32 ",%" PRIu32,  Value >> 5, ((Value & 0x1F) + 1));
             }
             break;
@@ -639,7 +643,7 @@ static void getgen(int gen, int c, uint32_t* pPC)
 
    if (gen >= EaPlusRn)
    {
-      Regs[c].Whole |= read_x8((*pPC)++) << 8;
+      Regs[c].Whole |= read_x8_internal((*pPC)++) << 8;
       (*pPC)++;
 
       if ((Regs[c].Whole & 0xF800) == (Immediate << 11))
@@ -659,7 +663,7 @@ static void getgen(int gen, int c, uint32_t* pPC)
 static void Decode(uint32_t* pPC)
 {
    uint32_t StartPc = *pPC;
-   uint32_t opcode = read_x32(*pPC);
+   uint32_t opcode = read_x32_internal(*pPC);
    uint32_t Function = FunctionLookup[opcode & 0xFF];
    uint32_t Format = Function >> 4;
    OperandSizeType OperandSize;

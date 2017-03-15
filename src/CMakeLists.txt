@@ -35,6 +35,9 @@ cmake_minimum_required( VERSION 2.8 )
 # cross-compiler's ability to compile a simple program because that will fail
 project( tube-client C ASM )
 
+# By default we include the interactive debugger capability
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DINCLUDE_DEBUGGER" )
+
 # Add any C compiler flags here. The C flags concerned with processor tuning
 # are in the toolchain files toolchain-arm-none-eabi-bcm2835.cmake, etc.
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2" )

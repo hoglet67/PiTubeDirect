@@ -48,21 +48,10 @@ static void (*dbgCmdFuncs[NUM_CMDS])(char *params) = {
    doCmdWriteMem,
 };
 
-
-uint32_t debug_memread (cpu_debug_t *cpu, uint32_t addr) {
-   return cpu->memread(addr);
+void debug_memread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
 };
 
-uint32_t debug_memfetch(cpu_debug_t *cpu, uint32_t addr) {
-   if (cpu->memfetch != NULL) {
-      return cpu->memfetch(addr);
-   } else {
-      return cpu->memread(addr);
-   }
-};
-
-void debug_memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
-   cpu->memwrite(addr, value);
+void debug_memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
 };
 
 void debug_preexec (cpu_debug_t *cpu, uint32_t addr) {

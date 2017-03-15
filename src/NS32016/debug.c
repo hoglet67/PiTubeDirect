@@ -67,17 +67,14 @@ int dbg_debug_enable(int newvalue) {
 
 // CPU's usual memory read function for data.
 uint32_t dbg_memread(uint32_t addr) {
-   return read_x8(addr);
-};
-
-// as above but for instructions.
-uint32_t dbg_memfetch(uint32_t addr) {
-   return read_x8(addr);
+   // use the internal version so the debugger doesn't get notified
+   return read_x8_internal(addr);
 };
 
 // CPU's usual memory write function.
 void dbg_memwrite(uint32_t addr, uint32_t value) {
-   write_x8(addr, value);
+   // use the internal version so the debugger doesn't get notified
+   write_x8_internal(addr, value);
 };
 
 
@@ -212,7 +209,6 @@ cpu_debug_t n32016_cpu_debug = {
    .cpu_name     = "32016",
    .debug_enable = dbg_debug_enable,
    .memread      = dbg_memread,
-   .memfetch     = dbg_memfetch,
    .memwrite     = dbg_memwrite,
    .disassemble  = dbg_disassemble,
    .reg_names    = dbg_reg_names,
@@ -232,7 +228,6 @@ cpu_debug_t *n32016_cpu_debug()
    cpu_debug.cpu_name     = dbg_cpu_name; 
    cpu_debug.debug_enable = dbg_debug_enable;
    cpu_debug.memread      = dbg_memread;
-   cpu_debug.memfetch     = dbg_memfetch;
    cpu_debug.memwrite     = dbg_memwrite;
    cpu_debug.disassemble  = dbg_disassemble;
    cpu_debug.reg_names    = dbg_reg_names;

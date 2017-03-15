@@ -10,7 +10,6 @@ typedef struct {
   const char *cpu_name;                                               // Name/model of CPU.
   int      (*debug_enable)(int newvalue);                             // enable/disable debugging on this CPU, returns previous value.
   uint32_t (*memread)(uint32_t addr);                                 // CPU's usual memory read function for data.
-  uint32_t (*memfetch)(uint32_t addr);                                // as above but for instructions.
   void     (*memwrite)(uint32_t addr, uint32_t value);                // CPU's usual memory write function.
   uint32_t (*disassemble)(uint32_t addr, char *buf, size_t bufsize);  // disassemble one line, returns next address
   const char **reg_names;                                             // NULL pointer terminated list of register names.
@@ -20,9 +19,8 @@ typedef struct {
   void     (*reg_parse)(int which, char *strval);                     // Parse a value into a register.
 } cpu_debug_t;
 
-extern uint32_t debug_memread (cpu_debug_t *cpu, uint32_t addr);
-extern uint32_t debug_memfetch(cpu_debug_t *cpu, uint32_t addr);
-extern void     debug_memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value);
-extern void     debug_preexec (cpu_debug_t *cpu, uint32_t addr);
+extern void debug_memread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
+extern void debug_memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
+extern void debug_preexec (cpu_debug_t *cpu, uint32_t addr);
 
 #endif
