@@ -16,6 +16,7 @@
 int n32016_debug_enabled = 0;
 
 enum register_numbers {
+   i_PC,
    i_R0,
    i_R1,
    i_R2,
@@ -24,7 +25,6 @@ enum register_numbers {
    i_R5,
    i_R6,
    i_R7,
-   i_PC,
    i_SB,
    i_SP0,
    i_SP1,
@@ -37,6 +37,7 @@ enum register_numbers {
 
 // NULL pointer terminated list of register names.
 static const char *dbg_reg_names[] = {
+   "PC",
    "R0",
    "R1",
    "R2",
@@ -45,7 +46,6 @@ static const char *dbg_reg_names[] = {
    "R5",
    "R6",
    "R7",
-   "PC",
    "SB",
    "SP0",
    "SP1",
@@ -85,6 +85,8 @@ uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
 // Get a register - which is the index into the names above
 uint32_t dbg_reg_get(int which) {
    switch (which) {
+   case i_PC:
+      return n32016_get_pc();
    case i_R0:
    case i_R1:
    case i_R2:
@@ -94,14 +96,12 @@ uint32_t dbg_reg_get(int which) {
    case i_R6:
    case i_R7:
       return r[which - i_R0];
-   case i_PC:
-      return n32016_get_pc();
    case i_SB:
       return PR.SB;
    case i_SP0:
-      return PR.SP;
+      return sp[0];
    case i_SP1:
-      return PR.USP;
+      return sp[1];
    case i_FP:
       return PR.FP;
    case i_INTBASE:
@@ -120,6 +120,9 @@ uint32_t dbg_reg_get(int which) {
 // Set a register.
 void  dbg_reg_set(int which, uint32_t value) {
    switch (which) {
+   case i_PC:
+      n32016_set_pc(value);
+      break;
    case i_R0:
    case i_R1:
    case i_R2:
@@ -130,17 +133,14 @@ void  dbg_reg_set(int which, uint32_t value) {
    case i_R7:
       r[which - i_R0] = value;
       break;
-   case i_PC:
-      n32016_set_pc(value);
-      break;
    case i_SB:
       PR.SB = value;
       break;
    case i_SP0:
-      PR.SP = value;
+      sp[0] = value;
       break;
    case i_SP1:
-      PR.USP = value;
+      sp[1] = value;
       break;
    case i_FP:
       PR.FP = value;
@@ -162,11 +162,15 @@ void  dbg_reg_set(int which, uint32_t value) {
    }
 };
 
+static const char* flagname = "****IPSUNZFV*LTC";
+
 // Print register value in CPU standard form.
 size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    int i;
    int bit;
    char c;
+   const char *flagnameptr = flagname;
+
    if (which == i_PSR) {
       // !       Supervisor Flags        !          User Flags           !
       // +-------------------------------+-------------------------------+
@@ -174,15 +178,17 @@ size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       // !---+---+---+---+---+---+---+---!---+---+---+---+---+---+---+---!
       //  15                           8   7                           0
       bit = 0x8000;
-      for (i = 0; i < 16 && i < bufsize; i++) {
-         if (0xF008 & bit) {
-            c = 'x';
-         } else if (psr & bit) {
+      for (i = 0; i < 16 * 3 && i < bufsize - 3; i += 3) {
+         if (psr & bit) {
             c = '1';
          } else {
             c = '0';
          }
-         *(buf + i) = c;
+         
+         *(buf + i) = *flagnameptr++;
+         *(buf + i + 1) = c;
+         *(buf + i + 2) = ' ';
+
          bit >>= 1;
       }
       if (i < bufsize) {
