@@ -59,31 +59,30 @@ static const char *dbg_reg_names[] = {
 
 
 // enable/disable debugging on this CPU, returns previous value.
-int dbg_debug_enable(int newvalue) {
+static int dbg_debug_enable(int newvalue) {
    int oldvalue = n32016_debug_enabled;
    n32016_debug_enabled = newvalue;
    return oldvalue;
 };
 
 // CPU's usual memory read function for data.
-uint32_t dbg_memread(uint32_t addr) {
+static uint32_t dbg_memread(uint32_t addr) {
    // use the internal version so the debugger doesn't get notified
    return read_x8_internal(addr);
 };
 
 // CPU's usual memory write function.
-void dbg_memwrite(uint32_t addr, uint32_t value) {
+static void dbg_memwrite(uint32_t addr, uint32_t value) {
    // use the internal version so the debugger doesn't get notified
    write_x8_internal(addr, value);
 };
 
-
-uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
+static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    return n32016_disassemble(addr, buf, bufsize);
 };
 
 // Get a register - which is the index into the names above
-uint32_t dbg_reg_get(int which) {
+static uint32_t dbg_reg_get(int which) {
    switch (which) {
    case i_PC:
       return n32016_get_pc();
@@ -118,7 +117,7 @@ uint32_t dbg_reg_get(int which) {
 };
 
 // Set a register.
-void  dbg_reg_set(int which, uint32_t value) {
+static void  dbg_reg_set(int which, uint32_t value) {
    switch (which) {
    case i_PC:
       n32016_set_pc(value);
@@ -165,7 +164,7 @@ void  dbg_reg_set(int which, uint32_t value) {
 static const char* flagname = "****IPSUNZFV*LTC";
 
 // Print register value in CPU standard form.
-size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
+static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    int i;
    int bit;
    char c;
@@ -204,43 +203,27 @@ size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
 };
 
 // Parse a value into a register.
-void dbg_reg_parse(int which, char *strval) {
+static void dbg_reg_parse(int which, char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
 };
 
+static uint32_t dbg_get_instr_addr() {
+   return n32016_get_startpc();
+}
 
 cpu_debug_t n32016_cpu_debug = {
-   .cpu_name     = "32016",
-   .debug_enable = dbg_debug_enable,
-   .memread      = dbg_memread,
-   .memwrite     = dbg_memwrite,
-   .disassemble  = dbg_disassemble,
-   .reg_names    = dbg_reg_names,
-   .reg_get      = dbg_reg_get,
-   .reg_set      = dbg_reg_set,
-   .reg_print    = dbg_reg_print,
-   .reg_parse    = dbg_reg_parse
+   .cpu_name       = "32016",
+   .debug_enable   = dbg_debug_enable,
+   .memread        = dbg_memread,
+   .memwrite       = dbg_memwrite,
+   .disassemble    = dbg_disassemble,
+   .reg_names      = dbg_reg_names,
+   .reg_get        = dbg_reg_get,
+   .reg_set        = dbg_reg_set,
+   .reg_print      = dbg_reg_print,
+   .reg_parse      = dbg_reg_parse,
+   .get_instr_addr = dbg_get_instr_addr
 };
 
-#if 0
-
-// Name/model of CPU.
-static const char *dbg_cpu_name = "32016";
-
-cpu_debug_t *n32016_cpu_debug()
-{
-   cpu_debug.cpu_name     = dbg_cpu_name; 
-   cpu_debug.debug_enable = dbg_debug_enable;
-   cpu_debug.memread      = dbg_memread;
-   cpu_debug.memwrite     = dbg_memwrite;
-   cpu_debug.disassemble  = dbg_disassemble;
-   cpu_debug.reg_names    = dbg_reg_names;
-   cpu_debug.reg_get      = dbg_reg_get;
-   cpu_debug.reg_set      = dbg_reg_set;
-   cpu_debug.reg_print    = dbg_reg_print;
-   cpu_debug.reg_parse    = dbg_reg_parse;
-   return &cpu_debug;
-}
-#endif

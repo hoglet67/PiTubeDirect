@@ -186,12 +186,12 @@ static inline void generic_memory_access(cpu_debug_t *cpu, uint32_t addr, uint32
                                          const char *type, breakpoint_t *list) {
    breakpoint_t *ptr = check_for_breakpoints(addr, list);
    if (ptr) {
-      uint32_t pc = cpu->reg_get(DBG_REG_PC);
+      uint32_t pc = cpu->get_instr_addr();
       if (ptr->mode == MODE_BREAK) {
-         printf("%s breakpoint hit at %"PRIx32" : %"PRIX32" = %"PRIX32"\r\n", type, pc, addr, value);
+         printf("%s breakpoint hit at %"PRIx32" : %"PRIx32" = %"PRIx32"\r\n", type, pc, addr, value);
          disassemble_addr(pc);
       } else {
-         printf("%s watchpoint hit at %"PRIx32" : %"PRIX32" = %"PRIX32"\r\n", type, pc, addr, value);
+         printf("%s watchpoint hit at %"PRIx32" : %"PRIx32" = %"PRIx32"\r\n", type, pc, addr, value);
       }
    }
 }

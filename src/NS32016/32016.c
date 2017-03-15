@@ -118,6 +118,11 @@ uint32_t n32016_get_pc()
    return pc;
 }
 
+uint32_t n32016_get_startpc()
+{
+   return startpc;
+}
+
 void n32016_set_pc(uint32_t value)
 {
    pc = value;

@@ -333,6 +333,7 @@ extern void n32016_exec();
 extern void n32016_close();
 extern void n32016_build_matrix();
 extern uint32_t n32016_get_pc();
+extern uint32_t n32016_get_startpc();
 extern void n32016_set_pc(uint32_t value);
 extern void BreakPoint(uint32_t pc, uint32_t opcode);
 extern int32_t GetDisplacement(uint32_t* pPC);
