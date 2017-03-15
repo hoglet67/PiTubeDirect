@@ -26,8 +26,8 @@
 // Breakpoint Mode Strings, should match the modes above
 static const char *modeStrings[NUM_MODES] = {
   "<internal>",
-  "Watch",
-  "Break"
+  "watchpoint",
+  "breakpoint"
 };
 
 typedef struct {
@@ -265,7 +265,7 @@ void debug_preexec (cpu_debug_t *cpu, uint32_t addr) {
 
 // Set the breakpoint state variables
 void setBreakpoint(breakpoint_t *ptr, char *type, unsigned int addr, unsigned int mask, unsigned int mode) {
-   printf("%s %s set at %04X\r\n", type, modeStrings[mode], addr);
+   printf("%s %s set at %x\r\n", type, modeStrings[mode], addr);
    ptr->addr = addr & mask;
    ptr->mask = mask;
    ptr->mode = mode;
@@ -293,7 +293,7 @@ void genericBreakpoint(char *params, char *type, breakpoint_t *list, unsigned in
    }
 
   if (i == MAXBKPTS) {
-     printf("All %d %s Breakpoints are already set\r\n", i, type);
+     printf("All %d %s breakpoints are already set\r\n", i, type);
      return;
   }
   // Extending the list, so add a new end marker
@@ -316,7 +316,8 @@ void genericBreakpoint(char *params, char *type, breakpoint_t *list, unsigned in
 static void doCmdHelp(char *params) {
    cpu_debug_t *cpu = getCpu();
    int i;
-   printf("PiTubeDirect debugger; cpu = %s\r\n", cpu->cpu_name);
+   printf("PiTubeDirect debugger\r\n");
+   printf("    cpu = %s\r\n", cpu->cpu_name);
    printf("Commands:\r\n");
    for (i = 0; i < NUM_CMDS; i++) {
       printf("    %s\r\n", dbgCmdStrings[i]);
@@ -353,7 +354,7 @@ static void doCmdFill(char *params) {
    unsigned int data;
    sscanf(params, "%x %x %x", &start, &end, &data);
 
-   printf("Wr: %04X to %04X = %02X\r\n", start, end, data);
+   printf("Wr: %x to %x = %02x\r\n", start, end, data);
    for (i = start; i <= end; i++) {
       cpu->memwrite(i, data);
    }
@@ -378,7 +379,7 @@ static void doCmdCrc(char *params) {
             crc = (crc ^ CRC_POLY) & 0xFFFF;
       }
    }
-   printf("crc: %04X\r\n", crc);
+   printf("crc: %04x\r\n", crc);
 }
 
 static void doCmdMem(char *params) {
@@ -390,9 +391,9 @@ static void doCmdMem(char *params) {
       for (j = 0; j < 16; j++) {
          row[j] = cpu->memread(memAddr + i + j);
       }
-      printf("%04X ", memAddr + i);
+      printf("%04x ", memAddr + i);
       for (j = 0; j < 16; j++) {
-         printf("%02X ", row[j]);
+         printf("%02x ", row[j]);
       }
       printf(" ");
       for (j = 0; j < 16; j++) {
@@ -413,7 +414,7 @@ static void doCmdReadMem(char *params) {
    unsigned int data;
    sscanf(params, "%x", &addr);
    data = cpu->memread(addr);
-   printf("Rd: %04X = %02X\r\n", addr, data);
+   printf("Rd: %x = %02x\r\n", addr, data);
 }
 
 static void doCmdWriteMem(char *params) {
@@ -421,7 +422,7 @@ static void doCmdWriteMem(char *params) {
    unsigned int addr;
    unsigned int data;
    sscanf(params, "%x %x", &addr, &data);
-   printf("Wr: %04X = %02X\r\n", addr, data);
+   printf("Wr: %x = %02x\r\n", addr, data);
    cpu->memwrite(addr++, data);
 }
 
@@ -461,9 +462,9 @@ static void doCmdTrace(char *params) {
 
 static void genericList(char *type, breakpoint_t *list) {
    int i = 0;
-   printf("%s Breakpoints\r\n", type);
+   printf("%s\r\n", type);
    while (list[i].mode != MODE_LAST) {
-      printf("    addr:%"PRIx32" mask: %"PRIx32" mode:%s\r\n", list[i].addr, list[i].mask, modeStrings[list[i].mode]);
+      printf("    addr:%"PRIx32"; mask:%"PRIx32"; type:%s\r\n", list[i].addr, list[i].mask, modeStrings[list[i].mode]);
       i++;
    }
    if (i == 0) {
