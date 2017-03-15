@@ -14,6 +14,8 @@
 #define HEX24 "x'%06" PRIX32
 #define HEX32 "x'%" PRIX32
 
+#define MAX_INSTR_SIZE 8
+
 // #define ADD_ASCII
 
 static inline uint32_t read_x32_internal(uint32_t addr) {
@@ -451,6 +453,7 @@ static void AddASCII(uint32_t opcode, uint32_t Format)
 
 void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, uint32_t Function, OperandSizeType *OperandSize)
 {
+   int i;
    static uint32_t old_pc = 0xFFFFFFFF;
 
    if (StartPc < (IO_BASE - 64))                     // The code will not work near the IO Space as it will have side effects
@@ -474,7 +477,11 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
       old_pc = StartPc;
 
       StringAppend("&%06" PRIX32 " ", StartPc);
-      StringAppend("[%08" PRIX32 "] ", opcode);
+      StringAppend("[");
+      for (i = 0; i < MAX_INSTR_SIZE; i++) {
+         StringAppend("%02x", read_x8_internal(StartPc + i));
+      }
+      StringAppend("] ");
       uint32_t Format = Function >> 4;
       StringAppend("F%01" PRIu32 " ", Format);
 #ifdef ADD_ASCII
@@ -832,8 +839,16 @@ static void Decode(uint32_t* pPC)
 
 uint32_t n32016_disassemble(uint32_t addr, char *buf, size_t bufsize)
 {
+   int i;
+   uint32_t old = addr;
+   int len;
    StringInit(buf, bufsize);
    Decode(&addr);
+   len = addr - old;
+   // Nuke the op bytes that are part of next instruction
+   for (i = 9 + len * 2; i < 9 + MAX_INSTR_SIZE * 2 && i < bufsize - 1; i++) {
+      buf[i] = ' ';
+   }
    //ShowTraps();
    //CLEAR_TRAP();
    return addr;
