@@ -30,6 +30,11 @@ darm_str_t str;
 int m_trace;
 #endif
 
+#ifdef INCLUDE_DEBUGGER
+#include "debug.h"
+#include "../cpu_debug.h"
+#endif
+
 //int    m_icount;
 #define CYCLE_COUNT(in)
 
@@ -278,6 +283,12 @@ void arm2_execute_run(int number)
 
     /* load instruction */
     pc = R15;
+#ifdef INCLUDE_DEBUGGER
+      if (arm2_debug_enabled)
+      {
+         debug_preexec(&arm2_cpu_debug, pc & ADDRESS_MASK);
+      }
+#endif
     insn = cpu_read32( pc & ADDRESS_MASK );
 
 #ifdef TRACE

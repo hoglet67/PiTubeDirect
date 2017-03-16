@@ -6,9 +6,6 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-// Register 0 must be the program counter
-#define DBG_REG_PC 0
-
 typedef struct {
   const char *cpu_name;                                               // Name/model of CPU.
   int      (*debug_enable)(int newvalue);                             // enable/disable debugging on this CPU, returns previous value.

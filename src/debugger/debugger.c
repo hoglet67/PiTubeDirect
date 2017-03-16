@@ -137,9 +137,14 @@ static unsigned int memAddr = 0;
 
 
 // TODO - Fix hardcoded implementation
-extern cpu_debug_t n32016_cpu_debug;
+//extern cpu_debug_t n32016_cpu_debug;
+//cpu_debug_t *getCpu() {
+//   return &n32016_cpu_debug;
+//}
+
+extern cpu_debug_t arm2_cpu_debug;
 cpu_debug_t *getCpu() {
-   return &n32016_cpu_debug;
+   return &arm2_cpu_debug;
 }
 
 /********************************************************
@@ -447,8 +452,8 @@ static void doCmdStep(char *params) {
 static void doCmdTrace(char *params) {
   int i = 1;
   sscanf(params, "%d", &i);
-  if (i <= 0) {
-    printf("Number of instuctions must be positive\r\n");
+  if (i < 0) {
+    printf("Number of instuctions must be positive or zero\r\n");
     return;
   }
   tracing = i;

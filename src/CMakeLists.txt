@@ -131,6 +131,8 @@ file( GLOB copro_arm2_files
     tuberom_arm.h
     mame/arm.c
     mame/arm.h
+    mame/debug.c
+    mame/debug.h
 )
 
 # 32016
