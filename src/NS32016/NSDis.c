@@ -18,8 +18,14 @@
 
 // #define ADD_ASCII
 
-static inline uint32_t read_x32_internal(uint32_t addr) {
-   return read_x8(addr) | (read_x8(addr + 1) << 8) | (read_x8(addr + 2) << 16) | (read_x8(addr + 3) << 24);
+#ifdef INCLUDE_DEBUGGER
+#define read_mem_8 read_x8_internal
+#else
+#define read_mem_8 read_x8
+#endif
+
+static inline uint32_t read_mem_32(uint32_t addr) {
+   return read_mem_8(addr) | (read_mem_8(addr + 1) << 8) | (read_mem_8(addr + 2) << 16) | (read_mem_8(addr + 3) << 24);
 }
 
 static const char LPRLookUp[16][20] =
@@ -213,7 +219,7 @@ static void GetOperandText(uint32_t Start, uint32_t* pPC, RegLKU Pattern, uint32
             int32_t Value;
             MultiReg temp3;
 
-            temp3.u32 = SWAP32(read_x32_internal(*pPC));
+            temp3.u32 = SWAP32(read_mem_32(*pPC));
             if (OperandSize->Op[c] == sz8)
                Value = temp3.u8;
             else if (OperandSize->Op[c] == sz16)
@@ -298,7 +304,6 @@ static void GetOperandText(uint32_t Start, uint32_t* pPC, RegLKU Pattern, uint32
 
 static void RegLookUp(uint32_t Start, uint32_t* pPC, OperandSizeType *OperandSize)
 {
-   // printf("RegLookUp(%06" PRIX32 ", %06" PRIX32 ")\n", pc, (*pPC));
    uint32_t Index;
 
    for (Index = 0; Index < 2; Index++)
@@ -479,7 +484,7 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
       StringAppend("&%06" PRIX32 " ", StartPc);
       StringAppend("[");
       for (i = 0; i < MAX_INSTR_SIZE; i++) {
-         StringAppend("%02x", read_x8_internal(StartPc + i));
+         StringAppend("%02x", read_mem_8(StartPc + i));
       }
       StringAppend("] ");
       uint32_t Format = Function >> 4;
@@ -529,25 +534,25 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
          {
             case SAVE:
             {
-               ShowRegs(read_x8_internal((*pPC)++), 0);    //Access directly we do not want tube reads!
+               ShowRegs(read_mem_8((*pPC)++), 0);    //Access directly we do not want tube reads!
             }
             break;
 
             case RESTORE:
             {
-               ShowRegs(read_x8_internal((*pPC)++), 1);    //Access directly we do not want tube reads!
+               ShowRegs(read_mem_8((*pPC)++), 1);    //Access directly we do not want tube reads!
             }
             break;
 
             case EXIT:
             {
-               ShowRegs(read_x8_internal((*pPC)++), 1);    //Access directly we do not want tube reads!
+               ShowRegs(read_mem_8((*pPC)++), 1);    //Access directly we do not want tube reads!
             }
             break;
 
             case ENTER:
             {
-               ShowRegs(read_x8_internal((*pPC)++), 0);    //Access directly we do not want tube reads!
+               ShowRegs(read_mem_8((*pPC)++), 0);    //Access directly we do not want tube reads!
                int32_t d = GetDisplacement(pPC);
                StringAppend(" " HEX32 "", d);
             }
@@ -602,7 +607,7 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
             case INSS:
             case EXTS:
             {
-               uint8_t Value = read_x8_internal((*pPC)++);
+               uint8_t Value = read_mem_8((*pPC)++);
                StringAppend(",%" PRIu32 ",%" PRIu32,  Value >> 5, ((Value & 0x1F) + 1));
             }
             break;
@@ -613,7 +618,7 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
       return;
    }
 
-   //PiTRACE("PC is :%08"PRIX32" ?????\n", *pPC);
+   //PiTRACE("PC is :%08"PRIX32" ?????", *pPC);
 }
 
 void ShowRegisterWrite(RegLKU RegIn, uint32_t Value)
@@ -623,19 +628,19 @@ void ShowRegisterWrite(RegLKU RegIn, uint32_t Value)
 #ifdef SHOW_REG_WRITES
       if (RegIn.RegType == Integer)
       {
-         PiTRACE(" R%u = %"PRIX32"\n", RegIn.OpType, Value);
+         PiTRACE(" R%u = %"PRIX32, RegIn.OpType, Value);
       }
 #endif
 
 #ifdef TEST_SUITE
       if (RegIn.OpType == 7)
       {
-         PiTRACE("*** TEST = %u\n", Value);
+         PiTRACE("*** TEST = %u", Value);
 
 #if 0
          if (Value == 137)
          {
-            PiTRACE("*** BREAKPOINT\n");
+            PiTRACE("*** BREAKPOINT");
          }
 #endif
       }
@@ -650,7 +655,7 @@ static void getgen(int gen, int c, uint32_t* pPC)
 
    if (gen >= EaPlusRn)
    {
-      Regs[c].Whole |= read_x8_internal((*pPC)++) << 8;
+      Regs[c].Whole |= read_mem_8((*pPC)++) << 8;
       (*pPC)++;
 
       if ((Regs[c].Whole & 0xF800) == (Immediate << 11))
@@ -670,7 +675,7 @@ static void getgen(int gen, int c, uint32_t* pPC)
 static void Decode(uint32_t* pPC)
 {
    uint32_t StartPc = *pPC;
-   uint32_t opcode = read_x32_internal(*pPC);
+   uint32_t opcode = read_mem_32(*pPC);
    uint32_t Function = FunctionLookup[opcode & 0xFF];
    uint32_t Format = Function >> 4;
    OperandSizeType OperandSize;

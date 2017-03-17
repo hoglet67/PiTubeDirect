@@ -2,10 +2,11 @@
 // 32016 parasite processor emulation (not working yet)
 
 // And Simon R. Ellwood
-#include <stdint.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <math.h>
 #include "32016.h"
@@ -44,32 +45,45 @@ OperandSizeType OpSize;
 
 const uint32_t IndexLKUP[8] = { 0x0, 0x1, 0x4, 0x5, 0x8, 0x9, 0xC, 0xD };                    // See Page 2-3 of the manual!
 
+/* A custom warning logger for n32016 that logs the PC */
+
+void n32016_warn(char *fmt, ...)
+{   
+   char buf[1024];
+   int len = snprintf(buf, sizeof(buf), "[pc=%"PRIX32"] ", pc);
+   va_list ap;
+   va_start(ap, fmt);
+   vsnprintf(buf + len, sizeof(buf) - len, fmt, ap);
+   va_end(ap);   
+   log_warn("%s", buf);
+}
+
 void n32016_ShowRegs(int Option)
 {
    if (Option & BIT(0))
    {
-      TrapTRACE("R0=%08"PRIX32" R1=%08"PRIX32" R2=%08"PRIX32" R3=%08"PRIX32"\n", r[0], r[1], r[2], r[3]);
-      TrapTRACE("R4=%08"PRIX32" R5=%08"PRIX32" R6=%08"PRIX32" R7=%08"PRIX32"\n", r[4], r[5], r[6], r[7]);
+      TrapTRACE("R0=%08"PRIX32" R1=%08"PRIX32" R2=%08"PRIX32" R3=%08"PRIX32, r[0], r[1], r[2], r[3]);
+      TrapTRACE("R4=%08"PRIX32" R5=%08"PRIX32" R6=%08"PRIX32" R7=%08"PRIX32, r[4], r[5], r[6], r[7]);
    }
 
    if (Option & BIT(1))
    {
-      TrapTRACE("PC=%08"PRIX32" SB=%08"PRIX32" SP=%08"PRIX32" TRAP=%08"PRIX32"\n", pc, sb, GET_SP(), TrapFlags);
-      TrapTRACE("FP=%08"PRIX32" INTBASE=%08"PRIX32" PSR=%04"PRIX32" MOD=%04"PRIX32"\n", fp, intbase, psr, mod);
+      TrapTRACE("PC=%08"PRIX32" SB=%08"PRIX32" SP=%08"PRIX32" TRAP=%08"PRIX32, pc, sb, GET_SP(), TrapFlags);
+      TrapTRACE("FP=%08"PRIX32" INTBASE=%08"PRIX32" PSR=%04"PRIX32" MOD=%04"PRIX32, fp, intbase, psr, mod);
    }
 
    if (nscfg.fpu_flag)
    {
       if (Option & BIT(2))
       {
-         TrapTRACE("F0=%f F1=%f F2=%f F3=%f\n", FR.fr32[0], FR.fr32[1], FR.fr32[4], FR.fr32[5]);
-         TrapTRACE("F4=%f F5=%f F6=%f F7=%f\n", FR.fr32[8], FR.fr32[9], FR.fr32[12], FR.fr32[13]);
+         TrapTRACE("F0=%f F1=%f F2=%f F3=%f", FR.fr32[0], FR.fr32[1], FR.fr32[4], FR.fr32[5]);
+         TrapTRACE("F4=%f F5=%f F6=%f F7=%f", FR.fr32[8], FR.fr32[9], FR.fr32[12], FR.fr32[13]);
       }
 
       if (Option & BIT(3))
       {
-         TrapTRACE("D0=%lf D1=%lf D2=%lf D3=%lf\n", FR.fr64[0], FR.fr64[1], FR.fr64[2], FR.fr64[3]);
-         TrapTRACE("D4=%lf D5=%lf D6=%lf D7=%lf\n", FR.fr64[4], FR.fr64[5], FR.fr64[6], FR.fr64[7]);
+         TrapTRACE("D0=%lf D1=%lf D2=%lf D3=%lf", FR.fr64[0], FR.fr64[1], FR.fr64[2], FR.fr64[3]);
+         TrapTRACE("D4=%lf D5=%lf D6=%lf D7=%lf", FR.fr64[4], FR.fr64[5], FR.fr64[6], FR.fr64[7]);
       }
    }
 }
@@ -371,7 +385,7 @@ static void GetGenPhase2(RegLKU gen, int c)
 
             default:
             {
-               PiWARN("Illegal RegType value: %u\n", gen.RegType)
+               PiWARN("Illegal RegType value: %u", gen.RegType);
             }
          }
 
@@ -504,7 +518,7 @@ static void GetGenPhase2(RegLKU gen, int c)
 static uint32_t bcd_add_16(uint32_t a, uint32_t b, uint32_t *carry)
 {
    uint32_t t1, t2; // unsigned 32-bit intermediate values
-   //PiTRACE("bcd_add_16: in  %08x %08x %08x\n", a, b, *carry);
+   //PiTRACE("bcd_add_16: in  %08x %08x %08x", a, b, *carry);
    if (*carry)
    {
       b++; // I'm 90% sure its OK to handle carry this way
@@ -518,14 +532,14 @@ static uint32_t bcd_add_16(uint32_t a, uint32_t b, uint32_t *carry)
    t2 = t1 - t2; // corrected BCD sum
    *carry = (t2 & 0xFFFF0000) ? 1 : 0;
    t2 &= 0xFFFF;
-   //PiTRACE("bcd_add_16: out %08x %08x\n", t2, *carry);
+   //PiTRACE("bcd_add_16: out %08x %08x", t2, *carry);
    return t2;
 }
 
 static uint32_t bcd_sub_16(uint32_t a, uint32_t b, uint32_t *carry)
 {
    uint32_t t1, t2; // unsigned 32-bit intermediate values
-   //PiTRACE("bcd_sub_16: in  %08x %08x %08x\n", a, b, *carry);
+   //PiTRACE("bcd_sub_16: in  %08x %08x %08x", a, b, *carry);
    if (*carry)
    {
       b++;
@@ -535,7 +549,7 @@ static uint32_t bcd_sub_16(uint32_t a, uint32_t b, uint32_t *carry)
    t2 = bcd_add_16(t1, 1, carry);
    t2 = bcd_add_16(a, t2, carry);
    *carry = 1 - *carry;
-   //PiTRACE("bcd_add_16: out %08x %08x\n", t2, *carry);
+   //PiTRACE("bcd_add_16: out %08x %08x", t2, *carry);
    return t2;
 }
 
@@ -590,7 +604,7 @@ static uint32_t AddCommon(uint32_t a, uint32_t b, uint32_t cin)
       C_FLAG = TEST(sum <= a || sum <= b);
    F_FLAG = TEST((a ^ sum) & (b ^ sum) & 0x80000000);
 
-   //PiTRACE("ADD FLAGS: C=%d F=%d\n", C_FLAG, F_FLAG);
+   //PiTRACE("ADD FLAGS: C=%d F=%d", C_FLAG, F_FLAG);
 
    return sum;
 }
@@ -604,7 +618,7 @@ static uint32_t SubCommon(uint32_t a, uint32_t b, uint32_t cin)
       C_FLAG = TEST(a <= b);
    F_FLAG = TEST((a ^ b) & (a ^ diff) & 0x80000000);
 
-   //PiTRACE("SUB FLAGS: C=%d F=%d\n", C_FLAG, F_FLAG);
+   //PiTRACE("SUB FLAGS: C=%d F=%d", C_FLAG, F_FLAG);
 
    return diff;
 }
@@ -943,7 +957,7 @@ void WarnIfShiftInvalid(uint32_t shift, uint8_t size)
    // of this in BBC Basic.
    if ((shift > size + 1 && shift < 0xFF - size - 1) || (shift > 0xFF))
    {
-      PiWARN("Invalid shift of %08"PRIX32" for size %"PRId8"\n", shift, size);
+      PiWARN("Invalid shift of %08"PRIX32" for size %"PRId8, shift, size);
    }
 }
 
@@ -1238,7 +1252,7 @@ void n32016_exec()
 
                default:
                {
-                  PiWARN("Unexpected Format 9 Decode: Function = %"PRId32"\n", Function);
+                  PiWARN("Unexpected Format 9 Decode: Function = %"PRId32, Function);
                }
                break;
             }
@@ -1839,7 +1853,7 @@ void n32016_exec()
             temp2 = BitPrefix();
             if (gentype[1] == TOS)
             {
-               PiWARN("TBIT with base==TOS is not yet implemented\n");
+               PiWARN("TBIT with base==TOS is not yet implemented");
                continue; // with next instruction
             }
             temp = ReadGen(1);
@@ -2248,7 +2262,7 @@ void n32016_exec()
 
             temp3 = (GetDisplacement(&pc) / temp4) + 1;
 
-            //PiTRACE("CMP Size = %u Count = %u\n", temp4, temp3);
+            //PiTRACE("CMP Size = %u Count = %u", temp4, temp3);
             while (temp3--)
             {
                temp  = read_n(First, temp4);
@@ -2298,7 +2312,7 @@ void n32016_exec()
 
             if (gentype[0] == TOS)
             {
-               PiWARN("EXTS with base==TOS is not yet implemented\n");
+               PiWARN("EXTS with base==TOS is not yet implemented");
                continue; // with next instruction
             }
 
@@ -2326,7 +2340,7 @@ void n32016_exec()
          {
             if (OpSize.Op[0] != sz8)
             {
-               PiWARN("MOVXiW forcing first Operand Size\n");
+               PiWARN("MOVXiW forcing first Operand Size");
             }
 
             OpSize.Op[0] = sz8;
@@ -2340,7 +2354,7 @@ void n32016_exec()
          {
             if (OpSize.Op[0] != sz8)
             {
-               PiWARN("MOVZiW forcing first Operand Size\n");
+               PiWARN("MOVZiW forcing first Operand Size");
             }
 
             OpSize.Op[0] = sz8;
@@ -2404,10 +2418,10 @@ void n32016_exec()
                   temp64.u64 = ((temp64.u64 >> 16) & 0xFFFF0000) | (temp64.u64 & 0xFFFF);
                   break;
             }
-            // PiTRACE("temp = %08x\n", temp);
-            // PiTRACE("temp64.u64 = %016" PRIu64 "\n", temp64.u64);
+            // PiTRACE("temp = %08x", temp);
+            // PiTRACE("temp64.u64 = %016" PRIu64 , temp64.u64);
             temp64.u64 = ((temp64.u64 / temp) << size) | (temp64.u64 % temp);
-            //PiTRACE("result = %016" PRIu64 "\n", temp64.u64);
+            //PiTRACE("result = %016" PRIu64 , temp64.u64);
             // Handle the writing to the upper half of dst locally here
             handle_mei_dei_upper_write(temp64.u64);
             // Allow fallthrough write logic to write the lower half of dst
@@ -2504,7 +2518,7 @@ void n32016_exec()
 
             if (Length < 1 || Length > 32)
             {
-               PiWARN("EXT with length %08"PRIx32" is undefined\n", Length);
+               PiWARN("EXT with length %08"PRIX32" is undefined", Length);
                continue; // with next instruction
             }
 
@@ -2518,7 +2532,7 @@ void n32016_exec()
                //
                // 2. We potentially need to take account of an offset.
                //
-               PiWARN("EXT with base==TOS is not yet implemented; offset = %"PRId32"\n", Offset);
+               PiWARN("EXT with base==TOS is not yet implemented; offset = %"PRId32, Offset);
                continue; // with next instruction
             }
             else if (gentype[0] == Register)
@@ -2567,7 +2581,7 @@ void n32016_exec()
 
             if (Length < 1 || Length > 32)
             {
-               PiWARN("INS with length %08"PRIx32" is undefined\n", Length);
+               PiWARN("INS with length %08"PRIX32" is undefined", Length);
                continue; // with next instruction
             }
 
@@ -2584,7 +2598,7 @@ void n32016_exec()
                // is harder as our current TOS read/write doesn't allow
                // for an offset. It's also not clear what this means.
                //
-               PiWARN("INS with base==TOS is not yet implemented; offset = %"PRId32"\n", Offset);
+               PiWARN("INS with base==TOS is not yet implemented; offset = %"PRId32, Offset);
                continue; // with next instruction
             }
             else if (gentype[1] == Register)
@@ -3036,7 +3050,7 @@ void n32016_exec()
             }
          }
       } else {
-         PiWARN("Bad write size: %d pc=%08"PRIX32" opcode=%08"PRIX32"\n", WriteSize, startpc, opcode);
+         PiWARN("Bad write size: %d pc=%08"PRIX32" opcode=%08"PRIX32, WriteSize, startpc, opcode);
       }
 
 #if 0

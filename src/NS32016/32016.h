@@ -1,3 +1,13 @@
+#include "../logging.h"
+
+/* A custom warning logger for n32016 that logs the PC */
+void n32016_warn(char * fmt, ...);
+
+#define PiTRACE(...) log_debug(__VA_ARGS__)
+
+#define PiWARN(...)  n32016_warn(__VA_ARGS__)
+
+
 // Some meaningful memory sizes
 #define K128      0x0020000
 #define K256      0x0040000
@@ -352,17 +362,6 @@ extern void ShowRegisterWrite(RegLKU RegIn, uint32_t Value);
 #ifdef PC_SIMULATION
 extern void CloseTrace(void);
 #endif
-
-#ifdef TRACE_TO_FILE
-#define PiTRACE(...) fprintf(pTraceFile, __VA_ARGS__)
-extern FILE *pTraceFile;
-#elif defined(TRACE_TO_CONSOLE)
-#define PiTRACE printf
-#else
-static inline void PiTRACE(const char *fmt, ...) {}
-#endif
-
-#define PiWARN(...)  { printf("pc=%08"PRIX32": ",n32016_get_pc()); printf(__VA_ARGS__); }
 
 extern int tubecycles;
 extern int tube_irq;

@@ -118,7 +118,7 @@ uint8_t read_x8_internal(uint32_t addr)
       return tube_parasite_read(addr >> 1);
    }
 
-   PiWARN("Bad Read @ %06" PRIX32 "\n", addr);
+   PiWARN("Bad Read @ %06x", addr);
 
    return 0;
 }
@@ -197,7 +197,7 @@ uint32_t read_n(uint32_t addr, uint32_t Size)
    case sz32:
       return read_x32(addr);
    default:
-      PiWARN("Bad read_n() size @ %06" PRIX32 " size %" PRIX32 "\n", addr, Size);
+      PiWARN("Bad read_n() size @ %06x size %x", addr, Size);
       return 0;
    }
 }
@@ -235,10 +235,10 @@ void write_x8_internal(uint32_t addr, uint8_t val)
    if (addr == 0xF90000)
    {
 #ifdef PANDORA_ROM_PAGE_OUT
-      PiTRACE("Pandora ROM no longer occupying the entire memory space!\n")
+      PiTRACE("Pandora ROM no longer occupying the entire memory space!")
       memset(ns32016ram, 0, RAM_SIZE);
 #else
-      PiTRACE("Pandora ROM writes to 0xF90000\n");
+      PiTRACE("Pandora ROM write to 0xF90000");
 #endif
 
       return;
@@ -247,7 +247,7 @@ void write_x8_internal(uint32_t addr, uint8_t val)
    // Silently ignore writing one word beyond end of RAM
    // as Pandora RAM test does this
    if (addr >= RAM_SIZE + 4) {
-      PiWARN("Writing outside of RAM @%06"PRIX32" %02"PRIX8"\n", addr, val);
+      PiWARN("Writing outside of RAM @ %06X = %02X", addr, val);
    }
 }
 

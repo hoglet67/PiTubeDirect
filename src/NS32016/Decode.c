@@ -90,13 +90,13 @@ void BreakPoint(uint32_t pc, uint32_t opcode)
    // Exec address of Bas32
    if (pc == 0x000200)
    {
-      printf("Entering Bas32\n");
+      log_debug("Entering Bas32");
       ProfileInit();
    }
    // Exec address of Panos
    if (pc == 0x000400)
    {
-      printf("Entering Panos\n");
+      log_debug("Entering Panos");
       ProfileInit();
    }
    // Address of SVC &11 (OS_EXIT)
