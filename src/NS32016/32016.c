@@ -20,7 +20,7 @@
 #endif
 
 #ifdef INCLUDE_DEBUGGER
-#include "debug.h"
+#include "32016_debug.h"
 #include "../cpu_debug.h"
 #endif
 

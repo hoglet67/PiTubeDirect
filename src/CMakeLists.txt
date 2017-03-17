@@ -133,8 +133,8 @@ file( GLOB copro_arm2_files
     tuberom_arm.h
     mame/arm.c
     mame/arm.h
-    mame/debug.c
-    mame/debug.h
+    mame/arm_debug.c
+    mame/arm_debug.h
 )
 
 # 32016
@@ -143,6 +143,8 @@ file( GLOB copro_32016_files
     copro-32016.h
     NS32016/32016.c
     NS32016/32016.h
+    NS32016/32016_debug.c
+    NS32016/32016_debug.h
     NS32016/Decode.c
     NS32016/Decode.h
     NS32016/defs.h
@@ -156,8 +158,6 @@ file( GLOB copro_32016_files
     NS32016/Profile.h
     NS32016/Trap.c
     NS32016/Trap.h
-    NS32016/debug.c
-    NS32016/debug.h
 )
 
 # Z80

@@ -7,8 +7,8 @@
 #include "../rpi-aux.h"
 #include "../cpu_debug.h"
 
-#include "../mame/debug.h"
-#include "../NS32016/debug.h"
+#include "../mame/arm_debug.h"
+#include "../NS32016/32016_debug.h"
 
 extern unsigned int copro;
 

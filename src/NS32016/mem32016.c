@@ -13,8 +13,8 @@
 #include "mem32016.h"
 
 #ifdef INCLUDE_DEBUGGER
-#include "debug.h"
 #include "../cpu_debug.h"
+#include "32016_debug.h"
 #endif
 
 #ifdef BEM

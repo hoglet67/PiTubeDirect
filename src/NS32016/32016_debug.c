@@ -2,11 +2,12 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#include "../cpu_debug.h"
+
 #include "32016.h"
+#include "32016_debug.h"
 #include "mem32016.h"
 #include "NSDis.h"
-#include "debug.h"
-#include "../cpu_debug.h"
 
 /*****************************************************
  * CPU Debug Interface

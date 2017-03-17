@@ -1,12 +1,13 @@
- #include <stdio.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <string.h>
 
-#include "arm.h"
-#include "../darm/darm.h"
-#include "debug.h"
 #include "../cpu_debug.h"
+
+#include "arm.h"
+#include "arm_debug.h"
+#include "../darm/darm.h"
 
 #define ADDRESS_MASK    ((UINT32) 0x03fffffcu)
 

@@ -31,7 +31,7 @@ int m_trace;
 #endif
 
 #ifdef INCLUDE_DEBUGGER
-#include "debug.h"
+#include "arm_debug.h"
 #include "../cpu_debug.h"
 #endif
 
