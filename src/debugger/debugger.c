@@ -7,6 +7,30 @@
 #include "../rpi-aux.h"
 #include "../cpu_debug.h"
 
+#include "../mame/debug.h"
+#include "../NS32016/debug.h"
+
+extern unsigned int copro;
+
+cpu_debug_t *cpu_debug_list[] = {
+   NULL,                //  0 65tube
+   NULL,                //  1 65tube
+   NULL,                //  2 lib6502
+   NULL,                //  3 lib6502
+   NULL,                //  4 Z80
+   NULL,                //  5 Z80
+   NULL,                //  4 Z80
+   NULL,                //  7 Z80
+   NULL,                //  8 80x86
+   NULL,                //  9 6809
+   NULL,                // 10 unused 
+   NULL,                // 11 unused
+   &arm2_cpu_debug,     // 12 ARM2
+   &n32016_cpu_debug,   // 13 32016
+   NULL,                // 14 unsed
+   NULL,                // 15 Native ARM
+};
+
 #define NUM_CMDS 19
 
 // The Atom CRC Polynomial
@@ -135,16 +159,9 @@ static int step_counter;
 // The current memory address (e.g. used when disassembling)
 static unsigned int memAddr = 0;
 
-
-// TODO - Fix hardcoded implementation
-//extern cpu_debug_t n32016_cpu_debug;
-//cpu_debug_t *getCpu() {
-//   return &n32016_cpu_debug;
-//}
-
 extern cpu_debug_t arm2_cpu_debug;
 cpu_debug_t *getCpu() {
-   return &arm2_cpu_debug;
+   return cpu_debug_list[copro];
 }
 
 /********************************************************
@@ -596,8 +613,13 @@ static void dispatchCmd(char *cmd) {
       cmdStringLen = strlen(cmdString);
       minLen = cmdLen < cmdStringLen ? cmdLen : cmdStringLen;
       if (strncmp(cmdString, cmd, minLen) == 0) {
-         (*dbgCmdFuncs[i])(cmd + cmdLen);
-         updateDebugFlag();
+         cpu_debug_t *cpu = getCpu();
+         if (cpu == NULL) {
+            printf("No debugger available for this co pro\r\n");
+         } else {
+            (*dbgCmdFuncs[i])(cmd + cmdLen);
+            updateDebugFlag();
+         }
          return;
       }
    }
