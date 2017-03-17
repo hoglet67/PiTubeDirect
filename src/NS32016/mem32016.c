@@ -11,7 +11,6 @@
 #include <string.h>
 #include "32016.h"
 #include "mem32016.h"
-#include "../tube-client.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "debug.h"
@@ -19,9 +18,16 @@
 #endif
 
 #ifdef BEM
+
 #include "../tube.h"
+static uint8_t ns32016ram[MEG16];
+
 #else
+
+#include "../tube-client.h"
 #include "../tube-ula.h"
+static uint8_t * ns32016ram;
+
 #endif
 
 #ifdef TEST_SUITE
@@ -41,11 +47,11 @@
 #define PANDORA_VERSION PandoraV2_00
 #endif
 
-static uint8_t * ns32016ram;
-
 void init_ram(void)
 {
+#ifndef BEM
    ns32016ram = copro_mem_reset(MEG16);
+#endif
 #ifdef TEST_SUITE
    memcpy(ns32016ram, ROM, sizeof(ROM));
 #elif defined(PANDORA_BASE)
