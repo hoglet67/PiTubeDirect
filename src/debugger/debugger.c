@@ -348,13 +348,35 @@ static void doCmdHelp(char *params) {
 
 static void doCmdRegs(char *params) {
    cpu_debug_t *cpu = getCpu();
-   const char **regs = cpu->reg_names;
-   int i = 0;
-   while (*regs) {
-      cpu->reg_print(i, strbuf, sizeof(strbuf));
-      printf("%8s = %s\r\n", *regs, &strbuf[0]);
-      regs++;
-      i++;
+   const char **reg = cpu->reg_names;
+   char name[100];
+   char value[100];
+   int num_params = sscanf(params, "%s %s", name, value);
+   if (num_params > 0) {
+      int i = 0;
+      while (*reg) {
+         if (strcasecmp(name, *reg) == 0) {
+            if (num_params == 2) {
+               // Write the register
+               cpu->reg_parse(i, value);
+            }
+            // Read the register
+            cpu->reg_print(i, strbuf, sizeof(strbuf));
+            printf("%8s = %s\r\n", *reg, &strbuf[0]);
+            return;
+         }
+         reg++;
+         i++;
+      }
+      printf("Register %s does not exist in the %s\r\n", strbuf, cpu->cpu_name);         
+   } else {
+      int i = 0;
+      while (*reg) {
+         cpu->reg_print(i, strbuf, sizeof(strbuf));
+         printf("%8s = %s\r\n", *reg, &strbuf[0]);
+         reg++;
+         i++;
+      }
    }
 }
 
