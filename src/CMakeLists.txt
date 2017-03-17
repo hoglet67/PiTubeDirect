@@ -35,8 +35,7 @@ cmake_minimum_required( VERSION 2.8 )
 # cross-compiler's ability to compile a simple program because that will fail
 project( tube-client C ASM )
 
-# By default we include the interactive debugger capability
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DINCLUDE_DEBUGGER" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" )
 
 # Add any C compiler flags here. The C flags concerned with processor tuning
 # are in the toolchain files toolchain-arm-none-eabi-bcm2835.cmake, etc.
@@ -133,8 +132,6 @@ file( GLOB copro_arm2_files
     tuberom_arm.h
     mame/arm.c
     mame/arm.h
-    mame/arm_debug.c
-    mame/arm_debug.h
 )
 
 # 32016
@@ -143,8 +140,6 @@ file( GLOB copro_32016_files
     copro-32016.h
     NS32016/32016.c
     NS32016/32016.h
-    NS32016/32016_debug.c
-    NS32016/32016_debug.h
     NS32016/Decode.c
     NS32016/Decode.h
     NS32016/defs.h
@@ -168,30 +163,6 @@ file( GLOB copro_z80_files
     yaze/simz80.c
     yaze/mem_mmu.h
 )
-
-# 6809 (version based on xroar emulator)
-#file( GLOB copro_6809_files
-#    copro-mc6809.h
-#    copro-mc6809.c
-#    mc6809/config.h
-#    mc6809/pl-endian.h
-#    mc6809/delegate.c
-#    mc6809/delegate.h
-#    mc6809/xalloc.h
-#    mc6809/xmalloc.c
-#    mc6809/mc6809.c
-#    mc6809/mc6809.h
-#    mc6809/hd6309.c
-#    mc6809/hd6309.h
-#)
-
-# 6809 (version based on Sean Conner emulator)
-#file( GLOB copro_6809sc_files
-#    copro-mc6809sc.h
-#    copro-mc6809sc.c
-#    mc6809sc/mc6809.c
-#    mc6809sc/mc6809.h
-#)
 
 # 6809 (version based on Neal Crook emulator)
 file( GLOB copro_6809nc_files
@@ -251,50 +222,80 @@ file( GLOB copro_arm_files
     darm/thumb-tbl.h
 )
 
-# Interactive debugger
+# Interactive debugger files
 file( GLOB debugger_files
     debugger/debugger.c
     debugger/debugger.h
     cpu_debug.h
+    NS32016/32016_debug.c
+    NS32016/32016_debug.h
+    mame/arm_debug.c
+    mame/arm_debug.h
 )
 
 if( ${DEBUG} )
 
-  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG=1" )
+    set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG=1 " )
+
+    if( NOT ( ${MINIMAL_BUILD} ) )
+        set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DINCLUDE_DEBUGGER=1 " )
+    endif()
 
 endif()
 
 
 if( ${MINIMAL_BUILD} )
 
-  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMINIMAL_BUILD=1" )
+    set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMINIMAL_BUILD=1" )
 
     add_executable( tube-client
         ${core_files}
-        ${debugger_files}
         ${copro_65tube_files}
         ${shared_6502_files}
     )
 
 else()
 
-    add_executable( tube-client
-        ${core_files}
-        ${debugger_files}
-        ${copro_65tube_files}
-        ${copro_lib6502_files}
-        ${shared_6502_files}
-        ${copro_80186_files}
-        ${copro_arm2_files}
-        ${copro_32016_files}
-        ${copro_z80_files}
-        ${copro_6809_files}
-        ${copro_6809sc_files}
-        ${copro_6809nc_files}
-        ${shared_6809_files}
-        ${copro_null_files}
-        ${copro_arm_files}
-    )
+    if( ${DEBUG} )
+
+        add_executable( tube-client
+            ${core_files}
+            ${copro_65tube_files}
+            ${copro_lib6502_files}
+            ${shared_6502_files}
+            ${copro_80186_files}
+            ${copro_arm2_files}
+            ${copro_32016_files}
+            ${copro_z80_files}
+            ${copro_6809_files}
+            ${copro_6809sc_files}
+            ${copro_6809nc_files}
+            ${shared_6809_files}
+            ${copro_null_files}
+            ${copro_arm_files}
+            ${debugger_files}
+        )
+
+    else()
+
+        add_executable( tube-client
+            ${core_files}
+            ${copro_65tube_files}
+            ${copro_lib6502_files}
+            ${shared_6502_files}
+            ${copro_80186_files}
+            ${copro_arm2_files}
+            ${copro_32016_files}
+            ${copro_z80_files}
+            ${copro_6809_files}
+            ${copro_6809sc_files}
+            ${copro_6809nc_files}
+            ${shared_6809_files}
+            ${copro_null_files}
+            ${copro_arm_files}
+        )
+
+    endif()
 
 endif()
     
