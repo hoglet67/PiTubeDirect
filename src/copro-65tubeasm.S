@@ -1375,7 +1375,7 @@ exec_65tube:
 #else
         mov     memry, #0xFFFFFF00
 #endif        
-        
+        BL      tube_enable_fast6502
         ldr     instt, =opcode_jump_table  // set instt (r12) to the base address of the 6502 instruction handler
 
         ldr     tregs, =(0x0000fee0 >> 5)  // initialize the constant in tregs
@@ -1432,6 +1432,7 @@ handle_rst:
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
 
+	
         mov     r0, #0                  // disable mailbox hardware to generate interrupts
         ldr     r1, =MBOX0_CONFIG       // when data is present
         str     r0, [r1]
@@ -1440,6 +1441,7 @@ exec_65tube_exit:                       // We get here from the Event handler wh
         str     r0, [r1]
         
         msr     CPSR, r2                // re-enable ARM interrupts
+	bl      tube_disable_fast6502
         pop     {r4-r11,pc}
         
 // 6502 Event handler

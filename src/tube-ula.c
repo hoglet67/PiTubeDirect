@@ -167,6 +167,22 @@ static void tube_updateints_NMI()
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 }
 */
+void tube_enable_fast6502(void)
+{
+   int cpsr = _disable_interrupts();
+   tube_irq |= FAST6502_BIT;
+   if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+   }
+}   
+void tube_disable_fast6502(void)
+{
+   int cpsr = _disable_interrupts();
+   tube_irq &= ~FAST6502_BIT;
+   if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+   }
+}  
 void copro_command_excute(unsigned char copro_command,unsigned char val)
 {
     switch (copro_command)
