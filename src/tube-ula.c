@@ -90,12 +90,22 @@ uint8_t ph1rdpos,ph1wrpos,ph1len;
 #define PSTAT3 pstat[2]
 #define PSTAT4 pstat[3]
 
-#ifdef DEBUG_TRANSFERS
-uint32_t checksum_h = 0;
-uint32_t count_h = 0;
-uint32_t checksum_p = 0;
-uint32_t count_p = 0;
-#endif
+
+//
+// bit 7 Selects if R7 is used to inform the copro of an interupt event used for fast 6502
+// bit 6 Selects if direct native arm irq are used
+// bit 5 native arm irq lock
+// bit 3 tube_enable
+// bit 2 Reset event
+// bit 1 NMI
+// bit 0 IRQ
+#define FAST6502_BIT 128
+#define NATIVEARM_BIT 64
+#define nativearmlock_bit 32
+#define TUBE_ENABLE_BIT  8
+#define RESET_BIT 4
+#define NMI_BIT 2
+#define IRQ_BIT 1
 
 // The current Tube IRQ/NMI state is maintained in a global that the emulation code can see
 //
@@ -104,8 +114,6 @@ uint32_t count_p = 0;
 // Bit 2 is the tube asserting reset
 
 int tube_irq;
-
-static int tube_enabled;
 
 #ifdef DEBUG_TUBE
 
@@ -180,7 +188,7 @@ void copro_command_excute(unsigned char copro_command,unsigned char val)
       
 static void tube_reset()
 {   
-   tube_enabled = 1;
+   tube_irq |= TUBE_ENABLE_BIT;
    tube_irq &= ~(4+2+1);
    hp3pos = 0;
    ph1rdpos = ph1wrpos = ph1len = 0;
@@ -263,7 +271,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
    {
    case 0: /*Register 1 stat*/
       
-      if (!tube_enabled)
+      if (!(tube_irq& TUBE_ENABLE_BIT))
          return;
     
       if (val & 0x80) {
@@ -276,7 +284,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       } else {
          HSTAT1 &= ~BYTE_TO_WORD(val & 0x3F);
       }
-      tube_irq = 0;
+      tube_irq &= ~(IRQ_BIT + NMI_BIT);
       if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= 1;
       if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= 1;
       if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
@@ -584,7 +592,7 @@ int tube_io_handler(uint32_t mail)
         } else {
             tube_host_read(addr);
         }
-        if ((tube_enabled && (HSTAT1 & HBIT_5))) {
+        if (((tube_irq& TUBE_ENABLE_BIT) && (HSTAT1 & HBIT_5))) {
             return tube_irq | 4;
         } else {
         return tube_irq & 3;
@@ -753,7 +761,7 @@ int tube_is_rst_active() {
       unsigned int tube_mailbox_copy = read_mailbox();
       tube_io_handler(tube_mailbox_copy);
    }
-   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || (tube_enabled && (HSTAT1 & HBIT_5));
+   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || ((tube_irq & TUBE_ENABLE_BIT) && (HSTAT1 & HBIT_5));
 }
 #if 0
 static void tube_wait_for_rst_active() {
@@ -825,7 +833,7 @@ void tube_log_performance_counters() {
 
 void disable_tube() {
    int i;
-   tube_enabled = 0;
+   tube_irq &= ~TUBE_ENABLE_BIT;
    for (i = 0; i < 8; i++) {
       tube_regs[i] = 0xfe;
    }
