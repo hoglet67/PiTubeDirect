@@ -1469,6 +1469,9 @@ Event_Handler:
         push    {r2-r3,r12}             // r0 contains the tube mailbox value
         bl      tube_io_handler
         pop     {r2-r3,r12}
+	
+	ldr     r0, =tube_irq		// Move higher for better pipelining	
+        ldrb    r0, [r0]
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen

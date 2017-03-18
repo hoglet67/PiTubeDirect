@@ -300,6 +300,11 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       } else {
          HSTAT1 &= ~BYTE_TO_WORD(val & 0x3F);
       }
+	  if ( HSTAT1 & HBIT_5) {
+			tube_irq |= RESET_BIT;
+        } else {
+			tube_irq &= ~RESET_BIT;
+        }
       tube_irq &= ~(IRQ_BIT + NMI_BIT);
       if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= 1;
       if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= 1;
@@ -599,7 +604,10 @@ int tube_io_handler(uint32_t mail)
 #ifdef USE_GPU       
    
    if ((mail >> 12) & 1)        // Check for Reset
-      return tube_irq | 4;      // Set reset Flag
+   {
+   		tube_irq |= RESET_BIT;
+      	return tube_irq;      // Set reset Flag
+   }
    else    
    {
         addr = (mail>>8) & 7;
@@ -608,11 +616,9 @@ int tube_io_handler(uint32_t mail)
         } else {
             tube_host_read(addr);
         }
-        if (((tube_irq& TUBE_ENABLE_BIT) && (HSTAT1 & HBIT_5))) {
-            return tube_irq | 4;
-        } else {
-        return tube_irq & 3;
-        }
+
+        return tube_irq ;
+        
    }
 #else        
    addr = 0;
