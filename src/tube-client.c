@@ -109,22 +109,6 @@ unsigned char * copro_mem_reset(int length)
 void init_emulator() {
    _disable_interrupts();
 
-#if !defined(USE_GPU)  
-   // Default to the normal FIQ handler
-   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag0;
-#endif
-   
-#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
-   // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
-   // that flag events from the ISR using the ip register
-   if (copro == COPRO_65TUBE_0 || copro == COPRO_65TUBE_1) {
-      int i;
-      for (i = 0; i < 256; i++) {
-         Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
-      }
-      *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
-   }
-#endif
 #ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
       *((uint32_t *) SWI_VECTOR) = (uint32_t) copro_armnative_swi_handler;
