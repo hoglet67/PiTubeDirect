@@ -44,7 +44,6 @@
 #include "tubevc.h"
 #include "startup.h"
 
-extern volatile uint32_t tube_regs_block[8];
 static volatile uint32_t *tube_regs;
 
 #define HBIT_7 (1 << 25)
