@@ -208,11 +208,10 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    copro = get_copro_number();
    get_copro_speed();
    
-#ifdef USE_GPU
+
       LOG_DEBUG("Staring VC ULA\r\n");
       start_vc_ula();
       LOG_DEBUG("Done\r\n");
-#endif
 
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
@@ -225,9 +224,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
   init_emulator();
 
   // Lock the Tube Interrupt handler into cache for BCM2835 based Pis
-#if !defined(RPI2) && !defined(RPI3) && !defined(USE_GPU)
-   lock_isr();
-#endif
 
 #ifdef HAS_MULTICORE
 
