@@ -87,8 +87,8 @@ static volatile uint8_t *tube_regs;
 #endif
 
 
-extern volatile uint32_t gpfsel_data_idle[3];
-extern volatile uint32_t gpfsel_data_driving[3];
+volatile uint32_t gpfsel_data_idle[6];
+
 const static uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 static char copro_command =0;
 static perf_counters_t pct;
@@ -751,8 +751,8 @@ void tube_init_hardware()
   // to set the data bus GPIOs as inputs (idle) and output (driving)
   for (i = 0; i < 3; i++) {
      gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
-     gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
-     LOG_DEBUG("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
+     gpfsel_data_idle[i+3] = gpfsel_data_idle[i] | magic[i];
+     LOG_DEBUG("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_idle[i+3]);
   }
 
   // Print the GPIO numbers of A0, A1 and A2
