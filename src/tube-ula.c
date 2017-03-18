@@ -362,6 +362,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
 
 uint8_t tube_parasite_read(uint32_t addr)
 {
+   int cpsr = _disable_interrupts();
    uint8_t temp ;
    switch (addr & 7)
    {
@@ -436,6 +437,9 @@ uint8_t tube_parasite_read(uint32_t addr)
       tube_index &= 0xffff;
    }
 #endif
+  if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+  }
    return temp;
 }
 
@@ -463,6 +467,7 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
 
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
+   int cpsr = _disable_interrupts();
 #ifdef DEBUG_TUBE
    if (addr & 1) {
       tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & 7) << 8) | val;
@@ -535,6 +540,9 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
       // tube_updateints_IRQ(); // the above can't change IRQ flag
       break;
    }
+     if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+  }
 }
 
 // Returns bit 0 set if IRQ is asserted by the tube
@@ -686,30 +694,6 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
 #endif
 
-  // Configure GPIO to detect a rising edge of NRST
-  // Current code does not reqire this, as emulators poll for NRST to be released
-  // RPI_GpioBase->GPREN0 |= NRST_MASK;
-
-#ifndef USE_GPU
-  // Configure GPIO to detect a falling edge of NRST
-  RPI_GpioBase->GPFEN0 |= NRST_MASK;
-  // Make sure there are no pending detections
-  RPI_GpioBase->GPEDS0 = NRST_MASK;
-
-  // Configure GPIO to detect a falling edge of NTUBE
-  RPI_GpioBase->GPFEN0 |= NTUBE_MASK;
-  // Make sure there are no pending detections
-  RPI_GpioBase->GPEDS0 = NTUBE_MASK;
-
-  // This line enables IRQ interrupts
-  // Enable gpio_int[0] which is IRQ 49
-  //RPI_GetIrqController()->Enable_IRQs_2 = (1 << (49 - 32));
-
-  // This line enables FIQ interrupts
-  // Enable gpio_int[0] which is IRQ 49 as FIQ
-  RPI_GetIrqController()->FIQ_control = 0x80 + 49;
-#endif
-
   // Initialise the UART to 57600 baud
   RPI_AuxMiniUartInit( 115200, 8 );
 
@@ -756,19 +740,8 @@ void tube_init_hardware()
    pct.counter[1] = 0;
 #endif
 
-#ifdef USE_GPU
    tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
-#else
-   tube_regs = &tube_regs_block[0];
-#endif
 
-#ifndef USE_HW_MAILBOX
-#ifdef USE_GPU
-   tube_mailbox = (uint32_t *)(L2_CACHED_MEM_BASE + 0x20);
-#else
-   tube_mailbox = &tube_mailbox_block;
-#endif
-#endif
    
    hp1 = hp2 = hp4 = hp3[0]= hp3[1]=0;
   
@@ -823,11 +796,6 @@ void tube_wait_for_rst_release() {
 //#endif
    // Reset all the TUBE ULA registers
    tube_reset();
-#ifndef USE_HW_MAILBOX
-   // Clear any mailbox events that occurred during reset
-   // Omit this and you sometimes see a second reset logged on reset release (65tube Co Pro)
-   *tube_mailbox = 0;
-#endif
 }
 
 void tube_reset_performance_counters() {
@@ -873,11 +841,8 @@ void start_vc_ula()
    func = (int) &tubevc_asm[0];
    r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
    r1   = (int) &gpfsel_data_idle;       // gpfsel_data_idle
-#ifdef USE_HW_MAILBOX
    r2   = 0;
-#else
-   r2   = (int) tube_mailbox;            // tube mailbox to be replaced later with VC->ARM mailbox
-#endif
+
    r3   = (A2_PIN << 16) | (A1_PIN << 8) | (A0_PIN); // address bus GPIO mapping
    r4   = 0;
 #ifdef HAS_40PINS
