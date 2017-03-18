@@ -175,9 +175,13 @@ int doCmdDis(char *params) {
   do {
     for (i = 0; i < 16; i++) {
       opcode = *(unsigned int *)memAddr;
-      sprintf(line, "%08X %08X ***\r\n", memAddr, opcode);     
-      if(darm_armv7_disasm(&d, opcode) == 0 && darm_str2(&d, &str, 0) == 0) {
-        sprintf(line + 18, "%s\r\n", str.total);
+      sprintf(line, "%08X %08X ***\r\n", memAddr, opcode);
+      if(darm_armv7_disasm(&d, opcode) == 0) {
+         d.addr = memAddr;
+         d.addr_mask = 0xFFFFFFC;
+         if (darm_str2(&d, &str, 0) == 0) {
+            sprintf(line + 18, "%s\r\n", str.total);
+         }
       }
       OS_Write0(line);
       memAddr += 4;

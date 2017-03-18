@@ -63,8 +63,7 @@ static int _append_imm(char *arg, uint32_t imm)
 {
     const char *start = arg;
     if(imm > 0x1000) {
-        *arg++ = '0';
-        *arg++ = 'x';
+        *arg++ = '&';
         arg += _utoa(imm, arg, 16);
     }
     else {
@@ -440,19 +439,9 @@ int darm_str(const darm_t *d, darm_str_t *str)
             // branch stuff has been initialized yet
             if(d->instr == I_BLX && d->H == B_INVLD) break;
 
-            // check whether the immediate is negative
-            int32_t imm = d->imm;
-            if(imm < 0 && imm >= -0x1000) {
-                APPEND(args[arg], "#+-");
-                imm = -imm;
-            }
-            else if(d->U == B_UNSET) {
-                APPEND(args[arg], "#+-");
-            }
-            else {
-                APPEND(args[arg], "#+");
-            }
-            args[arg] += _append_imm(args[arg], imm);
+            uint32_t target = (d->addr + 8 + d->imm) & d->addr_mask;
+            *args[arg]++ = '&';
+            args[arg] += _utoa(target, args[arg], 16);
             continue;
 
         case 'M':
