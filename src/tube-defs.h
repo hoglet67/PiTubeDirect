@@ -69,10 +69,6 @@
 // Indicate the platform has multiple cores
 #define HAS_MULTICORE
 
-#define USE_GPU
-
-#define USE_HW_MAILBOX
-
 // Indicates we want to make active use of multiple cores
 //#define USE_MULTICORE
 
@@ -82,23 +78,24 @@
 // Include instruction histogram in multi core 65tube
 //#define HISTOGRAM
 
-#else
+#endif
 
 #define USE_GPU
 
 #define USE_HW_MAILBOX
 
-#endif
+
 
 #include "rpi-base.h"
 
-#ifdef USE_HW_MAILBOX
+
 #define MBOX0_READ      (PERIPHERAL_BASE + 0x00B880)
 #define MBOX0_STATUS    (PERIPHERAL_BASE + 0x00B898)
 #define MBOX0_CONFIG    (PERIPHERAL_BASE + 0x00B89C)
 #define MBOX0_EMPTY     (0x40000000)
 #define MBOX0_DATAIRQEN (0x00000001)
-#endif
+#define FIQCTRL         (PERIPHERAL_BASE + 0x00B20C)
+
 
 #ifdef __ASSEMBLER__
 
