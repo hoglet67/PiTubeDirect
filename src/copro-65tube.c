@@ -67,13 +67,13 @@ void copro_65tube_emulator() {
   
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register
-   {
-      int i;
-      for (i = 0; i < 256; i++) {
-         Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
-      }
-      *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
+   
+   int i;
+   for (i = 0; i < 256; i++) {
+      Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
    }
+   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
+
   
    mpu_memory = copro_65tube_poweron_reset();
    copro_65tube_reset(mpu_memory);
@@ -95,11 +95,9 @@ void copro_65tube_emulator() {
    }
    
    // restore memory mapping
-   {
-     int i;
-     for ( i= 0 ; i<17; i++ )
-        map_4k_page(i, i);
-   }
+
+  for ( i= 0 ; i<16; i++ )
+     map_4k_page(i, i);
   
 }
 
