@@ -226,6 +226,8 @@ file( GLOB copro_arm_files
 file( GLOB debugger_files
     debugger/debugger.c
     debugger/debugger.h
+    debugger/linenoise.c
+    debugger/linenoise.h
     cpu_debug.h
     NS32016/32016_debug.c
     NS32016/32016_debug.h
