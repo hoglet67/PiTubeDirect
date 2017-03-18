@@ -4,7 +4,7 @@
 #define instrREG r7
      
 .text
-.global tube_mailbox_block
+
 .global arm_irq_handler
 .global arm_fiq_handler
 
