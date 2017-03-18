@@ -96,7 +96,7 @@ void copro_65tube_emulator() {
    
    // restore memory mapping
 
-  for ( i= 0 ; i<16; i++ )
+   for ( i= 0 ; i<=16; i++ )
      map_4k_page(i, i);
   
 }
