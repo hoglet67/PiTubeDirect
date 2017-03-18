@@ -70,6 +70,8 @@ uint8_t hp1,hp2,hp3[2],hp4;
 uint8_t pstat[4];
 uint8_t ph3pos,hp3pos;
 uint8_t ph1rdpos,ph1wrpos,ph1len;
+int tube_irq;
+
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
@@ -113,7 +115,6 @@ uint8_t ph1rdpos,ph1wrpos,ph1len;
 // Bit 1 is the tube asserting nmi
 // Bit 2 is the tube asserting reset
 
-int tube_irq;
 
 #ifdef DEBUG_TUBE
 
