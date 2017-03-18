@@ -4,11 +4,17 @@
 #include <ctype.h>
 
 #include "debugger.h"
+#include "linenoise.h"
+
 #include "../rpi-aux.h"
 #include "../cpu_debug.h"
 
 #include "../mame/arm_debug.h"
 #include "../NS32016/32016_debug.h"
+
+#define USE_LINENOISE
+
+static const char * prompt_str = ">> ";
 
 extern unsigned int copro;
 
@@ -142,7 +148,7 @@ static void (*dbgCmdFuncs[NUM_CMDS])(char *params) = {
 
 static char strbuf[1000];
 
-static char cmd[1000];
+//static char cmd[1000];
 
 static volatile int stopped = 0;
 
@@ -173,9 +179,10 @@ static void noprompt() {
 }
 
 static void prompt() {
-   RPI_AuxMiniUartWrite('>');
-   RPI_AuxMiniUartWrite('>');
-   RPI_AuxMiniUartWrite(' ');
+   int i;
+   for (i = 0; i < strlen(prompt_str); i++) {
+      RPI_AuxMiniUartWrite(prompt_str[i]);
+   }
 }
 
 static void cpu_stop() {
@@ -652,6 +659,22 @@ static void dispatchCmd(char *cmd) {
  * External interface
  ********************************************************/
 
+
+#ifdef USE_LINENOISE
+
+void debugger_rx_char(char c) {
+   char *buf = linenoise_async_rxchar(c, prompt_str);
+   if (buf) {
+      printf("\r\n");
+      if (buf[0]) {
+         dispatchCmd(buf);
+      }
+      prompt();
+   }
+}
+
+#else
+
 void debugger_rx_char(char c) {
    static int i = 0;
    if (c == 8) {
@@ -682,3 +705,5 @@ void debugger_rx_char(char c) {
       cmd[i++] = c;
    }
 }
+
+#endif

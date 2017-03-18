@@ -66,6 +66,8 @@ void linenoiseClearScreen(void);
 void linenoiseSetMultiLine(int ml);
 void linenoisePrintKeyCodes(void);
 
+char *linenoise_async_rxchar(char c, const char *prompt);
+
 #ifdef __cplusplus
 }
 #endif
