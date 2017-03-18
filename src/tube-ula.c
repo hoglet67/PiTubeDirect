@@ -41,16 +41,8 @@
 #define GPU_TUBE_REG_ADDR 0x7e0000a0
 #define ARM_TUBE_REG_ADDR ((GPU_TUBE_REG_ADDR & 0x00FFFFFF) | PERIPHERAL_BASE)
 
-#ifdef USE_GPU
 #include "tubevc.h"
 #include "startup.h"
-#endif
-
-#ifndef USE_HW_MAILBOX
-volatile uint32_t *tube_mailbox;
-#endif
-
-#ifdef USE_GPU
 
 extern volatile uint32_t tube_regs_block[8];
 static volatile uint32_t *tube_regs;
@@ -67,27 +59,8 @@ static volatile uint32_t *tube_regs;
 #define BYTE_TO_WORD(data) ((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18))
 #define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) << 18) & 0xF0))
 
-#else
 
-extern volatile uint8_t tube_regs_block[8];
-static volatile uint8_t *tube_regs;
-
-#define HBIT_7 (1 << 7)
-#define HBIT_6 (1 << 6)
-#define HBIT_5 (1 << 5)
-#define HBIT_4 (1 << 4)
-#define HBIT_3 (1 << 3)
-#define HBIT_2 (1 << 2)
-#define HBIT_1 (1 << 1)
-#define HBIT_0 (1 << 0)
-
-#define BYTE_TO_WORD(data) (data)
-#define WORD_TO_BYTE(data) (data)
-
-#endif
-
-
-volatile uint32_t gpfsel_data_idle[6];
+static volatile uint32_t gpfsel_data_idle[6];
 
 const static uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 static char copro_command =0;
@@ -96,8 +69,8 @@ static perf_counters_t pct;
 uint8_t ph1[24],ph3_1;
 uint8_t hp1,hp2,hp3[2],hp4;
 uint8_t pstat[4];
-int ph3pos,hp3pos;
-int ph1rdpos,ph1wrpos,ph1len;
+uint8_t ph3pos,hp3pos;
+uint8_t ph1rdpos,ph1wrpos,ph1len;
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
