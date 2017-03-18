@@ -16,7 +16,6 @@
 CACHELINE_ALIGN = 5
 
 .align CACHELINE_ALIGN
-isr_code_start:
 
 // Default handlers for FIQ/IRQ do nothing
 
