@@ -87,11 +87,9 @@
 .text
 .global exec_65tube
 
-#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 .global Event_Handler_Dispatch_Table
 .global Event_Handler
 .global Event_Handler_Single_Core_Slow
-#endif
         
 .equ    N_FLAG,      0x80000000
 .equ    Z_FLAG,      0x40000000
@@ -1538,7 +1536,6 @@ Event_Handler_Single_Core_Slow:
         bic     instt, instt, #1024     // ack any events
         sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
 
-#if defined(USE_HW_MAILBOX)
         ldr     r1, =MBOX0_STATUS       // poll the hardware mailbox status
         ldr     r0, [r1]
         tst     r0, #MBOX0_EMPTY        // test if there are any messages
@@ -1546,17 +1543,8 @@ Event_Handler_Single_Core_Slow:
         
         ldr     r1, =MBOX0_READ         // read the top message off the mailbox
         ldr     r0, [r1]
-        lsr     r0, r0, #4
-#else        
-        ldr     r1, =tube_mailbox
-        ldr     r1, [r1]        
-        ldr     r0, [r1]
-        tst     r0, #ATTN_MASK
-        beq     noirq2
 
-        bic     r0, r0, #ATTN_MASK      // the attention bit
-        str     r0, [r1]                // ack the attention bit
-#endif
+
 
         push    {r2-r3,r12}             // r0 contains the tube mailbox value
         bl      tube_io_handler
