@@ -1389,11 +1389,6 @@ exec_65tube:
                                         // This is very strange, because flags bit 7 is not used!
                                         // To reproduce, initialize flags to 0x80
 
-#if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
-        tst     r1, #1                  // Copy the slowdown bit into flags
-        orrne   flags, flags, #SLOW_FLAG
-        
-#endif
       tst     r1, #1                  // test slow down bit  
       beq     noslowsetup
         // setup ARM cycle counter
@@ -1411,19 +1406,13 @@ exec_65tube:
       str      r0,targettime
 noslowsetup:
 
-#if defined(USE_HW_MAILBOX)
         mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
         ldr     r1, =MBOX0_CONFIG       // to generate interrupts when data is present
         str     r0, [r1]
         mov     r0, #0x80 + 65          // route that to FIQ
         ldr     r1, =FIQCTRL
         str     r0, [r1]
-#else        
-        mov     r0, #0                  // initialize tube mailbox (between isr and event handler)
-        ldr     r1, =tube_mailbox
-        ldr     r1, [r1]
-        str     r0, [r1]
-#endif
+
 
         mrs     r0, CPSR                // Enable ARM IRQs and FIQs
         bic     r0, r0, #ARM_INT_MASK
@@ -1444,84 +1433,26 @@ handle_rst:
         FETCH_NEXT_3B_MERGED  SUBPC             // Start executing instructions
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
-#if defined(USE_HW_MAILBOX)
+
         mov     r0, #0                  // disable mailbox hardware to generate interrupts
         ldr     r1, =MBOX0_CONFIG       // when data is present
         str     r0, [r1]
         mov     r0, #0                  // disable FIQ
         ldr     r1, =FIQCTRL
         str     r0, [r1]
-#endif        
+        
         msr     CPSR, r2                // re-enable ARM interrupts
         pop     {r4-r11,pc}
-
-#if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
-fetch_next_i:
-        sub     regPC, regPC, #1
-        
-fetch_next:
-        mrs     r2, CPSR                  // Preserve the 6502 flags
-
-        tst     flags, #SLOW_FLAG            // Check the slowdown bit
-        bne     waste_time                // forward branch will predict as not taken
-        
-fetch_next_check_event:
-#if defined(USE_HW_MAILBOX)
-        ldr     r0, =MBOX0_STATUS         // Check the tube mailbox for "events" (e.g. tube irq)
-        ldr     r0, [r0]
-        tst     r0, #MBOX0_EMPTY
-        beq     Event_Handler
-#else
-        ldr     r0, =tube_mailbox         // Check the tube mailbox for "events" (e.g. tube irq)
-        ldr     r0, [r0]
-        ldr     r0, [r0]
-        tst     r0, #ATTN_MASK
-        bne     Event_Handler
-#endif
-        msr     CPSR_flg, r2              // Restore the 6502 flags
-
-        ldrb    r2, [regPC, #1]
-        ldrb    r0, [regPC, #2]!
-
-#ifdef HISTOGRAM
-        HISTOGRAM_65TUBE        
-#endif
-
-        ldr     pc, [instt, r2, lsl #2]
-
-fetch_next_check_irq:
-        ldr     r0, =tube_irq
-        mrs     r2, CPSR                  // Preserve the 6502 flags
-        tst     flags, #4                    // Test whether interrupts are enabled (bit 2 = 0)
-        ldreq   r0, [r0]
-        eoreq   r0, r0, #1
-        tsteq   r0, #1                    // Test for IRQ
-        beq     handle_irq_adjust_regPC
-        msr     CPSR_flg, r2              // Restore the 6502 flags
-        b       fetch_next
-
-waste_time:
-        mov     r0, #250                  // TODO: Recalibrate
-waste_time_loop:
-        subs    r0, r0, #1
-        bne     waste_time_loop
-        b       fetch_next_check_event
-        
-#endif        
         
 // 6502 Event handler
 // if USE_MULTICORE is defined, we have come here only from fetch_next above.
 // if USE_MULTICORE is not defined, we have come here via a branch from the second instruction table
 
 Event_Handler:
-#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
         mrs     r2, CPSR                // preserve the 6502 flags
-#endif
         orr     r1, r2, #ARM_INT_MASK           // disable ARM IRQs and FIQs
         msr     CPSR_c, r1
         
-#if defined(USE_HW_MAILBOX)
-
         //ldr     r1, =FIQCTRL
         //mov     r0, #0
         //str     r0, [r1]
@@ -1531,20 +1462,9 @@ Event_Handler:
         str     r0, [r1]                // As ARM FIQ interrupts currently disabled
         ldr     r1, =MBOX0_READ
         ldr     r0, [r1]
-        //lsr     r0, r0, #4
-#else
-        ldr     r1, =tube_mailbox
-        ldr     r1, [r1]
-        ldr     r0, [r1]
-#endif
-#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
+
         bic     instt, instt, #1024           // ack events
         sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
-#endif
-#if !defined(USE_HW_MAILBOX)
-        bic     r0, r0, #ATTN_MASK      // the attention bit
-        str     r0, [r1]                // ack the attention bit
-#endif
 
         push    {r2-r3,r12}             // r0 contains the tube mailbox value
         bl      tube_io_handler
@@ -1577,8 +1497,6 @@ handle_nmi:
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
         FETCH_NEXT_3B_MERGED SUBPC
-
-#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 
 lastPC:
    .word 0
@@ -1710,9 +1628,7 @@ handle_nmi2:
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
         b       execute_one_instruction
-        
-#endif
-        
+                
 decimal_mode_adc:
         and     r0, regA, #0xf000000
         and     r2, r1, #15
