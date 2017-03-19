@@ -32,8 +32,8 @@ aux_t* RPI_GetAux(void)
 #define IRQ_VECTOR 0x38
 
 static char tx_buffer[TX_BUFFER_SIZE];
-static int tx_head;
-static int tx_tail;
+static volatile int tx_head;
+static volatile int tx_tail;
 
 static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
 
