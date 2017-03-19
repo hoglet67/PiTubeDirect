@@ -377,7 +377,13 @@ static inline void PiTRACE(const char *fmt, ...) {}
 #define PiWARN(...)  { printf("pc=%08"PRIX32": ",n32016_get_pc()); printf(__VA_ARGS__); }
 
 extern int tubecycles;
+
+#ifdef BEM
+extern int tube_irq;
+#else
 extern volatile int tube_irq;
+#endif
+
 extern uint32_t genaddr[2];
 extern int gentype[2];
 extern const uint8_t FormatSizes[FormatCount + 1];
