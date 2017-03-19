@@ -1404,18 +1404,6 @@ exec_65tube:
       str      r0,targettime
 noslowsetup:
 
-        mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
-        ldr     r1, =MBOX0_CONFIG       // to generate interrupts when data is present
-        str     r0, [r1]
-        mov     r0, #0x80 + 65          // route that to FIQ
-        ldr     r1, =FIQCTRL
-        str     r0, [r1]
-
-
-        mrs     r0, CPSR                // Enable ARM IRQs and FIQs
-        bic     r0, r0, #ARM_INT_MASK
-        msr     CPSR_c, r0
-
 handle_rst:
         orr     flags, flags, #4              // Set the I bit
         bic     flags, flags, #8              // Clear the D bit
@@ -1430,16 +1418,7 @@ handle_rst:
 #endif
         FETCH_NEXT_3B_MERGED  SUBPC             // Start executing instructions
 
-exec_65tube_exit:                       // We get here from the Event handler when RST is detected
-
-	
-        mov     r0, #0                  // disable mailbox hardware to generate interrupts
-        ldr     r1, =MBOX0_CONFIG       // when data is present
-        str     r0, [r1]
-        mov     r0, #0                  // disable FIQ
-        ldr     r1, =FIQCTRL
-        str     r0, [r1]
-        
+exec_65tube_exit:                       // We get here from the Event handler when RST is detected        
         msr     CPSR, r2                // re-enable ARM interrupts
 	bl      tube_disable_fast6502
         pop     {r4-r11,pc}
@@ -1449,29 +1428,12 @@ exec_65tube_exit:                       // We get here from the Event handler wh
 // if USE_MULTICORE is not defined, we have come here via a branch from the second instruction table
 
 Event_Handler:
+	ldr     r0, =tube_irq
         mrs     r2, CPSR                // preserve the 6502 flags
-        orr     r1, r2, #ARM_INT_MASK           // disable ARM IRQs and FIQs
-        msr     CPSR_c, r1
-        
-        //ldr     r1, =FIQCTRL
-        //mov     r0, #0
-        //str     r0, [r1]
-        
-        ldr     r1, =FIQCTRL            // Re-enable ARM Mailbox FIQ interrupt
-        mov     r0, #0xC1               // It's safe to do this before reading the mailbox
-        str     r0, [r1]                // As ARM FIQ interrupts currently disabled
-        ldr     r1, =MBOX0_READ
-        ldr     r0, [r1]
-
+   
         bic     instt, instt, #1024           // ack events
+	ldrb    r0, [r0]
         sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
-
-        push    {r2-r3,r12}             // r0 contains the tube mailbox value
-        bl      tube_io_handler
-        pop     {r2-r3,r12}
-	
-	ldr     r0, =tube_irq		// Move higher for better pipelining	
-        ldrb    r0, [r0]
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
@@ -1535,26 +1497,14 @@ targettime:
 //     we restore the modified table base pointer so we will re-enter this handler
         
 Event_Handler_Single_Core_Slow:
+	ldr     r0, =tube_irq		
         mrs     r2, CPSR                // preserve the 6502 flags
                                         // interrupts are left enabled
         
         bic     instt, instt, #1024     // ack any events
+	ldrb    r0,[r0]
         sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
 
-        ldr     r1, =MBOX0_STATUS       // poll the hardware mailbox status
-        ldr     r0, [r1]
-        tst     r0, #MBOX0_EMPTY        // test if there are any messages
-        bne     noirq2
-        
-        ldr     r1, =MBOX0_READ         // read the top message off the mailbox
-        ldr     r0, [r1]
-
-
-
-        push    {r2-r3,r12}             // r0 contains the tube mailbox value
-        bl      tube_io_handler
-        pop     {r2-r3,r12}
-        
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
 

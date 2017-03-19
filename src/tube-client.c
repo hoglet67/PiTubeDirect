@@ -108,6 +108,17 @@ unsigned char * copro_mem_reset(int length)
 
 void init_emulator() {
    _disable_interrupts();
+   
+      // Set up FIQ handler 
+   
+   tube_irq = 0; // Make sure everything is clear
+   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
+   
+   // Direct Mail box to FIQ handler
+   
+   (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
+   (*(volatile uint32_t *)FIQCTRL) = 0x80 +65;       
+   
 
 #ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {

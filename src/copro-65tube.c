@@ -56,7 +56,6 @@ static void copro_65tube_reset(unsigned char mpu_memory[]) {
    tube_wait_for_rst_release();
 }
 
-#define FIQ_VECTOR (HIGH_VECTORS_BASE + 0x3C)
 
 void copro_65tube_emulator() {
    // Remember the current copro so we can exit if it changes
@@ -72,7 +71,6 @@ void copro_65tube_emulator() {
    for (i = 0; i < 256; i++) {
       Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
    }
-   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
 
   
    mpu_memory = copro_65tube_poweron_reset();
@@ -87,6 +85,7 @@ void copro_65tube_emulator() {
 #endif
       tube_reset_performance_counters();
       exec_65tube(mpu_memory, copro == COPRO_65TUBE_1 ? 1 : 0);
+
       tube_log_performance_counters();
 #ifdef HISTOGRAM
       copro_65tube_dump_histogram();

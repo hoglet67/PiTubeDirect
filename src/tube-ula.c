@@ -586,7 +586,7 @@ int tube_io_handler(uint32_t mail)
    int rnw;
    int ntube;
    int nrst;
-
+	
 #ifdef USE_HW_MAILBOX
    // Sequence numbers are currently 4 bits, and are stored in bits 12..15
    int act_seq_num;
@@ -617,7 +617,7 @@ int tube_io_handler(uint32_t mail)
         } else {
             tube_host_read(addr);
         }
-
+		
         return tube_irq ;
         
    }
@@ -780,10 +780,10 @@ void tube_init_hardware()
 int tube_is_rst_active() {
    // It's necessary to keep servicing the tube_mailbox
    // otherwise a software reset sequence won't get handled properly
-   if (is_mailbox_non_empty()) {
-      unsigned int tube_mailbox_copy = read_mailbox();
-      tube_io_handler(tube_mailbox_copy);
-   }
+   //if (is_mailbox_non_empty()) {
+   //   unsigned int tube_mailbox_copy = read_mailbox();
+   //   tube_io_handler(tube_mailbox_copy);
+  // }
    return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || ((tube_irq & TUBE_ENABLE_BIT) && (HSTAT1 & HBIT_5));
 }
 #if 0
@@ -861,8 +861,6 @@ void disable_tube() {
       tube_regs[i] = 0xfe;
    }
 }
-
-#ifdef USE_GPU
 // todo : we need to sort out caches memory map etc here
 void start_vc_ula()
 {  int func,r0,r1, r2,r3,r4,r5;
@@ -912,5 +910,6 @@ void start_vc_ula()
 //       LOG_DEBUG("%08x ?\r\n", r0);
 //    }
 // }
+ 
 }
-#endif
+
