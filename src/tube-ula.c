@@ -70,7 +70,7 @@ uint8_t hp1,hp2,hp3[2],hp4;
 uint8_t pstat[4];
 uint8_t ph3pos,hp3pos;
 uint8_t ph1rdpos,ph1wrpos,ph1len;
-int tube_irq;
+volatile int tube_irq;
 
 
 // Host end of the fifos are the ones read by the tube isr
