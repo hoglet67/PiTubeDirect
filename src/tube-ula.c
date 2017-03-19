@@ -405,7 +405,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          PSTAT1 &= ~0x80;
          HSTAT1 |=  HBIT_6;
          //tube_updateints_IRQ(); // clear irq if required reg 4 isnt irqing
-         if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT
+         if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT;
       }
       break;
    case 2: /*Register 2 stat*/
