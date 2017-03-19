@@ -439,10 +439,8 @@ uint8_t tube_parasite_read(uint32_t addr)
             PSTAT3 &= ~0x80;
          }
          //tube_updateints_NMI();
-         // here we want to only really clear NMI if required, but setting irq might be simpler
-         tube_irq = tube_irq &(0xFF - 2);
-         if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0))) tube_irq|=2;
-         if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=2;
+         // here we want to only  clear NMI if required
+	 if ( ( !(ph3pos == 0) ) && ( (!(HSTAT1 & HBIT_4) && (!(hp3pos >0))) || (HSTAT1 & HBIT_4) ) ) tube_irq &= ~2;     
       }   
       break;
    case 6: /*Register 4 stat*/
