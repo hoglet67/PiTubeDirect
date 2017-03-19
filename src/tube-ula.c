@@ -206,7 +206,7 @@ void copro_command_excute(unsigned char copro_command,unsigned char val)
 static void tube_reset()
 {   
    tube_irq |= TUBE_ENABLE_BIT;
-   tube_irq &= ~(4+2+1);
+   tube_irq &= ~(RESET_BIT + NMI_BIT + IRQ_BIT);
    hp3pos = 0;
    ph1rdpos = ph1wrpos = ph1len = 0;
    ph3pos = 1;
@@ -267,7 +267,7 @@ static void tube_host_read(uint16_t addr)
          ph3pos--;
          PSTAT3 |= 0xC0;
          if (!ph3pos) HSTAT3 &= ~HBIT_7;
-         if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=2;
+         if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=NMI_BIT;
          //tube_updateints_NMI();
       }
       break;
@@ -307,10 +307,10 @@ static void tube_host_write(uint16_t addr, uint8_t val)
 			tube_irq &= ~RESET_BIT;
         }
       tube_irq &= ~(IRQ_BIT + NMI_BIT);
-      if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= 1;
-      if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= 1;
-      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
-      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
+      if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= IRQ_BIT;
+      if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= IRQ_BIT;
+      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=NMI_BIT;
+      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=NMI_BIT;
       break;
    case 1: /*Register 1*/
       //if (!tube_enabled)
@@ -318,7 +318,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       hp1 = val;
       PSTAT1 |=  0x80;
       HSTAT1 &= ~HBIT_6;
-      if (HSTAT1 & HBIT_1) tube_irq  |= 1;//tube_updateints_IRQ();
+      if (HSTAT1 & HBIT_1) tube_irq  |= IRQ_BIT;//tube_updateints_IRQ();
       break;
    case 2:
       copro_command = val;   
@@ -350,7 +350,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
             PSTAT3 |=  0x80;
             HSTAT3 &= ~HBIT_6;
          }
-         if ((HSTAT1 & HBIT_3) && (hp3pos > 1)) tube_irq|=2;
+         if ((HSTAT1 & HBIT_3) && (hp3pos > 1)) tube_irq |= NMI_BIT;
       }
       else
       {
@@ -358,7 +358,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          hp3pos = 1;
          PSTAT3 |=  0x80;
          HSTAT3 &= ~HBIT_6;
-         if (HSTAT1 & HBIT_3) tube_irq|=2;
+         if (HSTAT1 & HBIT_3) tube_irq |= NMI_BIT;
       }
       //tube_updateints_NMI();
       break;
@@ -382,7 +382,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          count_p = 0;
       }
 #endif
-       if (HSTAT1 & HBIT_2) tube_irq  |= 1; //tube_updateints_IRQ();
+       if (HSTAT1 & HBIT_2) tube_irq |= IRQ_BIT; //tube_updateints_IRQ();
       break;
    default:
       LOG_WARN("Illegal host write to %d\r\n", addr);
@@ -405,7 +405,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          PSTAT1 &= ~0x80;
          HSTAT1 |=  HBIT_6;
          //tube_updateints_IRQ(); // clear irq if required reg 4 isnt irqing
-         if (!(PSTAT4 & 128)) tube_irq = tube_irq & (0xFF - 1);
+         if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT
       }
       break;
    case 2: /*Register 2 stat*/
@@ -440,7 +440,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          }
          //tube_updateints_NMI();
          // here we want to only  clear NMI if required
-	 if ( ( !(ph3pos == 0) ) && ( (!(HSTAT1 & HBIT_4) && (!(hp3pos >0))) || (HSTAT1 & HBIT_4) ) ) tube_irq &= ~2;     
+	      if ( ( !(ph3pos == 0) ) && ( (!(HSTAT1 & HBIT_4) && (!(hp3pos >0))) || (HSTAT1 & HBIT_4) ) ) tube_irq &= ~NMI_BIT;     
       }   
       break;
    case 6: /*Register 4 stat*/
@@ -453,7 +453,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          PSTAT4 &= ~0x80;
          HSTAT4 |=  HBIT_6;
          //tube_updateints_IRQ(); // clear irq if  reg 1 isnt irqing
-         if (!(PSTAT1 & 128)) tube_irq = tube_irq & (0xFF - 1);
+         if (!(PSTAT1 & 128)) tube_irq &= ~IRQ_BIT;
       }
       break;
    }
@@ -544,7 +544,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
             PSTAT3 &= ~0x40;
          }
          //NMI if other case isn't seting it
-         if (!(hp3pos > 1) ) tube_irq = tube_irq &(0xFF - 2);
+         if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
       }
       else
       {
@@ -552,9 +552,8 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          ph3pos = 1;
          HSTAT3 |=  HBIT_7;
          PSTAT3 &= ~0xC0;
-         tube_irq = tube_irq &(0xFF - 2);
          //NMI if other case isn't seting it
-         if (!(hp3pos > 0) ) tube_irq = tube_irq &(0xFF - 2);
+         if (!(hp3pos > 0) ) tube_irq &= ~NMI_BIT;
       }
       //tube_updateints_NMI();
       // here we want to only clear NMI if required
