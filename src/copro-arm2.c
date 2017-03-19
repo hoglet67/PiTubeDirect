@@ -157,11 +157,9 @@ void copro_arm2_emulator()
    while (1)
    {
       arm2_execute_run(1);
-      if (is_mailbox_non_empty()) {
-         unsigned int tube_mailbox_copy = read_mailbox();
-         unsigned int intr = tube_io_handler(tube_mailbox_copy);
-         unsigned int nmi = intr & 2;
-         unsigned int rst = intr & 4;
+      if (tube_irq & 7) {
+         unsigned int nmi = tube_irq & 2;
+         unsigned int rst = tube_irq & 4;
          // Reset the processor on active edge of rst
          if (rst && !last_rst) {
             // Exit if the copro has changed
@@ -175,8 +173,9 @@ void copro_arm2_emulator()
             arm2_execute_set_input(ARM_FIRQ_LINE, 1);
          }
          last_rst = rst;
-      }
-      // IRQ is level sensitive, so check between every instruction
-      arm2_execute_set_input(ARM_IRQ_LINE, tube_irq & 1);
+      
+         // IRQ is level sensitive, so check between every instruction
+         arm2_execute_set_input(ARM_IRQ_LINE, tube_irq & 1);
+      }  
    }
 }

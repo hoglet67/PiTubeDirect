@@ -48,10 +48,8 @@ void copro_32016_emulator() {
       // might need to reduce if we see LATEs
       tubecycles = 8;
       n32016_exec();
-      if (is_mailbox_non_empty()) {
-         unsigned int tube_mailbox_copy = read_mailbox();
-         unsigned int intr = tube_io_handler(tube_mailbox_copy);
-         unsigned int rst = intr & 4;
+      if (tube_irq & 7) {
+         unsigned int rst = tube_irq & 4;
          // Reset the processor on active edge of rst
          if (rst && !last_rst) {
             // Exit if the copro has changed

@@ -54,33 +54,32 @@ static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
 static int last_copro;
 
 static int copro_lib6502_poll(M6502 *mpu) {
-  static unsigned int last_rst = 0;
-  if (is_mailbox_non_empty()) {
-    unsigned int tube_mailbox_copy = read_mailbox();
-    unsigned int intr = tube_io_handler(tube_mailbox_copy);
-    unsigned int nmi = intr & 2;
-    unsigned int rst = intr & 4;
-    // Reset the processor on a rst going inactive
-    if (rst && !last_rst) {
-       // Exit if the copro has changed
-       if (copro != last_copro) {
-          return 1;
-       }
+   static unsigned int last_rst = 0;
+   if (tube_irq & 7) {
+      unsigned int nmi = tube_irq & 2;
+      unsigned int rst = tube_irq & 4;
+      // Reset the processor on a rst going inactive
+      if (rst && !last_rst) {
+         // Exit if the copro has changed
+         if (copro != last_copro) {
+            return 1;
+         }
       copro_lib6502_reset(mpu);
-    }
-    // NMI is edge sensitive, so only check after mailbox activity
-    if (nmi) {
-      M6502_nmi(mpu);
-    }
-    last_rst = rst;
+      }
+      // NMI is edge sensitive, so only check after mailbox activity
+      if (nmi) {
+         M6502_nmi(mpu);
+      }
+      last_rst = rst;
+   
+      // IRQ is level sensitive, so check between every instruction
+      if (tube_irq & 1) {
+         if (!(mpu->registers->p & 4)) {
+            M6502_irq(mpu);
+         }
+      }
    }
-  // IRQ is level sensitive, so check between every instruction
-  if (tube_irq & 1) {
-     if (!(mpu->registers->p & 4)) {
-        M6502_irq(mpu);
-     }
-  }
-  return 0;
+   return 0;
 }
 
 void copro_lib6502_emulator() {

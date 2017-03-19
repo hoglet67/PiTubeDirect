@@ -1504,6 +1504,8 @@ Event_Handler_Single_Core_Slow:
         bic     instt, instt, #1024     // ack any events
 	ldrb    r0,[r0]
         sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
+	tst	r0,#7
+	beq	noirq2
 
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
