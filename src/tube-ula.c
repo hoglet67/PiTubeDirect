@@ -778,12 +778,6 @@ void tube_init_hardware()
 }
 
 int tube_is_rst_active() {
-   // It's necessary to keep servicing the tube_mailbox
-   // otherwise a software reset sequence won't get handled properly
-   //if (is_mailbox_non_empty()) {
-   //   unsigned int tube_mailbox_copy = read_mailbox();
-   //   tube_io_handler(tube_mailbox_copy);
-  // }
    return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || ((tube_irq & TUBE_ENABLE_BIT) && (HSTAT1 & HBIT_5));
 }
 #if 0

@@ -45,13 +45,4 @@ extern void tube_log_performance_counters();
 
 extern void start_vc_ula();
 
-static volatile inline int is_mailbox_non_empty() {
-   return !((*(volatile uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY);
-}
-
-static volatile inline unsigned int read_mailbox() {
-   return (*(volatile uint32_t *)MBOX0_READ);
-}
-
-
 #endif

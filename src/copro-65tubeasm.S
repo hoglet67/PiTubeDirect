@@ -95,7 +95,7 @@
 .equ    Z_FLAG,      0x40000000
 .equ    C_FLAG,      0x20000000
 
-.equ    ARM_INT_MASK,0xC0
+
 
 // Mask used when poping status into flags (RTI, PLP)
 // It selects the bits that are managed in flags, i.e. V, D, I
@@ -103,51 +103,11 @@
 // bits 31-8 are emulator control bits
 .equ    R4_MASK,     0xFFFFFF4C
 
-// Emulator control bits
-#if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
-.equ    SLOW_FLAG,   0x00000100
-#endif
+
         
 // **********************************************
 // Start of macros
 // **********************************************
-
-#if defined(USE_MULTICORE) || !defined(USE_HW_MAILBOX)
-
-.macro FETCH_NEXT_STAGE_0_I
-.endm
-
-.macro FETCH_NEXT_STAGE_2_I
-        b       fetch_next_i
-.endm
-        
-// Macros for fetching the next instruction, for two and three byte instructions
-
-.macro FETCH_NEXT_STAGE_0
-.endm
-
-.macro FETCH_NEXT_STAGE_1
-.endm
-        
-.macro FETCH_NEXT_STAGE_2
-        b       fetch_next
-.endm
-
-.macro FETCH_NEXT_STAGE_12
-        b       fetch_next
-.endm
-
-.macro FETCH_NEXT_STAGE_012
-        b       fetch_next
-.endm
-
-// Macro for fetching the next instruction and also checking for any pending IRQs
-// Used for instructions that can enable interrupts: CLI, PLP, RTI
-.macro FETCH_NEXT_CHECK_IRQ
-        b       fetch_next_check_irq
-.endm
-        
-#else
 
 // one byte instructions
 
@@ -262,8 +222,6 @@
         beq     handle_irq_adjust_regPC
         msr     CPSR_flg, r2              // Restore the 6502 flags
 .endm
-
-#endif
 
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 64KB aligned
@@ -1075,7 +1033,6 @@ opcode_jump_table:
 // End of Opcode Jump Table
 // **********************************************
 
-#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
 // **********************************************
 // Start of Event Handler Jump Table
 // **********************************************
@@ -1089,7 +1046,6 @@ Event_Handler_Dispatch_Table:
 // **********************************************
 // End of Event Handler Jump Table
 // **********************************************
-#endif
 
 // **********************************************
 // Instruction timings
