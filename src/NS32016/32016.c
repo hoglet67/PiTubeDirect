@@ -13,6 +13,7 @@
 #include "defs.h"
 #include "Trap.h"
 #include "Decode.h"
+#include "../tube-ula.h"
 
 #ifdef PROFILING
 #include "Profile.h"
@@ -971,7 +972,7 @@ void n32016_exec()
    if (tube_irq & 2)
    {
       // NMI is edge sensitive, so it should be cleared here
-      tube_irq &= ~2;
+      tube_ack_nmi();
       TakeInterrupt(intbase + (1 * 4));
    }
    else if ((tube_irq & 1) && (psr & 0x800))

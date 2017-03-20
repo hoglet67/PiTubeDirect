@@ -326,7 +326,6 @@ static void copro_z80_reset() {
 void copro_z80_emulator()
 {
    unsigned int last_rst = 0;
-   unsigned int last_nmi = 0;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
@@ -338,38 +337,36 @@ void copro_z80_emulator()
    {
       // Execute emulator for one instruction
       simz80_execute(1);
-
-      // Reset the processor on active edge of rst
-      if (tube_irq & 4) {
-         if (!last_rst) {
-            // Exit if the copro has changed
-            if (copro != last_copro) {
-               break;
+      if (tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT)) {
+         
+         // Reset the processor on active edge of rst
+         if (tube_irq & RESET_BIT) {
+            if (!last_rst) {
+               // Exit if the copro has changed
+               if (copro != last_copro) {
+                  break;
+               }
+               copro_z80_reset();
+               last_rst = 1;
             }
-            copro_z80_reset();
-            last_rst = 1;
+         } else {
+            last_rst = 0;
          }
-      } else {
-         last_rst = 0;
-      }
 
-      // NMI is edge sensitive, so only check after mailbox activity
-      if (tube_irq & 2) {
-         if (!last_nmi) {
+         // NMI is edge sensitive,
+         if (tube_irq & NMI_BIT) {
             overlay_rom = 1;
             simz80_NMI();         
-            last_nmi = 1;
+            tube_ack_nmi();
          }
-      } else {
-         last_nmi = 0;
-      }
 
-      // IRQ is level sensitive, so check between every instruction
-      if (tube_irq & 1) {
-         // check if the emulator IRQ is enabled
-         if (simz80_is_IRQ_enabled()) {
-            simz80_IRQ();
-         }
+         // IRQ is level sensitive,
+         if (tube_irq & IRQ_BIT) {
+            // check if the emulator IRQ is enabled
+            if (simz80_is_IRQ_enabled()) {
+               simz80_IRQ();
+            }
+         }   
       }
    }
 }
