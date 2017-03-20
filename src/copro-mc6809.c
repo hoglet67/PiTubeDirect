@@ -92,7 +92,7 @@ void copro_mc6809_emulator()
 
 	mc6809->mem_cycle = DELEGATE_AS2(void, bool, uint16, copro_mc6809_mem_cycle, (void *)0);
 
-   static unsigned int last_rst = 0;
+   unsigned int last_rst = 0;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;

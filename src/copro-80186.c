@@ -35,7 +35,7 @@ void copro_80186_tube_write(uint16_t addr, uint8_t data)	{
 
 void copro_80186_emulator()
 {
-   static unsigned int last_rst = 0;
+   unsigned int last_rst = 0;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;

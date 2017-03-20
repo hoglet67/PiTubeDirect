@@ -146,7 +146,7 @@ static void copro_arm2_reset()
 
 void copro_arm2_emulator()
 {
-   static unsigned int last_rst = 0;
+   unsigned int last_rst = 0;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;

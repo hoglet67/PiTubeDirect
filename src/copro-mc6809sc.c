@@ -114,7 +114,7 @@ void copro_mc6809sc_emulator()
    cpu.write = copro_mc6809sc_write;
    cpu.fault = copro_mc6809sc_fault;
 
-   static unsigned int last_rst = 0;
+   unsigned int last_rst = 0;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
