@@ -1318,7 +1318,6 @@ timing_table:
 // **********************************************
 //
 // R0 Points to memory 
-// R1 Slow down bit
 
 // Globals used
 //   copro_speed 
@@ -1343,22 +1342,19 @@ exec_65tube:
                                         // This is very strange, because flags bit 7 is not used!
                                         // To reproduce, initialize flags to 0x80
 
-      tst     r1, #1                  // test slow down bit  
-      beq     noslowsetup
         // setup ARM cycle counter
 #if defined(RPI2)|| defined(RPI3)
-      mrc      p15 ,0, r0, c9, c12, 0
-      BIC      r0, r0, #8  
-      mcr      p15, 0, r0, c9, c12, 0
-      mrc      p15, 0, r0, c9, c13, 0
+        mrc      p15 ,0, r0, c9, c12, 0
+        BIC      r0, r0, #8  
+        mcr      p15, 0, r0, c9, c12, 0
+        mrc      p15, 0, r0, c9, c13, 0
 #else
-      MRC      p15, 0, r0, c15, c12, 0    // Read Performance Monitor Control Register
-      BIC      r0 ,r0, #8                // clear div 64 bit
-      MCR      p15, 0, r0, c15, c12, 0    // Write Performance Monitor Control Register
-      MRC      p15, 0, r0, c15, c12, 1    // Read Cycle Counter Register    
+        MRC      p15, 0, r0, c15, c12, 0    // Read Performance Monitor Control Register
+        BIC      r0 ,r0, #8                 // clear div 64 bit
+        MCR      p15, 0, r0, c15, c12, 0    // Write Performance Monitor Control Register
+        MRC      p15, 0, r0, c15, c12, 1    // Read Cycle Counter Register    
 #endif        
-      str      r0,targettime
-noslowsetup:
+        str      r0,targettime
 
 handle_rst:
         orr     flags, flags, #4              // Set the I bit
@@ -1375,8 +1371,7 @@ handle_rst:
         FETCH_NEXT_3B_MERGED  SUBPC             // Start executing instructions
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected        
-        msr     CPSR, r2                // re-enable ARM interrupts
-	bl      tube_disable_fast6502
+        bl      tube_disable_fast6502
         pop     {r4-r11,pc}
         
 // 6502 Event handler
@@ -1384,11 +1379,11 @@ exec_65tube_exit:                       // We get here from the Event handler wh
 // if USE_MULTICORE is not defined, we have come here via a branch from the second instruction table
 
 Event_Handler:
-	ldr     r0, =tube_irq
+        ldr     r0, =tube_irq
         mrs     r2, CPSR                // preserve the 6502 flags
    
         bic     instt, instt, #1024           // ack events
-	ldrb    r0, [r0]
+        ldrb    r0, [r0]
         sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
@@ -1453,15 +1448,15 @@ targettime:
 //     we restore the modified table base pointer so we will re-enter this handler
         
 Event_Handler_Single_Core_Slow:
-	ldr     r0, =tube_irq		
+        ldr     r0, =tube_irq		
         mrs     r2, CPSR                // preserve the 6502 flags
                                         // interrupts are left enabled
         
         bic     instt, instt, #1024     // ack any events
-	ldrb    r0,[r0]
+        ldrb    r0,[r0]
         sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
-	tst	r0,#7
-	beq	noirq2
+        tst     r0,#7
+        beq     noirq2
 
         tst     r0, #4                  // Bit 2 set indicate RST is active
         bne     exec_65tube_exit        // exit immediately if active edge seen
@@ -1476,28 +1471,26 @@ Event_Handler_Single_Core_Slow:
 
 noirq2:
         ldrb    r0, [regPC]             // get next instruction
-        ldr     r1,=timing_table
+        adr     r1,timing_table
         ldr     lr,lastPC
         ldrb    r0,[r1,r0,LSL#1]!       // get instruction time
         ldrb    r1,[r1,#1]              // get instruction length
         cmp     lr,regPC
-        ADDNE   r0,r0,#1  
-         
-        //ldr     lr,[r1,#2]
-         
         ldr     lr,=copro_speed
+        ADDNE   r0,r0,#1  
+        
         add     r1,r1,regPC
+        ldr     lr,[lr]                 // load copro_speed
         str     r1,lastPC
         
-        ldr     lr,[lr]                 // load copro_speed
         // get last time
         LDR     r1,targettime
         MUL     r0,lr,r0
         
         // add on new time
-        ADD    lr,r1,r0,LSR #8         // shift by 8 
+        ADD     lr,r1,r0,LSR #8         // shift by 8 
         // save time new time.
-        str    lr,targettime
+        str     lr,targettime
         
         // loop until current time(R0) > nexttime(R1) ( nb deal with wrap around)
 waste_time:       

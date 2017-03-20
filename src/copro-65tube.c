@@ -84,7 +84,7 @@ void copro_65tube_emulator() {
       copro_65tube_init_histogram();
 #endif
       tube_reset_performance_counters();
-      exec_65tube(mpu_memory, copro == COPRO_65TUBE_1 ? 1 : 0);
+      exec_65tube(mpu_memory);
 
       tube_log_performance_counters();
 #ifdef HISTOGRAM

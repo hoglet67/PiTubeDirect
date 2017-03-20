@@ -4,7 +4,7 @@
 
 extern void copro_65tube_emulator();
 
-extern void exec_65tube(unsigned char *memory, int slowdown);
+extern void exec_65tube(unsigned char *memory);
 
 //extern unsigned char mpu_memory[];
 
