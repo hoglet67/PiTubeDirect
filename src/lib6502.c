@@ -27,9 +27,7 @@
  *   - emulator+disassembler in same object file (library is kind of pointless)
  */
 
-#pragma GCC diagnostic ignored "-Wformat-extra-args"
-#pragma GCC diagnostic ignored "-Wunused-value"
-
+#define notick
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,9 +67,13 @@ enum {
 
 static int elapsed;
 
+#ifdef notick
+#define tick(n)    
+#define tickIf(p) 
+#else
 #define tick(n)    elapsed+=n
-#define tickIf(p)  (p && elapsed++)
-
+#define tickIf(p)  elapsed +=(p)?1:0 
+#endif
 /* memory access (indirect if callback installed) -- ARGUMENTS ARE EVALUATED MORE THAN ONCE! */
 
 #define putMemory(ADDR, BYTE)			\
@@ -873,7 +875,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 # define begin()				fetch();  next()
 # define fetch()				pollints(); tpc= itabp[memory[PC++]]
 # define next()				    goto *tpc
-# define dispatch(num, name, mode, cycles)	_##num: name(cycles, mode) oops();  next()
+# define dispatch(num, name, mode, cycles)	_##num: name(cycles, mode) //oops();  next()
 # define end()
 
 #else /* (!__GNUC__) || (__STRICT_ANSI__) */
@@ -931,7 +933,7 @@ int M6502_disassemble(M6502 *mpu, word ip, char buffer[64])
 #    define _absx	sprintf(s, "%02X%02X,X",   b[2], b[1]);		    return 3;
 #    define _absy	sprintf(s, "%02X%02X,Y",   b[2], b[1]);		    return 3;
 #    define _relative	sprintf(s, "%04X",	   ip + 2 + (int8_t)b[1]);  return 2;
-#    define _zpr	sprintf(s, "%04X",	   b[1], ip + 2 + (int8_t)b[2]);  return 3;
+#    define _zpr	sprintf(s, "%02X,%04X",	   b[1], ip + 2 + (int8_t)b[2]);  return 3;
 #    define _indirect	sprintf(s, "(%02X%02X)",   b[2], b[1]);		    return 3;
 #    define _indzp	sprintf(s, "(%02X)",	   b[1]);		    return 2;
 #    define _indx	sprintf(s, "(%02X,X)",	   b[1]);		    return 2;
@@ -950,7 +952,7 @@ void M6502_dump(M6502 *mpu, char buffer[124])
 {
   M6502_Registers *r= mpu->registers;
   uint8_t p= r->p;
-# define P(N,C) (p & (1 << (N)) ? (C) : '-')
+# define P(N,C) ((p & (1 << (N))) ? (C) : '-')
   sprintf(buffer, "PC=%04X M[PC]=%02X SP=%04X A=%02X X=%02X Y=%02X P=%02X %c%c%c%c%c%c%c%c elapsed: %d",
 	  r->pc-1, mpu->memory[r->pc-1], 0x0100 + r->s,
 	  r->a, r->x, r->y, r->p,
