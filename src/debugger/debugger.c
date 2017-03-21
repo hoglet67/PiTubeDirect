@@ -9,6 +9,7 @@
 #include "../rpi-aux.h"
 #include "../cpu_debug.h"
 
+#include "../mc6809nc/mc6809_debug.h"
 #include "../mame/arm_debug.h"
 #include "../NS32016/32016_debug.h"
 
@@ -28,7 +29,7 @@ cpu_debug_t *cpu_debug_list[] = {
    NULL,                //  4 Z80
    NULL,                //  7 Z80
    NULL,                //  8 80x86
-   NULL,                //  9 6809
+   &mc6809nc_cpu_debug, //  9 6809
    NULL,                // 10 unused 
    NULL,                // 11 unused
    &arm2_cpu_debug,     // 12 ARM2

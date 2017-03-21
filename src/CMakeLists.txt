@@ -233,6 +233,12 @@ file( GLOB debugger_files
     NS32016/32016_debug.h
     mame/arm_debug.c
     mame/arm_debug.h
+    mc6809nc/mc6809.c
+    mc6809nc/mc6809.h
+    mc6809nc/mc6809_debug.h
+    mc6809nc/mc6809_debug.c
+    mc6809nc/mc6809_dis.c
+    mc6809nc/mc6809_dis.h
 )
 
 if( ${DEBUG} )
