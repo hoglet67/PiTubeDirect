@@ -576,7 +576,7 @@ int tube_io_handler(uint32_t mail)
    int rnw;
    int ntube;
    int nrst;
-	
+
 #ifdef USE_HW_MAILBOX
    // Sequence numbers are currently 4 bits, and are stored in bits 12..15
    int act_seq_num;
@@ -586,20 +586,20 @@ int tube_io_handler(uint32_t mail)
 #endif
    // Toggle the LED on each tube access
    static int led = 0;
-	if (led) {
-	  LED_OFF();
-	} else {
-	  LED_ON();
-	}
-	led = ~led;
-#ifdef USE_GPU       
-   
+   if (led) {
+      LED_OFF();
+   } else {
+      LED_ON();
+   }
+   led = ~led;
+#ifdef USE_GPU
+
    if ((mail >> 12) & 1)        // Check for Reset
    {
       tube_irq |= RESET_BIT;
       return tube_irq;      // Set reset Flag
    }
-   else    
+   else
    {
       addr = (mail>>8) & 7;
       if ( ( (mail >>11 ) & 1) == 0) {  // Check read write flag
@@ -607,10 +607,9 @@ int tube_io_handler(uint32_t mail)
       } else {
          tube_host_read(addr);
       }
-	
-      return tube_irq ;  
+      return tube_irq ;
    }
-#else        
+#else
    addr = 0;
    if (mail & A0_MASK) {
       addr += 1;
@@ -650,7 +649,7 @@ int tube_io_handler(uint32_t mail)
       LOG_WARN("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
 #endif
-   
+
 
    if (mail & GLITCH_MASK) {
       LOG_WARN("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
@@ -670,7 +669,7 @@ int tube_io_handler(uint32_t mail)
 #if TEST_MODE
    LOG_INFO("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
 #endif
-   
+
    if (nrst == 0 || (tube_enabled && (HSTAT1 & HBIT_5))) {
       return tube_irq | 4;
    } else {
@@ -761,9 +760,7 @@ void tube_init_hardware()
 
    tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
 
-   
    hp1 = hp2 = hp4 = hp3[0]= hp3[1]=0;
-  
 }
 
 int tube_is_rst_active() {
@@ -877,7 +874,7 @@ void start_vc_ula()
    LOG_DEBUG("VidCore   r2 = %08x\r\n", r2);
    LOG_DEBUG("VidCore   r3 = %08x\r\n", r3);
    LOG_DEBUG("VidCore   r4 = %08x\r\n", r4);
-   LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);   
+   LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
    RPI_PropertyProcessNoCheck();
@@ -893,6 +890,5 @@ void start_vc_ula()
 //       LOG_DEBUG("%08x ?\r\n", r0);
 //    }
 // }
- 
-}
 
+}

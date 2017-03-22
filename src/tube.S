@@ -30,13 +30,13 @@ arm_fiq_handler_flag1:
       push     {r0-r7,r14}
       ldr      r0, [r12]               // Get Mailbox data 
 
-      BL 	   tube_io_handler
-      ldr	   r10,=tube_irq
+      BL       tube_io_handler
+      ldr      r10,=tube_irq
       pop      {r0-r7,r14}
-      ldr	   r10,[r10]
+      ldr      r10,[r10]
       tst      r10, #FAST6502_BIT      // see if we should signal the 6502 Core 
-      tstne	   r10,#RESET_BIT+NMI_BIT+IRQ_BIT
-      orrne	   instrREG, instrREG, #1024
+      tstne    r10,#RESET_BIT+NMI_BIT+IRQ_BIT
+      orrne    instrREG, instrREG, #1024
         
        
       subs    pc, lr, #4
