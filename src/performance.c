@@ -213,7 +213,7 @@ int benchmark() {
    perf_counters_t pct;
    unsigned char mem1[1024*1024];
    unsigned char mem2[1024*1024];
-
+   mem2[0]=0;
 #if defined(RPI2) || defined(RPI3) 
    pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
