@@ -30,7 +30,11 @@ void copro_mc6809nc_write(uint16_t addr, uint8_t data) {
       overlay_rom = 0;
       tube_parasite_write(addr & 7, data);
    } else {
+#ifdef USE_MEMORY_POINTER
       copro_mc6809_ram[addr & 0xffff] = data;
+#else 
+      *(unsigned char *)(addr & 0xffff) = data;
+#endif
    }
    if (debug) {
       printf("Wr %04x=%02x\r\n", addr, data);
@@ -45,7 +49,11 @@ uint8_t copro_mc6809nc_read(uint16_t addr) {
    } else if (overlay_rom) {
       data = copro_mc6809_rom[addr & 0x7ff];
    } else {
+#if USE_MEMORY_POINTER       
       data = copro_mc6809_ram[addr & 0xffff];
+#else
+      data = *(unsigned char *)(addr & 0xffff);
+#endif
    }
    if (debug) {
       printf("Rd %04x=%02x\r\n", addr, data);

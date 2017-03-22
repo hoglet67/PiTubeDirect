@@ -286,7 +286,7 @@ int copro_z80_read_mem(unsigned int addr) {
       return copro_z80_ram[addr & 0xffff];
 #else
       return *(unsigned char *)(addr & 0xffff);
-#endif      
+#endif
    }
 }
 
@@ -295,7 +295,7 @@ void copro_z80_write_mem(unsigned int addr, unsigned char data) {
    copro_z80_ram[addr & 0xffff] = data;
 #else 
    *(unsigned char *)(addr & 0xffff) = data;
-#endif   
+#endif
 }
 
 int copro_z80_read_io(unsigned int addr) {
