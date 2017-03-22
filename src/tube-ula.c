@@ -168,8 +168,7 @@ void tube_ack_nmi(void)
    tube_irq &= ~NMI_BIT;
    if ((cpsr & 0xc0) != 0xc0) {
     _enable_interrupts();
-   }
-   
+   } 
 }
 
 void copro_command_excute(unsigned char copro_command,unsigned char val)

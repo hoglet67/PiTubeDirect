@@ -77,9 +77,9 @@ static void copro_mc6809_reset() {
 
 void copro_mc6809nc_emulator()
 {
-
    unsigned int last_rst = 0;
-
+   unsigned int tube_irq_copy;
+   
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
 
@@ -90,27 +90,25 @@ void copro_mc6809nc_emulator()
    {
       // Execute emulator for one instruction
       mc6809nc_execute(1);
-
-      if (tube_irq & 7) {
-         unsigned int nmi = tube_irq & 2;
-         unsigned int rst = tube_irq & 4;
+      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
+      if (tube_irq_copy) {
          // Reset the processor on active edge of rst
-         if (rst && !last_rst) {
+         if (( tube_irq_copy & RESET_BIT ) && !last_rst) {
             // Exit if the copro has changed
             if (copro != last_copro) {
                break;
             }
             copro_mc6809_reset();
          }
+         last_rst =  tube_irq_copy & RESET_BIT ;
          // NMI is edge sensitive, so only check after mailbox activity
-         if (nmi) {
+         if ( tube_irq_copy & NMI_BIT ) {
             mc6809nc_request_irq(1);
+            tube_ack_nmi();
          }
 
-         last_rst = rst;
-      
       // IRQ is level sensitive, so check between every instruction
-         if (tube_irq & 1) {
+         if ( tube_irq_copy & IRQ_BIT ) {
             mc6809nc_request_firq(1);
          }
       }  
