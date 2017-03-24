@@ -286,14 +286,14 @@ static void tube_host_write(uint16_t addr, uint8_t val)
             
             // only if we are now enabling NMIs do we possibly set NMI flag. 
             // NB NMIs are edge sensitive so this doesn't create extra false edges
-            if (val & 0x10) {
+            if (val & 0x08) {
                if (!(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq |= NMI_BIT;
                if ( (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq |= NMI_BIT;
             }
          }
       } else {
          HSTAT1 &= ~BYTE_TO_WORD(val & 0x3F);
-         if (val & 0x10) tube_irq &= ~NMI_BIT;   // if we are turning off NMI clear NMI flag 
+         if (val & 0x08) tube_irq &= ~NMI_BIT;   // if we are turning off NMI clear NMI flag 
       }
       
       if ( HSTAT1 & HBIT_5) {
