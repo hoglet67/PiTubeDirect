@@ -272,10 +272,15 @@ static void tube_host_write(uint16_t addr, uint8_t val)
 {
    switch (addr & 7)
    {
-   case 0: /*Register 1 stat*/
-      
+   case 0: /*Register 1 control/status*/
+
       if (!(tube_irq & TUBE_ENABLE_BIT))
          return;
+
+      // Evaluate NMI before the control register written 
+      int nmi1 = 0;
+      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) nmi1 = 1;
+      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) nmi1 = 1;
     
       if (val & 0x80) {
          // Implement software tube reset
@@ -283,17 +288,9 @@ static void tube_host_write(uint16_t addr, uint8_t val)
             tube_reset();
          } else {
             HSTAT1 |= BYTE_TO_WORD(val & 0x3F);
-            
-            // only if we are now enabling NMIs do we possibly set NMI flag. 
-            // NB NMIs are edge sensitive so this doesn't create extra false edges
-            if (val & 0x08) {
-               if (!(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq |= NMI_BIT;
-               if ( (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq |= NMI_BIT;
-            }
          }
       } else {
          HSTAT1 &= ~BYTE_TO_WORD(val & 0x3F);
-         if (val & 0x08) tube_irq &= ~NMI_BIT;   // if we are turning off NMI clear NMI flag 
       }
       
       if ( HSTAT1 & HBIT_5) {
@@ -301,6 +298,18 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       } else {
          tube_irq &= ~RESET_BIT;
       }
+
+      // Evaluate NMI again after the control register written 
+      int nmi2 = 0;
+      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) nmi2 = 1;
+      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) nmi2 = 1;
+      
+      // Only propagate significant rising edges
+      if (!nmi1 && nmi2) tube_irq |= NMI_BIT;
+
+      // And disable regardless
+      if (!nmi2) tube_irq &= ~(NMI_BIT);
+
       tube_irq &= ~(IRQ_BIT);
       if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= IRQ_BIT;
       if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= IRQ_BIT;
