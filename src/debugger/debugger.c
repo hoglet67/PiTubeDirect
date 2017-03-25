@@ -171,6 +171,21 @@ cpu_debug_t *getCpu() {
    return cpu_debug_list[copro];
 }
 
+static int internal = 0;
+
+static uint32_t memread(cpu_debug_t *cpu, uint32_t addr) {
+   internal = 1;
+   uint32_t result = cpu->memread(addr);
+   internal = 0;
+   return result;
+}
+
+static void memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
+   internal = 1;
+   cpu->memwrite(addr, value);
+   internal = 0;
+}
+
 /********************************************************
  * Hooks from CPU Emulation
  ********************************************************/
@@ -244,11 +259,15 @@ static inline void generic_memory_access(cpu_debug_t *cpu, uint32_t addr, uint32
 }
 
 void debug_memread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
-   generic_memory_access(cpu, addr, value, size, "Mem Rd", mem_rd_breakpoints);
+   if (!internal) {
+      generic_memory_access(cpu, addr, value, size, "Mem Rd", mem_rd_breakpoints);
+   }
 };
 
 void debug_memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
-   generic_memory_access(cpu, addr, value, size, "Mem Wr", mem_wr_breakpoints);
+   if (!internal) {
+      generic_memory_access(cpu, addr, value, size, "Mem Wr", mem_wr_breakpoints);
+   }
 };
 
 void debug_preexec (cpu_debug_t *cpu, uint32_t addr) {
@@ -408,7 +427,7 @@ static void doCmdFill(char *params) {
 
    printf("Wr: %x to %x = %02x\r\n", start, end, data);
    for (i = start; i <= end; i++) {
-      cpu->memwrite(i, data);
+      memwrite(cpu, i, data);
    }
 }
 
@@ -422,7 +441,7 @@ static void doCmdCrc(char *params) {
    unsigned int crc = 0;
    sscanf(params, "%x %x", &start, &end);
    for (i = start; i <= end; i++) {
-      data = cpu->memread(i);
+      data = memread(cpu, i);
       for (j = 0; j < 8; j++) {
          crc = crc << 1;
          crc = crc | (data & 1);
@@ -441,7 +460,7 @@ static void doCmdMem(char *params) {
    sscanf(params, "%x", &memAddr);
    for (i = 0; i < 0x100; i+= 16) {
       for (j = 0; j < 16; j++) {
-         row[j] = cpu->memread(memAddr + i + j);
+         row[j] = memread(cpu, memAddr + i + j);
       }
       printf("%04x ", memAddr + i);
       for (j = 0; j < 16; j++) {
@@ -465,7 +484,7 @@ static void doCmdReadMem(char *params) {
    unsigned int addr;
    unsigned int data;
    sscanf(params, "%x", &addr);
-   data = cpu->memread(addr);
+   data = memread(cpu, addr);
    printf("Rd: %x = %02x\r\n", addr, data);
 }
 
@@ -475,7 +494,7 @@ static void doCmdWriteMem(char *params) {
    unsigned int data;
    sscanf(params, "%x %x", &addr, &data);
    printf("Wr: %x = %02x\r\n", addr, data);
-   cpu->memwrite(addr++, data);
+   memwrite(cpu, addr++, data);
 }
 
 

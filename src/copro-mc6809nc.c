@@ -17,23 +17,29 @@
 #include "mc6809nc/mc6809.h"
 #include "tube-client.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#include "mc6809nc/mc6809_debug.h"
+#endif
+
 static int overlay_rom = 0;
 
 static unsigned char *copro_mc6809_ram;
 
 static unsigned char *copro_mc6809_rom = tuberom_6809_jgh_1_0;
 
-static int debug = 0;
-
 void copro_mc6809nc_write(uint16_t addr, uint8_t data) {
+#ifdef INCLUDE_DEBUGGER
+   if (mc6809nc_debug_enabled)
+   {
+      debug_memwrite(&mc6809nc_cpu_debug, addr, data, 1);
+   }
+#endif
    if ((addr & 0xFFF0) == 0xFEE0) {
       overlay_rom = 0;
       tube_parasite_write(addr & 7, data);
    } else {
       copro_mc6809_ram[addr & 0xffff] = data;
-   }
-   if (debug) {
-      printf("Wr %04x=%02x\r\n", addr, data);
    }
 }
 
@@ -47,9 +53,12 @@ uint8_t copro_mc6809nc_read(uint16_t addr) {
    } else {
       data = copro_mc6809_ram[addr & 0xffff];
    }
-   if (debug) {
-      printf("Rd %04x=%02x\r\n", addr, data);
+#ifdef INCLUDE_DEBUGGER
+   if (mc6809nc_debug_enabled)
+   {
+      debug_memread(&mc6809nc_cpu_debug, addr, data, 1);
    }
+#endif
    return data;
 }
 

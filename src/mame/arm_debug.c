@@ -93,13 +93,11 @@ static int dbg_debug_enable(int newvalue) {
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
-   // TODO: use the internal version so the debugger doesn't get notified
    return copro_arm2_read8(addr);
 };
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
-   // TODO: use the internal version so the debugger doesn't get notified
    copro_arm2_write8(addr, value);
 };
 
