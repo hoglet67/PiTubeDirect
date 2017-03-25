@@ -54,20 +54,18 @@ static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
 static int last_copro;
 
 static int copro_lib6502_poll(M6502 *mpu) {
-   static unsigned int last_rst = 0;
    unsigned int tube_irq_copy;
    tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
    if (tube_irq_copy) {
       // Reset the processor on a rst going inactive
-      if ( ( tube_irq_copy & RESET_BIT ) && !last_rst) {
+      if ( tube_irq_copy & RESET_BIT ) {
          // Exit if the copro has changed
          if (copro != last_copro) {
             return 1;
          }
          copro_lib6502_reset(mpu);
       }
-      last_rst = ( tube_irq_copy & RESET_BIT );
-      
+
       // NMI is edge sensitive, so only check after mailbox activity
       if ( tube_irq_copy & NMI_BIT) {
          M6502_nmi(mpu);
@@ -80,8 +78,6 @@ static int copro_lib6502_poll(M6502 *mpu) {
             M6502_irq(mpu);
          }
       }
-   } else {
-      last_rst = 0;
    }
    return 0;
 }

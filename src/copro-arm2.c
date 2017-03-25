@@ -162,7 +162,6 @@ static void copro_arm2_reset()
 
 void copro_arm2_emulator()
 {
-   unsigned int last_rst = 0;
    unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
@@ -177,14 +176,13 @@ void copro_arm2_emulator()
       tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
       if (tube_irq_copy ) {
          // Reset the processor on active edge of rst
-         if ( (tube_irq_copy & RESET_BIT) && !last_rst) {
+         if ( tube_irq_copy & RESET_BIT ) {
             // Exit if the copro has changed
             if (copro != last_copro) {
                break;
             }
             copro_arm2_reset();
          }
-         last_rst = (tube_irq_copy & RESET_BIT);
          
          // NMI is edge sensitive, so only check after mailbox activity
          if (tube_irq_copy & NMI_BIT) {
@@ -194,8 +192,6 @@ void copro_arm2_emulator()
          
          // IRQ is level sensitive, so check between every instruction
          arm2_execute_set_input(ARM_IRQ_LINE, tube_irq_copy & IRQ_BIT);
-      } else {
-         last_rst = 0;
       }
    }
 }

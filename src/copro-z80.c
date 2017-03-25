@@ -325,7 +325,6 @@ static void copro_z80_reset() {
 
 void copro_z80_emulator()
 {
-   unsigned int last_rst = 0;
    unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
@@ -340,25 +339,19 @@ void copro_z80_emulator()
       simz80_execute(1);
       tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
       if (tube_irq_copy) {
-         
          // Reset the processor on active edge of rst
          if (tube_irq_copy & RESET_BIT) {
-            if (!last_rst) {
-               // Exit if the copro has changed
-               if (copro != last_copro) {
-                  break;
-               }
-               copro_z80_reset();
-               last_rst = 1;
+            // Exit if the copro has changed
+            if (copro != last_copro) {
+               break;
             }
-         } else {
-            last_rst = 0;
+            copro_z80_reset();
          }
 
          // NMI is edge sensitive,
          if (tube_irq_copy & NMI_BIT) {
             overlay_rom = 1;
-            simz80_NMI();         
+            simz80_NMI();
             tube_ack_nmi();
          }
 
@@ -368,9 +361,7 @@ void copro_z80_emulator()
             if (simz80_is_IRQ_enabled()) {
                simz80_IRQ();
             }
-         }   
-      } else {
-         last_rst = 0;
+         }
       }
    }
 }
