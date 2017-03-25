@@ -194,6 +194,8 @@ void copro_arm2_emulator()
          
          // IRQ is level sensitive, so check between every instruction
          arm2_execute_set_input(ARM_IRQ_LINE, tube_irq_copy & IRQ_BIT);
-      }  
+      } else {
+         last_rst = 0;
+      }
    }
 }

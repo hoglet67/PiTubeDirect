@@ -119,6 +119,8 @@ void copro_mc6809nc_emulator()
          if ( tube_irq_copy & IRQ_BIT ) {
             mc6809nc_request_firq(1);
          }
-      }  
+      } else {
+         last_rst = 0;
+      }
    }
 }

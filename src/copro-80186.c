@@ -71,6 +71,8 @@ void copro_80186_emulator()
                intcall86(12);
             }
          }   
+      } else {
+         last_rst = 0;
       }
    }
 }

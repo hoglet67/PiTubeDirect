@@ -369,6 +369,8 @@ void copro_z80_emulator()
                simz80_IRQ();
             }
          }   
+      } else {
+         last_rst = 0;
       }
    }
 }

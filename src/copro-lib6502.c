@@ -80,6 +80,8 @@ static int copro_lib6502_poll(M6502 *mpu) {
             M6502_irq(mpu);
          }
       }
+   } else {
+      last_rst = 0;
    }
    return 0;
 }
