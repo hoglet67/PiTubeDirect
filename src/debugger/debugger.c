@@ -9,11 +9,14 @@
 #include "../rpi-aux.h"
 #include "../cpu_debug.h"
 
+#include "../cpu80186/cpu80186_debug.h"
 #include "../mc6809nc/mc6809_debug.h"
 #include "../mame/arm_debug.h"
 #include "../NS32016/32016_debug.h"
 
 #define USE_LINENOISE
+
+#define HAS_IO (getCpu()->ioread != NULL)
 
 static const char * prompt_str = ">> ";
 
@@ -28,7 +31,7 @@ cpu_debug_t *cpu_debug_list[] = {
    NULL,                //  5 Z80
    NULL,                //  4 Z80
    NULL,                //  7 Z80
-   NULL,                //  8 80x86
+   &cpu80186_cpu_debug, //  8 80x86
    &mc6809nc_cpu_debug, //  9 6809
    NULL,                // 10 unused 
    NULL,                // 11 unused
@@ -39,6 +42,7 @@ cpu_debug_t *cpu_debug_list[] = {
 };
 
 #define NUM_CMDS 19
+#define NUM_IO_CMDS 6
 
 // The Atom CRC Polynomial
 #define CRC_POLY          0x002d
@@ -71,9 +75,13 @@ typedef struct {
 static breakpoint_t   exec_breakpoints[MAXBKPTS + 1];
 static breakpoint_t mem_rd_breakpoints[MAXBKPTS + 1];
 static breakpoint_t mem_wr_breakpoints[MAXBKPTS + 1];
+static breakpoint_t io_rd_breakpoints[MAXBKPTS + 1];
+static breakpoint_t io_wr_breakpoints[MAXBKPTS + 1];
 
 static void doCmdBreakI(char *params);
+static void doCmdBreakRdIO(char *params);
 static void doCmdBreakRdMem(char *params);
+static void doCmdBreakWrIO(char *params);
 static void doCmdBreakWrMem(char *params);
 static void doCmdClear(char *params);
 static void doCmdContinue(char *params);
@@ -83,21 +91,24 @@ static void doCmdFill(char *params);
 static void doCmdHelp(char *params);
 static void doCmdList(char *params);
 static void doCmdMem(char *params);
+static void doCmdReadIO(char *params);
 static void doCmdReadMem(char *params);
 static void doCmdRegs(char *params);
 static void doCmdStep(char *params);
 static void doCmdTrace(char *params);
 static void doCmdWatchI(char *params);
+static void doCmdWatchRdIO(char *params);
 static void doCmdWatchRdMem(char *params);
+static void doCmdWatchWrIO(char *params);
 static void doCmdWatchWrMem(char *params);
+static void doCmdWriteIO(char *params);
 static void doCmdWriteMem(char *params);
-
 
 // The command process accepts abbreviated forms, for example
 // if h is entered, then help will match.
 
 // Must be kept in step with dbgCmdFuncs (just below)
-static char *dbgCmdStrings[NUM_CMDS] = {
+static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
   "help",
   "continue",
   "step",
@@ -109,6 +120,7 @@ static char *dbgCmdStrings[NUM_CMDS] = {
   "rdm",
   "wrm",
   "trace",
+  "clear",
   "blist",
   "breakx",
   "watchx",
@@ -116,11 +128,16 @@ static char *dbgCmdStrings[NUM_CMDS] = {
   "watchrm",
   "breakwm",
   "watchwm",
-  "clear"
+  "rdio",
+  "wrio",
+  "breakri",
+  "watchri",
+  "breakwi",
+  "watchwi",
 };
 
 // Must be kept in step with dbgCmdStrings (just above)
-static void (*dbgCmdFuncs[NUM_CMDS])(char *params) = {
+static void (*dbgCmdFuncs[NUM_CMDS + NUM_IO_CMDS])(char *params) = {
   doCmdHelp,
   doCmdContinue,
   doCmdStep,
@@ -132,6 +149,7 @@ static void (*dbgCmdFuncs[NUM_CMDS])(char *params) = {
   doCmdReadMem,
   doCmdWriteMem,
   doCmdTrace,
+  doCmdClear,
   doCmdList,
   doCmdBreakI,
   doCmdWatchI,
@@ -139,7 +157,12 @@ static void (*dbgCmdFuncs[NUM_CMDS])(char *params) = {
   doCmdWatchRdMem,
   doCmdBreakWrMem,
   doCmdWatchWrMem,
-  doCmdClear
+  doCmdReadIO,
+  doCmdWriteIO,
+  doCmdBreakRdIO,
+  doCmdWatchRdIO,
+  doCmdBreakWrIO,
+  doCmdWatchWrIO
 };
 
 
@@ -183,6 +206,19 @@ static uint32_t memread(cpu_debug_t *cpu, uint32_t addr) {
 static void memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
    internal = 1;
    cpu->memwrite(addr, value);
+   internal = 0;
+}
+
+static uint32_t ioread(cpu_debug_t *cpu, uint32_t addr) {
+   internal = 1;
+   uint32_t result = cpu->ioread(addr);
+   internal = 0;
+   return result;
+}
+
+static void iowrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
+   internal = 1;
+   cpu->iowrite(addr, value);
    internal = 0;
 }
 
@@ -267,6 +303,18 @@ void debug_memread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t siz
 void debug_memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
    if (!internal) {
       generic_memory_access(cpu, addr, value, size, "Mem Wr", mem_wr_breakpoints);
+   }
+};
+
+void debug_ioread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
+   if (!internal) {
+      generic_memory_access(cpu, addr, value, size, "IO Rd", io_rd_breakpoints);
+   }
+};
+
+void debug_iowrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
+   if (!internal) {
+      generic_memory_access(cpu, addr, value, size, "IO Wr", io_wr_breakpoints);
    }
 };
 
@@ -368,7 +416,11 @@ static void doCmdHelp(char *params) {
    printf("PiTubeDirect debugger\r\n");
    printf("    cpu = %s\r\n", cpu->cpu_name);
    printf("Commands:\r\n");
-   for (i = 0; i < NUM_CMDS; i++) {
+   int n = NUM_CMDS;
+   if (HAS_IO) {
+      n += NUM_IO_CMDS;
+   }
+   for (i = 0; i < n; i++) {
       printf("    %s\r\n", dbgCmdStrings[i]);
    }
 }
@@ -485,7 +537,7 @@ static void doCmdReadMem(char *params) {
    unsigned int data;
    sscanf(params, "%x", &addr);
    data = memread(cpu, addr);
-   printf("Rd: %x = %02x\r\n", addr, data);
+   printf("Rd Mem: %x = %02x\r\n", addr, data);
 }
 
 static void doCmdWriteMem(char *params) {
@@ -493,8 +545,26 @@ static void doCmdWriteMem(char *params) {
    unsigned int addr;
    unsigned int data;
    sscanf(params, "%x %x", &addr, &data);
-   printf("Wr: %x = %02x\r\n", addr, data);
+   printf("Wr Mem: %x = %02x\r\n", addr, data);
    memwrite(cpu, addr++, data);
+}
+
+static void doCmdReadIO(char *params) {
+   cpu_debug_t *cpu = getCpu();
+   unsigned int addr;
+   unsigned int data;
+   sscanf(params, "%x", &addr);
+   data = ioread(cpu, addr);
+   printf("Rd IO: %x = %02x\r\n", addr, data);
+}
+
+static void doCmdWriteIO(char *params) {
+   cpu_debug_t *cpu = getCpu();
+   unsigned int addr;
+   unsigned int data;
+   sscanf(params, "%x %x", &addr, &data);
+   printf("Wr IO: %x = %02x\r\n", addr, data);
+   iowrite(cpu, addr++, data);
 }
 
 
@@ -544,9 +614,13 @@ static void genericList(char *type, breakpoint_t *list) {
 }
 
 static void doCmdList(char *params) {
-  genericList("Exec", exec_breakpoints);
-  genericList("Mem Rd", mem_rd_breakpoints);
-  genericList("Mem Wr", mem_wr_breakpoints);
+   genericList("Exec", exec_breakpoints);
+   genericList("Mem Rd", mem_rd_breakpoints);
+   genericList("Mem Wr", mem_wr_breakpoints);
+   if (HAS_IO) {
+      genericList("IO Rd", io_rd_breakpoints);
+      genericList("IO Wr", io_wr_breakpoints);
+   }
 }
 
 static void doCmdBreakI(char *params) {
@@ -571,6 +645,22 @@ static void doCmdBreakWrMem(char *params) {
 
 static void doCmdWatchWrMem(char *params) {
    genericBreakpoint(params, "Mem Wr", mem_wr_breakpoints, MODE_WATCH);
+}
+
+static void doCmdBreakRdIO(char *params) {
+   genericBreakpoint(params, "IO Rd", io_rd_breakpoints, MODE_BREAK);
+}
+
+static void doCmdWatchRdIO(char *params) {
+   genericBreakpoint(params, "IO Rd", io_rd_breakpoints, MODE_WATCH);
+}
+
+static void doCmdBreakWrIO(char *params) {
+   genericBreakpoint(params, "IO Wr", io_wr_breakpoints, MODE_BREAK);
+}
+
+static void doCmdWatchWrIO(char *params) {
+   genericBreakpoint(params, "IO Wr", io_wr_breakpoints, MODE_WATCH);
 }
 
 
@@ -612,6 +702,10 @@ static void doCmdClear(char *params) {
    found |= genericClear(addr, "Exec", exec_breakpoints);
    found |= genericClear(addr, "Mem Rd", mem_rd_breakpoints);
    found |= genericClear(addr, "Mem Wr", mem_wr_breakpoints);
+   if (HAS_IO) {
+      found |= genericClear(addr, "IO Rd", io_rd_breakpoints);
+      found |= genericClear(addr, "IO Wr", io_wr_breakpoints);
+   }
    if (!found) {
       printf("No breakpoints set at %x\r\n", addr);
    }
@@ -639,6 +733,14 @@ static void updateDebugFlag() {
    if (mem_wr_breakpoints[0].mode != MODE_LAST) {
       enable = 1;
    }
+   if (HAS_IO) {
+      if (io_rd_breakpoints[0].mode != MODE_LAST) {
+         enable = 1;
+      }
+      if (io_wr_breakpoints[0].mode != MODE_LAST) {
+         enable = 1;
+      }
+   }
    if (cpu->debug_enable(enable) != enable) {
       printf("cpu: %s debug enable = %d\r\n", cpu->cpu_name, enable);
    }
@@ -657,7 +759,11 @@ static void dispatchCmd(char *cmd) {
    while (cmd[cmdLen] >= 'a' && cmd[cmdLen] <= 'z') {
       cmdLen++;
    }
-   for (i = 0; i < NUM_CMDS; i++) {
+   int n = NUM_CMDS;
+   if (HAS_IO) {
+      n += NUM_IO_CMDS;
+   }
+   for (i = 0; i < n; i++) {
       cmdString = dbgCmdStrings[i];
       cmdStringLen = strlen(cmdString);
       minLen = cmdLen < cmdStringLen ? cmdLen : cmdStringLen;

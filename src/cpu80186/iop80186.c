@@ -28,6 +28,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "../copro-80186.h"
 #include "iop80186.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "../cpu_debug.h"
+#include "cpu80186_debug.h"
+#endif
+
 #define TUBE_ACCESS(ADDRESS)	(((ADDRESS) & 0xFFF1) == 0x0080)
 #define TUBE_CONVERT(PORT) 	((PORT >> 1) & 0x0007)
 
@@ -44,19 +49,30 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 void portout(uint16_t portnum, uint8_t value)
 {
-	if (TUBE_ACCESS(portnum))
-	{
+#ifdef INCLUDE_DEBUGGER
+   if (cpu80186_debug_enabled) {
+      debug_iowrite(&cpu80186_cpu_debug, portnum, value, 1);
+   }
+#endif
+	if (TUBE_ACCESS(portnum)) {
 		copro_80186_tube_write(TUBE_CONVERT(portnum), value);
 	}
 }
 
 uint8_t portin(uint16_t portnum)
 {
-	if (TUBE_ACCESS(portnum))
-	{
-		return copro_80186_tube_read(TUBE_CONVERT(portnum));
-	}
-	return 0xFF;
+   uint8_t value;
+	if (TUBE_ACCESS(portnum)) {
+		value = copro_80186_tube_read(TUBE_CONVERT(portnum));
+	} else {
+      value = 0xFF;
+   }
+#ifdef INCLUDE_DEBUGGER
+   if (cpu80186_debug_enabled) {
+      debug_ioread(&cpu80186_cpu_debug, portnum, value, 1);
+   }
+#endif
+	return value;
 }
 
 uint16_t portin16(uint16_t portnum)

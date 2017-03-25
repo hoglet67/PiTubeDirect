@@ -239,6 +239,8 @@ file( GLOB debugger_files
     mc6809nc/mc6809_debug.c
     mc6809nc/mc6809_dis.c
     mc6809nc/mc6809_dis.h
+    cpu80186/cpu80186_debug.c
+    cpu80186/cpu80186_debug.h
 )
 
 if( ${DEBUG} )
