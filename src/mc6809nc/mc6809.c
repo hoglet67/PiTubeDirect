@@ -22,13 +22,18 @@
 #include "mc6809.h"
 #include <stdarg.h>
 
-unsigned X, Y, S, U, PC;
-unsigned A, B, DP;
-unsigned H, N, Z, OV, C;
-unsigned EFI;
+#ifdef INCLUDE_DEBUGGER
+#include "mc6809_debug.h"
+#include "../cpu_debug.h"
+#endif
+
+static unsigned X, Y, S, U, PC;
+static unsigned A, B, DP;
+static unsigned H, N, Z, OV, C;
+static unsigned EFI;
 
 #ifdef H6309
-unsigned E, F, V, MD;
+static unsigned E, F, V, MD;
 
 #define MD_NATIVE 0x1		/* if 1, execute in 6309 mode */
 #define MD_FIRQ_LIKE_IRQ 0x2	/* if 1, FIRQ acts like IRQ */
@@ -36,16 +41,16 @@ unsigned E, F, V, MD;
 #define MD_DBZ 0x80		/* divide by zero */
 #endif /* H6309 */
 
-unsigned iPC;
+static unsigned iPC;
 
-unsigned ea = 0;
-long cpu_clk = 0;
-long cpu_period = 0;
-unsigned int irqs_pending = 0;
-unsigned int firqs_pending = 0;
-unsigned int cc_changed = 0;
+static unsigned ea = 0;
+static long cpu_clk = 0;
+static long cpu_period = 0;
+static unsigned int irqs_pending = 0;
+static unsigned int firqs_pending = 0;
+static unsigned int cc_changed = 0;
 
-unsigned *index_regs[4] = { &X, &Y, &U, &S };
+static unsigned *index_regs[4] = { &X, &Y, &U, &S };
 
 static int sync_flag;
 
@@ -1581,6 +1586,14 @@ int mc6809nc_execute (int cycles)
     {
 
       iPC = PC;
+
+#ifdef INCLUDE_DEBUGGER
+      if (mc6809nc_debug_enabled)
+      {
+         debug_preexec(&mc6809nc_cpu_debug, PC);
+      }
+#endif
+
       opcode = imm_byte ();
 
       switch (opcode)

@@ -7,8 +7,6 @@
 #include "Decode.h"
 #include "mem32016.h"
 #include "defs.h"
-//#include "Trap.h"
-#include "NDis.h"
 #include "Profile.h"
 
 #ifdef PROFILING

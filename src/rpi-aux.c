@@ -4,6 +4,10 @@
 #include "rpi-gpio.h"
 #include "info.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "debugger/debugger.h"
+#endif
+
 /* Define the system clock frequency in MHz for the baud rate calculation.
  This is clearly defined on the BCM2835 datasheet errata page:
  http://elinux.org/BCM2835_datasheet_errata */
@@ -28,8 +32,8 @@ aux_t* RPI_GetAux(void)
 #define IRQ_VECTOR 0x38
 
 static char tx_buffer[TX_BUFFER_SIZE];
-static int tx_head;
-static int tx_tail;
+static volatile int tx_head;
+static volatile int tx_tail;
 
 static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
 
@@ -40,6 +44,17 @@ static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
     if (iir & AUX_MUIIR_INT_NOT_PENDING) {
       /* No more interrupts */
       break;
+    }
+
+    /* Handle RxReady interrupt */
+    if (iir & AUX_MUIIR_INT_IS_RX) {
+#ifdef INCLUDE_DEBUGGER
+      /* Forward all received characters to the debugger */
+      debugger_rx_char(auxillary->MU_IO & 0xFF);
+#else
+      /* Else just exho characters */
+      RPI_AuxMiniUartWrite(auxillary->MU_IO & 0xFF);
+#endif
     }
 
     /* Handle TxEmpty interrupt */
@@ -53,13 +68,6 @@ static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
         auxillary->MU_IER &= ~AUX_MUIER_TX_INT;
       }
     }
-
-    /* Handle RxReady interrupt */
-    if (iir & AUX_MUIIR_INT_IS_RX) {
-      /* For now just echo all received characters */
-      RPI_AuxMiniUartWrite(auxillary->MU_IO & 0xFF);
-    }
-
   }
 }
 #endif

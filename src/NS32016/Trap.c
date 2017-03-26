@@ -37,7 +37,7 @@ void ShowTraps(void)
       {
          if (TrapFlags & Pattern)
          {
-            TrapTRACE("%s\n", TrapText[Count]);
+            TrapTRACE("%s", TrapText[Count]);
          }
       }
    }
@@ -47,20 +47,15 @@ void Dump(void)
 {
    n32016_ShowRegs(0xFF);
    ShowTraps();
-   TrapTRACE("\n");
-
    ProfileDump();
 }
 
 void n32016_dumpregs(char* pMessage)
 {
-   TrapTRACE("%s\n", pMessage);
+   TrapTRACE("%s", pMessage);
    Dump();
 
 #ifdef PC_SIMULATION
-#ifdef TRACE_TO_FILE
-   printf("\n");
-#endif
 
 #ifdef WIN32
    system("pause");

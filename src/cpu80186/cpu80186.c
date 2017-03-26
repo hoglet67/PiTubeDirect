@@ -42,6 +42,11 @@
 #include "mem80186.h"
 #include "iop80186.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "cpu80186_debug.h"
+#include "../cpu_debug.h"
+#endif
+
 uint64_t curtimer, lasttimer, timerfreq;
 
 uint8_t byteregtable[8] =
@@ -94,6 +99,20 @@ void intcall86(uint8_t intnum);
 	df = (temp16 >> 10) & 1; \
 	of = (temp16 >> 11) & 1; \
 }
+
+#ifdef INCLUDE_DEBUGGER
+uint32_t getinstraddr86() {
+   return segbase(savecs) + saveip;
+}
+
+uint16_t getflags86() {
+   return makeflagsword();
+}
+
+void putflags86(uint16_t value) {
+   decodeflagsword(value);
+}
+#endif
 
 #ifdef TRACE_N
 extern int i386_dasm_one();
@@ -1520,6 +1539,14 @@ void exec86(uint32_t execloops)
       savecs = segregs[regcs];
       saveip = ip;
       opcode = getmem8(segregs[regcs], ip);
+
+#ifdef INCLUDE_DEBUGGER
+      if (cpu80186_debug_enabled)
+      {
+         debug_preexec(&cpu80186_cpu_debug, segbase(savecs) + saveip);
+      }
+#endif
+
 #ifdef TRACE_N
       trace_instruction(savecs, saveip);
 #endif
