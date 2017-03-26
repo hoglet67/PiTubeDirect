@@ -764,7 +764,7 @@ static void daa (void)
     res += 0x60;
 
   C |= (res & 0x100);
-  A = N = Z = res &= 0xff;
+  A = N = Z = (res & 0xff);
   OV = 0;			/* fix this */
 
   cpu_clk -= 2;

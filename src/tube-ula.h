@@ -13,13 +13,15 @@
 // Uncomment to log all tube FIFO reads/writes (excluding status only)
 // #define DEBUG_TUBE
 
-extern int tube_irq;
+extern volatile int tube_irq;
 
 extern void disable_tube();
 
 //extern void tube_host_read(uint16_t addr);
 
 //extern void tube_host_write(uint16_t addr, uint8_t val);
+
+void tube_ack_nmi(void);
 
 extern uint8_t tube_parasite_read(uint32_t addr);
 
@@ -43,34 +45,6 @@ extern void tube_reset_performance_counters();
 
 extern void tube_log_performance_counters();
 
-#ifdef USE_GPU
 extern void start_vc_ula();
-#endif
-
-#ifdef USE_HW_MAILBOX
-
-static volatile inline int is_mailbox_non_empty() {
-   return !((*(volatile uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY);
-}
-
-static volatile inline unsigned int read_mailbox() {
-   return (*(volatile uint32_t *)MBOX0_READ);
-}
-
-#else
-
-extern volatile uint32_t *tube_mailbox;
-
-static volatile inline int is_mailbox_non_empty() {
-   return *tube_mailbox & ATTN_MASK;
-}
-
-static volatile inline unsigned int read_mailbox() {
-   unsigned int tube_mailbox_copy = *tube_mailbox;
-   *tube_mailbox &= ~(ATTN_MASK | OVERRUN_MASK);
-   return tube_mailbox_copy;
-}
-
-#endif
 
 #endif

@@ -77,28 +77,12 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   int ntube;
   int nrst;
   int unexpected = 0;
-#ifdef USE_GPU
+
   addr = (mail>>8) & 7;
   rnw   = ( (mail >>11 ) & 1);
   nrst  = !((mail >> 12) & 1) ;
   ntube =  ((mail >> 12) & 1) ;
-#else  
-  addr = 0;
-  if (mail & A0_MASK) {
-    addr += 1;
-  }
-  if (mail & A1_MASK) {
-    addr += 2;
-  }
-  if (mail & A2_MASK) {
-    addr += 4;
-  }
 
-  rnw   = (mail >> RNW_PIN) & 1;
-  ntube = (mail >> NTUBE_PIN) & 1;
-  nrst  = (mail >> NRST_PIN) & 1;
-#endif
-  
   // Handle a reset
   if (nrst == 0) {
     state = IDLE;

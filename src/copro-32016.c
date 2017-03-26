@@ -35,7 +35,6 @@ static void copro_32016_reset() {
 }
 
 void copro_32016_emulator() {
-   static unsigned int last_rst = 0;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
@@ -48,22 +47,18 @@ void copro_32016_emulator() {
       // might need to reduce if we see LATEs
       tubecycles = 8;
       n32016_exec();
-      if (is_mailbox_non_empty()) {
-         unsigned int tube_mailbox_copy = read_mailbox();
-         unsigned int intr = tube_io_handler(tube_mailbox_copy);
-         unsigned int rst = intr & 4;
+ 
+      if (tube_irq & RESET_BIT ) {
          // Reset the processor on active edge of rst
-         if (rst && !last_rst) {
-            // Exit if the copro has changed
-            if (copro != last_copro) {
-               break;
-            }
-            copro_32016_reset();
+         // Exit if the copro has changed
+         if (copro != last_copro) {
+            break;
          }
-         // NMI is edge sensitive, so only check after mailbox activity
-         // Note: 32016 uses tube_irq directly, so no nmi code here
-         last_rst = rst;
+         copro_32016_reset();
       }
+      // NMI is edge sensitive, so only check after mailbox activity
+      // Note: 32016 uses tube_irq directly, so no nmi code here   
+
       // IRQ is level sensitive, so check between every instruction
       // Note: 32016 uses tube_irq directly, so no irq code here
    }

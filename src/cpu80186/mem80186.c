@@ -38,7 +38,11 @@ void write86(uint32_t addr32, uint8_t value)
 {
   addr32 &= 0xFFFFFF;
   if (addr32 < 0xF0000) {
-    RAM[addr32] = value;
+#if USE_MEMORY_POINTER
+       RAM[addr32] = value;
+#else
+       *(unsigned char *)(addr32) = value;
+#endif
   }
 }
 
@@ -50,7 +54,11 @@ void writew86(uint32_t addr32, uint16_t value)
 
 uint8_t read86(uint32_t addr32)
 {
-  return (RAM[addr32 & 0xFFFFF]);
+#if USE_MEMORY_POINTER
+    return (RAM[addr32 & 0xFFFFF]);
+#else
+    return *(unsigned char *)(addr32& 0xFFFFF) ;
+#endif
 }
 
 uint16_t readw86(uint32_t addr32)

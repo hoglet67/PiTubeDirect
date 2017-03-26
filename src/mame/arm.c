@@ -743,7 +743,7 @@ void HandleALU(UINT32 insn)
     if ((rn = (insn & INSN_RN) >> INSN_RN_SHIFT) == eR15)
     {
       if (ARM_DEBUG_CORE)
-        logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,(insn&INSN_I?8:insn&0x10u?12:12));
+        logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,(insn&INSN_I?8:12));
 
         /* Docs strongly suggest the mode bits should be included here, but it breaks Captain
          America, as it starts doing unaligned reads */

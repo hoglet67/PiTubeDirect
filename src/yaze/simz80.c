@@ -84,10 +84,6 @@ static const unsigned char partab[256] = {
 
 #define parity(x)   partab[(x)&0xff]
 
-#ifdef DEBUG
-volatile int stopsim;
-#endif
-
 #define POP(x)   do {            \
    FASTREG y = GetBYTE_pp(SP);      \
    x = y + (GetBYTE_pp(SP) << 8);      \
@@ -160,11 +156,7 @@ simz80_execute(int n)
     FASTREG tmp2;
 #endif
 
-#ifdef DEBUG
-    while (!stopsim) {
-#else
     while (n--) {
-#endif
    switch(GetBYTE_pp(PC)) {
    case 0x00:         /* NOP */
       break;

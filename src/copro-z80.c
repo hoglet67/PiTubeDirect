@@ -286,7 +286,7 @@ int copro_z80_read_mem(unsigned int addr) {
       return copro_z80_ram[addr & 0xffff];
 #else
       return *(unsigned char *)(addr & 0xffff);
-#endif      
+#endif
    }
 }
 
@@ -295,7 +295,7 @@ void copro_z80_write_mem(unsigned int addr, unsigned char data) {
    copro_z80_ram[addr & 0xffff] = data;
 #else 
    *(unsigned char *)(addr & 0xffff) = data;
-#endif   
+#endif
 }
 
 int copro_z80_read_io(unsigned int addr) {
@@ -325,7 +325,7 @@ static void copro_z80_reset() {
 
 void copro_z80_emulator()
 {
-   static unsigned int last_rst = 0;
+   unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
@@ -337,32 +337,30 @@ void copro_z80_emulator()
    {
       // Execute emulator for one instruction
       simz80_execute(1);
-
-      if (is_mailbox_non_empty()) {
-         unsigned int tube_mailbox_copy = read_mailbox();
-         unsigned int intr = tube_io_handler(tube_mailbox_copy);
-         unsigned int nmi = intr & 2;
-         unsigned int rst = intr & 4;
+      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
+      if (tube_irq_copy) {
          // Reset the processor on active edge of rst
-         if (rst && !last_rst) {
+         if (tube_irq_copy & RESET_BIT) {
             // Exit if the copro has changed
             if (copro != last_copro) {
                break;
             }
             copro_z80_reset();
          }
-         // NMI is edge sensitive, so only check after mailbox activity
-         if (nmi) {
+
+         // NMI is edge sensitive,
+         if (tube_irq_copy & NMI_BIT) {
             overlay_rom = 1;
             simz80_NMI();
+            tube_ack_nmi();
          }
-         last_rst = rst;
-      }
-      // IRQ is level sensitive, so check between every instruction
-      if (tube_irq & 1) {
-         // check if the emulator IRQ is enabled
-         if (simz80_is_IRQ_enabled()) {
-            simz80_IRQ();
+
+         // IRQ is level sensitive,
+         if (tube_irq_copy & IRQ_BIT) {
+            // check if the emulator IRQ is enabled
+            if (simz80_is_IRQ_enabled()) {
+               simz80_IRQ();
+            }
          }
       }
    }

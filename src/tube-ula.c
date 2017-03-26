@@ -41,18 +41,9 @@
 #define GPU_TUBE_REG_ADDR 0x7e0000a0
 #define ARM_TUBE_REG_ADDR ((GPU_TUBE_REG_ADDR & 0x00FFFFFF) | PERIPHERAL_BASE)
 
-#ifdef USE_GPU
 #include "tubevc.h"
 #include "startup.h"
-#endif
 
-#ifndef USE_HW_MAILBOX
-volatile uint32_t *tube_mailbox;
-#endif
-
-#ifdef USE_GPU
-
-extern volatile uint32_t tube_regs_block[8];
 static volatile uint32_t *tube_regs;
 
 #define HBIT_7 (1 << 25)
@@ -67,37 +58,20 @@ static volatile uint32_t *tube_regs;
 #define BYTE_TO_WORD(data) ((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18))
 #define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) << 18) & 0xF0))
 
-#else
 
-extern volatile uint8_t tube_regs_block[8];
-static volatile uint8_t *tube_regs;
+static volatile uint32_t gpfsel_data_idle[6];
 
-#define HBIT_7 (1 << 7)
-#define HBIT_6 (1 << 6)
-#define HBIT_5 (1 << 5)
-#define HBIT_4 (1 << 4)
-#define HBIT_3 (1 << 3)
-#define HBIT_2 (1 << 2)
-#define HBIT_1 (1 << 1)
-#define HBIT_0 (1 << 0)
-
-#define BYTE_TO_WORD(data) (data)
-#define WORD_TO_BYTE(data) (data)
-
-#endif
-
-
-extern volatile uint32_t gpfsel_data_idle[3];
-extern volatile uint32_t gpfsel_data_driving[3];
 const static uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
-
+static char copro_command =0;
 static perf_counters_t pct;
 
 uint8_t ph1[24],ph3_1;
 uint8_t hp1,hp2,hp3[2],hp4;
 uint8_t pstat[4];
-int ph3pos,hp3pos;
-int ph1rdpos,ph1wrpos,ph1len;
+uint8_t ph3pos,hp3pos;
+uint8_t ph1rdpos,ph1wrpos,ph1len;
+volatile int tube_irq;
+
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
@@ -117,23 +91,6 @@ int ph1rdpos,ph1wrpos,ph1len;
 #define PSTAT2 pstat[1]
 #define PSTAT3 pstat[2]
 #define PSTAT4 pstat[3]
-
-#ifdef DEBUG_TRANSFERS
-uint32_t checksum_h = 0;
-uint32_t count_h = 0;
-uint32_t checksum_p = 0;
-uint32_t count_p = 0;
-#endif
-
-// The current Tube IRQ/NMI state is maintained in a global that the emulation code can see
-//
-// Bit 0 is the tube asserting irq
-// Bit 1 is the tube asserting nmi
-// Bit 2 is the tube asserting reset
-
-int tube_irq;
-
-static int tube_enabled;
 
 #ifdef DEBUG_TUBE
 
@@ -187,10 +144,55 @@ static void tube_updateints_NMI()
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 }
 */
+void tube_enable_fast6502(void)
+{
+   int cpsr = _disable_interrupts();
+   tube_irq |= FAST6502_BIT;
+   if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+   }
+}
+
+void tube_disable_fast6502(void)
+{
+   int cpsr = _disable_interrupts();
+   tube_irq &= ~FAST6502_BIT;
+   if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+   }
+}  
+
+void tube_ack_nmi(void)
+{
+   int cpsr = _disable_interrupts();
+   tube_irq &= ~NMI_BIT;
+   if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+   } 
+}
+
+void copro_command_excute(unsigned char copro_command,unsigned char val)
+{
+    switch (copro_command)
+    {
+      case 0 :      
+          if (val == 0)
+             copro_speed = 0;
+          else
+             copro_speed = (arm_speed/(1000000/256) / val);
+          LOG_DEBUG("New speed Copro = %u, %u\n", val, copro_speed);
+          return; 
+      
+      default :
+          break;
+    }
+          
+}      
+      
 static void tube_reset()
 {   
-   tube_enabled = 1;
-   tube_irq &= ~(4+2+1);
+   tube_irq |= TUBE_ENABLE_BIT;
+   tube_irq &= ~(RESET_BIT + NMI_BIT + IRQ_BIT);
    hp3pos = 0;
    ph1rdpos = ph1wrpos = ph1len = 0;
    ph3pos = 1;
@@ -251,7 +253,7 @@ static void tube_host_read(uint16_t addr)
          ph3pos--;
          PSTAT3 |= 0xC0;
          if (!ph3pos) HSTAT3 &= ~HBIT_7;
-         if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=2;
+         if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=NMI_BIT;
          //tube_updateints_NMI();
       }
       break;
@@ -270,10 +272,15 @@ static void tube_host_write(uint16_t addr, uint8_t val)
 {
    switch (addr & 7)
    {
-   case 0: /*Register 1 stat*/
-      
-      if (!tube_enabled)
+   case 0: /*Register 1 control/status*/
+
+      if (!(tube_irq & TUBE_ENABLE_BIT))
          return;
+
+      // Evaluate NMI before the control register written 
+      int nmi1 = 0;
+      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) nmi1 = 1;
+      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) nmi1 = 1;
     
       if (val & 0x80) {
          // Implement software tube reset
@@ -285,11 +292,27 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       } else {
          HSTAT1 &= ~BYTE_TO_WORD(val & 0x3F);
       }
-      tube_irq = 0;
-      if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= 1;
-      if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= 1;
-      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
-      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
+      
+      if ( HSTAT1 & HBIT_5) {
+         tube_irq |= RESET_BIT;
+      } else {
+         tube_irq &= ~RESET_BIT;
+      }
+
+      // Evaluate NMI again after the control register written 
+      int nmi2 = 0;
+      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) nmi2 = 1;
+      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) nmi2 = 1;
+      
+      // Only propagate significant rising edges
+      if (!nmi1 && nmi2) tube_irq |= NMI_BIT;
+
+      // And disable regardless
+      if (!nmi2) tube_irq &= ~(NMI_BIT);
+
+      tube_irq &= ~(IRQ_BIT);
+      if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= IRQ_BIT;
+      if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= IRQ_BIT;
       break;
    case 1: /*Register 1*/
       //if (!tube_enabled)
@@ -297,7 +320,10 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       hp1 = val;
       PSTAT1 |=  0x80;
       HSTAT1 &= ~HBIT_6;
-      if (HSTAT1 & HBIT_1) tube_irq  |= 1;//tube_updateints_IRQ();
+      if (HSTAT1 & HBIT_1) tube_irq  |= IRQ_BIT; //tube_updateints_IRQ();
+      break;
+   case 2:
+      copro_command = val;   
       break;
    case 3: /*Register 2*/
       //if (!tube_enabled)
@@ -307,13 +333,8 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       HSTAT2 &= ~HBIT_6;
       break;
    case 4:
-      if (val == 0)
-         copro_speed = 0;
-      else
-         copro_speed = (arm_speed/(1000000/256) / val);
-      LOG_DEBUG("New speed Copro = %u, %u\n", val, copro_speed);
-      return; 
-   
+      copro_command_excute(copro_command,val);
+      break;
    case 5: /*Register 3*/
      // if (!tube_enabled)
      //    return;
@@ -331,7 +352,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
             PSTAT3 |=  0x80;
             HSTAT3 &= ~HBIT_6;
          }
-         if ((HSTAT1 & HBIT_3) && (hp3pos > 1)) tube_irq|=2;
+         if ((HSTAT1 & HBIT_3) && (hp3pos > 1)) tube_irq |= NMI_BIT;
       }
       else
       {
@@ -339,7 +360,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          hp3pos = 1;
          PSTAT3 |=  0x80;
          HSTAT3 &= ~HBIT_6;
-         if (HSTAT1 & HBIT_3) tube_irq|=2;
+         if (HSTAT1 & HBIT_3) tube_irq |= NMI_BIT;
       }
       //tube_updateints_NMI();
       break;
@@ -363,7 +384,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          count_p = 0;
       }
 #endif
-       if (HSTAT1 & HBIT_2) tube_irq  |= 1; //tube_updateints_IRQ();
+       if (HSTAT1 & HBIT_2) tube_irq |= IRQ_BIT; //tube_updateints_IRQ();
       break;
    default:
       LOG_WARN("Illegal host write to %d\r\n", addr);
@@ -372,6 +393,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
 
 uint8_t tube_parasite_read(uint32_t addr)
 {
+   int cpsr = _disable_interrupts();
    uint8_t temp ;
    switch (addr & 7)
    {
@@ -385,7 +407,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          PSTAT1 &= ~0x80;
          HSTAT1 |=  HBIT_6;
          //tube_updateints_IRQ(); // clear irq if required reg 4 isnt irqing
-         if (!(PSTAT4 & 128)) tube_irq = tube_irq & (0xFF - 1);
+         if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT;
       }
       break;
    case 2: /*Register 2 stat*/
@@ -419,10 +441,8 @@ uint8_t tube_parasite_read(uint32_t addr)
             PSTAT3 &= ~0x80;
          }
          //tube_updateints_NMI();
-         // here we want to only really clear NMI if required, but setting irq might be simpler
-         tube_irq = tube_irq &(0xFF - 2);
-         if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0))) tube_irq|=2;
-         if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=2;
+         // here we want to only clear NMI if required
+         if ( ( !(ph3pos == 0) ) && ( (!(HSTAT1 & HBIT_4) && (!(hp3pos >0))) || (HSTAT1 & HBIT_4) ) ) tube_irq &= ~NMI_BIT;     
       }   
       break;
    case 6: /*Register 4 stat*/
@@ -435,7 +455,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          PSTAT4 &= ~0x80;
          HSTAT4 |=  HBIT_6;
          //tube_updateints_IRQ(); // clear irq if  reg 1 isnt irqing
-         if (!(PSTAT1 & 128)) tube_irq = tube_irq & (0xFF - 1);
+         if (!(PSTAT1 & 128)) tube_irq &= ~IRQ_BIT;
       }
       break;
    }
@@ -446,6 +466,9 @@ uint8_t tube_parasite_read(uint32_t addr)
       tube_index &= 0xffff;
    }
 #endif
+  if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+  }
    return temp;
 }
 
@@ -473,6 +496,7 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
 
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
+   int cpsr = _disable_interrupts();
 #ifdef DEBUG_TUBE
    if (addr & 1) {
       tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & 7) << 8) | val;
@@ -522,7 +546,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
             PSTAT3 &= ~0x40;
          }
          //NMI if other case isn't seting it
-         if (!(hp3pos > 1) ) tube_irq = tube_irq &(0xFF - 2);
+         if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
       }
       else
       {
@@ -530,9 +554,8 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          ph3pos = 1;
          HSTAT3 |=  HBIT_7;
          PSTAT3 &= ~0xC0;
-         tube_irq = tube_irq &(0xFF - 2);
          //NMI if other case isn't seting it
-         if (!(hp3pos > 0) ) tube_irq = tube_irq &(0xFF - 2);
+         if (!(hp3pos > 0) ) tube_irq &= ~NMI_BIT;
       }
       //tube_updateints_NMI();
       // here we want to only clear NMI if required
@@ -545,6 +568,9 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
       // tube_updateints_IRQ(); // the above can't change IRQ flag
       break;
    }
+     if ((cpsr & 0xc0) != 0xc0) {
+    _enable_interrupts();
+  }
 }
 
 // Returns bit 0 set if IRQ is asserted by the tube
@@ -569,31 +595,30 @@ int tube_io_handler(uint32_t mail)
 #endif
    // Toggle the LED on each tube access
    static int led = 0;
-	if (led) {
-	  LED_OFF();
-	} else {
-	  LED_ON();
-	}
-	led = ~led;
-#ifdef USE_GPU       
-   
-   if ((mail >> 12) & 1)        // Check for Reset
-      return tube_irq | 4;      // Set reset Flag
-   else    
-   {
-        addr = (mail>>8) & 7;
-        if ( ( (mail >>11 ) & 1) == 0) {  // Check read write flag
-            tube_host_write(addr, mail & 0xFF);
-        } else {
-            tube_host_read(addr);
-        }
-        if ((tube_enabled && (HSTAT1 & HBIT_5))) {
-            return tube_irq | 4;
-        } else {
-        return tube_irq & 3;
-        }
+   if (led) {
+      LED_OFF();
+   } else {
+      LED_ON();
    }
-#else        
+   led = ~led;
+#ifdef USE_GPU
+
+   if ((mail >> 12) & 1)        // Check for Reset
+   {
+      tube_irq |= RESET_BIT;
+      return tube_irq;      // Set reset Flag
+   }
+   else
+   {
+      addr = (mail>>8) & 7;
+      if ( ( (mail >>11 ) & 1) == 0) {  // Check read write flag
+         tube_host_write(addr, mail & 0xFF);
+      } else {
+         tube_host_read(addr);
+      }
+      return tube_irq ;
+   }
+#else
    addr = 0;
    if (mail & A0_MASK) {
       addr += 1;
@@ -633,7 +658,7 @@ int tube_io_handler(uint32_t mail)
       LOG_WARN("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
    }
 #endif
-   
+
 
    if (mail & GLITCH_MASK) {
       LOG_WARN("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
@@ -653,7 +678,7 @@ int tube_io_handler(uint32_t mail)
 #if TEST_MODE
    LOG_INFO("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
 #endif
-   
+
    if (nrst == 0 || (tube_enabled && (HSTAT1 & HBIT_5))) {
       return tube_irq | 4;
    } else {
@@ -696,30 +721,6 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
 #endif
 
-  // Configure GPIO to detect a rising edge of NRST
-  // Current code does not reqire this, as emulators poll for NRST to be released
-  // RPI_GpioBase->GPREN0 |= NRST_MASK;
-
-#ifndef USE_GPU
-  // Configure GPIO to detect a falling edge of NRST
-  RPI_GpioBase->GPFEN0 |= NRST_MASK;
-  // Make sure there are no pending detections
-  RPI_GpioBase->GPEDS0 = NRST_MASK;
-
-  // Configure GPIO to detect a falling edge of NTUBE
-  RPI_GpioBase->GPFEN0 |= NTUBE_MASK;
-  // Make sure there are no pending detections
-  RPI_GpioBase->GPEDS0 = NTUBE_MASK;
-
-  // This line enables IRQ interrupts
-  // Enable gpio_int[0] which is IRQ 49
-  //RPI_GetIrqController()->Enable_IRQs_2 = (1 << (49 - 32));
-
-  // This line enables FIQ interrupts
-  // Enable gpio_int[0] which is IRQ 49 as FIQ
-  RPI_GetIrqController()->FIQ_control = 0x80 + 49;
-#endif
-
   // Initialise the UART to 57600 baud
   RPI_AuxMiniUartInit( 115200, 8 );
 
@@ -734,8 +735,8 @@ void tube_init_hardware()
   // to set the data bus GPIOs as inputs (idle) and output (driving)
   for (i = 0; i < 3; i++) {
      gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
-     gpfsel_data_driving[i] = gpfsel_data_idle[i] | magic[i];
-     LOG_DEBUG("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_driving[i]);
+     gpfsel_data_idle[i+3] = gpfsel_data_idle[i] | magic[i];
+     LOG_DEBUG("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_idle[i+3]);
   }
 
   // Print the GPIO numbers of A0, A1 and A2
@@ -766,32 +767,13 @@ void tube_init_hardware()
    pct.counter[1] = 0;
 #endif
 
-#ifdef USE_GPU
    tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
-#else
-   tube_regs = &tube_regs_block[0];
-#endif
 
-#ifndef USE_HW_MAILBOX
-#ifdef USE_GPU
-   tube_mailbox = (uint32_t *)(L2_CACHED_MEM_BASE + 0x20);
-#else
-   tube_mailbox = &tube_mailbox_block;
-#endif
-#endif
-   
    hp1 = hp2 = hp4 = hp3[0]= hp3[1]=0;
-  
 }
 
 int tube_is_rst_active() {
-   // It's necessary to keep servicing the tube_mailbox
-   // otherwise a software reset sequence won't get handled properly
-   if (is_mailbox_non_empty()) {
-      unsigned int tube_mailbox_copy = read_mailbox();
-      tube_io_handler(tube_mailbox_copy);
-   }
-   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || (tube_enabled && (HSTAT1 & HBIT_5));
+   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || ((tube_irq & TUBE_ENABLE_BIT) && (HSTAT1 & HBIT_5));
 }
 #if 0
 static void tube_wait_for_rst_active() {
@@ -833,11 +815,6 @@ void tube_wait_for_rst_release() {
 //#endif
    // Reset all the TUBE ULA registers
    tube_reset();
-#ifndef USE_HW_MAILBOX
-   // Clear any mailbox events that occurred during reset
-   // Omit this and you sometimes see a second reset logged on reset release (65tube Co Pro)
-   *tube_mailbox = 0;
-#endif
 }
 
 void tube_reset_performance_counters() {
@@ -868,13 +845,11 @@ void tube_log_performance_counters() {
 
 void disable_tube() {
    int i;
-   tube_enabled = 0;
+   tube_irq &= ~TUBE_ENABLE_BIT;
    for (i = 0; i < 8; i++) {
       tube_regs[i] = 0xfe;
    }
 }
-
-#ifdef USE_GPU
 // todo : we need to sort out caches memory map etc here
 void start_vc_ula()
 {  int func,r0,r1, r2,r3,r4,r5;
@@ -883,11 +858,8 @@ void start_vc_ula()
    func = (int) &tubevc_asm[0];
    r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
    r1   = (int) &gpfsel_data_idle;       // gpfsel_data_idle
-#ifdef USE_HW_MAILBOX
    r2   = 0;
-#else
-   r2   = (int) tube_mailbox;            // tube mailbox to be replaced later with VC->ARM mailbox
-#endif
+
    r3   = (A2_PIN << 16) | (A1_PIN << 8) | (A0_PIN); // address bus GPIO mapping
    r4   = 0;
 #ifdef HAS_40PINS
@@ -911,7 +883,7 @@ void start_vc_ula()
    LOG_DEBUG("VidCore   r2 = %08x\r\n", r2);
    LOG_DEBUG("VidCore   r3 = %08x\r\n", r3);
    LOG_DEBUG("VidCore   r4 = %08x\r\n", r4);
-   LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);   
+   LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
    RPI_PropertyProcessNoCheck();
@@ -927,5 +899,5 @@ void start_vc_ula()
 //       LOG_DEBUG("%08x ?\r\n", r0);
 //    }
 // }
+
 }
-#endif

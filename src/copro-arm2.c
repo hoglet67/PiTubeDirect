@@ -43,7 +43,11 @@ UINT8 copro_arm2_read8(int addr)
   switch (type)
   {
     case 0:
+#if USE_MEMORY_POINTER       
       return *(UINT8*) (arm2_ram + (addr & RAM_MASK8));
+#else
+      return *(UINT8*) ( (addr & RAM_MASK8));
+#endif
     case 1:
       return tube_parasite_read((addr >> 2) & 7);
     case 3:
@@ -66,7 +70,11 @@ UINT32 copro_arm2_read32(int addr)
   switch (type)
   {
     case 0:
+#if USE_MEMORY_POINTER       
       result = *(UINT32*) (arm2_ram + (addr & RAM_MASK32));
+#else
+      result = *(UINT32*) ((addr & RAM_MASK32));
+#endif
     break;
     case 1:
       result = tube_parasite_read((addr >> 2) & 7);
@@ -98,7 +106,11 @@ void copro_arm2_write8(int addr, UINT8 data)
   switch (type)
   {
     case 0:
+#if USE_MEMORY_POINTER       
       *(UINT8*) (arm2_ram + (addr & RAM_MASK8)) = data;
+#else
+      *(UINT8*) ( (addr & RAM_MASK8)) = data;
+#endif
     break;
     case 1:
       tube_parasite_write((addr >> 2) & 7, data);
@@ -112,7 +124,11 @@ void copro_arm2_write32(int addr, UINT32 data)
   switch (type)
   {
     case 0:
+#if USE_MEMORY_POINTER       
       *(UINT32*) (arm2_ram + (addr & RAM_MASK32)) = data;
+#else
+      *(UINT32*) ( (addr & RAM_MASK32)) = data;
+#endif
     break;
     case 1:
       tube_parasite_write((addr >> 2) & 7, data);
@@ -146,7 +162,7 @@ static void copro_arm2_reset()
 
 void copro_arm2_emulator()
 {
-   static unsigned int last_rst = 0;
+   unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
@@ -157,26 +173,25 @@ void copro_arm2_emulator()
    while (1)
    {
       arm2_execute_run(1);
-      if (is_mailbox_non_empty()) {
-         unsigned int tube_mailbox_copy = read_mailbox();
-         unsigned int intr = tube_io_handler(tube_mailbox_copy);
-         unsigned int nmi = intr & 2;
-         unsigned int rst = intr & 4;
+      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
+      if (tube_irq_copy ) {
          // Reset the processor on active edge of rst
-         if (rst && !last_rst) {
+         if ( tube_irq_copy & RESET_BIT ) {
             // Exit if the copro has changed
             if (copro != last_copro) {
                break;
             }
             copro_arm2_reset();
          }
+         
          // NMI is edge sensitive, so only check after mailbox activity
-         if (nmi) {
+         if (tube_irq_copy & NMI_BIT) {
             arm2_execute_set_input(ARM_FIRQ_LINE, 1);
+            tube_ack_nmi();
          }
-         last_rst = rst;
+         
+         // IRQ is level sensitive, so check between every instruction
+         arm2_execute_set_input(ARM_IRQ_LINE, tube_irq_copy & IRQ_BIT);
       }
-      // IRQ is level sensitive, so check between every instruction
-      arm2_execute_set_input(ARM_IRQ_LINE, tube_irq & 1);
    }
 }

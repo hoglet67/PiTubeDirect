@@ -62,7 +62,7 @@ static const char * emulator_names[] = {
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator,
    copro_65tube_emulator,
-#if DEBUG   
+#if 1   
    copro_lib6502_emulator,
    copro_lib6502_emulator,
 #else
@@ -108,23 +108,18 @@ unsigned char * copro_mem_reset(int length)
 
 void init_emulator() {
    _disable_interrupts();
-
-#if !defined(USE_GPU)  
-   // Default to the normal FIQ handler
-   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag0;
-#endif
    
-#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
-   // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
-   // that flag events from the ISR using the ip register
-   if (copro == COPRO_65TUBE_0 || copro == COPRO_65TUBE_1) {
-      int i;
-      for (i = 0; i < 256; i++) {
-         Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
-      }
-      *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
-   }
-#endif
+      // Set up FIQ handler 
+   
+   tube_irq = 0; // Make sure everything is clear
+   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
+   
+   // Direct Mail box to FIQ handler
+   
+   (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
+   (*(volatile uint32_t *)FIQCTRL) = 0x80 +65;       
+   
+
 #ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
       *((uint32_t *) SWI_VECTOR) = (uint32_t) copro_armnative_swi_handler;
@@ -151,14 +146,14 @@ void run_core() {
    // In case the VFP unit is not enabled
 #ifdef DEBUG
    int i;
-	RPI_AuxMiniUartWrite('C');
-	RPI_AuxMiniUartWrite('O');
-	RPI_AuxMiniUartWrite('R');
-	RPI_AuxMiniUartWrite('E');
+   RPI_AuxMiniUartWrite('C');
+   RPI_AuxMiniUartWrite('O');
+   RPI_AuxMiniUartWrite('R');
+   RPI_AuxMiniUartWrite('E');
    i = _get_core();
-	RPI_AuxMiniUartWrite('0' + i);
-	RPI_AuxMiniUartWrite('\r');
-	RPI_AuxMiniUartWrite('\n');
+   RPI_AuxMiniUartWrite('0' + i);
+   RPI_AuxMiniUartWrite('\r');
+   RPI_AuxMiniUartWrite('\n');
 #endif
    
    enable_MMU_and_IDCaches();
@@ -224,11 +219,10 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    copro = get_copro_number();
    get_copro_speed();
    
-#ifdef USE_GPU
+
       LOG_DEBUG("Staring VC ULA\r\n");
       start_vc_ula();
       LOG_DEBUG("Done\r\n");
-#endif
 
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
@@ -241,9 +235,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
   init_emulator();
 
   // Lock the Tube Interrupt handler into cache for BCM2835 based Pis
-#if !defined(RPI2) && !defined(RPI3) && !defined(USE_GPU)
-   lock_isr();
-#endif
 
 #ifdef HAS_MULTICORE
 
