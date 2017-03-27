@@ -9,6 +9,7 @@
 #include "../rpi-aux.h"
 #include "../cpu_debug.h"
 
+#include "../lib6502_debug.h"
 #include "../cpu80186/cpu80186_debug.h"
 #include "../mc6809nc/mc6809_debug.h"
 #include "../mame/arm_debug.h"
@@ -25,8 +26,8 @@ extern unsigned int copro;
 cpu_debug_t *cpu_debug_list[] = {
    NULL,                //  0 65tube
    NULL,                //  1 65tube
-   NULL,                //  2 lib6502
-   NULL,                //  3 lib6502
+   &lib6502_cpu_debug,  //  2 lib6502
+   &lib6502_cpu_debug,  //  3 lib6502
    NULL,                //  4 Z80
    NULL,                //  5 Z80
    NULL,                //  4 Z80

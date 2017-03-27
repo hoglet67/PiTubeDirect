@@ -37,8 +37,6 @@
 typedef uint8_t  byte;
 typedef uint16_t word;
 
-extern int tracing;
-
 enum {
   flagN= (1<<7),	/* negative 	 */
   flagV= (1<<6),	/* overflow 	 */

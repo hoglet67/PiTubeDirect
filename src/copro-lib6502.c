@@ -20,7 +20,12 @@
 #include "copro-lib6502.h"
 #include "startup.h"
 
-const int tracing=0;
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#include "lib6502_debug.h"
+#endif
+
+M6502 *copro_lib6502_mpu;
 
 static void copro_lib6502_poweron_reset(M6502 *mpu) {
   // Wipe memory
@@ -42,6 +47,35 @@ static void copro_lib6502_reset(M6502 *mpu) {
   tube_reset_performance_counters();
 }
 
+
+#ifdef INCLUDE_DEBUGGER
+
+int copro_lib6502_mem_read(M6502 *mpu, uint16_t addr, uint8_t data) {
+  if ((addr & 0xfff8) == 0xfef8) {
+     data = tube_parasite_read(addr);
+  } else {
+     data = mpu->memory[addr];
+  }
+  if (lib6502_debug_enabled) {
+    debug_memread(&lib6502_cpu_debug, addr, data, 1);
+  }
+  return data;
+}
+
+int copro_lib6502_mem_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
+  if (lib6502_debug_enabled) {
+    debug_memwrite(&lib6502_cpu_debug, addr, data, 1);
+  }
+  if ((addr & 0xfff8) == 0xfef8) {
+     tube_parasite_write(addr, data);
+  } else {
+     mpu->memory[addr] = data;;
+  }
+  return 0;
+}
+
+#else
+
 static int copro_lib6502_tube_read(M6502 *mpu, uint16_t addr, uint8_t data) {
   return tube_parasite_read(addr);
 }
@@ -51,9 +85,16 @@ static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
   return 0;
 }
 
+#endif
+
 static int last_copro;
 
 static int copro_lib6502_poll(M6502 *mpu) {
+#ifdef INCLUDE_DEBUGGER
+   if (lib6502_debug_enabled) {
+      debug_preexec(&lib6502_cpu_debug, mpu->registers->pc);
+   }
+#endif
    unsigned int tube_irq_copy;
    tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
    if (tube_irq_copy) {
@@ -83,17 +124,26 @@ static int copro_lib6502_poll(M6502 *mpu) {
 }
 
 void copro_lib6502_emulator() {
-  uint16_t addr;
+  uint32_t addr;
 
   // Remember the current copro so we can exit if it changes
   last_copro = copro;
 
-  M6502 *mpu= M6502_new(0, 0, 0);
+  M6502 *mpu = M6502_new(0, 0, 0);
 
+  copro_lib6502_mpu = mpu;
+
+#ifdef INCLUDE_DEBUGGER
+  for (addr= 0x0000; addr <= 0xffff; addr++) {
+    M6502_setCallback(mpu, read,  addr, copro_lib6502_mem_read);
+    M6502_setCallback(mpu, write, addr, copro_lib6502_mem_write);
+  }
+#else
   for (addr= 0xfef8; addr <= 0xfeff; addr++) {
     M6502_setCallback(mpu, read,  addr, copro_lib6502_tube_read);
     M6502_setCallback(mpu, write, addr, copro_lib6502_tube_write);
   }
+#endif
 
   copro_lib6502_poweron_reset(mpu);
   copro_lib6502_reset(mpu);
