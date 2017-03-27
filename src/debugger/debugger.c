@@ -79,31 +79,31 @@ static breakpoint_t mem_wr_breakpoints[MAXBKPTS + 1];
 static breakpoint_t io_rd_breakpoints[MAXBKPTS + 1];
 static breakpoint_t io_wr_breakpoints[MAXBKPTS + 1];
 
-static void doCmdBreakI(char *params);
-static void doCmdBreakRdIO(char *params);
-static void doCmdBreakRdMem(char *params);
-static void doCmdBreakWrIO(char *params);
-static void doCmdBreakWrMem(char *params);
+static void doCmdBreak(char *params);
+static void doCmdBreakIn(char *params);
+static void doCmdBreakOut(char *params);
+static void doCmdBreakRd(char *params);
+static void doCmdBreakWr(char *params);
 static void doCmdClear(char *params);
 static void doCmdContinue(char *params);
 static void doCmdCrc(char *params);
 static void doCmdDis(char *params);
 static void doCmdFill(char *params);
 static void doCmdHelp(char *params);
+static void doCmdIn(char *params);
 static void doCmdList(char *params);
 static void doCmdMem(char *params);
-static void doCmdReadIO(char *params);
-static void doCmdReadMem(char *params);
+static void doCmdOut(char *params);
+static void doCmdRd(char *params);
 static void doCmdRegs(char *params);
 static void doCmdStep(char *params);
 static void doCmdTrace(char *params);
-static void doCmdWatchI(char *params);
-static void doCmdWatchRdIO(char *params);
-static void doCmdWatchRdMem(char *params);
-static void doCmdWatchWrIO(char *params);
-static void doCmdWatchWrMem(char *params);
-static void doCmdWriteIO(char *params);
-static void doCmdWriteMem(char *params);
+static void doCmdWatch(char *params);
+static void doCmdWatchIn(char *params);
+static void doCmdWatchOut(char *params);
+static void doCmdWatchRd(char *params);
+static void doCmdWatchWr(char *params);
+static void doCmdWr(char *params);
 
 // The command process accepts abbreviated forms, for example
 // if h is entered, then help will match.
@@ -118,23 +118,23 @@ static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
   "fill",
   "crc",
   "mem",
-  "rdm",
-  "wrm",
+  "rd",
+  "wr",
   "trace",
   "clear",
-  "blist",
-  "breakx",
-  "watchx",
-  "breakrm",
-  "watchrm",
-  "breakwm",
-  "watchwm",
-  "rdio",
-  "wrio",
-  "breakri",
-  "watchri",
-  "breakwi",
-  "watchwi",
+  "list",
+  "break",
+  "watch",
+  "breakr",
+  "watchr",
+  "breakw",
+  "watchw",
+  "in",
+  "out",
+  "breaki",
+  "watchi",
+  "breako",
+  "watcho",
 };
 
 // Must be kept in step with dbgCmdStrings (just above)
@@ -147,23 +147,23 @@ static void (*dbgCmdFuncs[NUM_CMDS + NUM_IO_CMDS])(char *params) = {
   doCmdFill,
   doCmdCrc,
   doCmdMem,
-  doCmdReadMem,
-  doCmdWriteMem,
+  doCmdRd,
+  doCmdWr,
   doCmdTrace,
   doCmdClear,
   doCmdList,
-  doCmdBreakI,
-  doCmdWatchI,
-  doCmdBreakRdMem,
-  doCmdWatchRdMem,
-  doCmdBreakWrMem,
-  doCmdWatchWrMem,
-  doCmdReadIO,
-  doCmdWriteIO,
-  doCmdBreakRdIO,
-  doCmdWatchRdIO,
-  doCmdBreakWrIO,
-  doCmdWatchWrIO
+  doCmdBreak,
+  doCmdWatch,
+  doCmdBreakRd,
+  doCmdWatchRd,
+  doCmdBreakWr,
+  doCmdWatchWr,
+  doCmdIn,
+  doCmdOut,
+  doCmdBreakIn,
+  doCmdWatchIn,
+  doCmdBreakOut,
+  doCmdWatchOut
 };
 
 
@@ -532,7 +532,7 @@ static void doCmdMem(char *params) {
    memAddr += 0x100;
 }
 
-static void doCmdReadMem(char *params) {
+static void doCmdRd(char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -541,7 +541,7 @@ static void doCmdReadMem(char *params) {
    printf("Rd Mem: %x = %02x\r\n", addr, data);
 }
 
-static void doCmdWriteMem(char *params) {
+static void doCmdWr(char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -550,7 +550,7 @@ static void doCmdWriteMem(char *params) {
    memwrite(cpu, addr++, data);
 }
 
-static void doCmdReadIO(char *params) {
+static void doCmdIn(char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -559,7 +559,7 @@ static void doCmdReadIO(char *params) {
    printf("Rd IO: %x = %02x\r\n", addr, data);
 }
 
-static void doCmdWriteIO(char *params) {
+static void doCmdOut(char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -624,43 +624,43 @@ static void doCmdList(char *params) {
    }
 }
 
-static void doCmdBreakI(char *params) {
+static void doCmdBreak(char *params) {
    genericBreakpoint(params, "Exec", exec_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatchI(char *params) {
+static void doCmdWatch(char *params) {
    genericBreakpoint(params, "Exec", exec_breakpoints, MODE_WATCH);
 }
 
-static void doCmdBreakRdMem(char *params) {
+static void doCmdBreakRd(char *params) {
    genericBreakpoint(params, "Mem Rd", mem_rd_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatchRdMem(char *params) {
+static void doCmdWatchRd(char *params) {
    genericBreakpoint(params, "Mem Rd", mem_rd_breakpoints, MODE_WATCH);
 }
 
-static void doCmdBreakWrMem(char *params) {
+static void doCmdBreakWr(char *params) {
    genericBreakpoint(params, "Mem Wr", mem_wr_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatchWrMem(char *params) {
+static void doCmdWatchWr(char *params) {
    genericBreakpoint(params, "Mem Wr", mem_wr_breakpoints, MODE_WATCH);
 }
 
-static void doCmdBreakRdIO(char *params) {
+static void doCmdBreakIn(char *params) {
    genericBreakpoint(params, "IO Rd", io_rd_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatchRdIO(char *params) {
+static void doCmdWatchIn(char *params) {
    genericBreakpoint(params, "IO Rd", io_rd_breakpoints, MODE_WATCH);
 }
 
-static void doCmdBreakWrIO(char *params) {
+static void doCmdBreakOut(char *params) {
    genericBreakpoint(params, "IO Wr", io_wr_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatchWrIO(char *params) {
+static void doCmdWatchOut(char *params) {
    genericBreakpoint(params, "IO Wr", io_wr_breakpoints, MODE_WATCH);
 }
 
