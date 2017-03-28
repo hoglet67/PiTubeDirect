@@ -165,7 +165,7 @@ uint32_t read_x32(uint32_t addr)
 #ifdef INCLUDE_DEBUGGER
       if (n32016_debug_enabled)
       {
-         debug_memread(&n32016_cpu_debug, addr, val, 3);
+         debug_memread(&n32016_cpu_debug, addr, val, 4);
       }
 #endif
       return val;
