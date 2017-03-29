@@ -16,6 +16,8 @@ extern void arm_fiq_handler_flag1();
 
 extern volatile int tube_irq;
 
+// For Pi Direct we can just execute cycles until and event 
+
 #define tubeContinueRunning() (!(tube_irq & (RESET_BIT | NMI_BIT | IRQ_BIT)))
 
 #define tubeUseCycles(n)
@@ -24,7 +26,7 @@ extern volatile int tube_irq;
 //
 //#define tubeContinueRunning() (tube_cycles)
 //
-//#define tubeUseCycles(n)  tubecycles -= n
+//#define tubeUseCycles(n)  tube_cycles -= n
 //
 //}
 

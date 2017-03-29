@@ -41,6 +41,7 @@
 #include "cpu80186.h"
 #include "mem80186.h"
 #include "iop80186.h"
+#include "../tube.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "cpu80186_debug.h"
@@ -1491,7 +1492,7 @@ void reset(void)
   segregs[regcs] = 0xF000;
 }
 
-void exec86(uint32_t execloops)
+void exec86(uint32_t tube_cycles)
 {
   uint8_t docontinue;
   static uint16_t firstip;
@@ -1507,8 +1508,7 @@ void exec86(uint32_t execloops)
   }
 #endif
 
-  while (execloops--)
-  {
+  do {
     if (trap_toggle)
     {
       intcall86(1);
@@ -3802,5 +3802,6 @@ void exec86(uint32_t execloops)
         }
         break;
       }
-    }
+    tubeUseCycles(1); 
+    }while (tubeContinueRunning());
   }
