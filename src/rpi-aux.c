@@ -120,12 +120,14 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   RPI_SetGpioPinFunction(RPI_GPIO14, FS_ALT5);
   RPI_SetGpioPinFunction(RPI_GPIO15, FS_ALT5);
 
+  // Enable weak pullups
+  RPI_GpioBase->GPPUD = 2;
   // Note: the delay values are important, with 150 the receiver did not work!
-  RPI_GpioBase->GPPUD = 0;
   for (i = 0; i < 1000; i++)
   {
   }
   RPI_GpioBase->GPPUDCLK0 = (1 << 14) | (1 << 15);
+  // Note: the delay values are important, with 150 the receiver did not work!
   for (i = 0; i < 1000; i++)
   {
   }
