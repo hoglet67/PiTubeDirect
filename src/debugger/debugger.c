@@ -123,8 +123,8 @@ static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
   "trace",
   "clear",
   "list",
-  "break",
-  "watch",
+  "breakx",
+  "watchx",
   "breakr",
   "watchr",
   "breakw",
@@ -291,7 +291,7 @@ static inline void generic_memory_access(cpu_debug_t *cpu, uint32_t addr, uint32
          printf("%s watchpoint hit at %"PRIx32" : %"PRIx32" = %"PRIx32"\r\n", type, pc, addr, value);
          prompt();
       }
-      prompt();
+      while (stopped);
    }
 }
 
@@ -431,7 +431,7 @@ static void doCmdRegs(char *params) {
    const char **reg = cpu->reg_names;
    char name[100];
    char value[100];
-   int num_params = sscanf(params, "%s %s", name, value);
+   int num_params = sscanf(params, "%100s %100s", name, value);
    if (num_params > 0) {
       int i = 0;
       while (*reg) {
@@ -448,7 +448,7 @@ static void doCmdRegs(char *params) {
          reg++;
          i++;
       }
-      printf("Register %s does not exist in the %s\r\n", strbuf, cpu->cpu_name);         
+      printf("Register %s does not exist in the %s\r\n", name, cpu->cpu_name);         
    } else {
       int i = 0;
       while (*reg) {
