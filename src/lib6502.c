@@ -34,6 +34,12 @@
 
 #include "lib6502.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "lib6502_debug.h"
+#endif
+
+extern volatile int tube_irq;
+
 typedef uint8_t  byte;
 typedef uint16_t word;
 
@@ -74,6 +80,32 @@ static int elapsed;
 #endif
 /* memory access (indirect if callback installed) -- ARGUMENTS ARE EVALUATED MORE THAN ONCE! */
 
+#ifdef INCLUDE_DEBUGGER
+
+byte tmpr;
+
+#define putMemory(ADDR, BYTE)                   \
+  if (lib6502_debug_enabled) {                  \
+    externalise();                              \
+    debug_memwrite(&lib6502_cpu_debug, ADDR, BYTE, 1); \
+    internalise();                              \
+  }                                             \
+  ( writeCallback[ADDR]				\
+      ? writeCallback[ADDR](mpu, ADDR, BYTE)	\
+      : (memory[ADDR]= BYTE) )
+
+#define getMemory(ADDR)				\
+  tmpr = ( readCallback[ADDR]			\
+    ?  readCallback[ADDR](mpu, ADDR, 0)	\
+    :  memory[ADDR] ) ;				\
+  if (lib6502_debug_enabled) {                  \
+    externalise();                              \
+    debug_memread(&lib6502_cpu_debug, ADDR, tmpr, 1);  \
+    internalise();                              \
+  }
+
+#else
+
 #define putMemory(ADDR, BYTE)			\
   ( writeCallback[ADDR]				\
       ? writeCallback[ADDR](mpu, ADDR, BYTE)	\
@@ -83,6 +115,8 @@ static int elapsed;
   ( readCallback[ADDR]				\
       ?  readCallback[ADDR](mpu, ADDR, 0)	\
       :  memory[ADDR] )
+
+#endif
 
 /* stack access (always direct) */
 
@@ -404,7 +438,8 @@ static int elapsed;
 #define asl(ticks, adrmode)			\
   adrmode(ticks);				\
   {						\
-    unsigned int i= getMemory(ea) << 1;		\
+    byte B= getMemory(ea);                      \
+    unsigned int i= B << 1;                     \
     putMemory(ea, i);				\
     fetch();					\
     setNZC(i & 0x80, !i, i >> 8);		\
@@ -446,7 +481,8 @@ static int elapsed;
 #define rol(ticks, adrmode)			\
   adrmode(ticks);				\
   {						\
-    word b= (getMemory(ea) << 1) | getC();	\
+    byte tmp = getMemory(ea);                   \
+    word b= (tmp << 1) | getC();                \
     fetch();					\
     putMemory(ea, b);				\
     setNZC(b & 0x80, !(b & 0xFF), b >> 8);	\
@@ -631,7 +667,9 @@ static int elapsed;
   P |= flagI;							\
   P &= !flagD;							\
   {								\
-    word hdlr= getMemory(0xfffe) + (getMemory(0xffff) << 8);	\
+    byte blo = getMemory(0xfffe);                               \
+    byte bhi = getMemory(0xffff);                               \
+    word hdlr= blo + (bhi << 8);                                \
     if (mpu->callbacks->call[hdlr])				\
       {								\
 	word addr;						\
@@ -869,10 +907,16 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
   register void **itabp= &itab[0];
   register void  *tpc;
 
-# define pollints()             externalise(); if (poll(mpu)) return; internalise()
+#ifdef INCLUDE_DEBUGGER
+# define nextdebug() 	   if (lib6502_debug_enabled) { lib6502_last_PC = PC - 1; externalise(); debug_preexec(&lib6502_cpu_debug, lib6502_last_PC); internalise(); }
+#else
+# define nextdebug()
+#endif
+
+# define pollints()        if (tube_irq & 7) { externalise(); if (poll(mpu)) return; internalise(); }
 # define begin()				fetch();  next()
 # define fetch()				pollints(); tpc= itabp[memory[PC++]]
-# define next()				    goto *tpc
+# define next()            nextdebug() goto *tpc
 # define dispatch(num, name, mode, cycles)	_##num: name(cycles, mode) //oops();  next()
 # define end()
 

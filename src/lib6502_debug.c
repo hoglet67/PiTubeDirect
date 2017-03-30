@@ -15,6 +15,8 @@
 
 int lib6502_debug_enabled = 0;
 
+volatile int lib6502_last_PC = 0;
+
 enum register_numbers {
    i_A,
    i_X,
@@ -162,7 +164,7 @@ static void dbg_reg_parse(int which, char *strval) {
 };
 
 static uint32_t dbg_get_instr_addr() {
-   return copro_lib6502_mpu->registers->pc;
+   return lib6502_last_PC;
 }
 
 cpu_debug_t lib6502_cpu_debug = {
