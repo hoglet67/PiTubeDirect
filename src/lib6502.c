@@ -104,6 +104,13 @@ byte tmpr;
     internalise();                              \
   }
 
+#define trap(ADDR, n)                           \
+  if (lib6502_debug_enabled) {                  \
+    externalise();                              \
+    debug_trap(&lib6502_cpu_debug, ADDR, n);    \
+    internalise();                              \
+  }
+
 #else
 
 #define putMemory(ADDR, BYTE)			\
@@ -115,6 +122,8 @@ byte tmpr;
   ( readCallback[ADDR]				\
       ?  readCallback[ADDR](mpu, ADDR, 0)	\
       :  memory[ADDR] )
+
+#define trap(ADDR, n)
 
 #endif
 
@@ -660,6 +669,7 @@ byte tmpr;
 
 #define brk(ticks, adrmode)					\
   tick(ticks);							\
+  trap(PC - 1, 0)                                               \
   PC++;								\
   push(PC >> 8);						\
   push(PC & 0xff);						\

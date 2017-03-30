@@ -44,7 +44,7 @@ cpu_debug_t *cpu_debug_list[] = {
    NULL,                // 15 Native ARM
 };
 
-#define NUM_CMDS 20
+#define NUM_CMDS 21
 #define NUM_IO_CMDS 6
 
 // The Atom CRC Polynomial
@@ -101,6 +101,7 @@ static void doCmdRd(char *params);
 static void doCmdRegs(char *params);
 static void doCmdStep(char *params);
 static void doCmdTrace(char *params);
+static void doCmdTraps(char *params);
 static void doCmdWatch(char *params);
 static void doCmdWatchIn(char *params);
 static void doCmdWatchOut(char *params);
@@ -118,6 +119,7 @@ static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
   "step",
   "next",
   "regs",
+  "traps",
   "dis",
   "fill",
   "crc",
@@ -148,6 +150,7 @@ static void (*dbgCmdFuncs[NUM_CMDS + NUM_IO_CMDS])(char *params) = {
   doCmdStep,
   doCmdNext,
   doCmdRegs,
+  doCmdTraps,
   doCmdDis,
   doCmdFill,
   doCmdCrc,
@@ -374,6 +377,13 @@ void debug_preexec (cpu_debug_t *cpu, uint32_t addr) {
    while (stopped);
 };
 
+void debug_trap(cpu_debug_t *cpu, uint32_t addr, int reason) {
+   const char *desc = cpu->trap_names[reason];
+   noprompt();
+   printf("Trap: %s at %"PRIx32"\r\n", desc, addr);
+   prompt();
+}
+
 /*******************************************
  * Helpers
  *******************************************/
@@ -474,6 +484,19 @@ static void doCmdRegs(char *params) {
          reg++;
          i++;
       }
+   }
+}
+
+static void doCmdTraps(char *params) {
+   cpu_debug_t *cpu = getCpu();
+   const char **trap = cpu->trap_names;
+   if (*trap) {
+      while (*trap) {
+         printf("%s\r\n", *trap);
+         trap++;
+      }
+   } else {
+      printf("No traps implemented in %s\r\n", cpu->cpu_name);
    }
 }
 
