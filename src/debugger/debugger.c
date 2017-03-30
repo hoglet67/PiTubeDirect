@@ -19,6 +19,8 @@
 
 #define HAS_IO (getCpu()->ioread != NULL)
 
+#define BN_DISABLED 0xFFFFFFFF
+
 static const char * prompt_str = ">> ";
 
 extern unsigned int copro;
@@ -42,7 +44,7 @@ cpu_debug_t *cpu_debug_list[] = {
    NULL,                // 15 Native ARM
 };
 
-#define NUM_CMDS 19
+#define NUM_CMDS 20
 #define NUM_IO_CMDS 6
 
 // The Atom CRC Polynomial
@@ -93,6 +95,7 @@ static void doCmdHelp(char *params);
 static void doCmdIn(char *params);
 static void doCmdList(char *params);
 static void doCmdMem(char *params);
+static void doCmdNext(char *params);
 static void doCmdOut(char *params);
 static void doCmdRd(char *params);
 static void doCmdRegs(char *params);
@@ -113,6 +116,7 @@ static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
   "help",
   "continue",
   "step",
+  "next",
   "regs",
   "dis",
   "fill",
@@ -142,6 +146,7 @@ static void (*dbgCmdFuncs[NUM_CMDS + NUM_IO_CMDS])(char *params) = {
   doCmdHelp,
   doCmdContinue,
   doCmdStep,
+  doCmdNext,
   doCmdRegs,
   doCmdDis,
   doCmdFill,
@@ -186,6 +191,10 @@ static int trace_counter = 0;
 static int stepping = 0;
 
 static int step_counter;
+
+static uint32_t break_next_addr = BN_DISABLED;
+
+static uint32_t next_addr;
 
 // The current memory address (e.g. used when disassembling)
 static unsigned int memAddr = 0;
@@ -254,7 +263,7 @@ static void cpu_continue() {
 
 static void disassemble_addr(uint32_t addr) {
    cpu_debug_t *cpu = getCpu();
-   cpu->disassemble(addr, strbuf, sizeof(strbuf));
+   next_addr = cpu->disassemble(addr, strbuf, sizeof(strbuf));
    noprompt();
    printf("%s\r\n", &strbuf[0]);
    prompt();
@@ -322,35 +331,43 @@ void debug_iowrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size
 void debug_preexec (cpu_debug_t *cpu, uint32_t addr) {
    int show = 0;
 
-   breakpoint_t *ptr = check_for_breakpoints(addr, exec_breakpoints);
+   if (addr == break_next_addr) {
+      break_next_addr = BN_DISABLED;
+      cpu_stop();
+      show = 1;
 
-   if (ptr) {
-      if (ptr->mode == MODE_BREAK) {
-         noprompt();
-         printf("Exec breakpoint hit at %"PRIx32"\r\n", addr);
-         prompt();
-         show = 1;
+   } else {
+      breakpoint_t *ptr = check_for_breakpoints(addr, exec_breakpoints);
 
-      } else {
-         noprompt();
-         printf("Exec watchpoint hit at %"PRIx32"\r\n", addr);
-         prompt();
+      if (ptr) {
+         if (ptr->mode == MODE_BREAK) {
+            noprompt();
+            printf("Exec breakpoint hit at %"PRIx32"\r\n", addr);
+            prompt();
+            show = 1;
+
+         } else {
+            noprompt();
+            printf("Exec watchpoint hit at %"PRIx32"\r\n", addr);
+            prompt();
+         }
       }
-   }
 
-   if (stepping) {
-      if (tracing) {
-         if (++trace_counter == tracing) {
-            trace_counter = 0;
+      if (stepping) {
+         if (tracing) {
+            if (++trace_counter == tracing) {
+               trace_counter = 0;
+               show = 1;
+            }
+         }
+         if (++step_counter == stepping) {
+            step_counter = 0;
+            cpu_stop();
             show = 1;
          }
       }
-      if (++step_counter == stepping) {
-         step_counter = 0;
-         cpu_stop();
-         show = 1;
-      }
    }
+
    if (show) {
       disassemble_addr(addr);
    }
@@ -586,6 +603,13 @@ static void doCmdStep(char *params) {
   cpu_continue();
 }
 
+static void doCmdNext(char *params) {
+   stepping = 0;
+   break_next_addr = next_addr; 
+   printf("Skipping to %"PRIx32"\r\n", next_addr);
+   cpu_continue();
+}
+
 static void doCmdTrace(char *params) {
   int i = 1;
   sscanf(params, "%d", &i);
@@ -615,6 +639,9 @@ static void genericList(char *type, breakpoint_t *list) {
 }
 
 static void doCmdList(char *params) {
+   if (break_next_addr != BN_DISABLED) {
+      printf("Transient\r\n    addr:%"PRIx32"\r\n", break_next_addr);
+   }
    genericList("Exec", exec_breakpoints);
    genericList("Mem Rd", mem_rd_breakpoints);
    genericList("Mem Wr", mem_wr_breakpoints);
@@ -700,6 +727,10 @@ static void doCmdClear(char *params) {
    unsigned int addr = 0;
 
    sscanf(params, "%x", &addr);
+   if (break_next_addr == addr) {
+      break_next_addr = BN_DISABLED;
+      found = 1;
+   }
    found |= genericClear(addr, "Exec", exec_breakpoints);
    found |= genericClear(addr, "Mem Rd", mem_rd_breakpoints);
    found |= genericClear(addr, "Mem Wr", mem_wr_breakpoints);
@@ -723,6 +754,9 @@ static void updateDebugFlag() {
    cpu_debug_t *cpu = getCpu();
    int enable = 0;
    if (stepping) {
+      enable = 1;
+   }
+   if (break_next_addr != BN_DISABLED) {
       enable = 1;
    }
    if (exec_breakpoints[0].mode != MODE_LAST) {
