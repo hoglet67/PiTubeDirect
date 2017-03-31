@@ -40,6 +40,7 @@ static char *perl_params =
 */
 #include "mem_mmu.h"
 #include "simz80.h"
+#include "../tube.h"
 
 /* Z80 registers */
 static WORD af[2];         /* accumulator and flags (2 banks) */
@@ -140,7 +141,7 @@ static const unsigned char partab[256] = {
     sp = SP
 
 FASTWORK
-simz80_execute(int n)
+simz80_execute(int tube_cycles)
 {
     FASTREG PC = pc;
     FASTREG AF = af[af_sel];
@@ -156,7 +157,7 @@ simz80_execute(int n)
     FASTREG tmp2;
 #endif
 
-    while (n--) {
+ do {
    switch(GetBYTE_pp(PC)) {
    case 0x00:         /* NOP */
       break;
@@ -3096,7 +3097,8 @@ simz80_execute(int n)
    case 0xFF:         /* RST 38H */
       PUSH(PC); PC = 0x38;
     }
-    }
+    tubeUseCycles(1); 
+    } while (tubeContinueRunning());
 /* make registers visible for debugging if interrupted */
     SAVE_STATE();
     return (PC&0xffff)|0x10000;   /* flag non-bios stop */
