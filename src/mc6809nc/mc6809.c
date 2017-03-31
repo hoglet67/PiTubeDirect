@@ -21,6 +21,7 @@
 
 #include "mc6809.h"
 #include <stdarg.h>
+#include "../tube.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "mc6809_debug.h"
@@ -64,7 +65,7 @@ void mc6809nc_request_irq (unsigned int source)
 	 * IRQ immediately.  Else, mark it pending and
 	 * we'll check it later when the flags change.
 	 */
-	irqs_pending |= (1 << source);
+//	irqs_pending |= (1 << source);
    sync_flag = 0;
 	if (!(EFI & I_FLAG))
 		irq ();
@@ -81,7 +82,7 @@ void mc6809nc_request_firq (unsigned int source)
 	 * IRQ immediately.  Else, mark it pending and
 	 * we'll check it later when the flags change.
 	 */
-	firqs_pending |= (1 << source);
+	//firqs_pending |= (1 << source);
    sync_flag = 0;
 	if (!(EFI & F_FLAG))
 		firq ();
@@ -1572,11 +1573,11 @@ static void bsr (void)
 }
 
 /* Execute 6809 code for a certain number of cycles. */
-int mc6809nc_execute (int cycles)
+int mc6809nc_execute (int tube_cycles)
 {
   unsigned opcode;
 
-  cpu_period = cpu_clk = cycles;
+  cpu_period = cpu_clk = tube_cycles;
 
   if (sync_flag) {
      return cpu_period;
@@ -2944,8 +2945,10 @@ int mc6809nc_execute (int cycles)
 
 	if (cc_changed)
 	  cc_modified ();
-    }
-  while (cpu_clk > 0);
+      
+   tubeUseCycles(1);   
+  } while (tubeContinueRunning());
+  //while (cpu_clk > 0);
 
   cpu_period -= cpu_clk;
   cpu_clk = cpu_period;
