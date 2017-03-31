@@ -10,6 +10,7 @@
 #include "../cpu_debug.h"
 
 #include "../lib6502_debug.h"
+#include "../yaze/simz80.h"
 #include "../cpu80186/cpu80186_debug.h"
 #include "../mc6809nc/mc6809_debug.h"
 #include "../mame/arm_debug.h"
@@ -30,10 +31,10 @@ cpu_debug_t *cpu_debug_list[] = {
    NULL,                //  1 65tube
    &lib6502_cpu_debug,  //  2 lib6502
    &lib6502_cpu_debug,  //  3 lib6502
-   NULL,                //  4 Z80
-   NULL,                //  5 Z80
-   NULL,                //  4 Z80
-   NULL,                //  7 Z80
+   &simz80_cpu_debug,   //  4 Z80
+   &simz80_cpu_debug,   //  5 Z80
+   &simz80_cpu_debug,   //  6 Z80
+   &simz80_cpu_debug,   //  7 Z80
    &cpu80186_cpu_debug, //  8 80x86
    &mc6809nc_cpu_debug, //  9 6809
    NULL,                // 10 unused 

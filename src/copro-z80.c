@@ -12,6 +12,10 @@
 #include "yaze/simz80.h"
 #include "tube-client.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#endif
+
 static int overlay_rom = 0;
 
 static unsigned char *copro_z80_ram;
@@ -276,21 +280,33 @@ static const unsigned char copro_z80_rom[0x1000] = {
 };
 
 int copro_z80_read_mem(unsigned int addr) {
+   unsigned char data;
    if (addr >= 0x8000) {
       overlay_rom = 0;
    }
    if (overlay_rom) {
-      return copro_z80_rom[addr & 0xfff];
+      data = copro_z80_rom[addr & 0xfff];
    } else {
 #if USE_MEMORY_POINTER       
-      return copro_z80_ram[addr & 0xffff];
+      data = copro_z80_ram[addr & 0xffff];
 #else
-      return *(unsigned char *)(addr & 0xffff);
+      data = *(unsigned char *)(addr & 0xffff);
 #endif
    }
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+      debug_memread(&simz80_cpu_debug, addr, data, 1);
+   }
+#endif
+   return data;
 }
 
 void copro_z80_write_mem(unsigned int addr, unsigned char data) {
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+      debug_memwrite(&simz80_cpu_debug, addr, data, 1);
+   }
+#endif
 #ifdef USE_MEMORY_POINTER
    copro_z80_ram[addr & 0xffff] = data;
 #else 
@@ -299,10 +315,21 @@ void copro_z80_write_mem(unsigned int addr, unsigned char data) {
 }
 
 int copro_z80_read_io(unsigned int addr) {
-   return tube_parasite_read(addr & 7);
+   unsigned char data =  tube_parasite_read(addr & 7);
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+      debug_ioread(&simz80_cpu_debug, addr, data, 1);
+   }
+#endif
+   return data;
 }
 
 void copro_z80_write_io(unsigned int addr, unsigned char data) {
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+      debug_iowrite(&simz80_cpu_debug, addr, data, 1);
+   }
+#endif
    tube_parasite_write(addr & 7, data);
 }
 

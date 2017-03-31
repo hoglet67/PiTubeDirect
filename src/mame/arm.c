@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "arm.h"
+#include "../tube.h"
 
 // #define TRACE 1
 
@@ -268,7 +269,7 @@ void arm2_device_reset()
 #endif
 }
 
-void arm2_execute_run(int number)
+void arm2_execute_run(int tube_cycles)
 {
 #ifdef TRACE
   int i;
@@ -424,9 +425,10 @@ void arm2_execute_run(int number)
 
     //arm2_check_irq_state();
 
-  }
+    tubeUseCycles(1); 
+    } while (tubeContinueRunning());
   //while( m_icount > 0 );
-  while (number--);
+  //while (number--);
 } /* arm_execute */
 
 void arm2_check_irq_state()
