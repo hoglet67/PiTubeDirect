@@ -140,6 +140,275 @@ static const unsigned char partab[256] = {
     iy = IY;                        \
     sp = SP
 
+
+/*****************************************************
+ * CPU Debug Interface
+ *****************************************************/
+
+#ifdef INCLUDE_DEBUGGER
+
+#include <stdio.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <string.h>
+
+#include "../cpu_debug.h"
+#include "z80dis.h"
+
+int simz80_debug_enabled = 0;
+
+static WORD last_PC = 0;
+
+enum register_numbers {
+   i_A,
+   i_F,
+   i_BC,
+   i_DE,
+   i_HL, 
+   i_A_,
+   i_F_,
+   i_BC_,
+   i_DE_,
+   i_HL_, 
+   i_IX,
+   i_IY,
+   i_SP,
+   i_PC,
+   i_IR,
+   i_IFF1,
+   i_IFF2
+};
+
+// NULL pointer terminated list of register names.
+static const char *dbg_reg_names[] = {
+   "A",
+   "F",
+   "BC",
+   "DE",
+   "HL", 
+   "A'",
+   "F'",
+   "BC'",
+   "DE'",
+   "HL'", 
+   "IX",
+   "IY",
+   "SP",
+   "PC",
+   "IR",
+   "IFF1",
+   "IFF2",
+   NULL
+};
+
+// NULL pointer terminated list of trap names.
+static const char *dbg_trap_names[] = {
+   NULL
+};
+
+// enable/disable debugging on this CPU, returns previous value.
+static int dbg_debug_enable(int newvalue) {
+   int oldvalue = simz80_debug_enabled;
+   simz80_debug_enabled = newvalue;
+   return oldvalue;
+};
+
+// CPU's usual memory read function for data.
+static uint32_t dbg_memread(uint32_t addr) {
+   return copro_z80_read_mem(addr);
+};
+
+// CPU's usual memory write function.
+static void dbg_memwrite(uint32_t addr, uint32_t value) {
+   copro_z80_write_mem(addr, value);
+};
+
+// CPU's usual I/O read function for data.
+static uint32_t dbg_ioread(uint32_t addr) {
+   return copro_z80_read_io(addr);
+};
+
+// CPU's usual I/O write function.
+static void dbg_iowrite(uint32_t addr, uint32_t value) {
+   copro_z80_write_io(addr, value);
+};
+
+// Get a register - which is the index into the names above
+static uint32_t dbg_reg_get(int which) {
+  switch (which) {
+  case i_A:
+    return hreg(af[0]);
+  case i_F:
+    return lreg(af[0]);
+  case i_BC:
+    return regs[0].bc;
+  case i_DE:
+    return regs[0].de;
+  case i_HL:
+    return regs[0].hl;
+  case i_A_:
+    return hreg(af[1]);
+  case i_F_:
+    return lreg(af[1]);
+  case i_BC_:
+    return regs[1].bc;
+  case i_DE_:
+    return regs[1].de;
+  case i_HL_:
+    return regs[1].hl;
+  case i_IX:
+    return ix;
+  case i_IY:
+    return iy;
+  case i_SP:
+    return sp;
+  case i_PC:
+    return pc;
+  case i_IR:
+    return ir;
+  case i_IFF1:
+    return IFF & 1;
+  case i_IFF2:
+    return (IFF >> 1) & 1;
+  default:
+    return 0;
+   }
+};
+
+// Set a register.
+static void  dbg_reg_set(int which, uint32_t value) {
+  switch (which) {
+  case i_A:
+    Sethreg(af[0], value);
+    break;
+  case i_F:
+    Setlreg(af[0], value);
+    break;
+  case i_BC:
+    regs[0].bc = value;
+    break;
+  case i_DE:
+    regs[0].de = value;
+    break;
+  case i_HL:
+    regs[0].hl = value;
+    break;
+  case i_A_:
+    Sethreg(af[1], value);
+    break;
+  case i_F_:
+    Setlreg(af[1], value);
+    break;
+  case i_BC_:
+    regs[1].bc = value;
+    break;
+  case i_DE_:
+    regs[1].de = value;
+    break;
+  case i_HL_:
+    regs[1].hl = value;
+    break;
+  case i_IX:
+    ix = value;
+    break;
+  case i_IY:
+    iy = value;
+    break;
+  case i_SP:
+    sp = value;
+    break;
+  case i_PC:
+    pc = value;
+    break;
+  case i_IR:
+    ir = value;
+    break;
+  case i_IFF1:
+    IFF &= ~1;
+    IFF |= value & 1;
+    break;
+  case i_IFF2:
+    IFF &= ~2;
+    IFF |= (value & 1) << 1;
+    break;
+   }
+};
+
+static const char* flagname = "S Z * H * P N C ";
+
+// Print register value in CPU standard form.
+static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
+   if (which == i_F || which == i_F_) {
+      int i;
+      int bit;
+      char c;
+      const char *flagnameptr = flagname;
+      int psr = dbg_reg_get(which);
+
+      if (bufsize < 40) {
+         strncpy(buf, "buffer too small!!!", bufsize);
+      }
+
+      bit = 0x80;
+      for (i = 0; i < 8; i++) {
+         if (psr & bit) {
+            c = '1';
+         } else {
+            c = '0';
+         }
+         do {
+            *buf++ = *flagnameptr++;
+         } while (*flagnameptr != ' ');
+         flagnameptr++;
+         *buf++ = ':';
+         *buf++ = c;
+         *buf++ = ' ';
+         bit >>= 1;
+      }
+      return strlen(buf);
+   } else if (which == i_A || which == i_A_) {
+      return snprintf(buf, bufsize, "%02"PRIx32, dbg_reg_get(which));
+   } else if (which == i_IFF1 || which == i_IFF2) {
+      return snprintf(buf, bufsize, "%"PRIx32, dbg_reg_get(which));
+   } else {
+      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
+   }
+};
+
+// Parse a value into a register.
+static void dbg_reg_parse(int which, char *strval) {
+   uint32_t val = 0;
+   sscanf(strval, "%"SCNx32, &val);
+   dbg_reg_set(which, val);
+};
+
+static uint32_t dbg_get_instr_addr() {
+   return last_PC;
+}
+
+cpu_debug_t simz80_cpu_debug = {
+   .cpu_name       = "simz80",
+   .debug_enable   = dbg_debug_enable,
+   .memread        = dbg_memread,
+   .memwrite       = dbg_memwrite,
+   .ioread         = dbg_ioread,
+   .iowrite        = dbg_iowrite,
+   .disassemble    = z80_disassemble,
+   .reg_names      = dbg_reg_names,
+   .reg_get        = dbg_reg_get,
+   .reg_set        = dbg_reg_set,
+   .reg_print      = dbg_reg_print,
+   .reg_parse      = dbg_reg_parse,
+   .get_instr_addr = dbg_get_instr_addr,
+   .trap_names     = dbg_trap_names
+};
+
+#endif
+
+/**********************************************************
+ * Z80 emulation
+ **********************************************************/
+
 FASTWORK
 simz80_execute(int tube_cycles)
 {
@@ -158,6 +427,14 @@ simz80_execute(int tube_cycles)
 #endif
 
  do {
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+     last_PC = PC;
+     SAVE_STATE();
+     debug_preexec(&simz80_cpu_debug, last_PC);
+     LOAD_STATE();
+   }
+#endif
    switch(GetBYTE_pp(PC)) {
    case 0x00:         /* NOP */
       break;

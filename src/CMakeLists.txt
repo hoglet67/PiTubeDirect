@@ -231,6 +231,8 @@ file( GLOB debugger_files
     cpu_debug.h
     lib6502_debug.c
     lib6502_debug.h
+    yaze/z80dis.c
+    yaze/z80dis.h
     NS32016/32016_debug.c
     NS32016/32016_debug.h
     mame/arm_debug.c
