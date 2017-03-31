@@ -80,6 +80,13 @@ static int elapsed;
 #endif
 /* memory access (indirect if callback installed) -- ARGUMENTS ARE EVALUATED MORE THAN ONCE! */
 
+#ifdef USE_MEMORY_POINTER
+#define MEM(addr) memory[addr]
+#else
+#define MEM(addr) *(unsigned char *)(( int)addr ) 
+#endif
+
+
 #ifdef INCLUDE_DEBUGGER
 
 byte tmpr;
@@ -92,12 +99,12 @@ byte tmpr;
   }                                             \
   ( writeCallback[ADDR]				\
       ? writeCallback[ADDR](mpu, ADDR, BYTE)	\
-      : (memory[ADDR]= BYTE) )
+      : (MEM(ADDR)= BYTE) )
 
 #define getMemory(ADDR)				\
   tmpr = ( readCallback[ADDR]			\
     ?  readCallback[ADDR](mpu, ADDR, 0)	\
-    :  memory[ADDR] ) ;				\
+    :  MEM(ADDR) ) ;				\
   if (lib6502_debug_enabled) {                  \
     externalise();                              \
     debug_memread(&lib6502_cpu_debug, ADDR, tmpr, 1);  \
@@ -113,24 +120,26 @@ byte tmpr;
 
 #else
 
+   
 #define putMemory(ADDR, BYTE)			\
   ( writeCallback[ADDR]				\
       ? writeCallback[ADDR](mpu, ADDR, BYTE)	\
-      : (memory[ADDR]= BYTE) )
+      : (MEM(ADDR)= BYTE) )
 
 #define getMemory(ADDR)				\
   ( readCallback[ADDR]				\
       ?  readCallback[ADDR](mpu, ADDR, 0)	\
-      :  memory[ADDR] )
+      :  MEM(ADDR) )
 
+ 
 #define trap(ADDR, n)
 
 #endif
 
 /* stack access (always direct) */
 
-#define push(BYTE)		(memory[0x0100 + S--]= (BYTE))
-#define pop()			(memory[++S + 0x0100])
+#define push(BYTE)		(MEM(0x0100 + S--)= (BYTE))
+#define pop()			(MEM(++S + 0x0100))
 
 /* addressing modes (memory access direct) */
 
@@ -143,18 +152,18 @@ byte tmpr;
 
 #define abs(ticks)				\
   tick(ticks);					\
-  ea= memory[PC] + (memory[PC + 1] << 8);	\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);	\
   PC += 2;
 
 #define relative(ticks)				\
   tick(ticks);					\
-  ea= memory[PC++];				\
+  ea= MEM(PC++);				\
   if (ea & 0x80) ea -= 0x100;			\
   tickIf((ea >> 8) != (PC >> 8));
 
 #define zpr(ticks)				\
   tick(ticks);					\
-  ea= memory[PC++];				\
+  ea= MEM(PC++);				\
   if (ea & 0x80) ea -= 0x100;			\
   tickIf((ea >> 8) != (PC >> 8));
 
@@ -162,51 +171,51 @@ byte tmpr;
   tick(ticks);					\
   {						\
     word tmp;					\
-    tmp= memory[PC]  + (memory[PC  + 1] << 8);	\
-    ea = memory[tmp] + (memory[tmp + 1] << 8);	\
+    tmp= MEM(PC)  + (MEM(PC  + 1) << 8);	\
+    ea = MEM(tmp) + (MEM(tmp + 1) << 8);	\
     PC += 2;					\
   }
 
 #define absx(ticks)						\
   tick(ticks);							\
-  ea= memory[PC] + (memory[PC + 1] << 8);			\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);			\
   PC += 2;							\
   tickIf((ticks == 4) && ((ea >> 8) != ((ea + X) >> 8)));	\
   ea += X;
 
 #define absy(ticks)						\
   tick(ticks);							\
-  ea= memory[PC] + (memory[PC + 1] << 8);			\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);			\
   PC += 2;							\
   tickIf((ticks == 4) && ((ea >> 8) != ((ea + Y) >> 8)));	\
   ea += Y
 
 #define zp(ticks)				\
   tick(ticks);					\
-  ea= memory[PC++];
+  ea= MEM(PC++);
 
 #define zpx(ticks)				\
   tick(ticks);					\
-  ea= memory[PC++] + X;				\
+  ea= MEM(PC++) + X;				\
   ea &= 0x00ff;
 
 #define zpy(ticks)				\
   tick(ticks);					\
-  ea= memory[PC++] + Y;				\
+  ea= MEM(PC++) + Y;				\
   ea &= 0x00ff;
 
 #define indx(ticks)				\
   tick(ticks);					\
   {						\
-    byte tmp= memory[PC++] + X;			\
-    ea= memory[tmp] + (memory[tmp + 1] << 8);	\
+    byte tmp= MEM(PC++) + X;			\
+    ea= MEM(tmp) + (MEM(tmp + 1) << 8);	\
   }
 
 #define indy(ticks)						\
   tick(ticks);							\
   {								\
-    byte tmp= memory[PC++];					\
-    ea= memory[tmp] + (memory[tmp + 1] << 8);			\
+    byte tmp= MEM(PC++);					\
+    ea= MEM(tmp) + (MEM(tmp + 1) << 8);			\
     tickIf((ticks == 5) && ((ea >> 8) != ((ea + Y) >> 8)));	\
     ea += Y;							\
   }
@@ -215,16 +224,16 @@ byte tmpr;
   tick(ticks);						\
   {							\
     word tmp;						\
-    tmp= memory[PC ] + (memory[PC  + 1] << 8) + X;	\
-    ea = memory[tmp] + (memory[tmp + 1] << 8);		\
+    tmp= MEM(PC ) + (MEM(PC  + 1) << 8) + X;	\
+    ea = MEM(tmp) + (MEM(tmp + 1) << 8);		\
   }
 
 #define indzp(ticks)					\
   tick(ticks);						\
   {							\
     byte tmp;						\
-    tmp= memory[PC++];					\
-    ea = memory[tmp] + (memory[tmp + 1] << 8);		\
+    tmp= MEM(PC++);					\
+    ea = MEM(tmp) + (MEM(tmp + 1) << 8);		\
   }
 
 /* insns */
@@ -603,23 +612,23 @@ byte tmpr;
   tick(1);					\
   next();
 
-#define bbr0(ticks, adrmode)	branch(ticks, adrmode, !(memory[memory[PC++]] & (1<<0)))
-#define bbr1(ticks, adrmode)	branch(ticks, adrmode, !(memory[memory[PC++]] & (1<<1)))
-#define bbr2(ticks, adrmode)	branch(ticks, adrmode, !(memory[memory[PC++]] & (1<<2)))
-#define bbr3(ticks, adrmode)	branch(ticks, adrmode, !(memory[memory[PC++]] & (1<<3)))
-#define bbr4(ticks, adrmode)	branch(ticks, adrmode, !(memory[memory[PC++]] & (1<<4)))
-#define bbr5(ticks, adrmode)	branch(ticks, adrmode, !(memory[memory[PC++]] & (1<<5)))
-#define bbr6(ticks, adrmode)	branch(ticks, adrmode, !(memory[memory[PC++]] & (1<<6)))
-#define bbr7(ticks, adrmode)	branch(ticks, adrmode, !(memory[memory[PC++]] & (1<<7)))
+#define bbr0(ticks, adrmode)	branch(ticks, adrmode, !(MEM(MEM(PC++)) & (1<<0)))
+#define bbr1(ticks, adrmode)	branch(ticks, adrmode, !(MEM(MEM(PC++)) & (1<<1)))
+#define bbr2(ticks, adrmode)	branch(ticks, adrmode, !(MEM(MEM(PC++)) & (1<<2)))
+#define bbr3(ticks, adrmode)	branch(ticks, adrmode, !(MEM(MEM(PC++)) & (1<<3)))
+#define bbr4(ticks, adrmode)	branch(ticks, adrmode, !(MEM(MEM(PC++)) & (1<<4)))
+#define bbr5(ticks, adrmode)	branch(ticks, adrmode, !(MEM(MEM(PC++)) & (1<<5)))
+#define bbr6(ticks, adrmode)	branch(ticks, adrmode, !(MEM(MEM(PC++)) & (1<<6)))
+#define bbr7(ticks, adrmode)	branch(ticks, adrmode, !(MEM(MEM(PC++)) & (1<<7)))
 
-#define bbs0(ticks, adrmode)	branch(ticks, adrmode,  (memory[memory[PC++]] & (1<<0)))
-#define bbs1(ticks, adrmode)	branch(ticks, adrmode,  (memory[memory[PC++]] & (1<<1)))
-#define bbs2(ticks, adrmode)	branch(ticks, adrmode,  (memory[memory[PC++]] & (1<<2)))
-#define bbs3(ticks, adrmode)	branch(ticks, adrmode,  (memory[memory[PC++]] & (1<<3)))
-#define bbs4(ticks, adrmode)	branch(ticks, adrmode,  (memory[memory[PC++]] & (1<<4)))
-#define bbs5(ticks, adrmode)	branch(ticks, adrmode,  (memory[memory[PC++]] & (1<<5)))
-#define bbs6(ticks, adrmode)	branch(ticks, adrmode,  (memory[memory[PC++]] & (1<<6)))
-#define bbs7(ticks, adrmode)	branch(ticks, adrmode,  (memory[memory[PC++]] & (1<<7)))
+#define bbs0(ticks, adrmode)	branch(ticks, adrmode,  (MEM(MEM(PC++)) & (1<<0)))
+#define bbs1(ticks, adrmode)	branch(ticks, adrmode,  (MEM(MEM(PC++)) & (1<<1)))
+#define bbs2(ticks, adrmode)	branch(ticks, adrmode,  (MEM(MEM(PC++)) & (1<<2)))
+#define bbs3(ticks, adrmode)	branch(ticks, adrmode,  (MEM(MEM(PC++)) & (1<<3)))
+#define bbs4(ticks, adrmode)	branch(ticks, adrmode,  (MEM(MEM(PC++)) & (1<<4)))
+#define bbs5(ticks, adrmode)	branch(ticks, adrmode,  (MEM(MEM(PC++)) & (1<<5)))
+#define bbs6(ticks, adrmode)	branch(ticks, adrmode,  (MEM(MEM(PC++)) & (1<<6)))
+#define bbs7(ticks, adrmode)	branch(ticks, adrmode,  (MEM(MEM(PC++)) & (1<<7)))
 
 #define jmp(ticks, adrmode)				\
   adrmode(ticks);					\
@@ -712,7 +721,7 @@ byte tmpr;
   fetch();								\
   tick(ticks);								\
   fflush(stdout);							\
-  fprintf(stderr, "\nundefined instruction %02X at %04X\n", memory[PC-2], PC-2);        \
+  fprintf(stderr, "\nundefined instruction %02X at %04X\n", MEM(PC-2), PC-2);        \
   externalise(); M6502_trace(mpu); \
   return;
 
@@ -925,22 +934,23 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 
 # define pollints()        if (tube_irq & 7) { externalise(); if (poll(mpu)) return; internalise(); }
 # define begin()				fetch();  next()
-# define fetch()				pollints(); tpc= itabp[memory[PC++]]
+# define fetch()				pollints(); tpc= itabp[MEM(PC++)]
 # define next()            nextdebug() goto *tpc
 # define dispatch(num, name, mode, cycles)	_##num: name(cycles, mode) //oops();  next()
 # define end()
 
 #else /* (!__GNUC__) || (__STRICT_ANSI__) */
 
-# define begin()				for (;;) switch (memory[PC++]) {
+# define begin()				for (;;) switch (MEM(PC++)) {
 # define fetch()
 # define next()					break
 # define dispatch(num, name, mode, cycles)	case 0x##num: name(cycles, mode);  next()
 # define end()					}
 
 #endif
-
+#ifdef USE_MEMORY_POINTER
   register byte  *memory= mpu->memory;
+#endif  
   register word   PC;
   word		  ea;
   byte		  A, X, Y, P, S;
@@ -1029,10 +1039,15 @@ M6502 *M6502_new(M6502_Registers *registers, M6502_Memory memory, M6502_Callback
   if (!mpu) outOfMemory();
 
   if (!registers)  { registers = (M6502_Registers *)calloc(1, sizeof(M6502_Registers));  mpu->flags |= M6502_RegistersAllocated; }
+#ifdef USE_MEMORY_POINTER
   if (!memory   )  { memory    = (uint8_t         *)calloc(1, sizeof(M6502_Memory   ));  mpu->flags |= M6502_MemoryAllocated;    }
+  if (!memory) outOfMemory();
+#else
+   { memory    = 0;    }
+#endif    
   if (!callbacks)  { callbacks = (M6502_Callbacks *)calloc(1, sizeof(M6502_Callbacks));  mpu->flags |= M6502_CallbacksAllocated; }
 
-  if (!registers || !memory || !callbacks) outOfMemory();
+  if (!registers || !callbacks) outOfMemory();
 
   mpu->registers = registers;
   mpu->memory    = memory;
