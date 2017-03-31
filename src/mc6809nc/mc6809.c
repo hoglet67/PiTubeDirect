@@ -1481,6 +1481,7 @@ static void sync (void)
 {
   cpu_clk -= 4;
   sync_flag = 1;
+	while (tubeContinueRunning());	
 }
 
 static void orcc (void)
