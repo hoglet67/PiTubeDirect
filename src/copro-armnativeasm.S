@@ -164,14 +164,15 @@ _user_exec:
     stmfd    sp!, {r0-r3}         // Save the _user_exec params
     bl       CleanDataCache
     ldmfd    sp!, {r0-r3}         // Restore the _user_exec params
+    isb
 #else        
     mov      r0, #0                  // New code may have just been written to memory, so
     mcr      p15, 0, r0, c7, c10, 0  // Clean entire data cache
-#endif
+
     mov      r0, #0
     mcr      p15, 0, r0, c7, c5, 0   // Invalidate entire instruction cache
     mcr      p15, 0, r0, c7, c5, 4   // Flush the prefetch buffer
-        
+ #endif       
     mrs      r0, cpsr
     bic      r0, r0, #0x1f
     orr      r0, r0, #CPSR_MODE_USER
