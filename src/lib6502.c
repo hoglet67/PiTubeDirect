@@ -927,15 +927,15 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
   register void  *tpc;
 
 #ifdef INCLUDE_DEBUGGER
-# define nextdebug() 	   if (lib6502_debug_enabled) { lib6502_last_PC = PC - 1; externalise(); debug_preexec(&lib6502_cpu_debug, lib6502_last_PC); internalise(); }
+# define debug() 	   if (lib6502_debug_enabled) { lib6502_last_PC = PC; externalise(); debug_preexec(&lib6502_cpu_debug, PC); internalise(); }
 #else
-# define nextdebug()
+# define debug()
 #endif
 
 # define pollints()        if (tube_irq & 7) { externalise(); if (poll(mpu)) return; internalise(); }
 # define begin()				fetch();  next()
-# define fetch()				pollints(); tpc= itabp[MEM(PC++)]
-# define next()            nextdebug() goto *tpc
+# define fetch()				
+# define next()            debug(); pollints(); tpc= itabp[MEM(PC++)]; goto *tpc
 # define dispatch(num, name, mode, cycles)	_##num: name(cycles, mode) //oops();  next()
 # define end()
 
