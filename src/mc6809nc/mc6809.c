@@ -1479,9 +1479,11 @@ static void cwai (void)
 
 static void sync (void)
 {
-  cpu_clk -= 4;
-  sync_flag = 1;
-	while (tubeContinueRunning());	
+  sync_flag = 1; 
+  do {
+    cpu_clk -= 4;
+    tubeUseCycles(0xFFFF);
+  } while (tubeContinueRunning());
 }
 
 static void orcc (void)
