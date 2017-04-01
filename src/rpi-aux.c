@@ -5,6 +5,7 @@
 #include "info.h"
 
 #ifdef INCLUDE_DEBUGGER
+#include "startup.h"
 #include "debugger/debugger.h"
 #endif
 
@@ -141,11 +142,20 @@ void RPI_AuxMiniUartWrite(char c)
 {
 #ifdef USE_IRQ
   int tmp_head = (tx_head + 1) & (TX_BUFFER_SIZE - 1);
-  
-  /* Wait for space in buffer */
-  while (tmp_head == tx_tail) {
-  }
 
+  /* Test if the buffer is full */
+  if (tmp_head == tx_tail) {
+     int cpsr = _get_cpsr();
+     if (cpsr & 0x80) {
+        /* IRQ disabled: drop the character to avoid deadlock */
+        return;
+     } else {
+        /* IRQ enabled: wait for space in buffer */
+        while (tmp_head == tx_tail) {
+        }
+     }
+  }
+  /* Buffer the character */
   tx_buffer[tmp_head] = c;
   tx_head = tmp_head;
 
