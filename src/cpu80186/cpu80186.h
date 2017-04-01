@@ -78,7 +78,7 @@ union _bytewordregs_
 #define segbase(x)	((uint32_t) ((x) << 4))
 
 extern void reset(void);
-extern void exec86(uint32_t execloops);
+extern void exec86(uint32_t tube_cycles);
 extern void intcall86(uint8_t intnum);
 
 extern uint8_t ifl;

@@ -53,7 +53,7 @@ enum
 };
 
 void arm2_device_reset();
-void arm2_execute_run(int n);
+void arm2_execute_run(int tube_cycles);
 void arm2_check_irq_state();
 void arm2_execute_set_input(int irqline, int state);
 UINT32 arm2_getR15();

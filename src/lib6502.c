@@ -876,12 +876,12 @@ void M6502_reset(M6502 *mpu)
 
 
 /* the compiler should eliminate all calls to this function */
-
+/*
 static void oops(void)
 {
   fprintf(stderr, "\noops -- instruction dispatch missing\n");
 }
-
+*/
 static int previousPC;
 
 void M6502_trace(M6502 *mpu)
@@ -974,7 +974,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 # undef dispatch
 # undef end
 
-  (void)oops;
+ // (void)oops;
 }
 
 

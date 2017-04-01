@@ -336,7 +336,7 @@ enum StringBits
 };
 
 extern void n32016_init();
-extern void n32016_ShowRegs(int bShowFloat);
+extern void n32016_ShowRegs(int Option);
 extern void n32016_reset();
 extern void n32016_reset_addr(uint32_t StartAddress);
 extern void n32016_exec();

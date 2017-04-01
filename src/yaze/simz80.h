@@ -93,4 +93,4 @@ extern void simz80_IRQ();
 
 extern int simz80_is_IRQ_enabled();
 
-extern FASTWORK simz80_execute(int n);
+extern FASTWORK simz80_execute(int tube_cycles);

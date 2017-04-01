@@ -77,7 +77,7 @@ extern void copro_mc6809nc_write(uint16_t addr, uint8_t data);
 #define fetch16()          (pc += 2, abs_read16(pc-2))
 
 /* 6809.c */
-extern int mc6809nc_execute (int cycles);
+extern int mc6809nc_execute (int tube_cycles);
 extern void mc6809nc_reset (void);
 
 

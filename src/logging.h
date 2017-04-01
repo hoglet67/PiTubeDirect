@@ -4,9 +4,9 @@
 #define LOGGING_H
 
 #ifdef DEBUG
-extern void log_debug(const char *format, ...);
+extern void log_debug(const char *fmt, ...);
 #else
-static inline void log_debug(const char *format, ...) {}
+static inline void log_debug(const char *fmt, ...) {}
 #endif
 
 extern void log_info(const char *fmt, ...);
