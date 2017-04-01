@@ -459,7 +459,7 @@ static void doCmdRegs(char *params) {
    const char **reg = cpu->reg_names;
    char name[100];
    char value[100];
-   int num_params = sscanf(params, "%100s %100s", name, value);
+   int num_params = sscanf(params, "%99s %99s", name, value);
    if (num_params > 0) {
       int i = 0;
       while (*reg) {

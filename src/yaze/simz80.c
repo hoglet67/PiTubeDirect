@@ -663,7 +663,7 @@ simz80_execute(int tube_cycles)
    case 0x29:         /* ADD HL,HL */
       HL &= 0xffff;
       sum = HL + HL;
-      cbits = (HL ^ HL ^ sum) >> 8;
+      cbits = (/*HL ^ HL ^ */sum) >> 8;
       HL = sum;
       AF = (AF & ~0x3b) | ((sum >> 8) & 0x28) |
          (cbits & 0x10) | ((cbits >> 8) & 1);
@@ -1325,7 +1325,7 @@ simz80_execute(int tube_cycles)
          ((sum == 0) << 6) | partab[sum];
       break;
    case 0xA7:         /* AND A */
-      sum = ((AF & (AF)) >> 8) & 0xff;
+      sum = ((AF /*& (AF)*/) >> 8) & 0xff;
       AF = (sum << 8) | (sum & 0xa8) |
          ((sum == 0) << 6) | 0x10 | partab[sum];
       break;
@@ -1358,8 +1358,8 @@ simz80_execute(int tube_cycles)
       AF = (sum << 8) | (sum & 0xa8) | ((sum == 0) << 6) | partab[sum];
       break;
    case 0xAF:         /* XOR A */
-      sum = ((AF ^ (AF)) >> 8) & 0xff;
-      AF = (sum << 8) | (sum & 0xa8) | ((sum == 0) << 6) | partab[sum];
+      sum = 0;//((AF ^ (AF)) >> 8) & 0xff;
+      AF = (sum << 8) | (sum & 0xa8) | (1 << 6) | partab[sum];
       break;
    case 0xB0:         /* OR B */
       sum = ((AF | (BC)) >> 8) & 0xff;
@@ -1390,7 +1390,7 @@ simz80_execute(int tube_cycles)
       AF = (sum << 8) | (sum & 0xa8) | ((sum == 0) << 6) | partab[sum];
       break;
    case 0xB7:         /* OR A */
-      sum = ((AF | (AF)) >> 8) & 0xff;
+      sum = ((AF /*| (AF)*/) >> 8) & 0xff;
       AF = (sum << 8) | (sum & 0xa8) | ((sum == 0) << 6) | partab[sum];
       break;
    case 0xB8:         /* CP B */
@@ -1584,8 +1584,8 @@ simz80_execute(int tube_cycles)
             cbits = acu & 1;
          cbshflg1:
             AF = (AF & ~0xff) | (temp & 0xa8) |
-               (((temp & 0xff) == 0) << 6) |
-               parity(temp) | !!cbits;
+               ((temp & 0xff)?0:(1<< 6)) |
+               parity(temp) | (cbits ?1:0);
          }
          break;
       case 0x40:      /* BIT */
@@ -1741,7 +1741,7 @@ simz80_execute(int tube_cycles)
       case 0x29:         /* ADD IX,IX */
          IX &= 0xffff;
          sum = IX + IX;
-         cbits = (IX ^ IX ^ sum) >> 8;
+         cbits = (/*IX ^ IX ^ */sum) >> 8;
          IX = sum;
          AF = (AF & ~0x3b) | ((sum >> 8) & 0x28) |
             (cbits & 0x10) | ((cbits >> 8) & 1);
@@ -2195,8 +2195,8 @@ simz80_execute(int tube_cycles)
                cbits = acu & 1;
             cbshflg2:
                AF = (AF & ~0xff) | (temp & 0xa8) |
-                  (((temp & 0xff) == 0) << 6) |
-                  parity(temp) | !!cbits;
+                  ((temp & 0xff)?0:(1<< 6)) |
+                  parity(temp) | (cbits?1:0);
             }
             break;
          case 0x40:      /* BIT */
@@ -2469,8 +2469,8 @@ simz80_execute(int tube_cycles)
          break;
       case 0x62:         /* SBC HL,HL */
          HL &= 0xffff;
-         sum = HL - HL - TSTFLAG(C);
-         cbits = (HL ^ HL ^ sum) >> 8;
+         sum = /*HL - HL*/0 - TSTFLAG(C);
+         cbits = (/*HL ^ HL ^*/ sum) >> 8;
          HL = sum;
          AF = (AF & ~0xff) | ((sum >> 8) & 0xa8) |
             (((sum & 0xffff) == 0) << 6) |
@@ -2503,7 +2503,7 @@ simz80_execute(int tube_cycles)
       case 0x6A:         /* ADC HL,HL */
          HL &= 0xffff;
          sum = HL + HL + TSTFLAG(C);
-         cbits = (HL ^ HL ^ sum) >> 8;
+         cbits = (/*HL ^ HL ^ */sum) >> 8;
          HL = sum;
          AF = (AF & ~0xff) | ((sum >> 8) & 0xa8) |
             (((sum & 0xffff) == 0) << 6) |
@@ -2587,10 +2587,10 @@ simz80_execute(int tube_cycles)
          temp = GetBYTE_pp(HL);
          sum = acu - temp;
          cbits = acu ^ temp ^ sum;
-         AF = (AF & ~0xfe) | (sum & 0x80) | (!(sum & 0xff) << 6) |
+         AF = (AF & ~0xfe) | (sum & 0x80) | ((sum & 0xff)?0:1<<6) |
             (((sum - ((cbits&16)>>4))&2) << 4) | (cbits & 16) |
             ((sum - ((cbits >> 4) & 1)) & 8) |
-            ((--BC & 0xffff) != 0) << 2 | 2;
+            ((--BC & 0xffff)?(1<<2):0 ) | 2;
          if ((sum & 15) == 8 && (cbits & 16) != 0)
             AF &= ~8;
          break;
@@ -2626,10 +2626,10 @@ simz80_execute(int tube_cycles)
          temp = GetBYTE_mm(HL);
          sum = acu - temp;
          cbits = acu ^ temp ^ sum;
-         AF = (AF & ~0xfe) | (sum & 0x80) | (!(sum & 0xff) << 6) |
+         AF = (AF & ~0xfe) | (sum & 0x80) | ((sum & 0xff)?0:1<< 6) |
             (((sum - ((cbits&16)>>4))&2) << 4) | (cbits & 16) |
             ((sum - ((cbits >> 4) & 1)) & 8) |
-            ((--BC & 0xffff) != 0) << 2 | 2;
+            ((--BC & 0xffff)?(1<<2):0) | 2;
          if ((sum & 15) == 8 && (cbits & 16) != 0)
             AF &= ~8;
          break;
@@ -2855,7 +2855,7 @@ simz80_execute(int tube_cycles)
       case 0x29:         /* ADD IY,IY */
          IY &= 0xffff;
          sum = IY + IY;
-         cbits = (IY ^ IY ^ sum) >> 8;
+         cbits = (/*IY ^ IY ^ */sum) >> 8;
          IY = sum;
          AF = (AF & ~0x3b) | ((sum >> 8) & 0x28) |
             (cbits & 0x10) | ((cbits >> 8) & 1);
@@ -3310,8 +3310,8 @@ simz80_execute(int tube_cycles)
                cbits = acu & 1;
             cbshflg3:
                AF = (AF & ~0xff) | (temp & 0xa8) |
-                  (((temp & 0xff) == 0) << 6) |
-                  parity(temp) | !!cbits;
+                  ((temp & 0xff)?0:(1 << 6)) |
+                  parity(temp) | (cbits?1:0) ;
             }
             break;
          case 0x40:      /* BIT */
