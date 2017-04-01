@@ -87,6 +87,8 @@ static const func_ptr emulator_functions[] = {
 
 volatile unsigned int copro;
 volatile unsigned int copro_speed;
+volatile unsigned int copro_memory_size = 0;
+
 int arm_speed;
 
 static func_ptr emulator;
@@ -207,6 +209,17 @@ static void get_copro_speed() {
       copro_speed = (arm_speed/(1000000/256) / copro_speed);
 }
 
+static void get_copro_memory_size() {
+   char *copro_prop = get_cmdline_prop("copro13_memory_size");
+   copro_memory_size = 0; // default 
+   if (copro_prop) {
+      copro_memory_size = atoi(copro_prop);
+   }
+   if (copro_memory_size > 32*1024 *1024){
+      copro_memory_size = 0;
+   }
+   LOG_DEBUG("Copro Memory size %u\r\n", copro_memory_size);
+}
 
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
@@ -218,11 +231,11 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    arm_speed = get_clock_rate(ARM_CLK_ID);
    copro = get_copro_number();
    get_copro_speed();
+   get_copro_memory_size();
    
-
-      LOG_DEBUG("Staring VC ULA\r\n");
-      start_vc_ula();
-      LOG_DEBUG("Done\r\n");
+   LOG_DEBUG("Staring VC ULA\r\n");
+   start_vc_ula();
+   LOG_DEBUG("Done\r\n");
 
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();

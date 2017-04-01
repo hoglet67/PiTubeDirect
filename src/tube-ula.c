@@ -180,9 +180,18 @@ void copro_command_excute(unsigned char copro_command,unsigned char val)
              copro_speed = 0;
           else
              copro_speed = (arm_speed/(1000000/256) / val);
-          LOG_DEBUG("New speed Copro = %u, %u\n", val, copro_speed);
+          LOG_DEBUG("New Copro speed= %u, %u\r\n", val, copro_speed);
           return; 
-      
+      case 1 : // *fx 151,226,1 followed by *fx 151,228,val
+               // Select memory size
+               if (val & 128 )
+                  copro_memory_size = (val & 127 ) * 8 * 1024 * 1024;
+               else 
+                  copro_memory_size = (val & 127 ) * 64 * 1024 ;
+               if (copro_memory_size > 16 *1024 * 1024)
+                  copro_memory_size = 0;
+               LOG_DEBUG("New Copro memory size = %u, %u\r\n", val, copro_memory_size);
+               return;
       default :
           break;
     }
@@ -366,7 +375,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       break;
    case 6:  
       copro = val;
-      LOG_DEBUG("New Copro = %u\n", copro);
+      LOG_DEBUG("New Copro = %u\r\n", copro);
       return;
    case 7: /*Register 4*/
      // if (!tube_enabled)
