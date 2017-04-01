@@ -3,9 +3,9 @@
 #include "rpi-base.h"
 #include "rpi-gpio.h"
 #include "info.h"
+#include "startup.h"
 
 #ifdef INCLUDE_DEBUGGER
-#include "startup.h"
 #include "debugger/debugger.h"
 #endif
 
