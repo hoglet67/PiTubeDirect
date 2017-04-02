@@ -52,7 +52,7 @@ static uint8_t * ns32016ram;
 void init_ram(void)
 {
    if (copro_memory_size >0)
-         RAM_SIZE = copro_memory_size;
+         RAM_SIZE = copro_memory_size  & ~((128*1024)-1);
    else
          RAM_SIZE = MEG1;
 #ifndef BEM

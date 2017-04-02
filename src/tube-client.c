@@ -129,6 +129,7 @@ void init_emulator() {
    }
 #endif
 
+   copro &= 127 ; // Clear top bit which is used to signal full reset 
    // Make sure that copro number is valid
    if (copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
       LOG_DEBUG("using default co pro\r\n");

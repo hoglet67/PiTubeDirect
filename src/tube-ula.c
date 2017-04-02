@@ -191,6 +191,7 @@ void copro_command_excute(unsigned char copro_command,unsigned char val)
                if (copro_memory_size > 16 *1024 * 1024)
                   copro_memory_size = 0;
                LOG_DEBUG("New Copro memory size = %u, %u\r\n", val, copro_memory_size);
+               copro = copro | 128 ;  // Set bit 7 to signal full reset of core
                return;
       default :
           break;
