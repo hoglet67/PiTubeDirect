@@ -618,6 +618,12 @@
 .macro SBC_macro reg=r1      
         tst     flags, #8
         bic     flags, #0x40
+#if defined(USE_MEMORY_POINTER)          
+        orrcc   \reg, \reg, #0xff00  
+        sxthcc  \reg, \reg
+#else
+        orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
+#endif  
         FETCH_NEXT_STAGE_0 
 .if \reg==r0         
         bne     decimal_mode_sbc_r0
@@ -625,12 +631,6 @@
         bne     decimal_mode_sbc
 .endif 
           
-#if defined(USE_MEMORY_POINTER)          
-        orrcc   \reg, \reg, #0xff00  
-        sxthcc  \reg, \reg
-#else
-        orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
-#endif  
 .if \reg==r0        
         FETCH_NEXT_STAGE_1a_OO
         sbcs    regA, regA, \reg, ror #8
@@ -1411,7 +1411,7 @@ handle_irq:
 
 handle_nmi:
         push    {r2,r3,r12}
-        BL      tube_ack_nmi
+        BL       tube_ack_nmi
         pop     {r2,r3,r12}   
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
@@ -1536,66 +1536,69 @@ decimal_mode_adc:
         adc     r2, r2, r0, lsr #24
         cmp     r2, #10
         subcs   r2, r2, #10
-        lsr     r1, r1, #4
-        lsl     r2, r2, #24
-        adc     regA, r1, regA, lsr #28
-        cmp     regA, #10
-        subcs   regA, regA, #10
-        FETCH_NEXT_STAGE_1
-        orr     regA, r2, regA, lsl #28
-        teq     regA, #0
+        and     r2, r2, #0x0F
+        orrcs   r1, r1 ,#0x0F
+        orrcs   r1, r1, memry
+        and     regA, regA,#0xF0<<24
+        orrcs   regA, regA,#0x0F<<24
+        adcs    regA, regA, r1 , ror #8   
         orrvs   flags, #0x40
+        cmpcc     regA, #10<<28
+        subcs   regA, regA, #10<<28
+        FETCH_NEXT_STAGE_1
+        and     regA, regA, #0xF0<<24
+        orr     regA, regA, r2,lsl #24
+        teq     regA, #0
         FETCH_NEXT_STAGE_2
 
 decimal_mode_sbc:
-        and     r0, regA, #0xf000000
-        and     r2, r1, #15
-        rscs    r2, r2, r0, lsr #24
-        addcc   r2, r2, #10
-        lsr     r1, r1, #4
-        rscs    regA, r1, regA, lsr #28
-        addcc   regA, regA, #10
+        bic     r0, r1,# 0xf0
+        and     r2, regA, #0xf000000
+        sbc     r2, r2, r0, ror #8 
         FETCH_NEXT_STAGE_1a
-        orr     regA, r2, regA, lsl #4
+        sbcs    regA, regA, r1, ror #8
         FETCH_NEXT_STAGE_1b
-        lsl     regA, regA, #24
-        teq     regA, #0
         orrvs   flags, #0x40
+        subcc   regA, regA,#0x60<<24
+        teq     r2,#0
+        submi   regA, regA, #0x6<<24
+        teq     regA, #0
         FETCH_NEXT_STAGE_2
-        
+
 decimal_mode_adc_r0:
+        and     r1, regA, #0xf000000
         and     r2, r0, #15
-        lsr     r1, r0, #4
-        and     r0, regA, #0xf000000
-        FETCH_NEXT_STAGE_1a_OO
-        adc     r2, r2, r0, lsr #24
+        adc     r2, r2, r1, lsr #24
         cmp     r2, #10
         subcs   r2, r2, #10
-        adc     regA, r1, regA, lsr #28
-        cmp     regA, #10
-        lsl     r2, r2, #24
-        subcs   regA, regA, #10
-        FETCH_NEXT_STAGE_1b_OO
-        orr     regA, r2, regA, lsl #28
-        teq     regA, #0
+        and     r2, r2, #0x0F
+        orrcs   r0, r0 ,#0x0F
+        orrcs   r0, r0, memry
+        and     regA, regA,#0xF0<<24
+        orrcs   regA, regA,#0x0F<<24
+        adcs    regA, regA, r0 , ror #8   
         orrvs   flags, #0x40
+        cmpcc   regA, #10<<28
+        subcs   regA, regA, #10<<28
+        FETCH_NEXT_STAGE_1
+        and     regA, regA, #0xF0<<24
+        orr     regA, regA, r2,lsl #24
+        teq     regA, #0
         FETCH_NEXT_STAGE_2
 
 decimal_mode_sbc_r0:
-        and     r2, r0, #15
-        lsr     r1, r0, #4
-        and     r0, regA, #0xf000000
-        FETCH_NEXT_STAGE_1a_OO        
-        rscs    r2, r2, r0, lsr #24
-        addcc   r2, r2, #10
-        rscs    regA, r1, regA, lsr #28
-        addcc   regA, regA, #10
-        FETCH_NEXT_STAGE_1b_OO        
-        orr     regA, r2, regA, lsl #4
+        bic     r1, r0,# 0xf0
+        and     r2, regA, #0xf000000
+        sbc     r2, r2, r1, ror #8 
+        sbcs    regA, regA, r0, ror #8
+        FETCH_NEXT_STAGE_1a
         orrvs   flags, #0x40
-        lsl     regA, regA, #24
+        subcc   regA, regA,#0x60<<24
+        FETCH_NEXT_STAGE_1b
+        teq     r2,#0
+        submi   regA, regA, #0x6<<24
         teq     regA, #0
-        FETCH_NEXT_STAGE_2        
+        FETCH_NEXT_STAGE_2
 
 tube_load_handler:
         push    {r0,r2,r3,r5,r12,lr} 
