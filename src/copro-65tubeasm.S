@@ -1518,7 +1518,11 @@ handle_irq2:
         INTR    -2, 0
         b       execute_one_instruction
 
+        
 handle_nmi2:
+        push    {r2,r3,r12}
+        BL       tube_ack_nmi
+        pop     {r2,r3,r12}   
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
         b       execute_one_instruction
