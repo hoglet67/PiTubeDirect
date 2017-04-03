@@ -1410,6 +1410,9 @@ handle_irq:
         FETCH_NEXT_3B_MERGED SUBPC
 
 handle_nmi:
+        push    {r2,r3,r12}
+        BL      tube_ack_nmi
+        pop     {r2,r3,r12}   
         msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
         FETCH_NEXT_3B_MERGED SUBPC
