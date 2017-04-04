@@ -208,14 +208,14 @@ byte tmpr;
   tick(ticks);					\
   {						\
     byte tmp= MEM(PC++) + X;			\
-    ea= MEM(tmp) + (MEM(tmp + 1) << 8);	\
+    ea= MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);	\
   }
 
 #define indy(ticks)						\
   tick(ticks);							\
   {								\
     byte tmp= MEM(PC++);					\
-    ea= MEM(tmp) + (MEM(tmp + 1) << 8);			\
+    ea= MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);			\
     tickIf((ticks == 5) && ((ea >> 8) != ((ea + Y) >> 8)));	\
     ea += Y;							\
   }
@@ -233,7 +233,7 @@ byte tmpr;
   {							\
     byte tmp;						\
     tmp= MEM(PC++);					\
-    ea = MEM(tmp) + (MEM(tmp + 1) << 8);		\
+    ea = MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);		\
   }
 
 /* insns */
