@@ -586,21 +586,22 @@
         FETCH_NEXT_STAGE_2
 .endm
 
-.macro ADC_macro reg=r1      
+.macro ADC_macro reg=r1
         tst     flags, #8
         bic     flags, #0x40
-        FETCH_NEXT_STAGE_0  
-.if \reg==r0        
-        bne     decimal_mode_adc_r0
-.else
-        bne     decimal_mode_adc    
-.endif 
-#if defined(USE_MEMORY_POINTER)             
+#if defined(USE_MEMORY_POINTER)
         orrcs   \reg, \reg, #0xff00
         sxthcs  \reg, \reg
 #else
         orrcs   \reg, \reg, memry         // memry has been reused and is 0xFFFFFF00 
-#endif     
+#endif
+        FETCH_NEXT_STAGE_0
+.if \reg==r0        
+        bne     decimal_mode_adc_r0
+.else
+        bne     decimal_mode_adc
+.endif 
+   
 .if \reg==r0    
         FETCH_NEXT_STAGE_1a_OO
         adcs    regA, regA, \reg, ror #8
@@ -611,19 +612,19 @@
         FETCH_NEXT_STAGE_1b
 .endif          
         orrvs   flags, #0x40
-        FETCH_NEXT_STAGE_2   
+        FETCH_NEXT_STAGE_2
 .endm
 
-.macro SBC_macro reg=r1      
+.macro SBC_macro reg=r1
         tst     flags, #8
         bic     flags, #0x40
-#if defined(USE_MEMORY_POINTER)          
-        orrcc   \reg, \reg, #0xff00  
+#if defined(USE_MEMORY_POINTER)
+        orrcc   \reg, \reg, #0xff00
         sxthcc  \reg, \reg
 #else
         orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
-#endif  
-        FETCH_NEXT_STAGE_0 
+#endif
+        FETCH_NEXT_STAGE_0
 .if \reg==r0         
         bne     decimal_mode_sbc_r0
 .else
@@ -641,19 +642,19 @@
 
 .endif
         orrvs   flags, #0x40
-        FETCH_NEXT_STAGE_2     
+        FETCH_NEXT_STAGE_2
 .endm
 
 .macro BRANCH yes no reg=r0
       sxtab\yes regPC, regPC, \reg
       // stall
-      ldr\yes\()b  r5, [regPC]  
+      ldr\yes\()b  r5, [regPC]
       //stall
       //stall
       //stall
       ldr     lr, [instt, r5, lsl #2]
       ldrb    r0, [regPC, #1]  //hidden in stall
-      ldrb    r5, [regPC, #2]! //hidden in stall         
+      ldrb    r5, [regPC, #2]! //hidden in stall
       FETCH_NEXT_STAGE_2            // 5 cycles
 
       // total of 14 if taken. 10 if not taken
@@ -1534,23 +1535,24 @@ handle_nmi2:
         b       execute_one_instruction
                 
 decimal_mode_adc:
-        and     r0, regA, #0xf000000
+        // if carry is set the upper 24 bits of R1 are set too
+
+        and     r0, regA, #0x0F<<24
         and     r2, r1, #15
         adc     r2, r2, r0, lsr #24
         cmp     r2, #10
         subcs   r2, r2, #10
         and     r2, r2, #0x0F
         orrcs   r1, r1 ,#0x0F
-        orrcs   r1, r1, memry
-        and     regA, regA,#0xF0<<24
-        orrcs   regA, regA,#0x0F<<24
+        and     regA, regA, #0xF0<<24
+        orrcs   regA, regA, #0x0F<<24
         adcs    regA, regA, r1 , ror #8   
         orrvs   flags, #0x40
-        cmpcc     regA, #10<<28
+        cmpcc   regA, #10<<28
         subcs   regA, regA, #10<<28
         FETCH_NEXT_STAGE_1
         and     regA, regA, #0xF0<<24
-        orr     regA, regA, r2,lsl #24
+        orr     regA, regA, r2, lsl #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2
 
@@ -1569,23 +1571,22 @@ decimal_mode_sbc:
         FETCH_NEXT_STAGE_2
 
 decimal_mode_adc_r0:
-        and     r1, regA, #0xf000000
+        and     r1, regA, #0x0F<<24
         and     r2, r0, #15
         adc     r2, r2, r1, lsr #24
         cmp     r2, #10
         subcs   r2, r2, #10
         and     r2, r2, #0x0F
         orrcs   r0, r0 ,#0x0F
-        orrcs   r0, r0, memry
-        and     regA, regA,#0xF0<<24
-        orrcs   regA, regA,#0x0F<<24
-        adcs    regA, regA, r0 , ror #8   
+        and     regA, regA, #0xF0<<24
+        orrcs   regA, regA, #0x0F<<24
+        adcs    regA, regA, r0 , ror #8
         orrvs   flags, #0x40
         cmpcc   regA, #10<<28
         subcs   regA, regA, #10<<28
         FETCH_NEXT_STAGE_1
         and     regA, regA, #0xF0<<24
-        orr     regA, regA, r2,lsl #24
+        orr     regA, regA, r2, lsl #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2
 
@@ -1596,7 +1597,7 @@ decimal_mode_sbc_r0:
         sbcs    regA, regA, r0, ror #8
         FETCH_NEXT_STAGE_1a
         orrvs   flags, #0x40
-        subcc   regA, regA,#0x60<<24
+        subcc   regA, regA, #0x60<<24
         FETCH_NEXT_STAGE_1b
         teq     r2,#0
         submi   regA, regA, #0x6<<24
