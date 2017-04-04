@@ -94,7 +94,8 @@
 .equ    N_FLAG,      0x80000000
 .equ    Z_FLAG,      0x40000000
 .equ    C_FLAG,      0x20000000
-
+.equ    CPSR_FIQ_INHIBIT,       0x40
+.equ    CPSR_IRQ_INHIBIT,       0x80
 
 
 // Mask used when poping status into flags (RTI, PLP)
@@ -102,9 +103,7 @@
 // bits 7-0 are 6502 status reg bits
 // bits 31-8 are emulator control bits
 .equ    R4_MASK,     0xFFFFFF4C
-
-
-        
+  
 // **********************************************
 // Start of macros
 // **********************************************
@@ -1379,11 +1378,11 @@ exec_65tube_exit:                       // We get here from the Event handler wh
 // if USE_MULTICORE is not defined, we have come here via a branch from the second instruction table
 
 Event_Handler:
-        ldr     r0, =tube_irq
+        ldr     r1, =tube_irq
         mrs     r2, CPSR                // preserve the 6502 flags
    
         bic     instt, instt, #1024           // ack events
-        ldrb    r0, [r0]
+        ldrb    r0, [r1]
         sub     regPC, regPC, #2              // set the instruction back as we haven't executed it
         
         tst     r0, #4                  // Bit 2 set indicate RST is active
@@ -1410,10 +1409,12 @@ handle_irq:
         FETCH_NEXT_3B_MERGED SUBPC
 
 handle_nmi:
-        push    {r2,r3,r12}
-        BL       tube_ack_nmi
-        pop     {r2,r3,r12}   
-        msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
+        orr     r0,r2, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
+        msr     CPSR_c,r0                 // Disable interrupts  
+        ldr     r0,[r1]                 // load tube_irq again as it might have changed  
+        BIC     r0,r0,#2                // clear NMI flag     
+        str     r0,[r1]                 // Store it back again  
+        msr     CPSR_cf, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
         FETCH_NEXT_3B_MERGED SUBPC
 
@@ -1451,12 +1452,12 @@ targettime:
 //     we restore the modified table base pointer so we will re-enter this handler
         
 Event_Handler_Single_Core_Slow:
-        ldr     r0, =tube_irq		
+        ldr     r1, =tube_irq		
         mrs     r2, CPSR                // preserve the 6502 flags
                                         // interrupts are left enabled
         
         bic     instt, instt, #1024     // ack any events
-        ldrb    r0,[r0]
+        ldrb    r0,[r1]
         sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
         tst     r0,#7
         beq     noirq2
@@ -1523,10 +1524,12 @@ handle_irq2:
 
         
 handle_nmi2:
-        push    {r2,r3,r12}
-        BL       tube_ack_nmi
-        pop     {r2,r3,r12}   
-        msr     CPSR, r2                // Restore the 6502 flags and re-enable ARM interrupts
+        orr     r0,r2, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
+        msr     CPSR_c,r0                 // Disable interrupts  
+        ldr     r0,[r1]                 // load tube_irq again as it might have changed  
+        BIC     r0,r0,#2                // clear NMI flag     
+        str     r0,[r1]                 // Store it back again  
+        msr     CPSR_cf, r2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
         b       execute_one_instruction
                 
