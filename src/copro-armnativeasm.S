@@ -121,8 +121,11 @@ copro_armnative_fiq_handler:
    
         push    {r0}
         bl      tube_io_handler        // Update the Tube ULA emulation
+        and     r1, r0, #4             // Get Reset bit which migh have come from 
+                                       // write to register 
         pop     {r0}
-        
+        orr     r0, r0, r1, LSL #12-2
+
         bl      copro_armnative_tube_interrupt_handler
         
         pop     {r0-r7, lr}
