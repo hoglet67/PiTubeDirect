@@ -4,6 +4,7 @@
 #include "rpi-gpio.h"
 #include "info.h"
 #include "startup.h"
+#include "stdlib.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "debugger/debugger.h"
@@ -32,7 +33,7 @@ aux_t* RPI_GetAux(void)
 // Note, at the point the MiniUART is initialized, low vectors are in use
 #define IRQ_VECTOR 0x38
 
-static char tx_buffer[TX_BUFFER_SIZE];
+static char *tx_buffer;
 static volatile int tx_head;
 static volatile int tx_tail;
 
@@ -110,6 +111,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   auxillary->MU_BAUD = ( sys_freq / (8 * baud)) - 1;
 
 #ifdef USE_IRQ
+  tx_buffer = malloc(TX_BUFFER_SIZE);
   tx_head = tx_tail = 0;
   *((uint32_t *) IRQ_VECTOR) = (uint32_t) RPI_AuxMiniUartIRQHandler;
   RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
