@@ -1355,6 +1355,9 @@ exec_65tube:
         MRC      p15, 0, r0, c15, c12, 1    // Read Cycle Counter Register    
 #endif        
         str      r0,targettime
+        ldr      lr,=copro_speed
+        ldr      lr,[lr]
+        str      lr,copro_speed6502
 
 handle_rst:
         orr     flags, flags, #4              // Set the I bit
@@ -1424,6 +1427,9 @@ lastPC:
 targettime:
    .word 0
    
+copro_speed6502:
+   .word 0 
+
 // In slowdown we patch the event handler dispatch table to a special event handler (below)
 //
 // This implements the following dispatch pattern
@@ -1476,27 +1482,27 @@ Event_Handler_Single_Core_Slow:
 
 noirq2:
         ldrb    r0, [regPC]             // get next instruction
-        adr     r1,timing_table
-        ldr     lr,lastPC
-        ldrb    r0,[r1,r0,LSL#1]!       // get instruction time
-        ldrb    r1,[r1,#1]              // get instruction length
-        cmp     lr,regPC
-        ldr     lr,=copro_speed
-        ADDNE   r0,r0,#1  
+        adr     r1, timing_table
+        ldr     lr, lastPC
+
+        ldrb    r0, [r1,r0,LSL#1]!       // get instruction time
+        ldrb    r1, [r1,#1]              // get instruction length
+        cmp     lr, regPC
+        ldr     lr, copro_speed6502      // load copro_speed
+        ADDNE   r0, r0, #1  
         
-        add     r1,r1,regPC
-        ldr     lr,[lr]                 // load copro_speed
-        str     r1,lastPC
+        add     r1, r1, regPC
+        str     r1, lastPC
         
         // get last time
-        LDR     r1,targettime
-        MUL     r0,lr,r0
-        
+        LDR     r1, targettime
+        MUL     r0, lr, r0
+        ldrb    r5, [regPC]             // get next instruction
         // add on new time
-        ADD     lr,r1,r0,LSR #8         // shift by 8 
+        ADD     lr, r1, r0, LSR #8         // shift by 8 
         // save time new time.
-        str     lr,targettime
-        
+        str     lr, targettime
+
         // loop until current time(R0) > nexttime(R1) ( nb deal with wrap around)
 waste_time:       
 #if defined(RPI2)|| defined(RPI3)
@@ -1504,17 +1510,15 @@ waste_time:
 #else
         MRC     p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register    
 #endif        
-        sub     lr,lr,r1          // if this goes negative we are running too slow
-        CMP     lr,r0,LSR #8
+        sub     lr, lr, r1          // if this goes negative we are running too slow
+        CMP     lr, r0, LSR #8
         BCC     waste_time
 
         msr     CPSR, r2                // restore the 6502 flags        
 
-execute_one_instruction:
-        ldrb    r2, [regPC]            // same as FETCH_NEXT_STAGE_012 but set bit in instt to return immediately to event handler
+        ldr     lr, [instt, r5, lsl #2]
         ldrb    r0, [regPC, #1]
         ldrb    r5, [regPC, #2]!
-        ldr     lr, [instt, r2, lsl #2]
         orr     instt, instt, #1024    // Return to event handler after next instruction dispatch        
         bx      lr
 
@@ -1526,13 +1530,19 @@ handle_irq2:
         
 handle_nmi2:
         orr     r0,r2, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
-        msr     CPSR_c,r0                 // Disable interrupts  
+        msr     CPSR_c,r0               // Disable interrupts  
         ldr     r0,[r1]                 // load tube_irq again as it might have changed  
         BIC     r0,r0,#2                // clear NMI flag     
         str     r0,[r1]                 // Store it back again  
-        msr     CPSR_cf, r2                // Restore the 6502 flags and re-enable ARM interrupts
+        msr     CPSR_cf, r2             // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
-        b       execute_one_instruction
+execute_one_instruction:
+        ldrb    r2, [regPC]            // same as FETCH_NEXT_STAGE_012 but set bit in instt to return immediately to event handler
+        ldrb    r0, [regPC, #1]
+        ldrb    r5, [regPC, #2]!
+        ldr     lr, [instt, r2, lsl #2]
+        orr     instt, instt, #1024    // Return to event handler after next instruction dispatch        
+        bx      lr
                 
 decimal_mode_adc:
         // if carry is set the upper 24 bits of R1 are set too
