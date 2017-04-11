@@ -15,7 +15,7 @@ static int pt_index ;
 
 void RPI_PropertyInit( void )
 {
-    memset(pt, 0, sizeof(pt));
+    //memset(pt, 0, sizeof(pt));
 
     /* Fill in the size on-the-fly */
     pt[PT_OSIZE] = 12;
