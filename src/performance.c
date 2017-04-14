@@ -205,7 +205,7 @@ void print_performance_counters(perf_counters_t *pct) {
       printf("%26s = %u\r\n", type_lookup(pct->type[i]), pct->counter[i]);
    }
 }
-
+#ifdef BENCHMARK
 int benchmark() {
    int i;
    int total;
@@ -273,3 +273,4 @@ int benchmark() {
 
    return total;
 }
+#endif
