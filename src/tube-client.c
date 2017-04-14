@@ -10,6 +10,7 @@
 #include "cache.h"
 #include "performance.h"
 #include "info.h"
+#include "rpi-gpio.h"
 
 typedef void (*func_ptr)();
 
@@ -224,53 +225,36 @@ static void get_copro_memory_size() {
 
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
-#ifdef HAS_MULTICORE
-   volatile int i;
-#endif
-
+     // Initialise the UART to 57600 baud
+  RPI_AuxMiniUartInit( 115200, 8 );
+     enable_MMU_and_IDCaches();
+   _enable_unaligned_access();
    tube_init_hardware();
+
+   
    arm_speed = get_clock_rate(ARM_CLK_ID);
+   
+
+   start_vc_ula();
+
    copro = get_copro_number();
    get_copro_speed();
    get_copro_memory_size();
    
-   LOG_DEBUG("Staring VC ULA\r\n");
-   start_vc_ula();
-   LOG_DEBUG("Done\r\n");
-
-   enable_MMU_and_IDCaches();
-   _enable_unaligned_access();
-
-#ifdef DEBUG
+#ifdef BENCHMARK
   // Run a short set of CPU and Memory benchmarks
   benchmark();
 #endif
 
-  init_emulator();
-
-  // Lock the Tube Interrupt handler into cache for BCM2835 based Pis
-
 #ifdef HAS_MULTICORE
-
   LOG_DEBUG("main running on core %u\r\n", _get_core());
-  for (i = 0; i < 10000000; i++);
   start_core(1, _spin_core);
-  for (i = 0; i < 10000000; i++);
   start_core(2, _spin_core);
-  for (i = 0; i < 10000000; i++);
-
-#ifdef USE_MULTICORE
-  start_core(3, _init_core);
-  while (1);
-#else
   start_core(3, _spin_core);
-  for (i = 0; i < 10000000; i++);
 #endif
-
-#endif
-
-#ifndef USE_MULTICORE
-
+  init_emulator();
+  
+RPI_GpioBase->GPSET0 = (1 << TEST_PIN);
   do {
      // Run the emulator
      emulator();
@@ -279,6 +263,5 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
      init_emulator();
      
   } while (1);
-
-#endif
+  
 }
