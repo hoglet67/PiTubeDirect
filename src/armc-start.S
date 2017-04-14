@@ -29,9 +29,9 @@
 
 #include "tube-defs.h"
 
-.equ    STACK_SIZE,           0x00100000 
+.equ    STACK_SIZE,           0x00100000
 
-.equ    C0_SVR_STACK,        0 
+.equ    C0_SVR_STACK,        0
 .equ    C0_IRQ_STACK,        (STACK_SIZE*1)
 .equ    C0_FIQ_STACK,        STACK_SIZE*2
 .equ    C0_USER_STACK,       STACK_SIZE*4
@@ -68,7 +68,7 @@
 .global _clean_invalidate_dcache_mva
 .global _invalidate_dtlb
 .global _invalidate_dtlb_mva
-        
+
 #ifdef HAS_MULTICORE
 .global _get_core
 .global _init_core
@@ -78,7 +78,7 @@
 #if defined(HAS_40PINS)
 .global _toggle_test_pin
 #endif
-        
+
 // From the ARM ARM (Architecture Reference Manual). Make sure you get the
 // ARMv5 documentation which includes the ARMv6 documentation which is the
 // correct processor type for the Broadcom BCM2835. The ARMv6-M manuals
@@ -114,7 +114,7 @@ _start:
     ldr pc, _interrupt_vector_h
     ldr pc, _fast_interrupt_vector_h
 
-_reset_h:                           .word   _reset_ 
+_reset_h:                           .word   _reset_
 _undefined_instruction_vector_h:    .word   _undefined_instruction_handler_
 _software_interrupt_vector_h:       .word   _swi_handler_
 _prefetch_abort_vector_h:           .word   _prefetch_abort_handler_
@@ -129,7 +129,7 @@ _reset_:
 #ifdef HAS_MULTICORE
 
 #ifdef KERNEL_OLD
-        
+
     // if kernel_old=1 all cores are running and we need to sleep 1-3
     // if kernel_old=0 then just core0 is running, and core 1-3 are waiting
     // on a mailbox write to be woken up.
@@ -141,11 +141,11 @@ _reset_:
     // Put cores 1-3 into a tight loop
 _core_loop:
     wfi
-    b       _core_loop    
+    b       _core_loop
 _core_continue:
 
 #else
-        
+
     // if kernel_old=0 enter in HYP mode and need to force a switch to SVC mode
     //
     // for now we assume kernel_old=1 and don't execute this core
@@ -170,7 +170,7 @@ _reset_continue:
 #endif
 
 #endif
-            
+
     // We enter execution in supervisor mode. For more information on
     // processor modes see ARM Section A2.2 (Processor Modes)
 
@@ -183,7 +183,7 @@ _reset_continue:
 
     // Initialise Stack Pointers ---------------------------------------------
     ldr     r4,=_start
-    
+
     // We're going to use interrupt mode, so setup the interrupt mode
     // stack pointer which differs to the application stack pointer:
     mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
@@ -257,12 +257,12 @@ _reset_continue:
 _get_stack_pointer:
     mov     r0, sp
     mov     pc, lr
-    
+
 .section ".text._get_cpsr"
 _get_cpsr:
     mrs     r0, cpsr
     mov     pc, lr
-    
+
 .section ".text._enable_interrupts"
 _enable_interrupts:
     mrs     r0, cpsr
@@ -285,7 +285,7 @@ _undefined_instruction_handler_:
     mov      r0, sp
     bl       undefined_instruction_handler
 
-.section ".text._prefetch_abort_handler_"    
+.section ".text._prefetch_abort_handler_"
 _prefetch_abort_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -293,7 +293,7 @@ _prefetch_abort_handler_:
     mov      r0, sp
     bl       prefetch_abort_handler
 
-.section ".text._data_abort_handler_"    
+.section ".text._data_abort_handler_"
 _data_abort_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -301,7 +301,7 @@ _data_abort_handler_:
     mov      r0, sp
     bl       data_abort_handler
 
-.section ".text._swi_handler_"    
+.section ".text._swi_handler_"
 _swi_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
@@ -339,40 +339,40 @@ _invalidate_icache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c5, 0
     mov      pc, lr
-    
+
 .section ".text._invalidate_dcache"
 _invalidate_dcache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c6, 0
     mov      pc, lr
-    
+
 .section ".text._clean_invalidate_dcache"
 _clean_invalidate_dcache:
     mov      r0, #0
     mcr      p15, 0, r0, c7, c14, 0
     mov      pc, lr
-    
+
 .section ".text._invalidate_dcache_mva"
 _invalidate_dcache_mva:
     mcr      p15, 0, r0, c7, c6, 1
     mov      pc, lr
-    
+
 .section ".text._clean_invalidate_dcache_mva"
 _clean_invalidate_dcache_mva:
     mcr      p15, 0, r0, c7, c14, 1
     mov      pc, lr
-    
+
 .section ".text._invalidate_dtlb"
 _invalidate_dtlb:
     mov      r0, #0
     mcr      p15, 0, r0, c8, c6, 0
     mov      pc, lr
-    
+
 .section ".text._invalidate_dtlb_mva"
 _invalidate_dtlb_mva:
     mcr      p15, 0, r0, c8, c6, 1
     mov      pc, lr
-        
+
 #ifdef USE_MULTICORE
 
 _init_core:
@@ -443,40 +443,40 @@ _init_continue:
 #endif
 
 #ifdef HAS_MULTICORE
-    
+
     // If main does return for some reason, just catch it and stay here.
 _spin_core:
-#ifdef DEBUG        
-    mov     r0, #'S'    
+#ifdef DEBUG_Multicore
+    mov     r0, #'S'
     bl      RPI_AuxMiniUartWrite
-    mov     r0, #'P'    
+    mov     r0, #'P'
     bl      RPI_AuxMiniUartWrite
-    mov     r0, #'I'    
+    mov     r0, #'I'
     bl      RPI_AuxMiniUartWrite
-    mov     r0, #'N'    
+    mov     r0, #'N'
     bl      RPI_AuxMiniUartWrite
     bl     _get_core
     add     r0, r0, #'0'
     bl      RPI_AuxMiniUartWrite
-    mov     r0, #'\r'    
+    mov     r0, #'\r'
     bl      RPI_AuxMiniUartWrite
-    mov     r0, #'\n'    
+    mov     r0, #'\n'
     bl      RPI_AuxMiniUartWrite
-#endif        
+#endif
 _spin_core1:
     wfi
     b       _spin_core1
-    
+
 _get_core:
     mrc     p15, 0, r0, c0, c0, 5
     and     r0, #3
     mov     pc, lr
-    
+
 #endif
 
 #ifdef HAS_40PINS
 .section ".text._toggle_test_pin"
-_toggle_test_pin:        
+_toggle_test_pin:
         mov     r1, #TEST_MASK
 _toggle_test_pin_loop:
         ldr     r2, =GPSET0
