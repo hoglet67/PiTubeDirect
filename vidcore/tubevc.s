@@ -99,13 +99,7 @@
 #  st  r9, (r8)
         
    mov    r9, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
-   ld     r10, (r1)    # databus driving signals
-   ld     r11, 4(r1)   # databus driving signals
-   ld     r12, 8(r1)   # databus driving signals
-   ld     r13, 12(r1)  # databus driving signals
-   ld     r14, 16(r1)  # databus driving signals
-   ld     r15, 20(r1)  # databus driving signals
-
+   or     r9, r5       # add in test pin so that it is cleared at the end of the access
    lsr    r16, r3, 0   # Extract GPIO number of A0
    and    r16, 31
    lsr    r17, r3, 8   # Extract GPIO number of A1
@@ -115,16 +109,22 @@
 
 # r1, r3, r4 now free
 
+   mov    r3, GPU_ARM_MBOX
+ 
+   mov    r6, GPFSEL0
+   
+   # read GPIO registers to capture the bus idle state
+   
+   ld     r10,  (r6)
+   ld     r11, 4(r6)
+   ld     r12, 8(r6)
+   or     r13, r10, r1
+   or     r14, r11, r2
+   or     r15, r12, r4
    mov    r1, (1<<nTUBE+1<<nRST+1<<RnW+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
    bset   r1, r16
    bset   r1, r17
    bset   r1, r18
-
-   mov    r3, GPU_ARM_MBOX
-        
-   mov    r4, 0        # 4-bit sequence number for detecting overun
-
-   mov    r6, GPFSEL0
 
 # enable interrupts
 #  ei
@@ -181,13 +181,11 @@ rd_wait_for_clk_low:
    btst   r7, CLK
    bne    rd_wait_for_clk_low
 
-   st     r5, GPCLR0_offset(r6) #DEBUG pin
-
 # stop driving databus
-   st     r9, GPCLR0_offset(r6)
-   st     r10, (r6)  # Drive data bus
+   st     r10, (r6)  # Stop Driving data bus
    st     r11, 4(r6)
    st     r12, 8(r6)
+   st     r9, GPCLR0_offset(r6) #clear databus ready for next time and debug pin
 
 # detect dummy read
 # spin waiting for clk high

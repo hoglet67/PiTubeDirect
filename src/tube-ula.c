@@ -44,7 +44,7 @@
 #include "tubevc.h"
 #include "startup.h"
 
-static volatile uint32_t *tube_regs;
+static volatile uint32_t *tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
 
 #define HBIT_7 (1 << 25)
 #define HBIT_6 (1 << 24)
@@ -57,9 +57,6 @@ static volatile uint32_t *tube_regs;
 
 #define BYTE_TO_WORD(data) ((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18))
 #define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) << 18) & 0xF0))
-
-
-static volatile uint32_t gpfsel_data_idle[6];
 
 const static uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 static char copro_command =0;
@@ -700,8 +697,6 @@ int tube_io_handler(uint32_t mail)
 
 void tube_init_hardware()
 {
-
-   int i;
   // Write 1 to the LED init nibble in the Function Select GPIO
   // peripheral register to enable LED pin as an output
   RPI_GpioBase->LED_GPFSEL |= LED_GPFBIT;
@@ -731,8 +726,7 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
 #endif
 
-  // Initialise the UART to 57600 baud
-  RPI_AuxMiniUartInit( 115200, 8 );
+
 
   // Initialise the info system with cached values (as we break the GPU property interface)
   init_info();
@@ -741,19 +735,13 @@ void tube_init_hardware()
   dump_useful_info();
 #endif
 
-  // Precalculate the values that need to be written to the FSEL registers
-  // to set the data bus GPIOs as inputs (idle) and output (driving)
-  for (i = 0; i < 3; i++) {
-     gpfsel_data_idle[i] = (uint32_t) RPI_GpioBase->GPFSEL[i];
-     gpfsel_data_idle[i+3] = gpfsel_data_idle[i] | magic[i];
-     LOG_DEBUG("%d %010o %010o\r\n", i, (unsigned int) gpfsel_data_idle[i], (unsigned int) gpfsel_data_idle[i+3]);
-  }
-
   // Print the GPIO numbers of A0, A1 and A2
+#ifdef DEBUG_GPU  
   LOG_DEBUG("A0 = GPIO%02d = mask %08x\r\n", A0_PIN, A0_MASK); 
   LOG_DEBUG("A1 = GPIO%02d = mask %08x\r\n", A1_PIN, A1_MASK); 
   LOG_DEBUG("A2 = GPIO%02d = mask %08x\r\n", A2_PIN, A2_MASK); 
-
+#endif
+  
   // Initialize performance counters
 #if defined(RPI2) || defined(RPI3) 
    pct.num_counters = 6;
@@ -777,9 +765,9 @@ void tube_init_hardware()
    pct.counter[1] = 0;
 #endif
 
-   tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
-
    hp1 = hp2 = hp4 = hp3[0]= hp3[1]=0;
+   
+ //  RPI_GpioBase->GPSET0 = (1 << TEST_PIN);
 }
 
 int tube_is_rst_active() {
@@ -862,16 +850,16 @@ void disable_tube() {
 }
 // todo : we need to sort out caches memory map etc here
 void start_vc_ula()
-{  int func,r0,r1, r2,r3,r4,r5;
-
+{
+   int func,r0,r1, r2,r3,r4,r5;
 
    func = (int) &tubevc_asm[0];
    r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
-   r1   = (int) &gpfsel_data_idle;       // gpfsel_data_idle
-   r2   = 0;
+   r1   = magic[0];       // data bus drive 
+   r2   = magic[1];
 
    r3   = (A2_PIN << 16) | (A1_PIN << 8) | (A0_PIN); // address bus GPIO mapping
-   r4   = 0;
+   r4   = magic[2];
 #ifdef HAS_40PINS
    r5   = TEST_MASK;                     // test pin
 #else
@@ -884,9 +872,8 @@ void start_vc_ula()
    if (r0) {
       r0 |= 0x40000000;
    }
-   if (r2) {
-      r2 |= 0x40000000;
-   }
+#ifdef DEBUG_GPU
+   LOG_DEBUG("Staring VC ULA\r\n");
    LOG_DEBUG("VidCore code = %08x\r\n", func);
    LOG_DEBUG("VidCore   r0 = %08x\r\n", r0);
    LOG_DEBUG("VidCore   r1 = %08x\r\n", r1);
@@ -894,6 +881,7 @@ void start_vc_ula()
    LOG_DEBUG("VidCore   r3 = %08x\r\n", r3);
    LOG_DEBUG("VidCore   r4 = %08x\r\n", r4);
    LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);
+#endif   
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
    RPI_PropertyProcessNoCheck();
