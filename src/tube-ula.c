@@ -848,7 +848,7 @@ void disable_tube() {
       tube_regs[i] = 0xfe;
    }
 }
-// todo : we need to sort out caches memory map etc here
+
 void start_vc_ula()
 {
    int func,r0,r1, r2,r3,r4,r5;
@@ -865,13 +865,7 @@ void start_vc_ula()
 #else
    r5   = 0;
 #endif
-   // re-map to bus addresses
-   // if the L2 cache is  enabled, the VC MMU maps physical memory to 0x40000000
-   // if the L2 cache is disabled, the VC MMU maps physical memory to 0xC0000000
-   // https://github.com/raspberrypi/firmware/wiki/Accessing-mailboxes
-   if (r0) {
-      r0 |= 0x40000000;
-   }
+
 #ifdef DEBUG_GPU
    LOG_DEBUG("Staring VC ULA\r\n");
    LOG_DEBUG("VidCore code = %08x\r\n", func);
