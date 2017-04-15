@@ -125,7 +125,7 @@ _fast_interrupt_vector_h:           .word   arm_fiq_handler
 
 .section ".text._reset_"
 _reset_:
-
+       BL _enable_l1_cache
 #ifdef HAS_MULTICORE
 
 #ifdef KERNEL_OLD
@@ -250,6 +250,7 @@ _reset_continue:
     // initialise the ro data section (most things that have the const
     // declaration) and initialise the bss section variables to 0 (generally
     // known as automatics). It'll then call main
+
     b      _cstartup
 
 
