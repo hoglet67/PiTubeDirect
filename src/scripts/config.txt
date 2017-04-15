@@ -43,8 +43,10 @@ force_turbo=1
 
 # Disable adjusting the refresh rate of RAM every 500 ms
 disable_pvt=1
-
+hdmi_ignore_edid=0xa5000080
+hdmi_ignore_hotplug=1
 boot_delay=0
+
 kernel_address=0x1f00000
 gpu_mem=16
 start_file=start_cd.elf
