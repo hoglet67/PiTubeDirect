@@ -253,8 +253,11 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
   start_core(3, _spin_core);
 #endif
   init_emulator();
-  
-RPI_GpioBase->GPSET0 = (1 << TEST_PIN);
+
+#ifdef HAS_40PINS
+  RPI_GpioBase->GPSET0 = (1 << TEST_PIN);
+#endif
+
   do {
      // Run the emulator
      emulator();
