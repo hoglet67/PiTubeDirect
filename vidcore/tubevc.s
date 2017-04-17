@@ -131,8 +131,8 @@
                 
 # poll for nTube being low
 Poll_loop:
-   ld     r8, GPLEV0_offset(r6)
    mov    r7, r0
+   ld     r8, GPLEV0_offset(r6)
 Poll_tube_low:
    btst   r8, nRST
    beq    post_reset
