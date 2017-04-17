@@ -152,28 +152,18 @@
 #define MAGIC_C2     ((1 << ((D4_PIN - 20) * 3)) | (1 << ((D5_PIN - 20) * 3)))
 #define MAGIC_C3     ((1 << ((D6_PIN - 20) * 3)) | (1 << ((D7_PIN - 20) * 3)))
 
-#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2) || defined(RPI3)
+#define A2_PIN_40PIN       (3)
+#define A1_PIN_40PIN       (2)
+#define A0_PIN_40PIN       (27)
 
-#define A2_PIN       (3)
-#define A1_PIN       (2)
-#define A0_PIN       (27)
-
-#else
-
-#define A2_PIN       (1)
-#define A1_PIN       (0)
-#define A0_PIN       (21)
-
-#endif
+#define A2_PIN_26PIN       (1)
+#define A1_PIN_26PIN       (0)
+#define A0_PIN_26PIN       (21)
 
 #define PHI2_PIN     (7)
 #define NTUBE_PIN    (17)
 #define NRST_PIN     (4)
 #define RNW_PIN      (18)
-
-#define ATTN_PIN     (31)
-#define OVERRUN_PIN  (30)
-#define GLITCH_PIN   (29)
 
 #define D7_MASK      (1 << D7_PIN)
 #define D6_MASK      (1 << D6_PIN)
@@ -183,9 +173,7 @@
 #define D2_MASK      (1 << D2_PIN)
 #define D1_MASK      (1 << D1_PIN)
 #define D0_MASK      (1 << D0_PIN)
-#define A2_MASK      (1 << A2_PIN)
-#define A1_MASK      (1 << A1_PIN)
-#define A0_MASK      (1 << A0_PIN)
+
 #define PHI2_MASK    (1 << PHI2_PIN)
 #define NTUBE_MASK   (1 << NTUBE_PIN)
 #define NRST_MASK    (1 << NRST_PIN)
@@ -199,17 +187,12 @@
 #define D74_MASK     (D7_MASK | D6_MASK | D5_MASK | D4_MASK)
 #define D_MASK       (D74_MASK | D30_MASK)
 
-#define A_MASK       (A2_MASK | A1_MASK | A0_MASK)
 
-#define PINS_MASK    (A_MASK | D_MASK | RNW_MASK | NRST_MASK | NTUBE_MASK)
-
-#ifdef HAS_40PINS
 #define TEST_PIN     (21)
 #define TEST_MASK    (1 << TEST_PIN)
 #define TEST2_PIN    (20)
 #define TEST2_MASK   (1 << TEST2_PIN)
 #define TEST3_PIN    (16)
 #define TEST3_MASK   (1 << TEST3_PIN)
-#endif
 
 #endif

@@ -45,6 +45,7 @@
 #include "startup.h"
 
 static volatile uint32_t *tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
+static uint32_t host_addr_bus;
 
 #define HBIT_7 (1 << 25)
 #define HBIT_6 (1 << 24)
@@ -600,14 +601,7 @@ int tube_io_handler(uint32_t mail)
    act_seq_num = (mail >> 12) & 15;
 #endif
 #endif
-   // Toggle the LED on each tube access
-   static int led = 0;
-   if (led) {
-      LED_OFF();
-   } else {
-      LED_ON();
-   }
-   led = ~led;
+
 #ifdef USE_GPU
 
    if ((mail >> 12) & 1)        // Check for Reset
@@ -697,11 +691,33 @@ int tube_io_handler(uint32_t mail)
 
 void tube_init_hardware()
 {
-  // Write 1 to the LED init nibble in the Function Select GPIO
-  // peripheral register to enable LED pin as an output
-  RPI_GpioBase->LED_GPFSEL |= LED_GPFBIT;
 
-  LED_ON();
+  // early 26pin pins have a slightly different pin out
+  
+  switch (get_revision())
+  {
+     case 2 :
+     case 3 :   
+ 
+          host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
+          RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(A1_PIN_26PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(A0_PIN_26PIN, FS_INPUT);
+        
+        break;
+     
+         
+     default :
+
+          host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
+          RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT);
+          RPI_SetGpioPinFunction(TEST_PIN, FS_OUTPUT);
+          RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
+          RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
+          break;   
+  }
   // Configure our pins as inputs
   RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
@@ -712,34 +728,17 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(D1_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D0_PIN, FS_INPUT);
 
-  RPI_SetGpioPinFunction(A2_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(A1_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(A0_PIN, FS_INPUT);
+
   RPI_SetGpioPinFunction(PHI2_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
-
-#ifdef HAS_40PINS
-  RPI_SetGpioPinFunction(TEST_PIN, FS_OUTPUT);
-  RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
-  RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
-#endif
-
-
 
   // Initialise the info system with cached values (as we break the GPU property interface)
   init_info();
 
 #ifdef DEBUG
   dump_useful_info();
-#endif
-
-  // Print the GPIO numbers of A0, A1 and A2
-#ifdef DEBUG_GPU  
-  LOG_DEBUG("A0 = GPIO%02d = mask %08x\r\n", A0_PIN, A0_MASK); 
-  LOG_DEBUG("A1 = GPIO%02d = mask %08x\r\n", A1_PIN, A1_MASK); 
-  LOG_DEBUG("A2 = GPIO%02d = mask %08x\r\n", A2_PIN, A2_MASK); 
 #endif
   
   // Initialize performance counters
@@ -798,9 +797,7 @@ static void tube_wait_for_rst_active() {
 
 void tube_wait_for_rst_release() {
    volatile int i;
-//#ifdef HAS_40PINS
-//   RPI_SetGpioValue(TEST2_PIN, 1);
-//#endif
+
    do {
       // Wait for reset to be released
       while (tube_is_rst_active());
@@ -808,9 +805,7 @@ void tube_wait_for_rst_release() {
       for (i = 0; i < DEBOUNCE_TIME && !tube_is_rst_active(); i++);
       // Loop back if we exit the debouce loop prematurely because RST has gone active again
    } while (i < DEBOUNCE_TIME);
-//#ifdef HAS_40PINS
-//   RPI_SetGpioValue(TEST2_PIN, 0);
-//#endif
+
    // Reset all the TUBE ULA registers
    tube_reset();
 }
@@ -858,13 +853,9 @@ void start_vc_ula()
    r1   = magic[0];       // data bus drive 
    r2   = magic[1];
 
-   r3   = (A2_PIN << 16) | (A1_PIN << 8) | (A0_PIN); // address bus GPIO mapping
+   r3   = host_addr_bus; 
    r4   = magic[2];
-#ifdef HAS_40PINS
    r5   = TEST_MASK;                     // test pin
-#else
-   r5   = 0;
-#endif
 
 #ifdef DEBUG_GPU
    LOG_DEBUG("Staring VC ULA\r\n");

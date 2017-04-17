@@ -67,7 +67,6 @@ void dump_info(unsigned int *context, int offset, char *type) {
   unsigned int flags;
   int i, j;
   int rstlow;
-  int led;
 
   // Make sure we avoid unaligned accesses
   context = (unsigned int *)(((unsigned int) context) & ~3);
@@ -141,7 +140,6 @@ void dump_info(unsigned int *context, int offset, char *type) {
 
   dump_string("Halted waiting for reset\r\n");
   rstlow = 0;
-  led = 0;
   while (1) {
 	for (i = 0; i < 1000000; i++) {
 
@@ -154,12 +152,6 @@ void dump_info(unsigned int *context, int offset, char *type) {
 		reboot_now();
 	  }
 	}
-	if (led) {
-	  LED_OFF();
-	} else {
-	  LED_ON();
-	}
-	led = ~led;
   }
 }
 

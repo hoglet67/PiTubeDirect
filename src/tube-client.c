@@ -254,9 +254,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 #endif
   init_emulator();
 
-#ifdef HAS_40PINS
   RPI_GpioBase->GPSET0 = (1 << TEST_PIN);
-#endif
 
   do {
      // Run the emulator
