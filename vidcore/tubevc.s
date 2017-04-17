@@ -170,8 +170,6 @@ rd_wait_for_clk_high1:
 # we now have half a cycle to do post mail
    btst   r8, r16               # no need to post mail if A0 = 0
    beq    rd_wait_for_clk_low
-   btst   r8, nTUBE             # double check nTUBE is low
-   bne    rd_wait_for_clk_low 
    sub    r7, r0                # just get the address bits
    lsl    r7, 6                 # put address bits in correct place
    bset   r7, RW_MAILBOX_BIT    # set read bit
@@ -215,10 +213,6 @@ wr_wait_for_clk_low:
    btst   r7, CLK
    bne    wr_wait_for_clk_low
 
-# check that ntube is stil low to ensure we have a valid cycle
-   btst    r8, nTUBE
-   bne    Poll_loop
-   
 # Post a message to indicate a tube register write
 
 #  move databus to correct position
@@ -248,7 +242,37 @@ post_reset_loop:
    btst   r7, nRST
    beq    post_reset_loop        
    b      Poll_loop
+.if 0        
+# Subroutine to post r8 to the mailbox
+# if r2 is zero then the hardware mailbox is used
+# if r2 is non zero then a software mailbox at address r2 is used
+        
+do_post_mailbox:
+# Send to GPU->ARM mailbox (channel 10)
+   and    r8, r1
 
+   cmp    r2, 0
+   beq    use_hw_mailbox
+
+# Use the software mailbox
+   bset   r8, ATTN_MASK
+   ld     r7, (r2)  # get mailbox
+   btst   r7, ATTN_MASK
+   bsetne r8, OVERRUN_MASK
+   st     r8, (r2)
+   rts
+
+# Use the hardware mailbox
+use_hw_mailbox:
+# Add 4-bit seqence number into bits 12-15 (unused GPIO bits), and increment
+   or     r8, r4
+   add    r4, 0x1000
+   and    r4, 0xF000
+   lsl    r8, 4
+   or     r8, 0x0000000A
+   st     r8, (r3)
+   rts        
+.endif        
 # This code is not currently used
         
 .if 0
