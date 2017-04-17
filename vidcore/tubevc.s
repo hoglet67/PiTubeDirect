@@ -132,13 +132,13 @@
 # poll for nTube being low
 Poll_loop:
    mov    r7, r0
-   ld     r8, GPLEV0_offset(r6)
 Poll_tube_low:
+   ld     r8, GPLEV0_offset(r6)
    btst   r8, nRST
    beq    post_reset
    btst   r8, nTUBE
+   bne    Poll_tube_low
    ld     r8, GPLEV0_offset(r6)  # check ntube again to remove glitches
-   bne    Poll_tube_low  
    btst   r8, nTUBE
    bne    Poll_tube_low
    # we now know nTube is low
