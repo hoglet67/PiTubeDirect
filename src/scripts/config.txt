@@ -29,6 +29,7 @@ force_turbo=1
 
 # Disable adjusting the refresh rate of RAM every 500 ms
 disable_pvt=1
+hdmi_blanking=2
 hdmi_ignore_edid=0xa5000080
 hdmi_ignore_hotplug=1
 boot_delay=0
