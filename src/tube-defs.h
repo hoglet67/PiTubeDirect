@@ -57,12 +57,6 @@
 
 #define DEFAULT_COPRO COPRO_65TUBE_0
 
-// Indicates a Pi with the 40 pin GPIO connector
-// so that additional functionality (e.g. test pins) can be enabled
-#if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2) || defined(RPI3)
-#define HAS_40PINS
-#endif
-
 // Pi 2/3 Multicore options
 #if defined(RPI2) || defined(RPI3)
 
@@ -187,6 +181,9 @@
 #define D74_MASK     (D7_MASK | D6_MASK | D5_MASK | D4_MASK)
 #define D_MASK       (D74_MASK | D30_MASK)
 
+
+#define TEST_PIN_26PIN     (27)
+#define TEST_PIN_40PIN     (21)
 
 #define TEST_PIN     (21)
 #define TEST_MASK    (1 << TEST_PIN)

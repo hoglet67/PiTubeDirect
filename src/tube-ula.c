@@ -44,6 +44,9 @@
 #include "tubevc.h"
 #include "startup.h"
 
+int test_pin;
+static int led_type=0;
+
 static volatile uint32_t *tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
 static uint32_t host_addr_bus;
 
@@ -59,7 +62,6 @@ static uint32_t host_addr_bus;
 #define BYTE_TO_WORD(data) ((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18))
 #define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) << 18) & 0xF0))
 
-const static uint32_t magic[3] = {MAGIC_C0, MAGIC_C1, MAGIC_C2 | MAGIC_C3 };
 static char copro_command =0;
 static perf_counters_t pct;
 
@@ -698,12 +700,16 @@ void tube_init_hardware()
   {
      case 2 :
      case 3 :   
- 
+          // Write 1 to the LED init nibble in the Function Select GPIO
+          // peripheral register to enable LED pin as an output
+          RPI_GpioBase-> GPFSEL[1] |= 1<<18;
           host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
           RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
           RPI_SetGpioPinFunction(A1_PIN_26PIN, FS_INPUT);
           RPI_SetGpioPinFunction(A0_PIN_26PIN, FS_INPUT);
-        
+          RPI_SetGpioPinFunction(TEST_PIN_26PIN, FS_OUTPUT);
+          test_pin = TEST_PIN_26PIN;
+          led_type = 0;
         break;
      
          
@@ -712,10 +718,19 @@ void tube_init_hardware()
           host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
           RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
           RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(TEST_PIN, FS_OUTPUT);
+          RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT); 
+          RPI_SetGpioPinFunction(TEST_PIN_40PIN, FS_OUTPUT);
           RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
           RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
+          test_pin = TEST_PIN_40PIN;
+#ifdef RPI3
+          led_type = 2;
+#else 
+          // Write 1 to the LED init nibble in the Function Select GPIO
+          // peripheral register to enable LED pin as an output  
+          RPI_GpioBase-> GPFSEL[4] |= 1<<21;
+          led_type = 1;
+#endif          
           break;   
   }
   // Configure our pins as inputs
@@ -727,7 +742,6 @@ void tube_init_hardware()
   RPI_SetGpioPinFunction(D2_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D1_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D0_PIN, FS_INPUT);
-
 
   RPI_SetGpioPinFunction(PHI2_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);
@@ -765,8 +779,7 @@ void tube_init_hardware()
 #endif
 
    hp1 = hp2 = hp4 = hp3[0]= hp3[1]=0;
-   
- //  RPI_GpioBase->GPSET0 = (1 << TEST_PIN);
+
 }
 
 int tube_is_rst_active() {
@@ -797,7 +810,6 @@ static void tube_wait_for_rst_active() {
 
 void tube_wait_for_rst_release() {
    volatile int i;
-
    do {
       // Wait for reset to be released
       while (tube_is_rst_active());
@@ -805,7 +817,6 @@ void tube_wait_for_rst_release() {
       for (i = 0; i < DEBOUNCE_TIME && !tube_is_rst_active(); i++);
       // Loop back if we exit the debouce loop prematurely because RST has gone active again
    } while (i < DEBOUNCE_TIME);
-
    // Reset all the TUBE ULA registers
    tube_reset();
 }
@@ -850,12 +861,12 @@ void start_vc_ula()
 
    func = (int) &tubevc_asm[0];
    r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
-   r1   = magic[0];       // data bus drive 
-   r2   = magic[1];
+   r1   = led_type; 
+   r2   = 0;
 
    r3   = host_addr_bus; 
-   r4   = magic[2];
-   r5   = TEST_MASK;                     // test pin
+   r4   = 0;
+   r5   = 1<<test_pin;                     // test pin
 
 #ifdef DEBUG_GPU
    LOG_DEBUG("Staring VC ULA\r\n");

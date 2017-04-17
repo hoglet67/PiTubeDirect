@@ -14,6 +14,8 @@
 
 typedef void (*func_ptr)();
 
+extern int test_pin;
+
 #include "copro-65tube.h"
 
 #ifdef MINIMAL_BUILD
@@ -254,7 +256,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 #endif
   init_emulator();
 
-  RPI_GpioBase->GPSET0 = (1 << TEST_PIN);
+  RPI_GpioBase->GPSET0 = (1 << test_pin);
 
   do {
      // Run the emulator
