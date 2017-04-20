@@ -196,11 +196,27 @@ void read_performance_counters(perf_counters_t *pct) {
 #endif
 }
 
+static char bfr[20+1];
+
+static char* uint64ToDecimal(uint64_t v) {
+   int first = 1;
+   char* p = bfr + sizeof(bfr);
+   *(--p) = '\0';
+   while (v || first) {
+      *(--p) = '0' + v % 10;
+      v = v / 10;
+      first = 0;
+   }
+   return p;
+}
+
 void print_performance_counters(perf_counters_t *pct) {
    int i;
    uint64_t cycle_counter = pct->cycle_counter;
    cycle_counter *= 64;
-   printf("%26s = %"PRIu64"\r\n", "cycle counter", cycle_counter);
+   // newlib-nano doesn't appear to support 64-bit printf/scanf on 32-bit systems
+   // printf("%26s = %"PRIu64"\r\n", "cycle counter", cycle_counter);
+   printf("%26s = %s\r\n", "cycle counter", uint64ToDecimal(cycle_counter));
    for (i = 0; i < pct->num_counters; i++) {
       printf("%26s = %u\r\n", type_lookup(pct->type[i]), pct->counter[i]);
    }
