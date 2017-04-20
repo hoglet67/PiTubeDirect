@@ -476,9 +476,9 @@ uint8_t tube_parasite_read(uint32_t addr)
       tube_index &= 0xffff;
    }
 #endif
-  if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
-  }
+   if ((cpsr & 0xc0) != 0xc0) {
+      _set_interrupts(cpsr);
+   }
    return temp;
 }
 
@@ -578,8 +578,8 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
       // tube_updateints_IRQ(); // the above can't change IRQ flag
       break;
    }
-     if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
+   if ((cpsr & 0xc0) != 0xc0) {
+      _set_interrupts(cpsr);
   }
 }
 

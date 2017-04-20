@@ -58,6 +58,7 @@
 .global _get_stack_pointer
 .global _exception_table
 .global _enable_interrupts
+.global _set_interrupts
 .global _disable_interrupts
 .global _enable_unaligned_access
 .global _enable_l1_cache
@@ -262,6 +263,15 @@ _get_stack_pointer:
 .section ".text._get_cpsr"
 _get_cpsr:
     mrs     r0, cpsr
+    mov     pc, lr
+
+.section ".text._set_interrupts"
+_set_interrupts:
+    and     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT    // extract the IRQ/FIQ bits from the value of cpsr passed in
+    mrs     r1, cpsr
+    bic     r1, r1, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
+    orr     r1, r1, r0
+    msr     cpsr_c, r1
     mov     pc, lr
 
 .section ".text._enable_interrupts"
