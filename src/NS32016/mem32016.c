@@ -51,10 +51,17 @@ static uint8_t * ns32016ram;
 
 void init_ram(void)
 {
-   if (copro_memory_size >0)
-         RAM_SIZE = copro_memory_size  & ~((128*1024)-1);
-   else
-         RAM_SIZE = MEG1;
+   if (copro_memory_size > 0)
+   {
+      // Ensure RAM size is multiple of 128KB, or the Client ROM memory test gets confused
+      RAM_SIZE = copro_memory_size  & ~((128*1024)-1);
+      // Limit RAM size to 15MB, so there is space for the tube registers above this
+      if (RAM_SIZE > MEG15) {
+         RAM_SIZE = MEG15;
+      }
+   } else {
+      RAM_SIZE = MEG1;
+   }
 #ifndef BEM
    ns32016ram = copro_mem_reset(RAM_SIZE);
 #endif
