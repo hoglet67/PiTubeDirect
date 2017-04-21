@@ -91,6 +91,7 @@ static const func_ptr emulator_functions[] = {
 volatile unsigned int copro;
 volatile unsigned int copro_speed;
 volatile unsigned int copro_memory_size = 0;
+unsigned int tube_delay = 0;
 
 int arm_speed;
 
@@ -225,23 +226,34 @@ static void get_copro_memory_size() {
    LOG_DEBUG("Copro Memory size %u\r\n", copro_memory_size);
 }
 
+static void get_tube_delay() {
+   char *copro_prop = get_cmdline_prop("tube_delay");
+   tube_delay = 0; // default 
+   if (copro_prop) {
+      tube_delay = atoi(copro_prop);
+   }
+   if (tube_delay > 40){
+      tube_delay = 40;
+   }
+   LOG_DEBUG("Tube ULA sample delay  %u\r\n", tube_delay);
+}
+
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
      // Initialise the UART to 57600 baud
-  RPI_AuxMiniUartInit( 115200, 8 );
-     enable_MMU_and_IDCaches();
+   RPI_AuxMiniUartInit( 115200, 8 );
+   enable_MMU_and_IDCaches();
    _enable_unaligned_access();
    tube_init_hardware();
 
-   
    arm_speed = get_clock_rate(ARM_CLK_ID);
-   
-
+   get_tube_delay();
    start_vc_ula();
 
    copro = get_copro_number();
    get_copro_speed();
    get_copro_memory_size();
+   
    
 #ifdef BENCHMARK
   // Run a short set of CPU and Memory benchmarks

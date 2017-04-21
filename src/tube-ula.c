@@ -858,11 +858,11 @@ void disable_tube() {
 void start_vc_ula()
 {
    int func,r0,r1, r2,r3,r4,r5;
-
+   extern int tube_delay;
    func = (int) &tubevc_asm[0];
    r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
    r1   = led_type; 
-   r2   = 0;
+   r2   =  tube_delay;
 
    r3   = host_addr_bus; 
    r4   = 0;

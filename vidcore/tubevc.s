@@ -9,7 +9,7 @@
 
 #  r0 - pointer to shared memory ( VC address) of tube registers
 #  r1 - LEDTYPE
-#  r2 - unused
+#  r2 - tube_delay
 #  r3 - GPIO mapping of address lines - 0x00<A2><A1><A0> where A2, A1 and A0 are the numbers of the respective GPIOs
 #  r4 - unused
 #  r5 - debug pin mask (0 = no debug  xx= debug pin e.g 1<<21)
@@ -133,6 +133,8 @@
    lsr    r18, r3, 16  # Extract GPIO number of A2
    and    r18, 31
 
+
+   
 # r1, r3, r4 now free
 
    mov    r3, GPU_ARM_MBOX
@@ -153,10 +155,12 @@
    or     r15, r12
 
 # enable interrupts
-#  ei
-                
+#  ei         
+   rsb    r2, 40
+   nop           #nop to align loop for speed
 # poll for nTube being low
 Poll_loop:
+   mov    r1, r2
    mov    r7, r0
 Poll_tube_low:
    ld     r8, GPLEV0_offset(r6)
@@ -164,9 +168,14 @@ Poll_tube_low:
    beq    post_reset
    btst   r8, nTUBE
    bne    Poll_tube_low
+   
+.rept 40
+   addcmpbeq r1,1,41,delay_done
+.endr 
+  
+delay_done:      
    ld     r8, GPLEV0_offset(r6)  # check ntube again to remove glitches
-   btst   r8, nTUBE
-   bne    Poll_tube_low
+
    # we now know nTube is low
  # Extra read with might possible help with rnw on slow machines  
  #  ld     r8, GPLEV0_offset(r6)  # read bus again to ensure we have the correct address 
@@ -183,7 +192,8 @@ Poll_tube_low:
 
    orne   r7, 16
    ld     r4, (r7)               # Read word from tube register
-   
+   btst   r8, nTUBE
+   bne    Poll_tube_low
    btst   r8, RnW
    beq    wr_cycle
    
