@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Cobra-rc0"
+#define RELEASENAME "Cobra"
 
 #define NDEBUG
 
