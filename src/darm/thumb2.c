@@ -30,6 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <inttypes.h>
 #include "darm.h"
 #include "darm-internal.h"
 #include "thumb-tbl.h"
@@ -627,7 +628,7 @@ char *darm_thumb2_str(darm_t *d)
     }
 
     if(d->I == B_SET) {
-        offset += sprintf(stringbuf+offset, "#0x%lx", d->imm);
+        offset += sprintf(stringbuf+offset, "#0x%"PRIx32, d->imm);
     }
 
     return stringbuf;

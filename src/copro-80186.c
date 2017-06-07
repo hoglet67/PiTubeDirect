@@ -35,7 +35,7 @@ void copro_80186_tube_write(uint16_t addr, uint8_t data)	{
 
 void copro_80186_emulator()
 {
-   static unsigned int last_rst = 0;
+   unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
@@ -46,31 +46,29 @@ void copro_80186_emulator()
    while (1)
    {
       exec86(1);
-
-      if (is_mailbox_non_empty()) {
-         unsigned int tube_mailbox_copy = read_mailbox();
-         unsigned int intr = tube_io_handler(tube_mailbox_copy);
-         unsigned int nmi = intr & 2;
-         unsigned int rst = intr & 4;
+      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT) ;
+      if (tube_irq_copy) {
          // Reset the processor on active edge of rst
-         if (rst && !last_rst) {
+         if (tube_irq_copy & RESET_BIT) {
             // Exit if the copro has changed
             if (copro != last_copro) {
                break;
             }
             copro_80186_reset();
          }
+
          // NMI is edge sensitive, so only check after mailbox activity
-         if (nmi) {
+         if (tube_irq_copy & NMI_BIT) {
             intcall86(2);
+            tube_ack_nmi();
          }
-         last_rst = rst;
-      }
-      // IRQ is level sensitive, so check between every instruction
-      if (tube_irq & 1) {
-         if (ifl) {
-            intcall86(12);
-         }
+   
+         // IRQ is level sensitive, so check between every instruction
+         if (tube_irq_copy & IRQ_BIT) {
+            if (ifl) {
+               intcall86(12);
+            }
+         }   
       }
    }
 }

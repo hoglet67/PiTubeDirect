@@ -78,9 +78,16 @@ union _bytewordregs_
 #define segbase(x)	((uint32_t) ((x) << 4))
 
 extern void reset(void);
-extern void exec86(uint32_t execloops);
+extern void exec86(uint32_t tube_cycles);
 extern void intcall86(uint8_t intnum);
 
 extern uint8_t ifl;
 extern uint16_t ip;
 extern uint16_t segregs[];
+
+#ifdef INCLUDE_DEBUGGER
+extern union _bytewordregs_ regs;
+extern uint32_t getinstraddr86();
+extern uint16_t getflags86();
+extern void putflags86(uint16_t value);
+#endif

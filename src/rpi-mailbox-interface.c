@@ -4,18 +4,19 @@
 
 #include "rpi-mailbox.h"
 #include "rpi-mailbox-interface.h"
+#include "cache.h"
 
 /* Make sure the property tag buffer is aligned to a 16-byte boundary because
    we only have 28-bits available in the property interface protocol to pass
    the address of the buffer to the VC. */
-static int pt[PROP_BUFFER_SIZE] __attribute__((aligned(16)));
-static int pt_index = 0;
+static int *pt = ( int *) UNCACHED_MEM_BASE ;// [PROP_BUFFER_SIZE] __attribute__((aligned(16)));
+static int pt_index ;
 
 //#define PRINT_PROP_DEBUG 1
 
 void RPI_PropertyInit( void )
 {
-    memset(pt, 0, sizeof(pt));
+    //memset(pt, 0, sizeof(pt));
 
     /* Fill in the size on-the-fly */
     pt[PT_OSIZE] = 12;

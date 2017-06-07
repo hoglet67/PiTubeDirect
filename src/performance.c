@@ -196,16 +196,32 @@ void read_performance_counters(perf_counters_t *pct) {
 #endif
 }
 
+static char bfr[20+1];
+
+static char* uint64ToDecimal(uint64_t v) {
+   int first = 1;
+   char* p = bfr + sizeof(bfr);
+   *(--p) = '\0';
+   while (v || first) {
+      *(--p) = '0' + v % 10;
+      v = v / 10;
+      first = 0;
+   }
+   return p;
+}
+
 void print_performance_counters(perf_counters_t *pct) {
    int i;
    uint64_t cycle_counter = pct->cycle_counter;
    cycle_counter *= 64;
-   printf("%26s = %"PRIu64"\r\n", "cycle counter", cycle_counter);
+   // newlib-nano doesn't appear to support 64-bit printf/scanf on 32-bit systems
+   // printf("%26s = %"PRIu64"\r\n", "cycle counter", cycle_counter);
+   printf("%26s = %s\r\n", "cycle counter", uint64ToDecimal(cycle_counter));
    for (i = 0; i < pct->num_counters; i++) {
       printf("%26s = %u\r\n", type_lookup(pct->type[i]), pct->counter[i]);
    }
 }
-
+#ifdef BENCHMARK
 int benchmark() {
    int i;
    int total;
@@ -213,7 +229,7 @@ int benchmark() {
    perf_counters_t pct;
    unsigned char mem1[1024*1024];
    unsigned char mem2[1024*1024];
-
+   mem2[0]=0;
 #if defined(RPI2) || defined(RPI3) 
    pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
@@ -273,3 +289,4 @@ int benchmark() {
 
    return total;
 }
+#endif

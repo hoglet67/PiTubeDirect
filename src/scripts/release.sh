@@ -8,7 +8,7 @@ NAME=PiTubeDirect_$(date +"%Y%m%d_%H%M")_$USER
 DIR=releases/${NAME}
 mkdir -p ${DIR}/debug
 
-for MODEL in rpi3 rpi2 rpi rpibplus rpizero 
+for MODEL in rpi3 rpi2 rpi
 do    
     # compile normal kernel
     ./clobber.sh

@@ -1,4 +1,4 @@
-#define TrapTRACE printf
+#define TrapTRACE log_info
 
 enum TrapTypes
 {

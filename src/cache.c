@@ -14,8 +14,8 @@ const static unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
 const static unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
 const static unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
    
-volatile __attribute__ ((aligned (0x4000))) unsigned PageTable[4096];
-volatile __attribute__ ((aligned (0x4000))) unsigned PageTable2[NUM_4K_PAGES];
+volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
+volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
 
 const static int aa = 1;
 const static int bb = 1;
@@ -133,7 +133,7 @@ void enable_MMU_and_IDCaches(void)
 {
 
   LOG_DEBUG("enable_MMU_and_IDCaches\r\n");
-  LOG_DEBUG("cpsr    = %08x\r\n", _get_cpsr());
+  //LOG_DEBUG("cpsr    = %08x\r\n", _get_cpsr());
 
   unsigned i;
   unsigned base;
@@ -217,16 +217,13 @@ void enable_MMU_and_IDCaches(void)
     map_4k_page(base, base);
   }
  
-  // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
-  map_4k_page(16, 0);
- 
   // relocate the vector pointer to the moved page 
   asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" (HIGH_VECTORS_BASE)); 
   
 #if defined(RPI3)
   unsigned cpuextctrl0, cpuextctrl1;
   asm volatile ("mrrc p15, 1, %0, %1, c15" : "=r" (cpuextctrl0), "=r" (cpuextctrl1));
-  LOG_DEBUG("extctrl = %08x %08x\r\n", cpuextctrl1, cpuextctrl0);
+  //LOG_DEBUG("extctrl = %08x %08x\r\n", cpuextctrl1, cpuextctrl0);
 #else
   // RPI:  bit 6 of auxctrl is restrict cache size to 16K (no page coloring)
   // RPI2: bit 6 of auxctrl is set SMP bit, otherwise all caching disabled
@@ -235,7 +232,7 @@ void enable_MMU_and_IDCaches(void)
   auxctrl |= 1 << 6;
   asm volatile ("mcr p15, 0, %0, c1, c0,  1" :: "r" (auxctrl));
   asm volatile ("mrc p15, 0, %0, c1, c0,  1" : "=r" (auxctrl));
-  LOG_DEBUG("auxctrl = %08x\r\n", auxctrl);
+  //LOG_DEBUG("auxctrl = %08x\r\n", auxctrl);
 #endif
 
   // set domain 0 to client
@@ -246,7 +243,7 @@ void enable_MMU_and_IDCaches(void)
 
   unsigned ttbcr;
   asm volatile ("mrc p15, 0, %0, c2, c0, 2" : "=r" (ttbcr));
-  LOG_DEBUG("ttbcr   = %08x\r\n", ttbcr);
+  //LOG_DEBUG("ttbcr   = %08x\r\n", ttbcr);
 
 #if defined(RPI2) || defined(RPI3)
   // set TTBR0 - page table walk memory cacheability/shareable
@@ -262,7 +259,7 @@ void enable_MMU_and_IDCaches(void)
 #endif
   unsigned ttbr0;
   asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (ttbr0));
-  LOG_DEBUG("ttbr0   = %08x\r\n", ttbr0);
+  //LOG_DEBUG("ttbr0   = %08x\r\n", ttbr0);
 
 
   // Invalidate entire data cache
@@ -291,11 +288,11 @@ void enable_MMU_and_IDCaches(void)
   sctrl |= 0x00001805;
   asm volatile ("mcr p15,0,%0,c1,c0,0" :: "r" (sctrl) : "memory");
   asm volatile ("mrc p15,0,%0,c1,c0,0" : "=r" (sctrl));
-  LOG_DEBUG("sctrl   = %08x\r\n", sctrl);
+  //LOG_DEBUG("sctrl   = %08x\r\n", sctrl);
 
   // For information, show the cache type register
   // From this you can tell what type of cache is implemented
   unsigned ctype;
   asm volatile ("mrc p15,0,%0,c0,c0,1" : "=r" (ctype));
-  LOG_DEBUG("ctype   = %08x\r\n", ctype);
+  //LOG_DEBUG("ctype   = %08x\r\n", ctype);
 }

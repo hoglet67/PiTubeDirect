@@ -22,6 +22,8 @@ extern char *get_info_string();
 
 extern int get_clock_rate(int clk_id);
 
+int get_revision();
+
 extern float get_temp();
 
 #define    COMPONENT_CORE 1

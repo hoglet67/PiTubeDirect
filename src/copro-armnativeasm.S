@@ -48,7 +48,6 @@ copro_armnative_fiq_handler:
 
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
         ldr     r0, [r1]
-        lsr     r0, r0, #4             // Shift so it looks like the format of the software mailbox
         
         bl      tube_io_handler        // Update the Tube ULA emulation
 
@@ -119,12 +118,14 @@ copro_armnative_fiq_handler:
         
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
         ldr     r0, [r1]
-        lsr     r0, r0, #4             // Shift so it looks like the format of the software mailbox
-
+   
         push    {r0}
         bl      tube_io_handler        // Update the Tube ULA emulation
+        and     r1, r0, #4             // Get Reset bit which migh have come from 
+                                       // write to register 
         pop     {r0}
-        
+        orr     r0, r0, r1, LSL #12-2
+
         bl      copro_armnative_tube_interrupt_handler
         
         pop     {r0-r7, lr}
@@ -166,14 +167,18 @@ _user_exec:
     stmfd    sp!, {r0-r3}         // Save the _user_exec params
     bl       CleanDataCache
     ldmfd    sp!, {r0-r3}         // Restore the _user_exec params
+
+    mov      r0, #0
+    mcr      p15, 0, r0, c7, c5, 0   // Invalidate entire instruction cache
+    isb
 #else        
     mov      r0, #0                  // New code may have just been written to memory, so
     mcr      p15, 0, r0, c7, c10, 0  // Clean entire data cache
-#endif
+
     mov      r0, #0
     mcr      p15, 0, r0, c7, c5, 0   // Invalidate entire instruction cache
     mcr      p15, 0, r0, c7, c5, 4   // Flush the prefetch buffer
-        
+ #endif       
     mrs      r0, cpsr
     bic      r0, r0, #0x1f
     orr      r0, r0, #CPSR_MODE_USER

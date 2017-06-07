@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "arm.h"
+#include "../tube.h"
 
 // #define TRACE 1
 
@@ -28,6 +29,11 @@
 darm_t d;
 darm_str_t str;
 int m_trace;
+#endif
+
+#ifdef INCLUDE_DEBUGGER
+#include "arm_debug.h"
+#include "../cpu_debug.h"
 #endif
 
 //int    m_icount;
@@ -263,7 +269,7 @@ void arm2_device_reset()
 #endif
 }
 
-void arm2_execute_run(int number)
+void arm2_execute_run(int tube_cycles)
 {
 #ifdef TRACE
   int i;
@@ -278,6 +284,12 @@ void arm2_execute_run(int number)
 
     /* load instruction */
     pc = R15;
+#ifdef INCLUDE_DEBUGGER
+      if (arm2_debug_enabled)
+      {
+         debug_preexec(&arm2_cpu_debug, pc & ADDRESS_MASK);
+      }
+#endif
     insn = cpu_read32( pc & ADDRESS_MASK );
 
 #ifdef TRACE
@@ -413,9 +425,10 @@ void arm2_execute_run(int number)
 
     //arm2_check_irq_state();
 
-  }
+    tubeUseCycles(1); 
+    } while (tubeContinueRunning());
   //while( m_icount > 0 );
-  while (number--);
+  //while (number--);
 } /* arm_execute */
 
 void arm2_check_irq_state()
@@ -743,7 +756,7 @@ void HandleALU(UINT32 insn)
     if ((rn = (insn & INSN_RN) >> INSN_RN_SHIFT) == eR15)
     {
       if (ARM_DEBUG_CORE)
-        logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,(insn&INSN_I?8:insn&0x10u?12:12));
+        logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,(insn&INSN_I?8:12));
 
         /* Docs strongly suggest the mode bits should be included here, but it breaks Captain
          America, as it starts doing unaligned reads */

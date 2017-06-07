@@ -4,17 +4,21 @@
  * (c) 2016 David Banks
  */
 #include <stdio.h>
-#include <string.h>
+
 #include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
 #include "yaze/mem_mmu.h"
 #include "yaze/simz80.h"
-#include "startup.h"
+#include "tube-client.h"
+
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#endif
 
 static int overlay_rom = 0;
 
-unsigned char copro_z80_ram[0x10000];
+static unsigned char *copro_z80_ram;
 
 static const unsigned char copro_z80_rom[0x1000] = {
   0xf3, 0x11, 0x00, 0xf0, 0x21, 0x00, 0x00, 0x01, 0x00, 0x10, 0xed, 0xb0, 0xc3, 0x80, 0xf2, 0x43,
@@ -276,31 +280,57 @@ static const unsigned char copro_z80_rom[0x1000] = {
 };
 
 int copro_z80_read_mem(unsigned int addr) {
+   unsigned char data;
    if (addr >= 0x8000) {
       overlay_rom = 0;
    }
    if (overlay_rom) {
-      return copro_z80_rom[addr & 0xfff];
+      data = copro_z80_rom[addr & 0xfff];
    } else {
-      return copro_z80_ram[addr & 0xffff];
+#if USE_MEMORY_POINTER       
+      data = copro_z80_ram[addr & 0xffff];
+#else
+      data = *(unsigned char *)(addr & 0xffff);
+#endif
    }
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+      debug_memread(&simz80_cpu_debug, addr, data, 1);
+   }
+#endif
+   return data;
 }
 
 void copro_z80_write_mem(unsigned int addr, unsigned char data) {
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+      debug_memwrite(&simz80_cpu_debug, addr, data, 1);
+   }
+#endif
+#ifdef USE_MEMORY_POINTER
    copro_z80_ram[addr & 0xffff] = data;
+#else 
+   *(unsigned char *)(addr & 0xffff) = data;
+#endif
 }
 
 int copro_z80_read_io(unsigned int addr) {
-   return tube_parasite_read(addr & 7);
+   unsigned char data =  tube_parasite_read(addr & 7);
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+      debug_ioread(&simz80_cpu_debug, addr, data, 1);
+   }
+#endif
+   return data;
 }
 
 void copro_z80_write_io(unsigned int addr, unsigned char data) {
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+      debug_iowrite(&simz80_cpu_debug, addr, data, 1);
+   }
+#endif
    tube_parasite_write(addr & 7, data);
-}
-
-static void copro_z80_poweron_reset() {
-   // Wipe memory
-   memset(copro_z80_ram, 0, 0x10000);
 }
 
 static void copro_z80_reset() {
@@ -322,44 +352,42 @@ static void copro_z80_reset() {
 
 void copro_z80_emulator()
 {
-   static unsigned int last_rst = 0;
+   unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
 
-   copro_z80_poweron_reset(); 
+   copro_z80_ram = copro_mem_reset(0x10000); 
    copro_z80_reset();
   
    while (1)
    {
       // Execute emulator for one instruction
       simz80_execute(1);
-
-      if (is_mailbox_non_empty()) {
-         unsigned int tube_mailbox_copy = read_mailbox();
-         unsigned int intr = tube_io_handler(tube_mailbox_copy);
-         unsigned int nmi = intr & 2;
-         unsigned int rst = intr & 4;
+      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
+      if (tube_irq_copy) {
          // Reset the processor on active edge of rst
-         if (rst && !last_rst) {
+         if (tube_irq_copy & RESET_BIT) {
             // Exit if the copro has changed
             if (copro != last_copro) {
                break;
             }
             copro_z80_reset();
          }
-         // NMI is edge sensitive, so only check after mailbox activity
-         if (nmi) {
+
+         // NMI is edge sensitive,
+         if (tube_irq_copy & NMI_BIT) {
             overlay_rom = 1;
             simz80_NMI();
+            tube_ack_nmi();
          }
-         last_rst = rst;
-      }
-      // IRQ is level sensitive, so check between every instruction
-      if (tube_irq & 1) {
-         // check if the emulator IRQ is enabled
-         if (simz80_is_IRQ_enabled()) {
-            simz80_IRQ();
+
+         // IRQ is level sensitive,
+         if (tube_irq_copy & IRQ_BIT) {
+            // check if the emulator IRQ is enabled
+            if (simz80_is_IRQ_enabled()) {
+               simz80_IRQ();
+            }
          }
       }
    }

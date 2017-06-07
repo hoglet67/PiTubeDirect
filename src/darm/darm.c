@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <ctype.h>
 #include <stdint.h>
 #include <string.h>
+#include <inttypes.h>
 #include "darm.h"
 #include "darm-internal.h"
 
@@ -63,8 +64,7 @@ static int _append_imm(char *arg, uint32_t imm)
 {
     const char *start = arg;
     if(imm > 0x1000) {
-        *arg++ = '0';
-        *arg++ = 'x';
+        *arg++ = '&';
         arg += _utoa(imm, arg, 16);
     }
     else {
@@ -440,19 +440,9 @@ int darm_str(const darm_t *d, darm_str_t *str)
             // branch stuff has been initialized yet
             if(d->instr == I_BLX && d->H == B_INVLD) break;
 
-            // check whether the immediate is negative
-            int32_t imm = d->imm;
-            if(imm < 0 && imm >= -0x1000) {
-                APPEND(args[arg], "#+-");
-                imm = -imm;
-            }
-            else if(d->U == B_UNSET) {
-                APPEND(args[arg], "#+-");
-            }
-            else {
-                APPEND(args[arg], "#+");
-            }
-            args[arg] += _append_imm(args[arg], imm);
+            uint32_t target = (d->addr + 8 + d->imm) & d->addr_mask;
+            *args[arg]++ = '&';
+            args[arg] += _utoa(target, args[arg], 16);
             continue;
 
         case 'M':
@@ -623,7 +613,7 @@ int darm_reglist(uint16_t reglist, char *out)
 void darm_dump(const darm_t *d)
 {
     printf(
-        "encoded:       0x%08lx\n"
+        "encoded:       0x%08"PRIx32"\n"
         "instr:         I_%s\n"
         "instr-type:    T_%s\n",
         d->w, darm_mnemonic_name(d->instr),
@@ -649,11 +639,11 @@ void darm_dump(const darm_t *d)
     PRINT_REG(RdLo);
 
     if(d->I == B_SET) {
-        printf("imm:           0x%08lx  %lu\n", d->imm, d->imm);
+        printf("imm:           0x%08"PRIx32"  %"PRIu32"\n", d->imm, d->imm);
     }
 
 #define PRINT_FLAG(flag, comment, comment2) if(d->flag != B_INVLD) \
-    printf("%s:             %lu   (%s)\n", #flag, d->flag, \
+    printf("%s:             %"PRIu32"   (%s)\n", #flag, d->flag, \
         d->flag == B_SET ? comment : comment2)
 
     PRINT_FLAG(B, "swap one byte", "swap four bytes");
@@ -678,14 +668,14 @@ void darm_dump(const darm_t *d)
     }
 
     if(d->rotate != 0) {
-        printf("rotate:        %lu\n", d->rotate);
+        printf("rotate:        %"PRIu32"\n", d->rotate);
     }
 
     if(d->shift_type != S_INVLD) {
         if(d->Rs == R_INVLD) {
             printf(
                 "type:          %s (shift type)\n"
-                "shift:         %-2lu  (shift constant)\n",
+                "shift:         %-2"PRIu32"  (shift constant)\n",
                 darm_shift_type_name(d->shift_type), d->shift);
         }
         else {
@@ -699,8 +689,8 @@ void darm_dump(const darm_t *d)
 
     if(d->lsb != 0 || d->width != 0) {
         printf(
-            "lsb:           %lu\n"
-            "width:         %lu\n",
+            "lsb:           %"PRIu32"\n"
+            "width:         %"PRIu32"\n",
             d->lsb, d->width);
     }
 
@@ -710,7 +700,7 @@ void darm_dump(const darm_t *d)
         printf("reglist:       %s\n", reglist);
     }
     if (d->sat_imm != 0) {
-        printf("sat_imm:           0x%08lx  %lu\n", d->sat_imm, d->sat_imm);
+        printf("sat_imm:           0x%08"PRIx32"  %"PRIu32"\n", d->sat_imm, d->sat_imm);
     }
 
     if(d->opc1 != 0 || d->opc2 != 0 || d->coproc != 0) {

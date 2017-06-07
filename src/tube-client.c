@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #include "tube-defs.h"
 #include "tube.h"
@@ -9,8 +10,11 @@
 #include "cache.h"
 #include "performance.h"
 #include "info.h"
+#include "rpi-gpio.h"
 
 typedef void (*func_ptr)();
+
+extern int test_pin;
 
 #include "copro-65tube.h"
 
@@ -61,8 +65,13 @@ static const char * emulator_names[] = {
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator,
    copro_65tube_emulator,
+#if 1   
    copro_lib6502_emulator,
    copro_lib6502_emulator,
+#else
+   copro_65tube_emulator,
+   copro_65tube_emulator,
+#endif
    copro_z80_emulator,
    copro_z80_emulator,
    copro_z80_emulator,
@@ -81,6 +90,9 @@ static const func_ptr emulator_functions[] = {
 
 volatile unsigned int copro;
 volatile unsigned int copro_speed;
+volatile unsigned int copro_memory_size = 0;
+unsigned int tube_delay = 0;
+
 int arm_speed;
 
 static func_ptr emulator;
@@ -90,25 +102,30 @@ static func_ptr emulator;
 #define SWI_VECTOR (HIGH_VECTORS_BASE + 0x28)
 #define FIQ_VECTOR (HIGH_VECTORS_BASE + 0x3C)
 
+unsigned char * copro_mem_reset(int length)
+{
+     // Wipe memory
+     // Memory starts at zero now vectors have moved.
+   unsigned char * mpu_memory = 0;  
+   memset(mpu_memory, 0, length);
+   // return pointer to memory
+   return mpu_memory;
+}
+
 void init_emulator() {
    _disable_interrupts();
-
-#if !defined(USE_GPU)  
-   // Default to the normal FIQ handler
-   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag0;
-#endif
    
-#if !defined(USE_MULTICORE) && defined(USE_HW_MAILBOX)
-   // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
-   // that flag events from the ISR using the ip register
-   if (copro == COPRO_65TUBE_0 || copro == COPRO_65TUBE_1) {
-      int i;
-      for (i = 0; i < 256; i++) {
-         Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
-      }
-      *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
-   }
-#endif
+      // Set up FIQ handler 
+   
+   tube_irq = 0; // Make sure everything is clear
+   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
+   
+   // Direct Mail box to FIQ handler
+   
+   (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
+   (*(volatile uint32_t *)FIQCTRL) = 0x80 +65;       
+   
+
 #ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
       *((uint32_t *) SWI_VECTOR) = (uint32_t) copro_armnative_swi_handler;
@@ -116,6 +133,7 @@ void init_emulator() {
    }
 #endif
 
+   copro &= 127 ; // Clear top bit which is used to signal full reset 
    // Make sure that copro number is valid
    if (copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
       LOG_DEBUG("using default co pro\r\n");
@@ -135,14 +153,14 @@ void run_core() {
    // In case the VFP unit is not enabled
 #ifdef DEBUG
    int i;
-	RPI_AuxMiniUartWrite('C');
-	RPI_AuxMiniUartWrite('O');
-	RPI_AuxMiniUartWrite('R');
-	RPI_AuxMiniUartWrite('E');
+   RPI_AuxMiniUartWrite('C');
+   RPI_AuxMiniUartWrite('O');
+   RPI_AuxMiniUartWrite('R');
+   RPI_AuxMiniUartWrite('E');
    i = _get_core();
-	RPI_AuxMiniUartWrite('0' + i);
-	RPI_AuxMiniUartWrite('\r');
-	RPI_AuxMiniUartWrite('\n');
+   RPI_AuxMiniUartWrite('0' + i);
+   RPI_AuxMiniUartWrite('\r');
+   RPI_AuxMiniUartWrite('\n');
 #endif
    
    enable_MMU_and_IDCaches();
@@ -196,59 +214,61 @@ static void get_copro_speed() {
       copro_speed = (arm_speed/(1000000/256) / copro_speed);
 }
 
+static void get_copro_memory_size() {
+   char *copro_prop = get_cmdline_prop("copro13_memory_size");
+   copro_memory_size = 0; // default 
+   if (copro_prop) {
+      copro_memory_size = atoi(copro_prop);
+   }
+   if (copro_memory_size > 32*1024 *1024){
+      copro_memory_size = 0;
+   }
+   LOG_DEBUG("Copro Memory size %u\r\n", copro_memory_size);
+}
+
+static void get_tube_delay() {
+   char *copro_prop = get_cmdline_prop("tube_delay");
+   tube_delay = 0; // default 
+   if (copro_prop) {
+      tube_delay = atoi(copro_prop);
+   }
+   if (tube_delay > 40){
+      tube_delay = 40;
+   }
+   LOG_DEBUG("Tube ULA sample delay  %u\r\n", tube_delay);
+}
 
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
-#ifdef HAS_MULTICORE
-   volatile int i;
-#endif
-
-   tube_init_hardware();
-   arm_speed = get_clock_rate(ARM_CLK_ID);
-   copro = get_copro_number();
-   get_copro_speed();
-   
-#ifdef USE_GPU
-      LOG_DEBUG("Staring VC ULA\r\n");
-      start_vc_ula();
-      LOG_DEBUG("Done\r\n");
-#endif
-
+     // Initialise the UART to 57600 baud
+   RPI_AuxMiniUartInit( 115200, 8 );
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
+   tube_init_hardware();
 
-#ifdef DEBUG
+   arm_speed = get_clock_rate(ARM_CLK_ID);
+   get_tube_delay();
+   start_vc_ula();
+
+   copro = get_copro_number();
+   get_copro_speed();
+   get_copro_memory_size();
+   
+   
+#ifdef BENCHMARK
   // Run a short set of CPU and Memory benchmarks
   benchmark();
 #endif
 
+#ifdef HAS_MULTICORE
+  LOG_DEBUG("main running on core %u\r\n", _get_core());
+  start_core(1, _spin_core);
+  start_core(2, _spin_core);
+  start_core(3, _spin_core);
+#endif
   init_emulator();
 
-  // Lock the Tube Interrupt handler into cache for BCM2835 based Pis
-#if !defined(RPI2) && !defined(RPI3) && !defined(USE_GPU)
-   lock_isr();
-#endif
-
-#ifdef HAS_MULTICORE
-
-  LOG_DEBUG("main running on core %u\r\n", _get_core());
-  for (i = 0; i < 10000000; i++);
-  start_core(1, _spin_core);
-  for (i = 0; i < 10000000; i++);
-  start_core(2, _spin_core);
-  for (i = 0; i < 10000000; i++);
-
-#ifdef USE_MULTICORE
-  start_core(3, _init_core);
-  while (1);
-#else
-  start_core(3, _spin_core);
-  for (i = 0; i < 10000000; i++);
-#endif
-
-#endif
-
-#ifndef USE_MULTICORE
+  RPI_GpioBase->GPSET0 = (1 << test_pin);
 
   do {
      // Run the emulator
@@ -258,6 +278,5 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
      init_emulator();
      
   } while (1);
-
-#endif
+  
 }

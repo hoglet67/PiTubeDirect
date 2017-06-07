@@ -34,6 +34,8 @@
 /** The base address of the GPIO peripheral (ARM Physical Address) */
 #define RPI_GPIO_BASE       (PERIPHERAL_BASE + 0x200000UL)
 
+// Raspberry Pi3 has a differentway of controlling the LED
+
 #if defined(RPIZERO) || defined(RPIBPLUS) || defined(RPI2) || defined(RPI3)
     #define LED_GPFSEL      GPFSEL[4]
     #define LED_GPFBIT      21

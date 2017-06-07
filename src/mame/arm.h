@@ -14,6 +14,8 @@ extern UINT32 copro_arm2_read32(int addr);
 extern void   copro_arm2_write8(int addr, UINT8 data);
 extern void   copro_arm2_write32(int addr, UINT32 data);
 
+extern UINT32 m_sArmRegister[];
+
 #define cpu_read8    copro_arm2_read8
 #define cpu_read32   copro_arm2_read32
 #define cpu_write8   copro_arm2_write8
@@ -51,7 +53,7 @@ enum
 };
 
 void arm2_device_reset();
-void arm2_execute_run(int n);
+void arm2_execute_run(int tube_cycles);
 void arm2_check_irq_state();
 void arm2_execute_set_input(int irqline, int state);
 UINT32 arm2_getR15();

@@ -21,14 +21,20 @@
 
 #include "mc6809.h"
 #include <stdarg.h>
+#include "../tube.h"
 
-unsigned X, Y, S, U, PC;
-unsigned A, B, DP;
-unsigned H, N, Z, OV, C;
-unsigned EFI;
+#ifdef INCLUDE_DEBUGGER
+#include "mc6809_debug.h"
+#include "../cpu_debug.h"
+#endif
+
+static unsigned X, Y, S, U, PC;
+static unsigned A, B, DP;
+static unsigned H, N, Z, OV, C;
+static unsigned EFI;
 
 #ifdef H6309
-unsigned E, F, V, MD;
+static unsigned E, F, V, MD;
 
 #define MD_NATIVE 0x1		/* if 1, execute in 6309 mode */
 #define MD_FIRQ_LIKE_IRQ 0x2	/* if 1, FIRQ acts like IRQ */
@@ -36,16 +42,16 @@ unsigned E, F, V, MD;
 #define MD_DBZ 0x80		/* divide by zero */
 #endif /* H6309 */
 
-unsigned iPC;
+static unsigned iPC;
 
-unsigned ea = 0;
-long cpu_clk = 0;
-long cpu_period = 0;
-unsigned int irqs_pending = 0;
-unsigned int firqs_pending = 0;
-unsigned int cc_changed = 0;
+static unsigned ea = 0;
+static long cpu_clk = 0;
+static long cpu_period = 0;
+static unsigned int irqs_pending = 0;
+static unsigned int firqs_pending = 0;
+static unsigned int cc_changed = 0;
 
-unsigned *index_regs[4] = { &X, &Y, &U, &S };
+static unsigned *index_regs[4] = { &X, &Y, &U, &S };
 
 static int sync_flag;
 
@@ -59,7 +65,7 @@ void mc6809nc_request_irq (unsigned int source)
 	 * IRQ immediately.  Else, mark it pending and
 	 * we'll check it later when the flags change.
 	 */
-	irqs_pending |= (1 << source);
+//	irqs_pending |= (1 << source);
    sync_flag = 0;
 	if (!(EFI & I_FLAG))
 		irq ();
@@ -76,7 +82,7 @@ void mc6809nc_request_firq (unsigned int source)
 	 * IRQ immediately.  Else, mark it pending and
 	 * we'll check it later when the flags change.
 	 */
-	firqs_pending |= (1 << source);
+	//firqs_pending |= (1 << source);
    sync_flag = 0;
 	if (!(EFI & F_FLAG))
 		firq ();
@@ -764,7 +770,7 @@ static void daa (void)
     res += 0x60;
 
   C |= (res & 0x100);
-  A = N = Z = res &= 0xff;
+  A = N = Z = (res & 0xff);
   OV = 0;			/* fix this */
 
   cpu_clk -= 2;
@@ -1473,8 +1479,11 @@ static void cwai (void)
 
 static void sync (void)
 {
-  cpu_clk -= 4;
-  sync_flag = 1;
+  sync_flag = 1; 
+  do {
+    cpu_clk -= 4;
+    tubeUseCycles(0xFFFF);
+  } while (tubeContinueRunning());
 }
 
 static void orcc (void)
@@ -1567,11 +1576,11 @@ static void bsr (void)
 }
 
 /* Execute 6809 code for a certain number of cycles. */
-int mc6809nc_execute (int cycles)
+int mc6809nc_execute (int tube_cycles)
 {
   unsigned opcode;
 
-  cpu_period = cpu_clk = cycles;
+  cpu_period = cpu_clk = tube_cycles;
 
   if (sync_flag) {
      return cpu_period;
@@ -1581,6 +1590,14 @@ int mc6809nc_execute (int cycles)
     {
 
       iPC = PC;
+
+#ifdef INCLUDE_DEBUGGER
+      if (mc6809nc_debug_enabled)
+      {
+         debug_preexec(&mc6809nc_cpu_debug, PC);
+      }
+#endif
+
       opcode = imm_byte ();
 
       switch (opcode)
@@ -2931,8 +2948,10 @@ int mc6809nc_execute (int cycles)
 
 	if (cc_changed)
 	  cc_modified ();
-    }
-  while (cpu_clk > 0);
+      
+   tubeUseCycles(1);   
+  } while (tubeContinueRunning());
+  //while (cpu_clk > 0);
 
   cpu_period -= cpu_clk;
   cpu_clk = cpu_period;

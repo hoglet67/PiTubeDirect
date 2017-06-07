@@ -26,9 +26,15 @@
 #include "cpu80186.h"
 #include "mem80186.h"
 #include "Client86_v1_01.h"
+#include "../tube-client.h"
+
+#ifdef INCLUDE_DEBUGGER
+#include "../cpu_debug.h"
+#include "cpu80186_debug.h"
+#endif
 
 #ifdef DECLARE_RAM
-uint8_t RAM[ONE_MEG];
+uint8_t* RAM;//[ONE_MEG];
 #else
 uint8_t* RAM = (uint8_t*) m186_RamBase;
 #endif
@@ -36,8 +42,17 @@ uint8_t* RAM = (uint8_t*) m186_RamBase;
 void write86(uint32_t addr32, uint8_t value)
 {
   addr32 &= 0xFFFFFF;
+#ifdef INCLUDE_DEBUGGER
+   if (cpu80186_debug_enabled) {
+      debug_memwrite(&cpu80186_cpu_debug, addr32, value, 1);
+   }
+#endif
   if (addr32 < 0xF0000) {
-    RAM[addr32] = value;
+#if USE_MEMORY_POINTER
+       RAM[addr32] = value;
+#else
+       *(unsigned char *)(addr32) = value;
+#endif
   }
 }
 
@@ -49,7 +64,17 @@ void writew86(uint32_t addr32, uint16_t value)
 
 uint8_t read86(uint32_t addr32)
 {
-  return (RAM[addr32 & 0xFFFFF]);
+#if USE_MEMORY_POINTER
+   uint8_t value = (RAM[addr32 & 0xFFFFF]);
+#else
+   uint8_t value = *(unsigned char *)(addr32& 0xFFFFF) ;
+#endif
+#ifdef INCLUDE_DEBUGGER
+   if (cpu80186_debug_enabled) {
+      debug_memread(&cpu80186_cpu_debug, addr32, value, 1);
+   }
+#endif
+   return value;
 }
 
 uint16_t readw86(uint32_t addr32)
@@ -59,7 +84,8 @@ uint16_t readw86(uint32_t addr32)
 
 void Cleari80186Ram(void)
 {
-  memset(RAM, 0, ONE_MEG);
+  //memset(RAM, 0, ONE_MEG);
+  RAM = copro_mem_reset(ONE_MEG);
 }
 
 // The ARM must call RomCopy before starting the Processor

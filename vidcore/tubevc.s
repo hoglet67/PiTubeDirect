@@ -8,39 +8,49 @@
 # gpfsel_data_idle setup
 
 #  r0 - pointer to shared memory ( VC address) of tube registers
-#  r1 - pointer to shared memory ( VC address) of gpfsel_data_idle
-#  r2 - pointer to shared memory ( VC address) of tube_mailbox
+#  r1 - LEDTYPE
+#  r2 - tube_delay
 #  r3 - GPIO mapping of address lines - 0x00<A2><A1><A0> where A2, A1 and A0 are the numbers of the respective GPIOs
 #  r4 - unused
 #  r5 - debug pin mask (0 = no debug  xx= debug pin e.g 1<<21)
 
 # Intenal register allocation
 #  r0 - pointer to shared memory ( VC address) of tube registers
-#  r1 - ( 1<<nTUBE+1<<nRST+1<<RnW+1<<A2+1<<A1+1<<A0+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
-#  r2 - pointer to shared memory ( VC address) of tube_mailbox
+#  r1 - unused
+#  r2 - unused
 #  r3 - ARM_GPU_MAILBOX constant
-#  r4 - 4-bit sequence number for detecting overruns
+#  r4 - scratch
 #  r5 - debug pin mask (0 = no debug  xx= debug pin e.g 1<<21)
 #  r6 - GPFSEL0 constant
 #  r7 - scratch register 
 #  r8 - scratch register
 #  r9 - (0xF<<D0D3_shift) + (0xF<<D4D7_shift) constant
-# r10 - data bus driving values
-# r11 - data bus driving values
-# r12 - data bus driving values
+# r10 - data bus driving values idle
+# r11 - data bus driving values idle
+# r12 - data bus driving values idle
 # r13 - data bus driving values
 # r14 - data bus driving values
 # r15 - data bus driving values
 # r16 - A0 GPIO bit number
 # r17 - A1 GPIO bit number
-# r18 - A2 GPIO bit number        
+# r18 - A2 GPIO bit number
+# r19 - LEDTYPE        
+# r20 - led_state
 
 # GPIO registers
 .equ GPFSEL0,       0x7e200000
 .equ GPSET0_offset, 0x1C
+.equ GPSET1_offset, 0x20
+
 .equ GPCLR0_offset, 0x28
+.equ GPCLR1_offset, 0x2C
+
 .equ GPLEV0_offset, 0x34
 .equ GPEDS0_offset, 0x40
+
+.equ LED_TYPE0_BIT, 16
+.equ LED_TYPE1_BIT, 15
+
 
 .equ GPU_ARM_MBOX, 0x7E00B880
 
@@ -55,9 +65,26 @@
 .equ D0D3_shift,    8
 .equ D4D7_shift,   22
 
+.equ D7_PIN,       (25)     # C2
+.equ D6_PIN,       (24)     # C2
+.equ D5_PIN,       (23)     # C2
+.equ D4_PIN,       (22)     # C2
+.equ D3_PIN,       (11)     # C1
+.equ D2_PIN,       (10)     # C1
+.equ D1_PIN,       (9)      # C0
+.equ D0_PIN,       (8)      # C0
+
+.equ MAGIC_C0,     ((1 << (D0_PIN * 3)) | (1 << (D1_PIN * 3)))
+.equ MAGIC_C1,     ((1 << ((D2_PIN - 10) * 3)) | (1 << ((D3_PIN - 10) * 3)))
+.equ MAGIC_C2,     ((1 << ((D4_PIN - 20) * 3)) | (1 << ((D5_PIN - 20) * 3)))
+.equ MAGIC_C3,     ((1 << ((D6_PIN - 20) * 3)) | (1 << ((D7_PIN - 20) * 3)))
+
   # mail box flags
 .equ ATTN_MASK,    31
 .equ OVERRUN_MASK, 30
+
+.equ RESET_MAILBOX_BIT, 12
+.equ RW_MAILBOX_BIT, 11 
 
 .org 0
 
@@ -94,15 +121,11 @@
 #  mov r8, IC0_MASK + 0x18
 #  mov r9, 0x00000010
 #  st  r9, (r8)
-        
+   
+   mov    r19, r1      # save LEDTYPE
+   mov    r20, 0       # clear led_state
    mov    r9, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
-   ld     r10, (r1)    # databus driving signals
-   ld     r11, 4(r1)   # databus driving signals
-   ld     r12, 8(r1)   # databus driving signals
-   ld     r13, 12(r1)  # databus driving signals
-   ld     r14, 16(r1)  # databus driving signals
-   ld     r15, 20(r1)  # databus driving signals
-
+   or     r9, r5       # add in test pin so that it is cleared at the end of the access
    lsr    r16, r3, 0   # Extract GPIO number of A0
    and    r16, 31
    lsr    r17, r3, 8   # Extract GPIO number of A1
@@ -110,63 +133,93 @@
    lsr    r18, r3, 16  # Extract GPIO number of A2
    and    r18, 31
 
+
+   
 # r1, r3, r4 now free
 
-   mov    r1, (1<<nTUBE+1<<nRST+1<<RnW+(0xF<<D0D3_shift) + (0xF<<D4D7_shift))
-   bset   r1, r16
-   bset   r1, r17
-   bset   r1, r18
-
    mov    r3, GPU_ARM_MBOX
-        
-   mov    r4, 0        # 4-bit sequence number for detecting overun
-
+ 
    mov    r6, GPFSEL0
+   
+   # read GPIO registers to capture the bus idle state
+   
+   ld     r10,  (r6)
+   ld     r11, 4(r6)
+   ld     r12, 8(r6)
+   # setup the databus drive states
+   mov    r13, MAGIC_C0
+   mov    r14, MAGIC_C1
+   mov    r15, MAGIC_C2 | MAGIC_C3
+   or     r13, r10  
+   or     r14, r11
+   or     r15, r12
 
 # enable interrupts
-#  ei
-                
+#  ei         
+   rsb    r2, 40
+   nop           #nop to align loop for speed
 # poll for nTube being low
 Poll_loop:
-   ld     r7, GPLEV0_offset(r6)
-   btst   r7, nRST
+   mov    r1, r2
+   mov    r7, r0
+Poll_tube_low:
+   ld     r8, GPLEV0_offset(r6)
+   btst   r8, nRST
    beq    post_reset
-   btst   r7, nTUBE
-   bne    Poll_loop
-   ld     r7, GPLEV0_offset(r6)  # check ntube again to remove glitches
-   btst   r7, nTUBE
-   bne    Poll_loop
-   # we now know nTube is low
-   btst   r7, RnW
-   beq    wr_cycle
+   btst   r8, nTUBE
+   bne    Poll_tube_low
+   
+.rept 40
+   addcmpbeq r1,1,41,delay_done
+.endr 
+  
+delay_done:      
+   ld     r8, GPLEV0_offset(r6)  # check ntube again to remove glitches
 
-   # So we are in a read cycle
+   # we now know nTube is low
+ # Extra read with might possible help with rnw on slow machines  
+ #  ld     r8, GPLEV0_offset(r6)  # read bus again to ensure we have the correct address 
+
    # sort out the address bus
-   mov    r8, 0
-   btst   r7, r16
-   orne   r8, 1
-   btst   r7, r17
-   orne   r8, 2
-   btst   r7, r18
-   orne   r8, 4
-   ld     r8, (r0, r8)           # Read word from tube register
+
+   btst   r8, r16
+
+   orne   r7, 4
+   btst   r8, r17
+
+   orne   r7, 8
+   btst   r8, r18
+
+   orne   r7, 16
+   ld     r4, (r7)               # Read word from tube register
+   btst   r8, nTUBE
+   bne    Poll_tube_low
+   btst   r8, RnW
+   beq    wr_cycle
+   
+   # So we are in a read cycle
+   
    st     r13, (r6)              # Drive data bus
    st     r14, 4(r6)             # Drive data bus        
    st     r15, 8(r6)             # Drive data bus
-   st     r8, GPSET0_offset(r6)  # Write word to data bus
+   or     r4,r5
+   st     r4, GPSET0_offset(r6)  # Write word to data bus
 
-   st     r5, GPSET0_offset(r6)  # DEBUG pin
+   #st     r5, GPSET0_offset(r6)  # DEBUG pin
 
   # spin waiting for clk high
 rd_wait_for_clk_high1:
-   ld     r7, GPLEV0_offset(r6)
-   btst   r7, CLK
+   ld     r8, GPLEV0_offset(r6)
+   btst   r8, CLK
    beq    rd_wait_for_clk_high1
-# we now have half a cycle to do post mail ( 500ns early)
-   mov    r8,r7
-   btst   r8, r16
+# we now have half a cycle to do post mail
+   btst   r8, r16               # no need to post mail if A0 = 0
    beq    rd_wait_for_clk_low
-   bl     do_post_mailbox
+   sub    r7, r0                # just get the address bits
+   lsl    r7, 6                 # put address bits in correct place
+   bset   r7, RW_MAILBOX_BIT    # set read bit
+   st     r7, (r3)              # store in mail box
+   bl     toggle_led
    
 # spin waiting for clk low
 rd_wait_for_clk_low:
@@ -174,13 +227,11 @@ rd_wait_for_clk_low:
    btst   r7, CLK
    bne    rd_wait_for_clk_low
 
-   st     r5, GPCLR0_offset(r6) #DEBUG pin
-
 # stop driving databus
-   st     r9, GPCLR0_offset(r6)
-   st     r10, (r6)  # Drive data bus
+   st     r10, (r6)  # Stop Driving data bus
    st     r11, 4(r6)
    st     r12, 8(r6)
+   st     r9, GPCLR0_offset(r6) #clear databus ready for next time and debug pin
 
 # detect dummy read
 # spin waiting for clk high
@@ -208,52 +259,75 @@ wr_wait_for_clk_low:
    btst   r7, CLK
    bne    wr_wait_for_clk_low
 
-# Post a message to indicate a tube register read or write
-post_mail:
-   bl     do_post_mailbox        
+# Post a message to indicate a tube register write
+
+#  move databus to correct position
+   lsr    r7,r8, D0D3_shift
+   lsr    r4,r8, D4D7_shift -4
+   and    r7, 0x0F
+   and    r4, 0xF0
+   or     r7, r4 
+
+#  move address bit to correct position
+   btst   r8, r16
+   bsetne r7, 8
+   btst   r8, r17
+   bsetne r7, 9
+   btst   r8, r18
+   bsetne r7, 10
+   st     r7, (r3)      # post mail
+   bl     toggle_led
    b      Poll_loop
         
 # Post a message to indicate a reset
 post_reset:
-   mov    r8, r7
-   bl     do_post_mailbox
+   mov    r7, 1<<RESET_MAILBOX_BIT
+   st     r7, (r3)
+   bl     toggle_led   
 # Wait for reset to be released (so we don't overflow the mailbox)
 post_reset_loop:
    ld     r7, GPLEV0_offset(r6)
    btst   r7, nRST
    beq    post_reset_loop        
    b      Poll_loop
-        
-# Subroutine to post r8 to the mailbox
-# if r2 is zero then the hardware mailbox is used
-# if r2 is non zero then a software mailbox at address r2 is used
-        
-do_post_mailbox:
-# Send to GPU->ARM mailbox (channel 10)
-   and    r8, r1
 
-   cmp    r2, 0
-   beq    use_hw_mailbox
+#### Toggle LED
+toggle_led:
 
-# Use the software mailbox
-   bset   r8, ATTN_MASK
-   ld     r7, (r2)  # get mailbox
-   btst   r7, ATTN_MASK
-   bsetne r8, OVERRUN_MASK
-   st     r8, (r2)
+   cmp    r19, 0
+   beq    led_type0
+   cmp    r19, 1
+   beq    led_type1
+   
+   # must be led_type3
+   # only on raspberry pi 3
+
    rts
 
-# Use the hardware mailbox
-use_hw_mailbox:
-# Add 4-bit seqence number into bits 12-15 (unused GPIO bits), and increment
-   or     r8, r4
-   add    r4, 0x1000
-   and    r4, 0xF000
-   lsl    r8, 4
-   or     r8, 0x0000000A
-   st     r8, (r3)
-   rts        
-        
+# led_type 0 found on 26 pin raspberry pis
+led_type0:
+   mov    r7, (1<<LED_TYPE0_BIT)
+   btst   r20, 0
+   not    r20, r20
+   bne    led_type0_set
+   st     r7,GPCLR0_offset(r6)
+   rts
+led_type0_set:
+   st     r7,GPSET0_offset(r6)
+   rts
+   
+# led_type 1 found on most 40 pin raspberry pis
+led_type1:
+   mov    r7, (1<<LED_TYPE1_BIT)
+   btst   r20, 0
+   not    r20, r20
+   bne    led_type1_set
+   st     r7,GPCLR1_offset(r6)
+   rts
+led_type1_set:   
+   st     r7,GPSET1_offset(r6)
+   rts
+   
 # This code is not currently used
         
 .if 0

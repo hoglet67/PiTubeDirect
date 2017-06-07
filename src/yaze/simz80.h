@@ -39,8 +39,13 @@ extern WORD IFF;
 */
 /* see definitions for memory in mem_mmu.h */
 
-#ifdef DEBUG
-extern volatile int stopsim;
+// For FASTWORK
+#include "mem_mmu.h"
+
+#ifdef INCLUDE_DEBUGGER
+#include "../cpu_debug.h"
+extern int simz80_debug_enabled;
+extern cpu_debug_t simz80_cpu_debug;
 #endif
 
 extern FASTWORK simz80(FASTREG PC);
@@ -88,4 +93,4 @@ extern void simz80_IRQ();
 
 extern int simz80_is_IRQ_enabled();
 
-extern FASTWORK simz80_execute(int n);
+extern FASTWORK simz80_execute(int tube_cycles);

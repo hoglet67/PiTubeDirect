@@ -40,6 +40,7 @@ static char *perl_params =
 */
 #include "mem_mmu.h"
 #include "simz80.h"
+#include "../tube.h"
 
 /* Z80 registers */
 static WORD af[2];         /* accumulator and flags (2 banks) */
@@ -83,10 +84,6 @@ static const unsigned char partab[256] = {
 };
 
 #define parity(x)   partab[(x)&0xff]
-
-#ifdef DEBUG
-volatile int stopsim;
-#endif
 
 #define POP(x)   do {            \
    FASTREG y = GetBYTE_pp(SP);      \
@@ -143,8 +140,277 @@ volatile int stopsim;
     iy = IY;                        \
     sp = SP
 
+
+/*****************************************************
+ * CPU Debug Interface
+ *****************************************************/
+
+#ifdef INCLUDE_DEBUGGER
+
+#include <stdio.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <string.h>
+
+#include "../cpu_debug.h"
+#include "z80dis.h"
+
+int simz80_debug_enabled = 0;
+
+static WORD last_PC = 0;
+
+enum register_numbers {
+   i_A,
+   i_F,
+   i_BC,
+   i_DE,
+   i_HL, 
+   i_A_,
+   i_F_,
+   i_BC_,
+   i_DE_,
+   i_HL_, 
+   i_IX,
+   i_IY,
+   i_SP,
+   i_PC,
+   i_IR,
+   i_IFF1,
+   i_IFF2
+};
+
+// NULL pointer terminated list of register names.
+static const char *dbg_reg_names[] = {
+   "A",
+   "F",
+   "BC",
+   "DE",
+   "HL", 
+   "A'",
+   "F'",
+   "BC'",
+   "DE'",
+   "HL'", 
+   "IX",
+   "IY",
+   "SP",
+   "PC",
+   "IR",
+   "IFF1",
+   "IFF2",
+   NULL
+};
+
+// NULL pointer terminated list of trap names.
+static const char *dbg_trap_names[] = {
+   NULL
+};
+
+// enable/disable debugging on this CPU, returns previous value.
+static int dbg_debug_enable(int newvalue) {
+   int oldvalue = simz80_debug_enabled;
+   simz80_debug_enabled = newvalue;
+   return oldvalue;
+};
+
+// CPU's usual memory read function for data.
+static uint32_t dbg_memread(uint32_t addr) {
+   return copro_z80_read_mem(addr);
+};
+
+// CPU's usual memory write function.
+static void dbg_memwrite(uint32_t addr, uint32_t value) {
+   copro_z80_write_mem(addr, value);
+};
+
+// CPU's usual I/O read function for data.
+static uint32_t dbg_ioread(uint32_t addr) {
+   return copro_z80_read_io(addr);
+};
+
+// CPU's usual I/O write function.
+static void dbg_iowrite(uint32_t addr, uint32_t value) {
+   copro_z80_write_io(addr, value);
+};
+
+// Get a register - which is the index into the names above
+static uint32_t dbg_reg_get(int which) {
+  switch (which) {
+  case i_A:
+    return hreg(af[0]);
+  case i_F:
+    return lreg(af[0]);
+  case i_BC:
+    return regs[0].bc;
+  case i_DE:
+    return regs[0].de;
+  case i_HL:
+    return regs[0].hl;
+  case i_A_:
+    return hreg(af[1]);
+  case i_F_:
+    return lreg(af[1]);
+  case i_BC_:
+    return regs[1].bc;
+  case i_DE_:
+    return regs[1].de;
+  case i_HL_:
+    return regs[1].hl;
+  case i_IX:
+    return ix;
+  case i_IY:
+    return iy;
+  case i_SP:
+    return sp;
+  case i_PC:
+    return pc;
+  case i_IR:
+    return ir;
+  case i_IFF1:
+    return IFF & 1;
+  case i_IFF2:
+    return (IFF >> 1) & 1;
+  default:
+    return 0;
+   }
+};
+
+// Set a register.
+static void  dbg_reg_set(int which, uint32_t value) {
+  switch (which) {
+  case i_A:
+    Sethreg(af[0], value);
+    break;
+  case i_F:
+    Setlreg(af[0], value);
+    break;
+  case i_BC:
+    regs[0].bc = value;
+    break;
+  case i_DE:
+    regs[0].de = value;
+    break;
+  case i_HL:
+    regs[0].hl = value;
+    break;
+  case i_A_:
+    Sethreg(af[1], value);
+    break;
+  case i_F_:
+    Setlreg(af[1], value);
+    break;
+  case i_BC_:
+    regs[1].bc = value;
+    break;
+  case i_DE_:
+    regs[1].de = value;
+    break;
+  case i_HL_:
+    regs[1].hl = value;
+    break;
+  case i_IX:
+    ix = value;
+    break;
+  case i_IY:
+    iy = value;
+    break;
+  case i_SP:
+    sp = value;
+    break;
+  case i_PC:
+    pc = value;
+    break;
+  case i_IR:
+    ir = value;
+    break;
+  case i_IFF1:
+    IFF &= ~1;
+    IFF |= value & 1;
+    break;
+  case i_IFF2:
+    IFF &= ~2;
+    IFF |= (value & 1) << 1;
+    break;
+   }
+};
+
+static const char* flagname = "S Z * H * P N C ";
+
+// Print register value in CPU standard form.
+static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
+   if (which == i_F || which == i_F_) {
+      int i;
+      int bit;
+      char c;
+      const char *flagnameptr = flagname;
+      int psr = dbg_reg_get(which);
+
+      if (bufsize < 40) {
+         strncpy(buf, "buffer too small!!!", bufsize);
+      }
+
+      bit = 0x80;
+      for (i = 0; i < 8; i++) {
+         if (psr & bit) {
+            c = '1';
+         } else {
+            c = '0';
+         }
+         do {
+            *buf++ = *flagnameptr++;
+         } while (*flagnameptr != ' ');
+         flagnameptr++;
+         *buf++ = ':';
+         *buf++ = c;
+         *buf++ = ' ';
+         bit >>= 1;
+      }
+      return strlen(buf);
+   } else if (which == i_A || which == i_A_) {
+      return snprintf(buf, bufsize, "%02"PRIx32, dbg_reg_get(which));
+   } else if (which == i_IFF1 || which == i_IFF2) {
+      return snprintf(buf, bufsize, "%"PRIx32, dbg_reg_get(which));
+   } else {
+      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
+   }
+};
+
+// Parse a value into a register.
+static void dbg_reg_parse(int which, char *strval) {
+   uint32_t val = 0;
+   sscanf(strval, "%"SCNx32, &val);
+   dbg_reg_set(which, val);
+};
+
+static uint32_t dbg_get_instr_addr() {
+   return last_PC;
+}
+
+cpu_debug_t simz80_cpu_debug = {
+   .cpu_name       = "simz80",
+   .debug_enable   = dbg_debug_enable,
+   .memread        = dbg_memread,
+   .memwrite       = dbg_memwrite,
+   .ioread         = dbg_ioread,
+   .iowrite        = dbg_iowrite,
+   .disassemble    = z80_disassemble,
+   .reg_names      = dbg_reg_names,
+   .reg_get        = dbg_reg_get,
+   .reg_set        = dbg_reg_set,
+   .reg_print      = dbg_reg_print,
+   .reg_parse      = dbg_reg_parse,
+   .get_instr_addr = dbg_get_instr_addr,
+   .trap_names     = dbg_trap_names
+};
+
+#endif
+
+/**********************************************************
+ * Z80 emulation
+ **********************************************************/
+
 FASTWORK
-simz80_execute(int n)
+simz80_execute(int tube_cycles)
 {
     FASTREG PC = pc;
     FASTREG AF = af[af_sel];
@@ -160,10 +426,14 @@ simz80_execute(int n)
     FASTREG tmp2;
 #endif
 
-#ifdef DEBUG
-    while (!stopsim) {
-#else
-    while (n--) {
+ do {
+#ifdef INCLUDE_DEBUGGER
+   if (simz80_debug_enabled) {
+     last_PC = PC;
+     SAVE_STATE();
+     debug_preexec(&simz80_cpu_debug, last_PC);
+     LOAD_STATE();
+   }
 #endif
    switch(GetBYTE_pp(PC)) {
    case 0x00:         /* NOP */
@@ -393,7 +663,7 @@ simz80_execute(int n)
    case 0x29:         /* ADD HL,HL */
       HL &= 0xffff;
       sum = HL + HL;
-      cbits = (HL ^ HL ^ sum) >> 8;
+      cbits = (/*HL ^ HL ^ */sum) >> 8;
       HL = sum;
       AF = (AF & ~0x3b) | ((sum >> 8) & 0x28) |
          (cbits & 0x10) | ((cbits >> 8) & 1);
@@ -1055,7 +1325,7 @@ simz80_execute(int n)
          ((sum == 0) << 6) | partab[sum];
       break;
    case 0xA7:         /* AND A */
-      sum = ((AF & (AF)) >> 8) & 0xff;
+      sum = ((AF /*& (AF)*/) >> 8) & 0xff;
       AF = (sum << 8) | (sum & 0xa8) |
          ((sum == 0) << 6) | 0x10 | partab[sum];
       break;
@@ -1088,8 +1358,8 @@ simz80_execute(int n)
       AF = (sum << 8) | (sum & 0xa8) | ((sum == 0) << 6) | partab[sum];
       break;
    case 0xAF:         /* XOR A */
-      sum = ((AF ^ (AF)) >> 8) & 0xff;
-      AF = (sum << 8) | (sum & 0xa8) | ((sum == 0) << 6) | partab[sum];
+      sum = 0;//((AF ^ (AF)) >> 8) & 0xff;
+      AF = (sum << 8) | (sum & 0xa8) | (1 << 6) | partab[sum];
       break;
    case 0xB0:         /* OR B */
       sum = ((AF | (BC)) >> 8) & 0xff;
@@ -1120,7 +1390,7 @@ simz80_execute(int n)
       AF = (sum << 8) | (sum & 0xa8) | ((sum == 0) << 6) | partab[sum];
       break;
    case 0xB7:         /* OR A */
-      sum = ((AF | (AF)) >> 8) & 0xff;
+      sum = ((AF /*| (AF)*/) >> 8) & 0xff;
       AF = (sum << 8) | (sum & 0xa8) | ((sum == 0) << 6) | partab[sum];
       break;
    case 0xB8:         /* CP B */
@@ -1314,8 +1584,8 @@ simz80_execute(int n)
             cbits = acu & 1;
          cbshflg1:
             AF = (AF & ~0xff) | (temp & 0xa8) |
-               (((temp & 0xff) == 0) << 6) |
-               parity(temp) | !!cbits;
+               ((temp & 0xff)?0:(1<< 6)) |
+               parity(temp) | (cbits ?1:0);
          }
          break;
       case 0x40:      /* BIT */
@@ -1471,7 +1741,7 @@ simz80_execute(int n)
       case 0x29:         /* ADD IX,IX */
          IX &= 0xffff;
          sum = IX + IX;
-         cbits = (IX ^ IX ^ sum) >> 8;
+         cbits = (/*IX ^ IX ^ */sum) >> 8;
          IX = sum;
          AF = (AF & ~0x3b) | ((sum >> 8) & 0x28) |
             (cbits & 0x10) | ((cbits >> 8) & 1);
@@ -1925,8 +2195,8 @@ simz80_execute(int n)
                cbits = acu & 1;
             cbshflg2:
                AF = (AF & ~0xff) | (temp & 0xa8) |
-                  (((temp & 0xff) == 0) << 6) |
-                  parity(temp) | !!cbits;
+                  ((temp & 0xff)?0:(1<< 6)) |
+                  parity(temp) | (cbits?1:0);
             }
             break;
          case 0x40:      /* BIT */
@@ -2199,8 +2469,8 @@ simz80_execute(int n)
          break;
       case 0x62:         /* SBC HL,HL */
          HL &= 0xffff;
-         sum = HL - HL - TSTFLAG(C);
-         cbits = (HL ^ HL ^ sum) >> 8;
+         sum = /*HL - HL*/0 - TSTFLAG(C);
+         cbits = (/*HL ^ HL ^*/ sum) >> 8;
          HL = sum;
          AF = (AF & ~0xff) | ((sum >> 8) & 0xa8) |
             (((sum & 0xffff) == 0) << 6) |
@@ -2233,7 +2503,7 @@ simz80_execute(int n)
       case 0x6A:         /* ADC HL,HL */
          HL &= 0xffff;
          sum = HL + HL + TSTFLAG(C);
-         cbits = (HL ^ HL ^ sum) >> 8;
+         cbits = (/*HL ^ HL ^ */sum) >> 8;
          HL = sum;
          AF = (AF & ~0xff) | ((sum >> 8) & 0xa8) |
             (((sum & 0xffff) == 0) << 6) |
@@ -2317,10 +2587,10 @@ simz80_execute(int n)
          temp = GetBYTE_pp(HL);
          sum = acu - temp;
          cbits = acu ^ temp ^ sum;
-         AF = (AF & ~0xfe) | (sum & 0x80) | (!(sum & 0xff) << 6) |
+         AF = (AF & ~0xfe) | (sum & 0x80) | ((sum & 0xff)?0:1<<6) |
             (((sum - ((cbits&16)>>4))&2) << 4) | (cbits & 16) |
             ((sum - ((cbits >> 4) & 1)) & 8) |
-            ((--BC & 0xffff) != 0) << 2 | 2;
+            ((--BC & 0xffff)?(1<<2):0 ) | 2;
          if ((sum & 15) == 8 && (cbits & 16) != 0)
             AF &= ~8;
          break;
@@ -2356,10 +2626,10 @@ simz80_execute(int n)
          temp = GetBYTE_mm(HL);
          sum = acu - temp;
          cbits = acu ^ temp ^ sum;
-         AF = (AF & ~0xfe) | (sum & 0x80) | (!(sum & 0xff) << 6) |
+         AF = (AF & ~0xfe) | (sum & 0x80) | ((sum & 0xff)?0:1<< 6) |
             (((sum - ((cbits&16)>>4))&2) << 4) | (cbits & 16) |
             ((sum - ((cbits >> 4) & 1)) & 8) |
-            ((--BC & 0xffff) != 0) << 2 | 2;
+            ((--BC & 0xffff)?(1<<2):0) | 2;
          if ((sum & 15) == 8 && (cbits & 16) != 0)
             AF &= ~8;
          break;
@@ -2585,7 +2855,7 @@ simz80_execute(int n)
       case 0x29:         /* ADD IY,IY */
          IY &= 0xffff;
          sum = IY + IY;
-         cbits = (IY ^ IY ^ sum) >> 8;
+         cbits = (/*IY ^ IY ^ */sum) >> 8;
          IY = sum;
          AF = (AF & ~0x3b) | ((sum >> 8) & 0x28) |
             (cbits & 0x10) | ((cbits >> 8) & 1);
@@ -3040,8 +3310,8 @@ simz80_execute(int n)
                cbits = acu & 1;
             cbshflg3:
                AF = (AF & ~0xff) | (temp & 0xa8) |
-                  (((temp & 0xff) == 0) << 6) |
-                  parity(temp) | !!cbits;
+                  ((temp & 0xff)?0:(1 << 6)) |
+                  parity(temp) | (cbits?1:0) ;
             }
             break;
          case 0x40:      /* BIT */
@@ -3104,7 +3374,8 @@ simz80_execute(int n)
    case 0xFF:         /* RST 38H */
       PUSH(PC); PC = 0x38;
     }
-    }
+    tubeUseCycles(1); 
+    } while (tubeContinueRunning());
 /* make registers visible for debugging if interrupted */
     SAVE_STATE();
     return (PC&0xffff)|0x10000;   /* flag non-bios stop */

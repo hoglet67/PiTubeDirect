@@ -20,7 +20,12 @@
 #include "copro-lib6502.h"
 #include "startup.h"
 
-int tracing=0;
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#include "lib6502_debug.h"
+#endif
+
+M6502 *copro_lib6502_mpu;
 
 static void copro_lib6502_poweron_reset(M6502 *mpu) {
   // Wipe memory
@@ -42,6 +47,29 @@ static void copro_lib6502_reset(M6502 *mpu) {
   tube_reset_performance_counters();
 }
 
+
+#ifdef INCLUDE_DEBUGGER
+
+int copro_lib6502_mem_read(M6502 *mpu, uint16_t addr, uint8_t data) {
+  if ((addr & 0xfff8) == 0xfef8) {
+     data = tube_parasite_read(addr);
+  } else {
+     data = mpu->memory[addr];
+  }
+  return data;
+}
+
+int copro_lib6502_mem_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
+  if ((addr & 0xfff8) == 0xfef8) {
+     tube_parasite_write(addr, data);
+  } else {
+     mpu->memory[addr] = data;;
+  }
+  return 0;
+}
+
+#endif
+
 static int copro_lib6502_tube_read(M6502 *mpu, uint16_t addr, uint8_t data) {
   return tube_parasite_read(addr);
 }
@@ -54,42 +82,43 @@ static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
 static int last_copro;
 
 static int copro_lib6502_poll(M6502 *mpu) {
-  static unsigned int last_rst = 0;
-  if (is_mailbox_non_empty()) {
-    unsigned int tube_mailbox_copy = read_mailbox();
-    unsigned int intr = tube_io_handler(tube_mailbox_copy);
-    unsigned int nmi = intr & 2;
-    unsigned int rst = intr & 4;
-    // Reset the processor on a rst going inactive
-    if (rst && !last_rst) {
-       // Exit if the copro has changed
-       if (copro != last_copro) {
-          return 1;
-       }
-      copro_lib6502_reset(mpu);
-    }
-    // NMI is edge sensitive, so only check after mailbox activity
-    if (nmi) {
-      M6502_nmi(mpu);
-    }
-    last_rst = rst;
+   unsigned int tube_irq_copy;
+   tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
+   if (tube_irq_copy) {
+      // Reset the processor on a rst going inactive
+      if ( tube_irq_copy & RESET_BIT ) {
+         // Exit if the copro has changed
+         if (copro != last_copro) {
+            return 1;
+         }
+         copro_lib6502_reset(mpu);
+      }
+
+      // NMI is edge sensitive, so only check after mailbox activity
+      if ( tube_irq_copy & NMI_BIT) {
+         M6502_nmi(mpu);
+         tube_ack_nmi();
+      }
+      
+      // IRQ is level sensitive, so check between every instruction
+      if (tube_irq_copy & IRQ_BIT) {
+         if (!(mpu->registers->p & 4)) {
+            M6502_irq(mpu);
+         }
+      }
    }
-  // IRQ is level sensitive, so check between every instruction
-  if (tube_irq & 1) {
-     if (!(mpu->registers->p & 4)) {
-        M6502_irq(mpu);
-     }
-  }
-  return 0;
+   return 0;
 }
 
 void copro_lib6502_emulator() {
-  uint16_t addr;
+  uint32_t addr;
 
   // Remember the current copro so we can exit if it changes
   last_copro = copro;
 
-  M6502 *mpu= M6502_new(0, 0, 0);
+  M6502 *mpu = M6502_new(0, 0, 0);
+
+  copro_lib6502_mpu = mpu;
 
   for (addr= 0xfef8; addr <= 0xfeff; addr++) {
     M6502_setCallback(mpu, read,  addr, copro_lib6502_tube_read);

@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef __THUMB2_H__
 #define __THUMB2_H__
 
-uint32_t thumb_expand_imm(uint16_t imm12_r);
+uint32_t thumb_expand_imm(uint16_t imm12);
 void thumb2_decode_immshift(darm_t *d, uint8_t type, uint8_t imm5);
 darm_instr_t thumb2_decode_instruction(darm_t *d, uint16_t w, uint16_t w2);
 
