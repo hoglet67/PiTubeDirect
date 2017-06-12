@@ -193,7 +193,7 @@ delay_done:
    orne   r7, 16
    ld     r4, (r7)               # Read word from tube register
    btst   r8, nTUBE
-   bne    Poll_tube_low
+   bne    Poll_loop
    btst   r8, RnW
    beq    wr_cycle
    
