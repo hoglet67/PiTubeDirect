@@ -39,6 +39,7 @@ static const func_ptr emulator_functions[] = {
 #include "copro-null.h"
 #include "copro-z80.h"
 #include "copro-mc6809nc.h"
+#include "copro-opc5ls.h"
 #include "copro-armnative.h"
 
 #ifdef DEBUG
@@ -53,7 +54,7 @@ static const char * emulator_names[] = {
    "Z80",
    "80286",
    "MC6809 (Neal Crook)",
-   "Null/SPI",
+   "OPC5LS",
    "Null/SPI",
    "ARM2",
    "32016",
@@ -78,7 +79,7 @@ static const func_ptr emulator_functions[] = {
    copro_z80_emulator,
    copro_80186_emulator,
    copro_mc6809nc_emulator,
-   copro_null_emulator,
+   copro_opc5ls_emulator,
    copro_null_emulator,
    copro_arm2_emulator,
    copro_32016_emulator,

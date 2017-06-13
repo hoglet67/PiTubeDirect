@@ -180,6 +180,16 @@ file( GLOB shared_6809_files
   tuberom_6809.c
 )
 
+# OPC5LS
+file( GLOB copro_opc5ls_files
+    copro-opc5ls.h
+    copro-opc5ls.c
+    opc5ls/opc5ls.h
+    opc5ls/opc5ls.c
+    opc5ls/tuberom.h
+    opc5ls/tuberom.c
+)
+
 # Null co processor
 file( GLOB copro_null_files
     copro-null.c
@@ -287,6 +297,7 @@ else()
             ${copro_6809sc_files}
             ${copro_6809nc_files}
             ${shared_6809_files}
+            ${copro_opc5ls_files}
             ${copro_null_files}
             ${copro_arm_files}
             ${debugger_files}
@@ -307,6 +318,7 @@ else()
             ${copro_6809sc_files}
             ${copro_6809nc_files}
             ${shared_6809_files}
+            ${copro_opc5ls_files}
             ${copro_null_files}
             ${copro_arm_files}
         )
