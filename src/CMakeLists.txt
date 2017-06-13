@@ -87,6 +87,8 @@ file( GLOB core_files
     tubevc.h
     logging.c
     logging.h
+    utils.c
+    utils.h
 )
 
 # 6502 Co Processor using 65tube Implementation
