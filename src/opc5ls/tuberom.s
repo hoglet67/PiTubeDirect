@@ -85,25 +85,28 @@ MACRO   POP( _data_ )
     mov     r14, r14, 1
 ENDMACRO
 
+# -----------------------------------------------------------------------------
+# Code
+# -----------------------------------------------------------------------------
 
 ORG 0xF800
 
-reset:
+Reset:
 
     mov     r14, r0, STACK              # setup the stack
 
     mov     r2, r0, NUM_VECTORS         # copy the vectors
     mov     r3, r0, NUM_VECTORS * 2
-init_vec_loop:
+InitVecLoop:
     ld      r1,  r2, LFF80
     sto     r1,  r3, USERV
     sub     r3,  r0, 2
     sub     r2,  r0, 1
-    pl.mov  pc,  r0, init_vec_loop
+    pl.mov  pc,  r0, InitVecLoop
 
     EI      ()                          # enable interrupts
 
-    mov     r1, r0, banner              # send the reset message
+    mov     r1, r0, BannerMessage       # send the reset message
     JSR     (print_string)
 
     mov     r1, r0                      # send the terminator
@@ -129,44 +132,32 @@ CmdOSLoop:
 CmdOSEscape:
     mov     r1, r0, 0x7e
     JSR     (OSBYTE)
-    mov     r1, r0, escape
+    mov     r1, r0, EscapeMessage
     JSR     (print_string)
     mov     pc, r0, CmdOSLoop
 
-escape:
+EscapeMessage:
     STRING "Escape"
     WORD    0x0a, 0x0d, 0x00
     WORD    0x00
-banner:
+
+BannerMessage:
     WORD    0x0a
     STRING "OPC5LS Co Processor"
     WORD    0x0a, 0x0a, 0x0d, 0x00
 
 # --------------------------------------------------------------
+# MOS interface
+# --------------------------------------------------------------
 
-SendByteR2:
-        ld      r12, r0, r2status     # Wait for Tube R2 free
-        and     r12, r0, 0x40
-        z.mov   pc, r0, SendByteR2
-        sto     r1, r0, r2data        # Send byte to Tube R2
-        RTS()
-
-
-SendStringR2:
-        PUSH    (r13)
-        PUSH    (r2)
-SendStringLp:
-        ld      r1, r2
-        JSR     (SendByteR2)
-        mov     r2, r2, 1
-        cmp     r1, r0, 0x0d
-        nz.mov  pc, r0, SendStringLp
-        POP     (r2)
-        POP     (r13)
-        RTS     ()
+NullReturn:
+    RTS     ()
 
 # --------------------------------------------------------------
-# MOS interface
+
+Unsupported:
+    RTS     ()
+
 # --------------------------------------------------------------
 
 ErrorHandler:
@@ -180,14 +171,25 @@ ErrorHandler:
 
     mov     pc, r0, CmdPrompt           # Jump to command prompt
 
+# --------------------------------------------------------------
+
 osARGS:
+    # TODO
     RTS     ()
+
+# --------------------------------------------------------------
 
 osBGET:
+    # TODO
     RTS     ()
 
+# --------------------------------------------------------------
+
 osBPUT:
+    # TODO
     RTS     ()
+
+# --------------------------------------------------------------
 
 # OSBYTE - Byte MOS functions
 # ===========================
@@ -254,6 +256,7 @@ FastReturn:
     RTS     ()
 
 Byte84:                         # Read top of memory from &F2/3
+    # TODO - MEM_TOP not populated yet
     ld      r1, r0, MEM_TOP
     POP     (r13)
     RTS     ()
@@ -266,6 +269,8 @@ Byte82:                         # Return &0000 as memory high word
     mov     r1, r0
     POP     (r13)
     RTS     ()
+
+# --------------------------------------------------------------
 
 # OSCLI - Send command line to host
 # =================================
@@ -286,45 +291,28 @@ osCLI_Ack:
     cmp     r1, r0, 0x80
     c.mov   pc, r0, enterCode
 
-enterCode:
     POP     (r13)
     RTS     ()
 
+enterCode:
+
+# --------------------------------------------------------------
+
 
 osFILE:
-    RTS     ()
-
-osFIND:
-    RTS     ()
-
-osGBPB:
-    RTS     ()
-
-NullReturn:
+    # TODO
     RTS     ()
 
 # --------------------------------------------------------------
 
-osRDCH:
-    mov     r1, r0        # Send command &00 - OSRDCH
-    JSR     (SendByteR2)
-
-WaitCarryChar:            # Receive carry and A
-    JSR     (WaitByteR2)
-    add     r1, r0, 0xff80
-
-WaitByteR2:
-    ld      r1, r0, r2status
-    and     r1, r0, 0x80
-    z.mov   pc, r0, WaitByteR2
-    ld      r1, r0, r2data
+osFIND:
+    # TODO
     RTS     ()
 
-WaitByteR4:
-    ld      r1, r0, r4status
-    and     r1, r0, 0x80
-    z.mov   pc, r0, WaitByteR4
-    ld      r1, r0, r4data
+# --------------------------------------------------------------
+
+osGBPB:
+    # TODO
     RTS     ()
 
 # --------------------------------------------------------------
@@ -332,6 +320,8 @@ WaitByteR4:
 osWORD:
     cmp     r1, r0
     z.mov   pc, r0, RDLINE
+
+    # TODO
     RTS     ()
 
 # --------------------------------------------------------------
@@ -411,7 +401,56 @@ osWRCH:
 
 # --------------------------------------------------------------
 
-Unsupported:
+osRDCH:
+    mov     r1, r0        # Send command &00 - OSRDCH
+    JSR     (SendByteR2)
+
+WaitCarryChar:            # Receive carry and A
+    JSR     (WaitByteR2)
+    add     r1, r0, 0xff80
+    # fall through to...
+
+# --------------------------------------------------------------
+
+WaitByteR2:
+    ld      r1, r0, r2status
+    and     r1, r0, 0x80
+    z.mov   pc, r0, WaitByteR2
+    ld      r1, r0, r2data
+    RTS     ()
+
+# --------------------------------------------------------------
+
+WaitByteR4:
+    ld      r1, r0, r4status
+    and     r1, r0, 0x80
+    z.mov   pc, r0, WaitByteR4
+    ld      r1, r0, r4data
+    RTS     ()
+
+# --------------------------------------------------------------
+
+SendByteR2:
+    ld      r12, r0, r2status     # Wait for Tube R2 free
+    and     r12, r0, 0x40
+    z.mov   pc, r0, SendByteR2
+    sto     r1, r0, r2data        # Send byte to Tube R2
+    RTS()
+
+# --------------------------------------------------------------
+
+SendStringR2:
+    PUSH    (r13)
+    PUSH    (r2)
+
+SendStringR2Lp:
+    ld      r1, r2
+    JSR     (SendByteR2)
+    mov     r2, r2, 1
+    cmp     r1, r0, 0x0d
+    nz.mov  pc, r0, SendStringR2Lp
+    POP     (r2)
+    POP     (r13)
     RTS     ()
 
 # --------------------------------------------------------------
@@ -444,7 +483,7 @@ ps_exit:
     POP     (r2)
     RTS     ()
 
-
+# --------------------------------------------------------------
 
 osnewl_code:
     PUSH    (r13)
@@ -455,7 +494,9 @@ osnewl_code:
     POP     (r13)
     RTS     ()
 
-
+# -----------------------------------------------------------------------------
+# Interrupts handlers
+# -----------------------------------------------------------------------------
 
 IRQ1Handler:
     ld      r1, r0, r4status
@@ -467,7 +508,9 @@ IRQ1Handler:
     ld      pc, r0, IRQ2V
 
 
+# -----------------------------------------------------------------------------
 # Interrupt generated by data in Tube R1
+# -----------------------------------------------------------------------------
 
 r1_irq:
     ld      r1, r0, r1data
@@ -500,8 +543,9 @@ r1_irq_escape:
     ld     r1, r0, TMP_R1 # restore R1 from tmp location
     rti    pc, pc         # rti
 
+# -----------------------------------------------------------------------------
 # Interrupt generated by data in Tube R4
-# --------------------------------------
+# -----------------------------------------------------------------------------
 
 r4_irq:
 
@@ -513,7 +557,6 @@ r4_irq:
 # Error    R4: &FF R2: &00 err string &00
 #
 
-#CLI                      # Re-enable IRQs so other events can happen
     PUSH    (r2)
     PUSH    (r13)
 
@@ -558,7 +601,6 @@ err_loop:
 #
 # Transfer R4: action ID block sync R3: data
 #
-# TODO
 
 LFD65:
     PUSH    (r13)
@@ -706,7 +748,7 @@ LFE94:
 ORG 0xFF00
 
 InterruptHandler:
-    psr     psr, r0        # disable interrupts (this also nukes the SWI bit, but that is broken at the moment)
+    psr     psr, r0   # disable interrupts (this also nukes the SWI bit, but that is broken at the moment)
     sto     r1, r0, TMP_R1
     psr     r1, psr
     and     r1, r0, 0x10
