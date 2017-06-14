@@ -1,5 +1,6 @@
 EQU NUM_VECTORS, 27
 
+EQU ADDR, 0xf6
 EQU TMP_R1, 0xfc
 EQU ESCAPE_FLAG, 0xff
 
@@ -107,7 +108,7 @@ InitVecLoop:
     EI      ()                          # enable interrupts
 
     mov     r1, r0, BannerMessage       # send the reset message
-    JSR     (print_string)
+    JSR     (PrintString)
 
     mov     r1, r0                      # send the terminator
     JSR     (OSWRCH)
@@ -133,7 +134,7 @@ CmdOSEscape:
     mov     r1, r0, 0x7e
     JSR     (OSBYTE)
     mov     r1, r0, EscapeMessage
-    JSR     (print_string)
+    JSR     (PrintString)
     mov     pc, r0, CmdOSLoop
 
 EscapeMessage:
@@ -166,7 +167,7 @@ ErrorHandler:
 
     JSR     (OSNEWL)
     mov     r1, r0, ERRBUF + 1          # Print error string
-    JSR     (print_string)
+    JSR     (PrintString)
     JSR     (OSNEWL)
 
     mov     pc, r0, CmdPrompt           # Jump to command prompt
@@ -289,15 +290,18 @@ osCLI:
 osCLI_Ack:
     JSR     (WaitByteR2)
     cmp     r1, r0, 0x80
-    c.mov   pc, r0, enterCode
+    nc.mov  pc, r0, dontEnterCode
 
+    JSR     (enterCode)
+
+dontEnterCode:
     POP     (r13)
     RTS     ()
 
 enterCode:
-
+    ld      pc, r0, ADDR
+        
 # --------------------------------------------------------------
-
 
 osFILE:
     # TODO
@@ -402,13 +406,43 @@ osWRCH:
 # --------------------------------------------------------------
 
 osRDCH:
+    PUSH    (r13)
     mov     r1, r0        # Send command &00 - OSRDCH
     JSR     (SendByteR2)
-
-WaitCarryChar:            # Receive carry and A
-    JSR     (WaitByteR2)
+    JSR     (WaitByteR2)  # Receive carry
     add     r1, r0, 0xff80
-    # fall through to...
+    JSR     (WaitByteR2)  # Receive A
+    POP     (r13)
+    RTS     ()
+
+# --------------------------------------------------------------
+
+# Wait for byte in Tube R1 while allowing requests via Tube R4
+WaitByteR1:
+    ld      r12, r0, r1status
+    and     r12, r0, 0x80
+    nz.mov  pc, r0, GotByteR1
+
+    ld      r12, r0, r4status
+    and     r12, r0, 0x80
+    z.mov   pc, r0, WaitByteR1
+
+# TODO
+#        
+# 6502 code uses re-entrant interrups at this point
+#
+# we'll need to think carefully about this case
+#
+#LDA $FC             # Save IRQ's A store in A register
+#PHP                 # Allow an IRQ through to process R4 request
+#CLI
+#PLP
+#STA $FC             # Restore IRQ's A store and jump back to check R1
+#JMP WaitByteR1
+
+GotByteR1:
+    ld     r1, r0, r1data    # Fetch byte from Tube R1 and return
+    RTS    ()
 
 # --------------------------------------------------------------
 
@@ -455,7 +489,7 @@ SendStringR2Lp:
 
 # --------------------------------------------------------------
 #
-# print_string
+# PrintString
 #
 # Prints the zero terminated ASCII string
 #
@@ -465,7 +499,7 @@ SendStringR2Lp:
 # Exit:
 # - all other registers preserved
 
-print_string:
+PrintString:
     PUSH    (r2)
     PUSH    (r13)
     mov     r2, r1
@@ -520,11 +554,11 @@ r1_irq:
     PUSH   (r13)          # Save registers
     PUSH   (r2)
     PUSH   (r3)
-    JSR    (LFE80)        # Get Y parameter from Tube R1
+    JSR    (WaitByteR1)   # Get Y parameter from Tube R1
     mov    r3, r1
-    JSR    (LFE80)        # Get X parameter from Tube R1
+    JSR    (WaitByteR1)   # Get X parameter from Tube R1
     mov    r2, r1
-    JSR    (LFE80)        # Get event number from Tube R1
+    JSR    (WaitByteR1)   # Get event number from Tube R1
     JSR    (LFD36)        # Dispatch event
     POP    (r3)           # restore registers
     POP    (r2)
@@ -590,7 +624,7 @@ err_loop:
 # means this sometimes works.
 
 #    mov     r1, r0, ERRBUF + 1
-#    JSR     (print_string)
+#    JSR     (PrintString)
 #    JSR     (OSNEWL)
 
 #    POP     (r13)
@@ -609,7 +643,7 @@ LFD65:
     mov     r2, r1
     JSR     (WaitByteR4)
     cmp     r2, r0, 0x05
-    z.mov   pc, r0, release
+    z.mov   pc, r0, Release
     JSR     (WaitByteR4)   # block address MSB - ignored for now
     JSR     (WaitByteR4)   # block address ... - ignored for now
     JSR     (WaitByteR4)   # block address ...
@@ -620,10 +654,10 @@ LFD65:
 
     JSR     (WaitByteR4)   # sync
 
-    add     r2, r0, transfer_handler_table
+    add     r2, r0, TransferHandlerTable
     ld      pc, r2
 
-release:
+Release:
     POP     (r3)
     POP     (r2)
     POP     (r13)
@@ -632,15 +666,15 @@ release:
     rti     pc, pc         # rti
 
 
-transfer_handler_table:
-    WORD    type_0
-    WORD    type_1
-    WORD    release
-    WORD    release
-    WORD    release
-    WORD    release
-    WORD    release
-    WORD    release
+TransferHandlerTable:
+    WORD    Type0
+    WORD    Type1
+    WORD    Type2
+    WORD    Type3
+    WORD    Type4
+    WORD    Release # not actually used
+    WORD    Type6
+    WORD    Type7
 
 # ============================================================
 # Type 0 transfer: 1-byte parasite -> host (SAVE)
@@ -650,32 +684,32 @@ transfer_handler_table:
 # r3 - address register (16-bit memory address)
 # ============================================================
 
-type_0:
+Type0:
 
     mov     r2, r0                # clean the odd byte flag (start with an even byte)
 
-type_0_loop:
+Type0_loop:
     ld      r1, r0, r4status      # Test for an pending interrupt signalling end of transfer
     and     r1, r0, 0x80
-    nz.mov  pc, r0, release
+    nz.mov  pc, r0, Release
 
     ld      r1, r0, r3status      # Wait for Tube R3 free
     and     r1, r0, 0x40
-    z.mov   pc, r0, type_0_loop
+    z.mov   pc, r0, Type0_loop
 
     and     r2, r2                # test odd byte flag
-    mi.mov  pc, r0, type_0_odd_byte
+    mi.mov  pc, r0, Type0_odd_byte
 
     ld      r2, r3                # Read word from memory, increment memory pointer
     mov     r3, r3, 1
     sto     r2, r0, r3data        # Send even byte to Tube R3
     bswp    r2, r2
     or      r2, r0, 0x8000        # set the odd byte flag
-    mov     pc, r0, type_0_loop
+    mov     pc, r0, Type0_loop
 
-type_0_odd_byte:
+Type0_odd_byte:
     sto     r2, r0, r3data        # Send odd byte to Tube R3
-    mov     pc, r0, type_0        # loop back, clearing odd byte flag
+    mov     pc, r0, Type0        # loop back, clearing odd byte flag
 
 # ============================================================
 # Type 1 transfer: 1-byte host -> parasite (LOAD)
@@ -685,27 +719,27 @@ type_0_odd_byte:
 # r3 - address register (16-bit memory address)
 # ============================================================
 
-type_1:
+Type1:
 
     mov     r2, r0                # clean the odd byte flag (start with an even byte)
 
-type_1_loop:
+Type1_loop:
     ld      r1, r0, r4status      # Test for an pending interrupt signalling end of transfer
     and     r1, r0, 0x80
-    nz.mov  pc, r0, release
+    nz.mov  pc, r0, Release
 
     ld      r1, r0, r3status      # Wait for Tube R3 free
     and     r1, r0, 0x80
-    z.mov   pc, r0, type_1_loop
+    z.mov   pc, r0, Type1_loop
 
     and     r2, r2                # test odd byte flag
-    mi.mov  pc, r0, type_1_odd_byte
+    mi.mov  pc, r0, Type1_odd_byte
 
     ld      r2, r0, r3data        # Read the even byte from Tube T3
     or      r2, r0, 0x8000        # set the odd byte flag
-    mov     pc, r0, type_1_loop
+    mov     pc, r0, Type1_loop
 
-type_1_odd_byte:
+Type1_odd_byte:
 
     ld      r1, r0, r3data        # Read the odd byte from Tube T3
     bswp    r1, r1                # Shift it to the upper byte
@@ -714,37 +748,31 @@ type_1_odd_byte:
 
     sto     r2, r3                # Write word to memory, increment memory pointer
     mov     r3, r3, 1
-    mov     pc, r0, type_1        # loop back, clearing odd byte flag
+    mov     pc, r0, Type1         # loop back, clearing odd byte flag
 
-# Wait for byte in Tube R1 while allowing requests via Tube R4
-# ============================================================
-LFE80:
-    ld      r12, r0, r1status
-    and     r12, r0, 0x80
-    nz.mov  pc, r0, LFE94
 
-LFE85:
-    ld      r12, r0, r4status
-    and     r12, r0, 0x80
-    z.mov   pc, r0, LFE80
+Type2:
+    mov     pc, r0, Release
 
-# 6502 code uses re-entrant interrups at this point
+Type3:
+    mov     pc, r0, Release
+
+Type4:
+    sto     r3, r0, ADDR
+    mov     pc, r0, Release
+
+Type6:
+    mov     pc, r0, Release
+
+Type7:
+    mov     pc, r0, Release
+
+# -----------------------------------------------------------------------------
+# Initial interrupt handler, fixed at 0xFF00
 #
-# we'll need to think carefully about this case
-#
-#LDA $FC             # Save IRQ's A store in A register
-#PHP                 # Allow an IRQ through to process R4 request
-#CLI
-#PLP
-#STA $FC             # Restore IRQ's A store and jump back to check R1
-#JMP LFE80
-
-LFE94:
-    ld     r1, r0, r1data    # Fetch byte from Tube R1 and return
-
-    RTS    ()
-
-
+# TODO: this should be 0x0002
+# -----------------------------------------------------------------------------
+        
 ORG 0xFF00
 
 InterruptHandler:
@@ -758,7 +786,7 @@ InterruptHandler:
 SWIHandler:
     PUSH   (r13)
     mov    r1, r0, SWIMessage
-    JSR    (print_string)
+    JSR    (PrintString)
     POP    (r13)
     ld     r1, r0, TMP_R1 # restore R1 from tmp location
     rti    pc, pc         # rti
