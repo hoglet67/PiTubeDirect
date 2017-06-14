@@ -23,7 +23,7 @@ void opc5ls_execute() {
       // Fetch the optional operant
       register int operand = ((instr >> LEN) & 1) ? *(s.memory + s.reg[PC]++) : 0;
 
-      printf("%04x\r\n", operand);
+      printf("%04x %02x %01x\r\n", operand, s.psr, s.isrv);
 
       // Evaluate the predicate
       register int pred = (instr >> PRED) & 7;
@@ -132,19 +132,20 @@ void opc5ls_execute() {
          case op_psr_rti:
             if (dst == 0 && src == 0) {
                // RTI
+               printf("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
                s.reg[PC] = s.pc_int;
                s.psr = s.psr_int;
                s.isrv = 0;
                preserve_flag = 1;
-            }
-            if (dst == 0) {
+            } else if (dst == 0) {
                // putpsr
                s.psr = ea_ed & PSR_MASK;
                preserve_flag = 1;
-            }
-            if (src == 0) {
+            } else if (src == 0) {
                // getpsr
                s.reg[dst] = s.psr & PSR_MASK;
+            } else {
+               printf("Illegal instruction: %04x\r\n", instr);
             }
             break;
          }
@@ -181,6 +182,7 @@ void opc5ls_irq() {
    if ((s.psr & EI_MASK) && (s.isrv == 0)) {
       s.pc_int = s.reg[PC];
       s.psr_int = s.psr & ~SWI_MASK; // Always clear the swi flag in the saved copy
+      printf("saving %04x %02x\r\n", s.pc_int, s.psr_int);
       s.reg[PC] = s.pc_irq;
       s.isrv = 1;
    }
