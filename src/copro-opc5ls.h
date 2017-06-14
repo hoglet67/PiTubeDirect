@@ -2,7 +2,7 @@
 #ifndef COPRO_OPC5LS_H
 #define COPRO_OPC5LS_H
 
-#define DBG
+// #define DBG
 
 #ifdef DBG
 #define DBG_PRINT(...) printf(__VA_ARGS__)

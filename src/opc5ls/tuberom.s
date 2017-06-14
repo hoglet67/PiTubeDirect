@@ -109,7 +109,7 @@ init_vec_loop:
     mov     r1, r0                      # send the terminator
     JSR     (OSWRCH)
 
-    JSR     (WaitByte)                  # wait for the response and ignore
+    JSR     (WaitByteR2)                # wait for the response and ignore
 
 CmdPrompt:
 
@@ -144,11 +144,10 @@ banner:
 
 # --------------------------------------------------------------
 
-SendCommand:
-SendByte:
+SendByteR2:
         ld      r12, r0, r2status     # Wait for Tube R2 free
         and     r12, r0, 0x40
-        z.mov   pc, r0, SendByte
+        z.mov   pc, r0, SendByteR2
         sto     r1, r0, r2data        # Send byte to Tube R2
         RTS()
 
@@ -158,7 +157,7 @@ SendStringR2:
         PUSH    (r2)
 SendStringLp:
         ld      r1, r2
-        JSR     (SendByte)
+        JSR     (SendByteR2)
         mov     r2, r2, 1
         cmp     r1, r0, 0x0d
         nz.mov  pc, r0, SendStringLp
@@ -173,10 +172,10 @@ SendStringLp:
 ErrorHandler:
 
     mov     r14, r0, STACK              # Clear the stack
-    
+
     JSR     (OSNEWL)
     mov     r1, r0, ERRBUF + 1          # Print error string
-    JSR     (print_string)         
+    JSR     (print_string)
     JSR     (OSNEWL)
 
     mov     pc, r0, CmdPrompt           # Jump to command prompt
@@ -200,19 +199,19 @@ osBPUT:
 osBYTE:
     PUSH    (r13)
     cmp     r1, r0, 0x80        # Jump for long OSBYTEs
-    c.mov   pc, r0, ByteHigh          
+    c.mov   pc, r0, ByteHigh
 #
 # Tube data  $04 X A    --  X
 #
     PUSH    (r1)
     mov     r1, r0, 0x04        # Send command &04 - OSBYTELO
-    JSR     (SendCommand)
+    JSR     (SendByteR2)
     mov     r1, r2
-    JSR     (SendByte)          # Send single parameter
+    JSR     (SendByteR2)        # Send single parameter
     POP     (r1)
     PUSH    (r1)
-    JSR     (SendByte)          # Send function
-    JSR     (WaitByte)          # Get return value
+    JSR     (SendByteR2)        # Send function
+    JSR     (WaitByteR2)        # Get return value
     mov     r1, r2
     POP     (r1)
     POP     (r13)
@@ -231,23 +230,23 @@ ByteHigh:
 
     PUSH    (r1)
     mov     r1, r0, 0x06
-    JSR     (SendCommand)       # Send command &06 - OSBYTEHI
+    JSR     (SendByteR2)        # Send command &06 - OSBYTEHI
     mov     r2, r1
-    JSR     (SendByte)          # Send parameter 1
+    JSR     (SendByteR2)        # Send parameter 1
     mov     r3, r1
-    JSR     (SendByte)          # Send parameter 2
+    JSR     (SendByteR2)        # Send parameter 2
     POP     (r1)
     PUSH    (r1)
-    JSR     (SendByte)          # Send function
+    JSR     (SendByteR2)        # Send function
 #   cmp     r1, r0, 0x8e        # If select language, check to enter code
 #   z.mov   pc, r0, CheckAck
     cmp     r1, r0, 0x9d        # Fast return with Fast BPUT
     z.mov   pc, r0, FastReturn
-    JSR     (WaitByte)          # Get carry - from bit 7
+    JSR     (WaitByteR2)        # Get carry - from bit 7
     add     r1, r0, 0xff80
-    JSR     (WaitByte)          # Get high byte
+    JSR     (WaitByteR2)        # Get high byte
     mov     r1, r3
-    JSR     (WaitByte)          # Get low byte
+    JSR     (WaitByteR2)        # Get low byte
     mov     r1, r2
 FastReturn:
     POP     (r1)                # restore original r1
@@ -267,7 +266,7 @@ Byte82:                         # Return &0000 as memory high word
     mov     r1, r0
     POP     (r13)
     RTS     ()
-        
+
 # OSCLI - Send command line to host
 # =================================
 # On entry, r1=>command string
@@ -279,11 +278,11 @@ osCLI:
     PUSH    (r13)
     mov     r2, r1
     mov     r1, r0, 0x02            # Send command &02 - OSCLI
-    JSR     (SendCommand)
+    JSR     (SendByteR2)
     JSR     (SendStringR2)          # Send string pointed to by r2
 
 osCLI_Ack:
-    JSR     (WaitByte)
+    JSR     (WaitByteR2)
     cmp     r1, r0, 0x80
     c.mov   pc, r0, enterCode
 
@@ -301,23 +300,31 @@ osFIND:
 osGBPB:
     RTS     ()
 
+NullReturn:
+    RTS     ()
+
 # --------------------------------------------------------------
 
 osRDCH:
     mov     r1, r0        # Send command &00 - OSRDCH
-    JSR     (SendCommand)
+    JSR     (SendByteR2)
 
 WaitCarryChar:            # Receive carry and A
-    JSR     (WaitByte)
+    JSR     (WaitByteR2)
     add     r1, r0, 0xff80
 
-WaitByte:
+WaitByteR2:
     ld      r1, r0, r2status
     and     r1, r0, 0x80
-    z.mov   pc, r0, WaitByte
+    z.mov   pc, r0, WaitByteR2
     ld      r1, r0, r2data
+    RTS     ()
 
-NullReturn:
+WaitByteR4:
+    ld      r1, r0, r4status
+    and     r1, r0, 0x80
+    z.mov   pc, r0, WaitByteR4
+    ld      r1, r0, r4data
     RTS     ()
 
 # --------------------------------------------------------------
@@ -348,26 +355,26 @@ RDLINE:
     PUSH    (r2)
     PUSH    (r13)
     mov     r1, r0, 0x0a
-    JSR     (SendCommand) # Send command &0A - RDLINE
+    JSR     (SendByteR2)  # Send command &0A - RDLINE
 
     ld      r1, r2, 3     # Send <char max>
-    JSR     (SendByte)
+    JSR     (SendByteR2)
     ld      r1, r2, 2     # Send <char min>
-    JSR     (SendByte)
+    JSR     (SendByteR2)
     ld      r1, r2, 1     # Send <buffer len>
-    JSR     (SendByte)
+    JSR     (SendByteR2)
     mov     r1, r0, 0x07  # Send <buffer addr MSB>
-    JSR     (SendByte)
+    JSR     (SendByteR2)
     mov     r1, r0        # Send <buffer addr LSB>
-    JSR     (SendByte)
-    JSR     (WaitByte)    # Wait for response &FF [escape] or &7F
+    JSR     (SendByteR2)
+    JSR     (WaitByteR2)  # Wait for response &FF [escape] or &7F
     ld      r3, r0        # initialize response length to 0
     cmp     r1, r0, 0x80  # test for escape
     c.mov   pc, r0, RdLineEscape
 
     ld      r2, r2        # Load the local input buffer from the control block
 RdLineLp:
-    JSR     (WaitByte)    # Receive a response byte
+    JSR     (WaitByteR2)  # Receive a response byte
     sto     r1, r2
     mov     r2, r2, 1     # Increment buffer pointer
     mov     r3, r3, 1     # Increment count
@@ -420,8 +427,8 @@ Unsupported:
 # - all other registers preserved
 
 print_string:
-    PUSH    (r13)
     PUSH    (r2)
+    PUSH    (r13)
     mov     r2, r1
 
 ps_loop:
@@ -433,8 +440,8 @@ ps_loop:
     mov     pc, r0, ps_loop
 
 ps_exit:
-    POP     (r1)
     POP     (r13)
+    POP     (r2)
     RTS     ()
 
 
@@ -510,29 +517,29 @@ r4_irq:
     PUSH    (r2)
     PUSH    (r13)
 
-    JSR     (WaitByte)     # Skip data in Tube R2 - should be 0x00
+    JSR     (WaitByteR2)   # Skip data in Tube R2 - should be 0x00
 
     mov    r2, r0, ERRBUF
 
-    JSR     (WaitByte)     # Get error number
+    JSR     (WaitByteR2)   # Get error number
     sto     r1, r2
     mov     r2, r2, 1
 
 err_loop:
-    JSR     (WaitByte)     # Get error message bytes
+    JSR     (WaitByteR2)   # Get error message bytes
     sto     r1, r2
     mov     r2, r2, 1
     cmp     r1, r0
     nz.mov  pc, r0, err_loop
 
 # TODO, at this point the 6502 Client ROM jumps to a BRK which invokes the error handler
-# 
+#
 # That doesn't work for us, because we end up stuck in interrupt context
-# (actually, we don't if isrv is ignored)        
+# (actually, we don't if isrv is ignored)
 
     # enable interrupts again (not sure if this is the best place...)
     EI      ()
-        
+
     ld      pc, r0, BRKV
 #
 # The below also isn't very robust, because the main code I think is waiting for
@@ -540,13 +547,13 @@ err_loop:
 # means this sometimes works.
 
 #    mov     r1, r0, ERRBUF + 1
-#    JSR     (print_string)   
+#    JSR     (print_string)
 #    JSR     (OSNEWL)
 
 #    POP     (r13)
 #    POP     (r2)
-#    ld     r1, r0, TMP_R1 # restore R1 from tmp location
-#    rti    pc, pc         # rti
+#    ld      r1, r0, TMP_R1 # restore R1 from tmp location
+#    rti     pc, pc         # rti
 
 #
 # Transfer R4: action ID block sync R3: data
@@ -554,10 +561,118 @@ err_loop:
 # TODO
 
 LFD65:
-    ld     r1, r0, TMP_R1 # restore R1 from tmp location
-    rti    pc, pc         # rti
+    PUSH    (r13)
+    PUSH    (r2)           # working register for transfer type
+    PUSH    (r3)           # working register for transfer address
+    mov     r2, r1
+    JSR     (WaitByteR4)
+    cmp     r2, r0, 0x05
+    z.mov   pc, r0, release
+    JSR     (WaitByteR4)   # block address MSB - ignored for now
+    JSR     (WaitByteR4)   # block address ... - ignored for now
+    JSR     (WaitByteR4)   # block address ...
+    bswp    r1, r1
+    mov     r3, r1
+    JSR     (WaitByteR4)   # block address LSB
+    or      r3, r1
+
+    JSR     (WaitByteR4)   # sync
+
+    add     r2, r0, transfer_handler_table
+    ld      pc, r2
+
+release:
+    POP     (r3)
+    POP     (r2)
+    POP     (r13)
+
+    ld      r1, r0, TMP_R1 # restore R1 from tmp location
+    rti     pc, pc         # rti
 
 
+transfer_handler_table:
+    WORD    type_0
+    WORD    type_1
+    WORD    release
+    WORD    release
+    WORD    release
+    WORD    release
+    WORD    release
+    WORD    release
+
+# ============================================================
+# Type 0 transfer: 1-byte parasite -> host (SAVE)
+#
+# r1 - scratch register
+# r2 - data register (16-bit data value read from memory)
+# r3 - address register (16-bit memory address)
+# ============================================================
+
+type_0:
+
+    mov     r2, r0                # clean the odd byte flag (start with an even byte)
+
+type_0_loop:
+    ld      r1, r0, r4status      # Test for an pending interrupt signalling end of transfer
+    and     r1, r0, 0x80
+    nz.mov  pc, r0, release
+
+    ld      r1, r0, r3status      # Wait for Tube R3 free
+    and     r1, r0, 0x40
+    z.mov   pc, r0, type_0_loop
+
+    and     r2, r2                # test odd byte flag
+    mi.mov  pc, r0, type_0_odd_byte
+
+    ld      r2, r3                # Read word from memory, increment memory pointer
+    mov     r3, r3, 1
+    sto     r2, r0, r3data        # Send even byte to Tube R3
+    bswp    r2, r2
+    or      r2, r0, 0x8000        # set the odd byte flag
+    mov     pc, r0, type_0_loop
+
+type_0_odd_byte:
+    sto     r2, r0, r3data        # Send odd byte to Tube R3
+    mov     pc, r0, type_0        # loop back, clearing odd byte flag
+
+# ============================================================
+# Type 1 transfer: 1-byte host -> parasite (LOAD)
+#
+# r1 - scratch register
+# r2 - data register (16-bit data value read from memory)
+# r3 - address register (16-bit memory address)
+# ============================================================
+
+type_1:
+
+    mov     r2, r0                # clean the odd byte flag (start with an even byte)
+
+type_1_loop:
+    ld      r1, r0, r4status      # Test for an pending interrupt signalling end of transfer
+    and     r1, r0, 0x80
+    nz.mov  pc, r0, release
+
+    ld      r1, r0, r3status      # Wait for Tube R3 free
+    and     r1, r0, 0x80
+    z.mov   pc, r0, type_1_loop
+
+    and     r2, r2                # test odd byte flag
+    mi.mov  pc, r0, type_1_odd_byte
+
+    ld      r2, r0, r3data        # Read the even byte from Tube T3
+    or      r2, r0, 0x8000        # set the odd byte flag
+    mov     pc, r0, type_1_loop
+
+type_1_odd_byte:
+
+    ld      r1, r0, r3data        # Read the odd byte from Tube T3
+    bswp    r1, r1                # Shift it to the upper byte
+    and     r2, r0, 0x00FF        # Clear the odd byte flag
+    or      r2, r1                # Or the odd byte in the MSB
+
+    sto     r2, r3                # Write word to memory, increment memory pointer
+    mov     r3, r3, 1
+    mov     pc, r0, type_1        # loop back, clearing odd byte flag
 
 # Wait for byte in Tube R1 while allowing requests via Tube R4
 # ============================================================
@@ -584,6 +699,7 @@ LFE85:
 
 LFE94:
     ld     r1, r0, r1data    # Fetch byte from Tube R1 and return
+
     RTS    ()
 
 
@@ -595,7 +711,7 @@ InterruptHandler:
     psr     r1, psr
     and     r1, r0, 0x10
     nz.mov  pc, r0, SWIHandler
-    ld      pc, r0, IRQ1V    
+    ld      pc, r0, IRQ1V
 
 SWIHandler:
     PUSH   (r13)
@@ -613,7 +729,7 @@ SWIMessage:
 # ====================
 
 ORG 0xFF80
-        
+
 LFF80:
     WORD Unsupported    # &200 - USERV
     WORD ErrorHandler   # &202 - BRKV
