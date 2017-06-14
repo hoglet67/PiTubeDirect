@@ -13,17 +13,17 @@ opc5ls_state s;
 void opc5ls_execute() {
 
    do {
-      printf("%04x ", s.reg[PC]);
+      DBG_PRINT("%04x ", s.reg[PC]);
 
       // Fetch the instruction
       register uint16_t instr = *(s.memory + s.reg[PC]++);
 
-      printf("%04x ", instr);
+      DBG_PRINT("%04x ", instr);
 
       // Fetch the optional operant
       register int operand = ((instr >> LEN) & 1) ? *(s.memory + s.reg[PC]++) : 0;
 
-      printf("%04x %02x %01x\r\n", operand, s.psr, s.isrv);
+      DBG_PRINT("%04x %02x %01x\r\n", operand, s.psr, s.isrv);
 
       // Evaluate the predicate
       register int pred = (instr >> PRED) & 7;
@@ -71,7 +71,7 @@ void opc5ls_execute() {
          case op_mov:
             if (dst == PC && src == PC) {
                // RTI
-               printf("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
+               DBG_PRINT("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
                s.reg[PC] = s.pc_int;
                s.psr = s.psr_int;
                s.isrv = 0;
@@ -147,7 +147,7 @@ void opc5ls_execute() {
                // getpsr
                s.reg[dst] = s.psr & PSR_MASK;
             } else {
-               printf("Illegal PSR instruction: %04x\r\n", instr);
+               DBG_PRINT("Illegal PSR instruction: %04x\r\n", instr);
             }
             break;
          }
@@ -184,7 +184,7 @@ void opc5ls_irq() {
    if ((s.psr & EI_MASK) && (s.isrv == 0)) {
       s.pc_int = s.reg[PC];
       s.psr_int = s.psr & ~SWI_MASK; // Always clear the swi flag in the saved copy
-      printf("saving %04x %02x\r\n", s.pc_int, s.psr_int);
+      DBG_PRINT("saving %04x %02x\r\n", s.pc_int, s.psr_int);
       s.reg[PC] = s.pc_irq;
       s.isrv = 1;
    }
