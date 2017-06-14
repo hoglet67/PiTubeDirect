@@ -23,7 +23,13 @@ void opc5ls_execute() {
       // Fetch the optional operant
       register int operand = ((instr >> LEN) & 1) ? *(s.memory + s.reg[PC]++) : 0;
 
-      DBG_PRINT("%04x %02x %01x\r\n", operand, s.psr, s.isrv);
+      DBG_PRINT("%04x %02x", operand, s.psr);
+
+#ifdef USE_ISRV
+      DBG_PRINT(" %d", s.isrv);
+#endif
+
+      DBG_PRINT("\r\n");
 
       // Evaluate the predicate
       register int pred = (instr >> PRED) & 7;
@@ -74,7 +80,9 @@ void opc5ls_execute() {
                DBG_PRINT("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
                s.reg[PC] = s.pc_int;
                s.psr = s.psr_int;
+#ifdef USE_ISRV
                s.isrv = 0;
+#endif
                preserve_flag = 1;
             } else {
                s.reg[dst] = ea_ed;
@@ -177,16 +185,24 @@ void opc5ls_reset() {
    s.psr = 0;
    s.pc_int = 0;
    s.psr_int = 0;
+#ifdef USE_ISRV
    s.isrv = 0;
+#endif
 }
 
 void opc5ls_irq() {
+#ifdef USE_ISRV
    if ((s.psr & EI_MASK) && (s.isrv == 0)) {
+#else
+   if (s.psr & EI_MASK) {
+#endif
       s.pc_int = s.reg[PC];
       s.psr_int = s.psr & ~SWI_MASK; // Always clear the swi flag in the saved copy
       DBG_PRINT("saving %04x %02x\r\n", s.pc_int, s.psr_int);
       s.reg[PC] = s.pc_irq;
+#ifdef USE_ISRV
       s.isrv = 1;
+#endif
    }
 }
 
