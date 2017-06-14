@@ -111,27 +111,27 @@ init_vec_loop:
 
     JSR     (WaitByte)                  # wait for the response and ignore
 
-cmd_prompt:
+CmdPrompt:
 
-cmd_os_loop:
+CmdOSLoop:
     mov     r1, r0, 0x2a
     JSR     (OSWRCH)
 
     mov     r1, r0
     mov     r2, r0, osword0_param_block
     JSR     (OSWORD)
-    c.mov   pc, r0, cmd_os_escape
+    c.mov   pc, r0, CmdOSEscape
 
     mov     r1, r0, INPBUF
     JSR     (OS_CLI)
-    mov     pc, r0, cmd_os_loop
+    mov     pc, r0, CmdOSLoop
 
-cmd_os_escape:
+CmdOSEscape:
     mov     r1, r0, 0x7e
     JSR     (OSBYTE)
     mov     r1, r0, escape
     JSR     (print_string)
-    mov     pc, r0, cmd_os_loop
+    mov     pc, r0, CmdOSLoop
 
 escape:
     STRING "Escape"
@@ -171,10 +171,15 @@ SendStringLp:
 # --------------------------------------------------------------
 
 ErrorHandler:
-    RTS     ()
 
-IRQ1Handler:
-    RTS     ()
+    mov     r14, r0, STACK              # Clear the stack
+    
+    JSR     (OSNEWL)
+    mov     r1, r0, ERRBUF + 1          # Print error string
+    JSR     (print_string)         
+    JSR     (OSNEWL)
+
+    mov     pc, r0, CmdPrompt           # Jump to command prompt
 
 osARGS:
     RTS     ()
@@ -521,16 +526,27 @@ err_loop:
     nz.mov  pc, r0, err_loop
 
 # TODO, at this point the 6502 Client ROM jumps to a BRK which invokes the error handler
+# 
+# That doesn't work for us, because we end up stuck in interrupt context
+# (actually, we don't if isrv is ignored)        
 
-    mov     r1, r0, ERRBUF + 1
-    JSR     (print_string)   
-    JSR     (OSNEWL)
+    # enable interrupts again (not sure if this is the best place...)
+    EI      ()
+        
+    ld      pc, r0, BRKV
+#
+# The below also isn't very robust, because the main code I think is waiting for
+# for an OSCLI to come back, and it never does. It's just luck (a race condition) that
+# means this sometimes works.
 
-    POP     (r13)
-    POP     (r2)
-    ld     r1, r0, TMP_R1 # restore R1 from tmp location
-    rti    pc, pc         # rti
+#    mov     r1, r0, ERRBUF + 1
+#    JSR     (print_string)   
+#    JSR     (OSNEWL)
 
+#    POP     (r13)
+#    POP     (r2)
+#    ld     r1, r0, TMP_R1 # restore R1 from tmp location
+#    rti    pc, pc         # rti
 
 #
 # Transfer R4: action ID block sync R3: data
@@ -574,6 +590,7 @@ LFE94:
 ORG 0xFF00
 
 InterruptHandler:
+    psr     psr, r0        # disable interrupts (this also nukes the SWI bit, but that is broken at the moment)
     sto     r1, r0, TMP_R1
     psr     r1, psr
     and     r1, r0, 0x10

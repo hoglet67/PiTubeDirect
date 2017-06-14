@@ -5,6 +5,12 @@
 
 #include <inttypes.h>
 
+// Whether to emulate a hardware interlock to prevent interrupts happening again immediatly.
+// If this is not used, the first instruction of an ISR must clear EI
+
+// #define USE_ISRV
+
+
 void opc5ls_init(uint16_t *memory, uint16_t pc_rst, uint16_t pc_irq);
 void opc5ls_execute();
 void opc5ls_reset();
@@ -45,9 +51,12 @@ typedef struct {
    uint16_t psr;
 
    // Interrupt state
-   int16_t isrv;
    uint16_t pc_int;
    uint16_t psr_int;
+
+#ifdef USE_ISRV
+   int16_t isrv;
+#endif
 
    // Main memory
    uint16_t *memory;
