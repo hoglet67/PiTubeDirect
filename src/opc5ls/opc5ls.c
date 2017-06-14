@@ -69,7 +69,16 @@ void opc5ls_execute() {
          // Execute the instruction
          switch(opcode) {
          case op_mov:
-            s.reg[dst] = ea_ed;
+            if (dst == PC && src == PC) {
+               // RTI
+               printf("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
+               s.reg[PC] = s.pc_int;
+               s.psr = s.psr_int;
+               s.isrv = 0;
+               preserve_flag = 1;
+            } else {
+               s.reg[dst] = ea_ed;
+            }
             break;
          case op_and:
             s.reg[dst] &= ea_ed;
@@ -130,14 +139,7 @@ void opc5ls_execute() {
             s.reg[dst] = (((ea_ed & 0xFF00) >> 8) | ((ea_ed & 0x00FF) << 8));
             break;
          case op_psr_rti:
-            if (dst == 0 && src == 0) {
-               // RTI
-               printf("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
-               s.reg[PC] = s.pc_int;
-               s.psr = s.psr_int;
-               s.isrv = 0;
-               preserve_flag = 1;
-            } else if (dst == 0) {
+            if (dst == 0) {
                // putpsr
                s.psr = ea_ed & PSR_MASK;
                preserve_flag = 1;
@@ -145,7 +147,7 @@ void opc5ls_execute() {
                // getpsr
                s.reg[dst] = s.psr & PSR_MASK;
             } else {
-               printf("Illegal instruction: %04x\r\n", instr);
+               printf("Illegal PSR instruction: %04x\r\n", instr);
             }
             break;
          }
