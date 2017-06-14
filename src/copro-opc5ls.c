@@ -11,6 +11,7 @@
 #include "tube-ula.h"
 #include "opc5ls/opc5ls.h"
 #include "opc5ls/tuberom.h"
+#include "copro-opc5ls.h"
 
 static uint16_t *memory;
 
