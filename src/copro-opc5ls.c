@@ -17,7 +17,7 @@ static uint16_t *memory;
 void copro_opc5ls_write(uint16_t addr, uint16_t data) {
    if ((addr & 0xFFF8) == 0xFEF8) {
       tube_parasite_write(addr & 7, data);
-      printf("write: %d = %x\r\n", addr & 7, data);
+      DBG_PRINT("write: %d = %x\r\n", addr & 7, data);
    } else {
       memory[addr] = data;
    }
@@ -27,7 +27,7 @@ uint16_t copro_opc5ls_read(uint16_t addr) {
    uint16_t data;
    if ((addr & 0xFFF8) == 0xFEF8) {
       data = tube_parasite_read(addr & 7);
-      printf("read: %d = %x\r\n", addr & 7, data);
+      DBG_PRINT("read: %d = %x\r\n", addr & 7, data);
    } else {
       data = memory[addr];
    }
@@ -71,7 +71,7 @@ void copro_opc5ls_emulator()
 
    while (1) {
       opc5ls_execute();
-      printf("tube_irq = %d\r\n", tube_irq);
+      DBG_PRINT("tube_irq = %d\r\n", tube_irq);
       tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
       if (tube_irq_copy) {
          // Reset the processor on active edge of rst
