@@ -28,8 +28,10 @@ EQU ERRBUF, 0x236
 EQU INPBUF, 0x236
 EQU INPEND, 0x300
 
+EQU BASE,  0xE000        
 EQU STACK, 0xF7FF
-
+EQU CODE,  0xF800
+        
 # -----------------------------------------------------------------------------
 # TUBE ULA registers
 # -----------------------------------------------------------------------------
@@ -90,8 +92,19 @@ ENDMACRO
 # Code
 # -----------------------------------------------------------------------------
 
-ORG 0xF800
+// These get used for the Real Co Pro
+ORG BASE
+    mov      pc, r0, Reset
+    psr     psr, r0   # disable interrupts (this also nukes the SWI bit, but that is broken at the moment)
+    mov      pc, r0, InterruptHandler
+        
 
+// These get used for the Pi Tube Direct Co Pro        
+ORG CODE
+    mov      pc, r0, Reset
+    psr     psr, r0   # disable interrupts (this also nukes the SWI bit, but that is broken at the moment)
+    mov      pc, r0, InterruptHandler
+        
 Reset:
 
     mov     r14, r0, STACK              # setup the stack
@@ -651,7 +664,10 @@ LFD65:
     mov     r3, r1
     JSR     (WaitByteR4)   # block address LSB
     or      r3, r1
-
+    
+    ld      r1, r0, r3data
+    ld      r1, r0, r3data
+        
     JSR     (WaitByteR4)   # sync
 
     add     r2, r0, TransferHandlerTable
@@ -768,15 +784,10 @@ Type7:
     mov     pc, r0, Release
 
 # -----------------------------------------------------------------------------
-# Initial interrupt handler, fixed at 0xFF00
-#
-# TODO: this should be 0x0002
+# Initial interrupt handler, called from 0x0002
 # -----------------------------------------------------------------------------
         
-ORG 0xFF00
-
 InterruptHandler:
-    psr     psr, r0   # disable interrupts (this also nukes the SWI bit, but that is broken at the moment)
     sto     r1, r0, TMP_R1
     psr     r1, psr
     and     r1, r0, 0x10
@@ -795,10 +806,10 @@ SWIMessage:
     STRING "SWI!"
     WORD 0x0a, 0x0d, 0x00
 
+ORG 0xFF80
+        
 # DEFAULT VECTOR TABLE
 # ====================
-
-ORG 0xFF80
 
 LFF80:
     WORD Unsupported    # &200 - USERV
@@ -829,6 +840,7 @@ LFF80:
     WORD NullReturn     # &232 - IND2V
     WORD NullReturn     # &234 - IND3V
 
+        
 ORG 0xFFC8
 
 NVRDCH:                      # &FFC8
