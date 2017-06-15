@@ -1,6 +1,8 @@
 #!/bin/bash
 python opc5lsasm.py tuberom.s tuberom.hex
 
+tr " " "\n" < tuberom.hex | tail -8192 > tuberom.mem
+
 cat > tuberom.c <<EOF
 #include "tuberom.h"
 uint16_t tuberom_opc5ls[0x800] = {
