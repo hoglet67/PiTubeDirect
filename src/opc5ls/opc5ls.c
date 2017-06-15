@@ -13,6 +13,7 @@ opc5ls_state s;
 void opc5ls_execute() {
 
    do {
+
       DBG_PRINT("%04x ", s.reg[PC]);
 
       // Fetch the instruction
@@ -24,11 +25,6 @@ void opc5ls_execute() {
       register int operand = ((instr >> LEN) & 1) ? *(s.memory + s.reg[PC]++) : 0;
 
       DBG_PRINT("%04x %02x", operand, s.psr);
-
-#ifdef USE_ISRV
-      DBG_PRINT(" %d", s.isrv);
-#endif
-
       DBG_PRINT("\r\n");
 
       // Evaluate the predicate
@@ -75,18 +71,7 @@ void opc5ls_execute() {
          // Execute the instruction
          switch(opcode) {
          case op_mov:
-            if (dst == PC && src == PC) {
-               // RTI
-               DBG_PRINT("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
-               s.reg[PC] = s.pc_int;
-               s.psr = s.psr_int;
-#ifdef USE_ISRV
-               s.isrv = 0;
-#endif
-               preserve_flag = 1;
-            } else {
-               s.reg[dst] = ea_ed;
-            }
+            s.reg[dst] = ea_ed;
             break;
          case op_and:
             s.reg[dst] &= ea_ed;
@@ -147,7 +132,13 @@ void opc5ls_execute() {
             s.reg[dst] = (((ea_ed & 0xFF00) >> 8) | ((ea_ed & 0x00FF) << 8));
             break;
          case op_psr_rti:
-            if (dst == 0) {
+            if (dst == PC) {
+               // RTI
+               DBG_PRINT("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
+               s.reg[PC] = s.pc_int;
+               s.psr = s.psr_int;
+               preserve_flag = 1;
+            } else if (dst == 0) {
                // putpsr
                s.psr = ea_ed & PSR_MASK;
                preserve_flag = 1;
@@ -185,24 +176,15 @@ void opc5ls_reset() {
    s.psr = 0;
    s.pc_int = 0;
    s.psr_int = 0;
-#ifdef USE_ISRV
-   s.isrv = 0;
-#endif
 }
 
 void opc5ls_irq() {
-#ifdef USE_ISRV
-   if ((s.psr & EI_MASK) && (s.isrv == 0)) {
-#else
    if (s.psr & EI_MASK) {
-#endif
       s.pc_int = s.reg[PC];
       s.psr_int = s.psr & ~SWI_MASK; // Always clear the swi flag in the saved copy
       DBG_PRINT("saving %04x %02x\r\n", s.pc_int, s.psr_int);
       s.reg[PC] = s.pc_irq;
-#ifdef USE_ISRV
-      s.isrv = 1;
-#endif
+      s.psr &= ~EI_MASK;
    }
 }
 

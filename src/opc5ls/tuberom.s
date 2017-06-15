@@ -95,14 +95,12 @@ ENDMACRO
 // These get used for the Real Co Pro
 ORG BASE
     mov      pc, r0, Reset
-    psr     psr, r0   # disable interrupts (this also nukes the SWI bit, but that is broken at the moment)
     mov      pc, r0, InterruptHandler
         
 
 // These get used for the Pi Tube Direct Co Pro        
 ORG CODE
     mov      pc, r0, Reset
-    psr     psr, r0   # disable interrupts (this also nukes the SWI bit, but that is broken at the moment)
     mov      pc, r0, InterruptHandler
         
 Reset:

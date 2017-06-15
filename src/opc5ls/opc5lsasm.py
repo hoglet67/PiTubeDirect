@@ -1,5 +1,5 @@
 import sys, re
-op = "mov,and,or,xor,add,adc,sto,ld,ror,not,sub,sbc,cmp,cmpc,bswp,psr,halt".split(',')+[""]*15+["rti"] #halt and rti aliassed to mov (modulo 16)
+op = "mov,and,or,xor,add,adc,sto,ld,ror,not,sub,sbc,cmp,cmpc,bswp,psr,halt".split(',')+[""]*14+["rti"] #halt aliassed to mov, rti to psr (modulo 16)
 symtab = dict( [ ("r%d"%d,d) for d in range(0,16)] + [("pc",15), ("psr",0)])
 predicates = {"1":0x0000,"0":0x2000,"z":0x4000,"nz":0x6000,"c":0x8000,"nc":0xA000,"mi":0xC000,"pl":0xE000,"":0x0000}
 def expand_macro(line, macro):  # recursively expand macros, passing on instances not (yet) defined
