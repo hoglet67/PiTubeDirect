@@ -5,12 +5,6 @@
 
 #include <inttypes.h>
 
-// Whether to emulate a hardware interlock to prevent interrupts happening again immediatly.
-// If this is not used, the first instruction of an ISR must clear EI
-
-// #define USE_ISRV
-
-
 void opc5ls_init(uint16_t *memory, uint16_t pc_rst, uint16_t pc_irq);
 void opc5ls_execute();
 void opc5ls_reset();
@@ -36,9 +30,9 @@ void opc5ls_irq();
 #define   C_MASK (1 <<   C_FLAG)
 #define   S_MASK (1 <<   S_FLAG)
 #define  EI_MASK (1 <<  EI_FLAG)
-#define SWI_MASK (1 << SWI_FLAG)
+#define SWI_MASK (15 << SWI_FLAG)
 
-#define PSR_MASK 0x1F
+#define PSR_MASK 0xFF
 
 // PC is register 15
 #define PC 15
