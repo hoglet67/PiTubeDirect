@@ -10,6 +10,14 @@ opc5ls_state s;
 #define OPC5LS_READ copro_opc5ls_read
 #define OPC5LS_WRITE copro_opc5ls_write
 
+static void int_action() {
+   s.pc_int = s.reg[PC];
+   s.psr_int = s.psr & ~SWI_MASK; // Always clear the swi flag in the saved copy
+   DBG_PRINT("saving %04x %02x\r\n", s.pc_int, s.psr_int);
+   s.reg[PC] = s.pc_irq;
+   s.psr &= ~EI_MASK;
+}
+
 void opc5ls_execute() {
 
    do {
@@ -136,12 +144,15 @@ void opc5ls_execute() {
                // RTI
                DBG_PRINT("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
                s.reg[PC] = s.pc_int;
-               s.psr = s.psr_int;
+               s.psr = s.psr_int & ~SWI_MASK;
                preserve_flag = 1;
             } else if (dst == 0) {
                // putpsr
                s.psr = ea_ed & PSR_MASK;
                preserve_flag = 1;
+               if (s.psr & SWI_MASK) {
+                  int_action();
+               }
             } else if (src == 0) {
                // getpsr
                s.reg[dst] = s.psr & PSR_MASK;
@@ -180,11 +191,7 @@ void opc5ls_reset() {
 
 void opc5ls_irq() {
    if (s.psr & EI_MASK) {
-      s.pc_int = s.reg[PC];
-      s.psr_int = s.psr & ~SWI_MASK; // Always clear the swi flag in the saved copy
-      DBG_PRINT("saving %04x %02x\r\n", s.pc_int, s.psr_int);
-      s.reg[PC] = s.pc_irq;
-      s.psr &= ~EI_MASK;
+      int_action();
    }
 }
 
