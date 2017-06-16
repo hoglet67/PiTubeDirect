@@ -40,7 +40,7 @@ static void copro_opc5ls_poweron_reset() {
    memory = (uint16_t *) copro_mem_reset(0x20000);
 
    // Initialize the CPU
-   opc5ls_init(memory, 0xf800, 0xf802);
+   opc5ls_init(memory, 0xfffc, 0xfffe);
 
    // Copy over client ROM
    memcpy((void *) (memory + 0xF800), (void *)tuberom_opc5ls, sizeof(tuberom_opc5ls));

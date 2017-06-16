@@ -28,22 +28,9 @@ EQU ERRBUF, 0x236
 EQU INPBUF, 0x236
 EQU INPEND, 0x300
 
-EQU BASE,  0xE000        
+EQU BASE,  0xE000
 EQU STACK, 0xF7FF
-EQU CODE,  0xF800
-        
-# -----------------------------------------------------------------------------
-# TUBE ULA registers
-# -----------------------------------------------------------------------------
-
-EQU r1status, 0xFEF8
-EQU r1data  , 0xFEF9
-EQU r2status, 0xFEFA
-EQU r2data  , 0xFEFB
-EQU r3status, 0xFEFC
-EQU r3data  , 0xFEFD
-EQU r4status, 0xFEFE
-EQU r4data  , 0xFEFF
+EQU CODE,  0xFC00
 
 # -----------------------------------------------------------------------------
 # Macros
@@ -65,13 +52,13 @@ ENDMACRO
 
 MACRO   DI()
     psr     r12, psr
-    and      r12, r12, 0xfff7
+    and     r12, r12, 0xfff7
     psr     psr, r12
 ENDMACRO
 
 MACRO JSR( _address_)
-   mov      r13, pc, 0x0002
-   mov      pc,  r0, _address_
+    mov     r13, pc, 0x0002
+    mov     pc,  r0, _address_
 ENDMACRO
 
 MACRO RTS()
@@ -89,28 +76,23 @@ MACRO   POP( _data_ )
 ENDMACRO
 
 # -----------------------------------------------------------------------------
-# Code
+# 8K Rom Start
 # -----------------------------------------------------------------------------
 
-// These get used for the Real Co Pro
+// These end up at 0x0000 and get used by the Real Co Pro
 ORG BASE
-    mov      pc, r0, Reset
+    mov      pc, r0, ResetHandler
     mov      pc, r0, InterruptHandler
-        
 
-// These get used for the Pi Tube Direct Co Pro        
 ORG CODE
-    mov      pc, r0, Reset
-    mov      pc, r0, InterruptHandler
-        
-Reset:
 
+ResetHandler:
     mov     r14, r0, STACK              # setup the stack
 
     mov     r2, r0, NUM_VECTORS         # copy the vectors
     mov     r3, r0, NUM_VECTORS * 2
 InitVecLoop:
-    ld      r1,  r2, LFF80
+    ld      r1,  r2, DefaultVectors
     sto     r1,  r3, USERV
     sub     r3,  r0, 2
     sub     r2,  r0, 1
@@ -147,16 +129,6 @@ CmdOSEscape:
     mov     r1, r0, EscapeMessage
     JSR     (PrintString)
     mov     pc, r0, CmdOSLoop
-
-EscapeMessage:
-    STRING "Escape"
-    WORD    0x0a, 0x0d, 0x00
-    WORD    0x00
-
-BannerMessage:
-    WORD    0x0a
-    STRING "OPC5LS Co Processor"
-    WORD    0x0a, 0x0a, 0x0d, 0x00
 
 # --------------------------------------------------------------
 # MOS interface
@@ -311,7 +283,7 @@ dontEnterCode:
 
 enterCode:
     ld      pc, r0, ADDR
-        
+
 # --------------------------------------------------------------
 
 osFILE:
@@ -427,117 +399,6 @@ osRDCH:
     RTS     ()
 
 # --------------------------------------------------------------
-
-# Wait for byte in Tube R1 while allowing requests via Tube R4
-WaitByteR1:
-    ld      r12, r0, r1status
-    and     r12, r0, 0x80
-    nz.mov  pc, r0, GotByteR1
-
-    ld      r12, r0, r4status
-    and     r12, r0, 0x80
-    z.mov   pc, r0, WaitByteR1
-
-# TODO
-#        
-# 6502 code uses re-entrant interrups at this point
-#
-# we'll need to think carefully about this case
-#
-#LDA $FC             # Save IRQ's A store in A register
-#PHP                 # Allow an IRQ through to process R4 request
-#CLI
-#PLP
-#STA $FC             # Restore IRQ's A store and jump back to check R1
-#JMP WaitByteR1
-
-GotByteR1:
-    ld     r1, r0, r1data    # Fetch byte from Tube R1 and return
-    RTS    ()
-
-# --------------------------------------------------------------
-
-WaitByteR2:
-    ld      r1, r0, r2status
-    and     r1, r0, 0x80
-    z.mov   pc, r0, WaitByteR2
-    ld      r1, r0, r2data
-    RTS     ()
-
-# --------------------------------------------------------------
-
-WaitByteR4:
-    ld      r1, r0, r4status
-    and     r1, r0, 0x80
-    z.mov   pc, r0, WaitByteR4
-    ld      r1, r0, r4data
-    RTS     ()
-
-# --------------------------------------------------------------
-
-SendByteR2:
-    ld      r12, r0, r2status     # Wait for Tube R2 free
-    and     r12, r0, 0x40
-    z.mov   pc, r0, SendByteR2
-    sto     r1, r0, r2data        # Send byte to Tube R2
-    RTS()
-
-# --------------------------------------------------------------
-
-SendStringR2:
-    PUSH    (r13)
-    PUSH    (r2)
-
-SendStringR2Lp:
-    ld      r1, r2
-    JSR     (SendByteR2)
-    mov     r2, r2, 1
-    cmp     r1, r0, 0x0d
-    nz.mov  pc, r0, SendStringR2Lp
-    POP     (r2)
-    POP     (r13)
-    RTS     ()
-
-# --------------------------------------------------------------
-#
-# PrintString
-#
-# Prints the zero terminated ASCII string
-#
-# Entry:
-# - r1 points to the zero terminated string
-#
-# Exit:
-# - all other registers preserved
-
-PrintString:
-    PUSH    (r2)
-    PUSH    (r13)
-    mov     r2, r1
-
-ps_loop:
-    ld      r1, r2
-    and     r1, r0, 0xff
-    z.mov   pc, r0, ps_exit
-    JSR     (OSWRCH)
-    mov     r2, r2, 0x0001
-    mov     pc, r0, ps_loop
-
-ps_exit:
-    POP     (r13)
-    POP     (r2)
-    RTS     ()
-
-# --------------------------------------------------------------
-
-osnewl_code:
-    PUSH    (r13)
-    mov     r1, r0, 0x0a
-    JSR     (OSWRCH)
-    mov     r1, r0, 0x0d
-    JSR     (OSWRCH)
-    POP     (r13)
-    RTS     ()
 
 # -----------------------------------------------------------------------------
 # Interrupts handlers
@@ -662,10 +523,10 @@ LFD65:
     mov     r3, r1
     JSR     (WaitByteR4)   # block address LSB
     or      r3, r1
-    
+
     ld      r1, r0, r3data
     ld      r1, r0, r3data
-        
+
     JSR     (WaitByteR4)   # sync
 
     add     r2, r0, TransferHandlerTable
@@ -784,7 +645,7 @@ Type7:
 # -----------------------------------------------------------------------------
 # Initial interrupt handler, called from 0x0002
 # -----------------------------------------------------------------------------
-        
+
 InterruptHandler:
     sto     r1, r0, TMP_R1
     psr     r1, psr
@@ -800,16 +661,39 @@ SWIHandler:
     ld     r1, r0, TMP_R1 # restore R1 from tmp location
     rti    pc, pc         # rti
 
-SWIMessage:
-    STRING "SWI!"
-    WORD 0x0a, 0x0d, 0x00
+# Limit check to precent code running into next block...
 
-ORG 0xFF80
-        
+Limit1:
+    EQU dummy, 0 if (Limit1 < 0xFEF8) else limit1_error
+
+# -----------------------------------------------------------------------------
+# TUBE ULA registers
+# -----------------------------------------------------------------------------
+
+ORG 0xFEF8
+
+r1status:
+    WORD 0x0000     # 0xFEF8
+r1data:
+    WORD 0x0000     # 0xFEF9
+r2status:
+    WORD 0x0000     # 0xFEFA
+r2data:
+    WORD 0x0000     # 0xFEFB
+r3status:
+    WORD 0x0000     # 0xFEFC
+r3data:
+    WORD 0x0000     # 0xFEFD
+r4status:
+    WORD 0x0000     # 0xFEFE
+r4data:
+    WORD 0x0000     # 0xFEFF
+
+# -----------------------------------------------------------------------------
 # DEFAULT VECTOR TABLE
-# ====================
+# -----------------------------------------------------------------------------
 
-LFF80:
+DefaultVectors:
     WORD Unsupported    # &200 - USERV
     WORD ErrorHandler   # &202 - BRKV
     WORD IRQ1Handler    # &204 - IRQ1V
@@ -838,7 +722,150 @@ LFF80:
     WORD NullReturn     # &232 - IND2V
     WORD NullReturn     # &234 - IND3V
 
-        
+# -----------------------------------------------------------------------------
+# Helper methods
+# -----------------------------------------------------------------------------
+
+# Wait for byte in Tube R1 while allowing requests via Tube R4
+WaitByteR1:
+    ld      r12, r0, r1status
+    and     r12, r0, 0x80
+    nz.mov  pc, r0, GotByteR1
+
+    ld      r12, r0, r4status
+    and     r12, r0, 0x80
+    z.mov   pc, r0, WaitByteR1
+
+# TODO
+#
+# 6502 code uses re-entrant interrups at this point
+#
+# we'll need to think carefully about this case
+#
+#LDA $FC             # Save IRQ's A store in A register
+#PHP                 # Allow an IRQ through to process R4 request
+#CLI
+#PLP
+#STA $FC             # Restore IRQ's A store and jump back to check R1
+#JMP WaitByteR1
+
+GotByteR1:
+    ld     r1, r0, r1data    # Fetch byte from Tube R1 and return
+    RTS    ()
+
+# --------------------------------------------------------------
+
+WaitByteR2:
+    ld      r1, r0, r2status
+    and     r1, r0, 0x80
+    z.mov   pc, r0, WaitByteR2
+    ld      r1, r0, r2data
+    RTS     ()
+
+# --------------------------------------------------------------
+
+WaitByteR4:
+    ld      r1, r0, r4status
+    and     r1, r0, 0x80
+    z.mov   pc, r0, WaitByteR4
+    ld      r1, r0, r4data
+    RTS     ()
+
+# --------------------------------------------------------------
+
+SendByteR2:
+    ld      r12, r0, r2status     # Wait for Tube R2 free
+    and     r12, r0, 0x40
+    z.mov   pc, r0, SendByteR2
+    sto     r1, r0, r2data        # Send byte to Tube R2
+    RTS()
+
+# --------------------------------------------------------------
+
+SendStringR2:
+    PUSH    (r13)
+    PUSH    (r2)
+
+SendStringR2Lp:
+    ld      r1, r2
+    JSR     (SendByteR2)
+    mov     r2, r2, 1
+    cmp     r1, r0, 0x0d
+    nz.mov  pc, r0, SendStringR2Lp
+    POP     (r2)
+    POP     (r13)
+    RTS     ()
+
+# --------------------------------------------------------------
+#
+# PrintString
+#
+# Prints the zero terminated ASCII string
+#
+# Entry:
+# - r1 points to the zero terminated string
+#
+# Exit:
+# - all other registers preserved
+
+PrintString:
+    PUSH    (r2)
+    PUSH    (r13)
+    mov     r2, r1
+
+ps_loop:
+    ld      r1, r2
+    and     r1, r0, 0xff
+    z.mov   pc, r0, ps_exit
+    JSR     (OSWRCH)
+    mov     r2, r2, 0x0001
+    mov     pc, r0, ps_loop
+
+ps_exit:
+    POP     (r13)
+    POP     (r2)
+    RTS     ()
+
+# --------------------------------------------------------------
+
+osnewl_code:
+    PUSH    (r13)
+    mov     r1, r0, 0x0a
+    JSR     (OSWRCH)
+    mov     r1, r0, 0x0d
+    JSR     (OSWRCH)
+    POP     (r13)
+    RTS     ()
+
+# -----------------------------------------------------------------------------
+# Messages
+# -----------------------------------------------------------------------------
+
+BannerMessage:
+    WORD    0x0a
+    STRING "OPC5LS Co Processor"
+    WORD    0x0a, 0x0a, 0x0d, 0x00
+
+EscapeMessage:
+    STRING "Escape"
+    WORD    0x0a, 0x0d, 0x00
+    WORD    0x00
+
+SWIMessage:
+    STRING "SWI!"
+    WORD 0x0a, 0x0d, 0x00
+
+# Currently about 10 words free
+
+# Limit check to precent code running into next block...
+
+Limit2:
+    EQU dummy, 0 if (Limit2 < 0xFFC8) else limit2_error
+
+# -----------------------------------------------------------------------------
+# MOS interface
+# -----------------------------------------------------------------------------
+
 ORG 0xFFC8
 
 NVRDCH:                      # &FFC8
@@ -906,3 +933,16 @@ OS_CLI:                      # &FFF7
     ld      pc, r0, CLIV
     WORD    0x0000
 
+# -----------------------------------------------------------------------------
+# Reset vectors, used by PiTubeDirect
+# -----------------------------------------------------------------------------
+
+NMI_ENTRY:                   # &FFFA
+    WORD    0x0000
+    WORD    0x0000
+
+RST_ENTRY:                   # &FFFC
+    mov     pc, r0, ResetHandler
+
+IRQ_ENTRY:                   # &FFFE
+    mov     pc, r0, InterruptHandler
