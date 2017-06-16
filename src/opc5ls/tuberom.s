@@ -1,36 +1,45 @@
-EQU NUM_VECTORS, 27
+EQU        BASE, 0xE000
+EQU        CODE, 0xFC00
 
-EQU ADDR, 0xf6
-EQU TMP_R1, 0xfc
-EQU ESCAPE_FLAG, 0xff
+EQU       STACK, CODE - 1
+EQU     MEM_BOT, 0x0400
+EQU     MEM_TOP, CODE - 1
 
-EQU MEM_TOP, 0xf2
+EQU NUM_VECTORS, 27           # number of vectors in DefaultVectors table
 
-EQU USERV, 0x200
-EQU  BRKV, 0x202
-EQU IRQ1V, 0x204
-EQU IRQ2V, 0x206
-EQU  CLIV, 0x208
-EQU BYTEV, 0x20A
-EQU WORDV, 0x20C
-EQU WRCHV, 0x20E
-EQU RDCHV, 0x210
-EQU FILEV, 0x212
-EQU ARGSV, 0x214
-EQU BGETV, 0x216
-EQU BPUTV, 0x218
-EQU GBPBV, 0x21A
-EQU FINDV, 0x21C
-EQU  FSCV, 0x21E
-EQU EVNTV, 0x220
+EQU        ADDR, 0x00F6       # tube execution address
+EQU      TMP_R1, 0x00FC       # tmp store for R1 during IRQ
+EQU    LAST_ERR, 0x00FD       # last error
+EQU ESCAPE_FLAG, 0x00FF       # escape flag
 
-EQU ERRBUF, 0x236
-EQU INPBUF, 0x236
-EQU INPEND, 0x300
+EQU       USERV, 0x0200
+EQU        BRKV, 0x0202
+EQU       IRQ1V, 0x0204
+EQU       IRQ2V, 0x0206
+EQU        CLIV, 0x0208
+EQU       BYTEV, 0x020A
+EQU       WORDV, 0x020C
+EQU       WRCHV, 0x020E
+EQU       RDCHV, 0x0210
+EQU       FILEV, 0x0212
+EQU       ARGSV, 0x0214
+EQU       BGETV, 0x0216
+EQU       BPUTV, 0x0218
+EQU       GBPBV, 0x021A
+EQU       FINDV, 0x021C
+EQU        FSCV, 0x021E
+EQU       EVNTV, 0x0220
 
-EQU BASE,  0xE000
-EQU STACK, 0xF7FF
-EQU CODE,  0xFC00
+EQU      ERRBUF, 0x0236
+EQU      INPBUF, 0x0236
+EQU      INPEND, 0x0300
+
+EQU     EI_MASK, 0x0008
+EQU    SWI_MASK, 0x00F0
+EQU   SWI0_MASK, 0x0010
+EQU   SWI1_MASK, 0x0020
+EQU   SWI2_MASK, 0x0040
+EQU   SWI3_MASK, 0x0080
 
 # -----------------------------------------------------------------------------
 # Macros
@@ -46,13 +55,13 @@ ENDMACRO
 
 MACRO   EI()
     psr     r12, psr
-    or      r12, r12, 0x0008
+    or      r12, r12, EI_MASK
     psr     psr, r12
 ENDMACRO
 
 MACRO   DI()
     psr     r12, psr
-    and     r12, r12, 0xfff7
+    and     r12, r12, ~EI_MASK
     psr     psr, r12
 ENDMACRO
 
@@ -75,6 +84,11 @@ MACRO   POP( _data_ )
     mov     r14, r14, 1
 ENDMACRO
 
+MACRO ERROR (_address_)
+    mov     r1, r0, _address_
+    psr     psr, r0, SWI0_MASK
+ENDMACRO
+                
 # -----------------------------------------------------------------------------
 # 8K Rom Start
 # -----------------------------------------------------------------------------
@@ -126,9 +140,7 @@ CmdOSLoop:
 CmdOSEscape:
     mov     r1, r0, 0x7e
     JSR     (OSBYTE)
-    mov     r1, r0, EscapeMessage
-    JSR     (PrintString)
-    mov     pc, r0, CmdOSLoop
+    ERROR   (EscapeError)
 
 # --------------------------------------------------------------
 # MOS interface
@@ -149,8 +161,9 @@ ErrorHandler:
     mov     r14, r0, STACK              # Clear the stack
 
     JSR     (OSNEWL)
-    mov     r1, r0, ERRBUF + 1          # Print error string
-    JSR     (PrintString)
+    ld       r1, r0, LAST_ERR           # Address of the last error: <error num> <err string> <00>
+    add      r1, r0, 1                  # Skip over error num
+    JSR     (PrintString)               # Print error string
     JSR     (OSNEWL)
 
     mov     pc, r0, CmdPrompt           # Jump to command prompt
@@ -239,13 +252,12 @@ FastReturn:
     POP     (r13)
     RTS     ()
 
-Byte84:                         # Read top of memory from &F2/3
-    # TODO - MEM_TOP not populated yet
-    ld      r1, r0, MEM_TOP
+Byte84:                         # Read top of memory
+    mov      r1, r0, MEM_TOP
     POP     (r13)
     RTS     ()
 Byte83:                         # Read bottom of memory
-    mov     r1, r0, 0x0800
+    mov     r1, r0, MEM_BOT
     POP     (r13)
     RTS     ()
 
@@ -481,28 +493,7 @@ err_loop:
     cmp     r1, r0
     nz.mov  pc, r0, err_loop
 
-# TODO, at this point the 6502 Client ROM jumps to a BRK which invokes the error handler
-#
-# That doesn't work for us, because we end up stuck in interrupt context
-# (actually, we don't if isrv is ignored)
-
-    # enable interrupts again (not sure if this is the best place...)
-    EI      ()
-
-    ld      pc, r0, BRKV
-#
-# The below also isn't very robust, because the main code I think is waiting for
-# for an OSCLI to come back, and it never does. It's just luck (a race condition) that
-# means this sometimes works.
-
-#    mov     r1, r0, ERRBUF + 1
-#    JSR     (PrintString)
-#    JSR     (OSNEWL)
-
-#    POP     (r13)
-#    POP     (r2)
-#    ld      r1, r0, TMP_R1 # restore R1 from tmp location
-#    rti     pc, pc         # rti
+    ERROR   (ERRBUF)
 
 #
 # Transfer R4: action ID block sync R3: data
@@ -643,23 +634,24 @@ Type7:
     mov     pc, r0, Release
 
 # -----------------------------------------------------------------------------
-# Initial interrupt handler, called from 0x0002
+# Initial interrupt handler, called from 0x0002 (or 0xfffe in PTD)
 # -----------------------------------------------------------------------------
 
 InterruptHandler:
     sto     r1, r0, TMP_R1
     psr     r1, psr
-    and     r1, r0, 0x10
+    and     r1, r0, SWI_MASK
     nz.mov  pc, r0, SWIHandler
-    ld      pc, r0, IRQ1V
+    ld      pc, r0, IRQ1V        # invoke the IRQ handler
 
 SWIHandler:
-    PUSH   (r13)
-    mov    r1, r0, SWIMessage
-    JSR    (PrintString)
-    POP    (r13)
-    ld     r1, r0, TMP_R1 # restore R1 from tmp location
-    rti    pc, pc         # rti
+    psr     r1, psr
+    and     r1, r0, ~SWI_MASK
+    psr     psr, r1
+    ld      r1, r0, TMP_R1       # restore R1 from tmp location
+    sto     r1, r0, LAST_ERR     # save the address of the last error
+    EI      ()                   # re-enable interrupts
+    ld      pc, r0, BRKV         # invoke the BRK handler  
 
 # Limit check to precent code running into next block...
 
@@ -846,14 +838,10 @@ BannerMessage:
     STRING "OPC5LS Co Processor"
     WORD    0x0a, 0x0a, 0x0d, 0x00
 
-EscapeMessage:
+EscapeError:
+    WORD    17
     STRING "Escape"
-    WORD    0x0a, 0x0d, 0x00
     WORD    0x00
-
-SWIMessage:
-    STRING "SWI!"
-    WORD 0x0a, 0x0d, 0x00
 
 # Currently about 10 words free
 
