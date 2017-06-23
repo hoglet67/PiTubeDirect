@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Diamondback-rc0"
+#define RELEASENAME "Diamondback-rc1"
 
 #define NDEBUG
 
