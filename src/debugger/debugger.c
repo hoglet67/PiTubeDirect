@@ -15,6 +15,7 @@
 #include "../mc6809nc/mc6809_debug.h"
 #include "../mame/arm_debug.h"
 #include "../NS32016/32016_debug.h"
+#include "../opc6/opc6_debug.h"
 
 #define USE_LINENOISE
 
@@ -37,11 +38,11 @@ cpu_debug_t *cpu_debug_list[] = {
    &simz80_cpu_debug,   //  7 Z80
    &cpu80186_cpu_debug, //  8 80x86
    &mc6809nc_cpu_debug, //  9 6809
-   NULL,                // 10 unused 
-   NULL,                // 11 unused
+   NULL,                // 10 OPC5LS 
+   &opc6_cpu_debug,     // 11 OPC6
    &arm2_cpu_debug,     // 12 ARM2
    &n32016_cpu_debug,   // 13 32016
-   NULL,                // 14 unsed
+   NULL,                // 14 unused
    NULL,                // 15 Native ARM
 };
 
@@ -203,7 +204,6 @@ static uint32_t next_addr;
 // The current memory address (e.g. used when disassembling)
 static unsigned int memAddr = 0;
 
-extern cpu_debug_t arm2_cpu_debug;
 cpu_debug_t *getCpu() {
    return cpu_debug_list[copro];
 }
@@ -267,7 +267,9 @@ static void cpu_continue() {
 
 static void disassemble_addr(uint32_t addr) {
    cpu_debug_t *cpu = getCpu();
+   internal = 1;
    next_addr = cpu->disassemble(addr, strbuf, sizeof(strbuf));
+   internal = 0;
    noprompt();
    printf("%s\r\n", &strbuf[0]);
    prompt();
@@ -505,8 +507,10 @@ static void doCmdDis(char *params) {
    cpu_debug_t *cpu = getCpu();
    int i;
    sscanf(params, "%x", &memAddr);
-   for (i = 0; i < 10; i++) {
+   for (i = 0; i < 10; i++) { 
+      internal = 1;
       memAddr = cpu->disassemble(memAddr, strbuf, sizeof(strbuf));
+      internal = 0;
       printf("%s\r\n", &strbuf[0]);
    }
 }

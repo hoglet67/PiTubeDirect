@@ -62,6 +62,8 @@ typedef struct {
 
 } opc6_state;
 
+extern opc6_state *m_opc6;
+
 enum {
    op_mov    = 0,
    op_and    = 1,

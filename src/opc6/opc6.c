@@ -3,8 +3,15 @@
 #include "../tube.h"
 #include "../copro-opc6.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "opc6_debug.h"
+#include "../cpu_debug.h"
+#endif
+
 // Encapsulate the persistent CPU state
 opc6_state s;
+
+opc6_state *m_opc6 = &s;
 
 // Point the memory read/write back to the Co Pro to include tube access
 #define OPC6_READ_MEM copro_opc6_read_mem
@@ -23,6 +30,13 @@ static void int_action(int id) {
 void opc6_execute() {
 
    do {
+
+#ifdef INCLUDE_DEBUGGER
+      if (opc6_debug_enabled)
+      {
+         debug_preexec(&opc6_cpu_debug, s.reg[PC]);
+      }
+#endif
 
       DBG_PRINT("%04x ", s.reg[PC]);
 

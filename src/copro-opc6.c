@@ -13,17 +13,38 @@
 #include "opc6/tuberom.h"
 #include "copro-opc6.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#include "opc6/opc6_debug.h"
+#endif
+
 static uint16_t *memory;
 
 void copro_opc6_write_mem(uint16_t addr, uint16_t data) {
+#ifdef INCLUDE_DEBUGGER
+   if (opc6_debug_enabled) {
+      debug_memwrite(&opc6_cpu_debug, addr, data, 2);
+   }
+#endif
    memory[addr] = data;
 }
 
 uint16_t copro_opc6_read_mem(uint16_t addr) {
-   return memory[addr];
+   uint16_t data = memory[addr];
+#ifdef INCLUDE_DEBUGGER
+   if (opc6_debug_enabled) {
+      debug_memread(&opc6_cpu_debug, addr, data, 2);
+   }
+#endif
+   return data;
 }
 
 void copro_opc6_write_io(uint16_t addr, uint16_t data) {
+#ifdef INCLUDE_DEBUGGER
+   if (opc6_debug_enabled) {
+      debug_iowrite(&opc6_cpu_debug, addr, data, 2);
+   }
+#endif
    if ((addr & 0xFFF8) == 0xFEF8) {
       tube_parasite_write(addr & 7, data);
       DBG_PRINT("write: %d = %x\r\n", addr & 7, data);
@@ -36,6 +57,11 @@ uint16_t copro_opc6_read_io(uint16_t addr) {
       data = tube_parasite_read(addr & 7);
       DBG_PRINT("read: %d = %x\r\n", addr & 7, data);
    }
+#ifdef INCLUDE_DEBUGGER
+   if (opc6_debug_enabled) {
+      debug_ioread(&opc6_cpu_debug, addr, data, 2);
+   }
+#endif
    return data;
 }
 
