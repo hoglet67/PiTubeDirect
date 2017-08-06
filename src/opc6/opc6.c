@@ -34,6 +34,7 @@ void opc6_execute() {
 #ifdef INCLUDE_DEBUGGER
       if (opc6_debug_enabled)
       {
+         s.saved_pc = s.reg[PC];
          debug_preexec(&opc6_cpu_debug, s.reg[PC]);
       }
 #endif

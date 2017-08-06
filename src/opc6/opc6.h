@@ -37,6 +37,9 @@ void opc6_irq(int id);
 #define PC 15
 
 typedef struct {
+   // Saved PC at the start of on instruction
+   uint16_t saved_pc;
+
    // Register file
    uint16_t reg[16];
 

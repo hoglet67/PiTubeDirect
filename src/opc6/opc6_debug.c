@@ -272,7 +272,7 @@ static void dbg_reg_parse(int which, char *strval) {
 };
 
 static uint32_t dbg_get_instr_addr() {
-   return m_opc6->reg[i_PC];
+   return m_opc6->saved_pc;
 }
 
 cpu_debug_t opc6_cpu_debug = {
