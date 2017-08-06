@@ -289,5 +289,7 @@ cpu_debug_t opc6_cpu_debug = {
    .reg_print      = dbg_reg_print,
    .reg_parse      = dbg_reg_parse,
    .get_instr_addr = dbg_get_instr_addr,
-   .trap_names     = dbg_trap_names
+   .trap_names     = dbg_trap_names,
+   .mem_width      = WIDTH_16BITS,
+   .io_width       = WIDTH_8BITS
 };
