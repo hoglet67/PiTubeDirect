@@ -39,7 +39,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define BITMSK_8 ((1 << 8) - 1)
 #define ROR(val, rotate) (((val) >> (rotate)) | ((val) << (32 - (rotate))))
-#define SIGN_EXTEND32(v, len) (((int32_t)(v) << (32 - len)) >> (32 - len))
+#define SIGN_EXTEND32(v, len) (((int32_t)(v) << (32 - (len))) >> (32 - (len)))
 
 void thumb2_parse_reg(darm_t *d, uint16_t w, uint16_t w2);
 void thumb2_parse_imm(darm_t *d, uint16_t w, uint16_t w2);
@@ -594,7 +594,7 @@ static int thumb2_disasm(darm_t *d, uint16_t w, uint16_t w2)
 // TODO: This lacks a lot of functionality, for debug only, replace with better function
 char *darm_thumb2_str(darm_t *d)
 {
-    int i, index=0, offset=0;
+    int i, index=0, offset;
     static char stringbuf[512];
 
     for (i = 0; i < THUMB2_INSTRUCTION_COUNT; i++) {
@@ -604,7 +604,7 @@ char *darm_thumb2_str(darm_t *d)
         }
     }
 
-    offset += sprintf(stringbuf + offset, "%s",
+    offset = sprintf(stringbuf, "%s",
         thumb2_instruction_strings[index]);
 
     if(d->Rd != R_INVLD) {
