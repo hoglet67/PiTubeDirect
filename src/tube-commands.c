@@ -28,7 +28,7 @@ char *cmdStrings[NUM_CMDS] = {
   "CRC"
 };
 
-int (*cmdFuncs[NUM_CMDS])(char *params) = {
+int (*cmdFuncs[NUM_CMDS])(const char *params) = {
   doCmdHelp,
   doCmdTest,
   doCmdGo,
@@ -86,17 +86,17 @@ int dispatchCmd(char *cmd) {
   return 1;
 }
 
-int doCmdTest(char *params) {
+int doCmdTest(const char *params) {
   OS_Write0("doCmdTest\r\n");
   return 0;
 }
 
-int doCmdHelp(char *params) {
+int doCmdHelp(const char *params) {
   int i;
   OS_Write0(help);
   if (strncasecmp(params, "ARM", 3) == 0) {
 	for (i = 0; i < NUM_CMDS; i++) {
-      OS_Write0("  ");
+     OS_Write0("  ");
 	  OS_Write0(cmdStrings[i]);
 	  OS_Write0("\r\n");
 	}
@@ -106,7 +106,7 @@ int doCmdHelp(char *params) {
   return 1;
 }
 
-int doCmdGo(char *params) {
+int doCmdGo(const char *params) {
   unsigned int address;
   FunctionPtr_Type f;
   sscanf(params, "%x", &address);
@@ -116,7 +116,7 @@ int doCmdGo(char *params) {
   return 0;
 }
 
-int doCmdFill(char *params) {
+int doCmdFill(const char *params) {
   unsigned int i;
   unsigned int start;
   unsigned int end;
@@ -128,7 +128,7 @@ int doCmdFill(char *params) {
   return 0;
 }
 
-int doCmdMem(char *params) {
+int doCmdMem(const char *params) {
   int i, j;
   unsigned char c;
   char *ptr;
@@ -163,7 +163,7 @@ int doCmdMem(char *params) {
   return 0;
 }
 
-int doCmdDis(char *params) {
+int doCmdDis(const char *params) {
   darm_t d;
   darm_str_t str;
   int i;
@@ -192,7 +192,7 @@ int doCmdDis(char *params) {
   return 0;
 }
 
-int doCmdCrc(char *params) {
+int doCmdCrc(const char *params) {
   unsigned int i;
   unsigned int j;
   unsigned int start;
