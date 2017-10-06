@@ -82,33 +82,33 @@ static breakpoint_t mem_wr_breakpoints[MAXBKPTS + 1];
 static breakpoint_t io_rd_breakpoints[MAXBKPTS + 1];
 static breakpoint_t io_wr_breakpoints[MAXBKPTS + 1];
 
-static void doCmdBreak(char *params);
-static void doCmdBreakIn(char *params);
-static void doCmdBreakOut(char *params);
-static void doCmdBreakRd(char *params);
-static void doCmdBreakWr(char *params);
-static void doCmdClear(char *params);
-static void doCmdContinue(char *params);
-static void doCmdCrc(char *params);
-static void doCmdDis(char *params);
-static void doCmdFill(char *params);
-static void doCmdHelp(char *params);
-static void doCmdIn(char *params);
-static void doCmdList(char *params);
-static void doCmdMem(char *params);
-static void doCmdNext(char *params);
-static void doCmdOut(char *params);
-static void doCmdRd(char *params);
-static void doCmdRegs(char *params);
-static void doCmdStep(char *params);
-static void doCmdTrace(char *params);
-static void doCmdTraps(char *params);
-static void doCmdWatch(char *params);
-static void doCmdWatchIn(char *params);
-static void doCmdWatchOut(char *params);
-static void doCmdWatchRd(char *params);
-static void doCmdWatchWr(char *params);
-static void doCmdWr(char *params);
+static void doCmdBreak(const char *params);
+static void doCmdBreakIn(const char *params);
+static void doCmdBreakOut(const char *params);
+static void doCmdBreakRd(const char *params);
+static void doCmdBreakWr(const char *params);
+static void doCmdClear(const char *params);
+static void doCmdContinue(const char *params);
+static void doCmdCrc(const char *params);
+static void doCmdDis(const char *params);
+static void doCmdFill(const char *params);
+static void doCmdHelp(const char *params);
+static void doCmdIn(const char *params);
+static void doCmdList(const char *params);
+static void doCmdMem(const char *params);
+static void doCmdNext(const char *params);
+static void doCmdOut(const char *params);
+static void doCmdRd(const char *params);
+static void doCmdRegs(const char *params);
+static void doCmdStep(const char *params);
+static void doCmdTrace(const char *params);
+static void doCmdTraps(const char *params);
+static void doCmdWatch(const char *params);
+static void doCmdWatchIn(const char *params);
+static void doCmdWatchOut(const char *params);
+static void doCmdWatchRd(const char *params);
+static void doCmdWatchWr(const char *params);
+static void doCmdWr(const char *params);
 
 // The command process accepts abbreviated forms, for example
 // if h is entered, then help will match.
@@ -145,7 +145,7 @@ static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
 };
 
 // Must be kept in step with dbgCmdStrings (just above)
-static void (*dbgCmdFuncs[NUM_CMDS + NUM_IO_CMDS])(char *params) = {
+static void (*dbgCmdFuncs[NUM_CMDS + NUM_IO_CMDS])(const char *params) = {
   doCmdHelp,
   doCmdContinue,
   doCmdStep,
@@ -378,7 +378,7 @@ void debug_preexec (cpu_debug_t *cpu, uint32_t addr) {
    while (stopped);
 };
 
-void debug_trap(cpu_debug_t *cpu, uint32_t addr, int reason) {
+void debug_trap(const cpu_debug_t *cpu, uint32_t addr, int reason) {
    const char *desc = cpu->trap_names[reason];
    noprompt();
    printf("Trap: %s at %"PRIx32"\r\n", desc, addr);
@@ -397,14 +397,14 @@ void setBreakpoint(breakpoint_t *ptr, char *type, unsigned int addr, unsigned in
    ptr->mode = mode;
 }
 
-void copyBreakpoint(breakpoint_t *ptr1, breakpoint_t *ptr2) {
+void copyBreakpoint(breakpoint_t *ptr1, const breakpoint_t *ptr2) {
    ptr1->addr = ptr2->addr;
    ptr1->mask = ptr2->mask;
    ptr1->mode = ptr2->mode;
 }
 
 // A generic helper that does most of the work of the watch/breakpoint commands
-void genericBreakpoint(char *params, char *type, breakpoint_t *list, unsigned int mode) {
+void genericBreakpoint(const char *params, char *type, breakpoint_t *list, unsigned int mode) {
    int i = 0;
    unsigned int addr;
    unsigned int mask = 0xFFFFFFFF;
@@ -439,7 +439,7 @@ void genericBreakpoint(char *params, char *type, breakpoint_t *list, unsigned in
  * User Commands
  *******************************************/
 
-static void doCmdHelp(char *params) {
+static void doCmdHelp(const char *params) {
    cpu_debug_t *cpu = getCpu();
    int i;
    printf("PiTubeDirect debugger\r\n");
@@ -454,7 +454,7 @@ static void doCmdHelp(char *params) {
    }
 }
 
-static void doCmdRegs(char *params) {
+static void doCmdRegs(const char *params) {
    cpu_debug_t *cpu = getCpu();
    const char **reg = cpu->reg_names;
    char name[100];
@@ -488,7 +488,7 @@ static void doCmdRegs(char *params) {
    }
 }
 
-static void doCmdTraps(char *params) {
+static void doCmdTraps(const char *params) {
    cpu_debug_t *cpu = getCpu();
    const char **trap = cpu->trap_names;
    if (*trap) {
@@ -501,7 +501,7 @@ static void doCmdTraps(char *params) {
    }
 }
 
-static void doCmdDis(char *params) {
+static void doCmdDis(const char *params) {
    cpu_debug_t *cpu = getCpu();
    int i;
    sscanf(params, "%x", &memAddr);
@@ -511,7 +511,7 @@ static void doCmdDis(char *params) {
    }
 }
 
-static void doCmdFill(char *params) {
+static void doCmdFill(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int i;
    unsigned int start;
@@ -525,7 +525,7 @@ static void doCmdFill(char *params) {
    }
 }
 
-static void doCmdCrc(char *params) {
+static void doCmdCrc(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int i;
    unsigned int j;
@@ -547,7 +547,7 @@ static void doCmdCrc(char *params) {
    printf("crc: %04x\r\n", crc);
 }
 
-static void doCmdMem(char *params) {
+static void doCmdMem(const char *params) {
    cpu_debug_t *cpu = getCpu();
    int i, j;
    unsigned int row[16];
@@ -573,7 +573,7 @@ static void doCmdMem(char *params) {
    memAddr += 0x100;
 }
 
-static void doCmdRd(char *params) {
+static void doCmdRd(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -582,7 +582,7 @@ static void doCmdRd(char *params) {
    printf("Rd Mem: %x = %02x\r\n", addr, data);
 }
 
-static void doCmdWr(char *params) {
+static void doCmdWr(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -591,7 +591,7 @@ static void doCmdWr(char *params) {
    memwrite(cpu, addr++, data);
 }
 
-static void doCmdIn(char *params) {
+static void doCmdIn(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -600,7 +600,7 @@ static void doCmdIn(char *params) {
    printf("Rd IO: %x = %02x\r\n", addr, data);
 }
 
-static void doCmdOut(char *params) {
+static void doCmdOut(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
@@ -610,7 +610,7 @@ static void doCmdOut(char *params) {
 }
 
 
-static void doCmdStep(char *params) {
+static void doCmdStep(const char *params) {
   int i = 1;
   sscanf(params, "%d", &i);
   if (i <= 0) {
@@ -627,14 +627,14 @@ static void doCmdStep(char *params) {
   cpu_continue();
 }
 
-static void doCmdNext(char *params) {
+static void doCmdNext(const char *params) {
    stepping = 0;
    break_next_addr = next_addr; 
    printf("Skipping to %"PRIx32"\r\n", next_addr);
    cpu_continue();
 }
 
-static void doCmdTrace(char *params) {
+static void doCmdTrace(const char *params) {
   int i = 1;
   sscanf(params, "%d", &i);
   if (i < 0) {
@@ -662,7 +662,7 @@ static void genericList(char *type, breakpoint_t *list) {
    }
 }
 
-static void doCmdList(char *params) {
+static void doCmdList(const char *params) {
    if (break_next_addr != BN_DISABLED) {
       printf("Transient\r\n    addr:%"PRIx32"\r\n", break_next_addr);
    }
@@ -675,43 +675,43 @@ static void doCmdList(char *params) {
    }
 }
 
-static void doCmdBreak(char *params) {
+static void doCmdBreak(const char *params) {
    genericBreakpoint(params, "Exec", exec_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatch(char *params) {
+static void doCmdWatch(const char *params) {
    genericBreakpoint(params, "Exec", exec_breakpoints, MODE_WATCH);
 }
 
-static void doCmdBreakRd(char *params) {
+static void doCmdBreakRd(const char *params) {
    genericBreakpoint(params, "Mem Rd", mem_rd_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatchRd(char *params) {
+static void doCmdWatchRd(const char *params) {
    genericBreakpoint(params, "Mem Rd", mem_rd_breakpoints, MODE_WATCH);
 }
 
-static void doCmdBreakWr(char *params) {
+static void doCmdBreakWr(const char *params) {
    genericBreakpoint(params, "Mem Wr", mem_wr_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatchWr(char *params) {
+static void doCmdWatchWr(const char *params) {
    genericBreakpoint(params, "Mem Wr", mem_wr_breakpoints, MODE_WATCH);
 }
 
-static void doCmdBreakIn(char *params) {
+static void doCmdBreakIn(const char *params) {
    genericBreakpoint(params, "IO Rd", io_rd_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatchIn(char *params) {
+static void doCmdWatchIn(const char *params) {
    genericBreakpoint(params, "IO Rd", io_rd_breakpoints, MODE_WATCH);
 }
 
-static void doCmdBreakOut(char *params) {
+static void doCmdBreakOut(const char *params) {
    genericBreakpoint(params, "IO Wr", io_wr_breakpoints, MODE_BREAK);
 }
 
-static void doCmdWatchOut(char *params) {
+static void doCmdWatchOut(const char *params) {
    genericBreakpoint(params, "IO Wr", io_wr_breakpoints, MODE_WATCH);
 }
 
@@ -746,7 +746,7 @@ int genericClear(uint32_t addr, char *type, breakpoint_t *list) {
 }
 
 
-static void doCmdClear(char *params) {
+static void doCmdClear(const char *params) {
    int found = 0;
    unsigned int addr = 0;
 
@@ -767,7 +767,7 @@ static void doCmdClear(char *params) {
    }
 }
 
-static void doCmdContinue(char *params) {
+static void doCmdContinue(const char *params) {
    stepping = 0;
    printf("Running\r\n");
    cpu_continue();
