@@ -34,7 +34,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #endif
 
 #define TUBE_ACCESS(ADDRESS)	(((ADDRESS) & 0xFFF1) == 0x0080)
-#define TUBE_CONVERT(PORT) 	((PORT >> 1) & 0x0007)
+#define TUBE_CONVERT(PORT) 	(((PORT) >> 1) & 0x0007)
 
 // I/O locations
 // =============
