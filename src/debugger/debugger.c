@@ -650,7 +650,7 @@ static void doCmdTrace(const char *params) {
   }
 }
 
-static void genericList(char *type, breakpoint_t *list) {
+static void genericList(const char *type, breakpoint_t *list) {
    int i = 0;
    printf("%s\r\n", type);
    while (list[i].mode != MODE_LAST) {
