@@ -1286,8 +1286,8 @@ void op_idiv16(uint32_t valdiv, uint16_t divisor)
   s2 = divisor;
   s2 = (s2 & 0x8000) ? (s2 | 0xffff0000) : s2;
   sign = (((s1 ^ s2) & 0x80000000) != 0);
-  s1 = (s1 < 0x80000000) ? s1 : ((~s1 + 1) & 0xffffffff);
-  s2 = (s2 < 0x80000000) ? s2 : ((~s2 + 1) & 0xffffffff);
+  s1 = (s1 < 0x80000000) ? s1 : (~s1 + 1);
+  s2 = (s2 < 0x80000000) ? s2 : (~s2 + 1);
   d1 = s1 / s2;
   d2 = s1 % s2;
   if (d1 & 0xFFFF0000)
