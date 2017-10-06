@@ -18,7 +18,7 @@ typedef struct {
   uint32_t (*reg_get)(int which);                                     // Get a register - which is the index into the names above
   void     (*reg_set)(int which, uint32_t value);                     // Set a register.
   size_t   (*reg_print)(int which, char *buf, size_t bufsize);        // Print register value in CPU standard form.
-  void     (*reg_parse)(int which, char *strval);                     // Parse a value into a register.
+  void     (*reg_parse)(int which, const char *strval);                     // Parse a value into a register.
   uint32_t (*get_instr_addr)();                                       // Returns the base address of the currently executing instruction
   const char **trap_names;                                            // Null terminated list of other reasons a CPU may trap to the debugger.
 } cpu_debug_t;
