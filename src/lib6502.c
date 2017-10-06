@@ -684,7 +684,7 @@ byte tmpr;
   push(PC & 0xff);						\
   push(P | flagB | flagX);						\
   P |= flagI;							\
-  P &= !flagD;							\
+  P &= ~flagD;							\
   {								\
     byte blo = getMemory(0xfffe);                               \
     byte bhi = getMemory(0xffff);                               \
