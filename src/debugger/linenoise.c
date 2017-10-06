@@ -1074,7 +1074,7 @@ static char *linenoiseNoTTY(void) {
             char *oldval = line;
             line = realloc(line,maxlen);
             if (line == NULL) {
-                if (oldval) free(oldval);
+                free(oldval);
                 return NULL;
             }
         }
