@@ -1141,7 +1141,7 @@ void op_idiv8(uint16_t valdiv, uint8_t divisor)
   s2 = divisor;
   sign = (((s1 ^ s2) & 0x8000) != 0);
   s1 = (s1 < 0x8000) ? s1 : ((~s1 + 1) & 0xffff);
-  s2 = (s2 < 0x8000) ? s2 : ((~s2 + 1) & 0xffff);
+  //s2 = (s2 < 0x8000) ? s2 : ((~s2 + 1) & 0xffff); //always true
   d1 = s1 / s2;
   d2 = s1 % s2;
   if (d1 & 0xFF00)
