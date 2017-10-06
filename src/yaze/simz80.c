@@ -1359,7 +1359,7 @@ simz80_execute(int tube_cycles)
       break;
    case 0xAF:         /* XOR A */
       sum = 0;//((AF ^ (AF)) >> 8) & 0xff;
-      AF = (sum << 8) | (sum & 0xa8) | (1 << 6) | partab[sum];
+      AF = /*(sum << 8) | (sum & 0xa8) | */(1 << 6) | partab[sum];
       break;
    case 0xB0:         /* OR B */
       sum = ((AF | (BC)) >> 8) & 0xff;
@@ -2468,7 +2468,7 @@ simz80_execute(int tube_cycles)
          Output(BC, hreg(HL));
          break;
       case 0x62:         /* SBC HL,HL */
-         HL &= 0xffff;
+         //HL &= 0xffff;
          sum = /*HL - HL*/0 - TSTFLAG(C);
          cbits = (/*HL ^ HL ^*/ sum) >> 8;
          HL = sum;
