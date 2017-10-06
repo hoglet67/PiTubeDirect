@@ -349,10 +349,12 @@ static void linenoiseBeep(void) {
 /* Free a list of completion option populated by linenoiseAddCompletion(). */
 static void freeCompletions(linenoiseCompletions *lc) {
     size_t i;
-    for (i = 0; i < lc->len; i++)
-        free(lc->cvec[i]);
     if (lc->cvec != NULL)
-        free(lc->cvec);
+    {
+      for (i = 0; i < lc->len; i++)
+        free(lc->cvec[i]);    
+      free(lc->cvec);
+    }  
 }
 
 /* This is an helper function for linenoiseEdit() and is called when the
