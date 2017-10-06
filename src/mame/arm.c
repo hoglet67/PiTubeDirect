@@ -972,10 +972,10 @@ int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
         else
           /* Pull only address, preserve mode & status flags */
           *deferredR15 = (R15&PSR_MASK) | (R15&IRQ_MASK) | (R15&MODE_MASK) | ((cpu_read32(rbv-=4))&ADDRESS_MASK);
-        }
-        else
+      }
+      else
         SetRegister( i, cpu_read32(rbv -=4) );
-        result++;
+      result++;
       }
     }
   return result;
