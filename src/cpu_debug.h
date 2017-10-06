@@ -28,6 +28,6 @@ extern void debug_memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint
 extern void debug_ioread  (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
 extern void debug_iowrite (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
 extern void debug_preexec (cpu_debug_t *cpu, uint32_t addr);
-extern void debug_trap    (cpu_debug_t *cpu, uint32_t addr, int reason);
+extern void debug_trap    (const cpu_debug_t *cpu, uint32_t addr, int reason);
 
 #endif
