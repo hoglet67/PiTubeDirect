@@ -54,7 +54,7 @@ typedef unsigned long	FASTWORK;
 
 #ifndef MEMSIZE			/* if MEMSIZE are not given */
  #ifdef MMU
-  #define MEMSIZE 16*Z80MEMSIZE	/* default with MMU: MEMSIZE = 8*Z80MEMSIZE */
+  #define MEMSIZE (16*Z80MEMSIZE)	/* default with MMU: MEMSIZE = 8*Z80MEMSIZE */
  #else
   #define MEMSIZE Z80MEMSIZE	/* default without MMU: MEMSIZE = Z80MEMSIZE */
  #endif

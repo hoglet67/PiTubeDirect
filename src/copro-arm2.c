@@ -29,7 +29,7 @@
 #define ROM_MASK32   ((UINT32) 0x00003ffc)
 
 // 4MB of RAM starting at 0x00000000
-#define ARM_RAM_SIZE 1024 * 1024 * 4
+#define ARM_RAM_SIZE (1024 * 1024 * 4)
 UINT8 * arm2_ram;
 
 // 16KB of ROM starting at 0x03000000
