@@ -1350,7 +1350,7 @@ static void handle_modrm(char* s)
 			s += sprintf( s, "+$%08" PRIX32, (int32_t)disp16 );
 		}
 	}
-	s += sprintf( s, "]" );
+	sprintf( s, "]" );
 }
 
 static char* handle_param(char* s, uint32_t param)
@@ -1563,10 +1563,7 @@ static void decode_opcode(char *s, I386_OPCODE *op)
 
 		case GROUP:
 			handle_modrm( modrm_string );
-//->			for( i=0; i < (sizeof(group_op_table) / sizeof(GROUP_OP)); i++ ) {
-//++
 			for( i=0; i < (int) (sizeof(group_op_table) / sizeof(GROUP_OP)); i++ ) {
-//<-
 				if(strcmp(op->mnemonic, group_op_table[i].mnemonic) == 0 ) {
 					decode_opcode( s, &group_op_table[i].opcode[MODRM_REG1] );
 					return;
@@ -1594,7 +1591,7 @@ handle_params:
 
 	if( op->param3 != 0 ) {
 		s += sprintf( s, ", " );
-		s = handle_param( s, op->param3 );
+		handle_param( s, op->param3 );
 	}
 	return;
 
