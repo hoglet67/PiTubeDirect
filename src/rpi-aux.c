@@ -39,6 +39,8 @@ static volatile int tx_tail;
 
 static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
 
+  _data_memory_barrier();
+
   while (1) {
 
     int iir = auxillary->MU_IIR;
@@ -71,6 +73,8 @@ static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
       }
     }
   }
+
+  _data_memory_barrier();
 }
 #endif
 
@@ -78,11 +82,42 @@ void RPI_AuxMiniUartInit(int baud, int bits)
 {
   volatile int i;
 
+  // Data memory barrier need to be places between accesses to different peripherals
+  //
+  // See page 7 of the BCM2853 manual
+
+  _data_memory_barrier();
+
   int sys_freq = get_clock_rate(CORE_CLK_ID);
 
   if (!sys_freq) {
      sys_freq = FALLBACK_SYS_FREQ;
   }
+
+  _data_memory_barrier();
+
+  /* Setup GPIO 14 and 15 as alternative function 5 which is
+   UART 1 TXD/RXD. These need to be set before enabling the UART */
+  RPI_SetGpioPinFunction(RPI_GPIO14, FS_ALT5);
+  RPI_SetGpioPinFunction(RPI_GPIO15, FS_ALT5);
+
+  _data_memory_barrier();
+
+  // Enable weak pullups
+  RPI_GpioBase->GPPUD = 2;
+  // Note: the delay values are important, with 150 the receiver did not work!
+  for (i = 0; i < 1000; i++)
+  {
+  }
+  RPI_GpioBase->GPPUDCLK0 = (1 << 14) | (1 << 15);
+  // Note: the delay values are important, with 150 the receiver did not work!
+  for (i = 0; i < 1000; i++)
+  {
+  }
+  RPI_GpioBase->GPPUD = 2;
+  RPI_GpioBase->GPPUDCLK0 = 0;
+
+  _data_memory_barrier();
 
   /* As this is a mini uart the configuration is complete! Now just
    enable the uart. Note from the documentation in section 2.1.1 of
@@ -91,6 +126,8 @@ void RPI_AuxMiniUartInit(int baud, int bits)
    If the enable bits are clear you will have no access to a
    peripheral. You can not even read or write the registers */
   auxillary->ENABLES = AUX_ENA_MINIUART;
+
+  _data_memory_barrier();
 
   /* Disable flow control,enable transmitter and receiver! */
   auxillary->MU_CNTL = 0;
@@ -114,30 +151,19 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   tx_buffer = malloc(TX_BUFFER_SIZE);
   tx_head = tx_tail = 0;
   *((uint32_t *) IRQ_VECTOR) = (uint32_t) RPI_AuxMiniUartIRQHandler;
+  _data_memory_barrier();
   RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
+  _data_memory_barrier();
   auxillary->MU_IER |= AUX_MUIER_RX_INT;  
 #endif
 
-  /* Setup GPIO 14 and 15 as alternative function 5 which is
-   UART 1 TXD/RXD. These need to be set before enabling the UART */
-  RPI_SetGpioPinFunction(RPI_GPIO14, FS_ALT5);
-  RPI_SetGpioPinFunction(RPI_GPIO15, FS_ALT5);
-
-  // Enable weak pullups
-  RPI_GpioBase->GPPUD = 2;
-  // Note: the delay values are important, with 150 the receiver did not work!
-  for (i = 0; i < 1000; i++)
-  {
-  }
-  RPI_GpioBase->GPPUDCLK0 = (1 << 14) | (1 << 15);
-  // Note: the delay values are important, with 150 the receiver did not work!
-  for (i = 0; i < 1000; i++)
-  {
-  }
-  RPI_GpioBase->GPPUDCLK0 = 0;
+  _data_memory_barrier();
 
   /* Disable flow control,enable transmitter and receiver! */
   auxillary->MU_CNTL = AUX_MUCNTL_TX_ENABLE | AUX_MUCNTL_RX_ENABLE;
+
+  _data_memory_barrier();
+
 }
 
 void RPI_AuxMiniUartWrite(char c)
@@ -161,8 +187,13 @@ void RPI_AuxMiniUartWrite(char c)
   tx_buffer[tmp_head] = c;
   tx_head = tmp_head;
 
+  _data_memory_barrier();
+
   /* Enable TxEmpty interrupt */
   auxillary->MU_IER |= AUX_MUIER_TX_INT;
+
+  _data_memory_barrier();
+
 #else
   /* Wait until the UART has an empty space in the FIFO */
   while ((auxillary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)

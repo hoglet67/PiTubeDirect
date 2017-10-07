@@ -976,8 +976,7 @@ int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
       else
         SetRegister( i, cpu_read32(rbv -=4) );
       result++;
-      }
-    }
+  }
   return result;
 }
 

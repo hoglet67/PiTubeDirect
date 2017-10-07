@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
+#define WIDTH_8BITS  0
+#define WIDTH_16BITS 1
+#define WIDTH_32BITS 2
+
 typedef struct {
   const char *cpu_name;                                               // Name/model of CPU.
   int      (*debug_enable)(int newvalue);                             // enable/disable debugging on this CPU, returns previous value.
@@ -21,6 +25,8 @@ typedef struct {
   void     (*reg_parse)(int which, const char *strval);                     // Parse a value into a register.
   uint32_t (*get_instr_addr)();                                       // Returns the base address of the currently executing instruction
   const char **trap_names;                                            // Null terminated list of other reasons a CPU may trap to the debugger.
+  const int mem_width;                                                // Width of value returned from memread(): 0=8-bit, 1=16-bit, 2=32-bit
+  const int io_width;                                                 // Width of value returned from  ioread(): 0=8-bit, 1=16-bit, 2=32-bit
 } cpu_debug_t;
 
 extern void debug_memread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);

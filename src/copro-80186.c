@@ -6,10 +6,15 @@
 #include "cpu80186/cpu80186.h"
 #include "cpu80186/mem80186.h"
 #include "startup.h"
+#include "utils.h"
+
+extern uint8_t Client86_v1_01[];
 
 static void copro_80186_poweron_reset() {
    // Wipe memory
    Cleari80186Ram();
+   // Patch the OSWORD &FA code to change FEE5 to FCE5 (8 changes expected)
+   check_elk_mode_and_patch(Client86_v1_01, 0xE69, 0x1FB, 8);
 }
 
 static void copro_80186_reset() {
