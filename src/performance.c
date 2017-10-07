@@ -210,7 +210,7 @@ static char* uint64ToDecimal(uint64_t v) {
    return p;
 }
 
-void print_performance_counters(perf_counters_t *pct) {
+void print_performance_counters(const perf_counters_t *pct) {
    int i;
    uint64_t cycle_counter = pct->cycle_counter;
    cycle_counter *= 64;

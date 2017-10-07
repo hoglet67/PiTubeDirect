@@ -74,7 +74,7 @@ Environment_type *env = &defaultEnvironment;
  ***********************************************************/
 
 // Note: this will be executed in user mode
-static void defaultErrorHandler(ErrorBuffer_type *eb) {
+static void defaultErrorHandler(const ErrorBuffer_type *eb) {
   // TODO: Consider resetting the user stack?
   if (DEBUG_ARM) {
     printf("Error = %p %02x %s\r\n", eb->errorAddr, eb->errorBlock.errorNum, eb->errorBlock.errorMsg);
