@@ -392,7 +392,9 @@ void user_exec_raw(volatile unsigned char *address) {
 // This is also needed for OS_SetEnv which copies a new environment string to commandBuffer
 
     }
-    r0 = (unsigned int) env->commandBuffer;
+    else
+      // No header, r0 should point to *command used to run code
+      r0 = (unsigned int) env->commandBuffer;
   }
 
   r1 = (unsigned int) env->commandBuffer;
