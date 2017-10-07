@@ -684,7 +684,7 @@ static void Decode(uint32_t* pPC)
    Regs[0].Whole =
    Regs[1].Whole = 0xFFFF;
 
-   if (Format < (FormatCount + 1))
+   //if (Format < (FormatCount + 1)) // expression is always true
    {
       *pPC += FormatSizes[Format];                                        // Add the basic number of bytes for a particular instruction
    }
