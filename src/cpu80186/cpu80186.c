@@ -813,7 +813,7 @@ uint8_t op_grp2_8(uint8_t cnt)
   uint16_t msb;
 
   s = oper1b;
-  oldcf = cf;
+  
 #ifdef CPU_V20 //80186/V20 class CPUs limit shift count to 31
   cnt &= 0x1F;
 #endif
@@ -963,7 +963,7 @@ uint16_t op_grp2_16(uint8_t cnt)
   uint32_t msb;
 
   s = oper1;
-  oldcf = cf;
+
 #ifdef CPU_V20 //80186/V20 class CPUs limit shift count to 31
   cnt &= 0x1F;
 #endif
