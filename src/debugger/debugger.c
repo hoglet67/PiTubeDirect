@@ -245,9 +245,9 @@ static void noprompt() {
 }
 
 static void prompt() {
-   int i;
-   for (i = 0; i < strlen(prompt_str); i++) {
-      RPI_AuxMiniUartWrite(prompt_str[i]);
+   int i=0;
+   while ( prompt_str[i] )  {
+      RPI_AuxMiniUartWrite(prompt_str[i++]);
    }
 }
 
