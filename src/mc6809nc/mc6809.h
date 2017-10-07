@@ -28,15 +28,6 @@
 //#include <string.h>
 #include <stdint.h>
 
-typedef uint8_t UINT8;
-typedef signed char INT8;
-
-typedef uint16_t UINT16;
-typedef signed short INT16;
-
-typedef uint32_t UINT32;
-typedef signed int INT32;
-
 typedef uint16_t target_addr_t;
 
 //#include "machine.h"
