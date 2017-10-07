@@ -132,12 +132,9 @@ void receiveBlock(unsigned char reg, int len, unsigned char *buf)
 void sendWord(unsigned char reg, unsigned int word)
 {
   sendByte(reg, (unsigned char) (word >> 24));
-  word <<= 8;
-  sendByte(reg, (unsigned char) (word >> 24));
-  word <<= 8;
-  sendByte(reg, (unsigned char) (word >> 24));
-  word <<= 8;
-  sendByte(reg, (unsigned char) (word >> 24));
+  sendByte(reg, (unsigned char) (word >> 16));
+  sendByte(reg, (unsigned char) (word >> 8));
+  sendByte(reg, (unsigned char) (word ));
 }
 
 // Reg is 1..4
