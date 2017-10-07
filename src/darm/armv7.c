@@ -731,6 +731,7 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
             }
             return 0;
         }
+        return -1;
 
     case T_ARM_SM:
         switch ((uint32_t) d->instr) {
@@ -806,7 +807,8 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
             // SMUL overlaps with SMC, so we define SMUL in SMC..
             break;
         }
-
+        return -1;
+        
     case T_ARM_PAS:
         // we have a lookup table with size 64, for all parallel signed and
         // unsigned addition and subtraction instructions
