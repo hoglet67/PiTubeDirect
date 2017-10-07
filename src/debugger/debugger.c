@@ -619,11 +619,7 @@ static void doCmdStep(const char *params) {
   }
   stepping = i;
   step_counter = 0;
-  if (stepping) {
-     printf("Stepping %d instructions\r\n", i);
-  } else {
-     printf("Stepping disabled\r\n");
-  }
+  printf("Stepping %d instructions\r\n", i);
   cpu_continue();
 }
 
@@ -650,7 +646,7 @@ static void doCmdTrace(const char *params) {
   }
 }
 
-static void genericList(const char *type, breakpoint_t *list) {
+static void genericList(const char *type, const breakpoint_t *list) {
    int i = 0;
    printf("%s\r\n", type);
    while (list[i].mode != MODE_LAST) {
