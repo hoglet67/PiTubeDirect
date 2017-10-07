@@ -66,7 +66,6 @@ void dump_info(unsigned int *context, int offset, char *type) {
   unsigned int *reg;
   unsigned int flags;
   int i, j;
-  int rstlow;
 
   // Make sure we avoid unaligned accesses
   context = (unsigned int *)(((unsigned int) context) & ~3);
@@ -139,20 +138,12 @@ void dump_info(unsigned int *context, int offset, char *type) {
   dump_string(" Mode)\r\n");
 
   dump_string("Halted waiting for reset\r\n");
-  rstlow = 0;
-  while (1) {
-	for (i = 0; i < 1000000; i++) {
-
-	  // look for reset being low
-     if (tube_is_rst_active()) {
-      rstlow = 1;
-	  }
-	  // then reset on the next rising edge
-	  if (rstlow && (!tube_is_rst_active())) {
-		reboot_now();
-	  }
-	}
-  }
+  
+  // look for reset being low
+  while( !tube_is_rst_active() );
+  // then reset on the next rising edge
+  while( tube_is_rst_active() );
+  reboot_now();
 }
 
 void undefined_instruction_handler(unsigned int *context) {
