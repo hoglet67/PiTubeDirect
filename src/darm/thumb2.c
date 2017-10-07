@@ -628,7 +628,7 @@ char *darm_thumb2_str(darm_t *d)
     }
 
     if(d->I == B_SET) {
-        offset += sprintf(stringbuf+offset, "#0x%"PRIx32, d->imm);
+        sprintf(stringbuf+offset, "#0x%"PRIx32, d->imm);
     }
 
     return stringbuf;
