@@ -741,7 +741,7 @@ void tube_GBPB(unsigned int *reg) {
   *ptr-- = receiveWord(R2_ID);          // r2
   *ptr-- = receiveByte(R2_ID);          // r1
   updateCarry(receiveByte(R2_ID) & 0x80, reg); // Cy
-  *ptr-- = receiveWord(R2_ID);          // r0
+  *ptr-- = receiveByte(R2_ID);          // r0
 }
 
 void tube_Find(unsigned int *reg) {
