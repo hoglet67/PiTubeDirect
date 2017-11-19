@@ -72,15 +72,15 @@ void opc7_execute() {
       register int operand;
 
       if (opcode >= 0x1c){
-	operand = instr & 0xfffff;
-	if (operand & 0x80000){
-	  operand |=  0xfff00000;
-	}
+        operand = instr & 0xfffff;
+        if (operand & 0x80000){
+          operand |=  0xfff00000;
+        }
       } else {
-	operand = instr & 0xffff;
-	if (operand & 0x8000){
-	  operand |=  0xffff0000;
-	}
+        operand = instr & 0xffff;
+        if (operand & 0x8000){
+          operand |=  0xffff0000;
+        }
       }
 
       DBG_PRINT("%04x %02x", operand, s.psr);
@@ -96,9 +96,9 @@ void opc7_execute() {
          int dst = (instr >> DST) & 15;
          int src = (instr >> SRC) & 15;
 
-	 if (opcode >= 0x1c){  // long format instruction
-	   src = 0;
-	 }
+         if (opcode >= 0x1c){  // long format instruction
+           src = 0;
+         }
 
          int ea_ed = s.reg[src] + operand;
 
@@ -131,7 +131,7 @@ void opc7_execute() {
          case op_not:
             s.reg[dst] = ~ea_ed;
             break;
-	 case op_cmp:
+         case op_cmp:
             res = ((uint64_t) s.reg[dst]) + ((~ea_ed) & 0xffffffff) + 1;
             dst = 0; // retarget cmp/cmpc to r0
             s.reg[dst] = res & 0xffffffff;
@@ -148,15 +148,15 @@ void opc7_execute() {
             cout = (res >> 32) & 1;
             break;
          case op_bperm: // pick off one of four bytes from source, four times.
-	    res = 0;
-	    ea_ed = s.reg[src];
-	    res |= ((operand & 0xf) == 4) ? 0 : 0xff & (ea_ed >> (4 * (operand & 0xf) ));
-	    operand >>= 4;
-	    res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (4 * (operand & 0xf) ))) << 8;
-	    operand >>= 4;
-	    res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (4 * (operand & 0xf) ))) << 16;
-	    operand >>= 4;
-	    res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (4 * (operand & 0xf) ))) << 24;
+            res = 0;
+            ea_ed = s.reg[src];
+            res |= ((operand & 0xf) == 4) ? 0 : 0xff & (ea_ed >> (4 * (operand & 0xf) ));
+            operand >>= 4;
+            res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (4 * (operand & 0xf) ))) << 8;
+            operand >>= 4;
+            res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (4 * (operand & 0xf) ))) << 16;
+            operand >>= 4;
+            res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (4 * (operand & 0xf) ))) << 24;
             s.reg[dst] = res;
             break;
          case op_ror:
