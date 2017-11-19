@@ -258,7 +258,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = '\0';
       return strlen(buf);
    } else {
-      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
+      return snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));
    }
 };
 
