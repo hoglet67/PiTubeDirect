@@ -147,8 +147,18 @@ void opc7_execute() {
             s.reg[dst] = res & 0xffffffff;
             cout = (res >> 32) & 1;
             break;
-         case op_bperm:  //  !! WHOA! complex permutation time !!
-            s.reg[dst] = 0xdeadbeef; // need to pick off one of four bytes from ea_ed, four times.
+         case op_bperm:
+            s.reg[dst] = 0xdeadbeef; // need to pick off one of four bytes from source, four times.
+	    res = 0;
+	    ea_ed = s.reg[src];
+	    res |= ((operand & 0xf) == 4) ? 0 : 0xff & (ea_ed >> (4 * (operand & 0xf) ));
+	    operand >>= 4;
+	    res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (4 * (operand & 0xf) ))) << 8;
+	    operand >>= 4;
+	    res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (4 * (operand & 0xf) ))) << 16;
+	    operand >>= 4;
+	    res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (4 * (operand & 0xf) ))) << 24;
+            s.reg[dst] = res;
             break;
          case op_ror:
             cout = ea_ed & 1;
