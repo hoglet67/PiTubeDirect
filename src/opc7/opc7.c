@@ -100,7 +100,7 @@ void opc7_execute() {
            src = 0;
          }
 
-         int ea_ed = s.reg[src] + operand;
+         uint32_t ea_ed = s.reg[src] + operand;
 
          // Setup carry going into the "ALU"
          uint64_t res = 0; // result needs to be wider than the machine we emulate for easy add, sub, cmp
