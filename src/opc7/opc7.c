@@ -143,12 +143,11 @@ void opc7_execute() {
             cout = (res >> 32) & 1;
             break;
          case op_add:
-            res = s.reg[dst] + ea_ed;
+            res = (uint64_t) s.reg[dst] + ea_ed;
             s.reg[dst] = res & 0xffffffff;
             cout = (res >> 32) & 1;
             break;
-         case op_bperm:
-            s.reg[dst] = 0xdeadbeef; // need to pick off one of four bytes from source, four times.
+         case op_bperm: // pick off one of four bytes from source, four times.
 	    res = 0;
 	    ea_ed = s.reg[src];
 	    res |= ((operand & 0xf) == 4) ? 0 : 0xff & (ea_ed >> (4 * (operand & 0xf) ));
