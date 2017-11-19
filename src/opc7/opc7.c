@@ -103,7 +103,7 @@ void opc7_execute() {
          int ea_ed = (s.reg[src] + operand) & 0xfffff;
 
          // Setup carry going into the "ALU"
-         uint32_t res = 0;
+         uint64_t res = 0; // result needs to be wider than the machine we emulate for easy add, sub, cmp
          int cin = s.psr & C_MASK ? 1 : 0;
          int cout = cin;
 
@@ -131,24 +131,24 @@ void opc7_execute() {
          case op_not:
             s.reg[dst] = ~ea_ed;
             break;
-         case op_cmp:
-            res = s.reg[dst] + ((~ea_ed) & 0xffffffff) + 1;
+	 case op_cmp:
+            res = ((uint64_t) s.reg[dst]) + ((~ea_ed) & 0xffffffff) + 1;
             dst = 0; // retarget cmp/cmpc to r0
             s.reg[dst] = res & 0xffffffff;
-            cout = (res >> 16) & 1; // !! AARGH - need carry from 32 bit wide subtraction !!
+            cout = (res >> 32) & 1;
             break;
          case op_sub:
-            res = s.reg[dst] + ((~ea_ed) & 0xffffffff) + 1;
+            res = ((uint64_t) s.reg[dst]) + ((~ea_ed) & 0xffffffff) + 1;
             s.reg[dst] = res & 0xffffffff;
-            cout = (res >> 16) & 1; // !! AARGH - need carry from 32 bit wide subtraction !!
+            cout = (res >> 32) & 1;
             break;
          case op_add:
             res = s.reg[dst] + ea_ed;
             s.reg[dst] = res & 0xffffffff;
-            cout = (res >> 16) & 1; // !! AARGH - need carry from 32 bit wide addition !!
+            cout = (res >> 32) & 1;
             break;
          case op_bperm:  //  !! WHOA! complex permutation time !!
-            s.reg[dst] = (((ea_ed & 0xFF00) >> 8) | ((ea_ed & 0x00FF) << 8));
+            s.reg[dst] = 0xdeadbeef; // need to pick off one of four bytes from ea_ed, four times.
             break;
          case op_ror:
             cout = ea_ed & 1;
