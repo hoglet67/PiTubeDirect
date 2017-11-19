@@ -71,7 +71,7 @@ void opc7_execute() {
       // Evaluate the operand (one of two formats; needs sign extension)
       register int operand;
 
-      if (opcode >= 0x1c){
+      if (opcode >= op_ljsr){
         operand = instr & 0xfffff;
         if (operand & 0x80000){
           operand |=  0xfff00000;
@@ -96,7 +96,7 @@ void opc7_execute() {
          int dst = (instr >> DST) & 15;
          int src = (instr >> SRC) & 15;
 
-         if (opcode >= 0x1c){  // long format instruction
+         if (opcode >= op_ljsr){  // long format instruction
            src = 0;
          }
 
