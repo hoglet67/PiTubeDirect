@@ -3,6 +3,11 @@
 #include "../tube.h"
 #include "../copro-opc7.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "opc7_debug.h"
+#include "../cpu_debug.h"
+#endif
+
 // Encapsulate the persistent CPU state
 opc7_state s;
 
@@ -26,6 +31,13 @@ void opc7_execute() {
 
    do {
 
+#ifdef INCLUDE_DEBUGGER
+      if (opc7_debug_enabled)
+      {
+         s.saved_pc = s.reg[PC];
+         debug_preexec(&opc7_cpu_debug, s.reg[PC]);
+      }
+#endif
       DBG_PRINT("%04x ", s.reg[PC]);
 
       // Fetch the instruction

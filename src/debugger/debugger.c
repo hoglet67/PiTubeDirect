@@ -16,6 +16,7 @@
 #include "../mame/arm_debug.h"
 #include "../NS32016/32016_debug.h"
 #include "../opc6/opc6_debug.h"
+#include "../opc7/opc7_debug.h"
 
 #define USE_LINENOISE
 
@@ -35,7 +36,7 @@ cpu_debug_t *cpu_debug_list[] = {
    &simz80_cpu_debug,   //  4 Z80
    &simz80_cpu_debug,   //  5 Z80
    &simz80_cpu_debug,   //  6 Z80
-   NULL,                //  7 OPC7
+   &opc7_cpu_debug,     //  7 OPC7
    &cpu80186_cpu_debug, //  8 80x86
    &mc6809nc_cpu_debug, //  9 6809
    NULL,                // 10 OPC5LS 

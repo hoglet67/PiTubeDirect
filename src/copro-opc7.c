@@ -13,18 +13,38 @@
 #include "opc7/tuberom.h"
 #include "copro-opc7.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#include "opc7/opc7_debug.h"
+#endif
+
 static uint32_t *memory;
 
 void copro_opc7_write_mem(uint32_t addr, uint32_t data) {
+#ifdef INCLUDE_DEBUGGER
+   if (opc7_debug_enabled) {
+      debug_memwrite(&opc7_cpu_debug, addr, data, 4);
+   }
+#endif
    memory[addr] = data;
 }
 
 uint32_t copro_opc7_read_mem(uint32_t addr) {
    uint32_t data = memory[addr];
+#ifdef INCLUDE_DEBUGGER
+   if (opc7_debug_enabled) {
+      debug_memread(&opc7_cpu_debug, addr, data, 4);
+   }
+#endif
    return data;
 }
 
 void copro_opc7_write_io(uint32_t addr, uint32_t data) {
+#ifdef INCLUDE_DEBUGGER
+   if (opc7_debug_enabled) {
+      debug_iowrite(&opc7_cpu_debug, addr, data, 2);
+   }
+#endif
    if ((addr & 0xFFF8) == 0xFEF8) {
       tube_parasite_write(addr & 7, data);
       DBG_PRINT("write: %d = %x\r\n", addr & 7, data);
@@ -37,6 +57,11 @@ uint32_t copro_opc7_read_io(uint32_t addr) {
       data = tube_parasite_read(addr & 7);
       DBG_PRINT("read: %d = %x\r\n", addr & 7, data);
    }
+#ifdef INCLUDE_DEBUGGER
+   if (opc7_debug_enabled) {
+      debug_ioread(&opc7_cpu_debug, addr, data, 2);
+   }
+#endif
    return data;
 }
 
@@ -45,10 +70,10 @@ static void copro_opc7_poweron_reset() {
    memory = (uint32_t *) copro_mem_reset(0x20000);
 
    // Initialize the CPU
-   opc7_init(memory, 0xfffc, 0xfffe, 0x0000);
+   opc7_init(memory, 0x0000, 0x0002, 0x0000);
 
    // Copy over client ROM
-   memcpy((void *) (memory + 0xF800), (void *)tuberom_opc7, sizeof(tuberom_opc7));
+   memcpy((void *) (memory + 0x0000), (void *)tuberom_opc7, sizeof(tuberom_opc7));
 }
 
 static void copro_opc7_reset() {

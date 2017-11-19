@@ -279,6 +279,8 @@ file( GLOB debugger_files
     cpu80186/cpu80186_debug.h
     opc6/opc6_debug.c
     opc6/opc6_debug.h
+    opc7/opc7_debug.c
+    opc7/opc7_debug.h
 )
 
 if( ${DEBUG} )
@@ -321,6 +323,7 @@ else()
             ${shared_6809_files}
             ${copro_opc5ls_files}
             ${copro_opc6_files}
+            ${copro_opc7_files}
             ${copro_null_files}
             ${copro_arm_files}
             ${debugger_files}
