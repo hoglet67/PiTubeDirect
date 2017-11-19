@@ -35,7 +35,7 @@ cpu_debug_t *cpu_debug_list[] = {
    &simz80_cpu_debug,   //  4 Z80
    &simz80_cpu_debug,   //  5 Z80
    &simz80_cpu_debug,   //  6 Z80
-   &simz80_cpu_debug,   //  7 Z80
+   NULL,                //  7 OPC7
    &cpu80186_cpu_debug, //  8 80x86
    &mc6809nc_cpu_debug, //  9 6809
    NULL,                // 10 OPC5LS 
