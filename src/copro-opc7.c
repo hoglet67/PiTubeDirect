@@ -21,6 +21,7 @@
 static uint32_t *memory;
 
 void copro_opc7_write_mem(uint32_t addr, uint32_t data) {
+   addr &= 0xFFFFF;
 #ifdef INCLUDE_DEBUGGER
    if (opc7_debug_enabled) {
       debug_memwrite(&opc7_cpu_debug, addr, data, 4);
@@ -30,6 +31,7 @@ void copro_opc7_write_mem(uint32_t addr, uint32_t data) {
 }
 
 uint32_t copro_opc7_read_mem(uint32_t addr) {
+   addr &= 0xFFFFF;
    uint32_t data = memory[addr];
 #ifdef INCLUDE_DEBUGGER
    if (opc7_debug_enabled) {
