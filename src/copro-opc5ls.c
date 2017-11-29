@@ -43,7 +43,7 @@ static void copro_opc5ls_poweron_reset() {
    opc5ls_init(memory, 0xfffc, 0xfffe);
 
    // Copy over client ROM
-   memcpy((void *) (memory + 0xF800), (void *)tuberom_opc5ls, sizeof(tuberom_opc5ls));
+   memcpy((void *) (memory + 0xF000), (void *)tuberom_opc5ls, sizeof(tuberom_opc5ls));
 }
 
 static void copro_opc5ls_reset() {
