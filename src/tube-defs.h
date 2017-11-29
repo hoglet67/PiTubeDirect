@@ -17,7 +17,7 @@
 
 #define LOG_WARN(...) printf(__VA_ARGS__)
 
-// Our copro numbers match those on the matchbox
+// Our copro numbers mostly match those on the matchbox
 // (many are not implemented though)
 
 // 0 0 0 0 -   4MHz 65C102 ( 64KB internal RAM,   AlanD core)
@@ -42,14 +42,14 @@
 #define COPRO_65TUBE_1   1
 #define COPRO_LIB6502_0  2
 #define COPRO_LIB6502_1  3
-#define COPRO_Z80_0      4
-#define COPRO_Z80_1      5
-#define COPRO_Z80_2      6
+#define COPRO_Z80        4
+#define COPRO_OPC5LS     5
+#define COPRO_OPC6       6
 #define COPRO_OPC7       7
 #define COPRO_80286      8
 #define COPRO_6809       9
-#define COPRO_68000     10
-#define COPRO_PDP11     11
+#define COPRO_68000     10 // not implemented
+#define COPRO_PDP11     11 // not implemented
 #define COPRO_ARM2      12
 #define COPRO_32016     13
 #define COPRO_NULL      14
