@@ -27,7 +27,7 @@
 // 0 1 0 0 -   8MHz Z80    ( 64KB external RAM,     T80 core)
 // 0 1 0 1 -  32MHz Z80    ( 64KB internal RAM, NextZ80 core)
 // 0 1 1 0 -  56MHz Z80    ( 64KB internal RAM, NextZ80 core)
-// 0 1 1 1 - 112MHz Z80    ( 64KB internal RAM, NextZ80 core)
+// 0 1 1 1 -      x OPC7  previously a Z80
 // 1 0 0 0 -  16Mhz 80286  (896KB external RAM,     Zet core)  
 // 1 0 0 1 -   4MHz 6809   ( 64KB external RAM,   SYS09 core) 
 // 1 0 1 0 -  16MHz 68000  (  1MB external RAM,    TG68 core)
@@ -45,7 +45,7 @@
 #define COPRO_Z80_0      4
 #define COPRO_Z80_1      5
 #define COPRO_Z80_2      6
-#define COPRO_Z80_3      7
+#define COPRO_OPC7       7
 #define COPRO_80286      8
 #define COPRO_6809       9
 #define COPRO_68000     10
