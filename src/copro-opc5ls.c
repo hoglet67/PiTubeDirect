@@ -13,9 +13,19 @@
 #include "opc5ls/tuberom.h"
 #include "copro-opc5ls.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#include "opc5ls/opc5ls_debug.h"
+#endif
+
 static uint16_t *memory;
 
 void copro_opc5ls_write(uint16_t addr, uint16_t data) {
+#ifdef INCLUDE_DEBUGGER
+   if (opc5ls_debug_enabled) {
+      debug_memwrite(&opc5ls_cpu_debug, addr, data, 2);
+   }
+#endif
    if ((addr & 0xFFF8) == 0xFEF8) {
       tube_parasite_write(addr & 7, data);
       DBG_PRINT("write: %d = %x\r\n", addr & 7, data);
@@ -32,6 +42,11 @@ uint16_t copro_opc5ls_read(uint16_t addr) {
    } else {
       data = memory[addr];
    }
+#ifdef INCLUDE_DEBUGGER
+   if (opc5ls_debug_enabled) {
+      debug_memread(&opc5ls_cpu_debug, addr, data, 2);
+   }
+#endif
    return data;
 }
 

@@ -38,6 +38,9 @@ void opc5ls_irq();
 #define PC 15
 
 typedef struct {
+   // Saved PC at the start of on instruction
+   uint16_t saved_pc;
+
    // Register file
    uint16_t reg[16];
 
@@ -62,6 +65,8 @@ typedef struct {
    uint16_t pc_irq;
 
 } opc5ls_state;
+
+extern opc5ls_state *m_opc5ls;
 
 enum {
    op_mov,

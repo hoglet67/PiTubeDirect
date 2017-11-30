@@ -3,8 +3,15 @@
 #include "../tube.h"
 #include "../copro-opc5ls.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "opc5ls_debug.h"
+#include "../cpu_debug.h"
+#endif
+
 // Encapsulate the persistent CPU state
 opc5ls_state s;
+
+opc5ls_state *m_opc5ls = &s;
 
 // Point the memory read/write back to the Co Pro to include tube access
 #define OPC5LS_READ copro_opc5ls_read
@@ -21,6 +28,14 @@ static void int_action() {
 void opc5ls_execute() {
 
    do {
+
+#ifdef INCLUDE_DEBUGGER
+      if (opc5ls_debug_enabled)
+      {
+         s.saved_pc = s.reg[PC];
+         debug_preexec(&opc5ls_cpu_debug, s.reg[PC]);
+      }
+#endif
 
       DBG_PRINT("%04x ", s.reg[PC]);
 

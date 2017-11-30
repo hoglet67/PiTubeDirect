@@ -15,6 +15,7 @@
 #include "../mc6809nc/mc6809_debug.h"
 #include "../mame/arm_debug.h"
 #include "../NS32016/32016_debug.h"
+#include "../opc5ls/opc5ls_debug.h"
 #include "../opc6/opc6_debug.h"
 #include "../opc7/opc7_debug.h"
 
@@ -34,7 +35,7 @@ cpu_debug_t *cpu_debug_list[] = {
    &lib6502_cpu_debug,  //  2 lib6502
    &lib6502_cpu_debug,  //  3 lib6502
    &simz80_cpu_debug,   //  4 Z80
-   NULL,                //  5 OPC5LS
+   &opc5ls_cpu_debug,   //  5 OPC5LS
    &opc6_cpu_debug,     //  6 OPC6
    &opc7_cpu_debug,     //  7 OPC7
    &cpu80186_cpu_debug, //  8 80x86

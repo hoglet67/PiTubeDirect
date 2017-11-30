@@ -277,6 +277,8 @@ file( GLOB debugger_files
     mc6809nc/mc6809_dis.h
     cpu80186/cpu80186_debug.c
     cpu80186/cpu80186_debug.h
+    opc5ls/opc5ls_debug.c
+    opc5ls/opc5ls_debug.h
     opc6/opc6_debug.c
     opc6/opc6_debug.h
     opc7/opc7_debug.c
