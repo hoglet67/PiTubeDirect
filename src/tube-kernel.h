@@ -4,33 +4,33 @@
 
 #define ZP_BASE 0x00000000;
 
-#define ZP_RESET	ZP_BASE+0x000;	// RESET entry point
-#define ZP_UNDEF	ZP_BASE+0x004;	// Undefine instruction entry point
-#define ZP_SWI		ZP_BASE+0x008;	// SWI entry point
-#define ZP_ABORTF	ZP_BASE+0x00C;  // Prefetch abort entry point
-#define ZP_ABORTD	ZP_BASE+0x010;	// Data abort entry point
-#define ZP_ABORTA	ZP_BASE+0x014;	// Address abort entry point
-#define ZP_IRQ		ZP_BASE+0x018;	// Maskable Interupt entry point
-#define ZP_FIRQ		ZP_BASE+0x01C;	// Fast Interrupt entry point
+#define ZP_RESET    ZP_BASE+0x000;  // RESET entry point
+#define ZP_UNDEF    ZP_BASE+0x004;  // Undefine instruction entry point
+#define ZP_SWI      ZP_BASE+0x008;  // SWI entry point
+#define ZP_ABORTF   ZP_BASE+0x00C;  // Prefetch abort entry point
+#define ZP_ABORTD   ZP_BASE+0x010;  // Data abort entry point
+#define ZP_ABORTA   ZP_BASE+0x014;  // Address abort entry point
+#define ZP_IRQ      ZP_BASE+0x018;  // Maskable Interupt entry point
+#define ZP_FIRQ     ZP_BASE+0x01C;  // Fast Interrupt entry point
 
-#define ZP_RESETV	ZP_BASE+0x0E0;	// RESET vector
-#define ZP_UNDEFV	ZP_BASE+0x0E4;	// Undefine instruction vector
-#define ZP_SWIV		ZP_BASE+0x0E8;	// SWI vector
-#define ZP_ABORTFV	ZP_BASE+0x0EC;  // Prefetch abort vector
-#define ZP_ABORTDV	ZP_BASE+0x0F0;	// Data abort vector
-#define ZP_ABORTAV	ZP_BASE+0x0F4;	// Address abort vector
-#define ZP_IRQV		ZP_BASE+0x0F8;	// Maskable Interupt vector
-#define ZP_FIRQV	ZP_BASE+0x0FC;	// Fast Interrupt vector
+#define ZP_RESETV   ZP_BASE+0x0E0;  // RESET vector
+#define ZP_UNDEFV   ZP_BASE+0x0E4;  // Undefine instruction vector
+#define ZP_SWIV     ZP_BASE+0x0E8;  // SWI vector
+#define ZP_ABORTFV  ZP_BASE+0x0EC;  // Prefetch abort vector
+#define ZP_ABORTDV  ZP_BASE+0x0F0;  // Data abort vector
+#define ZP_ABORTAV  ZP_BASE+0x0F4;  // Address abort vector
+#define ZP_IRQV     ZP_BASE+0x0F8;  // Maskable Interupt vector
+#define ZP_FIRQV    ZP_BASE+0x0FC;  // Fast Interrupt vector
 
-#define ZP_SWIDISPATCH	ZP_BASE+0x100;	// SWI dispatch table SWI 0-127
-#define ZP_DEBUGGER	ZP_BASE+0x300;	// Debugger workspace
-#define ZP_VECTORS	ZP_BASE+0x380;	// Software vectors 0-31
-#define ZP_ENVIRONMENT	ZP_BASE+0x400;	// Program environment
-#define ZP_ENVTIME	ZP_BASE+0x478;	// Environment 5-byte time, &478 fits into 8 bits
-#define ZP_ESCAPE	ZP_BASE+0x47F;	// Supervisor's Escape flag
-#define ZP_MODULE	ZP_BASE+0x500;	// Module handler workspace
-#define ZP_ENVSTRING	ZP_BASE+0xE00;	// Environment string
-#define ZP_STRING	ZP_BASE+0xF00;	// Supervisor string space
+#define ZP_SWIDISPATCH  ZP_BASE+0x100;  // SWI dispatch table SWI 0-127
+#define ZP_DEBUGGER ZP_BASE+0x300;  // Debugger workspace
+#define ZP_VECTORS  ZP_BASE+0x380;  // Software vectors 0-31
+#define ZP_ENVIRONMENT  ZP_BASE+0x400;  // Program environment
+#define ZP_ENVTIME  ZP_BASE+0x478;  // Environment 5-byte time, &478 fits into 8 bits
+#define ZP_ESCAPE   ZP_BASE+0x47F;  // Supervisor's Escape flag
+#define ZP_MODULE   ZP_BASE+0x500;  // Module handler workspace
+#define ZP_ENVSTRING    ZP_BASE+0xE00;  // Environment string
+#define ZP_STRING   ZP_BASE+0xF00;  // Supervisor string space
 
 
 // Basic Kernel memory layout

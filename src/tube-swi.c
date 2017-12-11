@@ -350,7 +350,7 @@ int user_exec_fn(FunctionPtr_Type f, int param ) {
 
 void user_exec_raw(volatile unsigned char *address) {
   int off;
-  int carry = 0, r0 = 0; int r1 = 0; int r12 = 0;	// Entry parameters
+  int carry = 0, r0 = 0; int r1 = 0; int r12 = 0; // Entry parameters
 
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
@@ -376,13 +376,13 @@ void user_exec_raw(volatile unsigned char *address) {
     } else {
       r0 = 1;       // Entering code with a BBC header
       carry = 1;    // Set Carry = not entering from RESET
-			// ToDo: Should use ROM title as commandBuffer startup command
+      // ToDo: Should use ROM title as commandBuffer startup command
     }
   } else {
     if (address[19] == 0 && address[23] == 0 && address[27] == 0) {
       // RISC OS module header
       off=address[16] + 256 * address[17] + 65536 * address[18];
-      r0 = (unsigned int) address + off;		// R0=>module title
+      r0 = (unsigned int) address + off;    // R0=>module title
 
 // We need to do commandBuffer=moduleTitle+" "+MID$(commandBuffer,offset_to_space)
 // which means we need some string space to construct a new string.
@@ -398,12 +398,12 @@ void user_exec_raw(volatile unsigned char *address) {
   }
 
   r1 = (unsigned int) env->commandBuffer;
-  while (*(char*)r1 > ' ') r1++;			// Step past command
-  while (*(char*)r1 == ' ') r1++;			// Step past spaces, r1=>command tail
+  while (*(char*)r1 > ' ') r1++;      // Step past command
+  while (*(char*)r1 == ' ') r1++;     // Step past spaces, r1=>command tail
       
   if (address[3]==0) {
     off=address[0]+256*address[1]+65536*address[2];
-    address=address+off;      				// Entry word is offset, not branch
+    address=address+off;              // Entry word is offset, not branch
   }
 
   // Bit zero of the address param is used by _user_exec as the carry
@@ -496,7 +496,7 @@ void tube_CLI(unsigned int *reg) {
 // *  *** * ** R.    foobar   hazel  sheila
 //                   ^
 
-  while (*lptr==' ' || *lptr=='*') lptr++;		// Skip leading spaces and stars
+  while (*lptr==' ' || *lptr=='*') lptr++;    // Skip leading spaces and stars
 // Now at:
 // *foobar hazel
 //  ^
@@ -509,15 +509,15 @@ void tube_CLI(unsigned int *reg) {
 
   if (lptr[0]=='/') {
     if (lptr[1]==' ') {
-      run=1;						// */<spc>filename, need to skip to filename
+      run=1;            // */<spc>filename, need to skip to filename
     } else {
-      lptr++;						// */filename, step to filename
+      lptr++;           // */filename, step to filename
     }
   } else {
-    if ((lptr[0] & 0xDF)=='R') {			// Might be *RUN
-      if (lptr[1]=='.') run=1;				// *R. file, need to skip to filename
+    if ((lptr[0] & 0xDF)=='R') {      // Might be *RUN
+      if (lptr[1]=='.') run=1;        // *R. file, need to skip to filename
       if ((lptr[1] & 0xDF)=='U') {
-        if (lptr[2]=='.') run=1;			// *RU. file, need to skip to filename
+        if (lptr[2]=='.') run=1;      // *RU. file, need to skip to filename
       } else {
         if ((lptr[2] & 0xDF)=='N' && lptr[3]<'A') run=1; // *RUN file, need to skip to filename
       }
@@ -525,8 +525,8 @@ void tube_CLI(unsigned int *reg) {
   }
 
   if (run) {
-    while (*lptr>' ') lptr++;				// Skip 'RUN' command or '/' shortcut
-    while (*lptr==' ') lptr++;				// Skip to start of filename
+    while (*lptr>' ') lptr++;       // Skip 'RUN' command or '/' shortcut
+    while (*lptr==' ') lptr++;        // Skip to start of filename
   }
 // Now at:
 // *foobar hazel
@@ -540,15 +540,15 @@ void tube_CLI(unsigned int *reg) {
 
 // Fake an OS_SetEnv call
   run=0;
-  while(*lptr >= ' ') {					// Copy this command to environment string
+  while(*lptr >= ' ') {         // Copy this command to environment string
     env->commandBuffer[run]=*lptr;
     run++; lptr++;
   }
   env->commandBuffer[run]=0x0D;
-//  env->handler[MEMORY_LIMIT_HANDLER].handler=???;	// Can't remember if these are set now or later
-//  env->timeBuffer=now_centiseconds();			// Will need to check real hardware
+//  env->handler[MEMORY_LIMIT_HANDLER].handler=???; // Can't remember if these are set now or later
+//  env->timeBuffer=now_centiseconds();     // Will need to check real hardware
 
-  if (dispatchCmd(ptr)) {				// dispatchCmd returns 0 if command was handled locally
+  if (dispatchCmd(ptr)) {       // dispatchCmd returns 0 if command was handled locally
     // OSCLI    R2: &02 string &0D                    &7F or &80
     sendByte(R2_ID, 0x02);
     // Send the command, excluding terminating control character (anything < 0x20)
@@ -588,9 +588,9 @@ void tube_Byte(unsigned int *reg) {
 
     // JGH: OSBYTE &8E and &9D do not return any data.
     if (a == 0x8E) {
-	// OSBYTE &8E returns a 1-byte OSCLI acknowledgement
+       // OSBYTE &8E returns a 1-byte OSCLI acknowledgement
        if (receiveByte(R2_ID) & 0x80) {
-          env->commandBuffer[0] = 0x0D;		// Null command line
+          env->commandBuffer[0] = 0x0D;   // Null command line
           user_exec_raw(address);
        }
        return;
@@ -789,9 +789,9 @@ void tube_ReadLine(unsigned int *reg) {
 }
 
 void tube_GetEnv(unsigned int *reg) {
-  reg[0] = (unsigned int) env->commandBuffer;				// R0 => command string (0 terminated) which ran the program
-  reg[1] = (unsigned int) env->handler[MEMORY_LIMIT_HANDLER].handler;	// R1 = permitted RAM limit for example &10000 for 64K machine
-  reg[2] = (unsigned int) env->timeBuffer;				// R2 => 5 bytes - the time the program started running
+  reg[0] = (unsigned int) env->commandBuffer;       // R0 => command string (0 terminated) which ran the program
+  reg[1] = (unsigned int) env->handler[MEMORY_LIMIT_HANDLER].handler; // R1 = permitted RAM limit for example &10000 for 64K machine
+  reg[2] = (unsigned int) env->timeBuffer;        // R2 => 5 bytes - the time the program started running
   if (DEBUG_ARM) {
     printf("%08x %08x %08x\r\n", reg[0], reg[1], reg[2]);
   }
