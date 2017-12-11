@@ -551,7 +551,10 @@ void tube_CLI(unsigned int *reg) {
   if (dispatchCmd(ptr)) {				// dispatchCmd returns 0 if command was handled locally
     // OSCLI    R2: &02 string &0D                    &7F or &80
     sendByte(R2_ID, 0x02);
-    sendString(R2_ID, 0x0D, ptr);
+    // Send the command, excluding terminating control character (anything < 0x20)
+    sendStringWithoutTerminator(R2_ID, ptr);
+    // Send the 0x0D terminator
+    sendByte(R2_ID, 0x0D);
     if (receiveByte(R2_ID) & 0x80) {
       // Execution should pass to last transfer address
       user_exec_raw(address);
@@ -675,7 +678,10 @@ void tube_File(unsigned int *reg) {
   sendWord(R2_ID, *ptr--);            // r4 = leng
   sendWord(R2_ID, *ptr--);            // r3 = exec
   sendWord(R2_ID, *ptr--);            // r2 = load
-  sendString(R2_ID, 0x0D, (char *)*ptr--);  // r1 = filename ptr
+  // Send the filename, excluding terminating control character (anything < 0x20)
+  sendStringWithoutTerminator(R2_ID, (char *)*ptr--);  // r1 = filename ptr
+  // Send the 0x0D terminator
+  sendByte(R2_ID, 0x0D);
   sendByte(R2_ID, *ptr);              // r0 = action
   *ptr = receiveByte(R2_ID);          // r0 = action
   ptr = reg + 5;                   // ptr = r5
@@ -756,8 +762,10 @@ void tube_Find(unsigned int *reg) {
     // Response is always 7F so ignored
     receiveByte(R2_ID);
   } else {
-    // R1 points to the string
-    sendString(R2_ID, 0x0D, (char *)reg[1]);
+    // R1 points to the string, terminated by any control character
+    sendStringWithoutTerminator(R2_ID, (char *)reg[1]);
+    // Send the 0x0D terminator
+    sendByte(R2_ID, 0x0D);
     // Response is the file handle of file just opened
     reg[0] = receiveByte(R2_ID);
   }
