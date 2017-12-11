@@ -400,7 +400,7 @@ void user_exec_raw(volatile unsigned char *address) {
   r1 = (unsigned int) env->commandBuffer;
   while (*(char*)r1 > ' ') r1++;      // Step past command
   while (*(char*)r1 == ' ') r1++;     // Step past spaces, r1=>command tail
-      
+
   if (address[3]==0) {
     off=address[0]+256*address[1]+65536*address[2];
     address=address+off;              // Entry word is offset, not branch
@@ -496,7 +496,9 @@ void tube_CLI(unsigned int *reg) {
 // *  *** * ** R.    foobar   hazel  sheila
 //                   ^
 
-  while (*lptr==' ' || *lptr=='*') lptr++;    // Skip leading spaces and stars
+  while (*lptr == ' ' || *lptr == '*') {
+    lptr++;    // Skip leading spaces and stars
+  }
 // Now at:
 // *foobar hazel
 //  ^
@@ -507,27 +509,32 @@ void tube_CLI(unsigned int *reg) {
 // *RUN foobar hazel
 //  ^
 
-  if (lptr[0]=='/') {
-    if (lptr[1]==' ') {
-      run=1;            // */<spc>filename, need to skip to filename
-    } else {
-      lptr++;           // */filename, step to filename
-    }
+  if (lptr[0] == '/') {
+     run   = 1;                     // */file or */ file
+     lptr += 1;                     // skip past /
   } else {
-    if ((lptr[0] & 0xDF)=='R') {      // Might be *RUN
-      if (lptr[1]=='.') run=1;        // *R. file, need to skip to filename
-      if ((lptr[1] & 0xDF)=='U') {
-        if (lptr[2]=='.') run=1;      // *RU. file, need to skip to filename
-      } else {
-        if ((lptr[2] & 0xDF)=='N' && lptr[3]<'A') run=1; // *RUN file, need to skip to filename
+    if ((lptr[0] & 0xDF) == 'R') {  // Might be *RUN
+      if (lptr[1] == '.') {
+        run   = 1;                  // *R.file or *R. file
+        lptr += 2;                  // skip past *R.
+      } else if ((lptr[1] & 0xDF) == 'U') {
+        if (lptr[2] == '.') {
+          run   = 1;                // *RU. file or *RU. file
+          lptr += 3;                // skip past *RU.
+        } else if ((lptr[2] & 0xDF)=='N' && lptr[3] < 'A') {
+          run   = 1;                // *RUN file
+          lptr += 3;                // skip past *RUN
+        }
       }
     }
   }
 
-  if (run) {
-    while (*lptr>' ') lptr++;       // Skip 'RUN' command or '/' shortcut
-    while (*lptr==' ') lptr++;        // Skip to start of filename
+  if (run) {                       // Skip any spaces preceeding filename
+    while (*lptr == ' ') {
+      lptr++;
+    }
   }
+
 // Now at:
 // *foobar hazel
 //  ^
@@ -539,10 +546,11 @@ void tube_CLI(unsigned int *reg) {
 //      ^
 
 // Fake an OS_SetEnv call
-  run=0;
-  while(*lptr >= ' ') {         // Copy this command to environment string
-    env->commandBuffer[run]=*lptr;
-    run++; lptr++;
+  run = 0;
+  while (*lptr >= ' ') {         // Copy this command to environment string
+    env->commandBuffer[run] = *lptr;
+    run++;
+    lptr++;
   }
   env->commandBuffer[run]=0x0D;
 //  env->handler[MEMORY_LIMIT_HANDLER].handler=???; // Can't remember if these are set now or later
@@ -822,7 +830,7 @@ void tube_EnterOS(unsigned int *reg) {
 void tube_Mouse(unsigned int *reg) {
   // JGH: Read Mouse settings
   int msX, msY, msZ;
-  
+
   reg[0]=128; reg[1]=7; reg[2]=0;
   tube_Byte(reg);      // ADVAL(7)
   msX=reg[1];         // Mouse X
@@ -834,7 +842,7 @@ void tube_Mouse(unsigned int *reg) {
   reg[0]=128; reg[1]=9; reg[2]=0;
   tube_Byte(reg);      // ADVAL(9)
   msZ=reg[1];         // Mouse Z (buttons)
-  
+
   reg[0]=msX;
   reg[1]=msY;
   reg[2]=msZ;
@@ -855,7 +863,7 @@ void tube_GenerateError(unsigned int *reg) {
 // R0   preserved
 // R1   preserved
 // R2   colour
-// Map to OSWORD A=&9; 
+// Map to OSWORD A=&9;
 void tube_ReadPoint(unsigned int *reg) {
   // OSWORD   R2: &08 A in_length block out_length  block
   sendByte(R2_ID, 0x08);
