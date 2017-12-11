@@ -65,7 +65,8 @@ int dispatchCmd(char *cmd) {
 	do {
 	  c = tolower((int)*cmdPtr);	  
 	  r = tolower((int)*refPtr);
-	  if (r == 0 || c == '.') {
+	  // a command can be terminated with any non-alpha character
+	  if ((r == 0 && !isalpha(c)) || c == '.') {
 		// skip any trailing space becore the params
 		while (isblank((int)*cmdPtr)) {
 		  cmdPtr++;
