@@ -35,6 +35,8 @@ void sendByte(unsigned char reg, unsigned char byte);
 
 unsigned char receiveByte(unsigned char reg);
 
+void sendStringWithoutTerminator(unsigned char reg, const volatile char *buf);
+
 void sendString(unsigned char reg, unsigned char terminator, const volatile char *buf);
 
 int receiveString(unsigned char reg, unsigned char terminator, volatile char *buf);

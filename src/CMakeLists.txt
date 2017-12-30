@@ -87,6 +87,8 @@ file( GLOB core_files
     tubevc.h
     logging.c
     logging.h
+    utils.c
+    utils.h
 )
 
 # 6502 Co Processor using 65tube Implementation
@@ -178,6 +180,36 @@ file( GLOB shared_6809_files
   tuberom_6809.c
 )
 
+# OPC5LS
+file( GLOB copro_opc5ls_files
+    copro-opc5ls.h
+    copro-opc5ls.c
+    opc5ls/opc5ls.h
+    opc5ls/opc5ls.c
+    opc5ls/tuberom.h
+    opc5ls/tuberom.c
+)
+
+# OPC6
+file( GLOB copro_opc6_files
+    copro-opc6.h
+    copro-opc6.c
+    opc6/opc6.h
+    opc6/opc6.c
+    opc6/tuberom.h
+    opc6/tuberom.c
+)
+
+# OPC7
+file( GLOB copro_opc7_files
+    copro-opc7.h
+    copro-opc7.c
+    opc7/opc7.h
+    opc7/opc7.c
+    opc7/tuberom.h
+    opc7/tuberom.c
+)
+
 # Null co processor
 file( GLOB copro_null_files
     copro-null.c
@@ -245,6 +277,12 @@ file( GLOB debugger_files
     mc6809nc/mc6809_dis.h
     cpu80186/cpu80186_debug.c
     cpu80186/cpu80186_debug.h
+    opc5ls/opc5ls_debug.c
+    opc5ls/opc5ls_debug.h
+    opc6/opc6_debug.c
+    opc6/opc6_debug.h
+    opc7/opc7_debug.c
+    opc7/opc7_debug.h
 )
 
 if( ${DEBUG} )
@@ -285,6 +323,9 @@ else()
             ${copro_6809sc_files}
             ${copro_6809nc_files}
             ${shared_6809_files}
+            ${copro_opc5ls_files}
+            ${copro_opc6_files}
+            ${copro_opc7_files}
             ${copro_null_files}
             ${copro_arm_files}
             ${debugger_files}
@@ -305,6 +346,9 @@ else()
             ${copro_6809sc_files}
             ${copro_6809nc_files}
             ${shared_6809_files}
+            ${copro_opc5ls_files}
+            ${copro_opc6_files}
+            ${copro_opc7_files}
             ${copro_null_files}
             ${copro_arm_files}
         )

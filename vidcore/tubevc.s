@@ -193,7 +193,7 @@ delay_done:
    orne   r7, 16
    ld     r4, (r7)               # Read word from tube register
    btst   r8, nTUBE
-   bne    Poll_tube_low
+   bne    Poll_loop
    btst   r8, RnW
    beq    wr_cycle
    
@@ -213,7 +213,7 @@ rd_wait_for_clk_high1:
    btst   r8, CLK
    beq    rd_wait_for_clk_high1
 # we now have half a cycle to do post mail
-   btst   r8, r16               # no need to post mail if A0 = 0
+   btst   r7, 2               # no need to post mail if A0 = 0
    beq    rd_wait_for_clk_low
    sub    r7, r0                # just get the address bits
    lsl    r7, 6                 # put address bits in correct place

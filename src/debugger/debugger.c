@@ -15,6 +15,9 @@
 #include "../mc6809nc/mc6809_debug.h"
 #include "../mame/arm_debug.h"
 #include "../NS32016/32016_debug.h"
+#include "../opc5ls/opc5ls_debug.h"
+#include "../opc6/opc6_debug.h"
+#include "../opc7/opc7_debug.h"
 
 #define USE_LINENOISE
 
@@ -32,16 +35,16 @@ cpu_debug_t *cpu_debug_list[] = {
    &lib6502_cpu_debug,  //  2 lib6502
    &lib6502_cpu_debug,  //  3 lib6502
    &simz80_cpu_debug,   //  4 Z80
-   &simz80_cpu_debug,   //  5 Z80
-   &simz80_cpu_debug,   //  6 Z80
-   &simz80_cpu_debug,   //  7 Z80
+   &opc5ls_cpu_debug,   //  5 OPC5LS
+   &opc6_cpu_debug,     //  6 OPC6
+   &opc7_cpu_debug,     //  7 OPC7
    &cpu80186_cpu_debug, //  8 80x86
    &mc6809nc_cpu_debug, //  9 6809
-   NULL,                // 10 unused 
-   NULL,                // 11 unused
+   NULL,                // 10 unused
+   NULL,                // 11 unused (PDP11 future?)
    &arm2_cpu_debug,     // 12 ARM2
    &n32016_cpu_debug,   // 13 32016
-   NULL,                // 14 unsed
+   NULL,                // 14 unused
    NULL,                // 15 Native ARM
 };
 
@@ -203,7 +206,6 @@ static uint32_t next_addr;
 // The current memory address (e.g. used when disassembling)
 static unsigned int memAddr = 0;
 
-extern cpu_debug_t arm2_cpu_debug;
 cpu_debug_t *getCpu() {
    return cpu_debug_list[copro];
 }
@@ -234,6 +236,18 @@ static void iowrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
    internal = 1;
    cpu->iowrite(addr, value);
    internal = 0;
+}
+
+static char *format_hex(const int width, uint32_t i) {
+   static char result[10];
+   if (width == WIDTH_32BITS) {
+      sprintf(result, "%08"PRIx32, i);
+   } else if (width == WIDTH_16BITS) {
+      sprintf(result, "%04"PRIx32, i);
+   } else {
+      sprintf(result, "%02"PRIx32, i);
+   }
+   return result;
 }
 
 /********************************************************
@@ -267,7 +281,9 @@ static void cpu_continue() {
 
 static void disassemble_addr(uint32_t addr) {
    cpu_debug_t *cpu = getCpu();
+   internal = 1;
    next_addr = cpu->disassemble(addr, strbuf, sizeof(strbuf));
+   internal = 0;
    noprompt();
    printf("%s\r\n", &strbuf[0]);
    prompt();
@@ -505,8 +521,10 @@ static void doCmdDis(char *params) {
    cpu_debug_t *cpu = getCpu();
    int i;
    sscanf(params, "%x", &memAddr);
-   for (i = 0; i < 10; i++) {
+   for (i = 0; i < 10; i++) { 
+      internal = 1;
       memAddr = cpu->disassemble(memAddr, strbuf, sizeof(strbuf));
+      internal = 0;
       printf("%s\r\n", &strbuf[0]);
    }
 }
@@ -519,7 +537,7 @@ static void doCmdFill(char *params) {
    unsigned int data;
    sscanf(params, "%x %x %x", &start, &end, &data);
 
-   printf("Wr: %x to %x = %02x\r\n", start, end, data);
+   printf("Wr: %x to %x = %s\r\n", start, end, format_hex(cpu->mem_width, data));
    for (i = start; i <= end; i++) {
       memwrite(cpu, i, data);
    }
@@ -558,7 +576,7 @@ static void doCmdMem(char *params) {
       }
       printf("%04x ", memAddr + i);
       for (j = 0; j < 16; j++) {
-         printf("%02x ", row[j]);
+         printf("%s ", format_hex(cpu->mem_width, row[j]));
       }
       printf(" ");
       for (j = 0; j < 16; j++) {
@@ -579,7 +597,7 @@ static void doCmdRd(char *params) {
    unsigned int data;
    sscanf(params, "%x", &addr);
    data = memread(cpu, addr);
-   printf("Rd Mem: %x = %02x\r\n", addr, data);
+   printf("Rd Mem: %x = %s\r\n", addr, format_hex(cpu->mem_width, data));
 }
 
 static void doCmdWr(char *params) {
@@ -587,7 +605,7 @@ static void doCmdWr(char *params) {
    unsigned int addr;
    unsigned int data;
    sscanf(params, "%x %x", &addr, &data);
-   printf("Wr Mem: %x = %02x\r\n", addr, data);
+   printf("Wr Mem: %x = %s\r\n", addr, format_hex(cpu->mem_width, data));
    memwrite(cpu, addr++, data);
 }
 
@@ -597,7 +615,7 @@ static void doCmdIn(char *params) {
    unsigned int data;
    sscanf(params, "%x", &addr);
    data = ioread(cpu, addr);
-   printf("Rd IO: %x = %02x\r\n", addr, data);
+   printf("Rd IO: %x = %s\r\n", addr, format_hex(cpu->io_width, data));
 }
 
 static void doCmdOut(char *params) {
@@ -605,7 +623,7 @@ static void doCmdOut(char *params) {
    unsigned int addr;
    unsigned int data;
    sscanf(params, "%x %x", &addr, &data);
-   printf("Wr IO: %x = %02x\r\n", addr, data);
+   printf("Wr IO: %x = %s\r\n", addr, format_hex(cpu->io_width, data));
    iowrite(cpu, addr++, data);
 }
 

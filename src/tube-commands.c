@@ -56,20 +56,21 @@ int dispatchCmd(char *cmd) {
   char *refPtr;
   //  skip any leading space
   while (isblank((int) *cmd)) {
-	cmd++;
+    cmd++;
   }
   // Match the command 
   for (i = 0; i < NUM_CMDS; i++) {
-	cmdPtr = cmd;
-	refPtr = cmdStrings[i];
-	do {
-	  c = tolower((int)*cmdPtr);	  
-	  r = tolower((int)*refPtr);
-	  if (r == 0 || c == '.') {
-		// skip any trailing space becore the params
-		while (isblank((int)*cmdPtr)) {
-		  cmdPtr++;
-		}
+    cmdPtr = cmd;
+    refPtr = cmdStrings[i];
+    do {
+      c = tolower((int)*cmdPtr);      
+      r = tolower((int)*refPtr);
+      // a command can be terminated with any non-alpha character
+      if ((r == 0 && !isalpha(c)) || c == '.') {
+        // skip any trailing space becore the params
+        while (isblank((int)*cmdPtr)) {
+          cmdPtr++;
+        }
         if (cmdMode[i] == MODE_USER) {
           // Execute the command in user mode
           return user_exec_fn(cmdFuncs[i], (int) cmdPtr);
@@ -77,10 +78,10 @@ int dispatchCmd(char *cmd) {
           // Execute the command in supervisor mode
           return cmdFuncs[i](cmdPtr);
         }
-	  }
+      }
       cmdPtr++;
       refPtr++;
-	} while (c != 0 && c == r);
+    } while (c != 0 && c == r);
   }
   // non-zero means pass the command onto the CLI processor
   return 1;
@@ -95,12 +96,12 @@ int doCmdHelp(char *params) {
   int i;
   OS_Write0(help);
   if (strncasecmp(params, "ARM", 3) == 0) {
-	for (i = 0; i < NUM_CMDS; i++) {
+    for (i = 0; i < NUM_CMDS; i++) {
       OS_Write0("  ");
-	  OS_Write0(cmdStrings[i]);
-	  OS_Write0("\r\n");
-	}
-	return 0;
+      OS_Write0(cmdStrings[i]);
+      OS_Write0("\r\n");
+    }
+    return 0;
   }
   // pass the command on to the CLI
   return 1;
@@ -123,7 +124,7 @@ int doCmdFill(char *params) {
   unsigned int data;
   sscanf(params, "%x %x %x", &start, &end, &data);
   for (i = start; i <= end; i++) {
-	*((unsigned char *)i) = data;
+    *((unsigned char *)i) = data;
   }
   return 0;
 }
@@ -139,8 +140,8 @@ int doCmdMem(char *params) {
     for (i = 0; i < 16; i++) {
       ptr = line;
       // Generate the address
-      ptr += sprintf(ptr, "%08X ", memAddr);	
-	  // Generate the hex values
+      ptr += sprintf(ptr, "%08X ", memAddr);    
+      // Generate the hex values
       for (j = 0; j < 16; j++) {
         c = *((unsigned char *)(memAddr + j));
         ptr += sprintf(ptr, "%02X ", c);
@@ -201,13 +202,13 @@ int doCmdCrc(char *params) {
   unsigned long crc = 0;
   sscanf(params, "%x %x %x", &start, &end, &data);
   for (i = start; i <= end; i++) {
-	data = *((unsigned char *)i);
+    data = *((unsigned char *)i);
     for (j = 0; j < 8; j++) {
       crc = crc << 1;
       crc = crc | (data & 1);
       data >>= 1;
       if (crc & 0x10000)
-		crc = (crc ^ CRC_POLY) & 0xFFFF;
+        crc = (crc ^ CRC_POLY) & 0xFFFF;
     }
   }
   sprintf(line, "%04X\r\n", (unsigned short)crc);
