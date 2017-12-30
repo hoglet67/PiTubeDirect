@@ -80,6 +80,17 @@ unsigned char receiveByte(unsigned char reg)
 }
 
 // Reg is 1..4
+void sendStringWithoutTerminator(unsigned char reg, const volatile char *buf)
+{
+  unsigned char c;
+  while ((c = ((unsigned char)*buf)) >= 0x20)
+  {
+    sendByte(reg, c);
+    buf++;
+  }
+}
+
+// Reg is 1..4
 void sendString(unsigned char reg, unsigned char terminator, const volatile char *buf)
 {
   char c;

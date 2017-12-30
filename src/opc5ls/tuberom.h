@@ -3,6 +3,6 @@
 
 #include "inttypes.h"
 
-extern uint16_t tuberom_opc5ls[0x800];
+extern uint16_t tuberom_opc5ls[0x1000];
 
 #endif

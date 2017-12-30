@@ -33,31 +33,31 @@ void dump_digit(unsigned int c) {
 void dump_hex(unsigned int value) {
   int i;
   for (i = 0; i < 8; i++) {   
-	int c = value >> 28;
-	if (c < 10) {
-	  c = '0' + c;
-	} else {
-	  c = 'A' + c - 10;
-	}
-	RPI_AuxMiniUartWrite(c);
-	value <<= 4;
+    int c = value >> 28;
+    if (c < 10) {
+      c = '0' + c;
+    } else {
+      c = 'A' + c - 10;
+    }
+    RPI_AuxMiniUartWrite(c);
+    value <<= 4;
   }
 }
 
 void dump_binary(unsigned int value) {
   int i;
   for (i = 0; i < 32; i++) {   
-	int c = '0' + (value >> 31);
-	RPI_AuxMiniUartWrite(c);
-	value <<= 1;
+    int c = '0' + (value >> 31);
+    RPI_AuxMiniUartWrite(c);
+    value <<= 1;
   }
 }
 
 void dump_string(char *string) {
   char c;
   while ((c = *string++) != 0) {
-	RPI_AuxMiniUartWrite(c);
-  }	
+    RPI_AuxMiniUartWrite(c);
+  } 
 }
 
 // For some reason printf generally doesn't work here
@@ -84,24 +84,24 @@ void dump_info(unsigned int *context, int offset, char *type) {
   dump_string("Registers:\r\n");
   for (i = 0; i <= 13; i++) {
     j = (i < 13) ? i : 14; // slot 13 actually holds the link register
-	dump_string("  r[");
-	RPI_AuxMiniUartWrite('0' + (j / 10));  
-	RPI_AuxMiniUartWrite('0' + (j % 10));  
-	dump_string("]=");
-	dump_hex(reg[i]);
-	dump_string("\r\n");
+    dump_string("  r[");
+    RPI_AuxMiniUartWrite('0' + (j / 10));  
+    RPI_AuxMiniUartWrite('0' + (j % 10));  
+    dump_string("]=");
+    dump_hex(reg[i]);
+    dump_string("\r\n");
   }
   dump_string("Memory:\r\n");
   for (i = -4; i <= 4; i++) {
-	dump_string("  ");
-	dump_hex((unsigned int) (addr + i));
-	RPI_AuxMiniUartWrite('=');
-	dump_hex(*(addr + i));
-	if (i == 0) {
-	  dump_string(" <<<<<< \r\n");
-	} else {
-	  dump_string("\r\n");
-	}
+    dump_string("  ");
+    dump_hex((unsigned int) (addr + i));
+    RPI_AuxMiniUartWrite('=');
+    dump_hex(*(addr + i));
+    if (i == 0) {
+      dump_string(" <<<<<< \r\n");
+    } else {
+      dump_string("\r\n");
+    }
   }
   // The flags are pointed to by context, before the registers
   flags = *context;
@@ -111,29 +111,29 @@ void dump_info(unsigned int *context, int offset, char *type) {
   // The last 5 bits of the flags are the mode
   switch (flags & 0x1f) {
   case 0x10:
-	dump_string("User");
-	break;
+    dump_string("User");
+    break;
   case 0x11:
-	dump_string("FIQ");
-	break;
+    dump_string("FIQ");
+    break;
   case 0x12:
-	dump_string("IRQ");
-	break;
+    dump_string("IRQ");
+    break;
   case 0x13:
-	dump_string("Supervisor");
-	break;
+    dump_string("Supervisor");
+    break;
   case 0x17:
-	dump_string("Abort");
-	break;
+    dump_string("Abort");
+    break;
   case 0x1B:
-	dump_string("Undefined");
-	break;
+    dump_string("Undefined");
+    break;
   case 0x1F:
-	dump_string("System");
-	break;
+    dump_string("System");
+    break;
   default:
-	dump_string("Illegal");
-	break;
+    dump_string("Illegal");
+    break;
   };
   dump_string(" Mode)\r\n");
 

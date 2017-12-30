@@ -350,7 +350,7 @@ int user_exec_fn(FunctionPtr_Type f, int param ) {
 
 void user_exec_raw(volatile unsigned char *address) {
   int off;
-  int carry = 0, r0 = 0; int r1 = 0; int r12 = 0;	// Entry parameters
+  int carry = 0, r0 = 0; int r1 = 0; int r12 = 0; // Entry parameters
 
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
@@ -376,13 +376,13 @@ void user_exec_raw(volatile unsigned char *address) {
     } else {
       r0 = 1;       // Entering code with a BBC header
       carry = 1;    // Set Carry = not entering from RESET
-			// ToDo: Should use ROM title as commandBuffer startup command
+      // ToDo: Should use ROM title as commandBuffer startup command
     }
   } else {
     if (address[19] == 0 && address[23] == 0 && address[27] == 0) {
       // RISC OS module header
       off=address[16] + 256 * address[17] + 65536 * address[18];
-      r0 = (unsigned int) address + off;		// R0=>module title
+      r0 = (unsigned int) address + off;    // R0=>module title
 
 // We need to do commandBuffer=moduleTitle+" "+MID$(commandBuffer,offset_to_space)
 // which means we need some string space to construct a new string.
@@ -398,12 +398,12 @@ void user_exec_raw(volatile unsigned char *address) {
   }
 
   r1 = (unsigned int) env->commandBuffer;
-  while (*(char*)r1 > ' ') r1++;			// Step past command
-  while (*(char*)r1 == ' ') r1++;			// Step past spaces, r1=>command tail
-      
+  while (*(char*)r1 > ' ') r1++;      // Step past command
+  while (*(char*)r1 == ' ') r1++;     // Step past spaces, r1=>command tail
+
   if (address[3]==0) {
     off=address[0]+256*address[1]+65536*address[2];
-    address=address+off;      				// Entry word is offset, not branch
+    address=address+off;              // Entry word is offset, not branch
   }
 
   // Bit zero of the address param is used by _user_exec as the carry
@@ -496,7 +496,9 @@ void tube_CLI(unsigned int *reg) {
 // *  *** * ** R.    foobar   hazel  sheila
 //                   ^
 
-  while (*lptr==' ' || *lptr=='*') lptr++;		// Skip leading spaces and stars
+  while (*lptr == ' ' || *lptr == '*') {
+    lptr++;    // Skip leading spaces and stars
+  }
 // Now at:
 // *foobar hazel
 //  ^
@@ -507,27 +509,32 @@ void tube_CLI(unsigned int *reg) {
 // *RUN foobar hazel
 //  ^
 
-  if (lptr[0]=='/') {
-    if (lptr[1]==' ') {
-      run=1;						// */<spc>filename, need to skip to filename
-    } else {
-      lptr++;						// */filename, step to filename
-    }
+  if (lptr[0] == '/') {
+     run   = 1;                     // */file or */ file
+     lptr += 1;                     // skip past /
   } else {
-    if ((lptr[0] & 0xDF)=='R') {			// Might be *RUN
-      if (lptr[1]=='.') run=1;				// *R. file, need to skip to filename
-      if ((lptr[1] & 0xDF)=='U') {
-        if (lptr[2]=='.') run=1;			// *RU. file, need to skip to filename
-      } else {
-        if ((lptr[2] & 0xDF)=='N' && lptr[3]<'A') run=1; // *RUN file, need to skip to filename
+    if ((lptr[0] & 0xDF) == 'R') {  // Might be *RUN
+      if (lptr[1] == '.') {
+        run   = 1;                  // *R.file or *R. file
+        lptr += 2;                  // skip past *R.
+      } else if ((lptr[1] & 0xDF) == 'U') {
+        if (lptr[2] == '.') {
+          run   = 1;                // *RU. file or *RU. file
+          lptr += 3;                // skip past *RU.
+        } else if ((lptr[2] & 0xDF)=='N' && lptr[3] < 'A') {
+          run   = 1;                // *RUN file
+          lptr += 3;                // skip past *RUN
+        }
       }
     }
   }
 
-  if (run) {
-    while (*lptr>' ') lptr++;				// Skip 'RUN' command or '/' shortcut
-    while (*lptr==' ') lptr++;				// Skip to start of filename
+  if (run) {                       // Skip any spaces preceeding filename
+    while (*lptr == ' ') {
+      lptr++;
+    }
   }
+
 // Now at:
 // *foobar hazel
 //  ^
@@ -539,19 +546,23 @@ void tube_CLI(unsigned int *reg) {
 //      ^
 
 // Fake an OS_SetEnv call
-  run=0;
-  while(*lptr >= ' ') {					// Copy this command to environment string
-    env->commandBuffer[run]=*lptr;
-    run++; lptr++;
+  run = 0;
+  while (*lptr >= ' ') {         // Copy this command to environment string
+    env->commandBuffer[run] = *lptr;
+    run++;
+    lptr++;
   }
   env->commandBuffer[run]=0x0D;
-//  env->handler[MEMORY_LIMIT_HANDLER].handler=???;	// Can't remember if these are set now or later
-//  env->timeBuffer=now_centiseconds();			// Will need to check real hardware
+//  env->handler[MEMORY_LIMIT_HANDLER].handler=???; // Can't remember if these are set now or later
+//  env->timeBuffer=now_centiseconds();     // Will need to check real hardware
 
-  if (dispatchCmd(ptr)) {				// dispatchCmd returns 0 if command was handled locally
+  if (dispatchCmd(ptr)) {       // dispatchCmd returns 0 if command was handled locally
     // OSCLI    R2: &02 string &0D                    &7F or &80
     sendByte(R2_ID, 0x02);
-    sendString(R2_ID, 0x0D, ptr);
+    // Send the command, excluding terminating control character (anything < 0x20)
+    sendStringWithoutTerminator(R2_ID, ptr);
+    // Send the 0x0D terminator
+    sendByte(R2_ID, 0x0D);
     if (receiveByte(R2_ID) & 0x80) {
       // Execution should pass to last transfer address
       user_exec_raw(address);
@@ -585,9 +596,9 @@ void tube_Byte(unsigned int *reg) {
 
     // JGH: OSBYTE &8E and &9D do not return any data.
     if (a == 0x8E) {
-	// OSBYTE &8E returns a 1-byte OSCLI acknowledgement
+       // OSBYTE &8E returns a 1-byte OSCLI acknowledgement
        if (receiveByte(R2_ID) & 0x80) {
-          env->commandBuffer[0] = 0x0D;		// Null command line
+          env->commandBuffer[0] = 0x0D;   // Null command line
           user_exec_raw(address);
        }
        return;
@@ -675,7 +686,10 @@ void tube_File(unsigned int *reg) {
   sendWord(R2_ID, *ptr--);            // r4 = leng
   sendWord(R2_ID, *ptr--);            // r3 = exec
   sendWord(R2_ID, *ptr--);            // r2 = load
-  sendString(R2_ID, 0x0D, (char *)*ptr--);  // r1 = filename ptr
+  // Send the filename, excluding terminating control character (anything < 0x20)
+  sendStringWithoutTerminator(R2_ID, (char *)*ptr--);  // r1 = filename ptr
+  // Send the 0x0D terminator
+  sendByte(R2_ID, 0x0D);
   sendByte(R2_ID, *ptr);              // r0 = action
   *ptr = receiveByte(R2_ID);          // r0 = action
   ptr = reg + 5;                   // ptr = r5
@@ -741,7 +755,7 @@ void tube_GBPB(unsigned int *reg) {
   *ptr-- = receiveWord(R2_ID);          // r2
   *ptr-- = receiveByte(R2_ID);          // r1
   updateCarry(receiveByte(R2_ID) & 0x80, reg); // Cy
-  *ptr-- = receiveWord(R2_ID);          // r0
+  *ptr-- = receiveByte(R2_ID);          // r0
 }
 
 void tube_Find(unsigned int *reg) {
@@ -756,8 +770,10 @@ void tube_Find(unsigned int *reg) {
     // Response is always 7F so ignored
     receiveByte(R2_ID);
   } else {
-    // R1 points to the string
-    sendString(R2_ID, 0x0D, (char *)reg[1]);
+    // R1 points to the string, terminated by any control character
+    sendStringWithoutTerminator(R2_ID, (char *)reg[1]);
+    // Send the 0x0D terminator
+    sendByte(R2_ID, 0x0D);
     // Response is the file handle of file just opened
     reg[0] = receiveByte(R2_ID);
   }
@@ -781,9 +797,9 @@ void tube_ReadLine(unsigned int *reg) {
 }
 
 void tube_GetEnv(unsigned int *reg) {
-  reg[0] = (unsigned int) env->commandBuffer;				// R0 => command string (0 terminated) which ran the program
-  reg[1] = (unsigned int) env->handler[MEMORY_LIMIT_HANDLER].handler;	// R1 = permitted RAM limit for example &10000 for 64K machine
-  reg[2] = (unsigned int) env->timeBuffer;				// R2 => 5 bytes - the time the program started running
+  reg[0] = (unsigned int) env->commandBuffer;       // R0 => command string (0 terminated) which ran the program
+  reg[1] = (unsigned int) env->handler[MEMORY_LIMIT_HANDLER].handler; // R1 = permitted RAM limit for example &10000 for 64K machine
+  reg[2] = (unsigned int) env->timeBuffer;        // R2 => 5 bytes - the time the program started running
   if (DEBUG_ARM) {
     printf("%08x %08x %08x\r\n", reg[0], reg[1], reg[2]);
   }
@@ -814,7 +830,7 @@ void tube_EnterOS(unsigned int *reg) {
 void tube_Mouse(unsigned int *reg) {
   // JGH: Read Mouse settings
   int msX, msY, msZ;
-  
+
   reg[0]=128; reg[1]=7; reg[2]=0;
   tube_Byte(reg);      // ADVAL(7)
   msX=reg[1];         // Mouse X
@@ -826,7 +842,7 @@ void tube_Mouse(unsigned int *reg) {
   reg[0]=128; reg[1]=9; reg[2]=0;
   tube_Byte(reg);      // ADVAL(9)
   msZ=reg[1];         // Mouse Z (buttons)
-  
+
   reg[0]=msX;
   reg[1]=msY;
   reg[2]=msZ;
@@ -847,7 +863,7 @@ void tube_GenerateError(unsigned int *reg) {
 // R0   preserved
 // R1   preserved
 // R2   colour
-// Map to OSWORD A=&9; 
+// Map to OSWORD A=&9;
 void tube_ReadPoint(unsigned int *reg) {
   // OSWORD   R2: &08 A in_length block out_length  block
   sendByte(R2_ID, 0x08);

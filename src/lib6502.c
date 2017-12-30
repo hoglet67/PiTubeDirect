@@ -103,7 +103,7 @@ byte tmpr;
 
 #define getMemory(ADDR)				\
   tmpr = ( readCallback[ADDR]			\
-    ?  readCallback[ADDR](mpu, ADDR, 0)	\
+    ?  readCallback[ADDR](mpu, ADDR, 0)	        \
     :  MEM(ADDR) ) ;				\
   if (lib6502_debug_enabled) {                  \
     externalise();                              \
@@ -152,7 +152,7 @@ byte tmpr;
 
 #define abs(ticks)				\
   tick(ticks);					\
-  ea= MEM(PC) + (MEM(PC + 1) << 8);	\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);	        \
   PC += 2;
 
 #define relative(ticks)				\
@@ -178,14 +178,14 @@ byte tmpr;
 
 #define absx(ticks)						\
   tick(ticks);							\
-  ea= MEM(PC) + (MEM(PC + 1) << 8);			\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);			        \
   PC += 2;							\
   tickIf((ticks == 4) && ((ea >> 8) != ((ea + X) >> 8)));	\
   ea += X;
 
 #define absy(ticks)						\
   tick(ticks);							\
-  ea= MEM(PC) + (MEM(PC + 1) << 8);			\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);			        \
   PC += 2;							\
   tickIf((ticks == 4) && ((ea >> 8) != ((ea + Y) >> 8)));	\
   ea += Y
@@ -224,7 +224,7 @@ byte tmpr;
   tick(ticks);						\
   {							\
     word tmp;						\
-    tmp= MEM(PC ) + (MEM(PC  + 1) << 8) + X;	\
+    tmp= MEM(PC ) + (MEM(PC  + 1) << 8) + X;            \
     ea = MEM(tmp) + (MEM(tmp + 1) << 8);		\
   }
 
@@ -377,8 +377,8 @@ byte tmpr;
   fetch();					\
   {						\
     byte B= getMemory(ea);			\
-    P= (P & ~flagZ)		\
-      | (((A & B) == 0) << 1);	\
+    P= (P & ~flagZ)		                \
+      | (((A & B) == 0) << 1);	                \
   }						\
   next();
 
@@ -413,7 +413,7 @@ byte tmpr;
 #define rmb6(ticks, adrmode) rmbN(ticks, adrmode, (1<<6))
 #define rmb7(ticks, adrmode) rmbN(ticks, adrmode, (1<<7))
 
-#define rmbN(ticks, adrmode, mask)			\
+#define rmbN(ticks, adrmode, mask)		\
   adrmode(ticks);				\
   fetch();					\
   {						\
@@ -432,7 +432,7 @@ byte tmpr;
 #define smb6(ticks, adrmode) smbN(ticks, adrmode, (1<<6))
 #define smb7(ticks, adrmode) smbN(ticks, adrmode, (1<<7))
 
-#define smbN(ticks, adrmode, mask)			\
+#define smbN(ticks, adrmode, mask)		\
   adrmode(ticks);				\
   fetch();					\
   {						\
@@ -682,7 +682,7 @@ byte tmpr;
   PC++;								\
   push(PC >> 8);						\
   push(PC & 0xff);						\
-  push(P | flagB | flagX);						\
+  push(P | flagB | flagX);					\
   P |= flagI;							\
   P &= ~flagD;							\
   {								\

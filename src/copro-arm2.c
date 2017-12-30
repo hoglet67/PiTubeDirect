@@ -23,6 +23,8 @@
 #include "mame/arm_debug.h"
 #endif
 
+#define TUBE_ROM_ARM tuberom_arm_v100
+
 #define RAM_MASK8    ((UINT32) 0x003fffff)
 #define ROM_MASK8    ((UINT32) 0x00003fff)
 #define RAM_MASK32   ((UINT32) 0x003ffffc)
@@ -60,7 +62,7 @@ UINT8 copro_arm2_read8(int addr) {
          result = tube_parasite_read((addr >> 2) & 7);
          break;
       case 3:
-         result = *(UINT8*) (tuberom_arm_v100+(addr & ROM_MASK8));
+         result = *(UINT8*) (TUBE_ROM_ARM+(addr & ROM_MASK8));
          break;
       default:
          result = 0;
@@ -98,7 +100,7 @@ UINT32 copro_arm2_read32(int addr)
          result = tube_parasite_read((addr >> 2) & 7);
          break;
       case 3:
-         result = *(UINT32*) (tuberom_arm_v100+(addr & ROM_MASK32));
+         result = *(UINT32*) (TUBE_ROM_ARM+(addr & ROM_MASK32));
          break;
       default:
          result = 0;
@@ -180,9 +182,8 @@ static void copro_arm2_poweron_reset() {
 static void copro_arm2_reset() {
    // Log ARM performance counters
    tube_log_performance_counters();
-   // Re-instate the Tube ROM on reset
-   memcpy(arm2_ram, tuberom_arm_v100, 0x4000);
-   //memcpy(arm2_rom, tuberom_arm_v100, 0x4000);
+   // Re-instate the reset vector on reset
+   memcpy(arm2_ram, TUBE_ROM_ARM, 0x4);
    // Reset the ARM device
    arm2_device_reset();
    // Wait for rst become inactive before continuing to execute

@@ -34,7 +34,7 @@ int copro_80186_tube_read(uint16_t addr) {
   return tube_parasite_read(addr);
 }
 
-void copro_80186_tube_write(uint16_t addr, uint8_t data)	{
+void copro_80186_tube_write(uint16_t addr, uint8_t data) {
   tube_parasite_write(addr, data);
 }
 

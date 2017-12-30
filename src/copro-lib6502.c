@@ -59,7 +59,7 @@ int copro_lib6502_mem_read(M6502 *mpu, uint16_t addr, uint8_t data) {
   return data;
 }
 
-int copro_lib6502_mem_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
+int copro_lib6502_mem_write(M6502 *mpu, uint16_t addr, uint8_t data) {
   if ((addr & 0xfff8) == 0xfef8) {
      tube_parasite_write(addr, data);
   } else {
@@ -74,7 +74,7 @@ static int copro_lib6502_tube_read(M6502 *mpu, uint16_t addr, uint8_t data) {
   return tube_parasite_read(addr);
 }
 
-static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data)	{
+static int copro_lib6502_tube_write(M6502 *mpu, uint16_t addr, uint8_t data) {
   tube_parasite_write(addr, data);
   return 0;
 }
