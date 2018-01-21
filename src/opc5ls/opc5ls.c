@@ -85,7 +85,7 @@ void opc5ls_execute() {
 
          // Setup carry going into the "ALU"
          uint32_t res = 0;
-         int cin = s.psr & C_MASK ? 1 : 0;
+         int cin = (s.psr & C_MASK ) ? 1 : 0;
          int cout = cin;
 
          // When to preserve the flags
