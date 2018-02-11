@@ -110,7 +110,9 @@ unsigned char * copro_mem_reset(int length)
      // Wipe memory
      // Memory starts at zero now vectors have moved.
    unsigned char * mpu_memory = 0;  
+#pragma GCC diagnostic ignored "-Wnonnull"   
    memset(mpu_memory, 0, length);
+#pragma GCC diagnostic pop   
    // return pointer to memory
    return mpu_memory;
 }
