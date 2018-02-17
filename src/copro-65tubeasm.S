@@ -244,10 +244,10 @@
 .endm
 
 .macro SPOP_FETCH_STAGE_0_I reg
-        add     regSP, regSP, #1
-        bic     regSP, #0xFF00
+        mov     \reg,#1
+        uadd8    regSP,regSP,\reg
         FETCH_NEXT_STAGE_0_I
-        ldrb    \reg, [regSP,#0x0100]!
+        ldrsb    \reg, [regSP]
         // The original code was just this:
         // ldrb    \reg, [regSP, #1]!
 .endm
@@ -287,16 +287,29 @@
         orr     r0,r0,r5,LSL #8
 .endm
 
-.macro LOAD_BYTE
+.macro LOAD_BYTE sign=SIGN reg=r1
 #if defined(USE_MEMORY_POINTER)
-        ldrb    r1, [ r0, memry]
+        ldrb    \reg, [ r0, memry]
 #else
-        ldrb    r1, [ r0]
+.if \sign==NOSIGN
+        ldrb    \reg, [ r0]
+.else
+        ldrsb   \reg, [ r0]
+.endif        
 #endif        
-.endm        
+.endm   
 
-.macro LOAD_BYTE_FETCH_NEXT_STAGE_0
-        LOAD_BYTE
+.macro LOAD_BYTE_SIGN reg=r1
+#if defined(USE_MEMORY_POINTER)
+        ldrsb    \reg, [ r0, memry]
+#else
+        ldrsb    \reg, [ r0]
+#endif        
+.endm   
+     
+
+.macro LOAD_BYTE_FETCH_NEXT_STAGE_0 sign=SIGN reg    
+        LOAD_BYTE \sign \reg
         FETCH_NEXT_STAGE_0
 .endm   
 
@@ -308,16 +321,16 @@
 #endif        
 .endm   
 
-.macro EA_ABSOLUTE_LOAD nocarry=carry
+.macro EA_ABSOLUTE_LOAD nocarry=carry sign=SIGN reg=r1
         orr     r0,r0,r5,LSL #8
         FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE \nocarry
+        LOAD_ABSOLUTE \nocarry \sign \reg
 .endm
 
-.macro EA_ABSOLUTE_LOAD_NOCHECK nocarry=carry
+.macro EA_ABSOLUTE_LOAD_NOCHECK nocarry=carry sign=SIGN reg=r1
         orr     r0,r0,r5,LSL #8
         FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE_NOCHECK \nocarry
+        LOAD_ABSOLUTE_NOCHECK \sign \reg
 .endm
 
 .macro WRAP_MEMORY
@@ -332,16 +345,16 @@
         WRAP_MEMORY
 .endm
 
-.macro EA_ABSOLUTE_INDEXED_LOAD reg nocarry
+.macro EA_ABSOLUTE_INDEXED_LOAD reg nocarry=carry sign=SIGN dest=r1
         EA_ABSOLUTE_INDEXED \reg     
         FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE \nocarry
+        LOAD_ABSOLUTE \nocarry \sign \dest
 .endm
 
-.macro EA_ABSOLUTE_INDEXED_LOAD_NOCHECK reg nocarry
+.macro EA_ABSOLUTE_INDEXED_LOAD_NOCHECK reg nocarry=carry sign=SIGN dest=r1 
         EA_ABSOLUTE_INDEXED \reg     
         FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE_NOCHECK \nocarry
+        LOAD_ABSOLUTE_NOCHECK \sign \dest
 .endm
 
 .macro EA_INDIRECT reg=r0
@@ -352,46 +365,46 @@
 #endif        
 .endm
 
-.macro EA_INDIRECT_LOAD_FETCH_NEXT_STAGE_0
+.macro EA_INDIRECT_LOAD_FETCH_NEXT_STAGE_0 reg=r1
         EA_INDIRECT
         FETCH_NEXT_STAGE_0
-        LOAD_BYTE
+        LOAD_BYTE SIGN \reg
 .endm
 
-.macro EA_INDIRECT_Y_LOAD_FETCH_NEXT_STAGE_0
+.macro EA_INDIRECT_Y_LOAD_FETCH_NEXT_STAGE_0 reg=r1
         EA_INDIRECT
 #if defined(CLEAR_MEMORY_OVERFLOW)        
         EA_INDIRECT_Y
         FETCH_NEXT_STAGE_0
-        LOAD_BYTE
+        LOAD_BYTE_SIGN \reg
 #else      
  #if defined(USE_MEMORY_POINTER)  
         add     r1, memry, regY, lsr #24
         FETCH_NEXT_STAGE_0
-        ldrb    r1, [ r0, r1]
+        ldrsb    \reg, [ r0, r1]
  #else
         lsr     r2, regY, #24
         FETCH_NEXT_STAGE_0
-        ldrb    r1, [ r0, r2]
+        ldrsb    \reg, [ r0, r2]
  #endif 
 #endif 
 .endm
 
-.macro EA_INDIRECT_X
+.macro EA_INDIRECT_X sign=SIGN
         add     r0, r0, regX, lsr #24
         and     r0, r0, #0xff
         EA_INDIRECT
-        LOAD_BYTE
+        LOAD_BYTE \sign
 .endm
 
-.macro EA_INDIRECT_X_FETCH_STAGE_0 str=no
+.macro EA_INDIRECT_X_FETCH_STAGE_0 str=no reg
         add     r0, r0, regX, lsr #24
         and     r0, r0, #0xff
         EA_INDIRECT
         FETCH_NEXT_STAGE_0
 .if \str==no        
-        LOAD_BYTE
-.endif        
+        LOAD_BYTE_SIGN \reg
+.endif    
 .endm
 
 .macro EA_INDIRECT_Y
@@ -417,26 +430,30 @@
 #endif        
 .endm
 
-.macro  LOAD_ZPX reg=regX fetch=FETCH    
+.macro  LOAD_ZPX reg=regX fetch=FETCH sign=SIGN dest=r1  
 #if defined(USE_MEMORY_POINTER)
         add     r0, \reg, r0, lsl #24
 .if \fetch==FETCH        
         FETCH_NEXT_STAGE_0
 .endif  
-        ldrb    r1, [memry, r0, lsr #24]
+        ldrb    \dest, [memry, r0, lsr #24]
 #else
         add     r2,r0, \reg, lsr #24
         bic     r2,r2,#0x100
 .if \fetch==FETCH        
         FETCH_NEXT_STAGE_0
 .endif  
-        ldrb    r1, [r2]
+.if \sign==SIGN
+        ldrsb    \dest, [r2]
+.else
+        ldrb    \dest, [r2]
+.endif        
 #endif        
 .endm
 
 // Macros for reading/writing memory
 
-.macro LOAD_ABSOLUTE nocarry=carry // r0 holds the absolute address
+.macro LOAD_ABSOLUTE nocarry=carry sign=SIGN reg=r1 // r0 holds the absolute address
 .if \nocarry==carry
         lsr     lr, r0, #5
         teq     tregs, lr          // tregs holds the constant 0xFEE0 >> 5
@@ -444,22 +461,38 @@
         cmp     tregs, r0, lsr #5  // tregs holds the constant 0xFEE0 >> 5   
 .endif       
 #if defined(USE_MEMORY_POINTER) 
-        ldrneb  r1, [r0, memry]    // normal memory read
+        ldrneb  \reg, [r0, memry]    // normal memory read
 #else
-        ldrneb  r1, [r0]    // normal memory read
+.if \sign==SIGN
+        ldrnesb  \reg, [r0]    // normal memory read 
+.else
+        ldrneb  \reg, [r0]    // normal memory read
+.endif
 #endif        
+.if \sign==SIGN
+.if \reg==r1
+        bleq    tube_load_handler_sign  // tube memory access
+.else
+        bleq    tube_load_handler_regA  // tube memory access
+.endif        
+.else
         bleq    tube_load_handler  // tube memory access
+.endif
 .endm
 
-.macro LOAD_ABSOLUTE_NOCHECK nocarry=carry // r0 holds the absolute address
+.macro LOAD_ABSOLUTE_NOCHECK sign=SIGN  reg=r1// r0 holds the absolute address
+.if \sign==SIGN
+        ldrsb  \reg, [r0]    // normal memory read
+.else
 #if defined(USE_MEMORY_POINTER) 
-        ldrb  r1, [r0, memry]    // normal memory read
+        ldrb  \reg, [r0, memry]    // normal memory read
 #else
-        ldrb  r1, [r0]    // normal memory read
+        ldrb  \reg, [r0]    // normal memory read
 #endif        
+.endif
 .endm
 
-.macro STORE_ABSOLUTE  flags=flags            // r0 holds the absolute address
+.macro STORE_ABSOLUTE  flags=flags  reg=r1          // r0 holds the absolute address
 .if \flags==flags
         mrs     r2, CPSR           // preserve the 6502 flags
         cmp     tregs, r0, lsr #5  // tregs holds the constant 0xFEE0 >> 5 
@@ -474,12 +507,15 @@
         cmp     tregs, r0, lsr #5  // tregs holds the constant 0xFEE0 >> 5   
 .endif 
 #if defined(USE_MEMORY_POINTER) 
-        strneb  r1, [r0, memry]       // normal memory write
+        strneb  \reg, [r0, memry]       // normal memory write
 #else
-        strneb  r1, [r0]       // normal memory write
+        strneb  \reg, [r0]       // normal memory write
 #endif        
+.if \reg==r1
         bleq    tube_store_handler    // tube memory access
-
+.else
+        bleq    tube_store_handler_regA
+.endif       
 .if \flags==flags
         msr     CPSR_flg, r2           // restore 6502 flags, including ARM 
 .endif
@@ -573,15 +609,14 @@
 
 .macro  BIT
         FETCH_NEXT_STAGE_01
-        lsl     r2, r1, #24
-        tst     r2, regA
+        and     r2, r1, #128
+        tst     r1, regA
         and     r1, r1, #0x40
         bic     flags, flags, #0x40
-        orr     flags, flags, r1
-        and     r2, r2, #N_FLAG
+        orr     flags, flags, r1       
         mrs     r1, CPSR
         bic     r1, r1, #N_FLAG
-        orr     r1, r1, r2
+        orr     r1, r1, r2,LSL #24
         msr     CPSR_flg, r1
         FETCH_NEXT_STAGE_2
 .endm
@@ -596,6 +631,7 @@
         orrcs   \reg, \reg, memry         // memry has been reused and is 0xFFFFFF00 
 #endif
         FETCH_NEXT_STAGE_0
+        lsl     regA,regA,#24  
 .if \reg==r0        
         bne     decimal_mode_adc_r0
 .else
@@ -611,7 +647,9 @@
         adcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b
 .endif          
+       
         orrvs   flags, #0x40
+        SXTB    regA,regA,ROR #24  
         FETCH_NEXT_STAGE_2
 .endm
 
@@ -625,6 +663,8 @@
         orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
 #endif
         FETCH_NEXT_STAGE_0
+        LSL     regA,regA,#24
+        
 .if \reg==r0         
         bne     decimal_mode_sbc_r0
 .else
@@ -642,6 +682,7 @@
 
 .endif
         orrvs   flags, #0x40
+        SXTB    regA,regA,ROR #24  
         FETCH_NEXT_STAGE_2
 .endm
 
@@ -697,7 +738,6 @@
 
 .macro LOGICAL_FETCH12 logic
         FETCH_NEXT_STAGE_1
-        lsl     r1, r1, #24
         \logic  regA, regA, r1
         FETCH_NEXT_STAGE_2
 .endm   
@@ -706,13 +746,12 @@
 .macro LOGICAL_FETCH012 logic reg=r1
 .if \reg!=r0
         FETCH_NEXT_STAGE_01
-        lsl     r1, r1, #24
         \logic  regA, regA, r1
         FETCH_NEXT_STAGE_2
 .else
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
-        lsl     r1, \reg, #24
+        sxtb     r1, \reg
         FETCH_NEXT_STAGE_1b_OO
         \logic  regA, regA, r1
         FETCH_NEXT_STAGE_2
@@ -736,12 +775,40 @@
 .endif
 .endm
 
+.macro FLAGS_SIGN dest=r1 reg=r1
+.if \reg==r0 
+        sxtb     \dest, \reg
+        FETCH_NEXT_STAGE_1
+        teq     \dest, #0
+        FETCH_NEXT_STAGE_2 
+.else
+        FETCH_NEXT_STAGE_1
+        sxtb     \dest, \reg
+        teq     \dest, #0
+        FETCH_NEXT_STAGE_2 
+.endif
+.endm
+
 .macro FLAGS_OO dest=r1 reg=r1
        FETCH_NEXT_STAGE_1b_OO
        lsl     \dest, \reg, #24
        teq     \dest, #0
        FETCH_NEXT_STAGE_2
 .endm
+
+.macro FLAGS_SIGN_OO dest=r1 reg=r1
+       FETCH_NEXT_STAGE_1b_OO
+       sxtb     \dest, \reg
+       teq     \dest, #0
+       FETCH_NEXT_STAGE_2
+.endm
+
+.macro FLAGS_QUICK dest=r1 
+       FETCH_NEXT_STAGE_1
+       teq     \dest, #0
+       FETCH_NEXT_STAGE_2 
+.endm      
+
 
 .macro  PLP
 
@@ -1563,6 +1630,7 @@ decimal_mode_adc:
         FETCH_NEXT_STAGE_1
         and     regA, regA, #0xF0<<24
         orr     regA, regA, r2, lsl #24
+        sxtb    regA, regA, ror #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2
 
@@ -1577,6 +1645,7 @@ decimal_mode_sbc:
         subcc   regA, regA,#0x60<<24
         teq     r2,#0
         submi   regA, regA, #0x6<<24
+        sxtb    regA, regA, ror #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2
 
@@ -1597,6 +1666,7 @@ decimal_mode_adc_r0:
         FETCH_NEXT_STAGE_1
         and     regA, regA, #0xF0<<24
         orr     regA, regA, r2, lsl #24
+        sxtb    regA, regA, ror #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2
 
@@ -1611,6 +1681,7 @@ decimal_mode_sbc_r0:
         FETCH_NEXT_STAGE_1b
         teq     r2,#0
         submi   regA, regA, #0x6<<24
+        sxtb    regA, regA, ror #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2
 
@@ -1622,11 +1693,33 @@ tube_load_handler:
         msr     CPSR_flg, r5
         pop     {r0,r2,r3,r5,r12,pc}
 
+tube_load_handler_sign:
+        push    {r0,r2,r3,r5,r12,lr} 
+        mrs     r5, CPSR               // Save 6502 flags
+        bl      tube_parasite_read
+        sxtb    r1,r0
+        msr     CPSR_flg, r5
+        pop     {r0,r2,r3,r5,r12,pc}  
+        
+tube_load_handler_regA:
+        push    {r0,r2,r3,r5,r12,lr} 
+        mrs     r5, CPSR               // Save 6502 flags
+        bl      tube_parasite_read
+        sxtb    regA,r0
+        msr     CPSR_flg, r5
+        pop     {r0,r2,r3,r5,r12,pc}          
+        
 tube_store_handler:
         push    {r1-r3,r12, lr} 
         bl      tube_parasite_write_banksel
         pop     {r1-r3,r12, pc}
-
+        
+tube_store_handler_regA:
+        mov     r1, regA 
+        push    {r1-r3,r12, lr}
+        bl      tube_parasite_write_banksel
+        pop     {r1-r3,r12, pc}
+        
 handle_rti:
 #if defined(USE_MEMORY_POINTER)
         ldrh    r1, [regSP, #1]  
@@ -1863,11 +1956,11 @@ opcode_01:
 opcode_04:
         LOAD_BYTE_FETCH_NEXT_STAGE_0
         mrs     r2, CPSR
-        tst     r1, regA, lsr #24
+        tst     r1, regA
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
         msr     CPSR_flg, r2
-        orr     r1, r1, regA, lsr #24
+        orr     r1, r1, regA
         STORE_BYTE
         FETCH_NEXT_STAGE_12
 
@@ -1906,18 +1999,20 @@ opcode_09:
 
 // Opcode 0A - ASL A
 opcode_0A:
-        FETCH_NEXT_STAGE_01_I
-        adds    regA, regA, regA
+        FETCH_NEXT_STAGE_0_I
+        lsls    regA, regA, #25
+        FETCH_NEXT_STAGE_1_I        
+        sxtb    regA, regA , ror #24
         FETCH_NEXT_STAGE_2
 
 // Opcode 0C - TSB $0000
 opcode_0C:
         mrs     r2, CPSR 
         EA_ABSOLUTE_LOAD_NOCHECK nocarry
-        tst     r1, regA, lsr #24
+        tst     r1, regA
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
-        orr     r1, r1, regA, lsr #24
+        orr     r1, r1, regA
         STORE_ABSOLUTE_NOCHECK nocarry
         msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_012
@@ -1958,11 +2053,11 @@ opcode_12:
 opcode_14:
         LOAD_BYTE_FETCH_NEXT_STAGE_0
         mrs     r2, CPSR
-        tst     r1, regA, lsr #24
+        tst     r1, regA
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
         msr     CPSR_flg, r2
-        bic     r1, r1, regA, lsr #24
+        bic     r1, r1, regA
         STORE_BYTE
         FETCH_NEXT_STAGE_12
 
@@ -2001,7 +2096,8 @@ opcode_19:
 // Opcode 1A - INC A
 opcode_1A:
         FETCH_NEXT_STAGE_01_I
-        add     regA, regA, #0x1000000
+        add     regA, regA, #0x1
+        sxtb    regA, regA
         teq     regA, #0
         FETCH_NEXT_STAGE_2
 
@@ -2009,10 +2105,10 @@ opcode_1A:
 opcode_1C:
         mrs     r2, CPSR  
         EA_ABSOLUTE_LOAD_NOCHECK nocarry
-        tst     r1, regA, lsr #24
+        tst     r1, regA
         bic     r2, r2, #Z_FLAG
         orreq   r2, r2, #Z_FLAG
-        bic     r1, r1, regA, lsr #24
+        bic     r1, r1, regA
         STORE_ABSOLUTE_NOCHECK nocarry
         msr     CPSR_flg, r2  
         FETCH_NEXT_STAGE_012
@@ -2044,11 +2140,11 @@ opcode_20:
         orr     regPC,r0,r5,LSL #8   
         ldrb    r5, [regPC, memry ]! // modified FETCH_NEXT_3B_STAGE_0
      //   add     regPC, regPC ,#1
-     strh    lr, [regSP,#1]
+        strh    lr, [regSP,#1]
 #else
         orr     r0,r0,r5,LSL #8 
         sub     regSP, regSP, #2
-        mov     r1,r1          // ****** NOP in stall ???? ******
+       // mov     r1,r1          // ****** NOP in stall ???? ******
         ldrb    r5, [r0]//,r5,LSL #8]!//,#1 // modified FETCH_NEXT_3B_STAGE_0 
         strh    regPC, [regSP,#1]
         mov     regPC,r0  
@@ -2101,9 +2197,11 @@ opcode_29:
 
 // Opcode 2A - ROL A
 opcode_2A:
-        FETCH_NEXT_STAGE_01_I
-        orrcs   regA, regA, #0x800000
-        adds    regA, regA, regA
+        FETCH_NEXT_STAGE_0_I
+        adc     regA, regA, regA
+        FETCH_NEXT_STAGE_1_I
+        lsls    r1, regA, #24
+        sxtb    regA, regA
         FETCH_NEXT_STAGE_2
 
 // Opcode 2C - BIT $0000
@@ -2183,8 +2281,10 @@ opcode_39:
 
 // Opcode 3A - DEC A
 opcode_3A:
-        FETCH_NEXT_STAGE_01_I
-        sub     regA, regA, #0x1000000
+        sub     regA, regA, #1
+        FETCH_NEXT_STAGE_0_I
+        sxtb    regA, regA
+        FETCH_NEXT_STAGE_1_I
         teq     regA, #0
         FETCH_NEXT_STAGE_2
 
@@ -2228,7 +2328,7 @@ opcode_45:
 
 // Opcode 46 - LSR $00
 opcode_46:
-        LOAD_BYTE_FETCH_NEXT_STAGE_0
+        LOAD_BYTE_FETCH_NEXT_STAGE_0 NOSIGN
         FETCH_NEXT_STAGE_1a_OO
         lsrs    r1, r1, #1
         STORE_BYTE
@@ -2242,8 +2342,7 @@ opcode_47:
 // Opcode 48 - PHA
 opcode_48:
         FETCH_NEXT_STAGE_01_I
-        lsr     r1, regA, #24
-        SPUSH   r1
+        SPUSH   regA
         FETCH_NEXT_STAGE_2
 
 // Opcode 49 - EOR #$00
@@ -2252,10 +2351,10 @@ opcode_49:
 
 // Opcode 4A - LSR A
 opcode_4A:
-        lsrs    r1, regA, #25
-        FETCH_NEXT_STAGE_01_I
-        lsl     regA, r1, #24
-        teq     regA, #0
+        FETCH_NEXT_STAGE_0_I
+        uxtb    regA, regA
+        FETCH_NEXT_STAGE_1_I
+        lsrs    regA, regA, #1
         FETCH_NEXT_STAGE_2
 
 // Opcode 4C - JMP $0000
@@ -2276,11 +2375,10 @@ opcode_4D:
 
 // Opcode 4E - LSR $0000
 opcode_4E:
-        EA_ABSOLUTE_LOAD_NOCHECK nocarry
+        EA_ABSOLUTE_LOAD_NOCHECK nocarry NOSIGN
         lsrs    r1, r1, #1
         STORE_ABSOLUTE_NOCHECK carry
-        FETCH_NEXT_STAGE_0
-        FLAGS
+        FETCH_NEXT_STAGE_012
 
 // Opcode 4F - BBR4
 opcode_4F:
@@ -2309,7 +2407,7 @@ opcode_55:
 
 // Opcode 56 - LSR $00,X
 opcode_56:
-        LOAD_ZPX regX NOFETCH
+        LOAD_ZPX regX NOFETCH NOSIGN
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         lsrs    r1, r1, #1
@@ -2349,11 +2447,10 @@ opcode_5D:
 
 // Opcode 5E - LSR $0000,X
 opcode_5E:
-        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry NOSIGN
         lsrs    r1, r1, #1
         STORE_ABSOLUTE_NOCHECK   //carry
         FETCH_NEXT_STAGE_012
-        //FLAGS
 
 // Opcode 5F - BBR5
 opcode_5F:
@@ -2377,7 +2474,7 @@ opcode_60:
 
 // Opcode 61 - ADC ($00,X)
 opcode_61:
-        EA_INDIRECT_X
+        EA_INDIRECT_X NOSIGN
         ADC_macro     r1
 
 
@@ -2389,12 +2486,12 @@ opcode_64:
 
 // Opcode 65 - ADC_macro $00
 opcode_65:
-        LOAD_BYTE
+        LOAD_BYTE NOSIGN
         ADC_macro     r1
 
 // Opcode 66 - ROR $00
 opcode_66:
-        LOAD_BYTE_FETCH_NEXT_STAGE_0
+        LOAD_BYTE_FETCH_NEXT_STAGE_0 NOSIGN
         FETCH_NEXT_STAGE_1a_OO
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
@@ -2408,9 +2505,8 @@ opcode_67:
 
 // Opcode 68 - PLA
 opcode_68:
-        SPOP_FETCH_STAGE_0_I    regA
+        SPOP_FETCH_STAGE_0_I regA
         FETCH_NEXT_STAGE_1_I
-        lsl     regA, regA, #24
         teq     regA, #0
         FETCH_NEXT_STAGE_2
 
@@ -2420,21 +2516,13 @@ opcode_69:
 
 // Opcode 6A - ROR A
 opcode_6A:
-        orrcs   regA, regA, #1
+        bic     regA, regA, #256
+        orrcs   regA, regA, #256
         FETCH_NEXT_STAGE_0_I
-        rors    r1, regA, #25
+        rrxs    regA, regA
         FETCH_NEXT_STAGE_1_I
-        lsl     regA, r1, #24
-        teq     regA, #0       
+        sxtb    regA, regA   
         FETCH_NEXT_STAGE_2
-        
-        // looks a possible improvement , but regA LSB can become set from another instruction
-        //tst     regA, #1<<24
-        //orrne   regA, regA ,#1
-        //FETCH_NEXT_STAGE_0_I
-        //rrxs     regA, regA
-       // FETCH_NEXT_STAGE_1_I
-       // FETCH_NEXT_STAGE_2
 
 // Opcode 6C - JMP ($0000) 
 opcode_6C:
@@ -2449,12 +2537,12 @@ opcode_6C:
 
 // Opcode 6D - ADC_macro $0000
 opcode_6D:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD carry NOSIGN
         ADC_macro     r1
 
 // Opcode 6E - ROR $0000
 opcode_6E:
-        EA_ABSOLUTE_LOAD_NOCHECK
+        EA_ABSOLUTE_LOAD_NOCHECK carry NOSIGN
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
         STORE_ABSOLUTE_NOCHECK 
@@ -2474,13 +2562,13 @@ opcode_70:
 opcode_71:
         EA_INDIRECT
         EA_INDIRECT_Y
-        LOAD_BYTE
+        LOAD_BYTE NOSIGN
         ADC_macro     r1
 
 // Opcode 72 - ADC_macro ($00)
 opcode_72:
         EA_INDIRECT
-        LOAD_BYTE
+        LOAD_BYTE NOSIGN
         ADC_macro     r1
 
 // Opcode 74 - STZ $00,X
@@ -2492,12 +2580,12 @@ opcode_74:
 
 // Opcode 75 - ADC_macro $00,X
 opcode_75:
-        LOAD_ZPX regX NOFETCH
+        LOAD_ZPX regX NOFETCH SIGN
         ADC_macro     r1 
 
 // Opcode 76 - ROR $00,X
 opcode_76:
-        LOAD_ZPX regX NOFETCH
+        LOAD_ZPX regX NOFETCH NOSIGN
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         orrcs   r1, r1, #0x100
@@ -2518,7 +2606,7 @@ opcode_78:
 
 // Opcode 79 - ADC_macro $0000,Y
 opcode_79:
-        EA_ABSOLUTE_INDEXED_LOAD regY
+        EA_ABSOLUTE_INDEXED_LOAD regY carry NOSIGN
         ADC_macro     r1
 
 // Opcode 7A - PLY
@@ -2542,12 +2630,12 @@ opcode_7C:
 
 // Opcode 7D - ADC_macro $0000,X
 opcode_7D:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD regX carry NOSIGN
         ADC_macro      r1
 
 // Opcode 7E - ROR $0000,X
 opcode_7E:
-        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX
+        EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX carry NOSIGN
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
         STORE_ABSOLUTE_NOCHECK
@@ -2565,8 +2653,7 @@ opcode_80:
 opcode_81:
         EA_INDIRECT_X_FETCH_STAGE_0 store
         FETCH_NEXT_STAGE_1a_OO
-        lsr     r1, regA, #24
-        STORE_BYTE
+        STORE_BYTE    regA
         FETCH_NEXT_STAGE_1b_OO
         FETCH_NEXT_STAGE_2
 
@@ -2580,8 +2667,7 @@ opcode_84:
 // Opcode 85 - STA $00
 opcode_85:
         FETCH_NEXT_STAGE_0
-        lsr     r1, regA, #24
-        STORE_BYTE
+        STORE_BYTE    regA
         FETCH_NEXT_STAGE_12
 
 // Opcode 86 - STX $00
@@ -2605,8 +2691,9 @@ opcode_88:
 // Opcode 89 - BIT #$00
 opcode_89:
         FETCH_NEXT_STAGE_0
+        sxtb    r0,r0
         mrs     r1, CPSR
-        tst     regA, r0, LSL #24
+        tst     regA, r0
         bic     r1, r1, #Z_FLAG
         orreq   r1, r1, #Z_FLAG
         msr     CPSR_flg, r1
@@ -2615,7 +2702,8 @@ opcode_89:
 // Opcode 8A - TXA
 opcode_8A:
         FETCH_NEXT_STAGE_01_I
-        movs    regA, regX
+        sxtb    regA, regX, ror #24
+        TEQ     regA, #0
         FETCH_NEXT_STAGE_2
 
 // Opcode 8C - STY $0000
@@ -2630,8 +2718,7 @@ opcode_8C:
 opcode_8D:
         EA_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
-        lsr     r1, regA, #24
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE flags regA
         FETCH_NEXT_STAGE_012
 
 // Opcode 8E - STX $0000
@@ -2656,8 +2743,7 @@ opcode_91:
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         EA_INDIRECT_Y
-        lsr     r1, regA, #24
-        STORE_BYTE
+        STORE_BYTE regA
         FETCH_NEXT_STAGE_1b_OO
         FETCH_NEXT_STAGE_2
 
@@ -2666,8 +2752,7 @@ opcode_92:
         EA_INDIRECT
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
-        lsr     r1, regA, #24
-        STORE_BYTE
+        STORE_BYTE regA
         FETCH_NEXT_STAGE_1b_OO
         FETCH_NEXT_STAGE_2
 
@@ -2683,8 +2768,7 @@ opcode_94:
 opcode_95:
         FETCH_NEXT_STAGE_0
         SETUP_ZPX regX //add     r0, regX, r0, lsl #24
-        lsr     r1, regA, #24
-        STORE_ZPX
+        STORE_ZPX regA
         FETCH_NEXT_STAGE_12
 
 // Opcode 96 - STX $00,Y
@@ -2702,15 +2786,15 @@ opcode_97:
 // Opcode 98 - TYA
 opcode_98:
         FETCH_NEXT_STAGE_01_I
-        movs    regA, regY
+        sxtb    regA, regY,ror #24
+        TEQ     regA, #0
         FETCH_NEXT_STAGE_2
 
 // Opcode 99 - STA $0000,Y
 opcode_99:
         EA_ABSOLUTE_INDEXED regY
         FETCH_NEXT_3B_STAGE_0
-        lsr     r1, regA, #24
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE flags regA
         FETCH_NEXT_STAGE_012
 
 // Opcode 9A - TXS
@@ -2735,8 +2819,7 @@ opcode_9C:
 opcode_9D:
         EA_ABSOLUTE_INDEXED regX
         FETCH_NEXT_3B_STAGE_0
-        lsr     r1, regA, #24
-        STORE_ABSOLUTE
+        STORE_ABSOLUTE flags regA
         FETCH_NEXT_STAGE_012
 
 // Opcode 9E - STZ $0000,X
@@ -2757,8 +2840,8 @@ opcode_A0:
 
 // Opcode A1 - LDA ($00,X)
 opcode_A1:
-        EA_INDIRECT_X_FETCH_STAGE_0
-        FLAGS   regA
+        EA_INDIRECT_X_FETCH_STAGE_0 no regA
+        FLAGS_QUICK   regA
 
 // Opcode A2 - LDX #$00
 opcode_A2:
@@ -2772,8 +2855,8 @@ opcode_A4:
 
 // Opcode A5 - LDA $00
 opcode_A5:
-        LOAD_BYTE_FETCH_NEXT_STAGE_0
-        FLAGS   regA
+        LOAD_BYTE_FETCH_NEXT_STAGE_0 no regA
+        FLAGS_QUICK   regA
 
 // Opcode A6 - LDX $00
 opcode_A6:
@@ -2787,18 +2870,20 @@ opcode_A7:
 // Opcode A8 - TAY
 opcode_A8:
         FETCH_NEXT_STAGE_01_I
-        movs    regY, regA
+        lsl   regY, regA, #24
+        TEQ   regA, #0
         FETCH_NEXT_STAGE_2
 
 // Opcode A9 - LDA #$00
 opcode_A9:
         FETCH_NEXT_STAGE_0
-        FLAGS regA r0
+        FLAGS_SIGN regA r0
 
 // Opcode AA - TAX
 opcode_AA:
         FETCH_NEXT_STAGE_01_I
-        movs    regX, regA
+        lsl    regX, regA, #24
+        TEQ    regA, #0
         FETCH_NEXT_STAGE_2
 
 // Opcode AC - LDY $0000
@@ -2809,9 +2894,9 @@ opcode_AC:
 
 // Opcode AD - LDA $0000
 opcode_AD:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD carry SIGN regA
         FETCH_NEXT_STAGE_0
-        FLAGS   regA
+        FLAGS_QUICK   regA
 
 // Opcode AE - LDX $0000
 opcode_AE:
@@ -2829,13 +2914,13 @@ opcode_B0:
 
 // Opcode B1 - LDA ($00),Y
 opcode_B1:
-        EA_INDIRECT_Y_LOAD_FETCH_NEXT_STAGE_0
-        FLAGS regA
+        EA_INDIRECT_Y_LOAD_FETCH_NEXT_STAGE_0 regA
+        FLAGS_QUICK regA
 
 // Opcode B2 - LDA ($00)
 opcode_B2:
-        EA_INDIRECT_LOAD_FETCH_NEXT_STAGE_0
-        FLAGS regA
+        EA_INDIRECT_LOAD_FETCH_NEXT_STAGE_0 regA
+        FLAGS_QUICK regA
 
 // Opcode B4 - LDY $00,X
 opcode_B4:   
@@ -2844,8 +2929,8 @@ opcode_B4:
 
 // Opcode B5 - LDA $00,X
 opcode_B5:
-        LOAD_ZPX
-        FLAGS   regA
+        LOAD_ZPX regX FETCH SIGN regA
+        FLAGS_QUICK   regA
 
 // Opcode B6 - LDX $00,Y
 opcode_B6:
@@ -2864,9 +2949,9 @@ opcode_B8:
 
 // Opcode B9 - LDA $0000,Y
 opcode_B9:
-        EA_ABSOLUTE_INDEXED_LOAD regY
+        EA_ABSOLUTE_INDEXED_LOAD regY carry SIGN regA
         FETCH_NEXT_STAGE_0
-        FLAGS    regA
+        FLAGS_QUICK    regA
 
 // Opcode BA - TSX
 opcode_BA:
@@ -2883,9 +2968,9 @@ opcode_BC:
 
 // Opcode BD - LDA $0000,X
 opcode_BD:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD regX carry SIGN regA
         FETCH_NEXT_STAGE_0
-        FLAGS   regA
+        FLAGS_QUICK   regA
 
 // Opcode BE - LDX $0000,Y
 opcode_BE:
@@ -2907,7 +2992,8 @@ opcode_C0:
 opcode_C1:
         EA_INDIRECT_X_FETCH_STAGE_0
         FETCH_NEXT_STAGE_1
-        cmp     regA, r1, lsl #24
+        lsl     r2, regA, #24
+        cmp     r2, r1 , LSL #24
         FETCH_NEXT_STAGE_2
 
 // Opcode C4 - CPY $00
@@ -2921,7 +3007,8 @@ opcode_C4:
 opcode_C5:
         LOAD_BYTE
         FETCH_NEXT_STAGE_01
-        cmp     regA, r1, lsl #24
+        lsl     r2, regA, #24
+        cmp     r2, r1, LSL #24
         FETCH_NEXT_STAGE_2
 
 // Opcode C6 - DEC $00
@@ -2930,7 +3017,7 @@ opcode_C6:
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
         STORE_BYTE
-        FLAGS_OO
+        FLAGS_SIGN_OO
 
 // Opcode C7 - SMB4 $00
 opcode_C7:
@@ -2946,7 +3033,8 @@ opcode_C8:
 // Opcode C9 - CMP #$00
 opcode_C9:
         FETCH_NEXT_STAGE_0
-        cmp     regA, r0, lsl #24
+        LSL     r1, regA, #24
+        cmp     r1, r0, LSL #24
         FETCH_NEXT_STAGE_12
 
 // Opcode CA - DEX
@@ -2973,7 +3061,8 @@ opcode_CC:
 opcode_CD:
         EA_ABSOLUTE_LOAD nocarry
         FETCH_NEXT_STAGE_01
-        cmp     regA, r1, lsl #24
+        lsl     r2 , regA, #24
+        cmp     r2, r1, LSL # 24
         FETCH_NEXT_STAGE_2
 
 // Opcode CE - DEC $0000
@@ -2982,7 +3071,7 @@ opcode_CE:
         sub     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
-        FLAGS
+        FLAGS_SIGN
 
 // Opcode CF - BBS4
 opcode_CF:
@@ -2996,21 +3085,24 @@ opcode_D0:
 opcode_D1:
         EA_INDIRECT_Y_LOAD_FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1
-        cmp     regA, r1, lsl #24
+        lsl     r2 , regA, #24
+        cmp     r2, r1, lsl #24
         FETCH_NEXT_STAGE_2
 
 // Opcode D2 - CMP ($00)
 opcode_D2:
         EA_INDIRECT_LOAD_FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1
-        cmp     regA, r1, lsl #24
+        lsl     r2, regA, #24
+        cmp     r2, r1, lsl #24
         FETCH_NEXT_STAGE_2
 
 // Opcode D5 - CMP $00,X
 opcode_D5:
         LOAD_ZPX
         FETCH_NEXT_STAGE_1
-        cmp     regA, r1, lsl #24
+        lsl     r2, regA, #24
+        cmp     r2, r1, lsl #24
         FETCH_NEXT_STAGE_2
 
 // Opcode D6 - DEC $00,X
@@ -3020,7 +3112,7 @@ opcode_D6:
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
         STORE_ZPX
-        FLAGS_OO
+        FLAGS_SIGN_OO
 
 // Opcode D7 - SMB5 $00
 opcode_D7:
@@ -3036,7 +3128,8 @@ opcode_D8:
 opcode_D9:
         EA_ABSOLUTE_INDEXED_LOAD regY nocarry
         FETCH_NEXT_STAGE_01
-        cmp     regA, r1, lsl #24
+        lsl     r2, regA, #24
+        cmp     r2, r1, lsl #24
         FETCH_NEXT_STAGE_2
 
 // Opcode DA - PHX
@@ -3056,7 +3149,8 @@ opcode_DB:
 opcode_DD:
         EA_ABSOLUTE_INDEXED_LOAD regX nocarry
         FETCH_NEXT_STAGE_01
-        cmp     regA, r1, lsl #24
+        lsl     r2, regA, #24
+        cmp     r2, r1, lsl #24
         FETCH_NEXT_STAGE_2
 
 // Opcode DE - DEX $0000,X
@@ -3065,7 +3159,7 @@ opcode_DE:
         sub     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
-        FLAGS
+        FLAGS_SIGN
 
 // Opcode DF - BBS5
 opcode_DF:
@@ -3079,7 +3173,7 @@ opcode_E0:
 
 // Opcode E1 - SBC_macro ($00,X)
 opcode_E1:
-        EA_INDIRECT_X
+        EA_INDIRECT_X NOSIGN
         SBC_macro     r1 
 
 // Opcode E4 - CPX $00
@@ -3091,7 +3185,7 @@ opcode_E4:
 
 // Opcode E5 - SBC_macro $00
 opcode_E5:
-        LOAD_BYTE
+        LOAD_BYTE NOSIGN
         SBC_macro     r1 
 
 // Opcode E6 - INC $00
@@ -3100,7 +3194,7 @@ opcode_E6:
         FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
         STORE_BYTE
-        FLAGS_OO
+        FLAGS_SIGN_OO
 
 // Opcode E7 - SMB6 $00
 opcode_E7:
@@ -3126,7 +3220,7 @@ opcode_EC:
 
 // Opcode ED - SBC_macro $0000
 opcode_ED:
-        EA_ABSOLUTE_LOAD
+        EA_ABSOLUTE_LOAD carry NOSIGN
         SBC_macro     r1 
 
 // Opcode EE - INC $0000
@@ -3135,7 +3229,7 @@ opcode_EE:
         add     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
-        FLAGS
+        FLAGS_SIGN
 
 // Opcode EF - BBS6
 opcode_EF:
@@ -3149,18 +3243,18 @@ opcode_F0:
 opcode_F1:
         EA_INDIRECT
         EA_INDIRECT_Y
-        LOAD_BYTE
+        LOAD_BYTE NOSIGN
         SBC_macro     r1 
 
 // Opcode F2 - SBC_macro ($00)
 opcode_F2:
         EA_INDIRECT
-        LOAD_BYTE
+        LOAD_BYTE NOSIGN
         SBC_macro     r1 
 
 // Opcode F5 - SBC_macro $00,X
 opcode_F5:
-        LOAD_ZPX regX NOFETCH
+        LOAD_ZPX regX NOFETCH NOSIGN
         SBC_macro     r1 
 
 // Opcode F6 - INC $00,X
@@ -3170,7 +3264,7 @@ opcode_F6:
         FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
         STORE_ZPX
-        FLAGS_OO
+        FLAGS_SIGN_OO
 
 // Opcode F7 - SMB7 $00
 opcode_F7:
@@ -3184,7 +3278,7 @@ opcode_F8:
 
 // Opcode F9 - SBC_macro $0000,Y
 opcode_F9:
-        EA_ABSOLUTE_INDEXED_LOAD regY
+        EA_ABSOLUTE_INDEXED_LOAD regY carry NOSIGN
         SBC_macro     r1 
 
 // Opcode FA - PLX
@@ -3197,7 +3291,7 @@ opcode_FA:
 
 // Opcode FD - SBC_macro $0000,X
 opcode_FD:
-        EA_ABSOLUTE_INDEXED_LOAD regX
+        EA_ABSOLUTE_INDEXED_LOAD regX carry NOSIGN
         SBC_macro     r1 
 
 // Opcode FE - INC $0000,X
@@ -3206,7 +3300,7 @@ opcode_FE:
         add     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
         FETCH_NEXT_STAGE_0
-        FLAGS
+        FLAGS_SIGN
 
 // Opcode FF - BBS7
 opcode_FF:
