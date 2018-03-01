@@ -56,23 +56,16 @@ static void copro_65tube_reset(unsigned char mpu_memory[]) {
    tube_wait_for_rst_release();
 }
 
-
 void copro_65tube_emulator() {
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
   // unsigned char *addr;
    //__attribute__ ((aligned (64*1024))) unsigned char mpu_memory[64*1024]; // allocate the amount of ram
    unsigned char * mpu_memory; // now the arm vectors have moved we can set the core memory to start at 0
-  
+   unsigned int i;
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register
-   
-   int i;
-   for (i = 0; i < 256; i++) {
-      Event_Handler_Dispatch_Table[i] = (uint32_t) (copro == COPRO_65TUBE_1 ? Event_Handler_Single_Core_Slow : Event_Handler);
-   }
 
-  
    mpu_memory = copro_65tube_poweron_reset();
    copro_65tube_reset(mpu_memory);
    
@@ -84,7 +77,7 @@ void copro_65tube_emulator() {
       copro_65tube_init_histogram();
 #endif
       tube_reset_performance_counters();
-      exec_65tube(mpu_memory);
+      exec_65tube(mpu_memory, (copro == COPRO_65TUBE_1) ?1:0);
 
       tube_log_performance_counters();
 #ifdef HISTOGRAM
@@ -99,4 +92,3 @@ void copro_65tube_emulator() {
      map_4k_page(i, i);
   
 }
-
