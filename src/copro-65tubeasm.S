@@ -110,7 +110,6 @@
 // one byte instructions
 
 .macro FETCH_NEXT_STAGE_0_I
-       // ldr     lr, [instt, r0, lsl #2]
         ADD     lr,instt,r0,LSL #5
 .endm
 
@@ -192,20 +191,14 @@
       ldrb    lr, [regPC]  //4 cycles
 .else      
 .if \sub==indirect
-      ldrb    lr, [r0,r5,LSL #8]!//, #1  //5 cycles
-      mov     regPC,r0 
+      ldrb    lr, [r0,r5,LSL #8]//, #1  //5 cycles
+      add     regPC,r0,r5,LSL #8
 .else
       ldrb    lr, [regPC, #1]!  //4 cycles
 .endif 
 .endif     
       FETCH_NEXT_STAGE_1  
       ADD     pc,instt,lr,LSL #5
-      //ldr     pc, [instt, lr, lsl #2] // 8 cycles total 12 cycles 4 words
-      
-//        FETCH_NEXT_3B_STAGE_0 // 4 cycles
-//        FETCH_NEXT_STAGE_0  //1
-//        FETCH_NEXT_STAGE_1  //2
-//        FETCH_NEXT_STAGE_2  //5       total 12 cycles 5 words
 .endm
 
 // Macro for fetching the next instruction and also checking for any pending IRQs
@@ -629,6 +622,12 @@
 .endm
 
 .macro ADC_macro reg=r1
+        ADC_STAGE1 \reg
+        ADC_STAGE2 \reg
+.endm
+
+        
+.macro ADC_STAGE1 reg  jump
         tst     flags, #8
         bic     flags, #0x40
 #if defined(USE_MEMORY_POINTER)
@@ -638,13 +637,20 @@
         orrcs   \reg, \reg, memry         // memry has been reused and is 0xFFFFFF00 
 #endif
         FETCH_NEXT_STAGE_0
-        lsl     regA,regA,#24  
+        lsl     regA,regA,#24
+.ifb  \jump
+        
+.else
+        beq     \jump 
+.endif        
 .if \reg==r0        
         bne     decimal_mode_adc_r0
 .else
         bne     decimal_mode_adc
 .endif 
-   
+.endm
+
+.macro ADC_STAGE2 reg   
 .if \reg==r0    
         FETCH_NEXT_STAGE_1a_OO
         adcs    regA, regA, \reg, ror #8
@@ -661,6 +667,11 @@
 .endm
 
 .macro SBC_macro reg=r1
+        SBC_STAGE1 \reg
+        SBC_STAGE2 \reg
+.endm
+
+.macro  SBC_STAGE1 reg jump  
         tst     flags, #8
         bic     flags, #0x40
 #if defined(USE_MEMORY_POINTER)
@@ -671,13 +682,21 @@
 #endif
         FETCH_NEXT_STAGE_0
         LSL     regA,regA,#24
+.ifb \jump
+
+.else
+        beq     \jump
+.endif        
         
 .if \reg==r0         
         bne     decimal_mode_sbc_r0
 .else
         bne     decimal_mode_sbc
 .endif 
-          
+.endm
+
+.macro  SBC_STAGE2 reg      
+      
 .if \reg==r0        
         FETCH_NEXT_STAGE_1a_OO
         sbcs    regA, regA, \reg, ror #8
@@ -728,14 +747,13 @@
       sxtab\yes regPC, regPC, \reg
       ldrb      r1, [regPC, #1]
       ldrb      r0, [regPC, #2]  //hidden in stall
-      ldrb      r5, [regPC, #3]! //hidden in stall
-      add       lr, instt, r1, LSL #5
-     // ldr       lr, [instt, r1, lsl #2]
-.if \flag==noflags
+ .if \flag==noflags
 .else
       msr     CPSR_flg, r2
-.endif          
-     
+.endif         
+      
+      ldrb      r5, [regPC, #3]! //hidden in stall
+      add       lr, instt, r1, LSL #5
 .else 
       // if we are using r0 then pc is one place ahead
       sxtab\yes regPC, regPC, \reg
@@ -746,7 +764,6 @@
       msr     CPSR_flg, r2
 .endif  
       //stall
-    //  ldr     lr, [instt, r5, lsl #2]
       ldrb    r0, [regPC, #1]  //hidden in stall
       FETCH_NEXT_STAGE_0
       ldrb    r5, [regPC, #2]! //hidden in stall 
@@ -1583,7 +1600,7 @@ opcode_64:
 // Opcode 65 - ADC_macro $00
 opcode_65:
         LOAD_BYTE NOSIGN
-        B       JUMP_ADC_R1
+        ADC_STAGE1 r1 JUMP_ADC_R1_STAGE2
         .balign 0x20
 
 // Opcode 66 - ROR $00
@@ -1989,6 +2006,8 @@ opcode_9A:
 // Opcode 9B - NOP
 opcode_9B:
         B      opcode_EA
+JUMP_LOAD_A_FLAGS:
+         ldrsb  regA,[r0]
 JUMP_FLAGS_QUICK_A_FETCH_NEXT_0:
          FETCH_NEXT_STAGE_0
 JUMP_FLAGS_QUICK_A:
@@ -2200,6 +2219,15 @@ opcode_BA:
 // Opcode BB - NOP
 opcode_BB:
         B      opcode_EA
+tube_load_handler_regA_flags:
+        push    {r0,r2,r3,r5,r12} 
+        mrs     r5, CPSR               // Save 6502 flags
+        bl      tube_parasite_read
+        sxtb    regA,r0
+        msr     CPSR_flg, r5
+        pop     {r0,r2,r3,r5,r12}   
+        B      JUMP_FLAGS_QUICK_A_FETCH_NEXT_0         
+        
         .balign 0x20
 
 // Opcode BC - LDY $0000,X
@@ -2211,8 +2239,12 @@ opcode_BC:
 
 // Opcode BD - LDA $0000,X
 opcode_BD:
-        EA_ABSOLUTE_INDEXED_LOAD regX carry SIGN regA
-        B      JUMP_FLAGS_QUICK_A_FETCH_NEXT_0
+        EA_ABSOLUTE_INDEXED regX     
+        FETCH_NEXT_3B_STAGE_0
+        lsr     lr, r0, #5
+        teq     tregs, lr          // tregs holds the constant 0xFEE0 >> 5
+        bne     JUMP_LOAD_A_FLAGS
+        B      tube_load_handler_regA_flags
         .balign 0x20
 
 // Opcode BE - LDX $0000,Y
@@ -2486,7 +2518,8 @@ opcode_E4:
 // Opcode E5 - SBC_macro $00
 opcode_E5:
         LOAD_BYTE NOSIGN
-        B      JUMP_SBC_R1
+        B    JUMP_SBC_R1
+        //SBC_STAGE1 r1 JUMP_SBC_R1_STAGE2
         .balign 0x20
 
 // Opcode E6 - INC $00
@@ -3286,8 +3319,8 @@ tube_load_handler_regA:
         bl      tube_parasite_read
         sxtb    regA,r0
         msr     CPSR_flg, r5
-        pop     {r0,r2,r3,r5,r12,pc}          
-        
+        pop     {r0,r2,r3,r5,r12,pc}
+
 tube_store_handler:
         push    {r1-r3,r12, lr} 
         bl      tube_parasite_write_banksel
@@ -3486,7 +3519,9 @@ JUMP_ADC_R0:
         ADC_macro     r0
 
 JUMP_ADC_R1:
-        ADC_macro     r1
+        ADC_STAGE1 r1
+JUMP_ADC_R1_STAGE2:        
+        ADC_STAGE2 r1    
 
 JUMP_STORE_ABS:
         STORE_ABSOLUTE
@@ -3505,6 +3540,8 @@ JUMP_FLAGS_SIGN:
 
 JUMP_SBC_R0:
         SBC_macro     r0
- 
+        
 JUMP_SBC_R1:
-        SBC_macro     r1
+        SBC_STAGE1     r1
+JUMP_SBC_R1_STAGE2:
+        SBC_STAGE2     r1
