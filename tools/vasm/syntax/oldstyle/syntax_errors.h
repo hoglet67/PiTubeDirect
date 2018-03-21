@@ -9,7 +9,7 @@
   "invalid data operand",ERROR,
   ", expected",WARNING,
   "identifier expected",ERROR,                                       /* 10 */
-  "",WARNING,
+  "invalid numeric expansion",ERROR,
   "unexpected \"%s\" without \"%s\"",ERROR,
   "",ERROR,
   "",ERROR,

@@ -3,15 +3,8 @@ microprocessor family.
 
 @section Legal
 
-    This module is copyright in 2002-2015 by Frank Wille.
-
-    This archive may be redistributed without modifications and used
-    for non-commercial purposes.
-
-    Distributing modified versions and commercial usage needs my written
-    consent.
-
-    Certain modules may fall under additional copyrights.
+    This module is written in 2002-2017 by Frank Wille and
+    is covered by the vasm copyright without modifications.
 
 
 @section Additional options for this module
@@ -45,6 +38,9 @@ This module provides the following additional options:
         Generate code for the MC68020-68060 CPU. Be careful with
         instructions like PFLUSHA, which exist on 68030 and 68040/060
         with a different opcode (vasm will use the 040/060 version).
+
+    @item -m68080
+        Generate code for the Apollo Core AC68080 FPGA CPU.
 
     @item -mcpu32
         Generate code for the CPU32 family (MC6833x, MC6834x, etc.).
@@ -132,6 +128,11 @@ This module provides the following additional options:
         immediate constant is a power of 2 and then converted into
         @code{FMUL #1/c,FPn}.
 
+    @item -opt-jbra
+        @code{JMP} and @code{JSR} instructions to external labels will be
+        converted into @code{BRA.L} and @code{BSR.L}, when the selected
+        CPU is 68020 or higher (or CPU32).
+
     @item -opt-lsl
         Allows optimization of @code{LSL #1} into @code{ADD}. It is also
         needed to optimize @code{ASL #2} and @code{LSL #2} into two @code{ADD}
@@ -189,10 +190,17 @@ This module provides the following additional options:
         All @code{JMP} and @code{JSR} instructions to external labels
         will be converted into 16-bit PC-relative jumps.
 
+    @item -sd
+        References to absolute symbols in a
+        small data section (named "__MERGED") are optimized into a
+        base-relative addressing mode using the current base register set
+        by an active @code{NEAR} directive.
+        This option is automatically enabled in @option{-phxass} mode.
+
     @item -showcrit
         Print all critical optimizations which have side effects. Among
-        those are @code{-opt-lsl}, @code{-opt-mul}, @code{-opt-st},
-        @code{-opt-pea}, @code{-opt-movem} and @code{-opt-clr}.
+        those are @option{-opt-lsl}, @option{-opt-mul}, @option{-opt-st},
+        @option{-opt-pea}, @option{-opt-movem} and @option{-opt-clr}.
 
     @item -showopt
         Print all optimizations and translations vasm is doing
@@ -239,10 +247,10 @@ vasm performs the following optimizations:
 
     @item -gas
         Enable additional GNU-as compatibility mnemonics, like
-        @code{mov}, @code{movm} and @code{jra}. Also accept @code{|}
+        @code{mov}, @code{movm} and @code{jra}. Also accepts @code{|}
         instead of @code{;} for comments.
         GNU-as compatibility mode selects the 68020 CPU and 68881/2 FPU
-        by default.
+        by default and enables @option{-opt-jbra}.
 
     @item -guess-ext
         Accept illegal size extensions for an instruction, as long as
@@ -257,8 +265,8 @@ vasm performs the following optimizations:
         @code{__FPU} and @code{__MMU} are defined.
         @code{JMP/JSR (label,PC)} will never be optimized (into a branch,
         for example).
-        It will also automatically enable @option{-opt-allbra} and
-        @option{-guess-ext}.
+        It will also automatically enable @option{-opt-allbra},
+        @option{-sd} and @option{-guess-ext}.
 
     @item -rangewarnings
         Values which are out of range usually produce an error. With this
@@ -342,6 +350,8 @@ a value defined by the following bits:
       ColdFire FPU instructions.
 @item bit 18
       ColdFire MMU instructions.
+@item bit 20
+      Apollo Core AC68080 instruction set.
 @end table
 
 
@@ -391,8 +401,9 @@ directives:
 @item machine <cpu_type>
       Makes the assembler generate code for <cpu_type>, which can be
       the following: @code{68000}, @code{68010}, @code{68020}, @code{68030},
-      @code{68040}, @code{68060}, @code{68851}, @code{68881}, @code{68882},
-      @code{cpu32}. And various ColdFire CPUs, starting with @code{5...}.
+      @code{68040}, @code{68060}, @code{68080},
+      @code{68851}, @code{68881}, @code{68882}, @code{cpu32}.
+      And various ColdFire CPUs, starting with @code{5...}.
 
 @item mc68000
       Generate code for the MC68000 CPU.
@@ -412,6 +423,9 @@ directives:
 @item mc68060
       Generate code for the MC68060 CPU.
 
+@item ac68080
+      Generate code for the Apollo Core AC68080 FPGA CPU.
+
 @item mcf5...
       Generate code for a ColdFire CPU. The recognized models are listed
       in the assembler-options section.
@@ -419,7 +433,7 @@ directives:
 @item near [<An>]
       Enables small data (base-relative) mode and sets the base register
       to @code{An}. @code{near} without an argument will reactivate a
-      previously defined small data mode, which might be switched off
+      previously defined small data mode, which might have been switched off
       by a @code{far} directive.
 
 @item near code
@@ -429,9 +443,9 @@ directives:
 
 @item opt <option>[,<option>...]
       Sets Devpac-compatible options. When option @option{-phxass} is
-      given, then it will parse PhxAss options (which is discouraged,
-      so there is no detailed description here).
-      The supported Devpac2-style options are always suffixed by a
+      given, then it will parse PhxAss options instead (which is discouraged
+      for new code, so there is no detailed description here).
+      Most supported Devpac2-style options are always suffixed by a
       @code{+} or @code{-} to enable or disable the option:
    @table @code
       @item a
@@ -444,13 +458,18 @@ directives:
         Include all symbols for debugging in the output file. May also
         generate line debugging information in some output formats.
         Default is off in Devpac-comptability mode, otherwise on.
+      @item l
+        Generate a linkable object file. The default is defined by the
+        selected output format via the assembler's @option{-F} option.
+        This option was supported by Devpac-Amiga only.
       @item o
         Enable all optimizations (o1 to o12), or disable all optimizations.
-        Default is that all are disabled in Devpac-compatibility mode and
-        enabled otherwise.
-        When running in native vasm mode this option will also control
+        The default is that all are disabled in Devpac-compatibility mode
+        and enabled otherwise.
+        When running in native vasm mode this option will also enable
+        PC-relative (@code{opt a}) and
         the following safe vasm-specific optimizations (see below):
-        @code{og}, @code{of}, @code{oj}.
+        @code{og}, @code{of}.
       @item o1
         Optimize branches without an explicit size extension.
       @item o2
@@ -500,6 +519,15 @@ directives:
         characters. DRI standard only supports 8 characters.
    @end table
 
+   Devpac options without +/- suffix:
+   @table @code
+      @item l<n>
+        Sets the output format (Devpac Atari only). Currently without effect.
+      @item p=<type>[/<type>]
+        Sets the CPU type to any model vasm supports (original Devpac
+        only allowed 68000-68040, 68332, 68881, 68882 and 68851).
+   @end table
+
    Also the following Devpac3-style options are supported:
    @table @code
       @item autopc
@@ -534,42 +562,46 @@ directives:
         Corresponds to @code{w-}.
       @item noxdebug
         Corresponds to @code{x-}.
-      @item p=<type>[/<type>]
-        Sets the CPU type to any model vasm supports (original Devpac3
-        only allowed 68000-68040, 68332, 68881, 68882 and 68851).
    @end table
 
    The following options are vasm specific and should not be used when
    writing portable source. Using @code{opt o+} or @code{opt o-} in
    Devpac mode only toggles @code{og}, @code{of} and @code{oj}.
    @table @code
+      @item ob
+        Convert absolute jumps to external labels into long-branches
+        (refer to @option{-opt-jbra}).
       @item oc
-        Enable optimizations to @code{CLR} (refer to @code{-opt-clr}).
+        Enable optimizations to @code{CLR} (refer to @option{-opt-clr}).
       @item od
         Enable optimization of divisions into shifts (refer to
-        @code{-opt-div}).
+        @option{-opt-div}).
       @item of
         Enable immediate float constant optimizations (refer to
-        @code{-opt-fconst}).
+        @option{-opt-fconst}).
       @item og
         Enable generic vasm optimizations. All optimizations which cannot
         be controlled by another option.
       @item oj
-        Enable branch to jump translations (refer to @code{-opt-brajmp}).
+        Enable branch to jump translations (refer to @option{-opt-brajmp}).
       @item ol
-        Enable shift optimizations to @code{ADD} (refer to @code{-opt-lsl}).
+        Enable shift optimizations to @code{ADD} (refer to @option{-opt-lsl}).
       @item om
-        Enable @code{MOVEM} optimizations (refer to @code{-opt-movem}).
+        Enable @code{MOVEM} optimizations (refer to @option{-opt-movem}).
+      @item on
+        Enable small data optimizations. References to absolute symbols in a
+        small data section (named "__MERGED") are optimized into a
+        base-relative addressing mode (refer to @option{-sd}).
       @item op
-        Enable optimizations to @code{PEA} (refer to @code{-opt-pea}).
+        Enable optimizations to @code{PEA} (refer to @option{-opt-pea}).
       @item os
         Optimize for speed before optimizing for size (refer to
-        @code{-opt-speed}).
+        @option{-opt-speed}).
       @item ot
-        Enable optimizations to @code{ST} (refer to @code{-opt-st}).
+        Enable optimizations to @code{ST} (refer to @option{-opt-st}).
       @item ox
         Enable optimization of multiplications into shifts
-        (refer to @code{-opt-mul}).
+        (refer to @option{-opt-mul}).
    @end table
    The default state is 'off' for all those vasm specific options.
 @end table
@@ -581,6 +613,8 @@ module:
 @item <symbol> equr <Rn>
       Define a new symbol named <symbol> and assign the data or
       address register @code{Rn}, which can be used from now on in operands.
+      When 68080 code generation is enabled, also @code{Bn} base address
+      registers are allowed to be assigned.
       Note that a register symbol must be defined before it can be
       used!
 
@@ -718,7 +752,7 @@ This backend performs the following instruction optimizations:
  for ColdFire ISA_B/C.
 
 @item @code{ANDI.? #0,<ea>} optimized to @code{CLR.? <ea>}, when allowed
- by the option @code{-opt-clr} or a different CPU than the MC68000 was
+ by the option @option{-opt-clr} or a different CPU than the MC68000 was
  selected.
 
 @item @code{ANDI.? #-1,<ea>} optimized to @code{TST.? <ea>}.
@@ -727,11 +761,11 @@ This backend performs the following instruction optimizations:
 
 @item @code{ASL.? #2,Dn} optimized into a sequence of two @code{ADD.? Dn,Dn}
 for 68000 and 68010, when the operation size is either byte or word and
-the options @code{-opt-speed} and @code{-opt-lsl} are given.
+the options @option{-opt-speed} and @option{-opt-lsl} are given.
 
 @item @code{B<cc> <label>} translated into a combination of
  @code{B!<cc> *+8} and @code{JMP <label>}, when <label> is not defined in the
- same section (and option @code{-opt-brajmp} is given),
+ same section (and option @option{-opt-brajmp} is given),
  or outside the range of -32768 to 32767 bytes from the current address
  when the selected CPU is not 68020 up, CPU32 or ColdFire ISA_B/C.
 
@@ -741,12 +775,12 @@ the options @code{-opt-speed} and @code{-opt-lsl} are given.
  conditional branch into a @code{B<!cc> *+8} and @code{JMP <label>} sequence.
 
 @item @code{BRA <label>} translated to @code{JMP <label>}, when <label> is
- not defined in the same section (and option @code{-opt-brajmp} is given),
+ not defined in the same section (and option @option{-opt-brajmp} is given),
  or outside the range of -32768 to 32767 bytes from the current address
  when the selected CPU is not 68020 up, CPU32 or ColdFire ISA_B/C.
 
 @item @code{BSR <label>} translated to @code{JSR <label>}, when <label> is
- not defined in the same section (and option @code{-opt-brajmp} is given),
+ not defined in the same section (and option @option{-opt-brajmp} is given),
  or outside the range of -32768 to 32767 bytes from the current address
  when the selected CPU is not 68020 up, CPU32 or ColdFire ISA_B/C.
 
@@ -761,19 +795,19 @@ the options @code{-opt-speed} and @code{-opt-lsl} are given.
  as effective address (@code{<ea>}).
 
 @item @code{DIVS.W/DIVU.W #1,Dn} optimized to @code{MVZ.W Dn,Dn}, for
-ColdFire ISA_B/C (@code{-opt-div}).
+ColdFire ISA_B/C (@option{-opt-div}).
 
 @item @code{DIVS.W #-1,Dn} optimized to the sequence of @code{NEG.W Dn} and
-@code{MVZ.W Dn,Dn} (@code{-opt-div} and @code{-opt-speed}).
+@code{MVZ.W Dn,Dn} (@option{-opt-div} and @option{-opt-speed}).
 
 @item @code{DIVS.L/DIVU.L #1,Dn} optimized to @code{TST.L Dn}
-(@code{-opt-div}).
+(@option{-opt-div}).
 
 @item @code{DIVS.L #-1,Dn} optimized to @code{NEG.L Dn}
-(@code{-opt-div}).
+(@option{-opt-div}).
 
 @item @code{DIVU.L #2..256,Dn} optimized to @code{LSR.L #x,Dn}
-(@code{-opt-div}).
+(@option{-opt-div}).
 
 @item @code{EORI.? #-1,<ea>} optimized to @code{NOT.? <ea>}.
 
@@ -782,7 +816,7 @@ ColdFire ISA_B/C (@code{-opt-div}).
 @item @code{FMOVEM.? <reglist>} is deleted, when the register list was empty.
 
 @item @code{FxDIV.? #m,FPn} optimized to @code{FxMUL.? #1/m,FPn} when m is
-a power of 2 and option @code{-opt-fconst} is given.
+a power of 2 and option @option{-opt-fconst} is given.
 
 @item @code{JMP <label>} optimized to @code{BRA.? <label>}, when <label> is defined
  in the same section and in the range of -32768 to 32767 bytes from the
@@ -805,7 +839,7 @@ a power of 2 and option @code{-opt-fconst} is given.
 @item @code{LEA (d,Am),An} will be translated into a combination of
  @code{MOVEA} and @code{ADDA.L} for 68000 and 68010, when @code{d} is lower
  than -32768 or higher than 32767. The @code{MOVEA} will be omitted when
- @code{Am} and @code{An} are identical. Otherwise @code{-opt-speed} is
+ @code{Am} and @code{An} are identical. Otherwise @option{-opt-speed} is
  required.
 
 @item @code{LINK.L An,#x} optimized to @code{LINK.W An,#x}, when @code{x} is
@@ -815,21 +849,21 @@ a power of 2 and option @code{-opt-fconst} is given.
  not between -32768 and 32767 and selected CPU supports this instruction.
 
 @item @code{LSL.? #1,Dn} optimized to @code{ADD.? Dn,Dn} for 68000 and 68010,
- when option @code{-opt-lsl} is given.
+ when option @option{-opt-lsl} is given.
 
 @item @code{LSL.? #2,Dn} optimized into a sequence of two @code{ADD.? Dn,Dn}
 for 68000 and 68010, when the operation size is either byte or word and
-the options @code{-opt-speed} and @code{-opt-lsl} are given.
+the options @option{-opt-speed} and @option{-opt-lsl} are given.
 
 @item @code{MOVE.? #0,<ea>} optimized to @code{CLR.? <ea>}, when allowed by
- the option @code{-opt-clr} or a different CPU than the MC68000 was
+ the option @option{-opt-clr} or a different CPU than the MC68000 was
  selected.
 
 @item @code{MOVE.? #x,-(SP)} optimized to @code{PEA x}, when allowed by the
- option @code{-opt-pea}. The move-size must not be byte (@code{.b}).
+ option @option{-opt-pea}. The move-size must not be byte (@code{.b}).
 
 @item @code{MOVE.B #-1,<ea>} optimized to @code{ST <ea>}, when allowed by the
- option @code{-opt-st}.
+ option @option{-opt-st}.
 
 @item @code{MOVE.L #x,Dn} optimized to @code{MOVEQ #x,Dn}, when @code{x} is
  between -128 and 127.
@@ -852,41 +886,41 @@ the options @code{-opt-speed} and @code{-opt-lsl} are given.
 
 @item @code{MOVEM.? <ea>,Rn} optimized to @code{MOVE.? <ea>,Rn} and
  @code{MOVEM.? Rn,<ea>} optimized to @code{MOVE.? Rn,<ea>}, when allowed
- by the option @code{-opt-movem} or when just loading an address register.
+ by the option @option{-opt-movem} or when just loading an address register.
 
 @item @code{MOVEM.? <ea>,Rm/Rn} and @code{MOVEM.? Rm/Rn,<ea>} are optimized
  into a sequence of two @code{MOVE} for all cpus except 68000 and 68010.
  Complex addressing modes with displacements or addresses are optimized
- for 68040 only. Has to be enabled by the options @code{-opt-movem} and
- @code{-opt-speed}.
+ for 68040 only. Has to be enabled by the options @option{-opt-movem} and
+ @option{-opt-speed}.
 
 @item @code{MULS.?/MULU.? #0,Dn} optimized to @code{MOVEQ #0,Dn}
-(@code{-opt-mul}).
+(@option{-opt-mul}).
 
-@item @code{MULS.?/MULU.? #1,Dn} is deleted (@code{-opt-mul}).
+@item @code{MULS.?/MULU.? #1,Dn} is deleted (@option{-opt-mul}).
 
 @item @code{MULS.W #-1,Dn} optimized to the sequence @code{EXT.L Dn} and
-@code{NEG.L Dn} (@code{-opt-mul} and @code{-opt-speed}).
+@code{NEG.L Dn} (@option{-opt-mul} and @option{-opt-speed}).
 
-@item @code{MULS.L #-1,Dn} optimized to @code{NEG.L Dn} (@code{-opt-mul}).
+@item @code{MULS.L #-1,Dn} optimized to @code{NEG.L Dn} (@option{-opt-mul}).
 
 @item @code{MULS.W #2..256,Dn} optimized to the sequence @code{EXT.L Dn} and
-@code{ASL.L #x,Dn} (@code{-opt-mul} and @code{-opt-speed}).
+@code{ASL.L #x,Dn} (@option{-opt-mul} and @option{-opt-speed}).
 
 @item @code{MULS.W #-2..-256,Dn} optimized to the sequence @code{EXT.L Dn},
-@code{ASL.L #x,Dn} and @code{NEG.L Dn} (@code{-opt-mul} and @code{-opt-speed}).
+@code{ASL.L #x,Dn} and @code{NEG.L Dn} (@option{-opt-mul} and @option{-opt-speed}).
 
 @item @code{MULS.L #2..256,Dn} optimized to @code{ASL.L #x,Dn}
-(@code{-opt-mul}).
+(@option{-opt-mul}).
 
 @item @code{MULS.L #-2..-256,Dn} optimized to the sequence @code{ASL.L #x,Dn}
-and @code{NEG.L Dn} (@code{-opt-mul} and @code{-opt-speed}).
+and @code{NEG.L Dn} (@option{-opt-mul} and @option{-opt-speed}).
 
 @item @code{MULU.W #2..256,Dn} optimized to the sequence @code{MVZ.W Dn,Dn} and
-@code{ASL.L #x,Dn} for ColdFire ISA_B/C (@code{-opt-mul} and @code{-opt-speed}).
+@code{ASL.L #x,Dn} for ColdFire ISA_B/C (@option{-opt-mul} and @option{-opt-speed}).
 
 @item @code{MULU.L #2..256,Dn} optimized to @code{LSL.L #x,Dn}
-(@code{-opt-mul}).
+(@option{-opt-mul}).
 
 @item @code{MVZ.? #x,Dn} and @code{MVS.? #x,Dn} are optimized to
  @code{MOVEQ #x,Dn}.
@@ -982,5 +1016,9 @@ This module has the following error messages:
 @item 2059: not a valid small data register
 @item 2060: small data mode is not enabled
 @item 2061: division by zero
+@item 2062: can't use B%d register as index
+@item 2063: register list on both sides
+@item 2064: "%s" directive was replaced by an instruction with the same name
+@item 2065: Addr.reg. operand at level #0 causes F-line exception
 
 @end itemize

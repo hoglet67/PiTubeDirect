@@ -3,15 +3,8 @@ with the extension @code{std}.
 
 @section Legal
 
-    This module is copyright in 2002-2016 by Volker Barthelmann.
-
-    This archive may be redistributed without modifications and used
-    for non-commercial purposes.
-
-    Distributing modified versions and commercial usage needs my written
-    consent.
-
-    Certain modules may fall under additional copyrights.
+    This module is written in 2002-2017 by Volker Barthelmann and
+    is covered by the vasm copyright without modifications.
 
 @section Additional options for this version
  
@@ -38,9 +31,9 @@ This syntax module provides the following additional options:
 @section General Syntax
 
 Labels have to be terminated with a colon (@code{:}).
-Local labels may either be preceded by a '@code{.}', and have to contain
-digits only, or terminated by a '@code{$}'.
-Local labels are valid between two global label definitions.
+Local labels may either be preceded by a '@code{.}' or terminated by
+'@code{$}', and consist out of digits only.
+Local labels exist and keep their value between two global label definitions.
 
 Make sure that you don't define a label on the same line as a
 directive for conditional assembly (if, else, endif)! This is not supported.
@@ -239,6 +232,18 @@ See @code{.string}.
 
 @item .int <exp1>[,<exp2>...]
       See @code{.long}.
+
+@item .irp <symbol>[,<val>...]
+      Iterates the block between @code{.irp} and @code{.endr} for each
+      @code{<val>}. The current @code{<val>}, which may be embedded in quotes,
+      is assigned to @code{\symbol}. If no value is given, then the block is
+      assembled once, with @code{\symbol} set to an empty string.
+
+@item .irpc <symbol>[,<val>...]
+      Iterates the block between @code{.irp} and @code{.endr} for each
+      character in each @code{<val>}, and assign it to @code{\symbol}.
+      If no value is given, then the block is assembled once, with
+      @code{\symbol} set to an empty string.
 
 @item .lcomm <symbol>,<size>[,<alignment>] 
       Allocate <size> bytes of space in the .bss section and assign

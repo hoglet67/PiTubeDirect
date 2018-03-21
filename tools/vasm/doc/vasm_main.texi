@@ -34,6 +34,12 @@ or additional options.
         a sequence of file names on a single line, suitable for Makefiles.
         When the output file name is given by @option{-o} then
         @command{vasm} will also print @code{outname:} in front of it.
+        Note that unlike with @option{-dependall} only relative include
+        file dependencies will be listed (which is the common case).
+
+@item -dependall=<type>
+        Prints dependencies in the same way as @option{-depend}, but
+        will also print all include files with absolute paths.
 
 @item -esc
         Enable escape character sequences. This will make vasm treat the
@@ -84,6 +90,11 @@ or additional options.
         No escape character sequences. This will make vasm treat the
         escape character \ as any other character. Might be useful for
         compatibility.
+
+@item -noialign
+        Perform no automatic alignment for instructions. Note that
+        unaligned instructions make your code crash when executed!
+        Only set when you know what you do!
 
 @item -nosym
         Strips all local symbols from the output file and doesn't include
@@ -323,6 +334,7 @@ Has to be provided completely by the syntax module.
 @itemize
     @item Joseph Zatarski
     @item Frank Wille
+    @item Henryk Richter
     @item Sebastian Pachuta
     @item Esben Norby
     @item Gunther Nikl
@@ -333,6 +345,7 @@ Has to be provided completely by the syntax module.
     @item Mauricio Mu@~noz Lucero
     @item J@"org van de Loo
     @item Robert Leffmann
+    @item Andreas Larsson
     @item Miro Kropacek
     @item Mikael Kalms
     @item Matthew Hey
@@ -393,6 +406,7 @@ The frontend has the following error messages:
 @item 43: illegal macro argument
 @item 44: reloc org is already set
 @item 45: reloc org was not set
+@item 46: address space overflow
 @item 47: bad file-offset argument
 @item 48: assertion "%s" failed: %s
 @item 49: cannot declare structure within structure
@@ -401,7 +415,7 @@ The frontend has the following error messages:
 @item 52: macro name conflicts with mnemonic
 @item 53: macro name conflicts with directive
 @item 54: non-relocatable expression in equate <%s>
-@item 55: line buffer overflow
+@item 55: initialized data in offset section
 @item 56: illegal structure recursion
 @item 57: maximum number of macro recursions (%d) reached
 @item 58: data has been auto-aligned
@@ -421,5 +435,6 @@ The frontend has the following error messages:
 @item 72: cannot mix positional and keyword arguments
 @item 73: undefined macro argument name
 @item 74: required macro argument %d was left out
+@item 75: label <%s> redefined
 
 @end itemize

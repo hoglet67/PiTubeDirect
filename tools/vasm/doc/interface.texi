@@ -231,10 +231,23 @@ was included or called.
         it allows any number of repetitions, which is decremented everytime
         the end of this source text block is reached.
 
+@item char *irpname;
+        Name of the iterator symbol in special repeat loops which use a
+        sequence of arbitrary values, being assigned to this symbol within
+        the loop. Example: @code{irp} directive in std-syntax.
+
+@item struct macarg *irpvals;
+        A list of arbitrary values to iterate over in a loop. With each
+        iteration the frontmost value is removed from the list until it is
+        empty.
+
 @item int cond_level;
         Current level of conditional nesting while entering this source
         text. It is automatically restored to the previous level when
         leaving the source prematurely through @code{end_source()}.
+
+@item struct macarg *argnames;
+        The current list of named macro arguments.
 
 @item int num_params;
         Number of macro parameters passed at the invocation point from
@@ -269,8 +282,12 @@ was included or called.
         Line number in the current source context. After parsing the
         line number of the current atom is stored here.
 
+@item size_t bufsize;
+        Current size of the line buffer (@code{linebuf}). The size of the
+        line buffer is extended automatically, when an overflow happens.
+
 @item char *linebuf;
-        A @code{MAXLINELENGTH} buffer for the current line being assembled
+        A buffer for the current line being assembled
         in this source text. A child-source, like a macro, can refer to
         arguments from this buffer, so every source has got its own.
         When returning to the parent source, the linebuf is deallocated
@@ -344,6 +361,11 @@ the modules:
         @code{ABSOLUTE} flag. In this mode code is written into the current
         section, but relocated to an absolute address. No relocation
         information are generated.
+@item NEAR_ADDRESSING
+        Section is marked as suitable for cpu-specific "near" addressing
+        modes. For example, base-register relative. The cpu backend can use
+        this information as an optimization hint when referencing symbols
+        from this section.
 @end table
 
 @item  taddr org;
@@ -354,7 +376,7 @@ the modules:
         while traversing through the section. Has to be updated by a
         module using it. Is set to @code{org} at the beginning.
 
-@item   uint32_t idx;
+@item   unsigned long idx;
         A member usable by the output module for private purposes.
 
 @end table
@@ -436,6 +458,19 @@ following members that can be accessed by the modules:.
         Symbols flagged as @code{EQUATE} are constant and its value must
         not be changed.
 
+@item #define REGLIST (1<<13)
+        Symbol is a register list definition.
+
+@item #define USED (1<<14)
+        Symbol appeared in an expression. Symbols which were only defined,
+        (as label or equte) and never used throughout the whole source,
+        don't get this flag set.
+
+@item #define NEAR (1<<15)
+        Symbol may be referenced by "near" addressing mode. For example,
+        base register relative. Used as an optimization hint in the cpu
+        backend.
+
 @item #define RSRVD_S (1L<<24)
         The range from bit 24 to 27 (counted from the LSB) is reserved for
         use by the syntax module.
@@ -466,7 +501,7 @@ expects a pointer to a symbol as argument.
 @item  taddr align;
         The alignment of the symbol in bytes.
 
-@item  uint32_t idx;
+@item  unsigned long idx;
         A member usable by the output module for private purposes.
 
 @end table
@@ -903,6 +938,13 @@ These macros should return non-zero if and only if the argument is a
 valid character to start an identifier or a valid character inside an
 identifier, respectively.
 @code{ISIDCHAR} must be a superset of @code{ISIDSTART}.
+
+@item #define ISBADID(p,l)
+Even with @code{ISIDSTART} and @code{ISIDCHAR} checked, there may be
+combinations of characters which do not form a valid initializer (for
+example, a single character). This macro returns non-zero, when this is
+the case. First argument is a pointer to the new identifier and second
+is its length.
 
 @item #define ISEOL(x)
 This macro returns true when the string pointing at @code{x} is either

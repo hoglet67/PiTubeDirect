@@ -1,5 +1,5 @@
 /* syntax.c  syntax module for vasm */
-/* (c) in 2002-2016 by Frank Wille */
+/* (c) in 2002-2018 by Frank Wille */
 
 #include "vasm.h"
 
@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm oldstyle syntax module 0.12e (c) 2002-2016 Frank Wille";
+char *syntax_copyright="vasm oldstyle syntax module 0.13e (c) 2002-2018 Frank Wille";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -53,9 +53,8 @@ static struct namelen dendr_dirlist[] = {
   { 5,&endrname[0] }, { 7,&endrname[0] }, { 10,&endrname[0] }, { 0,0 }
 };
 
-static int dotdirs = 0;
-static int autoexport = 0;
-static int parse_end = 0;
+static int dotdirs,autoexport,parse_end,igntrail,nocprefix,nointelsuffix;
+static taddr orgmode = ~0;
 
 
 char *skip(char *s)
@@ -69,23 +68,44 @@ char *skip(char *s)
 /* check for end of line, issue error, if not */
 void eol(char *s)
 {
-  s = skip(s);
-  if (*s!='\0' && *s!=commentchar)
-    syntax_error(6);
+  if (igntrail) {
+    if (!ISEOL(s) && !isspace((unsigned char)*s))
+      syntax_error(6);
+  }
+  else {
+    s = skip(s);
+    if (!ISEOL(s))
+      syntax_error(6);
+  }
+}
+
+
+char *exp_skip(char *s)
+{
+  if (!igntrail) {
+    s = skip(s);
+    if (*s == commentchar)
+      *s = '\0';  /* rest of operand is ignored */
+  }
+  else if (isspace((unsigned char)*s) || *s==commentchar)
+    *s = '\0';  /* rest of operand is ignored */
+  return s;
 }
 
 
 static char *skip_oper(int instoper,char *s)
 {
+#ifdef VASM_CPU_Z80
+  unsigned char lastuc = 0;
+#endif
   int par_cnt = 0;
   char c = 0;
-#ifdef VASM_CPU_Z80
-  unsigned char lastuc;
-#endif
 
   for (;;) {
+    s = exp_skip(s);
 #ifdef VASM_CPU_Z80
-    lastuc = toupper((unsigned char)c);
+    if (c)
+      lastuc = toupper((unsigned char)*(s-1));
 #endif
     c = *s;
 
@@ -104,14 +124,14 @@ static char *skip_oper(int instoper,char *s)
     else if (c=='\'' || c=='\"')
 #endif
       s = skip_string(s,c,NULL) - 1;
-    else if(!c || c==commentchar)
-      break;
     else if (instoper && OPERSEP_COMMA && c==',' && par_cnt==0)
       break;
     else if (instoper && OPERSEP_BLANK && isspace((unsigned char)c)
              && par_cnt==0)
       break;
     else if (!instoper && c==',' && par_cnt==0)
+      break;
+    else if (c == '\0')
       break;
 
     s++;
@@ -397,6 +417,12 @@ static void handle_rend(char *s)
 {
   if (end_rorg())
     eol(s);
+}
+
+
+static void handle_roffs(char *s)
+{
+  add_atom(0,new_roffs_atom(parse_expr_tmplab(&s)));
 }
   
 
@@ -695,10 +721,10 @@ static void handle_incbin(char *s)
 
 static void handle_rept(char *s)
 {
-  taddr cnt = parse_constexpr(&s);
+  utaddr cnt = parse_constexpr(&s);
 
   eol(s);
-  new_repeat((int)cnt,
+  new_repeat((int)cnt,NULL,NULL,
              dotdirs?drept_dirlist:rept_dirlist,
              dotdirs?dendr_dirlist:endr_dirlist);
 }
@@ -761,10 +787,29 @@ static void handle_list(char *s)
   set_listing(1);
 }
 
-
 static void handle_nolist(char *s)
 {
   set_listing(0);
+}
+
+static void handle_listttl(char *s)
+{
+  /* set listing file title */
+}
+
+static void handle_listsubttl(char *s)
+{
+  /* set listing file sub-title */
+}
+
+static void handle_listpage(char *s)
+{
+  /* new listing page */
+}
+
+static void handle_listspace(char *s)
+{
+  /* insert listing space */
 }
 
 
@@ -810,6 +855,7 @@ struct {
   "rend",handle_rend,
   "phase",handle_rorg,
   "dephase",handle_rend,
+  "roffs",handle_roffs,
   "align",handle_align,
   "even",handle_even,
   "byte",handle_d8,
@@ -919,6 +965,10 @@ struct {
   "fdb",handle_d16,
   "bsz",handle_spc8,
   "zmb",handle_spc8,
+  "nam",handle_listttl,
+  "subttl",handle_listsubttl,
+  "page",handle_listpage,
+  "space",handle_listspace
 };
 
 int dir_cnt = sizeof(directives) / sizeof(directives[0]);
@@ -1077,12 +1127,67 @@ static char *parse_label_or_pc(char **start)
   s = skip(*start);
   if (name==NULL && *s==current_pc_char && !ISIDCHAR(*(s+1))) {
     name = cnvstr(s,1);
-    s = skip(s+2);
+    s = skip(s+1);
   }
   if (name)
     *start = s;
   return name;
 }
+
+
+#ifdef STATEMENT_DELIMITER
+static char *read_next_statement(void)
+{
+  static char *s = NULL;
+  char *line,c;
+
+  if (s == NULL) {
+    char *lab;
+
+    s = line = read_next_line();
+    if (s == NULL)
+      return NULL;  /* no more lines in source */
+
+    /* skip label field and possible statement delimiters therein */
+    if (lab = parse_label_or_pc(&s))
+      myfree(lab);
+  }
+  else {
+    /* make the new statement start with a blank - there is no label field */
+    *s = ' ';
+    line = s++;
+  }
+
+  /* find next statement delimiter in line buffer */
+  for (;;) {
+#ifdef VASM_CPU_Z80
+    unsigned char lastuc;
+#endif
+
+    c = *s;
+#ifdef VASM_CPU_Z80
+    /* For the Z80 ignore ' behind a letter, as it may be a register */
+    lastuc = toupper((unsigned char)*(s-1));
+    if ((c=='\'' && (lastuc<'A' || lastuc>'Z')) || c=='\"') {
+#else
+    if (c=='\'' || c=='\"') {
+#endif
+      s = skip_string(s,c,NULL);
+    }
+    else if (c == STATEMENT_DELIMITER) {
+      *s = '\0';  /* terminate the statement here temporarily */
+      break;
+    }
+    else if (c=='\0' || c==commentchar) {
+      s = NULL;  /* ignore delimiters in rest of line */
+      break;
+    }
+    else
+      s++;
+  }
+  return line;
+}
+#endif
 
 
 void parse(void)
@@ -1095,7 +1200,11 @@ void parse(void)
   int ext_cnt,op_cnt,inst_len;
   instruction *ip;
 
+#ifdef STATEMENT_DELIMITER
+  while (line = read_next_statement()) {
+#else
   while (line = read_next_line()) {
+#endif
     if (parse_end)
       continue;
 
@@ -1175,8 +1284,6 @@ void parse(void)
         /* it's just a label */
         label = new_labsym(0,labname);
         add_atom(0,new_label_atom(label));
-        if (*s == ':')	/* optionally terminated by a colon */
-          s = skip(s+1);
       }
 
       if (!is_local_label(labname) && autoexport)
@@ -1239,17 +1346,23 @@ void parse(void)
       else
 #endif
         op_cnt++;
-      s = skip(s);
-      if (OPERSEP_COMMA) {
-        if (*s == ',')
-          s = skip(s+1);
-        else if (!(OPERSEP_BLANK))
+
+      if (igntrail) {
+        if (*s != ',')
           break;
+        s++;
       }
-    }      
-    s = skip(s);
-    if (!ISEOL(s))
-      syntax_error(6);
+      else {
+        s = skip(s);
+        if (OPERSEP_COMMA) {
+          if (*s == ',')
+            s = skip(s+1);
+          else if (!(OPERSEP_BLANK))
+            break;
+        }
+      }
+    }
+    eol(s);
 
     ip = new_inst(inst,inst_len,op_cnt,op,op_len);
 
@@ -1295,7 +1408,7 @@ char *parse_macro_arg(struct macro *m,char *s,
 /* expands arguments and special escape codes into macro context */
 int expand_macro(source *src,char **line,char *d,int dlen)
 {
-  int nc = -1;
+  int nc = 0;
   int n;
   char *s = *line;
   char *end;
@@ -1304,31 +1417,57 @@ int expand_macro(source *src,char **line,char *d,int dlen)
     /* possible macro expansion detected */
 
     if (*s == '\\') {
-      *d++ = *s++;
-      if (esc_sequences) {
-        *d++ = '\\';  /* make it a double \ again */
-        nc = 2;
+      if (dlen >= 1) {
+        *d++ = *s++;
+        if (esc_sequences) {
+          if (dlen >= 2) {
+            *d++ = '\\';  /* make it a double \ again */
+            nc = 2;
+          }
+          else
+            nc = -1;
+        }
+        else
+          nc = 1;
       }
       else
-        nc = 1;
+        nc = -1;
     }
 
     else if (*s == '@') {
       /* \@: insert a unique id */
-      char buf[16];
-
-      nc = sprintf(buf,"_%06lu",src->id);
-      if (dlen >= nc) {
-        s++;
-        memcpy(d,buf,nc);
-      }
-      else
+      nc = snprintf(d,dlen,"_%06lu",src->id);
+      s++;
+      if (nc >= dlen)
         nc = -1;
     }
     else if (*s=='(' && *(s+1)==')') {
       /* \() is just skipped, useful to terminate named macro parameters */
       nc = 0;
       s += 2;
+    }
+    else if (*s == '<') {
+      /* \<symbol> : insert absolute unsigned symbol value */
+      char *name;
+      symbol *sym;
+      taddr val;
+
+      s++;
+      if (name = parse_symbol(&s)) {
+        if ((sym = find_symbol(name)) && sym->type==EXPRESSION) {
+          if (eval_expr(sym->expr,&val,NULL,0))
+            nc = sprintf(d,"%lu",(unsigned long)(uint32_t)val);
+        }
+        myfree(name);
+        if (*s++!='>' || nc<0) {
+          syntax_error(11);  /* invalid numeric expansion */
+          return 0;
+        }
+      }
+      else {
+        syntax_error(10);  /* identifier expected */
+        return 0;
+      }
     }
     else if (isdigit((unsigned char)*s)) {
       /* \1..\9,\0 : insert macro parameter 1..9,10 */
@@ -1347,7 +1486,7 @@ int expand_macro(source *src,char **line,char *d,int dlen)
       *line = s;  /* update line pointer when expansion took place */
   }
 
-  return nc;  /* number of chars written to line buffer, -1: no expansion */
+  return nc;  /* number of chars written to line buffer, -1: out of space */
 }
 
 
@@ -1393,28 +1532,28 @@ static int intel_suffix(char *s)
 char *const_prefix(char *s,int *base)
 {
   if (isdigit((unsigned char)*s)) {
-    if (*base = intel_suffix(s))
+    if (!nointelsuffix && (*base = intel_suffix(s)))
       return s;
-    if (*s == '0') {
-      if (s[1]=='x' || s[1]=='X'){
-        *base = 16;
+    if (!nocprefix) {
+      if (*s == '0') {
+        if (s[1]=='x' || s[1]=='X'){
+          *base = 16;
+          return s+2;
+        }
+        if (s[1]=='b' || s[1]=='B'){
+          *base = 2;
+          return s+2;
+        }    
+        *base = 8;
+        return s;
+      } 
+      else if (s[1]=='#' && *s>='2' && *s<='9') {
+        *base = *s & 0xf;
         return s+2;
       }
-      if (s[1]=='b' || s[1]=='B'){
-        *base = 2;
-        return s+2;
-      }    
-      *base = 8;
-      return s;
-    } 
-    else if (s[1]=='#' && *s>='2' && *s<='9') {
-      *base = *s & 0xf;
-      return s+2;
     }
-    else {
-      *base = 10;
-      return s;
-    }
+    *base = 10;
+    return s;
   }
 
   if (*s=='$' && isxdigit((unsigned char)s[1])) {
@@ -1511,8 +1650,13 @@ int init_syntax()
     data.idx = i;
     add_hashentry(dirhash,directives[i].name,data);
   }
+
   cond_init();
+  set_internal_abs(REPTNSYM,-1); /* reserve the REPTN symbol */
   current_pc_char = '*';
+
+  if (orgmode != ~0)
+    set_section(new_org(orgmode));
   return 1;
 }
 
@@ -1525,6 +1669,22 @@ int syntax_args(char *p)
   }
   else if (!strcmp(p,"-autoexp")) {
     autoexport = 1;
+    return 1;
+  }
+  else if (!strncmp(p,"-org=",5)) {
+    orgmode = atoi(p+5);
+    return 1;
+  }
+  else if (OPERSEP_COMMA && !strcmp(p,"-i")) {
+    igntrail = 1;
+    return 1;
+  }
+  else if (!strcmp(p,"-noc")) {
+    nocprefix = 1;
+    return 1;
+  }
+  else if (!strcmp(p,"-noi")) {
+    nointelsuffix = 1;
     return 1;
   }
   return 0;

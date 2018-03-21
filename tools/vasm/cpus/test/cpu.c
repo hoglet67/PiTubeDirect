@@ -188,7 +188,7 @@ dblock *eval_instruction(instruction *p,section *sec,taddr pc)
   size_t size=instruction_size(p,sec,pc);
   dblock *db=new_dblock();
   int c=opt_inst(p,sec,pc);
-  char *d;
+  unsigned char *d;
   taddr val;
   db->size=size;
   d=db->data=mymalloc(size);

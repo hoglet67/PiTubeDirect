@@ -124,7 +124,7 @@ void print_reloc(FILE *f,int type,nreloc *p)
     };
     fprintf(f,"r%s(%u,%u-%u,0x%llx,0x%llx,",rname[type],
             (unsigned)p->byteoffset,(unsigned)p->bitoffset,
-            (unsigned)p->bitoffset+p->size-1,
+            (unsigned)(p->bitoffset+p->size-1),
             ULLTADDR(p->mask),ULLTADDR(p->addend));
   }
 #ifdef VASM_CPU_PPC
@@ -135,7 +135,7 @@ void print_reloc(FILE *f,int type,nreloc *p)
     fprintf(f,"r%s(%u,%u-%u,0x%llx,0x%llx,",
             rname[type-(LAST_STANDARD_RELOC+1)],
             (unsigned)p->byteoffset,(unsigned)p->bitoffset,
-            (unsigned)p->bitoffset+p->size-1,
+            (unsigned)(p->bitoffset+p->size-1),
             ULLTADDR(p->mask),ULLTADDR(p->addend));
   }
 #endif

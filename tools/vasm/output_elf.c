@@ -5,13 +5,14 @@
 #include "output_elf.h"
 #include "stabs.h"
 #if ELFCPU && defined(OUTELF)
-static char *copyright="vasm ELF output module 2.4a (c) 2002-2016 Frank Wille";
+static char *copyright="vasm ELF output module 2.6 (c) 2002-2016 Frank Wille";
 
 static int keep_empty_sects;
 
 static int be,cpu,bits;
 static unsigned elfrelsize,shtreloc;
 
+static hashtable *elfsymhash;
 static struct list shdrlist,symlist,relalist;
 static struct StrTabList shstrlist,strlist,stabstrlist;
 
@@ -36,6 +37,7 @@ static unsigned addString(struct StrTabList *sl,char *s)
 
 static void init_lists(void)
 {
+  elfsymhash = new_hashtable(ELFSYMHTABSIZE);
   initlist(&shdrlist);
   initlist(&symlist);
   initlist(&relalist);
@@ -78,13 +80,16 @@ static struct Shdr64Node *addShdr64(void)
 static struct Symbol32Node *addSymbol32(char *name)
 {
   struct Symbol32Node *sn = mycalloc(sizeof(struct Symbol32Node));
+  hashdata data;
 
   addtail(&symlist,&(sn->n));
   if (name) {
     sn->name = name;
     setval(be,sn->s.st_name,4,addString(&strlist,name));
   }
-  symindex++;
+  data.ptr = sn;
+  sn->idx = symindex++;
+  add_hashentry(elfsymhash,name?name:emptystr,data);
   return sn;
 }
 
@@ -92,13 +97,16 @@ static struct Symbol32Node *addSymbol32(char *name)
 static struct Symbol64Node *addSymbol64(char *name)
 {
   struct Symbol64Node *sn = mycalloc(sizeof(struct Symbol64Node));
+  hashdata data;
 
   addtail(&symlist,&(sn->n));
   if (name) {
     sn->name = name;
     setval(be,sn->s.st_name,4,addString(&strlist,name));
   }
-  symindex++;
+  data.ptr = sn;
+  sn->idx = symindex++;
+  add_hashentry(elfsymhash,name?name:emptystr,data);
   return sn;
 }
 
@@ -208,18 +216,11 @@ static void *makeShdr64(elfull name,elfull type,elfull flags,elfull offset,
 static unsigned findelfsymbol(char *name)
 /* find symbol with given name in symlist, return its index */
 {
-  /* also works for lists with Symbol64Node! */
-  struct Symbol32Node *nextsym,*sym = (struct Symbol32Node *)symlist.first;
-  unsigned sidx = 0;
+  hashdata data;
 
-  while (nextsym = (struct Symbol32Node *)sym->n.next) {
-    if (sym->name)
-      if (!strcmp(name,sym->name))
-        break;
-    ++sidx;
-    sym = nextsym;
-  }
-  return nextsym ? sidx : 0;
+  if (find_name(elfsymhash,name,&data))
+    return ((struct Symbol32Node *)data.ptr)->idx;
+  return 0;
 }
 
 
@@ -318,6 +319,7 @@ static utaddr get_reloc_type(rlist **rl,
   rlist *rl2;
   utaddr mask;
   int pos,size;
+
   utaddr t = 0;
 
   *roffset = 0;
@@ -401,6 +403,8 @@ static utaddr make_relocs(rlist *rl,utaddr pc,
 
 
 static utaddr make_stabreloc(utaddr pc,struct stabdef *nlist,
+                             void (*newsym)(char *,elfull,elfull,uint8_t,
+                                            uint8_t,unsigned),
                              void (*addrel)(elfull,elfull,elfull,elfull))
 {
   rlist dummyrl;
@@ -410,7 +414,7 @@ static utaddr make_stabreloc(utaddr pc,struct stabdef *nlist,
   taddr addend;
   symbol *refsym;
 
-  nrel.byteoffset = 0;
+  nrel.byteoffset = offsetof(struct nlist32,n_value);
   nrel.bitoffset = 0;
   nrel.size = bits;
   nrel.mask = ~0;
@@ -420,16 +424,8 @@ static utaddr make_stabreloc(utaddr pc,struct stabdef *nlist,
   rl->next = NULL;
   rl->reloc = &nrel;
   rl->type = REL_ABS;
- 
-  if (rtype = get_reloc_type(&rl,&offset,&addend,&refsym)) {
-    if (LOCREF(refsym)) {
-      addrel(pc+offset,addend,refsym->sec->idx,rtype);
-      return elfrelsize;
-    }
-    else
-      ierror(0);
-  }
-  return 0;
+
+  return make_relocs(rl,pc,newsym,addrel);
 }
 
 
@@ -590,10 +586,10 @@ static void make_reloc_sections(section *sec,
   if (!no_symbols) {
     /* look for relocations in .stab */
     basero = roffset;
-    pc = 0;
+    pc = sizeof(struct nlist32);  /* skip compilation unit header */
     while (nlist != NULL) {
       if (nlist->base != NULL)
-        roffset += make_stabreloc(pc,nlist,addrel);
+        roffset += make_stabreloc(pc,nlist,newsym,addrel);
       nlist = nlist->next;
       pc += sizeof(struct nlist32);
     }
@@ -641,7 +637,7 @@ static void write_section_data(FILE *f,section *sec)
   if (!no_symbols && nlist!=NULL) {
     /* write compilation unit header - precedes nlist entries */
     fw32(f,1,be);  /* source name is first entry in .stabstr */
-    fw32(f,stablen*sizeof(struct nlist32),be);
+    fw32(f,stablen,be);
     fw32(f,stabstrlist.index,be);
     /* write .stab */
     while (nlist != NULL) {
@@ -878,6 +874,9 @@ static void write_output(FILE *f,section *sec,symbol *sym)
     write_ELF64(f,sec,sym);
   else
     output_error(1,cpuname);  /* output module doesn't support cpu */
+
+  if (debug && elfsymhash->collisions)
+    printf("*** %d ELF symbol collisions!\n",elfsymhash->collisions);
 }
 
 

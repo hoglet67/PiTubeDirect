@@ -2,15 +2,8 @@ This chapter documents the backend for the Atari Jaguar GPU/DSP RISC processor.
 
 @section Legal
 
-    This module is copyright in 2014-2015 by Frank Wille.
-
-    This archive may be redistributed without modifications and used
-    for non-commercial purposes.
-
-    Distributing modified versions and commercial usage needs my written
-    consent.
-
-    Certain modules may fall under additional copyrights.
+    This module is written in 2014-2015 by Frank Wille and
+    is covered by the vasm copyright without modifications.
 
 
 @section Additional options for this module

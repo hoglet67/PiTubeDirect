@@ -54,7 +54,7 @@ $(PRE)error.o: error.c vasm.h error.h general_errors.h output_errors.h cpus/$(CP
 $(PRE)reloc.o: reloc.c vasm.h symbol.h expr.h error.h supp.h reloc.h
 	$(CC) $(INCLUDES) $(COPTS) reloc.c $(CCOUT)$(PRE)reloc.o
 
-$(PRE)parse.o: parse.c vasm.h symbol.h parse.h atom.h syntax/$(SYNTAX)/syntax.h
+$(PRE)parse.o: parse.c vasm.h symbol.h parse.h atom.h cpus/$(CPU)/cpu.h syntax/$(SYNTAX)/syntax.h
 	$(CC) $(INCLUDES) $(COPTS) parse.c $(CCOUT)$(PRE)parse.o
 
 $(PRE)hugeint.o: hugeint.c hugeint.h tfloat.h error.h

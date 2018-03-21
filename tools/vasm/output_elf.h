@@ -1,5 +1,5 @@
 /* output_elf.h header file for ELF objects */
-/* (c) in 2002-2015 by Frank Wille */
+/* (c) in 2002-2016 by Frank Wille */
 
 /* e_indent indexes */
 #define EI_NIDENT  16
@@ -260,6 +260,7 @@ struct Shdr32Node {
 struct Symbol32Node {
   struct node n;
   char *name;
+  unsigned idx;
   struct Elf32_Sym s;
 };
 
@@ -281,6 +282,7 @@ struct Shdr64Node {
 struct Symbol64Node {
   struct node n;
   char *name;
+  unsigned idx;
   struct Elf64_Sym s;
 };
 
@@ -313,3 +315,5 @@ struct Rel64Node {
 #else
 #define ELFCPU 0
 #endif
+
+#define ELFSYMHTABSIZE 0x10000

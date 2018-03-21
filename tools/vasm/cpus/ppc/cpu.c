@@ -1,6 +1,6 @@
 /*
 ** cpu.c PowerPC cpu-description file
-** (c) in 2002-2016 by Frank Wille
+** (c) in 2002-2017 by Frank Wille
 */
 
 #include "vasm.h"
@@ -12,13 +12,13 @@ mnemonic mnemonics[] = {
 
 int mnemonic_cnt=sizeof(mnemonics)/sizeof(mnemonics[0]);
 
-char *cpu_copyright="vasm PowerPC cpu backend 2.1 (c) 2002-2016 Frank Wille";
+char *cpu_copyright="vasm PowerPC cpu backend 3.0 (c) 2002-2017 Frank Wille";
 char *cpuname = "PowerPC";
 int bitsperbyte = 8;
 int bytespertaddr = 4;
 int ppc_endianess = 1;
 
-static uint64_t cpu_type = CPU_TYPE_COMMON | CPU_TYPE_32 | CPU_TYPE_ANY;
+static uint64_t cpu_type = CPU_TYPE_PPC | CPU_TYPE_ALTIVEC | CPU_TYPE_32 | CPU_TYPE_ANY;
 static int regnames = 1;
 static taddr sdreg = 13;  /* this is default for V.4, PowerOpen = 2 */
 static taddr sd2reg = 2;
@@ -75,12 +75,14 @@ int ppc_available(int idx)
   uint64_t avail = mnemonics[idx].ext.available;
   uint64_t datawidth = CPU_TYPE_32 | CPU_TYPE_64;
 
-  if ((avail & cpu_type & ~datawidth)!=0 || (cpu_type & CPU_TYPE_ANY)!=0) {
-    if (avail & datawidth)
-      return (avail & datawidth) == (cpu_type & datawidth)
-             || (cpu_type & CPU_TYPE_64_BRIDGE) != 0;
-    else
-      return 1;
+  if ((avail & cpu_type) != 0) {
+    if ((avail & cpu_type & ~datawidth)!=0 || (cpu_type & CPU_TYPE_ANY)!=0) {
+      if (avail & datawidth)
+        return (avail & datawidth) == (cpu_type & datawidth)
+               || (cpu_type & CPU_TYPE_64_BRIDGE) != 0;
+      else
+        return 1;
+    }
   }
   return 0;
 }

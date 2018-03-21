@@ -1,5 +1,5 @@
 /* atom.h - atomic objects from source */
-/* (c) in 2010-2015 by Volker Barthelmann and Frank Wille */
+/* (c) in 2010-2016 by Volker Barthelmann and Frank Wille */
 
 #ifndef ATOM_H
 #define ATOM_H
@@ -41,7 +41,7 @@ typedef struct defblock {
 
 struct dblock {
   size_t size;
-  char *data;
+  unsigned char *data;
   rlist *relocs;
 };
 

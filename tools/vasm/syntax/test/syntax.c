@@ -415,7 +415,7 @@ char *parse_macro_arg(struct macro *m,char *s,
 
 int expand_macro(source *src,char **line,char *d,int dlen)
 {
-  return -1;
+  return 0;
 }
 
 int init_syntax()

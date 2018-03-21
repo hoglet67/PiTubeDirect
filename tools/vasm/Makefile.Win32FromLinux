@@ -5,7 +5,8 @@ TARGETEXTENSION = .exe
 OUTFMTS = -DOUTAOUT -DOUTBIN -DOUTELF -DOUTHUNK -DOUTSREC -DOUTTOS -DOUTVOBJ
 
 
-CC = /usr/bin/i586-mingw32msvc-gcc
+#CC = /usr/bin/i586-mingw32msvc-gcc
+CC = /usr/bin/i686-w64-mingw32-gcc
 CCOUT = -o 
 COPTS = -c -O2 $(OUTFMTS)
 

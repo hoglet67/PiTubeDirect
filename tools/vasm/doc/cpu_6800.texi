@@ -3,15 +3,8 @@ microprocessor family.
 
 @section Legal
 
-    This module is copyright in 2013-2016 by Esben Norby and Frank Wille.
-
-    This archive may be redistributed without modifications and used
-    for non-commercial purposes.
-
-    Distributing modified versions and commercial usage needs my written
-    consent.
-
-    Certain modules may fall under additional copyrights.
+    This module is written in 2013-2016 by Esben Norby and Frank Wille
+    and is covered by the vasm copyright without modifications.
 
 
 @section Additional options for this module

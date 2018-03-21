@@ -2,16 +2,9 @@ This chapter documents the Backend for the TR3200 cpu.
 
 @section Legal
 
-    This module is written in 2014 by Luis Panadero Guarde@~no. Based on test CPU
-    module written by Volker Barthelmann in 2002.
+    This module is written in 2014 by Luis Panadero Guarde@~no and
+    is covered by the vasm copyright without modifications.
 
-    This archive may be redistributed without modifications and used
-    for non-commercial purposes.
-
-    Distributing modified versions and commercial usage needs my written
-    consent.
-
-    Certain modules may fall under additional copyrights.
 
 @section General
 

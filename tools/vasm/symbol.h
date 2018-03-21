@@ -1,5 +1,5 @@
 /* symbol.h - manage all kinds of symbols */
-/* (c) in 2014-2016 by Volker Barthelmann and Frank Wille */
+/* (c) in 2014-2017 by Volker Barthelmann and Frank Wille */
 
 #ifndef SYMBOL_H
 #define SYMBOL_H
@@ -25,9 +25,12 @@
 #define LOCAL (1<<7)        /* only informational */
 #define VASMINTERN (1<<8)
 #define PROTECTED (1<<9)
-#define REFERENCED (1<<10)
+#define REFERENCED (1<<10)  /* referenced by a relocation */
 #define ABSLABEL (1<<11)
 #define EQUATE (1<<12)
+#define REGLIST (1<<13)
+#define USED (1<<14)        /* used in any expression */
+#define NEAR (1<<15)        /* may refer symbol with near addressing modes */
 #define RSRVD_S (1L<<24)    /* bits 24..27 are reserved for syntax modules */
 #define RSRVD_O (1L<<28)    /* bits 28..31 are reserved for output modules */
 
@@ -41,7 +44,7 @@ struct symbol {
   section *sec;
   taddr pc;
   taddr align;
-  uint32_t idx; /* usable by output module */
+  unsigned long idx; /* usable by output module */
 };
 
 /* type of symbol references */

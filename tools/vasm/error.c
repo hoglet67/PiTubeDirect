@@ -1,5 +1,5 @@
 /* error.c - error output and modification routines */
-/* (c) in 2002-2015 by Volker Barthelmann and Frank Wille */
+/* (c) in 2002-2017 by Volker Barthelmann and Frank Wille */
 
 #include <stdarg.h>
 #include "vasm.h"
@@ -32,16 +32,19 @@ int no_warn=0;
 static void print_source_line(FILE *f)
 {
   static char *buf = NULL;
+  static size_t bufsz = 0;
   char c,*e,*p,*q;
   int l;
 
-  /* get an error line buffer only once on demand */
-  if (buf == NULL)
-    buf = mymalloc(MAXLINELENGTH);
+  /* allocate a sufficiently dimensioned line buffer */
+  if (cur_src->bufsize > bufsz) {
+    bufsz = cur_src->bufsize;
+    buf = myrealloc(buf,bufsz);
+  }
 
   p = cur_src->text;
   q = buf;
-  e = buf + MAXLINELENGTH - 1;
+  e = buf + bufsz - 1;
   l = cur_src->line;
 
   do {
@@ -153,7 +156,7 @@ static void error(int n,va_list vl,struct err_out *errlist,int offset)
     fprintf(f,"aborting...\n");
     leave();
   }
-  if ((flags & ERROR) && errors>=max_errors) {
+  if ((flags & ERROR) && max_errors!=0 && errors>=max_errors) {
     fprintf(f,"***maximum number of errors reached!***\n");
     leave();
   }

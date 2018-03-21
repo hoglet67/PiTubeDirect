@@ -1,5 +1,5 @@
 /* supp.c miscellaneous support routines */
-/* (c) in 2008-2016 by Frank Wille */
+/* (c) in 2008-2017 by Frank Wille */
 
 #include <math.h>
 #include "vasm.h"
@@ -511,6 +511,13 @@ size_t filesize(FILE *fp)
         if (fseek(fp,oldpos,SEEK_SET) >= 0)
           return ((size_t)size);
   return -1;
+}
+
+
+int abs_path(char *path)
+/* return true, when path is absolute */
+{
+  return *path=='/' || *path=='\\' || strchr(path,':')!=NULL;
 }
 
 

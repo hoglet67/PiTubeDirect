@@ -1,5 +1,5 @@
 /* expr.c expression handling for vasm */
-/* (c) in 2002-2016 by Volker Barthelmann and Frank Wille */
+/* (c) in 2002-2017 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 
@@ -97,6 +97,7 @@ static expr *primary_expr(void)
     symbol *sym=find_symbol(name);
     if(!sym)
       sym=new_import(name);
+    sym->flags|=USED;
     if (sym->type!=EXPRESSION){
       new=new_expr();
       new->type=SYM;
@@ -212,6 +213,7 @@ static expr *primary_expr(void)
 #endif
       sym=new_import(name);
     }
+    sym->flags|=USED;
     if (sym->type!=EXPRESSION){
       new=new_expr();
       new->type=SYM;
@@ -1281,9 +1283,9 @@ void print_expr(FILE *f,expr *p)
     ierror(0);
   simplify_expr(p);
   if(p->type==NUM)
-    fprintf(f,"%lld",(int64_t)p->c.val);
+    fprintf(f,"%lld=0x%llx",(long long)p->c.val,ULLTADDR(p->c.val));
   else if(p->type==HUG)
-    fprintf(f,"0x%016llx%016llx",p->c.huge.hi,p->c.huge.lo);
+    fprintf(f,"0x%016llx%016llx",(long long)p->c.huge.hi,(long long)p->c.huge.lo);
   else if(p->type==FLT)
     fprintf(f,"%.8g",(double)p->c.flt);
   else
@@ -1309,13 +1311,17 @@ static int find_abs_base(expr *tree,symbol **base)
         *base=tree->c.sym;
         return 1;
       }
-    }else{
+    }
+#if 0 /* There is no reason to forbid that? Especially not in RORG sections,
+         which are embedded in a normal relocatable, linkable code section. */
+    else{
       if(current_section!=NULL&&(current_section->flags&ABSOLUTE)){
         /* IMPORT in ORG section, will be flagged as BASE_ILLEGAL */
         *base=tree->c.sym;
         return 1;
       }
     }
+#endif
     return 0;
   }
   if(!find_abs_base(tree->left,base))

@@ -5,15 +5,8 @@ It is mainly intended for Atari's 6502, 68000 and Jaguar systems.
 
 @section Legal
 
-    This module is copyright in 2015 by Frank Wille.
-
-    This archive may be redistributed without modifications and used
-    for non-commercial purposes.
-
-    Distributing modified versions and commercial usage needs my written
-    consent.
-
-    Certain modules may fall under additional copyrights.
+    This module is written in 2015 by Frank Wille and
+    is covered by the vasm copyright without modifications.
 
 @section General Syntax
 

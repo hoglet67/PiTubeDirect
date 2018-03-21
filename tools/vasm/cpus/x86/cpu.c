@@ -1,6 +1,6 @@
 /*
 ** cpu.c x86 cpu-description file
-** (c) in 2005-2006,2011,2015-2016 by Frank Wille
+** (c) in 2005-2006,2011,2015-2017 by Frank Wille
 */
 
 #include "vasm.h"
@@ -10,7 +10,7 @@ mnemonic mnemonics[] = {
 };
 int mnemonic_cnt = sizeof(mnemonics)/sizeof(mnemonics[0]);
 
-char *cpu_copyright = "vasm x86 cpu backend 0.6c (c) 2005-2006,2011,2015-2016 Frank Wille";
+char *cpu_copyright = "vasm x86 cpu backend 0.7 (c) 2005-2006,2011,2015-2017 Frank Wille";
 char *cpuname = "x86";
 int bitsperbyte = 8;
 int bytespertaddr = 4;
@@ -81,16 +81,15 @@ operand *new_operand(void)
 }
 
 
-int x86_data_operand(int bits)
+int x86_data_operand(int n)
 /* return data operand type for these number of bits */
 {
-  switch (bits) {
-    case 8: return Disp8;
-    case 16: return Disp16;
-    case 32: return Disp32;
-    case 64: return Disp64;
-  }
-  cpu_error(20,bits);  /* data objects with n bits size are not supported */
+  if (n&OPSZ_FLOAT) return OPSZ_BITS(n)>32?Float64:Float32;
+  if (OPSZ_BITS(n)<=8) return Data8;
+  if (OPSZ_BITS(n)<=16) return Data16;
+  if (OPSZ_BITS(n)<=32) return Data32;
+  if (OPSZ_BITS(n)<=64) return Data64;
+  cpu_error(20,n);  /* data objects with n bits size are not supported */
   return 0;
 }
 
@@ -1582,7 +1581,11 @@ int parse_operand(char *p,int len,operand *op,int requirements)
            (unsigned long)requirements,len,p);
   }
 
-  if (!(given_type = op->parsed_type)) {
+  /* @@@ This does no longer work, since save_symbols()/restore_symbols().
+  given_type = op->parsed_type; */
+  given_type = 0;  /* ... so parse the operand every time again */
+
+  if (given_type == 0) {
     p = skip(p);
 
     if (*p == '%') {
@@ -1643,9 +1646,14 @@ int parse_operand(char *p,int len,operand *op,int requirements)
 
     else {
       if (*p != '(') {
-        /* read displacement */
-        op->value = parse_expr(&p);
+        /* read displacement (or data) */
         given_type |= Disp;  /* exact size is not available at this stage */
+        if ((requirements & FloatData) == FloatData) {
+          op->value = parse_expr_float(&p);
+          given_type |= FloatData;
+        }
+        else
+          op->value = parse_expr(&p);
         p = skip(p);
       }
 
@@ -1817,22 +1825,43 @@ dblock *eval_data(operand *op,size_t bitsize,section *sec,taddr pc)
 {
   dblock *db = new_dblock();
   taddr val;
+  tfloat flt;
 
   db->size = bitsize >> 3;
   db->data = mymalloc(db->size);
-  if (!eval_expr(op->value,&val,sec,pc)) {
-    symbol *base;
-    int btype;
-    
-    btype = find_base(op->value,&base,sec,pc);
-    if (base)
-      add_extnreloc(&db->relocs,base,val,
-                    btype==BASE_PCREL?REL_PC:REL_ABS,
-                    0,bitsize,0);
-    else if (btype != BASE_NONE)
-      general_error(38);  /* illegal relocation */
+
+  if (type_of_expr(op->value) == FLT) {
+    if (!eval_expr_float(op->value,&flt))
+      general_error(60);  /* cannot evaluate floating point */
+
+    switch (bitsize) {
+      case 32:
+        conv2ieee32(0,db->data,flt);
+        break;
+      case 64:
+        conv2ieee64(0,db->data,flt);
+        break;
+      default:
+	cpu_error(20,bitsize);  /* illegal bitsize */
+        break;
+    }
   }
-  write_taddr(db->data,val,bitsize);
+  else {
+    if (!eval_expr(op->value,&val,sec,pc)) {
+      symbol *base;
+      int btype;
+    
+      btype = find_base(op->value,&base,sec,pc);
+      if (base)
+        add_extnreloc(&db->relocs,base,val,
+                      btype==BASE_PCREL?REL_PC:REL_ABS,
+                      0,bitsize,0);
+      else if (btype != BASE_NONE)
+        general_error(38);  /* illegal relocation */
+    }
+    write_taddr(db->data,val,bitsize);
+  }
+
   return db;
 }
 

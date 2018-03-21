@@ -1,6 +1,6 @@
 /*
 ** cpu.c 650x/651x cpu-description file
-** (c) in 2002,2006,2008-2012,2014-2016 by Frank Wille
+** (c) in 2002,2006,2008-2012,2014-2017 by Frank Wille
 */
 
 #include "vasm.h"
@@ -11,7 +11,7 @@ mnemonic mnemonics[] = {
 
 int mnemonic_cnt=sizeof(mnemonics)/sizeof(mnemonics[0]);
 
-char *cpu_copyright="vasm 6502 cpu backend 0.7b (c) 2002,2006,2008-2012,2014-2016 Frank Wille";
+char *cpu_copyright="vasm 6502 cpu backend 0.7d (c) 2002,2006,2008-2012,2014-2017 Frank Wille";
 char *cpuname = "6502";
 int bitsperbyte = 8;
 int bytespertaddr = 2;
@@ -179,7 +179,13 @@ static void optimize_instruction(instruction *ip,section *sec,
         symbol *base;
         
         if (find_base(op->value,&base,sec,pc) == BASE_OK) {
-          if (op->type==REL && LOCREF(base) && base->sec==sec) {
+          if ((op->type==ABS || op->type==ABSX || op->type==ABSY)
+              && base->sec!=NULL && (base->sec->flags & ABSOLUTE)
+              && (val>=0 && val<=0xff) && mnemo->ext.zp_opcode!=0) {
+            /* we can use a zero page addressing mode */
+            op->type += ZPAGE-ABS;
+          }
+          else if (op->type==REL && LOCREF(base) && base->sec==sec) {
             taddr bd = val - (pc + 2);
     
             if ((bd<-0x80 || bd>0x7f) && branchopt) {

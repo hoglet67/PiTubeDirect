@@ -1,10 +1,10 @@
 /* output_bin.c binary output driver for vasm */
-/* (c) in 2002-2009,2013,2015 by Volker Barthelmann and Frank Wille */
+/* (c) in 2002-2009,2013,2015,2017 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 
 #ifdef OUTBIN
-static char *copyright="vasm binary output module 1.8 (c) 2002-2009,2013,2015 Volker Barthelmann";
+static char *copyright="vasm binary output module 1.8a (c) 2002-2009,2013,2015,2017 Volker Barthelmann";
 
 #define BINFMT_RAW      0
 #define BINFMT_CBMPRG   1   /* Commodore VIC-20/C-64 PRG format */
@@ -13,12 +13,10 @@ static int binfmt = BINFMT_RAW;
 
 static int orgcmp(const void *sec1,const void *sec2)
 {
-  if ((utaddr)(*(section **)sec1)->org > (utaddr)(*(section **)sec2)->org)
+  if (ULLTADDR((*(section **)sec1)->org) > ULLTADDR((*(section **)sec2)->org))
     return 1;
-  if ((utaddr)(*(section **)sec1)->org < (utaddr)(*(section **)sec2)->org)
+  if (ULLTADDR((*(section **)sec1)->org) < ULLTADDR((*(section **)sec2)->org))
     return -1;
-
-  output_error(0);
   return 0;
 }
 
@@ -77,7 +75,7 @@ static void write_output(FILE *f,section *sec,symbol *sym)
       pc = ULLTADDR(s->org);
 
     for (p=s->first; p; p=p->next) {
-      npc = fwpcalign(f,p,s,pc);
+      npc = ULLTADDR(fwpcalign(f,p,s,pc));
       if (p->type == DATA) {
         for (i=0; i<p->content.db->size; i++)
           fw8(f,(unsigned char)p->content.db->data[i]);
