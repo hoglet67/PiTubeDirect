@@ -7,7 +7,7 @@
 
 #include "copro-65tubeasm.h"
 
-#define TIMING_INSTRUCTION 0
+#define TIMING_INSTRUCTION 1
 
 #define I_ALIGN (1<<I_ALIGN_BITS)
 
@@ -516,6 +516,7 @@
 .if \flags==flags
         mrs     r2, CPSR           // preserve the 6502 flags
         cmp     tregs, r0, lsr #5  // tregs holds the constant 0xFEE0 >> 5 
+        FETCH_NEXT_3B_STAGE_0
 .endif
 
 .if \flags==carry
@@ -526,27 +527,27 @@
 .if \flags==nocarry
         cmp     tregs, r0, lsr #5  // tregs holds the constant 0xFEE0 >> 5   
 .endif 
+      
+.if \reg==r1
+        beq    tube_store_handler    // tube memory access
+.else
+        beq    tube_store_handler_regA
+.endif       
 #if defined(USE_MEMORY_POINTER) 
-        strneb  \reg, [r0, memry]       // normal memory write
+        strb  \reg, [r0, memry]       // normal memory write
 #else
 .ifb \jump
-        strneb  \reg, [r0]       // normal memory write
+        strb  \reg, [r0]       // normal memory write
 .else
         Bne       \jump      
 .endif
-#endif        
-.if \reg==r1
-        bleq    tube_store_handler    // tube memory access
-.else
-        bleq    tube_store_handler_regA
-.endif       
-
+#endif  
 .if \norestore==store
 .if \flags==flags
         msr     CPSR_flg, r2           // restore 6502 flags, including ARM 
 .endif
 .endif
-        
+        FETCH_NEXT_STAGE_012 
 .endm
 
 
@@ -613,12 +614,26 @@
         SPUSH   r0
         SPUSH   r1
 #else
-                    // setbrk should be 1 for BRK, 0 for IRQ/NMI
-        //add     regPC, #1            
-        lsr     r0, regPC, #8
-        SPUSH   r0
-        SPUSH   regPC
+                    // setbrk should be 1 for BRK, 0 for IRQ/NMI       
+        //lsr     r0, regPC, #8
+        //SPUSH   r0
+        //SPUSH   regPC
+        sub     regSP, regSP, #2
+        strh    regPC, [regSP,#1]
+        orr     regSP, #0x0100
+        
 #endif        
+
+#if defined(USE_MEMORY_POINTER)        
+        add     r2, memry, #0x10000
+        ldrh    r2, [r2, #\vector]        // Fetch the vector address
+        add     regPC, memry, r2                // Point to this instruction in memory
+#else
+        mov     r2, #0x10000
+        ldrh    regPC, [r2, #\vector]        // Fetch the vector address
+        // Point to this instruction in memory
+#endif   
+
 .if \setbrk          
         movpl   r0, #0x30                 // Always set bit 5 (-) in the pushed value and Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
         movmi   r0, #0xB0
@@ -633,15 +648,7 @@
         SPUSH   r0
         orr     flags, flags, #4                // Set the I bit in the 6502 status register
         bic     flags, flags, #8                // Clear the D bit in the 6502 status register
-#if defined(USE_MEMORY_POINTER)        
-        add     r0, memry, #0x10000
-        ldrh    r0, [r0, #\vector]        // Fetch the vector address
-        add     regPC, memry, r0                // Point to this instruction in memory
-#else
-        mov    r0, #0x10000
-        ldrh    regPC, [r0, #\vector]        // Fetch the vector address
-        // Point to this instruction in memory
-#endif        
+     
 .endm
 
 // instruction macros 
@@ -932,6 +939,14 @@
         .ltorg
  .endm 
 
+.macro NOP_1
+        FETCH_NEXT_STAGE_01_I
+        FETCH_NEXT_STAGE_2
+.endm
+        
+.macro NOP_2
+        FETCH_NEXT_STAGE_012
+.endm
 
 // **********************************************
 // End of macros
@@ -945,6 +960,7 @@
 
 // Opcode 00 - BRK is really a two byte instruction, so no fixup needed
 opcode_00:
+        INTR    -2, 1
         B     JUMP_BRK
         .balign I_ALIGN
 
@@ -955,17 +971,17 @@ opcode_01:
         LOGICAL_FETCH012 orrs
         .balign I_ALIGN
 
-// Opcode 02 - NOP_2
+// Opcode 02 - NOP 2
 opcode_02:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
+        NOP_2  
+JUMP_BRK:
+        FETCH_NEXT_3B_MERGED SUBPC 
         .balign I_ALIGN
 
 // Opcode 03 - NOP
 opcode_03:
-        FETCH_NEXT_STAGE_01_I
-        FETCH_NEXT_STAGE_2
-         .balign I_ALIGN
+        NOP_1
+        .balign I_ALIGN
 
 // Opcode 04 - TSB $00
 opcode_04:
@@ -1028,7 +1044,7 @@ opcode_0A:
 
 // Opcode 0B - NOP
 opcode_0B:
-        B opcode_03
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 0C - TSB $0000
@@ -1090,7 +1106,7 @@ opcode_12:
 
 // Opcode 13 - NOP
 opcode_13:
-         B opcode_03
+         NOP_1
         .balign I_ALIGN
 
 // Opcode 14 - TRB $00
@@ -1131,11 +1147,11 @@ opcode_17:
 
 // Opcode 18 - CLC
 opcode_18: 
-        mrscs     r1, CPSR
+        mrs       r1, CPSR
         FETCH_NEXT_STAGE_01_I
         bxcc      lr
-        biccs     r1, r1, #C_FLAG
-        msrcs     CPSR_flg, r1
+        bic       r1, r1, #C_FLAG
+        msr       CPSR_flg, r1
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -1156,8 +1172,7 @@ opcode_1A:
 
 // Opcode 1B - NOP
 opcode_1B:
-        B     opcode_EA
-
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 1C - TRB $0000
@@ -1240,18 +1255,18 @@ opcode_20:
 // Opcode 21 - AND ($00,X)
 opcode_21:
         EA_INDIRECT_X_ADDR
-        B      JUMP_AND_LOAD
+        LOAD_BYTE
+        LOGICAL_FETCH012 ands
         .balign I_ALIGN
 
 // Opcode 22 - NOP #$00
 opcode_22:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
+        NOP_2
         .balign I_ALIGN
 
 // Opcode 23 - NOP
 opcode_23:
-        B      opcode_EA
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 24 - BIT $00
@@ -1263,9 +1278,7 @@ JUMP_BIT:
 
 // Opcode 25 - AND     $00
 opcode_25:
-JUMP_AND_LOAD:
         LOAD_BYTE
-JUMP_AND:
         LOGICAL_FETCH012 ands
         .balign I_ALIGN
 
@@ -1328,14 +1341,20 @@ opcode_2C:
 // Opcode 2D - AND     $0000
 opcode_2D:
         EA_ABSOLUTE_LOAD
-        B      JUMP_AND
+        LOGICAL_FETCH012 ands
         .balign I_ALIGN
 
 // Opcode 2E - ROL $0000
 opcode_2E:
         orr     r0,r0,r5,LSL #8
         FETCH_NEXT_3B_STAGE_0
-        B       opcode_26
+        LOAD_BYTE_FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
+        adc     r1, r1, r1
+        STORE_BYTE
+        FETCH_NEXT_STAGE_1b_OO
+        lsls    r1, r1, #24
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode 2F - BBR2
@@ -1362,7 +1381,7 @@ opcode_32:
 
 // Opcode 33 - NOP
 opcode_33:
-        B      opcode_EA
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 34 - BIT $00,X
@@ -1394,18 +1413,18 @@ opcode_37:
 
 // Opcode 38 - SEC
 opcode_38:
-        mrscc     r1, CPSR
+        mrs       r1, CPSR
         FETCH_NEXT_STAGE_01_I
         bxcs      lr
-        orrcc     r1, r1, #C_FLAG
-        msrcc     CPSR_flg, r1   // takes two cycles
+        orr       r1, r1, #C_FLAG
+        msr       CPSR_flg, r1   // takes two cycles
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode 39 - AND $0000,Y
 opcode_39:
         EA_ABSOLUTE_INDEXED_LOAD regY
-        B         JUMP_AND
+        LOGICAL_FETCH012 ands
         .balign I_ALIGN
 
 // Opcode 3A - DEC A
@@ -1437,7 +1456,7 @@ opcode_3C:
 // Opcode 3D - AND $0000,X
 opcode_3D:
         EA_ABSOLUTE_INDEXED_LOAD regX
-        B      JUMP_AND
+        LOGICAL_FETCH012 ands
         .balign I_ALIGN
 
 // Opcode 3E - ROL $0000,X
@@ -1471,38 +1490,33 @@ opcode_40:
         UADD8   regSP, regSP, r0
 #endif        
         B      JUMP_RTI
-
-
         .balign I_ALIGN
 
 // Opcode 41 - EOR ($00,X)
 opcode_41:
         EA_INDIRECT_X_ADDR
-        B      JUMP_EOR_LOAD
+        LOAD_BYTE
+        LOGICAL_FETCH012 eors
         .balign I_ALIGN
 
 // Opcode 42 - NOP #$00
 opcode_42:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
+        NOP_2
         .balign I_ALIGN
 
 // Opcode 43 - NOP
 opcode_43:
-        B     opcode_EA
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 44 - NOP $00
 opcode_44:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
+        NOP_2
         .balign I_ALIGN
 
 // Opcode 45 - EOR $00
 opcode_45:
-JUMP_EOR_LOAD:
         LOAD_BYTE
-JUMP_EOR:
         LOGICAL_FETCH012 eors
         .balign I_ALIGN
 
@@ -1544,7 +1558,7 @@ opcode_4A:
 
 // Opcode 4B - NOP
 opcode_4B:
-        B       opcode_EA
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 4C - JMP $0000
@@ -1562,14 +1576,19 @@ opcode_4C:
 // Opcode 4D - EOR $0000
 opcode_4D:
         EA_ABSOLUTE_LOAD
-        B      JUMP_EOR
+        LOGICAL_FETCH012 eors
         .balign I_ALIGN
 
 // Opcode 4E - LSR $0000
 opcode_4E:
         orr     r0,r0,r5,LSL #8
         FETCH_NEXT_3B_STAGE_0
-        B       opcode_46
+        LOAD_BYTE_FETCH_NEXT_STAGE_0 NOSIGN
+        FETCH_NEXT_STAGE_1a_OO
+        lsrs    r1, r1, #1
+        STORE_BYTE
+        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode 4F - BBR4
@@ -1598,13 +1617,12 @@ opcode_52:
 
 // Opcode 53 - NOP
 opcode_53:
-        B       opcode_03
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 54 - NOP $00,X
 opcode_54:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
+        NOP_2
         .balign I_ALIGN
 
 // Opcode 55 - EOR $00,X
@@ -1653,12 +1671,7 @@ opcode_5A:
 
 // Opcode 5B - NOP
 opcode_5B:
-        B       opcode_03
-
-JUMP_LSR:
-        lsrs    r1, r1, #1
-        STORE_ABSOLUTE_NOCHECK   //carry
-        FETCH_NEXT_STAGE_012
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 5C - NOP $0000
@@ -1675,7 +1688,9 @@ opcode_5D:
 // Opcode 5E - LSR $0000,X
 opcode_5E:
         EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry NOSIGN
-        B      JUMP_LSR
+        lsrs    r1, r1, #1
+        STORE_ABSOLUTE_NOCHECK   //carry
+        FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
 // Opcode 5F - BBR5
@@ -1719,8 +1734,7 @@ opcode_62:
 
 // Opcode 63 - NOP
 opcode_63:
-        B      opcode_EA         
-        
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 64 - STZ $00
@@ -1741,7 +1755,6 @@ opcode_65:
 // Opcode 66 - ROR $00
 opcode_66:
         LOAD_BYTE_FETCH_NEXT_STAGE_0 NOSIGN
-JUMP_ROR:
         FETCH_NEXT_STAGE_1a_OO
         orrcs   r1, r1, #0x100
         rrxs    r1, r1
@@ -1783,9 +1796,7 @@ opcode_6A:
 
 // Opcode 6B - NOP
 opcode_6B:
-        B      opcode_EA
-JUMP_BVS:
-        BRANCH_FLAGS  ne eq msr
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 6C - JMP ($0000) 
@@ -1812,8 +1823,12 @@ opcode_6D:
 opcode_6E:
         EA_ABSOLUTE_LOAD_NOCHECK carry NOSIGN
         FETCH_NEXT_STAGE_0
-        B      JUMP_ROR
-
+        FETCH_NEXT_STAGE_1a_OO
+        orrcs   r1, r1, #0x100
+        rrxs    r1, r1
+        STORE_BYTE
+        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode 6F - BBR6
@@ -1825,7 +1840,7 @@ opcode_6F:
 opcode_70:
         mrs     r2, CPSR
         tst     flags, #0x40
-        B       JUMP_BVS
+        BRANCH_FLAGS  ne eq msr
          .balign I_ALIGN
 
 // Opcode 71 - ADC_macro ($00),Y
@@ -1849,7 +1864,7 @@ opcode_72:
 
 // Opcode 73 - NOP
 opcode_73:
-         B opcode_EA
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 74 - STZ $00,X
@@ -1940,7 +1955,12 @@ opcode_7D:
 opcode_7E:
         EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX carry NOSIGN
         FETCH_NEXT_STAGE_0
-        B      JUMP_ROR
+        FETCH_NEXT_STAGE_1a_OO
+        orrcs   r1, r1, #0x100
+        rrxs    r1, r1
+        STORE_BYTE
+        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode 7F - BBR7
@@ -1964,18 +1984,12 @@ opcode_81:
 
 // Opcode 82 - NOP #$00
 opcode_82:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
-         
-JUMP_FLAGS_SIGN:
-         FLAGS_SIGN   
-         .balign I_ALIGN
+        NOP_2
+        .balign I_ALIGN
 
 // Opcode 83 - NOP
 opcode_83:
-        B      opcode_EA
-
-
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 84 - STY $00
@@ -2037,38 +2051,27 @@ opcode_8A:
 
 // Opcode 8B - NOP
 opcode_8B:
-        B      opcode_EA
-        
-JUMP_STORE_ABS:
-        msr     CPSR_flg,r2
-        FETCH_NEXT_STAGE_012        
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 8C - STY $0000
 opcode_8C:
         EA_ABSOLUTE
-        FETCH_NEXT_3B_STAGE_0
         lsr     r1, regY, #24
-        STORE_ABSOLUTE flags r1 norestore
-        B       JUMP_STORE_ABS
+        STORE_ABSOLUTE flags r1
         .balign I_ALIGN
 
 // Opcode 8D - STA $0000
 opcode_8D:
         EA_ABSOLUTE
-        FETCH_NEXT_3B_STAGE_0
         STORE_ABSOLUTE flags regA
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
         .balign I_ALIGN
 
 // Opcode 8E - STX $0000
 opcode_8E:
         EA_ABSOLUTE
-        FETCH_NEXT_3B_STAGE_0
         lsr     r1, regX, #24
-        STORE_ABSOLUTE flags r1 norestore
-        B       JUMP_STORE_ABS
+        STORE_ABSOLUTE flags r1
         .balign I_ALIGN
 
 // Opcode 8F - BBS0
@@ -2099,14 +2102,7 @@ opcode_92:
 
 // Opcode 93 - NOP
 opcode_93:
-        B      opcode_EA
-        
-JUMP_STORE_ABS_A_ST:
-         strb    regA,[r0]
-JUMP_STORE_ABS_A:
-        //STORE_ABSOLUTE flags regA nostore
-        msr    CPSR_flg, r2
-        FETCH_NEXT_STAGE_012        
+        NOP_1       
         .balign I_ALIGN
 
 // Opcode 94 - STY $00,X
@@ -2152,10 +2148,7 @@ opcode_98:
 // Opcode 99 - STA $0000,Y
 opcode_99:
         EA_ABSOLUTE_INDEXED regY
-        FETCH_NEXT_3B_STAGE_0
-        STORE_ABSOLUTE flags regA nostore
-        msr    CPSR_flg, r2
-        FETCH_NEXT_STAGE_012  
+        STORE_ABSOLUTE flags regA 
         .balign I_ALIGN
 
 // Opcode 9A - TXS
@@ -2172,8 +2165,7 @@ opcode_9A:
 
 // Opcode 9B - NOP
 opcode_9B:
-        B      opcode_EA
-
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 9C - STZ $0000
@@ -2187,10 +2179,7 @@ opcode_9C:
 // Opcode 9D - STA $0000,X
 opcode_9D:
         EA_ABSOLUTE_INDEXED regX
-        FETCH_NEXT_3B_STAGE_0
-        STORE_ABSOLUTE flags regA nostore
-        msr    CPSR_flg, r2
-        FETCH_NEXT_STAGE_012  
+        STORE_ABSOLUTE flags regA
         .balign I_ALIGN
 
 // Opcode 9E - STZ $0000,X
@@ -2226,9 +2215,7 @@ opcode_A2:
 
 // Opcode A3 - NOP
 opcode_A3:
-        B      opcode_EA
-
-
+        NOP_1
         .balign I_ALIGN
 
 // Opcode A4 - LDY $00
@@ -2278,15 +2265,17 @@ opcode_AA:
 
 // Opcode AB - NOP
 opcode_AB:
-        B      opcode_EA
-
+        NOP_1
         .balign I_ALIGN
 
 // Opcode AC - LDY $0000
 opcode_AC:
-        EA_ABSOLUTE_LOAD
-        FETCH_NEXT_STAGE_0
-        B      JUMP_FLAGS_Y
+         EA_ABSOLUTE_LOAD
+         FETCH_NEXT_STAGE_0
+         FETCH_NEXT_STAGE_1
+         lsl    regY,r1,#24
+         teq    regY,#0
+         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode AD - LDA $0000
@@ -2349,7 +2338,10 @@ tube_load_handler_sign:
 // Opcode B4 - LDY $00,X
 opcode_B4:   
         LOAD_ZPX
-        B      JUMP_FLAGS_Y
+        FETCH_NEXT_STAGE_1
+        lsl    regY,r1,#24
+        teq    regY,#0
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode B5 - LDA $00,X
@@ -2411,13 +2403,8 @@ opcode_BC:
         //EA_ABSOLUTE_INDEXED_LOAD regX
         EA_ABSOLUTE_INDEXED regX     
         FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE carry SIGN r1 JUMP_FLAGS_Y_FETCH_NEXT_0_LD
-        B      JUMP_FLAGS_Y_FETCH_NEXT_0
-JUMP_FLAGS_Y_FETCH_NEXT_0_LD:         
-         ldrsb     r1,[r0]
-JUMP_FLAGS_Y_FETCH_NEXT_0:
+        LOAD_ABSOLUTE carry SIGN r1
         FETCH_NEXT_STAGE_0
-JUMP_FLAGS_Y:
         //FLAGS   regY
          FETCH_NEXT_STAGE_1
          lsl    regY,r1,#24
@@ -2431,8 +2418,8 @@ opcode_BD:
         FETCH_NEXT_3B_STAGE_0
         lsr     lr, r0, #5
         teq     tregs, lr          // tregs holds the constant 0xFEE0 >> 5
-        ldrsb  regA,[r0]
-        Beq      tube_load_handler_regA_flags        
+        Beq      tube_load_handler_regA_flags 
+        ldrsb  regA,[r0]       
          FETCH_NEXT_STAGE_0
          FLAGS_QUICK   regA
         .balign I_ALIGN
@@ -2459,31 +2446,26 @@ opcode_C0:
 // Opcode C1 - CMP ($00,X)
 opcode_C1:
         EA_INDIRECT_X_FETCH_STAGE_0
-        B     JUMP_CMP
+        lsl     r2, regA, #24
+        FETCH_NEXT_STAGE_1
+        cmp     r2, r1, LSL #24
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode C2 - NOP #$00
 opcode_C2:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
-TEQ_R1_FETCH_NEXT_STAGE_2:     
-        TEQ   r1,#0
-        FETCH_NEXT_STAGE_2        
+        NOP_2       
         .balign I_ALIGN
 
 // Opcode C3 - NOP
 opcode_C3:
-        B      opcode_EA
-
-
+        NOP_1
         .balign I_ALIGN
 
 // Opcode C4 - CPY $00
 opcode_C4:
         LOAD_BYTE
-JUMP_CPY:
         FETCH_NEXT_STAGE_0
-JUMP_CPY_FETCH_NEXT_1:
         FETCH_NEXT_STAGE_1
         cmp     regY, r1, lsl #24
         FETCH_NEXT_STAGE_2
@@ -2493,7 +2475,6 @@ JUMP_CPY_FETCH_NEXT_1:
 opcode_C5:
         LOAD_BYTE
         FETCH_NEXT_STAGE_0
-JUMP_CMP:
         lsl     r2, regA, #24
         FETCH_NEXT_STAGE_1
         cmp     r2, r1, LSL #24
@@ -2506,12 +2487,10 @@ opcode_C6:
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1   
         STORE_BYTE
-JUMP_FLAGS_SIGN_OO:
-        FETCH_NEXT_STAGE_1b_OO       
-        sxtb    r1,r1   
-        TEQ   r1,#0
+        FETCH_NEXT_STAGE_1b_OO
+        sxtb    r1,r1
+        TEQ     r1,#0
         FETCH_NEXT_STAGE_2
-//        B      JUMP_FLAGS_SIGN_OO
 
         .balign I_ALIGN
 
@@ -2556,7 +2535,10 @@ opcode_CB:
 // Opcode CC - CPY $0000
 opcode_CC:
         EA_ABSOLUTE_LOAD nocarry
-        B      JUMP_CPY
+        FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1
+        cmp     regY, r1, lsl #24
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode CD - CMP $0000
@@ -2576,7 +2558,10 @@ opcode_CE:
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
-        B      JUMP_FLAGS_SIGN_OO
+        FETCH_NEXT_STAGE_1b_OO
+        sxtb    r1,r1
+        TEQ     r1,#0
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode CF - BBS4
@@ -2610,7 +2595,7 @@ opcode_D2:
 
 // Opcode D3 - NOP
 opcode_D3:
-        B      opcode_EA
+        NOP_1
         .balign I_ALIGN
 
 // Opcode D4 - NOP $00,X
@@ -2635,7 +2620,10 @@ opcode_D6:
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
         STORE_ZPX
-        B       JUMP_FLAGS_SIGN_OO
+        FETCH_NEXT_STAGE_1b_OO
+        sxtb    r1,r1
+        TEQ     r1,#0
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode D7 - SMB5 $00
@@ -2696,7 +2684,7 @@ opcode_DE:
         FETCH_NEXT_STAGE_0
         sub     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
-        B      JUMP_FLAGS_SIGN
+        FLAGS_SIGN 
         .balign I_ALIGN
 
 // Opcode DF - BBS5
@@ -2722,8 +2710,16 @@ opcode_E1:
 
 // Opcode E2 - NOP #$00
 opcode_E2:
+        NOP_2  
+        tube_store_handler_regA:
+        mov     r1, regA 
+tube_store_handler:
+        push    {r2-r3,r12} 
+        bl      tube_parasite_write_banksel
+        pop     {r2-r3,r12}
         FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12    
+        msr     CPSR_flg, r2           // restore 6502 flags, including ARM
+        FETCH_NEXT_STAGE_12
          .balign I_ALIGN
 
 opcode_E3:
@@ -2735,17 +2731,6 @@ tube_load_handler_regA:
         sxtb    regA,r0
         msr     CPSR_flg, r5
         pop     {r0,r2,r3,r5,r12,pc}
-tube_store_handler:
-        push    {r1-r3,r12, lr} 
-        bl      tube_parasite_write_banksel
-        pop     {r1-r3,r12, pc}
-tube_store_handler_regA:
-        mov     r1, regA 
-        push    {r1-r3,r12, lr}
-        bl      tube_parasite_write_banksel
-        pop     {r1-r3,r12, pc}         
-         
-
          .balign I_ALIGN
 
 // Opcode E4 - CPX $00
@@ -2796,8 +2781,7 @@ opcode_E9:
 
 // Opcode EA - NOP
 opcode_EA:
-        FETCH_NEXT_STAGE_01_I
-        FETCH_NEXT_STAGE_2
+        NOP_1
         .balign I_ALIGN
 
 // Opcode EB - NOP ( Borrowed for instruction timing)
@@ -2808,11 +2792,10 @@ opcode_EB:
 #else
         MRC     p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register    
 #endif      
-        mov     r1,#0x90
+        mov     r1,#0xE0
         str     lr,[r1] 
 #endif        
-        FETCH_NEXT_STAGE_01_I
-        FETCH_NEXT_STAGE_2
+        NOP_1
         .balign I_ALIGN
 
 // Opcode EC - CPX $0000
@@ -2837,7 +2820,7 @@ opcode_EE:
         FETCH_NEXT_STAGE_0
         add     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
-        B     JUMP_FLAGS_SIGN
+        FLAGS_SIGN
         .balign I_ALIGN
 
 // Opcode EF - BBS6
@@ -2869,13 +2852,12 @@ opcode_F2:
 
 // Opcode F3 - NOP
 opcode_F3:
-        FETCH_NEXT_STAGE_01_I
-        FETCH_NEXT_STAGE_2
+        NOP_1
         .balign I_ALIGN
 
 // NOP_2
 opcode_F4:
-        FETCH_NEXT_STAGE_012
+        NOP_2
         .balign I_ALIGN
 
 // Opcode F5 - SBC_macro $00,X
@@ -2892,7 +2874,10 @@ opcode_F6:
         FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
         STORE_ZPX
-        B      JUMP_FLAGS_SIGN_OO
+        FETCH_NEXT_STAGE_1b_OO
+        sxtb    r1,r1
+        TEQ     r1,#0
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode F7 - SMB7 $00
@@ -2931,11 +2916,10 @@ opcode_FB:
 #else
         MRC     p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register    
 #endif      
-        mov     r1,#0x94
+        mov     r1,#0xE4
         str     lr,[r1] 
 #endif
-        FETCH_NEXT_STAGE_01_I
-        FETCH_NEXT_STAGE_2
+        NOP_1
 
         .balign I_ALIGN
 
@@ -2959,7 +2943,7 @@ opcode_FE:
         FETCH_NEXT_STAGE_0
         add     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
-        B       JUMP_FLAGS_SIGN
+        FLAGS_SIGN
         .balign I_ALIGN
 
 // Opcode FF - BBS7
@@ -3637,13 +3621,7 @@ watchpointentry:
       
       // lets get out of here
 
-#endif      
-        
-
-JUMP_BRK:
-        INTR    -2, 1
-        FETCH_NEXT_3B_MERGED SUBPC
-        
+#endif  
 
 //.rept 256
 //        B    Event_Handler
