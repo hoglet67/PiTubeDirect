@@ -720,16 +720,19 @@
         SBC_STAGE2 \reg
 .endm
 
-.macro  SBC_STAGE1 reg jump  
+.macro  SBC_STAGE1 reg fetch=FETCH jump  
         tst     flags, #8
         bic     flags, #0x40
+.if \fetch==FETCH        
+        FETCH_NEXT_STAGE_0
+.endif         
+        
 #if defined(USE_MEMORY_POINTER)
         orrcc   \reg, \reg, #0xff00
         sxthcc  \reg, \reg
 #else
         orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
 #endif
-        FETCH_NEXT_STAGE_0
         LSL     regA,regA,#24
 .ifb \jump
 
@@ -1751,6 +1754,7 @@ opcode_64:
 opcode_65:
         LOAD_BYTE NOSIGN
         ADC_STAGE1 r1
+JUMP_ADC_STAGE2:        
         ADC_STAGE2 r1
         .balign I_ALIGN
 
@@ -1920,10 +1924,7 @@ opcode_7A:
 
 // Opcode 7B - NOP
 opcode_7B:
-         B opcode_EA
-        
-JUMP_ADC_STAGE2:        
-        ADC_STAGE2 r1    
+         NOP_1   
         .balign I_ALIGN
 
 // Opcode 7C - JMP ($0000,X)
@@ -2738,6 +2739,7 @@ opcode_E4:
 opcode_E5:
         LOAD_BYTE NOSIGN
         SBC_STAGE1     r1
+JUMP_SBC_STAGE2:        
         SBC_STAGE2     r1
         .balign I_ALIGN
 
@@ -2803,8 +2805,7 @@ opcode_EC:
 // Opcode ED - SBC_macro $0000
 opcode_ED:
         EA_ABSOLUTE_LOAD carry NOSIGN
-        SBC_STAGE1     r1
-        B    JUMP_SBC_STAGE2
+        SBC_STAGE1     r1 FETCH  JUMP_SBC_STAGE2
         .balign I_ALIGN
 
 // Opcode EE - INC $0000
@@ -2830,16 +2831,18 @@ opcode_F0:
 opcode_F1:
         EA_INDIRECT
         EA_INDIRECT_Y
+        FETCH_NEXT_STAGE_0
         LOAD_BYTE NOSIGN
-        SBC_STAGE1     r1
+        SBC_STAGE1     r1  NOFETCH
         SBC_STAGE2     r1
         .balign I_ALIGN
 
 // Opcode F2 - SBC_macro ($00)
 opcode_F2:
         EA_INDIRECT
+        FETCH_NEXT_STAGE_0
         LOAD_BYTE NOSIGN
-        SBC_STAGE1     r1
+        SBC_STAGE1     r1 NOFETCH
         SBC_STAGE2     r1
         .balign I_ALIGN
 
@@ -2855,8 +2858,8 @@ opcode_F4:
 
 // Opcode F5 - SBC_macro $00,X
 opcode_F5:
-        LOAD_ZPX regX NOFETCH NOSIGN
-        SBC_STAGE1     r1
+        LOAD_ZPX regX FETCH NOSIGN
+        SBC_STAGE1     r1  NOFETCH
         SBC_STAGE2     r1
         .balign I_ALIGN
 
@@ -2888,8 +2891,7 @@ opcode_F8:
 // Opcode F9 - SBC_macro $0000,Y
 opcode_F9:
         EA_ABSOLUTE_INDEXED_LOAD regY carry NOSIGN
-        SBC_STAGE1     r1
-        B      JUMP_SBC_STAGE2
+        SBC_STAGE1     r1  FETCH JUMP_SBC_STAGE2
         .balign I_ALIGN
 
 // Opcode FA - PLX
@@ -2919,14 +2921,12 @@ opcode_FB:
 // Opcode FC - NOP $0000
 opcode_FC:
         FETCH_NEXT_3B_MERGED
-JUMP_SBC_STAGE2:
-         SBC_STAGE2     r1
         .balign I_ALIGN
 
 // Opcode FD - SBC_macro $0000,X
 opcode_FD:
         EA_ABSOLUTE_INDEXED_LOAD regX carry NOSIGN
-        SBC_STAGE1     r1 JUMP_SBC_STAGE2
+        SBC_STAGE1     r1 FETCH JUMP_SBC_STAGE2
         .balign I_ALIGN
 
 // Opcode FE - INC $0000,X
