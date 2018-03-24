@@ -1749,7 +1749,6 @@ opcode_64:
 
 // Opcode 65 - ADC_macro $00
 opcode_65:
-        tst     flags, #8
         LOAD_BYTE NOSIGN
         ADC_STAGE1 r1
         ADC_STAGE2 r1
@@ -1808,7 +1807,7 @@ opcode_6C:
         EA_INDIRECT
         add     regPC, r0, memry
 #else
-         EA_INDIRECT regPC
+        EA_INDIRECT regPC
 #endif        
         FETCH_NEXT_3B_MERGED SUBPC
         .balign I_ALIGN
@@ -1816,8 +1815,7 @@ opcode_6C:
 // Opcode 6D - ADC_macro $0000
 opcode_6D:
         EA_ABSOLUTE_LOAD carry NOSIGN
-        ADC_STAGE1 r1
-        B       JUMP_ADC_STAGE2
+        ADC_STAGE1 r1 FETCH JUMP_ADC_STAGE2
         .balign I_ALIGN
 
 // Opcode 6E - ROR $0000
@@ -1847,17 +1845,19 @@ opcode_70:
 // Opcode 71 - ADC_macro ($00),Y
 opcode_71:
         EA_INDIRECT
+        FETCH_NEXT_STAGE_0
         EA_INDIRECT_Y
         LOAD_BYTE NOSIGN
-        ADC_STAGE1 r1        
+        ADC_STAGE1 r1 NOFETCH        
         ADC_STAGE2 r1 
          .balign I_ALIGN
 
 // Opcode 72 - ADC_macro ($00)
 opcode_72:
         EA_INDIRECT
+        FETCH_NEXT_STAGE_0
         LOAD_BYTE NOSIGN
-        ADC_STAGE1 r1        
+        ADC_STAGE1 r1 NOFETCH       
         ADC_STAGE2 r1 
         .balign I_ALIGN
 
@@ -1906,8 +1906,7 @@ opcode_78:
 // Opcode 79 - ADC_macro $0000,Y
 opcode_79:
         EA_ABSOLUTE_INDEXED_LOAD regY carry NOSIGN
-        ADC_STAGE1 r1        
-        B JUMP_ADC_STAGE2 
+        ADC_STAGE1 r1  FETCH JUMP_ADC_STAGE2      
          .balign I_ALIGN
 
 // Opcode 7A - PLY
