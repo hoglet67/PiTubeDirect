@@ -409,6 +409,7 @@
 .macro EA_INDIRECT_X sign=SIGN
         add     r0, r0, regX, lsr #24
         and     r0, r0, #0xff
+        FETCH_NEXT_STAGE_0
         EA_INDIRECT
         LOAD_BYTE \sign
 .endm
@@ -972,9 +973,8 @@ opcode_00:
 
 // Opcode 01 - ORA ($00,X)
 opcode_01:
-        EA_INDIRECT_X_ADDR
-        LOAD_BYTE
-        LOGICAL_FETCH012 orrs
+        EA_INDIRECT_X_FETCH_STAGE_0
+        LOGICAL_FETCH12 orrs
         .balign I_ALIGN
 
 // Opcode 02 - NOP 2
@@ -1263,9 +1263,8 @@ opcode_20:
 
 // Opcode 21 - AND ($00,X)
 opcode_21:
-        EA_INDIRECT_X_ADDR
-        LOAD_BYTE
-        LOGICAL_FETCH012 ands
+        EA_INDIRECT_X_FETCH_STAGE_0
+        LOGICAL_FETCH12 ands
         .balign I_ALIGN
 
 // Opcode 22 - NOP #$00
@@ -1502,9 +1501,8 @@ opcode_40:
 
 // Opcode 41 - EOR ($00,X)
 opcode_41:
-        EA_INDIRECT_X_ADDR
-        LOAD_BYTE
-        LOGICAL_FETCH012 eors
+        EA_INDIRECT_X_FETCH_STAGE_0
+        LOGICAL_FETCH12 eors
         .balign I_ALIGN
 
 // Opcode 42 - NOP #$00
@@ -1729,7 +1727,7 @@ opcode_60:
 // Opcode 61 - ADC ($00,X)
 opcode_61:
         EA_INDIRECT_X NOSIGN
-        ADC_STAGE1 r1        
+        ADC_STAGE1 r1 NOFETCH       
         ADC_STAGE2 r1 
         .balign I_ALIGN
 
@@ -1881,7 +1879,7 @@ opcode_74:
 
 // Opcode 75 - ADC_macro $00,X
 opcode_75:
-        LOAD_ZPX regX FETCH SIGN
+        LOAD_ZPX regX FETCH NOSIGN
         ADC_STAGE1 r1 NOFETCH       
         ADC_STAGE2 r1
         .balign I_ALIGN
@@ -2697,7 +2695,7 @@ opcode_E0:
 // Opcode E1 - SBC ($00,X)
 opcode_E1:
         EA_INDIRECT_X NOSIGN
-        SBC_STAGE1     r1
+        SBC_STAGE1     r1 NOFETCH
         SBC_STAGE2     r1
         .balign I_ALIGN
 
