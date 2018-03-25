@@ -416,10 +416,12 @@
 .macro EA_INDIRECT_X_FETCH_STAGE_0 str=no reg
         add     r0, r0, regX, lsr #24
         and     r0, r0, #0xff
-        EA_INDIRECT
         FETCH_NEXT_STAGE_0
-.if \str==no        
+.if \str==no
+        EA_INDIRECT
         LOAD_BYTE_SIGN \reg
+.else
+        EA_INDIRECT \reg
 .endif    
 .endm
 
@@ -726,14 +728,14 @@
 .if \fetch==FETCH        
         FETCH_NEXT_STAGE_0
 .endif         
-        
+        LSL     regA,regA,#24
 #if defined(USE_MEMORY_POINTER)
         orrcc   \reg, \reg, #0xff00
         sxthcc  \reg, \reg
 #else
         orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
 #endif
-        LSL     regA,regA,#24
+
 .ifb \jump
 
 .else
@@ -799,7 +801,7 @@
       sxtab\yes regPC, regPC, \reg
       ldrb      r1, [regPC, #1]
       ldrb      r0, [regPC, #2]  //hidden in stall
- .if \flag==noflags
+.if \flag==noflags
 .else
       msr     CPSR_flg, r2
 .endif         
@@ -1332,7 +1334,6 @@ opcode_2B:
         B     opcode_EA
        
 JUMP_PLP:
-        
         CHECK_IRQ
         FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_STAGE_2
@@ -1640,8 +1641,8 @@ opcode_55:
 
 // Opcode 56 - LSR $00,X
 opcode_56:
-        LOAD_ZPX regX NOFETCH NOSIGN
-        FETCH_NEXT_STAGE_01
+        LOAD_ZPX regX FETCH NOSIGN
+        FETCH_NEXT_STAGE_1
         lsrs    r1, r1, #1
         STORE_ZPX
         FETCH_NEXT_STAGE_2
@@ -1969,10 +1970,9 @@ opcode_80:
 
 // Opcode 81 - STA ($00,X)
 opcode_81:
-        EA_INDIRECT_X_FETCH_STAGE_0 store
-        FETCH_NEXT_STAGE_1a_OO
-        STORE_BYTE    regA
-        FETCH_NEXT_STAGE_1b_OO
+        EA_INDIRECT_X_FETCH_STAGE_0 store r1
+        FETCH_NEXT_STAGE_1
+        STORE_BYTE    regA r1
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -2609,12 +2609,10 @@ opcode_D5:
 
 // Opcode D6 - DEC $00,X
 opcode_D6:
-        LOAD_ZPX regX NOFETCH
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1a_OO
+        LOAD_ZPX regX
+        FETCH_NEXT_STAGE_1
         sub     r1, r1, #1
         STORE_ZPX
-        FETCH_NEXT_STAGE_1b_OO
         sxtb    r1,r1
         TEQ     r1,#0
         FETCH_NEXT_STAGE_2
@@ -2676,9 +2674,10 @@ opcode_DD:
 opcode_DE:
         EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX 
         FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
-        FLAGS_SIGN 
+        FLAGS_OO 
         .balign I_ALIGN
 
 // Opcode DF - BBS5
@@ -2812,9 +2811,10 @@ opcode_ED:
 opcode_EE:
         EA_ABSOLUTE_LOAD_NOCHECK 
         FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
-        FLAGS_SIGN
+        FLAGS_OO
         .balign I_ALIGN
 
 // Opcode EF - BBS6
@@ -2865,12 +2865,10 @@ opcode_F5:
 
 // Opcode F6 - INC $00,X
 opcode_F6:
-        LOAD_ZPX regX NOFETCH
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1a_OO
+        LOAD_ZPX regX
+        FETCH_NEXT_STAGE_1
         add     r1, r1, #1
         STORE_ZPX
-        FETCH_NEXT_STAGE_1b_OO
         sxtb    r1,r1
         TEQ     r1,#0
         FETCH_NEXT_STAGE_2
@@ -2933,9 +2931,10 @@ opcode_FD:
 opcode_FE:
         EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX
         FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
         STORE_ABSOLUTE_NOCHECK notest
-        FLAGS_SIGN
+        FLAGS_OO
         .balign I_ALIGN
 
 // Opcode FF - BBS7
