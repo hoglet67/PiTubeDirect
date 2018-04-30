@@ -293,6 +293,8 @@ file( GLOB debugger_files
     opc6/opc6_debug.h
     opc7/opc7_debug.c
     opc7/opc7_debug.h
+    pdp11/pdp11_debug.c
+    pdp11/pdp11_debug.h
 )
 
 if( ${DEBUG} )

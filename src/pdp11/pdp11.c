@@ -5,6 +5,11 @@
 #include "../tube.h"
 #include "../copro-pdp11.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "pdp11_debug.h"
+#include "../cpu_debug.h"
+#endif
+
 jmp_buf trapbuf;
 
 enum {
@@ -20,8 +25,7 @@ enum {
 };
 
 enum {
-   DEBUG_INTER = false,
-   PRINTSTATE = false
+   DEBUG_INTER = true,
 };
 
 enum {
@@ -368,7 +372,7 @@ static void JSR(uint16_t instr) {
    uint8_t l = 2 - (instr >> 15);
    uint16_t uval = aget(d, l);
    if (isReg(uval)) {
-      printf("JSR called on registeri\n");
+      printf("JSR called on registeri\r\n");
       panic();
    }
    push(cpu.R[s & 7]);
@@ -792,7 +796,7 @@ static void JMP(uint16_t instr) {
    uint8_t d = instr & 077;
    uint16_t uval = aget(d, 2);
    if (isReg(uval)) {
-      printf("JMP called with register dest\n");
+      printf("JMP called with register dest\r\n");
       panic();
    }
    cpu.R[7] = uval;
@@ -834,7 +838,7 @@ static void MFPI(uint16_t instr) {
          }
       }
    } else if (isReg(da)) {
-      printf("invalid MFPI instruction\n");
+      printf("invalid MFPI instruction\r\n");
       panic();
       return; // unreached
    } else {
@@ -864,7 +868,7 @@ static void MTPI(uint16_t instr) {
          }
       }
    } else if (isReg(da)) {
-      printf("invalid MTPI instrution\n");
+      printf("invalid MTPI instrution\r\n");
       panic();
    } else {
       write16((uint16_t)da, uval);
@@ -925,11 +929,15 @@ static void RESET(uint16_t instr) {
 
 static void step() {
    cpu.PC = cpu.R[7];
+
+#ifdef INCLUDE_DEBUGGER
+      if (pdp11_debug_enabled) {
+         debug_preexec(&pdp11_cpu_debug, cpu.PC);
+      }
+#endif
+   
    uint16_t instr = read16(cpu.PC);
    cpu.R[7] += 2;
-
-   if (PRINTSTATE)
-      printstate();
 
    switch ((instr >> 12) & 007) {
    case 001: // MOV
@@ -1135,7 +1143,7 @@ static void step() {
       if (cpu.curuser) {
          break;
       }
-      printf("HALT\n");
+      printf("HALT\r\n");
       panic();
    case 01: // WAIT
       if (cpu.curuser) {
@@ -1155,23 +1163,23 @@ static void step() {
        0170011) { // SETD ; not needed by UNIX, but used; therefore ignored
       return;
    }
-   printf("invalid instruction\n");
+   printf("invalid instruction\r\n");
    trap(INTINVAL);
 }
 
 static void trapat(uint16_t vec) { // , msg string) {
    if (vec & 1) {
-      printf("Thou darst calling trapat() with an odd vector number?\n");
+      printf("Thou darst calling trapat() with an odd vector number?\r\n");
       panic();
    }
-   printf("trap: %x\n", vec);
+   printf("trap: %x\r\n", vec);
 
    /*var prev uint16
      defer func() {
      t = recover()
      switch t = t.(type) {
      case trap:
-     writedebug("red stack trap!\n")
+     writedebug("red stack trap!\r\n")
      memory[0] = uint16(k.cpu.R[7])
      memory[1] = prev
      vec = 4
@@ -1207,7 +1215,7 @@ static void popirq() {
 static void handleinterrupt() {
    uint8_t vec = cpu.itab[0].vec;
    if (DEBUG_INTER) {
-      printf("IRQ: %x\n", vec);
+      printf("IRQ: %x\r\n", vec);
    }
    uint16_t vv = setjmp(trapbuf);
    if (vv == 0) {
@@ -1230,17 +1238,25 @@ static void handleinterrupt() {
 void pdp11_reset(uint16_t address) {
    cpu.LKS = 1 << 7;
    cpu.R[7] = address;
+   uint8_t i;
+   for (i = 0; i < ITABN; i++) {
+      cpu.itab[i].vec = 0;
+      cpu.itab[i].pri = 0;
+   }   
 }
 
 void pdp11_interrupt(uint8_t vec, uint8_t pri) {
    if (vec & 1) {
-      printf("Thou darst calling interrupt() with an odd vector number?\n");
+      printf("Thou darst calling interrupt() with an odd vector number?\r\n");
       panic();
    }
    // fast path
    if (cpu.itab[0].vec == 0) {
       cpu.itab[0].vec = vec;
       cpu.itab[0].pri = pri;
+      if (DEBUG_INTER) {
+         printf("itab[0] = %04x, %d\r\n", vec, pri);
+      }
       return;
    }
    uint8_t i;
@@ -1255,7 +1271,7 @@ void pdp11_interrupt(uint8_t vec, uint8_t pri) {
       }
    }
    if (i >= ITABN) {
-      printf("interrupt table full\n");
+      printf("interrupt table full\r\n");
       panic();
    }
    uint8_t j;
@@ -1264,10 +1280,13 @@ void pdp11_interrupt(uint8_t vec, uint8_t pri) {
    }
    cpu.itab[i].vec = vec;
    cpu.itab[i].pri = pri;
+   if (DEBUG_INTER) {
+      printf("itab[%d] = %04x, %d\r\n", i, vec, pri);
+   }
 }
 
 static void loop0() {
-   while (tubeContinueRunning()) {
+   do {
       if ((cpu.itab[0].vec > 0) && (cpu.itab[0].pri >= ((cpu.PS >> 5) & 7))) {
          handleinterrupt();
          uint8_t i;
@@ -1279,6 +1298,7 @@ static void loop0() {
          return; // exit from loop to reset trapbuf
       }
       step();
+#if 0      
       if (++cpu.clkcounter > 39999) {
          cpu.clkcounter = 0;
          cpu.LKS |= (1 << 7);
@@ -1286,8 +1306,9 @@ static void loop0() {
             pdp11_interrupt(INTCLOCK, 6);
          }
       }
-      // cons::poll();
-   }
+      cons::poll();
+#endif
+   } while (tubeContinueRunning());
 }
 
 void pdp11_execute() {

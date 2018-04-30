@@ -18,6 +18,7 @@
 #include "../opc5ls/opc5ls_debug.h"
 #include "../opc6/opc6_debug.h"
 #include "../opc7/opc7_debug.h"
+#include "../pdp11/pdp11_debug.h"
 
 #define USE_LINENOISE
 
@@ -41,7 +42,7 @@ cpu_debug_t *cpu_debug_list[] = {
    &cpu80186_cpu_debug, //  8 80x86
    &mc6809nc_cpu_debug, //  9 6809
    NULL,                // 10 unused
-   NULL,                // 11 unused (PDP11 future?)
+   &pdp11_cpu_debug,    // 11 PDP11
    &arm2_cpu_debug,     // 12 ARM2
    &n32016_cpu_debug,   // 13 32016
    NULL,                // 14 unused

@@ -23,17 +23,17 @@ typedef struct {
 
 typedef struct {
    
-   // signed integer registers
-   int32_t R[8];
-   
+   // Architecturally visible state
+   int32_t R[8];      // signed integer registers   
    uint16_t PS;       // processor status
+   bool curuser;
+   bool prevuser;
+
+   // Working state
    uint16_t PC;       // address of current instruction
    uint16_t KSP, USP; // kernel and user stack pointer
    uint16_t LKS;
-   bool curuser, prevuser;
-
    uint16_t clkcounter;
-
    intr itab[ITABN];
 
 } pdp11_state;

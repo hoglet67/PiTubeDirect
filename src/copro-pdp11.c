@@ -13,8 +13,6 @@
 #include "pdp11/tuberom.h"
 #include "copro-pdp11.h"
 
-#undef INCLUDE_DEBUFFER
-
 #ifdef INCLUDE_DEBUGGER
 #include "cpu_debug.h"
 #include "pdp11/pdp11_debug.h"
@@ -81,14 +79,14 @@ uint16_t copro_pdp11_read16(const uint16_t addr) {
 static void copro_pdp11_poweron_reset() {
    // Initialize memory pointer to zero (the start of the 2MB of memory shared with the 6502)
    memory = copro_mem_reset(0x10000);
-   
-   // Copy over client ROM
-   memcpy((void *) (memory + 0xF800), (void *)tuberom_pdp11, sizeof(tuberom_pdp11));
 }
 
 static void copro_pdp11_reset() {
    // Log ARM performance counters
    tube_log_performance_counters();
+   
+   // Copy over client ROM
+   memcpy((void *) (memory + 0xF800), (void *)tuberom_pdp11, sizeof(tuberom_pdp11));
    
    // Reset the processor
    pdp11_reset(0xf800);
@@ -103,6 +101,7 @@ static void copro_pdp11_reset() {
 void copro_pdp11_emulator()
 {
    unsigned int tube_irq_copy;
+   int irq_pending = 0;
    
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
@@ -125,14 +124,20 @@ void copro_pdp11_emulator()
          
          // NMI is edge sensitive, so only check after mailbox activity
          if (tube_irq_copy & NMI_BIT) {
-            pdp11_interrupt(7, 0);
+            pdp11_interrupt(0x80, 7);
             tube_ack_nmi();
          }
          
          // IRQ is level sensitive, so check between every instruction
          if (tube_irq_copy & IRQ_BIT) {
-            pdp11_interrupt(6, 0);
+            if (irq_pending == 0) {
+               pdp11_interrupt(0x84, 6);
+               irq_pending = 1;
+            }
          }
+      }
+      if (!(tube_irq_copy & IRQ_BIT)) {
+         irq_pending = 0;
       }
    }
 }
