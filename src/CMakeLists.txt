@@ -210,6 +210,16 @@ file( GLOB copro_opc7_files
     opc7/tuberom.c
 )
 
+# PDP 11
+file( GLOB copro_pdp11_files
+    copro-pdp11.h
+    copro-pdp11.c
+    pdp11/pdp11.h
+    pdp11/pdp11.c
+    pdp11/tuberom.h
+    pdp11/tuberom.c
+)
+
 # Null co processor
 file( GLOB copro_null_files
     copro-null.c
@@ -326,6 +336,7 @@ else()
             ${copro_opc5ls_files}
             ${copro_opc6_files}
             ${copro_opc7_files}
+            ${copro_pdp11_files}
             ${copro_null_files}
             ${copro_arm_files}
             ${debugger_files}
@@ -349,6 +360,7 @@ else()
             ${copro_opc5ls_files}
             ${copro_opc6_files}
             ${copro_opc7_files}
+            ${copro_pdp11_files}
             ${copro_null_files}
             ${copro_arm_files}
         )
