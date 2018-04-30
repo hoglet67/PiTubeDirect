@@ -25,7 +25,7 @@ enum {
 };
 
 enum {
-   DEBUG_INTER = true,
+   DEBUG_INTER = false,
 };
 
 enum {
@@ -202,7 +202,7 @@ static void branch(int16_t o) {
    cpu.R[7] += o;
 }
 
-void switchmode(const bool newm) {
+static void switchmode(const bool newm) {
    cpu.prevuser = cpu.curuser;
    cpu.curuser = newm;
    if (cpu.prevuser) {
@@ -916,7 +916,32 @@ static void _RTT(uint16_t instr) {
       uval &= 047;
       uval |= cpu.PS & 0177730;
    }
-   write16(0177776, uval);
+   // In some PDP-11's the PSW is memory mapped, but not for now in ours
+   // write16(0777776, uval);
+   switch (uval >> 14) {
+   case 0:
+      switchmode(false);
+      break;
+   case 3:
+      switchmode(true);
+      break;
+   default:
+      printf("invalid mode\n");
+      panic();
+   }
+   switch ((uval >> 12) & 3) {
+   case 0:
+      cpu.prevuser = false;
+      break;
+   case 3:
+      cpu.prevuser = true;
+      break;
+   default:
+      printf("invalid mode\n");
+      panic();
+   }
+   cpu.PS = uval;
+   return;
 }
 
 static void RESET(uint16_t instr) {

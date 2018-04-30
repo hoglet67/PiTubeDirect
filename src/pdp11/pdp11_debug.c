@@ -28,7 +28,8 @@ enum register_numbers {
    i_PC,
    i_PS,
    i_PREVUSER,
-   i_CURUSER
+   i_CURUSER,
+   i_INTQUEUE
 };
 
 // NULL pointer terminated list of register names.
@@ -44,6 +45,7 @@ static const char *dbg_reg_names[] = {
    "PS",
    "PU",
    "CU",
+   "INTQUEUE",
    NULL
 };
 
@@ -112,7 +114,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       const char *flagnameptr = flagname;
       int psr = dbg_reg_get(i_PS);
       
-      if (bufsize < 40) {
+      if (bufsize < 200) {
          strncpy(buf, "buffer too small!!!", bufsize);
       }
       
@@ -144,6 +146,11 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       return strlen(buf);
    } else if (which == i_CURUSER || which == i_PREVUSER) {
       return snprintf(buf, bufsize, "%c", dbg_reg_get(which) ? 'U' : 'K');
+   } else if (which == i_INTQUEUE) {
+      for (int i = 0; i < ITABN; i++) {
+         sprintf(buf + i * 5, "%02x:%d ", m_pdp11->itab[i].vec,  m_pdp11->itab[i].pri);
+      }
+      return strlen(buf);
    } else {
       return snprintf(buf, bufsize, "%06"PRIo32" (%04"PRIx32")", dbg_reg_get(which), dbg_reg_get(which));
    }

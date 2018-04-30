@@ -84,16 +84,16 @@ static void copro_pdp11_poweron_reset() {
 static void copro_pdp11_reset() {
    // Log ARM performance counters
    tube_log_performance_counters();
-   
+
    // Copy over client ROM
    memcpy((void *) (memory + 0xF800), (void *)tuberom_pdp11, sizeof(tuberom_pdp11));
-   
+
    // Reset the processor
    pdp11_reset(0xf800);
-   
+
    // Wait for rst become inactive before continuing to execute
    tube_wait_for_rst_release();
-   
+
    // Reset ARM performance counters
    tube_reset_performance_counters();
 }
@@ -101,14 +101,13 @@ static void copro_pdp11_reset() {
 void copro_pdp11_emulator()
 {
    unsigned int tube_irq_copy;
-   int irq_pending = 0;
-   
+
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
-   
+
    copro_pdp11_poweron_reset();
    copro_pdp11_reset();
-   
+
    while (1) {
       pdp11_execute();
       tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT) ;
@@ -121,23 +120,19 @@ void copro_pdp11_emulator()
             }
             copro_pdp11_reset();
          }
-         
+
          // NMI is edge sensitive, so only check after mailbox activity
          if (tube_irq_copy & NMI_BIT) {
             pdp11_interrupt(0x80, 7);
             tube_ack_nmi();
          }
-         
+
          // IRQ is level sensitive, so check between every instruction
          if (tube_irq_copy & IRQ_BIT) {
-            if (irq_pending == 0) {
+            if (((m_pdp11->PS >> 5) & 7) < 6) {
                pdp11_interrupt(0x84, 6);
-               irq_pending = 1;
             }
          }
-      }
-      if (!(tube_irq_copy & IRQ_BIT)) {
-         irq_pending = 0;
       }
    }
 }
