@@ -1,15 +1,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <setjmp.h>
+#include "pdp11.h"
 #include "../tube.h"
 #include "../copro-pdp11.h"
 
 jmp_buf trapbuf;
-
-#define false  0
-#define true   1
-#define bool int
-#define xor    ^
 
 enum {
    INTBUS    = 0004,
@@ -35,33 +31,18 @@ enum {
    FLAGC = 1
 };
 
-#define ITABN 8
+// Encapsulate the persistent CPU state
+pdp11_state cpu;
 
-typedef struct {
-   uint8_t vec;
-   uint8_t pri;
-} intr;
+pdp11_state *m_pdp11 = &cpu;
 
-uint16_t clkcounter;
+static bool N() { return cpu.PS & FLAGN; }
 
-intr itab[ITABN];
+static bool Z() { return cpu.PS & FLAGZ; }
 
-// signed integer registers
-int32_t R[8];
+static bool V() { return cpu.PS & FLAGV; }
 
-uint16_t PS;       // processor status
-uint16_t PC;       // address of current instruction
-uint16_t KSP, USP; // kernel and user stack pointer
-uint16_t LKS;
-bool curuser, prevuser;
-
-static bool N() { return PS & FLAGN; }
-
-static bool Z() { return PS & FLAGZ; }
-
-static bool V() { return PS & FLAGV; }
-
-static bool C() { return PS & FLAGC; }
+static bool C() { return cpu.PS & FLAGC; }
 
 static uint16_t read8(const uint16_t a) {
    // read8(mmu::decode(a, false, curuser));
@@ -85,14 +66,14 @@ static void write16(const uint16_t a, const uint16_t v) {
 
 void printstate() {
    printf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\r\n",
-          (uint16_t)R[0], (uint16_t)R[1], (uint16_t)R[2],
-          (uint16_t)R[3], (uint16_t)R[4], (uint16_t)R[5],
-          (uint16_t)R[6], (uint16_t)R[7]);
-   printf("[%s%s%s%s%s%s", prevuser ? "u" : "k", curuser ? "U" : "K",
-          PS & FLAGN ? "N" : " ", PS & FLAGZ ? "Z" : " ",
-          PS & FLAGV ? "V" : " ", PS & FLAGC ? "C" : " ");
-   printf("]  instr %06o: %06o\t ", PC, read16(PC));
-   //disasm(mmu::decode(PC, false, curuser));
+          (uint16_t)cpu.R[0], (uint16_t)cpu.R[1], (uint16_t)cpu.R[2],
+          (uint16_t)cpu.R[3], (uint16_t)cpu.R[4], (uint16_t)cpu.R[5],
+          (uint16_t)cpu.R[6], (uint16_t)cpu.R[7]);
+   printf("[%s%s%s%s%s%s", cpu.prevuser ? "u" : "k", cpu.curuser ? "U" : "K",
+          cpu.PS & FLAGN ? "N" : " ", cpu.PS & FLAGZ ? "Z" : " ",
+          cpu.PS & FLAGV ? "V" : " ", cpu.PS & FLAGC ? "C" : " ");
+   printf("]  instr %06o: %06o\t ", cpu.PC, read16(cpu.PC));
+   //disasm(mmu::decode(cpu.PC, false, curuser));
 }
 
 void panic() {
@@ -109,7 +90,7 @@ static bool isReg(const uint16_t a) { return (a & 0177770) == 0170000; }
 
 static uint16_t memread16(const uint16_t a) {
    if (isReg(a)) {
-      return R[a & 7];
+      return cpu.R[a & 7];
    }
    return read16(a);
 }
@@ -118,9 +99,9 @@ static uint16_t memread(uint16_t a, uint8_t l) {
    if (isReg(a)) {
       const uint8_t r = a & 7;
       if (l == 2) {
-         return R[r];
+         return cpu.R[r];
       } else {
-         return R[r] & 0xFF;
+         return cpu.R[r] & 0xFF;
       }
    }
    if (l == 2) {
@@ -131,7 +112,7 @@ static uint16_t memread(uint16_t a, uint8_t l) {
 
 static void memwrite16(const uint16_t a, const uint16_t v) {
    if (isReg(a)) {
-      R[a & 7] = v;
+      cpu.R[a & 7] = v;
    } else {
       write16(a, v);
    }
@@ -141,10 +122,10 @@ static void memwrite(const uint16_t a, const uint8_t l, const uint16_t v) {
    if (isReg(a)) {
       const uint8_t r = a & 7;
       if (l == 2) {
-         R[r] = v;
+         cpu.R[r] = v;
       } else {
-         R[r] &= 0xFF00;
-         R[r] |= v;
+         cpu.R[r] &= 0xFF00;
+         cpu.R[r] |= v;
       }
       return;
    }
@@ -156,27 +137,27 @@ static void memwrite(const uint16_t a, const uint8_t l, const uint16_t v) {
 }
 
 static uint16_t fetch16() {
-   const uint16_t val = read16(R[7]);
-   R[7] += 2;
+   const uint16_t val = read16(cpu.R[7]);
+   cpu.R[7] += 2;
    return val;
 }
 
 static void push(const uint16_t v) {
-   R[6] -= 2;
-   write16(R[6], v);
+   cpu.R[6] -= 2;
+   write16(cpu.R[6], v);
 }
 
 static uint16_t pop() {
-   const uint16_t val = read16(R[6]);
-   R[6] += 2;
+   const uint16_t val = read16(cpu.R[6]);
+   cpu.R[6] += 2;
    return val;
 }
 
-// aget resolves the operand to a vaddress.
+// aget resolves the operand to a vaddrescpu.
 // if the operand is a register, an address in
 // the range [0170000,0170007). This address range is
 // technically a valid IO page, but unibus doesn't map
-// any addresses here, so we can safely do this.
+// any addresses here, so we can safely do thicpu.
 static uint16_t aget(uint8_t v, uint8_t l) {
    if ((v & 070) == 000) {
       return 0170000 | (v & 7);
@@ -188,19 +169,19 @@ static uint16_t aget(uint8_t v, uint8_t l) {
    switch (v & 060) {
    case 000:
       v &= 7;
-      addr = R[v & 7];
+      addr = cpu.R[v & 7];
       break;
    case 020:
-      addr = R[v & 7];
-      R[v & 7] += l;
+      addr = cpu.R[v & 7];
+      cpu.R[v & 7] += l;
       break;
    case 040:
-      R[v & 7] -= l;
-      addr = R[v & 7];
+      cpu.R[v & 7] -= l;
+      addr = cpu.R[v & 7];
       break;
    case 060:
       addr = fetch16();
-      addr += R[v & 7];
+      addr += cpu.R[v & 7];
       break;
    }
    if (v & 010) {
@@ -214,34 +195,34 @@ static void branch(int16_t o) {
       o = -(((~o) + 1) & 0xFF);
    }
    o <<= 1;
-   R[7] += o;
+   cpu.R[7] += o;
 }
 
 void switchmode(const bool newm) {
-   prevuser = curuser;
-   curuser = newm;
-   if (prevuser) {
-      USP = R[6];
+   cpu.prevuser = cpu.curuser;
+   cpu.curuser = newm;
+   if (cpu.prevuser) {
+      cpu.USP = cpu.R[6];
    } else {
-      KSP = R[6];
+      cpu.KSP = cpu.R[6];
    }
-   if (curuser) {
-      R[6] = USP;
+   if (cpu.curuser) {
+      cpu.R[6] = cpu.USP;
    } else {
-      R[6] = KSP;
+      cpu.R[6] = cpu.KSP;
    }
-   PS &= 0007777;
-   if (curuser) {
-      PS |= (1 << 15) | (1 << 14);
+   cpu.PS &= 0007777;
+   if (cpu.curuser) {
+      cpu.PS |= (1 << 15) | (1 << 14);
    }
-   if (prevuser) {
-      PS |= (1 << 13) | (1 << 12);
+   if (cpu.prevuser) {
+      cpu.PS |= (1 << 13) | (1 << 12);
    }
 }
 
 static void setZ(bool b) {
    if (b)
-      PS |= FLAGZ;
+      cpu.PS |= FLAGZ;
 }
 
 static void MOV(const uint16_t instr) {
@@ -251,9 +232,9 @@ static void MOV(const uint16_t instr) {
    const uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t uval = memread(aget(s, l), l);
    const uint16_t da = aget(d, l);
-   PS &= 0xFFF1;
+   cpu.PS &= 0xFFF1;
    if (uval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    setZ(uval == 0);
    if ((isReg(da)) && (l == 1)) {
@@ -275,16 +256,16 @@ static void CMP(uint16_t instr) {
    const uint16_t da = aget(d, l);
    uint16_t val2 = memread(da, l);
    const int32_t sval = (val1 - val2) & max;
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    setZ(sval == 0);
    if (sval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    if (((val1 ^ val2) & msb) && (!((val2 ^ sval) & msb))) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
    if (val1 < val2) {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
 }
 
@@ -297,10 +278,10 @@ static void BIT(uint16_t instr) {
    const uint16_t da = aget(d, l);
    const uint16_t val2 = memread(da, l);
    const uint16_t uval = val1 & val2;
-   PS &= 0xFFF1;
+   cpu.PS &= 0xFFF1;
    setZ(uval == 0);
    if (uval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
 }
 
@@ -314,10 +295,10 @@ static void BIC(uint16_t instr) {
    const uint16_t da = aget(d, l);
    const uint16_t val2 = memread(da, l);
    const uint16_t uval = (max ^ val1) & val2;
-   PS &= 0xFFF1;
+   cpu.PS &= 0xFFF1;
    setZ(uval == 0);
    if (uval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    memwrite(da, l, uval);
 }
@@ -331,10 +312,10 @@ static void BIS(uint16_t instr) {
    uint16_t da = aget(d, l);
    uint16_t val2 = memread(da, l);
    uint16_t uval = val1 | val2;
-   PS &= 0xFFF1;
+   cpu.PS &= 0xFFF1;
    setZ(uval == 0);
    if (uval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    memwrite(da, l, uval);
 }
@@ -346,16 +327,16 @@ static void ADD(uint16_t instr) {
    uint16_t da = aget(d, 2);
    uint16_t val2 = memread16(da);
    uint16_t uval = (val1 + val2) & 0xFFFF;
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    setZ(uval == 0);
    if (uval & 0x8000) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    if (!((val1 ^ val2) & 0x8000) && ((val2 ^ uval) & 0x8000)) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
    if ((val1 + val2) >= 0xFFFF) {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
    memwrite16(da, uval);
 }
@@ -367,16 +348,16 @@ static void SUB(uint16_t instr) {
    uint16_t da = aget(d, 2);
    uint16_t val2 = memread16(da);
    uint16_t uval = (val2 - val1) & 0xFFFF;
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    setZ(uval == 0);
    if (uval & 0x8000) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    if (((val1 ^ val2) & 0x8000) && (!((val2 ^ uval) & 0x8000))) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
    if (val1 > val2) {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
    memwrite16(da, uval);
 }
@@ -390,15 +371,15 @@ static void JSR(uint16_t instr) {
       printf("JSR called on registeri\n");
       panic();
    }
-   push(R[s & 7]);
-   R[s & 7] = R[7];
-   R[7] = uval;
+   push(cpu.R[s & 7]);
+   cpu.R[s & 7] = cpu.R[7];
+   cpu.R[7] = uval;
 }
 
 static void MUL(const uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
-   int32_t val1 = R[s & 7];
+   int32_t val1 = cpu.R[s & 7];
    if (val1 & 0x8000) {
       val1 = -((0xFFFF ^ val1) + 1);
    }
@@ -409,52 +390,52 @@ static void MUL(const uint16_t instr) {
       val2 = -((0xFFFF ^ val2) + 1);
    }
    int32_t sval = val1 * val2;
-   R[s & 7] = sval >> 16;
-   R[(s & 7) | 1] = sval & 0xFFFF;
-   PS &= 0xFFF0;
+   cpu.R[s & 7] = sval >> 16;
+   cpu.R[(s & 7) | 1] = sval & 0xFFFF;
+   cpu.PS &= 0xFFF0;
    if (sval & 0x80000000) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    setZ((sval & 0xFFFFFFFF) == 0);
    if ((sval < (1 << 15)) || (sval >= ((1 << 15) - 1))) {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
 }
 
 static void DIV(uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
-   int32_t val1 = (R[s & 7] << 16) | (R[(s & 7) | 1]);
+   int32_t val1 = (cpu.R[s & 7] << 16) | (cpu.R[(s & 7) | 1]);
    uint8_t l = 2 - (instr >> 15);
    uint16_t da = aget(d, l);
    int32_t val2 = memread16(da);
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    if (val2 == 0) {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
       return;
    }
    if ((val1 / val2) >= 0x10000) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
       return;
    }
-   R[s & 7] = (val1 / val2) & 0xFFFF;
-   R[(s & 7) | 1] = (val1 % val2) & 0xFFFF;
-   setZ(R[s & 7] == 0);
-   if (R[s & 7] & 0100000) {
-      PS |= FLAGN;
+   cpu.R[s & 7] = (val1 / val2) & 0xFFFF;
+   cpu.R[(s & 7) | 1] = (val1 % val2) & 0xFFFF;
+   setZ(cpu.R[s & 7] == 0);
+   if (cpu.R[s & 7] & 0100000) {
+      cpu.PS |= FLAGN;
    }
    if (val1 == 0) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
 }
 
 static void ASH(uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
-   uint16_t val1 = R[s & 7];
+   uint16_t val1 = cpu.R[s & 7];
    uint16_t da = aget(d, 2);
    uint16_t val2 = memread16(da) & 077;
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    int32_t sval;
    if (val2 & 040) {
       val2 = (077 ^ val2) + 1;
@@ -465,31 +446,31 @@ static void ASH(uint16_t instr) {
          sval = val1 >> val2;
       }
       if (val1 & (1 << (val2 - 1))) {
-         PS |= FLAGC;
+         cpu.PS |= FLAGC;
       }
    } else {
       sval = (val1 << val2) & 0xFFFF;
       if (val1 & (1 << (16 - val2))) {
-         PS |= FLAGC;
+         cpu.PS |= FLAGC;
       }
    }
-   R[s & 7] = sval;
+   cpu.R[s & 7] = sval;
    setZ(sval == 0);
    if (sval & 0100000) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    if ((sval & 0100000)xor(val1 & 0100000)) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
 }
 
 static void ASHC(uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
-   uint16_t val1 = R[s & 7] << 16 | R[(s & 7) | 1];
+   uint16_t val1 = cpu.R[s & 7] << 16 | cpu.R[(s & 7) | 1];
    uint16_t da = aget(d, 2);
    uint16_t val2 = memread16(da) & 077;
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    int32_t sval;
    if (val2 & 040) {
       val2 = (077 ^ val2) + 1;
@@ -500,36 +481,36 @@ static void ASHC(uint16_t instr) {
          sval = val1 >> val2;
       }
       if (val1 & (1 << (val2 - 1))) {
-         PS |= FLAGC;
+         cpu.PS |= FLAGC;
       }
    } else {
       sval = (val1 << val2) & 0xFFFFFFFF;
       if (val1 & (1 << (32 - val2))) {
-         PS |= FLAGC;
+         cpu.PS |= FLAGC;
       }
    }
-   R[s & 7] = (sval >> 16) & 0xFFFF;
-   R[(s & 7) | 1] = sval & 0xFFFF;
+   cpu.R[s & 7] = (sval >> 16) & 0xFFFF;
+   cpu.R[(s & 7) | 1] = sval & 0xFFFF;
    setZ(sval == 0);
    if (sval & 0x80000000) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    if ((sval & 0x80000000)xor(val1 & 0x80000000)) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
 }
 
 static void XOR(uint16_t instr) {
    const uint8_t d = instr & 077;
    const uint8_t s = (instr & 07700) >> 6;
-   const uint16_t val1 = R[s & 7];
+   const uint16_t val1 = cpu.R[s & 7];
    const uint16_t da = aget(d, 2);
    const uint16_t val2 = memread16(da);
    const uint16_t uval = val1 ^ val2;
-   PS &= 0xFFF1;
+   cpu.PS &= 0xFFF1;
    setZ(uval == 0);
    if (uval & 0x8000) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    memwrite16(da, uval);
 }
@@ -537,19 +518,19 @@ static void XOR(uint16_t instr) {
 static void SOB(const uint16_t instr) {
    const uint8_t s = (instr & 07700) >> 6;
    uint8_t o = instr & 0xFF;
-   R[s & 7]--;
-   if (R[s & 7]) {
+   cpu.R[s & 7]--;
+   if (cpu.R[s & 7]) {
       o &= 077;
       o <<= 1;
-      R[7] -= o;
+      cpu.R[7] -= o;
    }
 }
 
 static void CLR(uint16_t instr) {
    const uint8_t d = instr & 077;
    const uint8_t l = 2 - (instr >> 15);
-   PS &= 0xFFF0;
-   PS |= FLAGZ;
+   cpu.PS &= 0xFFF0;
+   cpu.PS |= FLAGZ;
    const uint16_t da = aget(d, l);
    memwrite(da, l, 0);
 }
@@ -561,10 +542,10 @@ static void COM(uint16_t instr) {
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
    uint16_t uval = memread(da, l) ^ max;
-   PS &= 0xFFF0;
-   PS |= FLAGC;
+   cpu.PS &= 0xFFF0;
+   cpu.PS |= FLAGC;
    if (uval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    setZ(uval == 0);
    memwrite(da, l, uval);
@@ -577,9 +558,9 @@ static void INC(const uint16_t instr) {
    const uint16_t max = l == 2 ? 0xFFFF : 0xff;
    const uint16_t da = aget(d, l);
    const uint16_t uval = (memread(da, l) + 1) & max;
-   PS &= 0xFFF1;
+   cpu.PS &= 0xFFF1;
    if (uval & msb) {
-      PS |= FLAGN | FLAGV;
+      cpu.PS |= FLAGN | FLAGV;
    }
    setZ(uval == 0);
    memwrite(da, l, uval);
@@ -593,12 +574,12 @@ static void _DEC(uint16_t instr) {
    uint16_t maxp = l == 2 ? 0x7FFF : 0x7f;
    uint16_t da = aget(d, l);
    uint16_t uval = (memread(da, l) - 1) & max;
-   PS &= 0xFFF1;
+   cpu.PS &= 0xFFF1;
    if (uval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    if (uval == maxp) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
    setZ(uval == 0);
    memwrite(da, l, uval);
@@ -611,17 +592,17 @@ static void NEG(uint16_t instr) {
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
    int32_t sval = (-memread(da, l)) & max;
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    if (sval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    if (sval == 0) {
-      PS |= FLAGZ;
+      cpu.PS |= FLAGZ;
    } else {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
    if (sval == 0x8000) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
    memwrite(da, l, sval);
 }
@@ -633,23 +614,23 @@ static void _ADC(uint16_t instr) {
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
    uint16_t uval = memread(da, l);
-   if (PS & FLAGC) {
-      PS &= 0xFFF0;
+   if (cpu.PS & FLAGC) {
+      cpu.PS &= 0xFFF0;
       if ((uval + 1) & msb) {
-         PS |= FLAGN;
+         cpu.PS |= FLAGN;
       }
       setZ(uval == max);
       if (uval == 0077777) {
-         PS |= FLAGV;
+         cpu.PS |= FLAGV;
       }
       if (uval == 0177777) {
-         PS |= FLAGC;
+         cpu.PS |= FLAGC;
       }
       memwrite(da, l, (uval + 1) & max);
    } else {
-      PS &= 0xFFF0;
+      cpu.PS &= 0xFFF0;
       if (uval & msb) {
-         PS |= FLAGN;
+         cpu.PS |= FLAGN;
       }
       setZ(uval == 0);
    }
@@ -662,29 +643,29 @@ static void SBC(uint16_t instr) {
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
    int32_t sval = memread(da, l);
-   if (PS & FLAGC) {
-      PS &= 0xFFF0;
+   if (cpu.PS & FLAGC) {
+      cpu.PS &= 0xFFF0;
       if ((sval - 1) & msb) {
-         PS |= FLAGN;
+         cpu.PS |= FLAGN;
       }
       setZ(sval == 1);
       if (sval) {
-         PS |= FLAGC;
+         cpu.PS |= FLAGC;
       }
       if (sval == 0100000) {
-         PS |= FLAGV;
+         cpu.PS |= FLAGV;
       }
       memwrite(da, l, (sval - 1) & max);
    } else {
-      PS &= 0xFFF0;
+      cpu.PS &= 0xFFF0;
       if (sval & msb) {
-         PS |= FLAGN;
+         cpu.PS |= FLAGN;
       }
       setZ(sval == 0);
       if (sval == 0100000) {
-         PS |= FLAGV;
+         cpu.PS |= FLAGV;
       }
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
 }
 
@@ -693,9 +674,9 @@ static void TST(uint16_t instr) {
    uint8_t l = 2 - (instr >> 15);
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t uval = memread(aget(d, l), l);
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    if (uval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    setZ(uval == 0);
 }
@@ -706,20 +687,20 @@ static void ROR(uint16_t instr) {
    int32_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
    int32_t sval = memread(da, l);
-   if (PS & FLAGC) {
+   if (cpu.PS & FLAGC) {
       sval |= max + 1;
    }
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    if (sval & 1) {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
    // watch out for integer wrap around
    if (sval & (max + 1)) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    setZ(!(sval & max));
    if ((sval & 1)xor(sval & (max + 1))) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
    sval >>= 1;
    memwrite(da, l, sval);
@@ -732,19 +713,19 @@ static void ROL(uint16_t instr) {
    int32_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
    int32_t sval = memread(da, l) << 1;
-   if (PS & FLAGC) {
+   if (cpu.PS & FLAGC) {
       sval |= 1;
    }
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    if (sval & (max + 1)) {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
    if (sval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    setZ(!(sval & max));
    if ((sval ^ (sval >> 1)) & msb) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
    sval &= max;
    memwrite(da, l, sval);
@@ -756,15 +737,15 @@ static void ASR(uint16_t instr) {
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t da = aget(d, l);
    uint16_t uval = memread(da, l);
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    if (uval & 1) {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
    if (uval & msb) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    if ((uval & msb)xor(uval & 1)) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
    uval = (uval & msb) | (uval >> 1);
    setZ(uval == 0);
@@ -779,15 +760,15 @@ static void ASL(uint16_t instr) {
    uint16_t da = aget(d, l);
    // TODO(dfc) doesn't need to be an sval
    int32_t sval = memread(da, l);
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    if (sval & msb) {
-      PS |= FLAGC;
+      cpu.PS |= FLAGC;
    }
    if (sval & (msb >> 1)) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    if ((sval ^ (sval << 1)) & msb) {
-      PS |= FLAGV;
+      cpu.PS |= FLAGV;
    }
    sval = (sval << 1) & max;
    setZ(sval == 0);
@@ -799,10 +780,10 @@ static void SXT(uint16_t instr) {
    uint8_t l = 2 - (instr >> 15);
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
-   if (PS & FLAGN) {
+   if (cpu.PS & FLAGN) {
       memwrite(da, l, max);
    } else {
-      PS |= FLAGZ;
+      cpu.PS |= FLAGZ;
       memwrite(da, l, 0);
    }
 }
@@ -814,7 +795,7 @@ static void JMP(uint16_t instr) {
       printf("JMP called with register dest\n");
       panic();
    }
-   R[7] = uval;
+   cpu.R[7] = uval;
 }
 
 static void SWAB(uint16_t instr) {
@@ -823,18 +804,18 @@ static void SWAB(uint16_t instr) {
    uint16_t da = aget(d, l);
    uint16_t uval = memread(da, l);
    uval = ((uval >> 8) | (uval << 8)) & 0xFFFF;
-   PS &= 0xFFF0;
+   cpu.PS &= 0xFFF0;
    setZ(uval & 0xFF);
    if (uval & 0x80) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
    memwrite(da, l, uval);
 }
 
 static void MARK(uint16_t instr) {
-   R[6] = R[7] + ((instr & 077) << 1);
-   R[7] = R[5];
-   R[5] = pop();
+   cpu.R[6] = cpu.R[7] + ((instr & 077) << 1);
+   cpu.R[7] = cpu.R[5];
+   cpu.R[5] = pop();
 }
 
 static void MFPI(uint16_t instr) {
@@ -842,14 +823,14 @@ static void MFPI(uint16_t instr) {
    uint16_t da = aget(d, 2);
    uint16_t uval;
    if (da == 0170006) {
-      // val = (curuser == prevuser) ? R[6] : (prevuser ? k.USP : KSP);
-      if (curuser == prevuser) {
-         uval = R[6];
+      // val = (curuser == prevuser) ? cpu.R[6] : (prevuser ? k.cpu.USP : cpu.KSP);
+      if (cpu.curuser == cpu.prevuser) {
+         uval = cpu.R[6];
       } else {
-         if (prevuser) {
-            uval = USP;
+         if (cpu.prevuser) {
+            uval = cpu.USP;
          } else {
-            uval = KSP;
+            uval = cpu.KSP;
          }
       }
    } else if (isReg(da)) {
@@ -860,11 +841,11 @@ static void MFPI(uint16_t instr) {
       uval = read16((uint16_t)da);
    }
    push(uval);
-   PS &= 0xFFF0;
-   PS |= FLAGC;
+   cpu.PS &= 0xFFF0;
+   cpu.PS |= FLAGC;
    setZ(uval == 0);
    if (uval & 0x8000) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
 }
 
@@ -873,13 +854,13 @@ static void MTPI(uint16_t instr) {
    uint16_t da = aget(d, 2);
    uint16_t uval = pop();
    if (da == 0170006) {
-      if (curuser == prevuser) {
-         R[6] = uval;
+      if (cpu.curuser == cpu.prevuser) {
+         cpu.R[6] = uval;
       } else {
-         if (prevuser) {
-            USP = uval;
+         if (cpu.prevuser) {
+            cpu.USP = uval;
          } else {
-            KSP = uval;
+            cpu.KSP = uval;
          }
       }
    } else if (isReg(da)) {
@@ -888,18 +869,18 @@ static void MTPI(uint16_t instr) {
    } else {
       write16((uint16_t)da, uval);
    }
-   PS &= 0xFFF0;
-   PS |= FLAGC;
+   cpu.PS &= 0xFFF0;
+   cpu.PS |= FLAGC;
    setZ(uval == 0);
    if (uval & 0x8000) {
-      PS |= FLAGN;
+      cpu.PS |= FLAGN;
    }
 }
 
 static void RTS(uint16_t instr) {
    uint8_t d = instr & 077;
-   R[7] = R[d & 7];
-   R[d & 7] = pop();
+   cpu.R[7] = cpu.R[d & 7];
+   cpu.R[d & 7] = pop();
 }
 
 static void EMTX(uint16_t instr) {
@@ -913,29 +894,29 @@ static void EMTX(uint16_t instr) {
    } else {
       uval = 020;
    }
-   uint16_t prev = PS;
+   uint16_t prev = cpu.PS;
    switchmode(false);
    push(prev);
-   push(R[7]);
-   R[7] = read16(uval);
-   PS = read16(uval + 2);
-   if (prevuser) {
-      PS |= (1 << 13) | (1 << 12);
+   push(cpu.R[7]);
+   cpu.R[7] = read16(uval);
+   cpu.PS = read16(uval + 2);
+   if (cpu.prevuser) {
+      cpu.PS |= (1 << 13) | (1 << 12);
    }
 }
 
 static void _RTT(uint16_t instr) {
-   R[7] = pop();
+   cpu.R[7] = pop();
    uint16_t uval = pop();
-   if (curuser) {
+   if (cpu.curuser) {
       uval &= 047;
-      uval |= PS & 0177730;
+      uval |= cpu.PS & 0177730;
    }
    write16(0177776, uval);
 }
 
 static void RESET(uint16_t instr) {
-   if (curuser) {
+   if (cpu.curuser) {
       return;
    }
    // cons::clearterminal();
@@ -943,9 +924,9 @@ static void RESET(uint16_t instr) {
 }
 
 static void step() {
-   PC = R[7];
-   uint16_t instr = read16(PC);
-   R[7] += 2;
+   cpu.PC = cpu.R[7];
+   uint16_t instr = read16(cpu.PC);
+   cpu.R[7] += 2;
 
    if (PRINTSTATE)
       printstate();
@@ -1143,21 +1124,21 @@ static void step() {
    }
    if ((instr & 0177740) == 0240) { // CL?, SE?
       if (instr & 020) {
-         PS |= instr & 017;
+         cpu.PS |= instr & 017;
       } else {
-         PS &= ~instr & 017;
+         cpu.PS &= ~instr & 017;
       }
       return;
    }
    switch (instr & 7) {
    case 00: // HALT
-      if (curuser) {
+      if (cpu.curuser) {
          break;
       }
       printf("HALT\n");
       panic();
    case 01: // WAIT
-      if (curuser) {
+      if (cpu.curuser) {
          break;
       }
       return;
@@ -1191,7 +1172,7 @@ static void trapat(uint16_t vec) { // , msg string) {
      switch t = t.(type) {
      case trap:
      writedebug("red stack trap!\n")
-     memory[0] = uint16(k.R[7])
+     memory[0] = uint16(k.cpu.R[7])
      memory[1] = prev
      vec = 4
      panic("fatal")
@@ -1201,15 +1182,15 @@ static void trapat(uint16_t vec) { // , msg string) {
      panic(t)
      }
    */
-   uint16_t prev = PS;
+   uint16_t prev = cpu.PS;
    switchmode(false);
    push(prev);
-   push(R[7]);
+   push(cpu.R[7]);
 
-   R[7] = read16(vec);
-   PS = read16(vec + 2);
-   if (prevuser) {
-      PS |= (1 << 13) | (1 << 12);
+   cpu.R[7] = read16(vec);
+   cpu.PS = read16(vec + 2);
+   if (cpu.prevuser) {
+      cpu.PS |= (1 << 13) | (1 << 12);
    }
 }
 
@@ -1217,38 +1198,38 @@ static void trapat(uint16_t vec) { // , msg string) {
 static void popirq() {
    uint8_t i;
    for (i = 0; i < ITABN - 1; i++) {
-      itab[i] = itab[i + 1];
+      cpu.itab[i] = cpu.itab[i + 1];
    }
-   itab[ITABN - 1].vec = 0;
-   itab[ITABN - 1].pri = 0;
+   cpu.itab[ITABN - 1].vec = 0;
+   cpu.itab[ITABN - 1].pri = 0;
 }
 
 static void handleinterrupt() {
-   uint8_t vec = itab[0].vec;
+   uint8_t vec = cpu.itab[0].vec;
    if (DEBUG_INTER) {
       printf("IRQ: %x\n", vec);
    }
    uint16_t vv = setjmp(trapbuf);
    if (vv == 0) {
-      uint16_t prev = PS;
+      uint16_t prev = cpu.PS;
       switchmode(false);
       push(prev);
-      push(R[7]);
+      push(cpu.R[7]);
    } else {
       trapat(vv);
    }
 
-   R[7] = read16(vec);
-   PS = read16(vec + 2);
-   if (prevuser) {
-      PS |= (1 << 13) | (1 << 12);
+   cpu.R[7] = read16(vec);
+   cpu.PS = read16(vec + 2);
+   if (cpu.prevuser) {
+      cpu.PS |= (1 << 13) | (1 << 12);
    }
    popirq();
 }
 
 void pdp11_reset(uint16_t address) {
-   LKS = 1 << 7;
-   R[7] = address;
+   cpu.LKS = 1 << 7;
+   cpu.R[7] = address;
 }
 
 void pdp11_interrupt(uint8_t vec, uint8_t pri) {
@@ -1257,19 +1238,19 @@ void pdp11_interrupt(uint8_t vec, uint8_t pri) {
       panic();
    }
    // fast path
-   if (itab[0].vec == 0) {
-      itab[0].vec = vec;
-      itab[0].pri = pri;
+   if (cpu.itab[0].vec == 0) {
+      cpu.itab[0].vec = vec;
+      cpu.itab[0].pri = pri;
       return;
    }
    uint8_t i;
    for (i = 0; i < ITABN; i++) {
-      if ((itab[i].vec == 0) || (itab[i].pri < pri)) {
+      if ((cpu.itab[i].vec == 0) || (cpu.itab[i].pri < pri)) {
          break;
       }
    }
    for (; i < ITABN; i++) {
-      if ((itab[i].vec == 0) || (itab[i].vec >= vec)) {
+      if ((cpu.itab[i].vec == 0) || (cpu.itab[i].vec >= vec)) {
          break;
       }
    }
@@ -1279,29 +1260,29 @@ void pdp11_interrupt(uint8_t vec, uint8_t pri) {
    }
    uint8_t j;
    for (j = i + 1; j < ITABN; j++) {
-      itab[j] = itab[j - 1];
+      cpu.itab[j] = cpu.itab[j - 1];
    }
-   itab[i].vec = vec;
-   itab[i].pri = pri;
+   cpu.itab[i].vec = vec;
+   cpu.itab[i].pri = pri;
 }
 
 static void loop0() {
    while (tubeContinueRunning()) {
-      if ((itab[0].vec > 0) && (itab[0].pri >= ((PS >> 5) & 7))) {
+      if ((cpu.itab[0].vec > 0) && (cpu.itab[0].pri >= ((cpu.PS >> 5) & 7))) {
          handleinterrupt();
          uint8_t i;
          for (i = 0; i < ITABN - 1; i++) {
-            itab[i] = itab[i + 1];
+            cpu.itab[i] = cpu.itab[i + 1];
          }
-         itab[ITABN - 1].vec = 0;
-         itab[ITABN - 1].pri = 0;
+         cpu.itab[ITABN - 1].vec = 0;
+         cpu.itab[ITABN - 1].pri = 0;
          return; // exit from loop to reset trapbuf
       }
       step();
-      if (++clkcounter > 39999) {
-         clkcounter = 0;
-         LKS |= (1 << 7);
-         if (LKS & (1 << 6)) {
+      if (++cpu.clkcounter > 39999) {
+         cpu.clkcounter = 0;
+         cpu.LKS |= (1 << 7);
+         if (cpu.LKS & (1 << 6)) {
             pdp11_interrupt(INTCLOCK, 6);
          }
       }

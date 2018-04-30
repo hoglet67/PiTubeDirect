@@ -6,9 +6,38 @@
 #include <inttypes.h>
 
 void pdp11_reset(uint16_t address);
-
 void pdp11_execute();
-
 void pdp11_interrupt(uint8_t vec, uint8_t pri);
+
+#define false  0
+#define true   1
+#define bool int
+#define xor    ^
+
+#define ITABN 8
+
+typedef struct {
+   uint8_t vec;
+   uint8_t pri;
+} intr;
+
+typedef struct {
+   
+   // signed integer registers
+   int32_t R[8];
+   
+   uint16_t PS;       // processor status
+   uint16_t PC;       // address of current instruction
+   uint16_t KSP, USP; // kernel and user stack pointer
+   uint16_t LKS;
+   bool curuser, prevuser;
+
+   uint16_t clkcounter;
+
+   intr itab[ITABN];
+
+} pdp11_state;
+
+extern pdp11_state *m_pdp11;
 
 #endif
