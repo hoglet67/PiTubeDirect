@@ -339,7 +339,7 @@ static void ADD(uint16_t instr) {
    if (!((val1 ^ val2) & 0x8000) && ((val2 ^ uval) & 0x8000)) {
       cpu.PS |= FLAGV;
    }
-   if ((val1 + val2) >= 0xFFFF) {
+   if ((val1 + val2) > 0xFFFF) {
       cpu.PS |= FLAGC;
    }
    memwrite16(da, uval);
