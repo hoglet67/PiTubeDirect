@@ -1300,7 +1300,7 @@ void pdp11_interrupt(uint8_t vec, uint8_t pri) {
       panic();
    }
    uint8_t j;
-   for (j = i + 1; j < ITABN; j++) {
+   for (j = ITABN - 1; j >= i + 1; j--) {
       cpu.itab[j] = cpu.itab[j - 1];
    }
    cpu.itab[i].vec = vec;
