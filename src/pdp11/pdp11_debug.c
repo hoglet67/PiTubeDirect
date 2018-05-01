@@ -194,7 +194,7 @@ typedef struct {
    bool b;
 } D;
 
-enum { DD = 1 << 1, S = 1 << 2, RR = 1 << 3, O = 1 << 4, N = 1 << 5 };
+enum { DD = 1 << 1, S = 1 << 2, RR = 1 << 3, O = 1 << 4, NN = 1 << 5 , N = 1 << 6};
 
 static D disamtable[] = {
    // One-operand instructions
@@ -248,8 +248,8 @@ static D disamtable[] = {
    { 0177000, 0004000, "JSR",  RR | DD, false },
    { 0177770, 0000200, "RTS",  RR     , false },
    { 0177777, 0000002, "RTI",        0, false },
-   { 0177400, 0104400, "TRAP",       N, false },
-   { 0177400, 0104000, "EMT",        N, false },
+   { 0177400, 0104400, "TRAP",      NN, false },
+   { 0177400, 0104000, "EMT",       NN, false },
    { 0177777, 0000003, "BPT",        0, false },
    { 0177777, 0000004, "IOT",        0, false },
    { 0177777, 0000006, "RTT",        0, false },
@@ -257,18 +257,39 @@ static D disamtable[] = {
    { 0177777, 0000000, "HALT",       0, false },
    { 0177777, 0000001, "WAIT",       0, false },
    { 0177777, 0000005, "RESET",      0, false },
-   { 0177777, 0000240, "NOP",        0, false },
    // Processor Status Word
-   { 0177770, 0000230, "SPL",        0, false },
+   { 0177770, 0000230, "SPL",        N, false },
+   { 0177777, 0000240, "NOP",        0, false },
    { 0177777, 0000241, "CLC",        0, false },
    { 0177777, 0000242, "CLV",        0, false },
+   { 0177777, 0000243, "CLVC",       0, false },
    { 0177777, 0000244, "CLZ",        0, false },
+   { 0177777, 0000245, "CLZC",       0, false },
+   { 0177777, 0000246, "CLZV",       0, false },
+   { 0177777, 0000247, "CLZVC",      0, false },
    { 0177777, 0000250, "CLN",        0, false },
+   { 0177777, 0000251, "CLNC",       0, false },
+   { 0177777, 0000252, "CLNV",       0, false },
+   { 0177777, 0000253, "CLNVC",      0, false },
+   { 0177777, 0000254, "CLNZ",       0, false },
+   { 0177777, 0000255, "CLNZC",      0, false },
+   { 0177777, 0000256, "CLNZV",      0, false },
    { 0177777, 0000257, "CCC",        0, false },
+   { 0177777, 0000260, "NOP",        0, false },
    { 0177777, 0000261, "SEC",        0, false },
    { 0177777, 0000262, "SEV",        0, false },
+   { 0177777, 0000263, "SEVC",       0, false },
    { 0177777, 0000264, "SEZ",        0, false },
+   { 0177777, 0000265, "SEZC",       0, false },
+   { 0177777, 0000266, "SEZV",       0, false },
+   { 0177777, 0000267, "SEZVC",      0, false },
    { 0177777, 0000270, "SEN",        0, false },
+   { 0177777, 0000271, "SENC",       0, false },
+   { 0177777, 0000272, "SENV",       0, false },
+   { 0177777, 0000273, "SENVC",      0, false },
+   { 0177777, 0000274, "SENZ",       0, false },
+   { 0177777, 0000275, "SENZC",      0, false },
+   { 0177777, 0000276, "SENZV",      0, false },
    { 0177777, 0000277, "SCC",        0, false },
    // Other
    { 0177777, 0006400, "MARK",       0, false },
@@ -280,7 +301,6 @@ static D disamtable[] = {
 static uint16_t read16(uint16_t a) {
    return copro_pdp11_read16(a);
 }
-
 
 // Returns the number of additional operand bytes for the addressing mode
 static int disaslen(uint16_t m) {
@@ -306,7 +326,6 @@ static int disasmaddr(char *buf, uint16_t m, uint16_t a) {
          return sprintf(buf, "@%06o", (a + 2 + (read16(a))) & 0xFFFF);
       }
    }
-
    switch (m & 070) {
    case 000:
       return sprintf(buf, "%s", dbg_reg_names[m & 7]);
@@ -325,7 +344,6 @@ static int disasmaddr(char *buf, uint16_t m, uint16_t a) {
    case 070:
       return sprintf(buf, "@%06o(%s)", read16(a), dbg_reg_names[m & 7]);
    }
-
    return 0;
 }
 
@@ -422,8 +440,11 @@ static uint16_t disasm(char *buf, uint16_t a) {
    case RR:
       buf += sprintf(buf, " %s", dbg_reg_names[ins & 7]);
       break;
-   case N:
+   case NN:
       buf += sprintf(buf, " %d", ins & 0xFF);
+      break;
+   case N:
+      buf += sprintf(buf, " %d", ins & 0xF);
       break;
    }
    return a;
