@@ -179,7 +179,8 @@ cpu_debug_t pdp11_cpu_debug = {
    .reg_print      = dbg_reg_print,
    .reg_parse      = dbg_reg_parse,
    .get_instr_addr = dbg_get_instr_addr,
-   .trap_names     = dbg_trap_names
+   .trap_names     = dbg_trap_names,
+   .default_base   = 8
 };
 
 /*****************************************************

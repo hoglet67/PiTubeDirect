@@ -12,6 +12,10 @@
 #include "info.h"
 #include "rpi-gpio.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#endif
+
 typedef void (*func_ptr)();
 
 extern int test_pin;
@@ -149,6 +153,11 @@ void init_emulator() {
    LOG_DEBUG("Raspberry Pi Direct %u %s Client\r\n", copro,emulator_names[copro]);
 
    emulator = emulator_functions[copro];
+
+#ifdef INCLUDE_DEBUGGER
+   // reinitialize the debugger as the Co Pro has changed
+   debug_init();
+#endif
    
    _enable_interrupts();
 }
