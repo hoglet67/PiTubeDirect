@@ -153,7 +153,7 @@ static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
 };
 
 static char *dbgHelpStrings[NUM_CMDS + NUM_IO_CMDS] = {
-   "",                       // help
+   "[ <command> ]",          // help
    "",                       // continue
    "[ <num instructions> ]", // step
    "",                       // next
@@ -667,6 +667,37 @@ void genericBreakpoint(const char *params, char *type, breakpoint_t *list, unsig
    }
 }
 
+static int parseCommand(const char ** cmdptr) {
+   int i;
+   char *cmdString;
+   int minLen;
+   int cmdStringLen;
+   int cmdLen = 0;
+   const char *cmd = *cmdptr;
+   while (isspace(*cmd)) {
+      cmd++;
+   }
+   while (cmd[cmdLen] >= 'a' && cmd[cmdLen] <= 'z') {
+      cmdLen++;
+   }
+   if (cmdLen > 0) {
+      int n = NUM_CMDS;
+      if (HAS_IO) {
+         n += NUM_IO_CMDS;
+      }
+      for (i = 0; i < n; i++) {
+         cmdString = dbgCmdStrings[i];
+         cmdStringLen = strlen(cmdString);
+         minLen = cmdLen < cmdStringLen ? cmdLen : cmdStringLen;
+         if (strncmp(cmdString, cmd, minLen) == 0) {
+            *cmdptr = cmd + cmdLen;
+            return i;
+         }
+      }
+   }
+   return -1;
+}
+
 /*******************************************
  * User Commands
  *******************************************/
@@ -712,19 +743,23 @@ static void doCmdWidth(const char *params) {
 
 static void doCmdHelp(const char *params) {
    cpu_debug_t *cpu = getCpu();
-   int i;
-   printf("PiTubeDirect debugger\r\n");
-   printf("    cpu = %s\r\n", cpu->cpu_name);
-   printf("   base = %d\r\n", base);
-   printf("  width = %s\r\n", width_names[width]);
-   printf("\r\n");
-   printf("Commands:\r\n");
-   int n = NUM_CMDS;
-   if (HAS_IO) {
-      n += NUM_IO_CMDS;
-   }
-   for (i = 0; i < n; i++) {
-      printf("    %8s %s\r\n", dbgCmdStrings[i], dbgHelpStrings[i]);
+   int i = parseCommand(&params);
+   if (i >= 0) {
+      printf("%8s %s\r\n", dbgCmdStrings[i], dbgHelpStrings[i]);
+   } else {
+      printf("PiTubeDirect debugger\r\n");
+      printf("    cpu = %s\r\n", cpu->cpu_name);
+      printf("   base = %d\r\n", base);
+      printf("  width = %s\r\n", width_names[width]);
+      printf("\r\n");
+      printf("Commands:\r\n");
+      int n = NUM_CMDS;
+      if (HAS_IO) {
+         n += NUM_IO_CMDS;
+      }
+      for (i = 0; i < n; i++) {
+         printf("%8s %s\r\n", dbgCmdStrings[i], dbgHelpStrings[i]);
+      }
    }
 }
 
@@ -1119,35 +1154,20 @@ static void updateDebugFlag() {
  * User Command Processor
  ********************************************************/
 
-static void dispatchCmd(char *cmd) {
-   int i;
-   char *cmdString;
-   int minLen;
-   int cmdStringLen;
-   int cmdLen = 0;
-   while (cmd[cmdLen] >= 'a' && cmd[cmdLen] <= 'z') {
-      cmdLen++;
-   }
-   int n = NUM_CMDS;
-   if (HAS_IO) {
-      n += NUM_IO_CMDS;
-   }
-   for (i = 0; i < n; i++) {
-      cmdString = dbgCmdStrings[i];
-      cmdStringLen = strlen(cmdString);
-      minLen = cmdLen < cmdStringLen ? cmdLen : cmdStringLen;
-      if (strncmp(cmdString, cmd, minLen) == 0) {
-         cpu_debug_t *cpu = getCpu();
-         if (cpu == NULL) {
-            printf("No debugger available for this co pro\r\n");
-         } else {
-            (*dbgCmdFuncs[i])(cmd + cmdLen);
-            updateDebugFlag();
-         }
-         return;
+static void dispatchCmd(const char *cmd) {
+   int cmdNum = parseCommand(&cmd);
+   if (cmdNum >= 0) {
+      cpu_debug_t *cpu = getCpu();
+      if (cpu == NULL) {
+         printf("No debugger available for this co pro\r\n");
+      } else {
+         (*dbgCmdFuncs[cmdNum])(cmd);
+         updateDebugFlag();
       }
+      return;
+   } else {
+      printf("Unknown command %s\r\n", cmd);
    }
-   printf("Unknown command %s\r\n", cmd);
 }
 
 /********************************************************
