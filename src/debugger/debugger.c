@@ -157,7 +157,7 @@ static char *dbgHelpStrings[NUM_CMDS + NUM_IO_CMDS] = {
    "",                     // continue
    "<num instructions>",   // step
    "",                     // next
-   "",                     // regs
+   "[ <name> [ <value> ]]",// regs
    "",                     // traps
    "<start> [ <end> ]",    // dis
    "<start> <end> <data>", // fill
@@ -733,8 +733,13 @@ static void doCmdRegs(const char *params) {
       while (*reg) {
          if (strcasecmp(name, *reg) == 0) {
             if (num_params == 2) {
+               // Parse the value locally in the debugger to pick up the current base
+               unsigned int data;
+               if (parse1params(value, &data)) {
+                  return;
+               }
                // Write the register
-               cpu->reg_parse(i, value);
+               cpu->reg_set(i, data);
             }
             // Read the register
             cpu->reg_print(i, strbuf, sizeof(strbuf));
