@@ -153,35 +153,35 @@ static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
 };
 
 static char *dbgHelpStrings[NUM_CMDS + NUM_IO_CMDS] = {
-   "",                     // help
-   "",                     // continue
-   "<num instructions>",   // step
-   "",                     // next
-   "[ <name> [ <value> ]]",// regs
-   "",                     // traps
-   "<start> [ <end> ]",    // dis
-   "<start> <end> <data>", // fill
-   "<start> <end>",        // crc
-   "<start> [ <end> ]",    // mem
-   "<address>",            // rd
-   "<address> <data>",     // wr
-   "<interval> ",          // trace
-   "<address> | <number>", // clear
-   "",                     // list
-   "<address> [ <mask> ]", // breakx
-   "<address> [ <mask> ]", // watchx
-   "<address> [ <mask> ]", // breakr
-   "<address> [ <mask> ]", // watchr
-   "<address> [ <mask> ]", // breakw
-   "<address> [ <mask> ]", // watchw
-   "8 | 16",               // base
-   "8 | 16 | 32",          // width
-   "<address>",            // in
-   "<address> <data>",     // out
-   "<address> [ <mask> ]", // breaki
-   "<address> [ <mask> ]", // watchi
-   "<address> [ <mask> ]", // breako
-   "<address> [ <mask> ]", // watcho
+   "",                       // help
+   "",                       // continue
+   "[ <num instructions> ]", // step
+   "",                       // next
+   "[ <name> [ <value> ]]",  // regs
+   "",                       // traps
+   "<start> [ <end> ]",      // dis
+   "<start> <end> <data>",   // fill
+   "<start> <end>",          // crc
+   "<start> [ <end> ]",      // mem
+   "<address>",              // rd
+   "<address> <data>",       // wr
+   "<interval> ",            // trace
+   "<address> | <number>",   // clear
+   "",                       // list
+   "<address> [ <mask> ]",   // breakx
+   "<address> [ <mask> ]",   // watchx
+   "<address> [ <mask> ]",   // breakr
+   "<address> [ <mask> ]",   // watchr
+   "<address> [ <mask> ]",   // breakw
+   "<address> [ <mask> ]",   // watchw
+   "8 | 16",                 // base
+   "8 | 16 | 32",            // width
+   "<address>",              // in
+   "<address> <data>",       // out
+   "<address> [ <mask> ]",   // breaki
+   "<address> [ <mask> ]",   // watchi
+   "<address> [ <mask> ]",   // breako
+   "<address> [ <mask> ]"    // watcho
 };
 
 // Must be kept in step with dbgCmdStrings (just above)
@@ -570,10 +570,11 @@ void debug_trap(const cpu_debug_t *cpu, uint32_t addr, int reason) {
  * Helpers
  *******************************************/
 
-int parseNparams(const char *p, int n, unsigned int **result) {
+int parseNparams(const char *p, int required, int total, unsigned int **result) {
    char *endptr;
    int i;
-   for (i = 0; i < n; i++) {
+   int n = 0;
+   for (i = 0; i < total; i++) {
       // Check if there is something to parse
       while (isspace(*p)) {
          p++;
@@ -596,23 +597,28 @@ int parseNparams(const char *p, int n, unsigned int **result) {
       }
       p = endptr;
       *(*result++) = value;
+      n++;
+   }
+   if (n < required) {
+      printf("Missing parameter(s)\r\n");
+      return 1;
    }
    return 0;
 }
 
-int parse1params(const char *params, unsigned int *p1) {
+int parse1params(const char *params, int required, unsigned int *p1) {
    unsigned int *p[] = { p1 };
-   return parseNparams(params, 1, p);
+   return parseNparams(params, required, 1, p);
 }
 
-int parse2params(const char *params, unsigned int *p1, unsigned int *p2) {
+int parse2params(const char *params, int required, unsigned int *p1, unsigned int *p2) {
    unsigned int *p[] = { p1, p2 };
-   return parseNparams(params, 2, p);
+   return parseNparams(params, required, 2, p);
 }
 
-int parse3params(const char *params, unsigned int *p1, unsigned int *p2, unsigned int *p3) {
+int parse3params(const char *params, int required, unsigned int *p1, unsigned int *p2, unsigned int *p3) {
    unsigned int *p[] = { p1, p2, p3 };
-   return parseNparams(params, 3, p);
+   return parseNparams(params, required, 3, p);
 }
 
 // Set the breakpoint state variables
@@ -634,7 +640,7 @@ void genericBreakpoint(const char *params, char *type, breakpoint_t *list, unsig
    int i = 0;
    unsigned int addr;
    unsigned int mask = 0xFFFFFFFF;
-   if (parse2params(params,  &addr, &mask)) {
+   if (parse2params(params, 1, &addr, &mask)) {
       return;
    }
    while (list[i].mode != MODE_LAST) {
@@ -735,7 +741,7 @@ static void doCmdRegs(const char *params) {
             if (num_params == 2) {
                // Parse the value locally in the debugger to pick up the current base
                unsigned int data;
-               if (parse1params(value, &data)) {
+               if (parse1params(value, 1, &data)) {
                   return;
                }
                // Write the register
@@ -778,7 +784,7 @@ static void doCmdDis(const char *params) {
    cpu_debug_t *cpu = getCpu();
    int i = 0;
    unsigned int endAddr = 0;
-   if (parse2params(params, &memAddr, &endAddr)) {
+   if (parse2params(params, 1, &memAddr, &endAddr)) {
       return;
    }
    unsigned int startAddr = memAddr;
@@ -788,7 +794,7 @@ static void doCmdDis(const char *params) {
       internal = 0;
       printf("%s\r\n", &strbuf[0]);
       i++;
-   } while (((endAddr == 0 && i < 16) || (endAddr != 0 && memAddr < endAddr)) && (memAddr > startAddr));
+   } while (((endAddr == 0 && i < 16) || (endAddr != 0 && memAddr <= endAddr)) && (memAddr > startAddr));
 }
 
 static void doCmdFill(const char *params) {
@@ -797,7 +803,7 @@ static void doCmdFill(const char *params) {
    unsigned int start;
    unsigned int end;
    unsigned int data;
-   if (parse3params(params, &start, &end, &data)) {
+   if (parse3params(params, 3, &start, &end, &data)) {
       return;
    }
    printf("Wr: %s to %s = %s\r\n", format_addr(start), format_addr2(end), format_data(data));
@@ -815,7 +821,7 @@ static void doCmdCrc(const char *params) {
    unsigned int end;
    unsigned int data;
    unsigned int crc = 0;
-   if (parse2params(params,  &start, &end)) {
+   if (parse2params(params, 2, &start, &end)) {
       return;
    }
    int stride = 1 << (width - cpu->mem_width);
@@ -837,7 +843,7 @@ static void doCmdMem(const char *params) {
    int i, j;
    unsigned int row[16];
    unsigned int endAddr = 0;
-   if (parse2params(params, &memAddr, &endAddr)) {
+   if (parse2params(params, 1, &memAddr, &endAddr)) {
       return;
    }
    // Number of cols is set so we get 16 bytes per row
@@ -876,7 +882,7 @@ static void doCmdRd(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
-   if (parse1params(params, &addr)) {
+   if (parse1params(params, 1, &addr)) {
       return;
    }
    data = memread(cpu, addr);
@@ -887,7 +893,7 @@ static void doCmdWr(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
-   if (parse2params(params,  &addr, &data)) {
+   if (parse2params(params, 2, &addr, &data)) {
       return;
    }
    printf("Wr Mem: %s = %s\r\n", format_addr(addr), format_data(data));
@@ -898,7 +904,7 @@ static void doCmdIn(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
-   if (parse1params(params, &addr)) {
+   if (parse1params(params, 1, &addr) < 0) {
       return;
    }
    data = ioread(cpu, addr);
@@ -909,7 +915,7 @@ static void doCmdOut(const char *params) {
    cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
-   if (parse2params(params,  &addr, &data)) {
+   if (parse2params(params, 2, &addr, &data)) {
       return;
    }
    printf("Wr IO: %s = %s\r\n", format_addr(addr), format_data(data));
@@ -1052,7 +1058,7 @@ int genericClear(uint32_t addr, char *type, breakpoint_t *list) {
 static void doCmdClear(const char *params) {
    int found = 0;
    unsigned int addr = 0;
-   if (parse1params(params, &addr)) {
+   if (parse1params(params, 1, &addr) < 0) {
       return;
    }
    if (break_next_addr == addr) {
