@@ -580,8 +580,14 @@ int parseNparams(const char *p, int n, unsigned int **result) {
       if (*p == 0) {
          break;
       }
+      // Allow 0x to override the current base
+      int b = base;
+      if (*p == '0' && (*(p+1) == 'x' || *(p+1) == 'X')) {
+         b = 16;
+         p += 2;
+      }
       // Parse it in the current base
-      unsigned int value = strtol(p, &endptr, base);
+      unsigned int value = strtol(p, &endptr, b);
       if (endptr == p) {
          printf("bad format for parameter %d\r\n", i + 1);
          return 1;
@@ -768,7 +774,7 @@ static void doCmdDis(const char *params) {
    if (parse2params(params, &memAddr, &endAddr)) {
       return;
    }
-   unsigned int startAddr = memAddr;   
+   unsigned int startAddr = memAddr;
    do {
       internal = 1;
       memAddr = cpu->disassemble(memAddr, strbuf, sizeof(strbuf));
