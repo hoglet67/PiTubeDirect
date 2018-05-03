@@ -473,15 +473,17 @@ void debug_init () {
    stepping        = 0;
    break_next_addr = BN_DISABLED;
    internal        = 0;
-   width           = WIDTH_8BITS;
+   // Default base of 16 can be overridden by the Co Pro
    base            = 16;
-   // Allow the core to override width and base
+   if (cpu->default_base) {
+      base = cpu->default_base;
+   }
+   // Default width of 8, or 16 if base is octal (e.g. pdp 11)
+   width = (base == 8) ? WIDTH_16BITS : WIDTH_8BITS;
+   // Sanity check width against Co Pro accessor size
    int min = (cpu->mem_width > cpu->io_width) ? cpu->mem_width : cpu->io_width;
    if (width < min) {
       width = min;
-   }
-   if (cpu->default_base) {
-      base = cpu->default_base;
    }
    // Disable the debugger
    cpu->debug_enable(0);
