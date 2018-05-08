@@ -655,8 +655,8 @@ static void SBC(uint16_t instr) {
       if ((sval - 1) & msb) {
          cpu.PS |= FLAGN;
       }
-      setZ(sval == 1);
-      if (sval) {
+      setZ((sval & max) == 1);
+      if ((sval & max) == 0) {
          cpu.PS |= FLAGC;
       }
       if (sval == 0100000) {
@@ -672,7 +672,6 @@ static void SBC(uint16_t instr) {
       if (sval == 0100000) {
          cpu.PS |= FLAGV;
       }
-      cpu.PS |= FLAGC;
    }
 }
 
