@@ -699,14 +699,12 @@ static void ROR(uint16_t instr) {
    cpu.PS &= 0xFFF0;
    if (sval & 1) {
       cpu.PS |= FLAGC;
+      cpu.PS ^= FLAGV;
    }
    // watch out for integer wrap around
    if (sval & (max + 1)) {
       cpu.PS |= FLAGN;
-   }
-   // TODO: xor needs to be boolean, not bitwise
-   if ((sval & 1)xor(sval & (max + 1))) {
-      cpu.PS |= FLAGV;
+      cpu.PS ^= FLAGV;
    }
    sval >>= 1;
    setZ(!(sval & max));
@@ -747,13 +745,11 @@ static void ASR(uint16_t instr) {
    cpu.PS &= 0xFFF0;
    if (uval & 1) {
       cpu.PS |= FLAGC;
+      cpu.PS ^= FLAGV;
    }
    if (uval & msb) {
       cpu.PS |= FLAGN;
-   }
-   // TODO: xor needs to be boolean, not bitwise
-   if ((uval & msb)xor(uval & 1)) {
-      cpu.PS |= FLAGV;
+      cpu.PS ^= FLAGV;
    }
    uval = (uval & msb) | (uval >> 1);
    setZ(uval == 0);
