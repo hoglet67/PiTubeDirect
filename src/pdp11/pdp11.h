@@ -34,8 +34,9 @@ typedef struct {
    uint16_t KSP, USP; // kernel and user stack pointer
    uint16_t LKS;
    uint16_t clkcounter;
+   uint16_t halted;   // flag set to indicate halted
    intr itab[ITABN];
-
+   
 } pdp11_state;
 
 extern pdp11_state *m_pdp11;

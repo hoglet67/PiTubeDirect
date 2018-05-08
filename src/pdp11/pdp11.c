@@ -77,12 +77,15 @@ void printstate() {
           cpu.PS & FLAGN ? "N" : " ", cpu.PS & FLAGZ ? "Z" : " ",
           cpu.PS & FLAGV ? "V" : " ", cpu.PS & FLAGC ? "C" : " ");
    printf("]  instr %06o: %06o\t ", cpu.PC, read16(cpu.PC));
-   //disasm(mmu::decode(cpu.PC, false, curuser));
+   printf("\r\n");
 }
 
 void panic() {
+   cpu.halted = 1;
+#ifndef TEST_MODE
    printstate();
    while (1);
+#endif   
 }
 
 static uint16_t trap(uint16_t vec) {
@@ -1170,6 +1173,7 @@ static void step() {
       }
       printf("HALT\r\n");
       panic();
+      return;
    case 01: // WAIT
       if (cpu.curuser) {
          break;
@@ -1263,6 +1267,7 @@ static void handleinterrupt() {
 void pdp11_reset(uint16_t address) {
    cpu.LKS = 1 << 7;
    cpu.R[7] = address;
+   cpu.halted = 0;
    uint8_t i;
    for (i = 0; i < ITABN; i++) {
       cpu.itab[i].vec = 0;

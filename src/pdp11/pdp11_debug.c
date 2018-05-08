@@ -399,7 +399,7 @@ static uint16_t disasm(char *buf, uint16_t a) {
       sprintf(buf, "???");
       return a;
    }
-   buf += sprintf(buf, l.msg);
+   buf += sprintf(buf, "%s", l.msg);
 
    // Output the byte mode qualifier
    if (l.b && (ins & 0100000)) {
