@@ -1062,7 +1062,7 @@ static void step() {
       return;
    case 0006400: // MARK
       MARK(instr);
-      break;
+      return;
    case 0006500: // MFPI
       MFPI(instr);
       return;
