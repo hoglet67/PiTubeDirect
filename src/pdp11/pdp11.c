@@ -360,7 +360,7 @@ static void SUB(uint16_t instr) {
    if (uval & 0x8000) {
       cpu.PS |= FLAGN;
    }
-   if (((val1 ^ val2) & 0x8000) && (!((val2 ^ uval) & 0x8000))) {
+   if (((val1 ^ val2) & 0x8000) && (!((val1 ^ uval) & 0x8000))) {
       cpu.PS |= FLAGV;
    }
    if (val1 > val2) {
