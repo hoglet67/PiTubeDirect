@@ -1090,25 +1090,21 @@ static void step() {
       }
       return;
    case 0002000:
-      // TODO: xor needs to be boolean, not bitwise
       if (!(!N() xor !V())) {
          branch(instr & 0xFF);
       }
       return;
    case 0002400:
-      // TODO: xor needs to be boolean, not bitwise
       if (!N() xor !V()) {
          branch(instr & 0xFF);
       }
       return;
    case 0003000:
-      // TODO: xor needs to be boolean, not bitwise
       if ((!(!N() xor !V())) && (!Z())) {
          branch(instr & 0xFF);
       }
       return;
    case 0003400:
-      // TODO: xor needs to be boolean, not bitwise
       if ((!N() xor !V()) || Z()) {
          branch(instr & 0xFF);
       }
