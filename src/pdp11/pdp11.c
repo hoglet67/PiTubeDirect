@@ -814,7 +814,7 @@ static void SWAB(uint16_t instr) {
    uint16_t uval = memread(da, l);
    uval = ((uval >> 8) | (uval << 8)) & 0xFFFF;
    cpu.PS &= 0xFFF0;
-   setZ(uval & 0xFF);
+   setZ((uval & 0xFF) == 0);
    if (uval & 0x80) {
       cpu.PS |= FLAGN;
    }
