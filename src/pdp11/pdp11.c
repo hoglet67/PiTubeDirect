@@ -85,7 +85,7 @@ void panic() {
 #ifndef TEST_MODE
    printstate();
    while (1);
-#endif   
+#endif
 }
 
 static uint16_t trap(uint16_t vec) {
@@ -788,7 +788,7 @@ static void SXT(uint16_t instr) {
    uint8_t l = 2 - (instr >> 15);
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
-   cpu.PS &= ~(FLAGV | FLAGZ);   
+   cpu.PS &= ~(FLAGV | FLAGZ);
    if (cpu.PS & FLAGN) {
       memwrite(da, l, max);
    } else {
@@ -886,6 +886,26 @@ static void MTPI(uint16_t instr) {
    }
 }
 
+static void MTPS(uint16_t instr) {
+   const uint8_t s = instr & 077;
+   uint16_t uval = memread(aget(s, 1), 1) & 0x00EF;
+   cpu.PS &= 0xff00;
+   cpu.PS |= uval;
+}
+
+static void MFPS(uint16_t instr) {
+   const uint8_t d = instr & 077;
+   const uint16_t da = aget(d, 1);
+   uint16_t uval = cpu.PS & 0xff;
+   cpu.PS &= 0xff01;
+   setZ(uval == 0);
+   if (uval & 0x80) {
+      cpu.PS |= FLAGN;
+      // uval |= 0xff00;
+   }
+   memwrite(da, 1, uval);
+}
+
 static void RTS(uint16_t instr) {
    uint8_t d = instr & 077;
    cpu.R[7] = cpu.R[d & 7];
@@ -965,7 +985,7 @@ static void step() {
          debug_preexec(&pdp11_cpu_debug, cpu.PC);
       }
 #endif
-   
+
    uint16_t instr = read16(cpu.PC);
    cpu.R[7] += 2;
 
@@ -1054,9 +1074,6 @@ static void step() {
    case 00063: // ASL
       ASL(instr);
       return;
-   case 00067: // SXT
-      SXT(instr);
-      return;
    }
    switch (instr & 0177700) {
    case 0000100: // JMP
@@ -1073,6 +1090,15 @@ static void step() {
       return;
    case 0006600: // MTPI
       MTPI(instr);
+      return;
+   case 0006700: // SXT
+      SXT(instr);
+      return;
+   case 0106400: // MTPS
+      MTPS(instr);
+      return;
+   case 0106700: // MFPS
+      MFPS(instr);
       return;
    }
    if ((instr & 0177770) == 0000200) { // RTS
@@ -1274,7 +1300,7 @@ void pdp11_reset(uint16_t address) {
    for (i = 0; i < ITABN; i++) {
       cpu.itab[i].vec = 0;
       cpu.itab[i].pri = 0;
-   }   
+   }
 }
 
 void pdp11_interrupt(uint8_t vec, uint8_t pri) {
@@ -1330,7 +1356,7 @@ static void loop0() {
          return; // exit from loop to reset trapbuf
       }
       step();
-#if 0      
+#if 0
       if (++cpu.clkcounter > 39999) {
          cpu.clkcounter = 0;
          cpu.LKS |= (1 << 7);
