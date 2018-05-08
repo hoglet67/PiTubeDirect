@@ -631,10 +631,10 @@ static void _ADC(uint16_t instr) {
          cpu.PS |= FLAGN;
       }
       setZ(uval == max);
-      if (uval == 0077777) {
+      if (uval == msb - 1) {
          cpu.PS |= FLAGV;
       }
-      if (uval == 0177777) {
+      if (uval == max) {
          cpu.PS |= FLAGC;
       }
       memwrite(da, l, (uval + 1) & max);
