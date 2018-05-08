@@ -612,7 +612,7 @@ static void NEG(uint16_t instr) {
    } else {
       cpu.PS |= FLAGC;
    }
-   if (sval == 0x8000) {
+   if (sval == msb) {
       cpu.PS |= FLAGV;
    }
    memwrite(da, l, sval);
