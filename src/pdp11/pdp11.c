@@ -788,6 +788,7 @@ static void SXT(uint16_t instr) {
    uint8_t l = 2 - (instr >> 15);
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
+   cpu.PS &= ~(FLAGV | FLAGZ);   
    if (cpu.PS & FLAGN) {
       memwrite(da, l, max);
    } else {
