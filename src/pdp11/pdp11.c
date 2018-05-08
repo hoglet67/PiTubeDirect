@@ -663,7 +663,7 @@ static void SBC(uint16_t instr) {
       if ((sval & max) == 0) {
          cpu.PS |= FLAGC;
       }
-      if (sval == 0100000) {
+      if (sval == msb) {
          cpu.PS |= FLAGV;
       }
       memwrite(da, l, (sval - 1) & max);
