@@ -296,6 +296,10 @@ static D disamtable[] = {
    { 0177700, 0006400, "MARK",      NN, false },
    { 0177700, 0006500, "MFPI",      DD, false },
    { 0177700, 0006600, "MTPI",      DD, false },
+   { 0177700, 0106400, "MTPS",      DD, false },
+   { 0177700, 0106500, "MFPD",      DD, false },
+   { 0177700, 0106600, "MTPD",      DD, false },
+   { 0177700, 0106700, "MFPS",      DD, false },
    // Terminator
    { 0, 0, "", 0, false }, };
 
