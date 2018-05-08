@@ -705,11 +705,12 @@ static void ROR(uint16_t instr) {
    if (sval & (max + 1)) {
       cpu.PS |= FLAGN;
    }
-   setZ(!(sval & max));
+   // TODO: xor needs to be boolean, not bitwise
    if ((sval & 1)xor(sval & (max + 1))) {
       cpu.PS |= FLAGV;
    }
    sval >>= 1;
+   setZ(!(sval & max));
    memwrite(da, l, sval);
 }
 
@@ -751,6 +752,7 @@ static void ASR(uint16_t instr) {
    if (uval & msb) {
       cpu.PS |= FLAGN;
    }
+   // TODO: xor needs to be boolean, not bitwise
    if ((uval & msb)xor(uval & 1)) {
       cpu.PS |= FLAGV;
    }
@@ -1093,21 +1095,25 @@ static void step() {
       }
       return;
    case 0002000:
+      // TODO: xor needs to be boolean, not bitwise
       if (!(N() xor V())) {
          branch(instr & 0xFF);
       }
       return;
    case 0002400:
+      // TODO: xor needs to be boolean, not bitwise
       if (N() xor V()) {
          branch(instr & 0xFF);
       }
       return;
    case 0003000:
+      // TODO: xor needs to be boolean, not bitwise
       if ((!(N() xor V())) && (!Z())) {
          branch(instr & 0xFF);
       }
       return;
    case 0003400:
+      // TODO: xor needs to be boolean, not bitwise
       if ((N() xor V()) || Z()) {
          branch(instr & 0xFF);
       }
