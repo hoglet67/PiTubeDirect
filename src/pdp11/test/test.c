@@ -6,11 +6,15 @@
 // Uncomment to show a detailed execution trace
 #define DEBUG
 
+// Uncomment to allow unaligned (odd) word accesses to proceed
+// Certain PDP-11 models work like this (e.g. the PDP 11/03 aka LSI-11)
+#define ALLOW_UNALIGNED
+
 int tube_irq = 1;
 
 uint8_t memory[0x10000];
 
-void copro_pdp11_write8(const uint16_t addr, const uint8_t data) {
+void copro_pdp11_write8(uint16_t addr, const uint8_t data) {
    if (addr == 0177566) {
       fprintf(stderr, "%c", data);
    } else if (addr == 0177776) {
@@ -20,7 +24,7 @@ void copro_pdp11_write8(const uint16_t addr, const uint8_t data) {
    }
 }
 
-uint8_t copro_pdp11_read8(const uint16_t addr) {
+uint8_t copro_pdp11_read8(uint16_t addr) {
    if (addr == 0177564) {
       return -1;
    } else if (addr == 0177776) {
@@ -29,7 +33,13 @@ uint8_t copro_pdp11_read8(const uint16_t addr) {
    return *(memory + addr);
 }
 
-void copro_pdp11_write16(const uint16_t addr, const uint16_t data) {
+void copro_pdp11_write16(uint16_t addr, const uint16_t data) {
+#ifdef ALLOW_UNALIGNED
+   if (addr & 1) {
+      printf("word write to odd address %06o (%04x)\r\n", addr, addr);
+      addr &= ~1;
+   }
+#endif
    if (addr == 0177776) {
       m_pdp11->PS = data;
    } else {
@@ -37,7 +47,13 @@ void copro_pdp11_write16(const uint16_t addr, const uint16_t data) {
    }
 }
 
-uint16_t copro_pdp11_read16(const uint16_t addr) {
+uint16_t copro_pdp11_read16(uint16_t addr) {
+#ifdef ALLOW_UNALIGNED
+   if (addr & 1) {
+      printf("word read to odd address %06o (%04x)\r\n", addr, addr);
+      addr &= ~1;
+   }
+#endif
    if (addr == 0177776) {
       return m_pdp11->PS;
    } else {
@@ -168,7 +184,7 @@ void  main() {
    }
 
    dump_state(cpu);
-   for (memAddr = 0300; memAddr < 0400; memAddr += 2) {
+   for (memAddr = 0000; memAddr < 0400; memAddr += 2) {
       printf("%06o = %06o\r\n", memAddr, copro_pdp11_read16(memAddr));
    }
    printf("%d instructions\r\n", i);
