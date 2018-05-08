@@ -4,7 +4,7 @@
 #include "../pdp11_debug.h"
 
 // Uncomment to show a detailed execution trace
-// #define DEBUG
+#define DEBUG
 
 int tube_irq = 1;
 
@@ -143,6 +143,7 @@ void dump_state(cpu_debug_t *cpu) {
 
 void  main() {
 
+   int i = 0;
    cpu_debug_t *cpu = &pdp11_cpu_debug;
    unsigned int memAddr = 0000;
    unsigned int startAddr = memAddr;
@@ -158,16 +159,17 @@ void  main() {
 
    while (!m_pdp11->halted) {
 #ifdef DEBUG
+      dump_state(cpu);
       cpu->disassemble(m_pdp11->R[7], strbuf, sizeof(strbuf));
       printf("%s\r\n", &strbuf[0]);
 #endif
       pdp11_execute();
-#ifdef DEBUG
-      dump_state(cpu);
-#endif
+      i++;
    }
 
+   dump_state(cpu);
    for (memAddr = 0300; memAddr < 0400; memAddr += 2) {
       printf("%06o = %06o\r\n", memAddr, copro_pdp11_read16(memAddr));
    }
+   printf("%d instructions\r\n", i);
 }
