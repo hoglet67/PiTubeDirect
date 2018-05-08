@@ -567,7 +567,11 @@ static void INC(const uint16_t instr) {
    const uint16_t uval = (memread(da, l) + 1) & max;
    cpu.PS &= 0xFFF1;
    if (uval & msb) {
-      cpu.PS |= FLAGN | FLAGV;
+      cpu.PS |= FLAGN;
+   }
+   if (uval == msb) {
+      // Overflow set if dst = Max Positive Integer
+      cpu.PS |= FLAGV;
    }
    setZ(uval == 0);
    memwrite(da, l, uval);
