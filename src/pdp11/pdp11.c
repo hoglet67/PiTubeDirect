@@ -375,7 +375,7 @@ static void JSR(uint16_t instr) {
    uint16_t uval = aget(d, l);
    if (isReg(uval)) {
       printf("JSR called on registeri\r\n");
-      panic();
+      trap(INTBUS);
    }
    push(cpu.R[s & 7]);
    cpu.R[s & 7] = cpu.R[7];
@@ -801,7 +801,7 @@ static void JMP(uint16_t instr) {
    uint16_t uval = aget(d, 2);
    if (isReg(uval)) {
       printf("JMP called with register dest\r\n");
-      panic();
+      trap(INTBUS);
    }
    cpu.R[7] = uval;
 }
@@ -843,7 +843,7 @@ static void MFPI(uint16_t instr) {
       }
    } else if (isReg(da)) {
       printf("invalid MFPI instruction\r\n");
-      panic();
+      trap(INTBUS);
       return; // unreached
    } else {
       uval = read16((uint16_t)da);
@@ -872,7 +872,7 @@ static void MTPI(uint16_t instr) {
       }
    } else if (isReg(da)) {
       printf("invalid MTPI instrution\r\n");
-      panic();
+      trap(INTBUS);
    } else {
       write16((uint16_t)da, uval);
    }
