@@ -894,16 +894,22 @@ static void MTPS(uint16_t instr) {
 }
 
 static void MFPS(uint16_t instr) {
+   int l = 1;
    const uint8_t d = instr & 077;
-   const uint16_t da = aget(d, 1);
+   const uint16_t da = aget(d, l);
    uint16_t uval = cpu.PS & 0xff;
    cpu.PS &= 0xff01;
    setZ(uval == 0);
    if (uval & 0x80) {
       cpu.PS |= FLAGN;
-      // uval |= 0xff00;
    }
-   memwrite(da, 1, uval);
+   if (isReg(da)) {
+      l = 2;
+      if (uval & 0x80) {
+         uval |= 0xFF00;
+      }
+   }
+   memwrite(da, l, uval);
 }
 
 static void RTS(uint16_t instr) {
