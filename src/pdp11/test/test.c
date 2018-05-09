@@ -42,6 +42,17 @@ void copro_pdp11_write16(uint16_t addr, const uint16_t data) {
 #endif
    if (addr == 0177776) {
       m_pdp11->PS = data & 0xffef; // Mask off T bit
+
+      switch (data >> 14) {
+      case 0:
+         pdp11_switchmode(false);
+         break;
+      case 3:
+         pdp11_switchmode(true);
+         break;
+      default:
+         printf("invalid mode\n");
+      }
    } else {
       *(uint16_t *)(memory + addr) = data;
    }

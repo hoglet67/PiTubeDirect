@@ -226,7 +226,6 @@ static void switchmode(const bool newm) {
       cpu.PS |= (1 << 13) | (1 << 12);
    }
 }
-
 static void setZ(bool b) {
    if (b)
       cpu.PS |= FLAGZ;
@@ -1382,4 +1381,8 @@ void pdp11_execute() {
    } else {
       trapat(vec);
    }
+}
+
+void pdp11_switchmode(const bool newm) {
+   switchmode(newm);
 }
