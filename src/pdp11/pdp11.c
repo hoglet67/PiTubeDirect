@@ -1193,7 +1193,7 @@ static void step() {
       if (instr & 020) {
          cpu.PS |= instr & 017;
       } else {
-         cpu.PS &= ~instr & 017;
+         cpu.PS &= ~(instr & 017);
       }
       return;
    }
