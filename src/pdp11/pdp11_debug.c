@@ -118,6 +118,9 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
          strncpy(buf, "buffer too small!!!", bufsize);
       }
 
+      // Print the octal/hex value
+      buf += sprintf(buf, "%06"PRIo32" (%04"PRIx32") ", psr, psr);
+
       // Print the I-bit I field
       *buf++ = 'I';
       *buf++ = ':';
