@@ -89,7 +89,7 @@ void panic() {
 }
 
 static uint16_t trap(uint16_t vec) {
-   longjmp(trapbuf, INTBUS);
+   longjmp(trapbuf, vec);
    return vec; // not reached
 }
 
