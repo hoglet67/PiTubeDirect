@@ -41,7 +41,7 @@ void copro_pdp11_write16(uint16_t addr, const uint16_t data) {
    }
 #endif
    if (addr == 0177776) {
-      m_pdp11->PS = data;
+      m_pdp11->PS = data & 0xffef; // Mask off T bit
    } else {
       *(uint16_t *)(memory + addr) = data;
    }
