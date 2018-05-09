@@ -18,7 +18,8 @@ void copro_pdp11_write8(uint16_t addr, const uint8_t data) {
    if (addr == 0177566) {
       fprintf(stderr, "%c", data);
    } else if (addr == 0177776) {
-      printf("byte writes to PSW unsupported\r\n");
+      m_pdp11->PS &= 0xff00;
+      m_pdp11->PS |= data & 0xef; // Mask off T bit
    } else {
       *(memory + addr) = data;
    }
@@ -28,7 +29,7 @@ uint8_t copro_pdp11_read8(uint16_t addr) {
    if (addr == 0177564) {
       return -1;
    } else if (addr == 0177776) {
-      printf("byte reads to PSW unsupported\r\n");
+      return m_pdp11->PS & 0xff;
    }
    return *(memory + addr);
 }
