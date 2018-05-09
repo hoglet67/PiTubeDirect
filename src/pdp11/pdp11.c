@@ -849,8 +849,7 @@ static void MFPI(uint16_t instr) {
       uval = read16((uint16_t)da);
    }
    push(uval);
-   cpu.PS &= 0xFFF0;
-   cpu.PS |= FLAGC;
+   cpu.PS &= 0xFFF1;
    setZ(uval == 0);
    if (uval & 0x8000) {
       cpu.PS |= FLAGN;
@@ -877,8 +876,7 @@ static void MTPI(uint16_t instr) {
    } else {
       write16((uint16_t)da, uval);
    }
-   cpu.PS &= 0xFFF0;
-   cpu.PS |= FLAGC;
+   cpu.PS &= 0xFFF1;
    setZ(uval == 0);
    if (uval & 0x8000) {
       cpu.PS |= FLAGN;
