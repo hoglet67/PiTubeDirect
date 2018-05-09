@@ -10,6 +10,11 @@
 #include "../cpu_debug.h"
 #endif
 
+// Uncomment to allow unaligned (odd) word accesses to proceed
+// Certain PDP-11 models work like this (e.g. the PDP 11/03 aka LSI-11)
+// #define ALLOW_UNALIGNED
+
+
 jmp_buf trapbuf;
 
 enum {
@@ -48,23 +53,44 @@ static bool V() { return cpu.PS & FLAGV; }
 
 static bool C() { return cpu.PS & FLAGC; }
 
-static uint16_t read8(const uint16_t a) {
+static uint16_t trap(uint16_t vec) {
+   longjmp(trapbuf, vec);
+   return vec; // not reached
+}
+
+static uint16_t read8(uint16_t a) {
    // read8(mmu::decode(a, false, curuser));
    return copro_pdp11_read8(a);
 }
 
-static uint16_t read16(const uint16_t a) {
+static uint16_t read16(uint16_t a) {
    // read16(mmu::decode(a, false, curuser));
+   if (a & 1) {
+#ifdef ALLOW_UNALIGNED
+      printf("word read from odd address %06o (%04x) at %06o\r\n", a, a, cpu.PC);
+      a &= ~1;
+#else
+      trap(INTBUS);
+#endif
+   }
    return copro_pdp11_read16(a);
 }
 
-static void write8(const uint16_t a, const uint16_t v) {
+static void write8(uint16_t a, const uint16_t v) {
    // write8(mmu::decode(a, true, curuser), v);
    copro_pdp11_write8(a, v);
 }
 
-static void write16(const uint16_t a, const uint16_t v) {
+static void write16(uint16_t a, const uint16_t v) {
    // write16(mmu::decode(a, true, curuser), v);
+   if (a & 1) {
+#ifdef ALLOW_UNALIGNED
+      printf("word write to odd address %06o (%04x) at %06o\r\n", a, a, cpu.PC);
+      a &= ~1;
+#else
+      trap(INTBUS);
+#endif
+   }
    copro_pdp11_write16(a, v);
 }
 
@@ -86,11 +112,6 @@ void panic() {
    printstate();
    while (1);
 #endif
-}
-
-static uint16_t trap(uint16_t vec) {
-   longjmp(trapbuf, vec);
-   return vec; // not reached
 }
 
 static bool isReg(const uint16_t a) { return (a & 0177770) == 0170000; }

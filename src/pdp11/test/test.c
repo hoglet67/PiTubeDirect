@@ -6,10 +6,6 @@
 // Uncomment to show a detailed execution trace
 #define DEBUG
 
-// Uncomment to allow unaligned (odd) word accesses to proceed
-// Certain PDP-11 models work like this (e.g. the PDP 11/03 aka LSI-11)
-#define ALLOW_UNALIGNED
-
 int tube_irq = 1;
 
 uint8_t memory[0x10000];
@@ -35,12 +31,6 @@ uint8_t copro_pdp11_read8(uint16_t addr) {
 }
 
 void copro_pdp11_write16(uint16_t addr, const uint16_t data) {
-#ifdef ALLOW_UNALIGNED
-   if (addr & 1) {
-      printf("word write to odd address %06o (%04x)\r\n", addr, addr);
-      addr &= ~1;
-   }
-#endif
    if (addr == 0177776) {
       m_pdp11->PS = data & 0xffef; // Mask off T bit
 
@@ -60,12 +50,6 @@ void copro_pdp11_write16(uint16_t addr, const uint16_t data) {
 }
 
 uint16_t copro_pdp11_read16(uint16_t addr) {
-#ifdef ALLOW_UNALIGNED
-   if (addr & 1) {
-      printf("word read to odd address %06o (%04x)\r\n", addr, addr);
-      addr &= ~1;
-   }
-#endif
    if (addr == 0177776) {
       return m_pdp11->PS;
    } else {
