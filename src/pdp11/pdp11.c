@@ -592,7 +592,7 @@ static void XOR(uint16_t instr) {
 static void SOB(const uint16_t instr) {
    const uint8_t s = (instr & 07700) >> 6;
    uint8_t o = instr & 0xFF;
-   cpu.R[s & 7]--;
+   cpu.R[s & 7] = (cpu.R[s & 7] - 1) & 0xffff;
    if (cpu.R[s & 7]) {
       o &= 077;
       o <<= 1;
