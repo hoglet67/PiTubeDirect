@@ -160,12 +160,21 @@ void  main() {
    unsigned int memAddr = 0000;
    unsigned int startAddr = memAddr;
    unsigned int endAddr = loader();
+
+   // Options for debugging the EIS tests
+   // 0421 is the ENVM register
+   // bit 5 disables the "interrupted" test which needs console ints
+   // but it also disables all printing
+   // *(memory + 0421) = 040;
+   // 0422/23 is the APT Switch register
+   // bit 15 is halt on error
+   // *(memory + 0423) = 200;
+
    fprintf(stderr, "start = %06o, end = %06o\r\n", startAddr, endAddr);
    do {
       memAddr = cpu->disassemble(memAddr, strbuf, sizeof(strbuf));
       printf("%s\r\n", &strbuf[0]);
    } while (memAddr <= endAddr);
-
 
    pdp11_reset(0200);
 
@@ -180,7 +189,7 @@ void  main() {
    }
 
    dump_state(cpu);
-   for (memAddr = 0000; memAddr < 0400; memAddr += 2) {
+   for (memAddr = 0000; memAddr < 0500; memAddr += 2) {
       printf("%06o = %06o\r\n", memAddr, copro_pdp11_read16(memAddr));
    }
    printf("%d instructions\r\n", i);
