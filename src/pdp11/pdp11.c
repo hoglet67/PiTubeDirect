@@ -479,22 +479,25 @@ static void ASH(uint16_t instr) {
    } else {
       // shift left, overflow if *any* of the bits shifted out don't match the final sign
       sval = (val1 << val2) & 0xFFFF;
-      if (val1 & (1 << (16 - val2))) {
-         cpu.PS |= FLAGC;
-      }
-      if (val2 >= 16) {
-         // if shifting 16 bits or more, any non zero value will cause overflow
-         if (val1 != 0) {
-            cpu.PS |= FLAGV;
+      // carry and overflow can only be set if the shift amount is non-zero
+      if (val2 > 0) {
+         if (val1 & (1 << (16 - val2))) {
+            cpu.PS |= FLAGC;
          }
-      } else {
-         // calculate the bits that have been shifted out of the top
-         uint16_t sovf1 = val1 >> (16 - val2);
-         // if sval is negative, all the shifted bits should have been one, otherise overflow occurred
-         // if sval is positive, all the shifted bits should have been zero, otherise overflow occurred
-         uint16_t sovf2 = (sval & 0x8000) ? (1 << val2) - 1 : 0;
-         if (sovf1 != sovf2) {
-            cpu.PS |= FLAGV;
+         if (val2 >= 16) {
+            // if shifting 16 bits or more, any non zero value will cause overflow
+            if (val1 != 0) {
+               cpu.PS |= FLAGV;
+            }
+         } else {
+            // calculate the bits that have been shifted out of the top
+            uint16_t sovf1 = val1 >> (16 - val2);
+            // if sval is negative, all the shifted bits should have been one, otherise overflow occurred
+            // if sval is positive, all the shifted bits should have been zero, otherise overflow occurred
+            uint16_t sovf2 = (sval & 0x8000) ? (1 << val2) - 1 : 0;
+            if (sovf1 != sovf2) {
+               cpu.PS |= FLAGV;
+            }
          }
       }
    }
@@ -508,26 +511,48 @@ static void ASH(uint16_t instr) {
 static void ASHC(uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
-   uint16_t val1 = cpu.R[s & 7] << 16 | cpu.R[(s & 7) | 1];
+   uint32_t val1 = cpu.R[s & 7] << 16 | cpu.R[(s & 7) | 1];
    uint16_t da = aget(d, 2);
    uint16_t val2 = memread16(da) & 077;
    cpu.PS &= 0xFFF0;
-   int32_t sval;
+   uint32_t sval;
    if (val2 & 040) {
+      // shift right, no overflow is possible
       val2 = (077 ^ val2) + 1;
-      if (val1 & 0x80000000) {
-         sval = 0xFFFFFFFF ^ (0xFFFFFFFF >> val2);
-         sval |= val1 >> val2;
+      if (val2 == 32) {
+         // special case shift right by 32, as this is undefined in C)
+         if (val1 & 0x80000000) {
+            sval = 0xFFFFFFFF;
+         } else {
+            sval = 0;
+         }
       } else {
-         sval = val1 >> val2;
+         if (val1 & 0x80000000) {
+            sval = 0xFFFFFFFF ^ (0xFFFFFFFF >> val2);
+            sval |= val1 >> val2;
+         } else {
+            sval = val1 >> val2;
+         }
       }
       if (val1 & (1 << (val2 - 1))) {
          cpu.PS |= FLAGC;
       }
    } else {
+      // shift left, overflow if *any* of the bits shifted out don't match the final sign
       sval = (val1 << val2) & 0xFFFFFFFF;
-      if (val1 & (1 << (32 - val2))) {
-         cpu.PS |= FLAGC;
+      // carry and overflow can only be set if the shift amount is non-zero
+      if (val2 > 0) {
+         if (val1 & (1 << (32 - val2))) {
+            cpu.PS |= FLAGC;
+         }
+         // calculate the bits that have been shifted out of the top
+         uint32_t sovf1 = val1 >> (32 - val2);
+         // if sval is negative, all the shifted bits should have been one, otherise overflow occurred
+         // if sval is positive, all the shifted bits should have been zero, otherise overflow occurred
+         uint32_t sovf2 = (sval & 0x80000000) ? (1 << val2) - 1 : 0;
+         if (sovf1 != sovf2) {
+            cpu.PS |= FLAGV;
+         }
       }
    }
    cpu.R[s & 7] = (sval >> 16) & 0xFFFF;
@@ -535,9 +560,6 @@ static void ASHC(uint16_t instr) {
    setZ(sval == 0);
    if (sval & 0x80000000) {
       cpu.PS |= FLAGN;
-   }
-   if ((sval & 0x80000000)xor(val1 & 0x80000000)) {
-      cpu.PS |= FLAGV;
    }
 }
 
