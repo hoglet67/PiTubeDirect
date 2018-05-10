@@ -436,22 +436,33 @@ static void DIV(uint16_t instr) {
    uint8_t l = 2 - (instr >> 15);
    uint16_t da = aget(d, l);
    int32_t val2 = memread16(da);
+   int32_t quo;
+   int32_t rem;
    cpu.PS &= 0xFFF0;
    if (val2 == 0) {
+      // divide by zero
       cpu.PS |= FLAGC;
-      return;
-   }
-   if ((val1 / val2) >= 0x10000) {
       cpu.PS |= FLAGV;
       return;
    }
-   cpu.R[s & 7] = (val1 / val2) & 0xFFFF;
-   cpu.R[(s & 7) | 1] = (val1 % val2) & 0xFFFF;
+   if (val2 == 0xffff && val1 == -2147483648) {
+      // divide largest negative integer by -1
+      cpu.PS |= FLAGV;
+      return;
+   }
+   // sign extend val2
+   if (val2 & 0x8000) {
+      val2 |= 0xffff0000;
+   }
+   quo = val1 / val2;
+   rem = val1 - quo * val2;
+   cpu.R[s & 7] = quo & 0xFFFF;
+   cpu.R[(s & 7) | 1] = rem & 0xFFFF;
    setZ(cpu.R[s & 7] == 0);
    if (cpu.R[s & 7] & 0100000) {
       cpu.PS |= FLAGN;
    }
-   if (val1 == 0) {
+   if (quo < -0x8000 || quo > 0x7fff) {
       cpu.PS |= FLAGV;
    }
 }
