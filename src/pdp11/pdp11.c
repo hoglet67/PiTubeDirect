@@ -465,6 +465,7 @@ static void ASH(uint16_t instr) {
    cpu.PS &= 0xFFF0;
    int32_t sval;
    if (val2 & 040) {
+      // shift right, no overflow is possible
       val2 = (077 ^ val2) + 1;
       if (val1 & 0100000) {
          sval = 0xFFFF ^ (0xFFFF >> val2);
@@ -476,18 +477,31 @@ static void ASH(uint16_t instr) {
          cpu.PS |= FLAGC;
       }
    } else {
+      // shift left, overflow if *any* of the bits shifted out don't match the final sign
       sval = (val1 << val2) & 0xFFFF;
       if (val1 & (1 << (16 - val2))) {
          cpu.PS |= FLAGC;
+      }
+      if (val2 >= 16) {
+         // if shifting 16 bits or more, any non zero value will cause overflow
+         if (val1 != 0) {
+            cpu.PS |= FLAGV;
+         }
+      } else {
+         // calculate the bits that have been shifted out of the top
+         uint16_t sovf1 = val1 >> (16 - val2);
+         // if sval is negative, all the shifted bits should have been one, otherise overflow occurred
+         // if sval is positive, all the shifted bits should have been zero, otherise overflow occurred
+         uint16_t sovf2 = (sval & 0x8000) ? (1 << val2) - 1 : 0;
+         if (sovf1 != sovf2) {
+            cpu.PS |= FLAGV;
+         }
       }
    }
    cpu.R[s & 7] = sval;
    setZ(sval == 0);
    if (sval & 0100000) {
       cpu.PS |= FLAGN;
-   }
-   if ((sval & 0100000)xor(val1 & 0100000)) {
-      cpu.PS |= FLAGV;
    }
 }
 
