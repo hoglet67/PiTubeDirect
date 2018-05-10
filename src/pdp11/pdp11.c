@@ -983,6 +983,14 @@ static void RTS(uint16_t instr) {
    cpu.R[d & 7] = pop();
 }
 
+static void SPL(uint16_t instr) {
+   if (!cpu.curuser) {
+      // only work in kernel mode, NOP in user mode (no trap occurs)
+      cpu.PS &= 0xff1f;
+      cpu.PS |= (instr & 7) << 5;
+   }
+}
+
 static void EMTX(uint16_t instr) {
    uint16_t uval;
    if ((instr & 0177400) == 0104000) {
@@ -1176,7 +1184,10 @@ static void step() {
       RTS(instr);
       return;
    }
-
+   if ((instr & 0177770) == 0000230) { // SPL
+      SPL(instr);
+      return;
+   }
    switch (instr & 0177400) {
    case 0000400:
       branch(instr & 0xFF);
