@@ -429,9 +429,11 @@ static uint16_t disasm(char *buf, uint16_t a) {
       a   += disaslen(d);
       break;
    case RR | O:
+      // this is SOB
       buf += sprintf(buf, " %s,", dbg_reg_names[(ins & 0700) >> 6]);
       o &= 077;
-      // fall through to O
+      buf += sprintf(buf, " %06o", (a - (2 * o)) & 0xffff);
+      break;
    case O:
       if (o & 0x80) {
          buf += sprintf(buf, " %06o", (a - (2 * ((0xFF ^ o) + 1))) & 0xffff);
