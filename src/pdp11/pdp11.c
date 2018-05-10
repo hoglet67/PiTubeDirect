@@ -443,11 +443,12 @@ static void DIV(uint16_t instr) {
       // divide by zero
       cpu.PS |= FLAGC;
       cpu.PS |= FLAGV;
+      cpu.PS |= FLAGZ; // J11,11/70 compat
       return;
    }
    if (val2 == 0xffff && val1 == -2147483648) {
       // divide largest negative integer by -1
-      cpu.PS |= FLAGV;
+      cpu.PS |= FLAGV; // J11,11/70 compat
       return;
    }
    // sign extend val2
@@ -455,15 +456,16 @@ static void DIV(uint16_t instr) {
       val2 |= 0xffff0000;
    }
    quo = val1 / val2;
-   rem = val1 - quo * val2;
-   cpu.R[s & 7] = quo & 0xFFFF;
-   cpu.R[(s & 7) | 1] = rem & 0xFFFF;
-   setZ(cpu.R[s & 7] == 0);
-   if (cpu.R[s & 7] & 0100000) {
+   if (quo < 0) {
       cpu.PS |= FLAGN;
    }
    if (quo < -0x8000 || quo > 0x7fff) {
-      cpu.PS |= FLAGV;
+      cpu.PS |= FLAGV;  // J11,11/70 compat
+   } else {
+      rem = val1 - quo * val2;
+      cpu.R[s & 7] = quo & 0xFFFF;
+      cpu.R[(s & 7) | 1] = rem & 0xFFFF;
+      setZ(cpu.R[s & 7] == 0);
    }
 }
 
