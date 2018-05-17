@@ -112,7 +112,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       int bit;
       char c;
       const char *flagnameptr = flagname;
-      int psr = dbg_reg_get(i_PS);
+      uint32_t psr = dbg_reg_get(i_PS);
 
       if (bufsize < 200) {
          strncpy(buf, "buffer too small!!!", bufsize);
@@ -124,7 +124,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       // Print the I-bit I field
       *buf++ = 'I';
       *buf++ = ':';
-      sprintf(buf, "%x", (psr >> 5) & 0x07);
+      sprintf(buf, "%"PRIx32, (psr >> 5) & 0x07);
       buf++;
       *buf++ = ' ';
 
