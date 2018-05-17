@@ -475,18 +475,24 @@ void debug_init () {
    internal        = 0;
    // Default base of 16 can be overridden by the Co Pro
    base            = 16;
-   if (cpu->default_base) {
-      base = cpu->default_base;
+   width           = WIDTH_8BITS;
+   // Only do the cpu specific stuff if there actually is a debugger for the new core
+   if (cpu) {
+      if (cpu->default_base) {
+         base = cpu->default_base;
+      }
+      // Default width to 16 if base is octal (e.g. pdp 11)
+      if (base == 8) {
+         width = WIDTH_16BITS;
+      }
+      // Sanity check width against Co Pro accessor size
+      int min = (cpu->mem_width > cpu->io_width) ? cpu->mem_width : cpu->io_width;
+      if (width < min) {
+         width = min;
+      }
+      // Disable the debugger
+      cpu->debug_enable(0);
    }
-   // Default width of 8, or 16 if base is octal (e.g. pdp 11)
-   width = (base == 8) ? WIDTH_16BITS : WIDTH_8BITS;
-   // Sanity check width against Co Pro accessor size
-   int min = (cpu->mem_width > cpu->io_width) ? cpu->mem_width : cpu->io_width;
-   if (width < min) {
-      width = min;
-   }
-   // Disable the debugger
-   cpu->debug_enable(0);
 };
 
 void debug_memread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
