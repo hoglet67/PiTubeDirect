@@ -204,6 +204,11 @@ int darm_str(const darm_t *d, darm_str_t *str)
             APPEND(args[arg], darm_register_name(d->Rd));
             arg++;
             continue;
+            
+        case 'z':
+            APPEND(args[arg], "CPSR");
+            arg++;
+            continue;    
 
         case 'n':
             if(d->Rn == R_INVLD) break;
