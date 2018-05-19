@@ -548,6 +548,8 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
             d->Rn = w & b1111;
             d->imm = (w >> 18) & b11;
             d->I = B_SET;
+            d->Rd = (w >> 16) & b1111;
+            d->B = (w >> 22) & 1;
             return 0;
 
         case I_QSUB: case I_SMLAW: case I_SMULW: default:
@@ -797,6 +799,7 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
         case I_SMLAL:
             if ( (w & 0xF0) == 0) {
                   d->instr = I_MRS;
+                  d->B = (w >> 22) & 1;
             }
             d->RdHi = (w >> 16) & b1111;
             d->RdLo = (w >> 12) & b1111;
