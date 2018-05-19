@@ -206,7 +206,22 @@ int darm_str(const darm_t *d, darm_str_t *str)
             continue;
             
         case 'z':
-            APPEND(args[arg], "CPSR");
+            if (d->B == 1)
+            {
+               APPEND(args[arg], "SPSR");
+            }
+            else
+            {
+               APPEND(args[arg], "CPSR");
+            }
+            if (d->Rd != 0xF)
+            {
+               APPEND(args[arg], "_");
+               if (d->Rd & 0x1) {APPEND(args[arg], "c")};
+               if (d->Rd & 0x2) {APPEND(args[arg], "x")};
+               if (d->Rd & 0x4) {APPEND(args[arg], "s")};
+               if (d->Rd & 0x8) {APPEND(args[arg], "f")};               
+            }
             arg++;
             continue;    
 
