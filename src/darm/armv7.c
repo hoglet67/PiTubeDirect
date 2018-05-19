@@ -795,6 +795,9 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
             return 0;
 
         case I_SMLAL:
+            if ( (w & 0xF0) == 0) {
+                  d->instr = I_MRS;
+            }
             d->RdHi = (w >> 16) & b1111;
             d->RdLo = (w >> 12) & b1111;
             d->Rm = (w >> 8) & b1111;
