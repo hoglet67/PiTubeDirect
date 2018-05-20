@@ -711,6 +711,14 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
                 d->Rm = w & b1111;
                 d->Rd = (w >> 12) & b1111;
                 break;
+            
+            // MSR  SPSR
+            case b0000:
+                  d->instr = I_MSR;
+                  d->Rd = (w >> 16) & b1111;
+                  d->Rn = w & b1111;
+                  d->B = (w >> 22) & 1;
+                  break;    
 
             default:
                 return -1;
