@@ -810,6 +810,14 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
             return 0;
 
         case I_SMLA:
+            if ( (w & 0xF0) == 0) {
+                  d->instr = I_MRS;
+                  d->B = (w >> 22) & 1;
+                  d->Rd = (w >> 16) & b1111;
+                  d->Ra = (w >> 12) & b1111;
+                  return 0;
+            }
+            
             d->Rd = (w >> 16) & b1111;
             d->Ra = (w >> 12) & b1111;
             d->Rm = (w >> 8) & b1111;
@@ -822,6 +830,9 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
             if ( (w & 0xF0) == 0) {
                   d->instr = I_MRS;
                   d->B = (w >> 22) & 1;
+                  d->Rd = (w >> 16) & b1111;
+                  d->Ra = (w >> 12) & b1111;
+                  return 0;
             }
             d->RdHi = (w >> 16) & b1111;
             d->RdLo = (w >> 12) & b1111;
@@ -830,6 +841,7 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
             d->N  = (w >> 5) & 1;
             d->Rn = w & b1111;
             return 0;
+
 
         case I_SMUL:
             // SMUL overlaps with SMC, so we define SMUL in SMC..
