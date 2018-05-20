@@ -598,8 +598,22 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
         return 0;
 
     case T_ARM_OPLESS:
-        d->instr = type_opless_instr_lookup[w & b111];
-        return d->instr == I_INVLD ? -1 : 0;
+        if (((w>>16)&0xF)==0)
+        {
+            d->instr = type_opless_instr_lookup[w & b111];
+            return d->instr == I_INVLD ? -1 : 0;
+        }
+        else
+        {
+            d->instr = I_MSR;
+            d->Rd = (w >> 16) & b1111;
+            d->Rn = R_INVLD;
+            d->imm = w & BITMSK_12;
+            d->imm = ARMExpandImm(d->imm);
+            d->I = B_SET;
+            d->B = (w >> 22) & 1;
+            return 0;
+        }
 
     case T_ARM_DST_SRC:
         d->instr = type_shift_instr_lookup[(w >> 4) & b1111];
