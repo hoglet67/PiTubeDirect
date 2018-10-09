@@ -20,15 +20,15 @@
 #define TIMING_INSTRUCTION
 
 // Code layout
-// For optimisation reasons is defined to start on a 32K boundary
-// Each 6502 opcode has to fit in  16 arm instruction ( 64 bytes) or a branch is required to
+// For optimisation reasons ARM code is defined to start on a 32K boundary
+// Each 6502 opcode has to fit in 16 arm instruction ( 64 bytes) or a branch is required to
 // some extra code.
 // There are 256 opcodes each of 16 arm instructions
-// These are then followed by 256 16 arm instruction blocka which all either process the event
+// These are then followed by 256 16 arm instruction blocks which all either process the event
 // or jump to the event handler
 // Then there is a block of 16K which contains overspill code from the opcodes , init code,
 // event code , slow down code, and finishing code
-// Finally there is a block of 260 16 arm instruction block for the slowed down version of
+// Finally there is a block of 256 16 arm instruction block for the slowed down version of
 // the 6502 emulator
 
 #define I_ALIGN (1<<I_ALIGN_BITS)
@@ -124,11 +124,16 @@
 .equ    CPSR_FIQ_INHIBIT,       0x40
 .equ    CPSR_IRQ_INHIBIT,       0x80
 
-// Mask used when poping status into flags (RTI, PLP)
-// It selects the bits that are managed in flags, i.e. V, D, I
-// bits 7-0 are 6502 status reg bits
-// bits 31-8 are emulator control bits
-.equ    R4_MASK,     0xFFFFFF4C
+// 6502 status register bits
+
+.equ    N_FLAG6502,  0x80
+.equ    V_FLAG6502,  0x40
+.equ    X_FLAG6502,  0x20
+.equ    B_FLAG6502,  0x10
+.equ    D_FLAG6502,  0x08
+.equ    I_FLAG6502,  0x04
+.equ    Z_FLAG6502,  0x02
+.equ    C_FLAG6502,  0x01
 
 // **********************************************
 // Start of macros
@@ -205,20 +210,20 @@
 
 .macro FETCH_NEXT_3B_STAGE_0 sub=NOBSUB
 .if \sub==SUBPC
-      ldrb    next_instr, [regPC]  			//4 cycles
+      ldrb    next_instr, [regPC]           //4 cycles
 .else
 .if \sub==indirect
-      ldrb    next_instr, [operand,next_instr,LSL #8]!  	//5 cycles
+      ldrb    next_instr, [operand,next_instr,LSL #8]!      //5 cycles
       mov     regPC,operand
 .else
-      ldrb    next_instr, [regPC, #1]!  	//4 cycles
+      ldrb    next_instr, [regPC, #1]!      //4 cycles
 .endif
 .endif
 .endm
 
 .macro FETCH_NEXT_3B_MERGED sub=NOBSUB
 .if \sub==SUBPC
-      ldrb    lr, [regPC]  			//4 cycles
+      ldrb    lr, [regPC]                   //4 cycles
       FETCH_NEXT_STAGE_1
       FETCH_NEXT_STAGE_0 instt lr
       FETCH_NEXT_STAGE_2
@@ -227,17 +232,17 @@
 #if defined(USE_MEMORY_POINTER)
       EA_ABSOLUTE
       add     regPC, operand, memry
-	  ldrb    lr, [regPC]
+      ldrb    lr, [regPC]
 #else
-      ldrb    lr, [operand,next_instr,LSL #8]  	//5 cycles
+      ldrb    lr, [operand,next_instr,LSL #8] //5 cycles
       add     regPC,operand,next_instr,LSL #8
-#endif 
+#endif
       FETCH_NEXT_STAGE_1a
       FETCH_NEXT_STAGE_0 instt lr
       FETCH_NEXT_STAGE_1b
       FETCH_NEXT_STAGE_2
 .else
-      ldrb    lr, [regPC, #1]!  	//4 cycles
+      ldrb    lr, [regPC, #1]!              //4 cycles
       FETCH_NEXT_STAGE_1
       FETCH_NEXT_STAGE_0 instt lr
       FETCH_NEXT_STAGE_2
@@ -251,7 +256,7 @@
 .if \restoreflags==mrs
         mrs     r2, CPSR                  // Preserve the 6502 flags
 .endif
-        tst     flags, #4                 // Test whether interrupts are enabled (bit 2 = 0)
+        tst     flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
         ldreq   r0, [r0]
         eoreq   r0, r0, #1
         tsteq   r0, #1                    // Test for IRQ
@@ -454,7 +459,7 @@
         add     r2, \reg, operand, lsl #24
 #else
         add     r2,operand, \reg, lsr #24
-        bic     r2,r2,#0x100						// Wrap to zero page
+        bic     r2,r2,#0x100                        // Wrap to zero page
 #endif
 .endm
 
@@ -475,29 +480,29 @@
 .if \sign==NOSIGN
         ldrb    \dest, [memry, r2, lsr #24]
 .else
-		add     \dest, memry, r2, lsr #24
-		ldrsb   \dest, [\dest]
+        add     \dest, memry, r2, lsr #24
+        ldrsb   \dest, [\dest]
 .endif
 #else
         add     r2,operand, \reg, lsr #24
-        bic     r2,r2,#0x100						// Wrap to zero page
+        bic     r2,r2,#0x100                        // Wrap to zero page
 .if \fetch==FETCH
         FETCH_NEXT_STAGE_0
 .endif
-		LOAD_BYTE \sign \dest r2
+        LOAD_BYTE \sign \dest r2
 #endif
 .endm
 
 .macro LOAD_ABSOLUTE nocarry=carry sign=SIGN reg=r1 // operand holds the absolute address
 .if \nocarry==carry
-		// Carry flag preserved
+        // Carry flag preserved
         lsr     lr, operand, #5
-		LOAD_BYTE \sign \reg
+        LOAD_BYTE \sign \reg
         teq     tregs, lr               // tregs holds the constant 0xFEE0 >> 5
 .else
-		// this corrupts the carry flag
+        // this corrupts the carry flag
         cmp     tregs, operand, lsr #5  // tregs holds the constant 0xFEE0 >> 5
-		LOAD_BYTE \sign \reg
+        LOAD_BYTE \sign \reg
 .endif
 
 .if \sign==SIGN
@@ -532,7 +537,7 @@
 .else
         beq    tube_store_handler_regA
 .endif
-		STORE_BYTE   \reg
+        STORE_BYTE   \reg
 
 .if \norestore==store
 .if \flags==flags
@@ -548,7 +553,7 @@
         LOAD_BYTE
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
-		BRANCH_3B eq 
+        BRANCH_3B eq
 
 .endm
 
@@ -556,7 +561,7 @@
         LOAD_BYTE
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
-		BRANCH_3B ne 
+        BRANCH_3B ne
 .endm
 
 .macro RMB bitnum
@@ -584,31 +589,31 @@
         lsr     r0, r1, #8
         SPUSH   r0
         add     r2, memry, #0x10000
-        SPUSH   r1  
-		ldrh    r2, [r2, #\vector]        // Fetch the vector address
+        SPUSH   r1
+        ldrh    r2, [r2, #\vector]        // Fetch the vector address
         add     regPC, memry, r2          // Point to this instruction in memory
 #else
         sub     regSP, regSP, #2
         mov     r2, #0x10000
         strh    regPC, [regSP,#1]         // slight risk of over running the stack
         orr     regSP, #0x0100
-		ldrh    regPC, [r2, #\vector]     // Fetch the vector address
+        ldrh    regPC, [r2, #\vector]     // Fetch the vector address
 #endif
 
 .if \setbrk
-        movpl   r0, #0x30                 // Always set bit 5 (-) in the pushed value and Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
-        movmi   r0, #0xB0
+        movpl   r0, #X_FLAG6502+B_FLAG6502 // Always set bit 5 (-) in the pushed value and Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
+        movmi   r0, #N_FLAG6502+X_FLAG6502+B_FLAG6502
 .else
-        movpl   r0, #0x20                 // Always set bit 5 (-) in the pushed value
-        movmi   r0, #0xA0
+        movpl   r0, #X_FLAG6502            // Always set bit 5 (-) in the pushed value
+        movmi   r0, #N_FLAG6502+X_FLAG6502
 .endif
-        orrcs   r0, r0, #1
-        orreq   r0, r0, #2
+        orrcs   r0, r0, #C_FLAG6502
+        orreq   r0, r0, #Z_FLAG6502
         orr     r0, r0, flags             // In flags only bits 6 (V), 3 (D) and 2 (I) used; others always zero.
 
         SPUSH   r0
-        orr     flags, flags, #4          // Set the I bit in the 6502 status register
-        bic     flags, flags, #8          // Clear the D bit in the 6502 status register
+        orr     flags, flags, #I_FLAG6502 // Set the I bit in the 6502 status register
+        bic     flags, flags, #D_FLAG6502 // Clear the D bit in the 6502 status register
 
 .endm
 
@@ -617,11 +622,11 @@
 .macro  BIT
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a
-        bic     flags, flags, #0x40
+        bic     flags, flags, #V_FLAG6502
         tst     r1, regA
         mrs     next_instr, CPSR
         and     r2, r1, #N_FLAG
-        and     r1, r1, #0x40
+        and     r1, r1, #V_FLAG6502
         orr     flags, flags, r1
         bic     next_instr, next_instr, #N_FLAG
         orr     next_instr, next_instr, r2
@@ -637,8 +642,8 @@
 
 
 .macro ADC_STAGE1 reg fetch=FETCH jump
-        tst     flags, #8
-        bic     flags, #0x40
+        tst     flags, #D_FLAG6502
+        bic     flags, #V_FLAG6502
 .if \fetch==FETCH
         FETCH_NEXT_STAGE_0
 .endif
@@ -673,7 +678,7 @@
         FETCH_NEXT_STAGE_1b
 .endif
 
-        orrvs   flags, #0x40
+        orrvs   flags, #V_FLAG6502
         SXTB    regA,regA,ROR #24
         FETCH_NEXT_STAGE_2
 .endm
@@ -684,8 +689,8 @@
 .endm
 
 .macro  SBC_STAGE1 reg fetch=FETCH jump
-        tst     flags, #8
-        bic     flags, #0x40
+        tst     flags, #D_FLAG6502
+        bic     flags, #V_FLAG6502
 .if \fetch==FETCH
         FETCH_NEXT_STAGE_0
 .endif
@@ -721,7 +726,7 @@
         sbcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b
 .endif
-        orrvs   flags, #0x40
+        orrvs   flags, #V_FLAG6502
         SXTB    regA,regA,ROR #24
         FETCH_NEXT_STAGE_2
 .endm
@@ -863,12 +868,12 @@
         SPOP    r0
         mrs     r2, CPSR
         and     flags, flags, #0xffffff00
-        orr     flags, flags, r0           // preserve the other bits in flags, e.g. the slowdown bit
-        and     r1, r0, #0x80
+        orr     flags, flags, r0        // preserve the other bits in flags, e.g. the slowdown bit
+        and     r1, r0, #N_FLAG6502
         bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
         orr     r2, r2, r1, lsl #24
-        and     r1, r0, #0x03
-        and     flags, flags, #R4_MASK
+        and     r1, r0, #Z_FLAG6502+C_FLAG6502
+        bic     flags, flags, #N_FLAG6502+X_FLAG6502+B_FLAG6502+Z_FLAG6502+C_FLAG6502
         orr     r2, r2, r1, lsl #29
         //msr     CPSR_flg, r2
 .endm
@@ -986,10 +991,10 @@ opcode_07:
 // Opcode 08 - PHP
 opcode_08:
         FETCH_NEXT_STAGE_01_I
-        orr     r1, flags, #0x30
-        orrmi   r1, r1, #0x80
-        orrcs   r1, r1, #1
-        orreq   r1, r1, #2
+        orr     r1, flags, #X_FLAG6502+B_FLAG6502
+        orrmi   r1, r1, #N_FLAG6502
+        orrcs   r1, r1, #C_FLAG6502
+        orreq   r1, r1, #Z_FLAG6502
         SPUSH   r1
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
@@ -1554,7 +1559,7 @@ opcode_4F:
 // Opcode 50 - BVC
 opcode_50:
         mrs     r2, CPSR
-        tst     flags, #0x40
+        tst     flags, #V_FLAG6502
         BRANCH_FLAGS  eq
         .balign I_ALIGN
 
@@ -1602,7 +1607,7 @@ opcode_57:
 
 // Opcode 58 - CLI
 opcode_58:
-        bic     flags, flags, #4
+        bic     flags, flags, #I_FLAG6502
         FETCH_NEXT_STAGE_0_I
         CHECK_IRQ mrs
         FETCH_NEXT_STAGE_1_I
@@ -1790,7 +1795,7 @@ opcode_6F:
 // Opcode 70 - BVS
 opcode_70:
         mrs     r2, CPSR
-        tst     flags, #0x40
+        tst     flags, #V_FLAG6502
         BRANCH_FLAGS  ne
          .balign I_ALIGN
 
@@ -1851,7 +1856,7 @@ opcode_77:
 // Opcode 78 - SEI
 opcode_78:
         FETCH_NEXT_STAGE_01_I
-        orr     flags, flags, #4
+        orr     flags, flags, #I_FLAG6502
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -2058,7 +2063,7 @@ opcode_94:
 // Opcode 95 - STA $00,X
 opcode_95:
         FETCH_NEXT_STAGE_0
-        SETUP_ZPX regX 
+        SETUP_ZPX regX
         FETCH_NEXT_STAGE_1
         STORE_ZPX regA
         FETCH_NEXT_STAGE_2
@@ -2211,18 +2216,17 @@ opcode_AB:
 
 // Opcode AC - LDY $0000
 opcode_AC:
-         EA_ABSOLUTE_LOAD
-         FETCH_NEXT_STAGE_0
-         FETCH_NEXT_STAGE_1
-         lsl    regY,r1,#24
-         teq    regY,#0
-         FETCH_NEXT_STAGE_2
+        EA_ABSOLUTE_LOAD
+        FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1
+        lsl    regY,r1,#24
+        teq    regY,#0
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode AD - LDA $0000
 opcode_AD:
         EA_ABSOLUTE_LOAD carry SIGN regA
-        //FETCH_NEXT_STAGE_0
         FLAGS_QUICK_FETCH012   regA
         .balign I_ALIGN
 
@@ -2305,15 +2309,14 @@ opcode_B7:
 // Opcode B8 - CLV
 opcode_B8:
         FETCH_NEXT_STAGE_01_I
-        bic     flags, #0x40
+        bic     flags, #V_FLAG6502
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode B9 - LDA $0000,Y
 opcode_B9:
-         EA_ABSOLUTE_INDEXED_LOAD regY carry SIGN regA
-         //FETCH_NEXT_STAGE_0
-         FLAGS_QUICK_FETCH012   regA
+        EA_ABSOLUTE_INDEXED_LOAD regY carry SIGN regA
+        FLAGS_QUICK_FETCH012   regA
         .balign I_ALIGN
 
 // Opcode BA - TSX
@@ -2334,42 +2337,38 @@ tube_load_handler_regA_flags:
         sxtb    regA,r0
         msr     CPSR_flg, next_instr
         pop     {operand,r2,r3,next_instr,r12}
-        //FETCH_NEXT_STAGE_0
         FLAGS_QUICK_FETCH012   regA
-
         .balign I_ALIGN
 
 // Opcode BC - LDY $0000,X
 opcode_BC:
-        //EA_ABSOLUTE_INDEXED_LOAD regX
         EA_ABSOLUTE_INDEXED regX
         FETCH_NEXT_3B_STAGE_0
         LOAD_ABSOLUTE carry SIGN r1
         FETCH_NEXT_STAGE_0
-        //FLAGS   regY
-         FETCH_NEXT_STAGE_1a
-         lsl    regY,r1,#24
-         FETCH_NEXT_STAGE_1b
-         teq    regY,#0
-         FETCH_NEXT_STAGE_2
+        FETCH_NEXT_STAGE_1a
+        lsl    regY,r1,#24
+        FETCH_NEXT_STAGE_1b
+        teq    regY,#0
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode BD - LDA $0000,X
 opcode_BD:
-         EA_ABSOLUTE_INDEXED regX
-         FETCH_NEXT_3B_STAGE_0
-         lsr     lr, operand, #5
-         ldrsb  regA,[operand]
-         teq     tregs, lr          // tregs holds the constant 0xFEE0 >> 5
-         Beq      tube_load_handler_regA_flags
-         FLAGS_QUICK_FETCH012 regA
+        EA_ABSOLUTE_INDEXED regX
+        FETCH_NEXT_3B_STAGE_0
+        lsr     lr, operand, #5
+        ldrsb  regA,[operand]
+        teq     tregs, lr                      // tregs holds the constant 0xFEE0 >> 5
+        Beq      tube_load_handler_regA_flags
+        FLAGS_QUICK_FETCH012 regA
         .balign I_ALIGN
 
 // Opcode BE - LDX $0000,Y
 opcode_BE:
         EA_ABSOLUTE_INDEXED_LOAD regY
-         FETCH_NEXT_STAGE_0
-         FLAGS   regX
+        FETCH_NEXT_STAGE_0
+        FLAGS   regX
         .balign I_ALIGN
 
 // Opcode BF - BBS3
@@ -2432,7 +2431,6 @@ opcode_C6:
         sxtb    r1,r1
         TEQ     r1,#0
         FETCH_NEXT_STAGE_2
-
         .balign I_ALIGN
 
 // Opcode C7 - SMB4 $00
@@ -2573,7 +2571,7 @@ opcode_D7:
 // Opcode D8 - CLD
 opcode_D8:
         FETCH_NEXT_STAGE_01_I
-        bic     flags, flags, #8
+        bic     flags, flags, #D_FLAG6502
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -2829,7 +2827,7 @@ opcode_F7:
 // Opcode F8 - SED
 opcode_F8:
         FETCH_NEXT_STAGE_01_I
-        orr     flags, flags, #8
+        orr     flags, flags, #D_FLAG6502
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -3218,18 +3216,18 @@ exec_65tube:
         str      lr,copro_speed6502
 
 handle_rst:
-        orr     flags, flags, #4              // Set the I bit
-        bic     flags, flags, #8              // Clear the D bit
+        orr     flags, flags, #I_FLAG6502   // Set the I bit
+        bic     flags, flags, #D_FLAG6502   // Clear the D bit
 #if defined(USE_MEMORY_POINTER)
         add     r0, memry, #0x10000
         ldrh    r0, [r0, #-4]           // Fetch the address in FFFC,FFFD
-        add     regPC, memry, r0              // Point to this instruction in memory
+        add     regPC, memry, r0        // Point to this instruction in memory
 #else
         mov    r0, #0x10000
         ldrh    regPC, [r0, #-4]        // Fetch the vector address
 
 #endif
-        FETCH_NEXT_3B_MERGED  SUBPC             // Start executing instructions
+        FETCH_NEXT_3B_MERGED  SUBPC     // Start executing instructions
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
         bl      tube_disable_fast6502
@@ -3245,7 +3243,7 @@ Event_Handler:
         tst     r0, #2                  // Bit 1 set indicate NMI is active
         bne     handle_nmi              // Take the NMI interrupt
 
-        tst     flags, #4               // Test whether interrupts are enabled (bit 2 = 0)
+        tst     flags, #I_FLAG6502      // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq
         tst     r0, #1                  // Bit 1 set indicate IRQ is active
         bne     handle_irq              // Take the IRQ interrupt
@@ -3264,11 +3262,11 @@ handle_irq:
 
 handle_nmi:
         orr     r0,r2, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
-        msr     CPSR_c,r0                 // Disable interrupts
+        msr     CPSR_c,r0               // Disable interrupts
         ldr     r0,[r1]                 // load tube_irq again as it might have changed
         BIC     r0,r0,#2                // clear NMI flag
         str     r0,[r1]                 // Store it back again
-        msr     CPSR_cf, r2                // Restore the 6502 flags and re-enable ARM interrupts
+        msr     CPSR_cf, r2             // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -6, 0
         FETCH_NEXT_3B_MERGED SUBPC
 
@@ -3315,7 +3313,7 @@ Event_Handler_Single_Core_Slow:
         tst     r0, #2                  // Bit 1 set indicate NMI is active
         bne     handle_nmi2             // Take the NMI interrupt
 
-        tst     flags, #4               // Test whether interrupts are enabled (bit 2 = 0)
+        tst     flags, #I_FLAG6502      // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq2
         tst     r0, #1                  // Bit 1 set indicate IRQ is active
         bne     handle_irq2             // Take the IRQ interrupt
@@ -3325,10 +3323,10 @@ noirq2:
         adr     r1, timing_table
         ldr     lr, lastPC
 
-        ldrb    r0, [r1,r0,LSL#1]!       // get instruction time
-        ldrb    r1, [r1,#1]              // get instruction length
+        ldrb    r0, [r1,r0,LSL#1]!      // get instruction time
+        ldrb    r1, [r1,#1]             // get instruction length
         cmp     lr, regPC
-        ldr     lr, copro_speed6502      // load copro_speed
+        ldr     lr, copro_speed6502     // load copro_speed
         ADDNE   r0, r0, #1
 
         add     r1, r1, regPC
@@ -3337,9 +3335,9 @@ noirq2:
         // get last time
         LDR     r1, targettime
         MUL     r0, lr, r0
-        ldrb    next_instr, [regPC]             // get next instruction
+        ldrb    next_instr, [regPC]     // get next instruction
         // add on new time
-        ADD     lr, r1, r0, LSR #8         // shift by 8
+        ADD     lr, r1, r0, LSR #8      // shift by 8
         // save time new time.
         str     lr, targettime
 
@@ -3348,9 +3346,9 @@ waste_time:
 #if defined(RPI2)|| defined(RPI3)
         mrc     p15, 0, lr, c9, c13, 0
 #else
-        MRC     p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register
+        MRC     p15, 0, lr, c15, c12, 1 // Read Cycle Counter Register
 #endif
-        sub     lr, lr, r1          // if this goes negative we are running too slow
+        sub     lr, lr, r1              // if this goes negative we are running too slow
         CMP     lr, r0, LSR #8
         BCC     waste_time
 
@@ -3379,7 +3377,7 @@ handle_nmi2:
 execute_one_instruction:
         bic     lr, instt, #EVENT_HANDLER_FLAG+EVENT_HANDLER_SLOW_FLAG     // ack any events
 
-        ldrb    next_instr, [regPC]            // same as FETCH_NEXT_STAGE_012 but set bit in instt to return immediately to event handler
+        ldrb    next_instr, [regPC]     // same as FETCH_NEXT_STAGE_012 but set bit in instt to return immediately to event handler
         ldrb    r0, [regPC, #1]
         FETCH_NEXT_STAGE_0 lr
         ldrb    next_instr, [regPC, #2]!
@@ -3398,7 +3396,7 @@ decimal_mode_adc:
         and     regA, regA, #0xF0<<24
         orrcs   regA, regA, #0x0F<<24
         adcs    regA, regA, r1 , ror #8
-        orrvs   flags, #0x40
+        orrvs   flags, #V_FLAG6502
         cmpcc   regA, #10<<28
         subcs   regA, regA, #10<<28
         FETCH_NEXT_STAGE_1
@@ -3415,7 +3413,7 @@ decimal_mode_sbc:
         FETCH_NEXT_STAGE_1a
         sbcs    regA, regA, r1, ror #8
         FETCH_NEXT_STAGE_1b
-        orrvs   flags, #0x40
+        orrvs   flags, #V_FLAG6502
         subcc   regA, regA,#0x60<<24
         teq     r2,#0
         submi   regA, regA, #0x6<<24
@@ -3434,7 +3432,7 @@ decimal_mode_adc_r0:
         and     regA, regA, #0xF0<<24
         orrcs   regA, regA, #0x0F<<24
         adcs    regA, regA, operand , ror #8
-        orrvs   flags, #0x40
+        orrvs   flags, #V_FLAG6502
         cmpcc   regA, #10<<28
         subcs   regA, regA, #10<<28
         FETCH_NEXT_STAGE_1
@@ -3450,7 +3448,7 @@ decimal_mode_sbc_r0:
         sbc     r2, r2, r1, ror #8
         sbcs    regA, regA, operand, ror #8
         FETCH_NEXT_STAGE_1a
-        orrvs   flags, #0x40
+        orrvs   flags, #V_FLAG6502
         subcc   regA, regA, #0x60<<24
         FETCH_NEXT_STAGE_1b
         teq     r2,#0
@@ -3564,6 +3562,6 @@ watchpointentry:
       .balign I_ALIGN*256 , 0
 
 .rept 256
-        EVENT_HANDLER_SLOW_STAGE_0
-        .balign I_ALIGN
+      EVENT_HANDLER_SLOW_STAGE_0
+      .balign I_ALIGN
 .endr
