@@ -648,13 +648,7 @@
         FETCH_NEXT_STAGE_0
 .endif
         lsl     regA,regA,#24
-#if defined(USE_MEMORY_POINTER)
-        orrcs   \reg, \reg, #0xff00
-        sxthcs  \reg, \reg
-#else
-        orrcs   \reg, \reg, memry         // memry has been reused and is 0xFFFFFF00
-#endif
-
+        subcs   \reg, \reg ,#0x100        // if carry set then set top 24 bits
 .ifb  \jump
 
 .else
@@ -695,12 +689,7 @@
         FETCH_NEXT_STAGE_0
 .endif
         LSL     regA,regA,#24
-#if defined(USE_MEMORY_POINTER)
-        orrcc   \reg, \reg, #0xff00
-        sxthcc  \reg, \reg
-#else
-        orrcc   \reg, \reg, memry  // memry here is a const of 0xFFFFFF00
-#endif
+        subcc   \reg, \reg ,#0x100        // if carry set then set top 24 bits
 
 .ifb \jump
 
@@ -3178,7 +3167,6 @@ exec_65tube:
         mov     memry, r0               // set memry (memry) to the 64K 6502 memory array
         orr     regSP, r0, #0x1F0       // set 6502 stack pointer up
 #else
-        mov     memry, #0xFFFFFF00
         mov     regSP, #0x1F0
 #endif
         ldr     instt, =opcode_00  // set instt (r7) to the base address of the 6502 instruction handler
