@@ -689,7 +689,7 @@
         FETCH_NEXT_STAGE_0
 .endif
         LSL     regA,regA,#24
-        subcc   \reg, \reg ,#0x100        // if carry set then set top 24 bits
+        subcc   \reg, \reg ,#0x100        // if carry clear then set top 24 bits
 
 .ifb \jump
 
@@ -721,47 +721,47 @@
 .endm
 
 .macro BRANCH taken
-      sxtab\taken regPC, regPC, operand
-      // stall
-      ldr\taken\()b  next_instr, [regPC]
-      //stall
-      //stall
-      ldrb    operand, [regPC, #1]         //hidden in stall
-      FETCH_NEXT_STAGE_0
-      ldrb    next_instr, [regPC, #2]!     //hidden in stall
-      FETCH_NEXT_STAGE_2                   // 5 cycles
+        sxtab\taken regPC, regPC, operand
+        // stall
+        ldr\taken\()b  next_instr, [regPC]
+        //stall
+        //stall
+        ldrb    operand, [regPC, #1]         //hidden in stall
+        FETCH_NEXT_STAGE_0
+        ldrb    next_instr, [regPC, #2]!     //hidden in stall
+        FETCH_NEXT_STAGE_2                   // 5 cycles
 
-      // total of 13 if taken. 10 if not taken
+        // total of 13 if taken. 10 if not taken
 .endm
 
 .macro BRANCH_AL
-      sxtab regPC, regPC, operand
-      // stall
-      ldrb  r1, [regPC]
-      //stall
-      ldrb      operand, [regPC, #1]       //hidden in stall
-      ldrb      next_instr, [regPC, #2]!   //hidden in stall
-      add       lr, instt, r1, LSL #I_ALIGN_BITS
-      FETCH_NEXT_STAGE_2                   // 5 cycles
+        sxtab regPC, regPC, operand
+        // stall
+        ldrb  r1, [regPC]
+        //stall
+        ldrb      operand, [regPC, #1]       //hidden in stall
+        ldrb      next_instr, [regPC, #2]!   //hidden in stall
+        add       lr, instt, r1, LSL #I_ALIGN_BITS
+        FETCH_NEXT_STAGE_2                   // 5 cycles
 
-      // total of 13 cycles taken.
+        // total of 13 cycles taken.
 .endm
 
 .macro BRANCH_FLAGS taken
-      sxtab\taken regPC, regPC, operand
-      // stall
-      ldr\taken\()b  next_instr, [regPC]
+        sxtab\taken regPC, regPC, operand
+        // stall
+        ldr\taken\()b  next_instr, [regPC]
 
-      msr     CPSR_flg, r2
+        msr     CPSR_flg, r2
 
-      //stall
-      ldrb    operand, [regPC, #1]         //hidden in stall
-      FETCH_NEXT_STAGE_0
-      ldrb    next_instr, [regPC, #2]!     //hidden in stall
+        //stall
+        ldrb    operand, [regPC, #1]         //hidden in stall
+        FETCH_NEXT_STAGE_0
+        ldrb    next_instr, [regPC, #2]!     //hidden in stall
 
-      FETCH_NEXT_STAGE_2                   // 5 cycles
+        FETCH_NEXT_STAGE_2                   // 5 cycles
 
-      // total of 14 if taken. 11 if not taken and not recovering flags
+        // total of 14 if taken. 11 if not taken and not recovering flags
 .endm
 
 .macro BRANCH_3B taken
