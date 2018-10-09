@@ -17,7 +17,7 @@
 // next execute 0xEB then the instruction to time and lastly execute 0xFB
 // ARM_execution_cycles = !&E4 - !&E0 - timing_zero_error
 
-#define TIMING_INSTRUCTION
+//#define TIMING_INSTRUCTION
 
 // Code layout
 // For optimisation reasons ARM code is defined to start on a 32K boundary
@@ -2100,12 +2100,8 @@ opcode_99:
 // Opcode 9A - TXS
 opcode_9A:
         FETCH_NEXT_STAGE_01_I
-#if defined(USE_MEMORY_POINTER)
-        add     regSP, memry, #0x100
-#else
-        mov     regSP,#0x100
-#endif
-        add     regSP, regSP, regX, lsr #24
+        bic     regSP, regSP, #0xFF            // clear lower nibble
+        orr     regSP, regSP, regX, lsr #24    // put X in lower nibble
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -3179,9 +3175,11 @@ timing_table:
 exec_65tube:
         push    {r4-r11,lr}
 #if defined(USE_MEMORY_POINTER)
-        mov     memry, r0                  // set memry (memry) to the 64K 6502 memory array
+        mov     memry, r0               // set memry (memry) to the 64K 6502 memory array
+        orr     regSP, r0, #0x1F0       // set 6502 stack pointer up
 #else
         mov     memry, #0xFFFFFF00
+        mov     regSP, #0x1F0
 #endif
         ldr     instt, =opcode_00  // set instt (r7) to the base address of the 6502 instruction handler
         movs    R1,R1
@@ -3223,7 +3221,7 @@ handle_rst:
         ldrh    r0, [r0, #-4]           // Fetch the address in FFFC,FFFD
         add     regPC, memry, r0        // Point to this instruction in memory
 #else
-        mov    r0, #0x10000
+        mov     r0, #0x10000
         ldrh    regPC, [r0, #-4]        // Fetch the vector address
 
 #endif
