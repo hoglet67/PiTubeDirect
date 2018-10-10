@@ -1693,12 +1693,11 @@ opcode_69:
 
 // Opcode 6A - ROR A
 opcode_6A:
-        biccc   regA, regA, #256
-        orrcs   regA, regA, #256
+        and     regA, regA, #0xFF                   // isolate lower byte
+        subcs   regA, regA, #0x100                  // if Carry set all other bits ie sign extend
         FETCH_NEXT_STAGE_0_I
         rrxs    regA, regA
         FETCH_NEXT_STAGE_1_I
-        sxtb    regA, regA
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
