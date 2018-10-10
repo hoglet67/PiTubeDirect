@@ -1166,7 +1166,19 @@ opcode_1F:
 
 // Opcode 20 - JSR $0000
 opcode_20:
-        ldrb    r1, [operand,next_instr,LSL #8]//,#1 // modified FETCH_NEXT_3B_STAGE_0
+#if defined(USE_MEMORY_POINTER)
+        strh    regPC, [regSP,#-1]               // memory is 64K aligned so only need hword
+        add     regPC, operand,next_instr,LSL #8
+        add     regPC, regPC, memry
+        ldrb    r1, [regPC]
+        sub     regSP, regSP, #2
+        ADD     lr,instt,r1,LSL #I_ALIGN_BITS
+        FETCH_NEXT_STAGE_1a
+        orr     regSP, #0x0100
+        FETCH_NEXT_STAGE_1b
+        bx      lr
+#else
+        ldrb    r1, [operand,next_instr,LSL #8] // modified FETCH_NEXT_3B_STAGE_0
         strh    regPC, [regSP,#-1]
         add     regPC,operand,next_instr,LSL #8
         sub     regSP, regSP, #2
@@ -1175,28 +1187,6 @@ opcode_20:
         orr     regSP, #0x0100
         FETCH_NEXT_STAGE_1b
         bx      lr
-
-#if 0
-#if defined(USE_MEMORY_POINTER)
-        sub     regSP, regSP, #2
-        mov     lr, regPC
-        orr     regPC,operand,next_instr,LSL #8
-        ldrb    next_instr, [regPC, memry ]! // modified FETCH_NEXT_3B_STAGE_0
-     //   add     regPC, regPC ,#1
-        strh    lr, [regSP,#1]
-#else
-        orr     operand,operand,next_instr,LSL #8
-        sub     regSP, regSP, #2
-       // mov     r1,r1          // ****** NOP in stall ???? ******
-        ldrb    next_instr, [operand]//,next_instr,LSL #8]!//,#1 // modified FETCH_NEXT_3B_STAGE_0
-        strh    regPC, [regSP,#1]
-        mov     regPC,operand
-#endif
-
-        orr     regSP, #0x0100
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
-
 #endif
         .balign I_ALIGN
 
