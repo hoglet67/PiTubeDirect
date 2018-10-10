@@ -554,7 +554,6 @@
         mrs     r2, CPSR
         tst     r1, #(1 << \bitnum)
         BRANCH_3B eq
-
 .endm
 
 .macro BBS bitnum
@@ -585,13 +584,12 @@
 .macro INTR vector setbrk                 // vector is -2 for IRQ/BRK or -6 for NMI
                                           // setbrk should be 1 for BRK, 0 for IRQ/NMI
 #if defined(USE_MEMORY_POINTER)
-        sub     r1, regPC, memry
-        lsr     r0, r1, #8
-        SPUSH   r0
+        sub     regSP, regSP, #2
         add     r2, memry, #0x10000
-        SPUSH   r1
-        ldrh    r2, [r2, #\vector]        // Fetch the vector address
-        add     regPC, memry, r2          // Point to this instruction in memory
+        strh    regPC, [regSP,#1]         // slight risk of over running the stack
+        orr     regSP, #0x0100
+        ldrh    regPC, [r2, #\vector]     // Fetch the vector address
+        add     regPC, regPC, memry
 #else
         sub     regSP, regSP, #2
         mov     r2, #0x10000
@@ -601,20 +599,16 @@
 #endif
 
 .if \setbrk
-        movpl   r0, #X_FLAG6502+B_FLAG6502 // Always set bit 5 (-) in the pushed value and Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
-        movmi   r0, #N_FLAG6502+X_FLAG6502+B_FLAG6502
+        orr     r0, flags, #X_FLAG6502+B_FLAG6502 // Always set bit 5 (-) in the pushed value and Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
 .else
-        movpl   r0, #X_FLAG6502            // Always set bit 5 (-) in the pushed value
-        movmi   r0, #N_FLAG6502+X_FLAG6502
+        orr     r0, flags, #X_FLAG6502            // Always set bit 5 (-) in the pushed value
 .endif
-        orrcs   r0, r0, #C_FLAG6502
-        orreq   r0, r0, #Z_FLAG6502
-        orr     r0, r0, flags             // In flags only bits 6 (V), 3 (D) and 2 (I) used; others always zero.
-
+        orrmi   r0, r0, #N_FLAG6502       // set N_FLAG NB bit defaults to zero
+        orrcs   r0, r0, #C_FLAG6502       // set C_FLAG NB bit defaults to zero
+        orreq   r0, r0, #Z_FLAG6502       // set Z_FLAG NB bit defaults to zero
         SPUSH   r0
         orr     flags, flags, #I_FLAG6502 // Set the I bit in the 6502 status register
         bic     flags, flags, #D_FLAG6502 // Clear the D bit in the 6502 status register
-
 .endm
 
 // instruction macros
@@ -915,7 +909,7 @@
 opcode_00:
         INTR    -2, 1
         FETCH_NEXT_3B_STAGE_0 SUBPC
-        B     JUMP_BRK
+        B     opcode_02
         .balign I_ALIGN
 
 // Opcode 01 - ORA ($00,X)
@@ -927,11 +921,6 @@ opcode_01:
 // Opcode 02 - NOP 2
 opcode_02:
         NOP_2
-JUMP_BRK:
-        FETCH_NEXT_STAGE_1a
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1b
-        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode 03 - NOP
@@ -3165,6 +3154,7 @@ exec_65tube:
         push    {r4-r11,lr}
 #if defined(USE_MEMORY_POINTER)
         mov     memry, r0               // set memry (memry) to the 64K 6502 memory array
+                                        // must be 64k aligned
         orr     regSP, r0, #0x1F0       // set 6502 stack pointer up
 #else
         mov     regSP, #0x1F0
