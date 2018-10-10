@@ -634,17 +634,15 @@
         ADC_STAGE2 \reg
 .endm
 
-
 .macro ADC_STAGE1 reg fetch=FETCH jump
         tst     flags, #D_FLAG6502
         bic     flags, #V_FLAG6502
 .if \fetch==FETCH
         FETCH_NEXT_STAGE_0
 .endif
-        lsl     regA,regA,#24
+        lsl     regA, regA, #24
         subcs   \reg, \reg ,#0x100        // if carry set then set top 24 bits
 .ifb  \jump
-
 .else
         beq     \jump
 .endif
@@ -665,9 +663,8 @@
         adcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b
 .endif
-
         orrvs   flags, #V_FLAG6502
-        SXTB    regA,regA,ROR #24
+        SXTB    regA, regA, ROR #24
         FETCH_NEXT_STAGE_2
 .endm
 
