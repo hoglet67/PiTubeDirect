@@ -1377,7 +1377,10 @@ opcode_3A:
 opcode_3B:
         B      opcode_EA
 JUMP_RTI:
-        sub    regPC ,#1
+#if defined(USE_MEMORY_POINTER)
+        add     regPC, regPC, memry
+#endif
+        sub     regPC ,#1
         FETCH_NEXT_3B_STAGE_0
         CHECK_IRQ
         FETCH_NEXT_STAGE_012
@@ -1415,17 +1418,10 @@ opcode_3F:
 // Opcode 40 - RTI
 opcode_40:
         PLP
-#if defined(USE_MEMORY_POINTER)
-        ldrh    r1, [regSP, #1]
-        mov     r0, #2
-        UADD8   regSP, regSP, r0
-        add     regPC, memry, r1
-#else
         ldrh    regPC, [regSP, #1]
         mov     r0, #2
         UADD8   regSP, regSP, r0
-#endif
-        B      JUMP_RTI
+        B       JUMP_RTI
         .balign I_ALIGN
 
 // Opcode 41 - EOR ($00,X)
@@ -1636,8 +1632,8 @@ opcode_60:
         add     regPC, regPC, memry
 #endif        
         ldrb      r1, [regPC, #1]
-        ldrb      operand, [regPC, #2]  //hidden in stall
-        ldrb      next_instr, [regPC, #3]! //hidden in stall
+        ldrb      operand, [regPC, #2]         //hidden in stall
+        ldrb      next_instr, [regPC, #3]!     //hidden in stall
         add       lr, instt, r1, LSL #I_ALIGN_BITS
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
