@@ -1165,11 +1165,11 @@ opcode_1F:
 opcode_20:
 #if defined(USE_MEMORY_POINTER)
         strh    regPC, [regSP,#-1]               // memory is 64K aligned so only need hword
-        add     regPC, operand,next_instr,LSL #8
+        add     regPC, operand, next_instr, LSL #8
         add     regPC, regPC, memry
         ldrb    r1, [regPC]
         sub     regSP, regSP, #2
-        ADD     lr,instt,r1,LSL #I_ALIGN_BITS
+        ADD     lr, instt, r1, LSL #I_ALIGN_BITS
         FETCH_NEXT_STAGE_1a
         orr     regSP, #0x0100
         FETCH_NEXT_STAGE_1b
@@ -1177,11 +1177,10 @@ opcode_20:
 #else
         ldrb    r1, [operand,next_instr,LSL #8] // modified FETCH_NEXT_3B_STAGE_0
         strh    regPC, [regSP,#-1]
-        add     regPC,operand,next_instr,LSL #8
-        sub     regSP, regSP, #2
-        ADD     lr,instt,r1,LSL #I_ALIGN_BITS
+        add     regPC, operand, next_instr, LSL #8
+        usub8   regSP, regSP, memry
+        ADD     lr, instt, r1, LSL #I_ALIGN_BITS
         FETCH_NEXT_STAGE_1a
-        orr     regSP, #0x0100
         FETCH_NEXT_STAGE_1b
         bx      lr
 #endif
@@ -1415,8 +1414,12 @@ opcode_3F:
 opcode_40:
         PLP
         ldrh    regPC, [regSP, #1]
+#if defined(USE_MEMORY_POINTER)
         mov     r0, #2
         UADD8   regSP, regSP, r0
+#else
+        UADD8   regSP, regSP, memry
+#endif
         B       JUMP_RTI
         .balign I_ALIGN
 
@@ -1626,7 +1629,7 @@ opcode_60:
         UADD8   regSP, regSP, r0
 #if defined(USE_MEMORY_POINTER)
         add     regPC, regPC, memry
-#endif        
+#endif
         ldrb      r1, [regPC, #1]
         ldrb      operand, [regPC, #2]         //hidden in stall
         ldrb      next_instr, [regPC, #3]!     //hidden in stall
@@ -3135,6 +3138,7 @@ exec_65tube:
                                         // must be 64k aligned
         orr     regSP, r0, #0x1F0       // set 6502 stack pointer up
 #else
+        mov     memry, #2               // constant for uadd8 and usub8
         mov     regSP, #0x1F0
 #endif
         ldr     instt, =opcode_00  // set instt (r7) to the base address of the 6502 instruction handler
