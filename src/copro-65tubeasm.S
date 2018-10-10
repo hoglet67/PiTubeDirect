@@ -1380,8 +1380,7 @@ JUMP_RTI:
 #if defined(USE_MEMORY_POINTER)
         add     regPC, regPC, memry
 #endif
-        sub     regPC ,#1
-        FETCH_NEXT_3B_STAGE_0
+        FETCH_NEXT_3B_STAGE_0 SUBPC
         CHECK_IRQ
         FETCH_NEXT_STAGE_012
         .balign I_ALIGN
