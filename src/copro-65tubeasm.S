@@ -118,9 +118,9 @@
 .text
 .global exec_65tube
 
-.equ    N_FLAG,      0x80000000
-.equ    Z_FLAG,      0x40000000
-.equ    C_FLAG,      0x20000000
+.equ    N_FLAG,                 0x80000000
+.equ    Z_FLAG,                 0x40000000
+.equ    C_FLAG,                 0x20000000
 .equ    CPSR_FIQ_INHIBIT,       0x40
 .equ    CPSR_IRQ_INHIBIT,       0x80
 
@@ -143,7 +143,7 @@
 // These can be split up into a number of stages to help pipelining
 
 .macro FETCH_NEXT_STAGE_0_I
-        ADD     lr,instt,operand,LSL #I_ALIGN_BITS
+        ADD     lr, instt, operand, LSL #I_ALIGN_BITS
 .endm
 
 .macro FETCH_NEXT_STAGE_1_I
@@ -158,8 +158,8 @@
 
 // Macros for fetching the next instruction, for two bytes
 
-.macro FETCH_NEXT_STAGE_0 table=instt  src=next_instr
-        ADD     lr,\table,\src,LSL #I_ALIGN_BITS
+.macro FETCH_NEXT_STAGE_0 table=instt src=next_instr
+        ADD     lr, \table, \src, LSL #I_ALIGN_BITS
 .endm
 
 .macro FETCH_NEXT_STAGE_1a
@@ -223,7 +223,7 @@
 
 .macro FETCH_NEXT_3B_MERGED sub=NOBSUB
 .if \sub==SUBPC
-      ldrb    lr, [regPC]                  //4 cycles
+        ldrb    lr, [regPC]                //4 cycles
         FETCH_NEXT_STAGE_1
         FETCH_NEXT_STAGE_0 instt lr
         FETCH_NEXT_STAGE_2
@@ -235,7 +235,7 @@
         ldrb    lr, [regPC]
 #else
         ldrb    lr, [operand,next_instr,LSL #8] //5 cycles
-        add     regPC,operand,next_instr,LSL #8
+        add     regPC, operand, next_instr, LSL #8
 #endif
         FETCH_NEXT_STAGE_1a
         FETCH_NEXT_STAGE_0 instt lr
@@ -251,13 +251,8 @@
 .endm
 
 // Used for instructions that can enable interrupts: CLI, PLP , RTI
-.macro CHECK_IRQ restoreflags=none
-        ldr     r0, =tube_irq
-.if \restoreflags==mrs
-        mrs     r2, CPSR                  // Preserve the 6502 flags
-.endif
+.macro CHECK_IRQ
         tst     flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
-        ldreq   r0, [r0]
         eoreq   r0, r0, #1
         tsteq   r0, #1                    // Test for IRQ
         beq     handle_irq_adjust_regPC
@@ -266,18 +261,16 @@
 
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 256 byte aligned
-// Optimisations from dp11 on stardot
 .macro SPUSH reg
         strb    \reg, [regSP], #-1
         orr     regSP, #0x0100
 .endm
 
 // Macro for poping a byte from the stack, whilst correctly handing wrapping
-// This relies on the 6502 memory being 256Byte aligned
-// Optimisations from dp11 on stardot
+// This relies on the 6502 memory being 1024 Byte aligned
 .macro SPOP reg
         add     regSP, regSP, #1
-        bic     regSP, #0xFF00
+        bic     regSP, #0x0300
         ldrb    \reg, [regSP,#0x0100]!
 .endm
 
@@ -320,7 +313,7 @@
 
 // Macros for calculating effective address in operand
 .macro EA_ABSOLUTE
-        orr     operand,operand,next_instr,LSL #8
+        orr     operand, operand, next_instr, LSL #8
 .endm
 
 // Macros for reading/writing memory
@@ -679,8 +672,8 @@
 .if \fetch==FETCH
         FETCH_NEXT_STAGE_0
 .endif
-        LSL     regA,regA,#24
-        subcc   \reg, \reg ,#0x100        // if carry clear then set top 24 bits
+        LSL     regA, regA, #24
+        subcc   \reg, \reg, #0x100        // if carry clear then set top 24 bits
 
 .ifb \jump
 
@@ -707,7 +700,7 @@
         FETCH_NEXT_STAGE_1b
 .endif
         orrvs   flags, #V_FLAG6502
-        SXTB    regA,regA,ROR #24
+        SXTB    regA, regA, ROR #24
         FETCH_NEXT_STAGE_2
 .endm
 
@@ -805,13 +798,13 @@
 .if \reg==operand
         sxtb     \dest, \reg
         FETCH_NEXT_STAGE_1a
-        teq     \dest, #0
+        teq      \dest, #0
         FETCH_NEXT_STAGE_1b
         FETCH_NEXT_STAGE_2
 .else
         FETCH_NEXT_STAGE_1
         sxtb     \dest, \reg
-        teq     \dest, #0
+        teq      \dest, #0
         FETCH_NEXT_STAGE_2
 .endif
 .endm
@@ -825,7 +818,7 @@
 
 .macro FLAGS_SIGN_OO dest=r1 reg=r1
         FETCH_NEXT_STAGE_1b_OO
-        sxtb     \dest, \reg
+        sxtb    \dest, \reg
         teq     \dest, #0
         FETCH_NEXT_STAGE_2
 .endm
@@ -837,25 +830,23 @@
 .endm
 
 .macro FLAGS_QUICK_FETCH012 dest=r1
-        FETCH_NEXT_STAGE_1a
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1b
+        FETCH_NEXT_STAGE_01
         teq     \dest,#0
         FETCH_NEXT_STAGE_2
 .endm
 
 .macro  PLP
-        SPOP    r0
-        mrs     r2, CPSR
+        SPOP    r1
+        ldr     r0, =tube_irq           // prefetch Tube IRQ flags
         and     flags, flags, #0xffffff00
-        orr     flags, flags, r0        // preserve the other bits in flags, e.g. the slowdown bit
-        and     r1, r0, #N_FLAG6502
-        bic     r2, #(N_FLAG + Z_FLAG + C_FLAG)
-        orr     r2, r2, r1, lsl #24
-        and     r1, r0, #Z_FLAG6502+C_FLAG6502
+        orr     flags, flags, r1        // preserve the other bits in flags, e.g. the slowdown bit
+        and     r2, r1, #N_FLAG6502
+        and     r1, r1, #Z_FLAG6502+C_FLAG6502
+        ldr     r0, [r0]
+        mov     r2, R2, lsl #24
         bic     flags, flags, #N_FLAG6502+X_FLAG6502+B_FLAG6502+Z_FLAG6502+C_FLAG6502
         orr     r2, r2, r1, lsl #29
-        //msr     CPSR_flg, r2
+        //   Need to update the ARM flags later with msr     CPSR_flg, r2
 .endm
 
 .macro EVENT_HANDLER_STAGE_0
@@ -868,7 +859,6 @@
         tst     r0, #4                  // Bit 2 set indicate RST is active
         b       Event_Handler
         .ltorg
-
 .endm
 
 .macro EVENT_HANDLER_SLOW_STAGE_0
@@ -1415,8 +1405,8 @@ opcode_40:
         PLP
         ldrh    regPC, [regSP, #1]
 #if defined(USE_MEMORY_POINTER)
-        mov     r0, #2
-        UADD8   regSP, regSP, r0
+        mov     r1, #2
+        UADD8   regSP, regSP, r1
 #else
         UADD8   regSP, regSP, memry
 #endif
@@ -1570,9 +1560,12 @@ opcode_57:
 
 // Opcode 58 - CLI
 opcode_58:
-        bic     flags, flags, #I_FLAG6502
         FETCH_NEXT_STAGE_0_I
-        CHECK_IRQ mrs
+        ldr     r0, =tube_irq             // Get IRQ status
+        bic     flags, flags, #I_FLAG6502
+        ldr     r0, [r0]
+        mrs     r2, CPSR                  // Preserve the 6502 flags
+        CHECK_IRQ
         FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_STAGE_2
         .ltorg
@@ -3153,7 +3146,7 @@ exec_65tube:
                                         // This was added to fix a bug where the language transfer
                                         // would fail if exec_65tube was entered with certain
                                         // values of flags (specifically, with bit 7 = 1).
-                                        // Code assumes Bits 7,2,1 is zero 
+                                        // Code assumes Bits 7,2,1 is zero
 
         // setup ARM cycle counter
 #if defined(RPI2)|| defined(RPI3)
