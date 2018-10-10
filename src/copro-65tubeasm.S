@@ -210,20 +210,20 @@
 
 .macro FETCH_NEXT_3B_STAGE_0 sub=NOBSUB
 .if \sub==SUBPC
-        ldrb    next_instr, [regPC]           //4 cycles
+        ldrb    next_instr, [regPC]        //4 cycles
 .else
 .if \sub==indirect
         ldrb    next_instr, [operand,next_instr,LSL #8]!      //5 cycles
         mov     regPC,operand
 .else
-        ldrb    next_instr, [regPC, #1]!      //4 cycles
+        ldrb    next_instr, [regPC, #1]!   //4 cycles
 .endif
 .endif
 .endm
 
 .macro FETCH_NEXT_3B_MERGED sub=NOBSUB
 .if \sub==SUBPC
-      ldrb    lr, [regPC]                   //4 cycles
+      ldrb    lr, [regPC]                  //4 cycles
         FETCH_NEXT_STAGE_1
         FETCH_NEXT_STAGE_0 instt lr
         FETCH_NEXT_STAGE_2
@@ -242,7 +242,7 @@
         FETCH_NEXT_STAGE_1b
         FETCH_NEXT_STAGE_2
 .else
-        ldrb    lr, [regPC, #1]!              //4 cycles
+        ldrb    lr, [regPC, #1]!          //4 cycles
         FETCH_NEXT_STAGE_1
         FETCH_NEXT_STAGE_0 instt lr
         FETCH_NEXT_STAGE_2
