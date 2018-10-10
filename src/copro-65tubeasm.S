@@ -3149,12 +3149,11 @@ exec_65tube:
 
         ldr     tregs, =(0x0000fee0 >> 5)  // initialize the constant in tregs
 
-        mov     flags, #0x00               // Initialize flags (flags) to zero on power up
+        mov     flags, #0x00            // Initialize flags (flags) to zero on power up
                                         // This was added to fix a bug where the language transfer
                                         // would fail if exec_65tube was entered with certain
                                         // values of flags (specifically, with bit 7 = 1).
-                                        // This is very strange, because flags bit 7 is not used!
-                                        // To reproduce, initialize flags to 0x80
+                                        // Code assumes Bits 7,2,1 is zero 
 
         // setup ARM cycle counter
 #if defined(RPI2)|| defined(RPI3)
