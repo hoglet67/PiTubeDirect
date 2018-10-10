@@ -894,8 +894,8 @@
 
 // Opcode 00 - BRK is really a two byte instruction, so no fixup needed
 opcode_00:
-        INTR    -2, 1
         FETCH_NEXT_3B_STAGE_0 SUBPC
+        INTR    -2, 1
         B     opcode_02
         .balign I_ALIGN
 
@@ -1137,9 +1137,7 @@ opcode_1D:
 // Opcode 1E - ASL $0000,X
 opcode_1E:
         EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry SIGN r1 r2
-        FETCH_NEXT_STAGE_1a
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1b
+        FETCH_NEXT_STAGE_01
         add     r1, r1, r1
         STORE_BYTE r1 r2
         movs    r1, r1, lsl #24
@@ -1384,9 +1382,7 @@ opcode_3D:
 // Opcode 3E - ROL $0000,X
 opcode_3E:
         EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX carry SIGN r1 r2
-        FETCH_NEXT_STAGE_1a
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1b
+        FETCH_NEXT_STAGE_01
         adc     r1, r1, r1
         STORE_ZPX
         movs    r1, r1, lsl #24
