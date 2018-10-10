@@ -1163,16 +1163,14 @@ opcode_20:
         FETCH_NEXT_STAGE_1a
         orr     regSP, #0x0100
         FETCH_NEXT_STAGE_1b
-        bx      lr
+        FETCH_NEXT_STAGE_2
 #else
         ldrb    r1, [operand,next_instr,LSL #8] // modified FETCH_NEXT_3B_STAGE_0
         strh    regPC, [regSP,#-1]
         add     regPC, operand, next_instr, LSL #8
         usub8   regSP, regSP, memry
         ADD     lr, instt, r1, LSL #I_ALIGN_BITS
-        FETCH_NEXT_STAGE_1a
-        FETCH_NEXT_STAGE_1b
-        bx      lr
+        FETCH_NEXT_STAGE_12
 #endif
         .balign I_ALIGN
 
@@ -1779,7 +1777,7 @@ opcode_73:
 opcode_74:
         SETUP_ZPX regX
         FETCH_NEXT_STAGE_0
-        STORE_ZPX  instt
+        STORE_ZPX  instt                        // lower byte is defined to be zero
         FETCH_NEXT_STAGE_12
         .balign I_ALIGN
 
@@ -1816,7 +1814,7 @@ opcode_78:
 opcode_79:
         EA_ABSOLUTE_INDEXED_LOAD regY carry NOSIGN
         ADC_STAGE1 r1  FETCH JUMP_ADC_STAGE2
-         .balign I_ALIGN
+        .balign I_ALIGN
 
 // Opcode 7A - PLY
 opcode_7A:
@@ -1829,7 +1827,7 @@ opcode_7A:
 
 // Opcode 7B - NOP
 opcode_7B:
-         NOP_1
+        NOP_1
         .balign I_ALIGN
 
 // Opcode 7C - JMP ($0000,X)
@@ -1930,7 +1928,7 @@ opcode_88:
 // Opcode 89 - BIT #$00
 opcode_89:
         FETCH_NEXT_STAGE_0
-        sxtb    operand,operand
+        sxtb    operand, operand
         mrs     r1, CPSR
         tst     regA, operand
         bic     r1, r1, #Z_FLAG
@@ -1986,7 +1984,7 @@ opcode_90:
 opcode_91:
         EA_INDIRECT r1
         FETCH_NEXT_STAGE_01
-        strb regA,[r1,regY,lsr #24]
+        strb    regA,[r1, regY, lsr #24]
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -2038,7 +2036,7 @@ opcode_97:
 // Opcode 98 - TYA
 opcode_98:
         FETCH_NEXT_STAGE_01_I
-        sxtb    regA, regY,ror #24
+        sxtb    regA, regY, ror #24
         TEQ     regA, #0
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
@@ -2052,8 +2050,8 @@ opcode_99:
 // Opcode 9A - TXS
 opcode_9A:
         FETCH_NEXT_STAGE_01_I
-        bic     regSP, regSP, #0xFF            // clear lower nibble
-        orr     regSP, regSP, regX, lsr #24    // put X in lower nibble
+        bic     regSP, regSP, #0xFF             // clear lower nibble
+        orr     regSP, regSP, regX, lsr #24     // put X in lower nibble
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -2066,7 +2064,7 @@ opcode_9B:
 opcode_9C:
         EA_ABSOLUTE
         FETCH_NEXT_3B_STAGE_0
-        STORE_BYTE  instt
+        STORE_BYTE  instt                       // lower byte is defined to be zero
         FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
@@ -2080,7 +2078,7 @@ opcode_9D:
 opcode_9E:
         EA_ABSOLUTE_INDEXED regX
         FETCH_NEXT_3B_STAGE_0
-        STORE_BYTE  instt
+        STORE_BYTE  instt                       // lower byte is defined to be zero
         FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
@@ -2165,8 +2163,7 @@ opcode_AB:
 // Opcode AC - LDY $0000
 opcode_AC:
         EA_ABSOLUTE_LOAD
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_01
         lsl    regY,r1,#24
         teq    regY,#0
         FETCH_NEXT_STAGE_2
@@ -2182,7 +2179,7 @@ opcode_AD:
 opcode_AE:
         EA_ABSOLUTE_LOAD
         FETCH_NEXT_STAGE_0
-         FLAGS   regX
+        FLAGS   regX
         .balign I_ALIGN
 
 // Opcode AF - BBS2
@@ -2232,21 +2229,21 @@ tube_load_handler_sign:
 opcode_B4:
         LOAD_ZPX
         FETCH_NEXT_STAGE_1
-        lsl    regY,r1,#24
-        teq    regY,#0
+        lsl    regY, r1, #24
+        teq    regY, #0
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode B5 - LDA $00,X
 opcode_B5:
         LOAD_ZPX regX FETCH SIGN regA
-        FLAGS_QUICK   regA
+        FLAGS_QUICK regA
         .balign I_ALIGN
 
 // Opcode B6 - LDX $00,Y
 opcode_B6:
         LOAD_ZPX regY
-         FLAGS   regX
+        FLAGS   regX
         .balign I_ALIGN
 
 // Opcode B7 - SMB3 $00
@@ -2295,9 +2292,9 @@ opcode_BC:
         LOAD_ABSOLUTE carry SIGN r1
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a
-        lsl    regY,r1,#24
+        lsl    regY, r1, #24
         FETCH_NEXT_STAGE_1b
-        teq    regY,#0
+        teq    regY, #0
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -2305,10 +2302,10 @@ opcode_BC:
 opcode_BD:
         EA_ABSOLUTE_INDEXED regX
         FETCH_NEXT_3B_STAGE_0
-        lsr     lr, operand, #5
+        lsr    lr, operand, #5
         ldrsb  regA,[operand]
-        teq     tregs, lr                      // tregs holds the constant 0xFEE0 >> 5
-        Beq      tube_load_handler_regA_flags
+        teq    tregs, lr                      // tregs holds the constant 0xFEE0 >> 5
+        Beq    tube_load_handler_regA_flags
         FLAGS_QUICK_FETCH012 regA
         .balign I_ALIGN
 
@@ -2353,8 +2350,7 @@ opcode_C3:
 // Opcode C4 - CPY $00
 opcode_C4:
         LOAD_BYTE
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_01
         cmp     regY, r1, lsl #24
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
@@ -2468,7 +2464,6 @@ opcode_D1:
         FETCH_NEXT_STAGE_1
         cmp     r2, r1, LSL #24
         FETCH_NEXT_STAGE_2
-
         .balign I_ALIGN
 
 // Opcode D2 - CMP ($00)
@@ -2487,8 +2482,7 @@ opcode_D3:
 
 // Opcode D4 - NOP $00,X
 opcode_D4:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
 // Opcode D5 - CMP $00,X
@@ -2550,7 +2544,7 @@ opcode_DB:
 
 // Opcode DC - NOP $0000
 opcode_DC:
-         FETCH_NEXT_3B_MERGED
+        FETCH_NEXT_3B_MERGED
         .balign I_ALIGN
 
 // Opcode DD - CMP $0000,X
@@ -2590,14 +2584,14 @@ opcode_E0:
 // Opcode E1 - SBC ($00,X)
 opcode_E1:
         EA_INDIRECT_X NOSIGN
-        SBC_STAGE1     r1 NOFETCH
-        SBC_STAGE2     r1
+        SBC_STAGE1  r1 NOFETCH
+        SBC_STAGE2  r1
         .balign I_ALIGN
 
 // Opcode E2 - NOP #$00
 opcode_E2:
         NOP_2
-        tube_store_handler_regA:
+tube_store_handler_regA:
         mov     r1, regA
 tube_store_handler:
         push    {r2-r3,r12}
@@ -2609,7 +2603,7 @@ tube_store_handler:
          .balign I_ALIGN
 
 opcode_E3:
-         B     opcode_EA
+        B     opcode_EA
 tube_load_handler_regA:
         push    {operand,r2,r3,next_instr,r12,lr}
         mrs     next_instr, CPSR               // Save 6502 flags
@@ -2630,9 +2624,9 @@ opcode_E4:
 // Opcode E5 - SBC_macro $00
 opcode_E5:
         LOAD_BYTE NOSIGN
-        SBC_STAGE1     r1
+        SBC_STAGE1  r1
 JUMP_SBC_STAGE2:
-        SBC_STAGE2     r1
+        SBC_STAGE2  r1
         .balign I_ALIGN
 
 // Opcode E6 - INC $00
@@ -2662,8 +2656,8 @@ opcode_E8:
 
 // Opcode E9 - SBC_macro #$00
 opcode_E9:
-         SBC_STAGE1     operand
-         SBC_STAGE2     operand
+         SBC_STAGE1  operand
+         SBC_STAGE2  operand
         .balign I_ALIGN
 
 // Opcode EA - NOP
@@ -2688,8 +2682,7 @@ opcode_EB:
 // Opcode EC - CPX $0000
 opcode_EC:
         EA_ABSOLUTE_LOAD nocarry
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_01
         cmp     regX, r1, lsl #24
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
