@@ -1629,21 +1629,17 @@ opcode_5F:
 // Opcode 60 - RTS
 opcode_60:
         ldrh    regPC, [regSP, #1]
-#if defined(USE_MEMORY_POINTER)
-        add     r1, memry, #1
-        mov     r0, #2
-        UADD8   regSP, regSP, r0
-#else
         // stall
         mov     r0, #2
         UADD8   regSP, regSP, r0
-#endif
+#if defined(USE_MEMORY_POINTER)
+        add     regPC, regPC, memry
+#endif        
         ldrb      r1, [regPC, #1]
         ldrb      operand, [regPC, #2]  //hidden in stall
         ldrb      next_instr, [regPC, #3]! //hidden in stall
         add       lr, instt, r1, LSL #I_ALIGN_BITS
         FETCH_NEXT_STAGE_2
-
         .balign I_ALIGN
 
 // Opcode 61 - ADC ($00,X)
