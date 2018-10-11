@@ -1087,7 +1087,7 @@ opcode_17:
 
 // Opcode 18 - CLC
 opcode_18:
-        mrs     r1, CPSR
+        mrscs   r1, CPSR
         FETCH_NEXT_STAGE_01_I
         bxcc    lr
         bic     r1, r1, #C_FLAG
@@ -1339,7 +1339,7 @@ opcode_37:
 
 // Opcode 38 - SEC
 opcode_38:
-        mrs     r1, CPSR
+        mrscc     r1, CPSR
         FETCH_NEXT_STAGE_01_I
         bxcs    lr
         orr     r1, r1, #C_FLAG
@@ -1460,8 +1460,8 @@ opcode_47:
 
 // Opcode 48 - PHA
 opcode_48:
-        FETCH_NEXT_STAGE_01_I
         SPUSH   regA
+        FETCH_NEXT_STAGE_01_I
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -1652,9 +1652,8 @@ opcode_63:
 
 // Opcode 64 - STZ $00
 opcode_64:
-        FETCH_NEXT_STAGE_0
         STORE_BYTE instt
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
 // Opcode 65 - ADC $00
@@ -1909,10 +1908,9 @@ opcode_85:
 
 // Opcode 86 - STX $00
 opcode_86:
-        FETCH_NEXT_STAGE_0
         lsr     r1, regX, #24
         STORE_BYTE
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
 // Opcode 87 - SMB0 $00
@@ -2574,11 +2572,8 @@ opcode_DF:
 
 // Opcode E0 - CPX #$00
 opcode_E0:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1a_OO
         cmp     regX, operand, lsl #24
-        FETCH_NEXT_STAGE_1b_OO
-        FETCH_NEXT_STAGE_2
+        FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
 // Opcode E1 - SBC ($00,X)
