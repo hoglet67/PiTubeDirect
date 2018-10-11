@@ -2166,10 +2166,8 @@ opcode_AB:
 // Opcode AC - LDY $0000
 opcode_AC:
         EA_ABSOLUTE_LOAD
-        FETCH_NEXT_STAGE_01
-        lsl    regY,r1,#24
-        teq    regY,#0
-        FETCH_NEXT_STAGE_2
+        FETCH_NEXT_STAGE_0
+        FLAGS   regY
         .balign I_ALIGN
 
 // Opcode AD - LDA $0000
