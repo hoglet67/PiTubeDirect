@@ -606,7 +606,7 @@
 
 // instruction macros
 
-.macro  BIT
+.macro BIT_STAGE1
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a
         bic     flags, flags, #V_FLAG6502
@@ -614,6 +614,9 @@
         mrs     next_instr, CPSR
         and     r2, r1, #N_FLAG
         and     r1, r1, #V_FLAG6502
+.endm
+
+.macro  BIT_STAGE2
         orr     flags, flags, r1
         bic     next_instr, next_instr, #N_FLAG
         orr     next_instr, next_instr, r2
@@ -1193,8 +1196,9 @@ opcode_23:
 // Opcode 24 - BIT $00
 opcode_24:
         LOAD_BYTE
+        BIT_STAGE1
 JUMP_BIT:
-        BIT
+        BIT_STAGE2
         .balign I_ALIGN
 
 // Opcode 25 - AND     $00
@@ -1255,6 +1259,7 @@ JUMP_PLP:
 // Opcode 2C - BIT $0000
 opcode_2C:
         EA_ABSOLUTE_LOAD
+        BIT_STAGE1
         B      JUMP_BIT
         .balign I_ALIGN
 
@@ -1307,6 +1312,7 @@ opcode_33:
 // Opcode 34 - BIT $00,X
 opcode_34:
         LOAD_ZPX regX
+        BIT_STAGE1
         B    JUMP_BIT
         .balign I_ALIGN
 
@@ -1372,6 +1378,7 @@ JUMP_RTI:
 // Opcode 3C - BIT $0000,X
 opcode_3C:
         EA_ABSOLUTE_INDEXED_LOAD regX
+        BIT_STAGE1
         B      JUMP_BIT
         .balign I_ALIGN
 
