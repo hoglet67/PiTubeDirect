@@ -17,7 +17,7 @@
 // next execute 0xEB then the instruction to time and lastly execute 0xFB
 // ARM_execution_cycles = !&E4 - !&E0 - timing_zero_error
 
-//#define TIMING_INSTRUCTION
+#define TIMING_INSTRUCTION
 
 // Code layout
 // For optimisation reasons ARM code is defined to start on a 32K boundary
@@ -894,8 +894,8 @@
 
 // Opcode 00 - BRK is really a two byte instruction, so no fixup needed
 opcode_00:
-        FETCH_NEXT_3B_STAGE_0 SUBPC
         INTR    -2, 1
+        FETCH_NEXT_3B_STAGE_0 SUBPC
         B     opcode_02
         .balign I_ALIGN
 
@@ -1167,8 +1167,10 @@ opcode_20:
         strh    regPC, [regSP,#-1]
         add     regPC, operand, next_instr, LSL #8
         usub8   regSP, regSP, memry
+        FETCH_NEXT_STAGE_1a
         ADD     lr, instt, r1, LSL #I_ALIGN_BITS
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_1b
+        FETCH_NEXT_STAGE_2
 #endif
         .balign I_ALIGN
 
@@ -1633,8 +1635,7 @@ opcode_61:
 
 // Opcode 62 - NOP #$00
 opcode_62:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_12
+        NOP_2
          .balign I_ALIGN
 
 // Opcode 63 - NOP
@@ -1649,7 +1650,7 @@ opcode_64:
         FETCH_NEXT_STAGE_12
         .balign I_ALIGN
 
-// Opcode 65 - ADC_macro $00
+// Opcode 65 - ADC $00
 opcode_65:
         LOAD_BYTE NOSIGN
         ADC_STAGE1 r1
@@ -2413,8 +2414,7 @@ opcode_CB:
 // Opcode CC - CPY $0000
 opcode_CC:
         EA_ABSOLUTE_LOAD nocarry
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_01
         cmp     regY, r1, lsl #24
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
