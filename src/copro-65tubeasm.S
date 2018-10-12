@@ -266,6 +266,12 @@
         orr     regSP, #0x0100
 .endm
 
+.macro SPUSH_FETCH reg
+        strb    \reg, [regSP], #-1
+        FETCH_NEXT_STAGE_0_I
+        orr     regSP, #0x0100
+.endm
+
 // Macro for poping a byte from the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 1024 Byte aligned
 .macro SPOP reg
@@ -958,12 +964,13 @@ opcode_07:
 
 // Opcode 08 - PHP
 opcode_08:
-        FETCH_NEXT_STAGE_01_I
+        
         orr     r1, flags, #X_FLAG6502+B_FLAG6502
         orrmi   r1, r1, #N_FLAG6502
         orrcs   r1, r1, #C_FLAG6502
         orreq   r1, r1, #Z_FLAG6502
-        SPUSH   r1
+        SPUSH_FETCH   r1
+        FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -1460,8 +1467,8 @@ opcode_47:
 
 // Opcode 48 - PHA
 opcode_48:
-        SPUSH   regA
-        FETCH_NEXT_STAGE_01_I
+        SPUSH_FETCH   regA
+        FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -1582,9 +1589,9 @@ opcode_59:
 
 // Opcode 5A - PHY
 opcode_5A:
-        FETCH_NEXT_STAGE_01_I
         lsr     r1, regY, #24
-        SPUSH   r1
+        SPUSH_FETCH   r1
+        FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -2527,9 +2534,9 @@ opcode_D9:
 
 // Opcode DA - PHX
 opcode_DA:
-        FETCH_NEXT_STAGE_01_I
         lsr     r1, regX, #24
-        SPUSH   r1
+        SPUSH_FETCH   r1
+        FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
