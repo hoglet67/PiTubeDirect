@@ -515,34 +515,17 @@
 .endif
 .endm
 
-.macro STORE_ABSOLUTE  flags=flags  reg=r1 norestore=store  // operand holds the absolute address
-.if \flags==flags
+.macro STORE_ABSOLUTE  reg=r1           // operand holds the absolute address
         mrs     r2, CPSR                // preserve the 6502 flags
         cmp     tregs, operand, lsr #5  // tregs holds the constant 0xFEE0 >> 5
         FETCH_NEXT_3B_STAGE_0
-.endif
-
-.if \flags==carry
-        lsr     r2, operand, #5
-        teq     tregs, r2               // tregs holds the constant 0xFEE0 >> 5
-.endif
-
-.if \flags==nocarry
-        cmp     tregs, operand, lsr #5  // tregs holds the constant 0xFEE0 >> 5
-.endif
-
+        STORE_BYTE   \reg
 .if \reg==r1
         beq    tube_store_handler       // tube memory access
 .else
         beq    tube_store_handler_regA
 .endif
-        STORE_BYTE   \reg
-
-.if \norestore==store
-.if \flags==flags
-        msr     CPSR_flg, r2           // restore 6502 flags, including ARM
-.endif
-.endif
+        msr     CPSR_flg, r2            // restore 6502 flags, including ARM
         FETCH_NEXT_STAGE_012
 .endm
 
@@ -964,7 +947,7 @@ opcode_07:
 
 // Opcode 08 - PHP
 opcode_08:
-        
+
         orr     r1, flags, #X_FLAG6502+B_FLAG6502
         orrmi   r1, r1, #N_FLAG6502
         orrcs   r1, r1, #C_FLAG6502
@@ -1962,20 +1945,20 @@ opcode_8B:
 opcode_8C:
         EA_ABSOLUTE
         lsr     r1, regY, #24
-        STORE_ABSOLUTE flags r1
+        STORE_ABSOLUTE r1
         .balign I_ALIGN
 
 // Opcode 8D - STA $0000
 opcode_8D:
         EA_ABSOLUTE
-        STORE_ABSOLUTE flags regA
+        STORE_ABSOLUTE regA
         .balign I_ALIGN
 
 // Opcode 8E - STX $0000
 opcode_8E:
         EA_ABSOLUTE
         lsr     r1, regX, #24
-        STORE_ABSOLUTE flags r1
+        STORE_ABSOLUTE r1
         .balign I_ALIGN
 
 // Opcode 8F - BBS0
@@ -2052,7 +2035,7 @@ opcode_98:
 // Opcode 99 - STA $0000,Y
 opcode_99:
         EA_ABSOLUTE_INDEXED regY
-        STORE_ABSOLUTE flags regA
+        STORE_ABSOLUTE regA
         .balign I_ALIGN
 
 // Opcode 9A - TXS
@@ -2079,7 +2062,7 @@ opcode_9C:
 // Opcode 9D - STA $0000,X
 opcode_9D:
         EA_ABSOLUTE_INDEXED regX
-        STORE_ABSOLUTE flags regA
+        STORE_ABSOLUTE regA
         .balign I_ALIGN
 
 // Opcode 9E - STZ $0000,X
@@ -2213,22 +2196,6 @@ opcode_B2:
 // Opcode B3 - NOP
 opcode_B3:
         B      opcode_EA
-
-tube_load_handler:
-        push    {operand,r2,r3,next_instr,r12,lr}
-        mrs     next_instr, CPSR               // Save 6502 flags
-        bl      tube_parasite_read
-        mov     r1,r0
-        msr     CPSR_flg, next_instr
-        pop     {operand,r2,r3,next_instr,r12,pc}
-
-tube_load_handler_sign:
-        push    {operand,r2,r3,next_instr,r12,lr}
-        mrs     next_instr, CPSR               // Save 6502 flags
-        bl      tube_parasite_read
-        sxtb    r1,r0
-        msr     CPSR_flg, next_instr
-        pop     {operand,r2,r3,next_instr,r12,pc}
         .balign I_ALIGN
 
 // Opcode B4 - LDY $00,X
@@ -2281,14 +2248,6 @@ opcode_BA:
 // Opcode BB - NOP
 opcode_BB:
         B      opcode_EA
-tube_load_handler_regA_flags:
-        push    {operand,r2,r3,next_instr,r12}
-        mrs     next_instr, CPSR               // Save 6502 flags
-        bl      tube_parasite_read
-        sxtb    regA,r0
-        msr     CPSR_flg, next_instr
-        pop     {operand,r2,r3,next_instr,r12}
-        FLAGS_QUICK_FETCH012   regA
         .balign I_ALIGN
 
 // Opcode BC - LDY $0000,X
@@ -2593,26 +2552,10 @@ opcode_E1:
 // Opcode E2 - NOP #$00
 opcode_E2:
         NOP_2
-tube_store_handler_regA:
-        mov     r1, regA
-tube_store_handler:
-        push    {r2-r3,r12}
-        bl      tube_parasite_write_banksel
-        pop     {r2-r3,r12}
-        FETCH_NEXT_STAGE_0
-        msr     CPSR_flg, r2           // restore 6502 flags, including ARM
-        FETCH_NEXT_STAGE_12
          .balign I_ALIGN
 
 opcode_E3:
         B     opcode_EA
-tube_load_handler_regA:
-        push    {operand,r2,r3,next_instr,r12,lr}
-        mrs     next_instr, CPSR               // Save 6502 flags
-        bl      tube_parasite_read
-        sxtb    regA,r0
-        msr     CPSR_flg, next_instr
-        pop     {operand,r2,r3,next_instr,r12,pc}
          .balign I_ALIGN
 
 // Opcode E4 - CPX $00
@@ -2838,8 +2781,6 @@ opcode_FF:
         EVENT_HANDLER_STAGE_0
         .balign I_ALIGN
 .endr
-
-
 
 // **********************************************
 // Instruction timings
@@ -3310,7 +3251,6 @@ handle_irq2:
         INTR    -2, 0
         b       execute_one_instruction
 
-
 handle_nmi2:
         orr     r0,r2, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
         msr     CPSR_c,r0               // Disable interrupts
@@ -3327,6 +3267,56 @@ execute_one_instruction:
         FETCH_NEXT_STAGE_0 lr
         ldrb    next_instr, [regPC, #2]!
         bx      lr
+
+//
+// Tube access handlers
+
+tube_load_handler_regA_flags:
+        push    {operand,r2,r3,next_instr,r12}
+        mrs     next_instr, CPSR               // Save 6502 flags
+        bl      tube_parasite_read
+        sxtb    regA,r0
+        msr     CPSR_flg, next_instr
+        pop     {operand,r2,r3,next_instr,r12}
+        FLAGS_QUICK_FETCH012   regA
+
+tube_load_handler_regA:
+        push    {operand,r2,r3,next_instr,r12,lr}
+        mrs     next_instr, CPSR               // Save 6502 flags
+        bl      tube_parasite_read
+        sxtb    regA,r0
+        msr     CPSR_flg, next_instr
+        pop     {operand,r2,r3,next_instr,r12,pc}
+
+tube_load_handler:
+        push    {operand,r2,r3,next_instr,r12,lr}
+        mrs     next_instr, CPSR               // Save 6502 flags
+        bl      tube_parasite_read
+        mov     r1,r0
+        msr     CPSR_flg, next_instr
+        pop     {operand,r2,r3,next_instr,r12,pc}
+
+tube_load_handler_sign:
+        push    {operand,r2,r3,next_instr,r12,lr}
+        mrs     next_instr, CPSR               // Save 6502 flags
+        bl      tube_parasite_read
+        sxtb    r1,r0
+        msr     CPSR_flg, next_instr
+        pop     {operand,r2,r3,next_instr,r12,pc}
+
+tube_store_handler_regA:
+        mov     r1, regA
+tube_store_handler:
+        push    {r2-r3,r12}
+        bl      tube_parasite_write_banksel
+        pop     {r2-r3,r12}
+        FETCH_NEXT_STAGE_0
+        msr     CPSR_flg, r2           // restore 6502 flags, including ARM
+        FETCH_NEXT_STAGE_12
+
+//
+// Decimal mode functions
+//
 
 decimal_mode_adc:
         // if carry is set the upper 24 bits of R1 are set too
