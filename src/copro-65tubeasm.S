@@ -1882,12 +1882,9 @@ opcode_83:
 
 // Opcode 84 - STY $00
 opcode_84:
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1a_OO
         lsr     r1, regY, #24
         STORE_BYTE
-        FETCH_NEXT_STAGE_1b_OO
-        FETCH_NEXT_STAGE_2
+        FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
 // Opcode 85 - STA $00
@@ -2252,15 +2249,9 @@ opcode_BB:
 
 // Opcode BC - LDY $0000,X
 opcode_BC:
-        EA_ABSOLUTE_INDEXED regX
-        FETCH_NEXT_3B_STAGE_0
-        LOAD_ABSOLUTE carry SIGN r1
+        EA_ABSOLUTE_INDEXED_LOAD regX
         FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1a
-        lsl    regY, r1, #24
-        FETCH_NEXT_STAGE_1b
-        teq    regY, #0
-        FETCH_NEXT_STAGE_2
+        FLAGS   regY
         .balign I_ALIGN
 
 // Opcode BD - LDA $0000,X
@@ -2566,7 +2557,7 @@ opcode_E4:
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
-// Opcode E5 - SBC_macro $00
+// Opcode E5 - SBC $00
 opcode_E5:
         LOAD_BYTE NOSIGN
         SBC_STAGE1  r1
@@ -2599,7 +2590,7 @@ opcode_E8:
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
-// Opcode E9 - SBC_macro #$00
+// Opcode E9 - SBC #$00
 opcode_E9:
          SBC_STAGE1  operand
          SBC_STAGE2  operand
@@ -2632,7 +2623,7 @@ opcode_EC:
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
-// Opcode ED - SBC_macro $0000
+// Opcode ED - SBC $0000
 opcode_ED:
         EA_ABSOLUTE_LOAD carry NOSIGN
         SBC_STAGE1     r1 FETCH  JUMP_SBC_STAGE2
@@ -2658,7 +2649,7 @@ opcode_F0:
         BRANCH eq
         .balign I_ALIGN
 
-// Opcode F1 - SBC_macro ($00),Y
+// Opcode F1 - SBC ($00),Y
 opcode_F1:
         EA_INDIRECT
         EA_INDIRECT_Y
@@ -2668,7 +2659,7 @@ opcode_F1:
         SBC_STAGE2     r1
         .balign I_ALIGN
 
-// Opcode F2 - SBC_macro ($00)
+// Opcode F2 - SBC ($00)
 opcode_F2:
         EA_INDIRECT
         FETCH_NEXT_STAGE_0
@@ -2687,7 +2678,7 @@ opcode_F4:
         NOP_2
         .balign I_ALIGN
 
-// Opcode F5 - SBC_macro $00,X
+// Opcode F5 - SBC $00,X
 opcode_F5:
         LOAD_ZPX regX FETCH NOSIGN
         SBC_STAGE1     r1  NOFETCH
@@ -2717,7 +2708,7 @@ opcode_F8:
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
-// Opcode F9 - SBC_macro $0000,Y
+// Opcode F9 - SBC $0000,Y
 opcode_F9:
         EA_ABSOLUTE_INDEXED_LOAD regY carry NOSIGN
         SBC_STAGE1     r1  FETCH JUMP_SBC_STAGE2
@@ -2752,7 +2743,7 @@ opcode_FC:
         FETCH_NEXT_3B_MERGED
         .balign I_ALIGN
 
-// Opcode FD - SBC_macro $0000,X
+// Opcode FD - SBC $0000,X
 opcode_FD:
         EA_ABSOLUTE_INDEXED_LOAD regX carry NOSIGN
         SBC_STAGE1     r1 FETCH JUMP_SBC_STAGE2
