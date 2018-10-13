@@ -614,11 +614,6 @@
         FETCH_NEXT_STAGE_2
 .endm
 
-.macro ADC_macro reg=r1
-        ADC_STAGE1 \reg
-        ADC_STAGE2 \reg
-.endm
-
 .macro ADC_STAGE1 reg fetch=FETCH jump
         tst     flags, #D_FLAG6502
         bic     flags, #V_FLAG6502
@@ -627,26 +622,24 @@
 .endif
         lsl     regA, regA, #24
         subcs   \reg, \reg ,#0x100        // if carry set then set top 24 bits
+
+.if \reg==operand
+        FETCH_NEXT_STAGE_1a_OO
+        bne     decimal_mode_adc_r0
+.else
+        FETCH_NEXT_STAGE_1
 .ifb  \jump
 .else
         beq     \jump
 .endif
-.if \reg==operand
-        bne     decimal_mode_adc_r0
-.else
         bne     decimal_mode_adc
 .endif
 .endm
 
 .macro ADC_STAGE2 reg
+        adcs    regA, regA, \reg, ror #8
 .if \reg==operand
-        FETCH_NEXT_STAGE_1a_OO
-        adcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
-.else
-        FETCH_NEXT_STAGE_1a
-        adcs    regA, regA, \reg, ror #8
-        FETCH_NEXT_STAGE_1b
 .endif
         orrvs   flags, #V_FLAG6502
         SXTB    regA, regA, ROR #24
@@ -1678,7 +1671,7 @@ opcode_68:
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
-// Opcode 69 - ADC_macro #$00
+// Opcode 69 - ADC #$00
 opcode_69:
         ADC_STAGE1 operand
         ADC_STAGE2 operand
@@ -1711,7 +1704,7 @@ opcode_6C:
         FETCH_NEXT_3B_MERGED SUBPC
         .balign I_ALIGN
 
-// Opcode 6D - ADC_macro $0000
+// Opcode 6D - ADC $0000
 opcode_6D:
         EA_ABSOLUTE_LOAD carry NOSIGN
         ADC_STAGE1 r1 FETCH JUMP_ADC_STAGE2
@@ -1741,7 +1734,7 @@ opcode_70:
         BRANCH_FLAGS  ne
          .balign I_ALIGN
 
-// Opcode 71 - ADC_macro ($00),Y
+// Opcode 71 - ADC ($00),Y
 opcode_71:
         EA_INDIRECT
         FETCH_NEXT_STAGE_0
@@ -1751,7 +1744,7 @@ opcode_71:
         ADC_STAGE2 r1
          .balign I_ALIGN
 
-// Opcode 72 - ADC_macro ($00)
+// Opcode 72 - ADC ($00)
 opcode_72:
         EA_INDIRECT
         FETCH_NEXT_STAGE_0
@@ -1773,7 +1766,7 @@ opcode_74:
         FETCH_NEXT_STAGE_12
         .balign I_ALIGN
 
-// Opcode 75 - ADC_macro $00,X
+// Opcode 75 - ADC $00,X
 opcode_75:
         LOAD_ZPX regX FETCH NOSIGN
         ADC_STAGE1 r1 NOFETCH
@@ -1802,7 +1795,7 @@ opcode_78:
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
-// Opcode 79 - ADC_macro $0000,Y
+// Opcode 79 - ADC $0000,Y
 opcode_79:
         EA_ABSOLUTE_INDEXED_LOAD regY carry NOSIGN
         ADC_STAGE1 r1  FETCH JUMP_ADC_STAGE2
@@ -1834,7 +1827,7 @@ opcode_7C:
         FETCH_NEXT_3B_MERGED SUBPC
         .balign I_ALIGN
 
-// Opcode 7D - ADC_macro $0000,X
+// Opcode 7D - ADC $0000,X
 opcode_7D:
         EA_ABSOLUTE_INDEXED_LOAD regX carry NOSIGN
         ADC_STAGE1 r1 FETCH JUMP_ADC_STAGE2
@@ -3325,7 +3318,7 @@ decimal_mode_adc:
         orrvs   flags, #V_FLAG6502
         cmpcc   regA, #10<<28
         subcs   regA, regA, #10<<28
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_1b_OO
         and     regA, regA, #0xF0<<24
         orr     regA, regA, r2, lsl #24
         sxtb    regA, regA, ror #24
@@ -3361,7 +3354,7 @@ decimal_mode_adc_r0:
         orrvs   flags, #V_FLAG6502
         cmpcc   regA, #10<<28
         subcs   regA, regA, #10<<28
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_1b_OO
         and     regA, regA, #0xF0<<24
         orr     regA, regA, r2, lsl #24
         sxtb    regA, regA, ror #24
