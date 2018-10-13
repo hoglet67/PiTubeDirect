@@ -788,13 +788,6 @@
         FETCH_NEXT_STAGE_2
 .endm
 
-.macro FLAGS_SIGN_OO dest=r1 reg=r1
-        FETCH_NEXT_STAGE_1b_OO
-        sxtb    \dest, \reg
-        teq     \dest, #0
-        FETCH_NEXT_STAGE_2
-.endm
-
 .macro FLAGS_QUICK dest=r1
         FETCH_NEXT_STAGE_1
         teq     \dest, #0
