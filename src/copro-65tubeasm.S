@@ -31,6 +31,9 @@
 // Finally there is a block of 256 16 arm instruction block for the slowed down version of
 // the 6502 emulator
 
+// if a RAMpointer is't passed in , it is assumed to be at 0x00000000 and the mmu
+// is mapped such that the ram at 64k maps to 0x0000000. 
+
 #define I_ALIGN (1<<I_ALIGN_BITS)
 
 // Register usage
@@ -819,7 +822,8 @@
         bic     instt, instt, #EVENT_HANDLER_FLAG           // ack events
         sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
         tst     r0, #4                  // Bit 2 set indicate RST is active
-        b       Event_Handler
+        beq     Event_Handler
+        b       exec_65tube_exit        // exit immediately if active edge seen
 .endm
 
 .macro EVENT_HANDLER_SLOW_STAGE_0
@@ -830,6 +834,7 @@
         sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
         tst     r0,#7
         beq     noirq2
+        tst     r0, #4                  // Bit 2 set indicate RST is active
         b       Event_Handler_Single_Core_Slow
  .endm
 
@@ -3074,7 +3079,7 @@ exec_65tube_exit:                       // We get here from the Event handler wh
 
         .balign I_ALIGN
 Event_Handler:
-        bne     exec_65tube_exit        // exit immediately if active edge seen
+
         tst     r0, #2                  // Bit 1 set indicate NMI is active
         bne     handle_nmi              // Take the NMI interrupt
 
@@ -3142,7 +3147,7 @@ copro_speed6502:
 //     we restore the modified table base pointer so we will re-enter this handler
 
 Event_Handler_Single_Core_Slow:
-        tst     r0, #4                  // Bit 2 set indicate RST is active
+
         bne     exec_65tube_exit        // exit immediately if active edge seen
 
         tst     r0, #2                  // Bit 1 set indicate NMI is active
