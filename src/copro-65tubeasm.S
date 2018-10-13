@@ -622,7 +622,6 @@
 .endif
         lsl     regA, regA, #24
         subcs   \reg, \reg ,#0x100        // if carry set then set top 24 bits
-
 .if \reg==operand
         FETCH_NEXT_STAGE_1a_OO
         bne     decimal_mode_adc_r0
@@ -646,11 +645,6 @@
         FETCH_NEXT_STAGE_2
 .endm
 
-.macro SBC_macro reg=r1
-        SBC_STAGE1 \reg
-        SBC_STAGE2 \reg
-.endm
-
 .macro  SBC_STAGE1 reg fetch=FETCH jump
         tst     flags, #D_FLAG6502
         bic     flags, #V_FLAG6502
@@ -659,30 +653,23 @@
 .endif
         LSL     regA, regA, #24
         subcc   \reg, \reg, #0x100        // if carry clear then set top 24 bits
-
+.if \reg==operand
+        FETCH_NEXT_STAGE_1a_OO
+        bne     decimal_mode_sbc_r0
+.else
+        FETCH_NEXT_STAGE_1
 .ifb \jump
-
 .else
         beq     \jump
 .endif
-
-.if \reg==operand
-        bne     decimal_mode_sbc_r0
-.else
         bne     decimal_mode_sbc
 .endif
 .endm
 
 .macro  SBC_STAGE2 reg
-
+        sbcs    regA, regA, \reg, ror #8
 .if \reg==operand
-        FETCH_NEXT_STAGE_1a_OO
-        sbcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
-.else
-        FETCH_NEXT_STAGE_1a
-        sbcs    regA, regA, \reg, ror #8
-        FETCH_NEXT_STAGE_1b
 .endif
         orrvs   flags, #V_FLAG6502
         SXTB    regA, regA, ROR #24
@@ -3329,9 +3316,8 @@ decimal_mode_sbc:
         bic     r0, r1,# 0xf0
         and     r2, regA, #0xf000000
         sbc     r2, r2, r0, ror #8
-        FETCH_NEXT_STAGE_1a
+        FETCH_NEXT_STAGE_1b_OO
         sbcs    regA, regA, r1, ror #8
-        FETCH_NEXT_STAGE_1b
         orrvs   flags, #V_FLAG6502
         subcc   regA, regA,#0x60<<24
         teq     r2,#0
@@ -3366,10 +3352,9 @@ decimal_mode_sbc_r0:
         and     r2, regA, #0xf000000
         sbc     r2, r2, r1, ror #8
         sbcs    regA, regA, operand, ror #8
-        FETCH_NEXT_STAGE_1a
         orrvs   flags, #V_FLAG6502
         subcc   regA, regA, #0x60<<24
-        FETCH_NEXT_STAGE_1b
+        FETCH_NEXT_STAGE_1b_OO
         teq     r2,#0
         submi   regA, regA, #0x6<<24
         sxtb    regA, regA, ror #24
