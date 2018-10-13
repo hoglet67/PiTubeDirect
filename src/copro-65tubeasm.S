@@ -2130,8 +2130,13 @@ opcode_AC:
 
 // Opcode AD - LDA $0000
 opcode_AD:
-        EA_ABSOLUTE_LOAD carry SIGN regA
-        FLAGS_QUICK_FETCH012   regA
+        EA_ABSOLUTE
+        FETCH_NEXT_3B_STAGE_0
+        lsr    lr, operand, #5
+        ldrsb  regA,[operand]
+        teq    tregs, lr                      // tregs holds the constant 0xFEE0 >> 5
+        Beq    tube_load_handler_regA_flags
+        FLAGS_QUICK_FETCH012 regA
         .balign I_ALIGN
 
 // Opcode AE - LDX $0000
@@ -2200,8 +2205,13 @@ opcode_B8:
 
 // Opcode B9 - LDA $0000,Y
 opcode_B9:
-        EA_ABSOLUTE_INDEXED_LOAD regY carry SIGN regA
-        FLAGS_QUICK_FETCH012   regA
+        EA_ABSOLUTE_INDEXED regY
+        FETCH_NEXT_3B_STAGE_0
+        lsr    lr, operand, #5
+        ldrsb  regA,[operand]
+        teq    tregs, lr                      // tregs holds the constant 0xFEE0 >> 5
+        Beq    tube_load_handler_regA_flags
+        FLAGS_QUICK_FETCH012 regA
         .balign I_ALIGN
 
 // Opcode BA - TSX
@@ -3226,21 +3236,13 @@ execute_one_instruction:
 // Tube access handlers
 
 tube_load_handler_regA_flags:
-        push    {operand,r2,r3,next_instr,r12}
+        push    {r2,r3,next_instr,r12}
         mrs     next_instr, CPSR               // Save 6502 flags
         bl      tube_parasite_read
         sxtb    regA,r0
         msr     CPSR_flg, next_instr
-        pop     {operand,r2,r3,next_instr,r12}
+        pop     {r2,r3,next_instr,r12}
         FLAGS_QUICK_FETCH012   regA
-
-tube_load_handler_regA:
-        push    {operand,r2,r3,next_instr,r12,lr}
-        mrs     next_instr, CPSR               // Save 6502 flags
-        bl      tube_parasite_read
-        sxtb    regA,r0
-        msr     CPSR_flg, next_instr
-        pop     {operand,r2,r3,next_instr,r12,pc}
 
 tube_load_handler:
         push    {operand,r2,r3,next_instr,r12,lr}
