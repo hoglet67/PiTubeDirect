@@ -627,8 +627,7 @@
         bne     decimal_mode_adc_r0
 .else
         FETCH_NEXT_STAGE_1
-.ifb  \jump
-.else
+.ifnb  \jump
         beq     \jump
 .endif
         bne     decimal_mode_adc
@@ -658,8 +657,7 @@
         bne     decimal_mode_sbc_r0
 .else
         FETCH_NEXT_STAGE_1
-.ifb \jump
-.else
+.ifnb \jump
         beq     \jump
 .endif
         bne     decimal_mode_sbc
@@ -817,13 +815,11 @@
 .macro EVENT_HANDLER_STAGE_0
         ldr     r1, =tube_irq
         mrs     r2, CPSR                // preserve the 6502 flags
-
-        bic     instt, instt, #EVENT_HANDLER_FLAG           // ack events
         ldrb    r0, [r1]
+        bic     instt, instt, #EVENT_HANDLER_FLAG           // ack events
         sub     regPC, regPC, #2        // set the instruction back as we haven't executed it
         tst     r0, #4                  // Bit 2 set indicate RST is active
         b       Event_Handler
-        .ltorg
 .endm
 
 .macro EVENT_HANDLER_SLOW_STAGE_0
@@ -835,7 +831,6 @@
         tst     r0,#7
         beq     noirq2
         b       Event_Handler_Single_Core_Slow
-        .ltorg
  .endm
 
 .macro NOP_1
@@ -1216,7 +1211,6 @@ JUMP_PLP:
         CHECK_IRQ
         FETCH_NEXT_STAGE_1_I
         FETCH_NEXT_STAGE_2
-        .ltorg
         .balign I_ALIGN
 
 // Opcode 2C - BIT $0000
@@ -1570,9 +1564,10 @@ opcode_5D:
 // Opcode 5E - LSR $0000,X
 opcode_5E:
         EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry NOSIGN
+        FETCH_NEXT_STAGE_0
         lsrs    r1, r1, #1
         STORE_BYTE
-        FETCH_NEXT_STAGE_012
+        FETCH_NEXT_STAGE_12
         .balign I_ALIGN
 
 // Opcode 5F - BBR5
@@ -2171,10 +2166,7 @@ opcode_B3:
 // Opcode B4 - LDY $00,X
 opcode_B4:
         LOAD_ZPX
-        FETCH_NEXT_STAGE_1
-        lsl    regY, r1, #24
-        teq    regY, #0
-        FETCH_NEXT_STAGE_2
+        FLAGS  regY
         .balign I_ALIGN
 
 // Opcode B5 - LDA $00,X
@@ -2300,10 +2292,7 @@ opcode_C6:
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
         STORE_BYTE
-        FETCH_NEXT_STAGE_1b_OO
-        sxtb    r1,r1
-        TEQ     r1,#0
-        FETCH_NEXT_STAGE_2
+        FLAGS_OO
         .balign I_ALIGN
 
 // Opcode C7 - SMB4 $00
@@ -2369,10 +2358,7 @@ opcode_CE:
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
         STORE_BYTE
-        FETCH_NEXT_STAGE_1b_OO
-        sxtb    r1,r1
-        TEQ     r1,#0
-        FETCH_NEXT_STAGE_2
+        FLAGS_OO
         .balign I_ALIGN
 
 // Opcode CF - BBS4
@@ -2544,10 +2530,7 @@ opcode_E6:
         FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
         STORE_BYTE
-        sxtb    r1,r1
-        FETCH_NEXT_STAGE_1b_OO
-        TEQ   r1,#0
-        FETCH_NEXT_STAGE_2
+        FLAGS_OO
         .balign I_ALIGN
 
 // Opcode E7 - SMB6 $00
@@ -2740,9 +2723,13 @@ opcode_FF:
 // **********************************************
 // End of opcode implementations
 // **********************************************
-
+.set count,0
 .rept 256
         EVENT_HANDLER_STAGE_0
+.set count,count+1
+.ifeq ((count & 63 ))
+        .ltorg
+.endif
         .balign I_ALIGN
 .endr
 
@@ -3011,7 +2998,6 @@ timing_table:
 .byte   7   ,   3   //  FE
 .byte   5   ,   3   //  FF
 
-
 // **********************************************
 // Entry point to emulator
 // **********************************************
@@ -3075,7 +3061,6 @@ handle_rst:
 #else
         mov     r0, #0x10000
         ldrh    regPC, [r0, #-4]        // Fetch the vector address
-
 #endif
         FETCH_NEXT_3B_MERGED  SUBPC     // Start executing instructions
 
@@ -3458,7 +3443,12 @@ watchpointentry:
 
       .balign I_ALIGN*256 , 0
 
+.set count,0
 .rept 256
-      EVENT_HANDLER_SLOW_STAGE_0
-      .balign I_ALIGN
+        EVENT_HANDLER_SLOW_STAGE_0
+.set count,count+1
+.ifeq ((count & 63 ))
+        .ltorg
+.endif
+        .balign I_ALIGN
 .endr
