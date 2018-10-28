@@ -32,7 +32,7 @@
 // the 6502 emulator
 
 // if a RAMpointer is't passed in , it is assumed to be at 0x00000000 and the mmu
-// is mapped such that the ram at 64k maps to 0x0000000. 
+// is mapped such that the ram at 64k maps to 0x0000000.
 
 #define I_ALIGN (1<<I_ALIGN_BITS)
 
@@ -277,16 +277,12 @@
 
 // Macro for poping a byte from the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 1024 Byte aligned
-.macro SPOP reg
-        add     regSP, regSP, #1
-        bic     regSP, #0x0300
-        ldrb    \reg, [regSP,#0x0100]!
-.endm
-
-.macro SPOP_FETCH_STAGE_0_I reg
+.macro SPOP_FETCH_STAGE_0_I reg fetch=FETCH
         mov     \reg,#1
         uadd8   regSP,regSP,\reg
+.if \fetch==FETCH
         FETCH_NEXT_STAGE_0_I
+.endif
         ldrsb   \reg, [regSP]
 .endm
 
@@ -801,8 +797,8 @@
         FETCH_NEXT_STAGE_2
 .endm
 
-.macro  PLP
-        SPOP    r1
+.macro  PLP fetch
+        SPOP_FETCH_STAGE_0_I r1 \fetch
         ldr     r0, =tube_irq           // prefetch Tube IRQ flags
         and     flags, flags, #0xffffff00
         orr     flags, flags, r1        // preserve the other bits in flags, e.g. the slowdown bit
@@ -885,13 +881,13 @@ opcode_04:
         LOAD_BYTE
         mrs     r2, CPSR
         FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
         tst     r1, regA
         orr     r1, r1, regA
         STORE_BYTE
         bic     r2, r2, #Z_FLAG
-        FETCH_NEXT_STAGE_1a
         orreq   r2, r2, #Z_FLAG
-        FETCH_NEXT_STAGE_1b
+        FETCH_NEXT_STAGE_1b_OO
         msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
@@ -951,17 +947,17 @@ opcode_0B:
 
 // Opcode 0C - TSB $0000
 opcode_0C:
-        mrs     r2, CPSR
         EA_ABSOLUTE_LOAD_NOCHECK nocarry
+        mrs     r2, CPSR
         FETCH_NEXT_STAGE_0
-        bic     r2, r2, #Z_FLAG
-        tst     r1, regA
         FETCH_NEXT_STAGE_1a_OO
-        orreq   r2, r2, #Z_FLAG
+        tst     r1, regA
         orr     r1, r1, regA
         STORE_BYTE
-        msr     CPSR_flg, r2
+        bic     r2, r2, #Z_FLAG
+        orreq   r2, r2, #Z_FLAG
         FETCH_NEXT_STAGE_1b_OO
+        msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -1016,16 +1012,15 @@ opcode_14:
         LOAD_BYTE
         mrs     r2, CPSR
         FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
         tst     r1, regA
         bic     r1, r1, regA
         STORE_BYTE
         bic     r2, r2, #Z_FLAG
-        FETCH_NEXT_STAGE_1a_OO
         orreq   r2, r2, #Z_FLAG
         FETCH_NEXT_STAGE_1b_OO
         msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_2
-        .balign I_ALIGN
 
 // Opcode 15 - ORA $00,X
 opcode_15:
@@ -1080,19 +1075,19 @@ opcode_1B:
 
 // Opcode 1C - TRB $0000
 opcode_1C:
-        mrs     r2, CPSR
         EA_ABSOLUTE_LOAD_NOCHECK nocarry
+        mrs     r2, CPSR
         FETCH_NEXT_STAGE_0
-        bic     r2, r2, #Z_FLAG
-        tst     r1, regA
         FETCH_NEXT_STAGE_1a_OO
-        orreq   r2, r2, #Z_FLAG
+        tst     r1, regA
         bic     r1, r1, regA
         STORE_BYTE
-        msr     CPSR_flg, r2
+        bic     r2, r2, #Z_FLAG
+        orreq   r2, r2, #Z_FLAG
         FETCH_NEXT_STAGE_1b_OO
+        msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_2
-        .balign I_ALIGN
+
 
 // Opcode 1D - ORA $0000,X
 opcode_1D:
@@ -1188,8 +1183,7 @@ opcode_27:
 
 // Opcode 28 - PLP
 opcode_28:
-        FETCH_NEXT_STAGE_0_I
-        PLP
+        PLP FETCH
         B      JUMP_PLP
         .balign I_ALIGN
 
@@ -1367,7 +1361,7 @@ opcode_3F:
 
 // Opcode 40 - RTI
 opcode_40:
-        PLP
+        PLP NOFETCH
         ldrh    regPC, [regSP, #1]
 #if defined(USE_MEMORY_POINTER)
         mov     r1, #2
@@ -1570,9 +1564,11 @@ opcode_5D:
 opcode_5E:
         EA_ABSOLUTE_INDEXED_LOAD_NOCHECK regX nocarry NOSIGN
         FETCH_NEXT_STAGE_0
+        FETCH_NEXT_STAGE_1a_OO
         lsrs    r1, r1, #1
         STORE_BYTE
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_1b_OO
+        FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
 // Opcode 5F - BBR5
@@ -3095,7 +3091,7 @@ Event_Handler:
 
         tst     flags, #I_FLAG6502      // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq
-        tst     r0, #1                  // Bit 1 set indicate IRQ is active
+        tst     r0, #1                  // Bit 0 set indicate IRQ is active
         bne     handle_irq              // Take the IRQ interrupt
 
 noirq:
@@ -3165,7 +3161,7 @@ Event_Handler_Single_Core_Slow:
 
         tst     flags, #I_FLAG6502      // Test whether interrupts are enabled (bit 2 = 0)
         bne     noirq2
-        tst     r0, #1                  // Bit 1 set indicate IRQ is active
+        tst     r0, #1                  // Bit 0 set indicate IRQ is active
         bne     handle_irq2             // Take the IRQ interrupt
 
 noirq2:
@@ -3349,6 +3345,7 @@ decimal_mode_sbc_r0:
 
 // Insert the current literal pool, otherwise constants are to far away and you get a build error
         .ltorg
+
 #if defined(USE_WATCHPOINT)
 // *****************************
 // *
