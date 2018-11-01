@@ -2255,9 +2255,8 @@ opcode_BF:
 
 // Opcode C0 - CPY #$00
 opcode_C0:
-        FETCH_NEXT_STAGE_0
         cmp     regY, operand, lsl #24
-        FETCH_NEXT_STAGE_12
+        FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
 // Opcode C1 - CMP ($00,X)
