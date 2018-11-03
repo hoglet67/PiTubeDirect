@@ -146,7 +146,7 @@
 
 .macro ARMV8_NOP
 #ifdef RPI3
-        mov         r0,r0
+        mov         memry, memry
 #endif
 .endm
 
@@ -1646,6 +1646,7 @@ opcode_63:
 // Opcode 64 - STZ $00
 opcode_64:
         STORE_BYTE instt
+        ARMV8_NOP
         FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
@@ -1893,6 +1894,7 @@ opcode_84:
 // Opcode 85 - STA $00
 opcode_85:
         STORE_BYTE    regA
+        ARMV8_NOP
         FETCH_NEXT_STAGE_012
         .balign I_ALIGN
 
@@ -2325,9 +2327,9 @@ opcode_C4:
 // Opcode C5 - CMP $00
 opcode_C5:
         LOAD_BYTE
-        FETCH_NEXT_STAGE_0
         lsl     r2, regA, #24
-        FETCH_NEXT_STAGE_1
+        FETCH_NEXT_STAGE_01
+        ARMV8_NOP
         cmp     r2, r1, LSL #24
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
