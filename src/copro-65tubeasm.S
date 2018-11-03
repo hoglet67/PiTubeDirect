@@ -142,6 +142,14 @@
 // Start of macros
 // **********************************************
 
+// sometimes ARMv8 performance can be increased by adding a NOP
+
+.macro ARMV8_NOP
+#ifdef RPI3
+        mov         r0,r0
+#endif
+.endm
+
 // one byte next instructions macros
 // These can be split up into a number of stages to help pipelining
 
@@ -518,12 +526,12 @@
         mrs     r2, CPSR                // preserve the 6502 flags
         cmp     tregs, operand, lsr #5  // tregs holds the constant 0xFEE0 >> 5
         FETCH_NEXT_3B_STAGE_0
-        STORE_BYTE   \reg
 .if \reg==r1
         beq    tube_store_handler       // tube memory access
 .else
         beq    tube_store_handler_regA
 .endif
+        STORE_BYTE   \reg
         msr     CPSR_flg, r2            // restore 6502 flags, including ARM
         FETCH_NEXT_STAGE_012
 .endm
@@ -619,54 +627,74 @@
 .if \fetch==FETCH
         FETCH_NEXT_STAGE_0
 .endif
-        lsl     regA, regA, #24
-        subcs   \reg, \reg ,#0x100        // if carry set then set top 24 bits
 .if \reg==operand
+        subcs   \reg, \reg ,#0x100        // if carry set then set top 24 bits
         FETCH_NEXT_STAGE_1a_OO
-        bne     decimal_mode_adc_r0
-.else
-        FETCH_NEXT_STAGE_1
+.endif
+
+        lsl     regA, regA, #24
+.if \reg!=operand
+        subcs   \reg, \reg ,#0x100        // if carry set then set top 24 bits
+.endif
 .ifnb  \jump
         beq     \jump
 .endif
+
+.if \reg==operand
+        bne     decimal_mode_adc_r0
+.else
         bne     decimal_mode_adc
 .endif
 .endm
 
 .macro ADC_STAGE2 reg
-        adcs    regA, regA, \reg, ror #8
 .if \reg==operand
+        adcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
+.else
+        FETCH_NEXT_STAGE_1a
+        adcs    regA, regA, \reg, ror #8
+        FETCH_NEXT_STAGE_1b
 .endif
         orrvs   flags, #V_FLAG6502
         SXTB    regA, regA, ROR #24
         FETCH_NEXT_STAGE_2
 .endm
 
-.macro  SBC_STAGE1 reg fetch=FETCH jump
+.macro SBC_STAGE1 reg fetch=FETCH jump
         tst     flags, #D_FLAG6502
         bic     flags, #V_FLAG6502
 .if \fetch==FETCH
         FETCH_NEXT_STAGE_0
 .endif
-        LSL     regA, regA, #24
-        subcc   \reg, \reg, #0x100        // if carry clear then set top 24 bits
 .if \reg==operand
+        subcc   \reg, \reg ,#0x100        // if carry set then set top 24 bits
         FETCH_NEXT_STAGE_1a_OO
-        bne     decimal_mode_sbc_r0
-.else
-        FETCH_NEXT_STAGE_1
-.ifnb \jump
+.endif
+
+        LSL     regA, regA, #24
+.if \reg!=operand
+        subcc   \reg, \reg, #0x100        // if carry clear then set top 24 bits
+.endif
+.ifnb  \jump
         beq     \jump
 .endif
+
+.if \reg==operand
+        bne     decimal_mode_sbc_r0
+.else
         bne     decimal_mode_sbc
 .endif
 .endm
 
-.macro  SBC_STAGE2 reg
-        sbcs    regA, regA, \reg, ror #8
+.macro SBC_STAGE2 reg
 .if \reg==operand
+        sbcs    regA, regA, \reg, ror #8
         FETCH_NEXT_STAGE_1b_OO
+.else
+        FETCH_NEXT_STAGE_1a
+        sbcs    regA, regA, \reg, ror #8
+        FETCH_NEXT_STAGE_1b
 .endif
         orrvs   flags, #V_FLAG6502
         SXTB    regA, regA, ROR #24
@@ -734,18 +762,12 @@
 .endm
 
 .macro LOGICAL_FETCH012 logic reg=r1
-.if \reg!=operand
+.if \reg==operand
+        sxtb     r1, \reg
+.endif
         FETCH_NEXT_STAGE_01
         \logic  regA, regA, r1
         FETCH_NEXT_STAGE_2
-.else
-        FETCH_NEXT_STAGE_0
-        FETCH_NEXT_STAGE_1a_OO
-        sxtb     r1, \reg
-        FETCH_NEXT_STAGE_1b_OO
-        \logic  regA, regA, r1
-        FETCH_NEXT_STAGE_2
-.endif
 .endm
 
 .macro FLAGS dest=r1 reg=r1
@@ -778,9 +800,10 @@
 .endif
 .endm
 
-.macro FLAGS_OO dest=r1 reg=r1
+.macro STORE_FLAGS_OO dest=r1 reg=r1
+        STORE_BYTE
+        sxtb    \dest, \reg
         FETCH_NEXT_STAGE_1b_OO
-        lsl     \dest, \reg, #24
         teq     \dest, #0
         FETCH_NEXT_STAGE_2
 .endm
@@ -1021,6 +1044,7 @@ opcode_14:
         FETCH_NEXT_STAGE_1b_OO
         msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_2
+        .balign I_ALIGN
 
 // Opcode 15 - ORA $00,X
 opcode_15:
@@ -1045,11 +1069,20 @@ opcode_17:
 
 // Opcode 18 - CLC
 opcode_18:
+#ifdef RPI3
+        mrs     r2, CPSR
+        FETCH_NEXT_STAGE_0_I
+        bic     r2, r2, #C_FLAG
+        FETCH_NEXT_STAGE_1_I
+        bxcc    lr
+        msr     CPSR_flg, r2
+#else
         mrscs   r1, CPSR
         FETCH_NEXT_STAGE_01_I
         bxcc    lr
         bic     r1, r1, #C_FLAG
         msr     CPSR_flg, r1
+#endif
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -1087,6 +1120,7 @@ opcode_1C:
         FETCH_NEXT_STAGE_1b_OO
         msr     CPSR_flg, r2
         FETCH_NEXT_STAGE_2
+        .balign I_ALIGN
 
 
 // Opcode 1D - ORA $0000,X
@@ -1940,8 +1974,10 @@ opcode_90:
 // Opcode 91 - STA ($00),Y
 opcode_91:
         EA_INDIRECT r1
+        mov     r2, regY, lsr #24
         FETCH_NEXT_STAGE_01
-        strb    regA,[r1, regY, lsr #24]
+        ARMV8_NOP
+        strb    regA,[r1, r2]
         FETCH_NEXT_STAGE_2
         .balign I_ALIGN
 
@@ -2301,8 +2337,7 @@ opcode_C6:
         LOAD_BYTE_FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
-        STORE_BYTE
-        FLAGS_OO
+        STORE_FLAGS_OO
         .balign I_ALIGN
 
 // Opcode C7 - SMB4 $00
@@ -2367,8 +2402,7 @@ opcode_CE:
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
-        STORE_BYTE
-        FLAGS_OO
+        STORE_FLAGS_OO
         .balign I_ALIGN
 
 // Opcode CF - BBS4
@@ -2487,8 +2521,7 @@ opcode_DE:
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         sub     r1, r1, #1
-        STORE_BYTE
-        FLAGS_OO
+        STORE_FLAGS_OO
         .balign I_ALIGN
 
 // Opcode DF - BBS5
@@ -2539,8 +2572,7 @@ opcode_E6:
         LOAD_BYTE_FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
-        STORE_BYTE
-        FLAGS_OO
+        STORE_FLAGS_OO
         .balign I_ALIGN
 
 // Opcode E7 - SMB6 $00
@@ -2601,8 +2633,7 @@ opcode_EE:
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
-        STORE_BYTE
-        FLAGS_OO
+        STORE_FLAGS_OO
         .balign I_ALIGN
 
 // Opcode EF - BBS6
@@ -2721,8 +2752,7 @@ opcode_FE:
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a_OO
         add     r1, r1, #1
-        STORE_BYTE
-        FLAGS_OO
+        STORE_FLAGS_OO
         .balign I_ALIGN
 
 // Opcode FF - BBS7
@@ -3274,6 +3304,7 @@ decimal_mode_adc:
 
         and     r0, regA, #0x0F<<24
         and     r2, r1, #15
+        FETCH_NEXT_STAGE_1a_OO
         adc     r2, r2, r0, lsr #24
         cmp     r2, #10
         subcs   r2, r2, #10
@@ -3293,6 +3324,7 @@ decimal_mode_adc:
         FETCH_NEXT_STAGE_2
 
 decimal_mode_sbc:
+        FETCH_NEXT_STAGE_1a_OO
         bic     r0, r1,# 0xf0
         and     r2, regA, #0xf000000
         sbc     r2, r2, r0, ror #8
