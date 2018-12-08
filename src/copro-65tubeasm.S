@@ -702,6 +702,10 @@
 .endm
 
 .macro BRANCH taken
+#if RPI3     
+        B\taken opcode_80
+        FETCH_NEXT_STAGE_012
+#else
         sxtab\taken regPC, regPC, operand
         // stall
         ldr\taken\()b  next_instr, [regPC]
@@ -713,6 +717,7 @@
         FETCH_NEXT_STAGE_2                   // 5 cycles
 
         // total of 13 if taken. 10 if not taken
+#endif        
 .endm
 
 .macro BRANCH_AL
