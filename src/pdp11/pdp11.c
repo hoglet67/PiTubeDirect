@@ -100,8 +100,8 @@ void printstate() {
           (uint16_t)cpu.R[3], (uint16_t)cpu.R[4], (uint16_t)cpu.R[5],
           (uint16_t)cpu.R[6], (uint16_t)cpu.R[7]);
    printf("[%s%s%s%s%s%s", cpu.prevuser ? "u" : "k", cpu.curuser ? "U" : "K",
-          cpu.PS & FLAGN ? "N" : " ", cpu.PS & FLAGZ ? "Z" : " ",
-          cpu.PS & FLAGV ? "V" : " ", cpu.PS & FLAGC ? "C" : " ");
+          (cpu.PS & FLAGN) ? "N" : " ", (cpu.PS & FLAGZ) ? "Z" : " ",
+          (cpu.PS & FLAGV) ? "V" : " ", (cpu.PS & FLAGC) ? "C" : " ");
    printf("]  instr %06o: %06o\t ", cpu.PC, read16(cpu.PC));
    printf("\r\n");
 }
@@ -547,7 +547,7 @@ static void ASHC(uint16_t instr) {
             sval = val1 >> val2;
          }
       }
-      if (val1 & (1 << (val2 - 1))) {
+      if (val1 & (1U << (val2 - 1))) {
          cpu.PS |= FLAGC;
       }
    } else {
@@ -555,7 +555,7 @@ static void ASHC(uint16_t instr) {
       sval = (val1 << val2) & 0xFFFFFFFF;
       // carry and overflow can only be set if the shift amount is non-zero
       if (val2 > 0) {
-         if (val1 & (1 << (32 - val2))) {
+         if (val1 & (1U << (32 - val2))) {
             cpu.PS |= FLAGC;
          }
          // calculate the bits that have been shifted out of the top
@@ -1205,22 +1205,22 @@ static void step() {
       }
       return;
    case 0002000:
-      if (!(!N() xor !V())) {
+      if (!((!N()) xor (!V()))) {
          branch(instr & 0xFF);
       }
       return;
    case 0002400:
-      if (!N() xor !V()) {
+      if ((!N()) xor (!V())) {
          branch(instr & 0xFF);
       }
       return;
    case 0003000:
-      if ((!(!N() xor !V())) && (!Z())) {
+      if ((!((!N()) xor (!V()))) && (!Z())) {
          branch(instr & 0xFF);
       }
       return;
    case 0003400:
-      if ((!N() xor !V()) || Z()) {
+      if (((!N()) xor (!V())) || Z()) {
          branch(instr & 0xFF);
       }
       return;

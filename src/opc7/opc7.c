@@ -104,7 +104,7 @@ void opc7_execute() {
 
          // Setup carry going into the "ALU"
          uint64_t res = 0; // result needs to be wider than the machine we emulate for easy add, sub, cmp
-         int cin = (s.psr & C_MASK ) ? 1 : 0;
+         unsigned int cin = (s.psr & C_MASK ) ? 1 : 0;
          int cout = cin;
 
          // When to preserve the flags

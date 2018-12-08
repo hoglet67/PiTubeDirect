@@ -176,14 +176,12 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
 
    // Output instruction
    if (opcode < op_ljsr) {
-      len = snprintf(buf, bufsize, ": %s%s r%d, r%d, %08"PRIx32,
+      snprintf(buf, bufsize, ": %s%s r%d, r%d, %08"PRIx32,
                      pred_names[pred], opcode_names[opcode], dst, src, operand);      
    } else {
-      len = snprintf(buf, bufsize, ": %s%s r%d, %08"PRIx32,
+      snprintf(buf, bufsize, ": %s%s r%d, %08"PRIx32,
                      pred_names[pred], opcode_names[opcode], dst, operand);            
    }
-   buf += len;
-   bufsize -= len;
 
    return addr;
 };

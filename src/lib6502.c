@@ -445,13 +445,13 @@ byte tmpr;
 #define bitwise(ticks, adrmode, op)		\
   adrmode(ticks);				\
   fetch();					\
-  A op##= getMemory(ea);			\
+  A op getMemory(ea);			\
   setNZ(A & 0x80, !A);				\
   next();
 
-#define and(ticks, adrmode)	bitwise(ticks, adrmode, &)
-#define eor(ticks, adrmode)	bitwise(ticks, adrmode, ^)
-#define ora(ticks, adrmode)	bitwise(ticks, adrmode, |)
+#define and(ticks, adrmode)	bitwise(ticks, adrmode, &=)
+#define eor(ticks, adrmode)	bitwise(ticks, adrmode, ^=)
+#define ora(ticks, adrmode)	bitwise(ticks, adrmode, |=)
 
 #define asl(ticks, adrmode)			\
   adrmode(ticks);				\
