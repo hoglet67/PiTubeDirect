@@ -448,13 +448,13 @@ static uint16_t disasm(char *buf, uint16_t a) {
       a   += disaslen(d);
       break;
    case RR:
-      buf += sprintf(buf, " %s", dbg_reg_names[ins & 7]);
+      sprintf(buf, " %s", dbg_reg_names[ins & 7]);
       break;
    case NN:
-      buf += sprintf(buf, " %d", ins & 0xFF);
+      sprintf(buf, " %d", ins & 0xFF);
       break;
    case N:
-      buf += sprintf(buf, " %d", ins & 0xF);
+      sprintf(buf, " %d", ins & 0xF);
       break;
    }
    return a;
