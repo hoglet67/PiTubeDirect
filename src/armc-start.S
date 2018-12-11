@@ -188,36 +188,30 @@ _reset_continue:
 
     // We're going to use interrupt mode, so setup the interrupt mode
     // stack pointer which differs to the application stack pointer:
-    mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, #C0_IRQ_STACK
 
     // Also setup the stack used for FIQs
-    mov r0, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, #C0_FIQ_STACK
 
     // Also setup the stack used for undefined exceptions
-    mov r0, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, #C0_UNDEFINED_STACK
 
     // Also setup the stack used for prefetch and data abort exceptions
-    mov r0, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, #C0_ABORT_STACK
 
     // Finally, a user/system mode stack, although the application will likely reset this
-    mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, #C0_USER_STACK
 
     // Switch back to supervisor mode (our application mode) and
     // set the stack pointer. Remember that the stack works its way
     // down memory, our heap will work it's way up from after the
     // application.
-    mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, #C0_SVR_STACK
 
     // Enable VFP ------------------------------------------------------------
@@ -396,7 +390,7 @@ _data_memory_barrier:
     mov      pc, lr
 
 #ifdef USE_MULTICORE
-
++.section ".text._init_core"
 _init_core:
     // On a Raspberry Pi 2 we enter in HYP mode, and need to force a switch to supervisor mode
     mrs     r0, cpsr
@@ -419,36 +413,30 @@ _init_continue:
 
     // We're going to use interrupt mode, so setup the interrupt mode
     // stack pointer which differs to the application stack pointer:
-    mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, # C1_IRQ_STACK
 
     // Also setup the stack used for FIQs
-    mov r0, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, # C1_FIQ_STACK
 
     // Also setup the stack used for undefined exceptions
-    mov r0, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, # C1_UNDEFINED_STACK
 
     // Also setup the stack used for prefetch and data abort exceptions
-    mov r0, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, # C1_ABORT_STACK
 
     // Finally, a user/system mode stack, although the application will likely reset this
-    mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, # C1_USER_STACK
 
     // Switch back to supervisor mode (our application mode) and
     // set the stack pointer. Remember that the stack works its way
     // down memory, our heap will work it's way up from after the
     // application.
-    mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
-    msr cpsr_c, r0
+    msr cpsr_c, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, # C1_SVR_STACK
 
     // Enable VFP ------------------------------------------------------------
@@ -465,7 +453,7 @@ _init_continue:
 #endif
 
 #ifdef HAS_MULTICORE
-
+.section ".text._spin_core"
     // If main does return for some reason, just catch it and stay here.
 _spin_core:
 #ifdef DEBUG_Multicore
@@ -489,6 +477,7 @@ _spin_core1:
     wfi
     b       _spin_core1
 
+.section ".text._get_core"
 _get_core:
     mrc     p15, 0, r0, c0, c0, 5
     and     r0, #3
