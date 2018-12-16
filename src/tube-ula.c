@@ -740,6 +740,7 @@ void tube_init_hardware()
      case 0xa32082:
          led_type = 2;
          break;
+     case 0x9020e0 : // rpi3a+
      case 0xa020d3 : // rpi3b+
          led_type = 3;
          RPI_GpioBase-> GPFSEL[2] |= 1<<27;
