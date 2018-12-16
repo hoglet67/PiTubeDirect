@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "EggEater-rc0"
+#define RELEASENAME "EggEater-rc1"
 
 #define NDEBUG
 
