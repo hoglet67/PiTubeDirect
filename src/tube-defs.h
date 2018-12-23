@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "EggEater-rc1"
+#define RELEASENAME "EggEater"
 
 #define NDEBUG
 
@@ -28,8 +28,8 @@
 // 0 1 0 1 -  32MHz Z80    ( 64KB internal RAM, NextZ80 core)
 // 0 1 1 0 -  56MHz Z80    ( 64KB internal RAM, NextZ80 core)
 // 0 1 1 1 -      x OPC7  previously a Z80
-// 1 0 0 0 -  16Mhz 80286  (896KB external RAM,     Zet core)  
-// 1 0 0 1 -   4MHz 6809   ( 64KB external RAM,   SYS09 core) 
+// 1 0 0 0 -  16Mhz 80286  (896KB external RAM,     Zet core)
+// 1 0 0 1 -   4MHz 6809   ( 64KB external RAM,   SYS09 core)
 // 1 0 1 0 -  16MHz 68000  (  1MB external RAM,    TG68 core)
 // 1 0 1 1 -  32MHz PDP11  ( 64KB internal RAM, PDP2011 core)
 // 1 1 0 0 -  32MHz ARM2   (  2MB external RAM, Amber23 core)
@@ -114,20 +114,20 @@
 //    A2 – Green  - Pin 5  – GPIO1  (GPIO3 on later models)
 //    A1 – Blue   - Pin 3  – GPIO0  (GPIO2 on later models)
 //    A0 – Purple – Pin 13 – GPIO21 (GPIO27 on later models)
-//    D7 – Grey   - Pin 22 – GPIO25 
-//    D6 – White  - Pin 18 – GPIO24 
-//    D5 – Black  - Pin 16 – GPIO23 
-//    D4 – Brown  - Pin 15 – GPIO22 
-//    D3 – Red    - Pin 23 – GPIO11 
-//    D2 – Orange – Pin 19 – GPIO10 
-//    D1 – Yellow – Pin 21 – GPIO9 
-//    D0 – Green  - Pin 24 – GPIO8 
-//  nRST – Blue   - Pin 7  – GPIO4 
-// nTUBE – Purple – Pin 11 – GPIO17 
-//  nIRQ 
-//  Phi2 – Grey   - Pin 26 – GPIO7 
+//    D7 – Grey   - Pin 22 – GPIO25
+//    D6 – White  - Pin 18 – GPIO24
+//    D5 – Black  - Pin 16 – GPIO23
+//    D4 – Brown  - Pin 15 – GPIO22
+//    D3 – Red    - Pin 23 – GPIO11
+//    D2 – Orange – Pin 19 – GPIO10
+//    D1 – Yellow – Pin 21 – GPIO9
+//    D0 – Green  - Pin 24 – GPIO8
+//  nRST – Blue   - Pin 7  – GPIO4
+// nTUBE – Purple – Pin 11 – GPIO17
+//  nIRQ
+//  Phi2 – Grey   - Pin 26 – GPIO7
 //   RnW – White  - Pin 12 – GPIO18
-//   GND – Black  - Pin 25 – GND 
+//   GND – Black  - Pin 25 – GND
 
 #define D0_BASE      (8)
 #define D4_BASE      (22)
