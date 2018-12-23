@@ -201,6 +201,7 @@ void enable_MMU_and_IDCaches(void)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnonnull"
   // copy vectors from virtual address zero to a higher unused location
+  // cppcheck-suppress nullPointer
   memcpy((void *)HIGH_VECTORS_BASE, (void *)0, 0x1000);
 #pragma GCC diagnostic pop
 
@@ -221,8 +222,8 @@ void enable_MMU_and_IDCaches(void)
   asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" (HIGH_VECTORS_BASE)); 
   
 #if defined(RPI3)
-  unsigned cpuextctrl0, cpuextctrl1;
-  asm volatile ("mrrc p15, 1, %0, %1, c15" : "=r" (cpuextctrl0), "=r" (cpuextctrl1));
+  //unsigned cpuextctrl0, cpuextctrl1;
+  //asm volatile ("mrrc p15, 1, %0, %1, c15" : "=r" (cpuextctrl0), "=r" (cpuextctrl1));
   //LOG_DEBUG("extctrl = %08x %08x\r\n", cpuextctrl1, cpuextctrl0);
 #else
   // RPI:  bit 6 of auxctrl is restrict cache size to 16K (no page coloring)
@@ -231,7 +232,7 @@ void enable_MMU_and_IDCaches(void)
   asm volatile ("mrc p15, 0, %0, c1, c0,  1" : "=r" (auxctrl));
   auxctrl |= 1 << 6;
   asm volatile ("mcr p15, 0, %0, c1, c0,  1" :: "r" (auxctrl));
-  asm volatile ("mrc p15, 0, %0, c1, c0,  1" : "=r" (auxctrl));
+  //asm volatile ("mrc p15, 0, %0, c1, c0,  1" : "=r" (auxctrl));
   //LOG_DEBUG("auxctrl = %08x\r\n", auxctrl);
 #endif
 
@@ -241,8 +242,8 @@ void enable_MMU_and_IDCaches(void)
   // always use TTBR0
   asm volatile ("mcr p15, 0, %0, c2, c0, 2" :: "r" (0));
 
-  unsigned ttbcr;
-  asm volatile ("mrc p15, 0, %0, c2, c0, 2" : "=r" (ttbcr));
+  //unsigned ttbcr;
+  //asm volatile ("mrc p15, 0, %0, c2, c0, 2" : "=r" (ttbcr));
   //LOG_DEBUG("ttbcr   = %08x\r\n", ttbcr);
 
 #if defined(RPI2) || defined(RPI3)
@@ -257,8 +258,8 @@ void enable_MMU_and_IDCaches(void)
   // set TTBR0 (page table walk inner cacheable, outer non-cacheable, shareable memory)
   asm volatile ("mcr p15, 0, %0, c2, c0, 0" :: "r" (0x03 | (unsigned) &PageTable));
 #endif
-  unsigned ttbr0;
-  asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (ttbr0));
+ // unsigned ttbr0;
+ // asm volatile ("mrc p15, 0, %0, c2, c0, 0" : "=r" (ttbr0));
   //LOG_DEBUG("ttbr0   = %08x\r\n", ttbr0);
 
 
@@ -287,12 +288,12 @@ void enable_MMU_and_IDCaches(void)
 
   sctrl |= 0x00001805;
   asm volatile ("mcr p15,0,%0,c1,c0,0" :: "r" (sctrl) : "memory");
-  asm volatile ("mrc p15,0,%0,c1,c0,0" : "=r" (sctrl));
+  //asm volatile ("mrc p15,0,%0,c1,c0,0" : "=r" (sctrl));
   //LOG_DEBUG("sctrl   = %08x\r\n", sctrl);
 
   // For information, show the cache type register
   // From this you can tell what type of cache is implemented
-  unsigned ctype;
-  asm volatile ("mrc p15,0,%0,c0,c0,1" : "=r" (ctype));
+  //unsigned ctype;
+  //asm volatile ("mrc p15,0,%0,c0,c0,1" : "=r" (ctype));
   //LOG_DEBUG("ctype   = %08x\r\n", ctype);
 }

@@ -1,5 +1,5 @@
 /* syntax.c  syntax module for vasm */
-/* (c) in 2002-2016 by Volker Barthelmann and Frank Wille */
+/* (c) in 2002-2018 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 #include "stabs.h"
@@ -13,7 +13,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm std syntax module 5.0b (c) 2002-2016 Volker Barthelmann";
+char *syntax_copyright="vasm std syntax module 5.1a (c) 2002-2018 Volker Barthelmann";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -99,13 +99,14 @@ char *skip_operand(char *s)
   while(1){
     c = *s;
     if(START_PARENTH(c)) par_cnt++;
-    if(END_PARENTH(c)){
+    else if(END_PARENTH(c)){
       if(par_cnt>0)
         par_cnt--;
       else
         syntax_error(3);
-    }
-    if(ISEOL(s)||(c==','&&par_cnt==0))
+    }else if(c=='\''||c=='\"')
+      s=skip_string(s,c,NULL)-1;
+    else if(ISEOL(s)||(c==','&&par_cnt==0))
       break;
     s++;
   }
@@ -682,12 +683,38 @@ static void handle_incbin(char *s)
 
 static void handle_rept(char *s)
 {
-  taddr cnt = parse_constexpr(&s);
+  utaddr cnt = parse_constexpr(&s);
 
   eol(s);
-  new_repeat((int)cnt,
+  new_repeat(cnt,NULL,NULL,
              nodotneeded?rept_dirlist:drept_dirlist,
              nodotneeded?endr_dirlist:dendr_dirlist);
+}
+
+static void do_irp(int type,char *s)
+{
+  char *name;
+
+  if(!(name=parse_identifier(&s))){
+    syntax_error(10);  /* identifier expected */
+    return;
+  }
+  s=skip(s);
+  if (*s==',')
+    s=skip(s+1);
+  new_repeat(type,name,mystrdup(s),
+             nodotneeded?rept_dirlist:drept_dirlist,
+             nodotneeded?endr_dirlist:dendr_dirlist);
+}
+
+static void handle_irp(char *s)
+{
+  do_irp(REPT_IRP,s);
+}
+
+static void handle_irpc(char *s)
+{
+  do_irp(REPT_IRPC,s);
 }
 
 static void handle_endr(char *s)
@@ -995,6 +1022,8 @@ struct {
   "include",handle_include,
   "incbin",handle_incbin,
   "rept",handle_rept,
+  "irp",handle_irp,
+  "irpc",handle_irpc,
   "endr",handle_endr,
   "macro",handle_macro,
   "endm",handle_endm,
@@ -1269,21 +1298,15 @@ char *parse_macro_arg(struct macro *m,char *s,
 /* expands arguments and special escape codes into macro context */
 int expand_macro(source *src,char **line,char *d,int dlen)
 {
-  int n,nc=-1;
+  int n,nc=0;
   char *end,*s=*line;
 
   if (*s++ == '\\') {
     /* possible macro expansion detected */
     if (*s == '@') {
       /* \@: insert a unique id */
-      char buf[16];
-
-      nc = sprintf(buf,"%lu",src->id);
-      if (dlen >= nc) {
-        s++;
-        memcpy(d,buf,nc);
-      }
-      else
+      nc = sprintf(d,"%lu",src->id);
+      if (nc >= dlen)
         nc = -1;
     }
     else if (*s=='(' && *(s+1)==')') {
@@ -1301,7 +1324,7 @@ int expand_macro(source *src,char **line,char *d,int dlen)
     if (nc >= 0)
       *line = s;  /* update line pointer when expansion took place */
   }           
-  return nc;  /* number of chars written to line buffer, -1: no expansion */
+  return nc;  /* number of chars written to line buffer, -1: out of space */
 }
 
 void my_exec_macro(source *src)
@@ -1351,19 +1374,20 @@ char *get_local_label(char **start)
 
   if (*s == '.') {
     s++;
-    while (isdigit((unsigned char)*s) || *s=='_')  /* '_' needed for '\@' */
+    while (isdigit((unsigned char)*s) || *s=='_')  /* '_' needed for ".\@" */
       s++;
     if (s > (*start+1)) {
       name = make_local_label(NULL,0,*start,s-*start);
       *start = skip(s);
     }
   }
-  else if (isalnum((unsigned char)*s) || *s=='_') {
+  else if (isdigit((unsigned char)*s) || *s=='_') {  /* '_' needed for "\@$" */
     s++;
-    while (ISIDCHAR(*s))
+    while (isdigit((unsigned char)*s))
       s++;
-    if (s>(*start+1) && *(s-1)=='$') {
-      name = make_local_label(NULL,0,*start,(s-1)-*start);
+    if (*s=='$' && isdigit((unsigned char)*(s-1))) {
+      s++;
+      name = make_local_label(NULL,0,*start,s-*start);
       *start = skip(s);
     }
   }

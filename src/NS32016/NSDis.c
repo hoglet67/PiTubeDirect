@@ -363,13 +363,14 @@ static void AddInstructionText(uint32_t Function, uint32_t opcode, uint32_t Oper
    if (Function < InstructionCount)
    {
       char Str[80];
+      int s;
 
       switch (Function)
       {
          case Scond:
          {
             uint32_t Condition = ((opcode >> 7) & 0x0F);
-            sprintf(Str, "S%s", &InstuctionText[Condition][1]);             // Offset by 1 to lose the 'B'
+            s = sprintf(Str, "S%s", &InstuctionText[Condition][1]);             // Offset by 1 to lose the 'B'
          }
          break;
 
@@ -382,7 +383,7 @@ static void AddInstructionText(uint32_t Function, uint32_t opcode, uint32_t Oper
 
          default:
          {
-            sprintf(Str, "%s", InstuctionText[Function]);
+            s = sprintf(Str, "%s", InstuctionText[Function]);
          }
       }
 
@@ -398,11 +399,11 @@ static void AddInstructionText(uint32_t Function, uint32_t opcode, uint32_t Oper
 
          if (Format >= 9)
          {
-            sprintf(Str + strlen(Str), "%c", PostFltLk[OperandSize & 3]);                 // Offset by 1 to loose the 'B'
+            s += sprintf(Str + s, "%c", PostFltLk[OperandSize & 3]);                 // Offset by 1 to loose the 'B'
          }
          else
          {
-            sprintf(Str + strlen(Str), "%c", PostFixLk[OperandSize & 3]);                 // Offset by 1 to loose the 'B'
+            s += sprintf(Str + s, "%c", PostFixLk[OperandSize & 3]);                 // Offset by 1 to loose the 'B'
          }
       }
 
@@ -411,22 +412,21 @@ static void AddInstructionText(uint32_t Function, uint32_t opcode, uint32_t Oper
          case MOVXiW:
          case MOVZiW:
          {
-            sprintf(Str + strlen(Str), "W");
+            s += sprintf(Str + s, "W");
          }
          break;
 
          case MOVZiD:
          case MOVXiD:
          {
-            sprintf(Str + strlen(Str), "D");
+            s += sprintf(Str + s, "D");
          }
          break;
       }
 
-      size_t Len = strlen(Str);
-      if (Len < (sizeof(EightSpaces) - 1))
+      if (s < (sizeof(EightSpaces) - 1))
       {
-         StringAppend("%s%s", Str, &EightSpaces[Len]);
+         StringAppend("%s%s", Str, &EightSpaces[s]);
       }
    }
 }
@@ -684,7 +684,7 @@ static void Decode(uint32_t* pPC)
    Regs[0].Whole =
    Regs[1].Whole = 0xFFFF;
 
-   if (Format < (FormatCount + 1))
+   //if (Format < (FormatCount + 1)) // expression is always true
    {
       *pPC += FormatSizes[Format];                                        // Add the basic number of bytes for a particular instruction
    }

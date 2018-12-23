@@ -1,5 +1,5 @@
 /* atom.c - atomic objects from source */
-/* (c) in 2010-2016 by Volker Barthelmann and Frank Wille */
+/* (c) in 2010-2018 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 
@@ -156,11 +156,8 @@ static size_t space_size(sblock *sb,section *sec,taddr pc)
 {
   utaddr space=0;
 
-  if (eval_expr(sb->space_exp,&space,sec,pc) || !final_pass) {
+  if (eval_expr(sb->space_exp,&space,sec,pc) || !final_pass)
     sb->space = space;
-    if ((utaddr)(pc+space) < (utaddr)pc)
-      general_error(45);  /* illegal negative value */
-  }
   else
     general_error(30);  /* expression must be constant */
 
@@ -306,7 +303,7 @@ void print_atom(FILE *f,atom *p)
     case DATA:
       fprintf(f,"data(%lu): ",(unsigned long)p->content.db->size);
       for (i=0;i<p->content.db->size;i++)
-        fprintf(f,"%02x ",(unsigned char)p->content.db->data[i]);
+        fprintf(f,"%02x ",p->content.db->data[i]);
       for (rl=p->content.db->relocs; rl; rl=rl->next)
         print_reloc(f,rl->type,rl->reloc);
       break;
@@ -359,7 +356,10 @@ void print_atom(FILE *f,atom *p)
               p->content.nlist->name!=NULL ? p->content.nlist->name : "<NULL>",
               p->content.nlist->type,p->content.nlist->other,
               p->content.nlist->desc);
-      print_expr(f,p->content.nlist->value);
+      if (p->content.nlist->value != NULL)
+        print_expr(f,p->content.nlist->value);
+      else
+        fprintf(f,"NULL");
       break;
     default:
       ierror(0);
@@ -456,7 +456,7 @@ static atom *new_atom(int type,taddr align)
 
 atom *new_inst_atom(instruction *p)
 {
-  atom *new = new_atom(INSTRUCTION,INST_ALIGN);
+  atom *new = new_atom(INSTRUCTION,inst_alignment);
 
   new->content.inst = p;
   return new;

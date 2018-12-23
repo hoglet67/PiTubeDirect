@@ -4,15 +4,8 @@ M68k and ColdFire families of CPUs, which is available with the extension
 
 @section Legal
 
-    This module is copyright in 2002-2016 by Frank Wille.
-
-    This archive may be redistributed without modifications and used
-    for non-commercial purposes.
-
-    Distributing modified versions and commercial usage needs my written
-    consent.
-
-    Certain modules may fall under additional copyrights.
+    This module is written in 2002-2017 by Frank Wille and
+    is covered by the vasm copyright without modifications.
 
 @section Additional options for this version
  
@@ -451,9 +444,13 @@ CPU- and output-module support them):
 @item ifmacrond <macro>
       Conditionally assemble the following line if <macro> is undefined.
 
-@item incbin <file>
+@item incbin <file>[,<offset>[,<length>]]
       Inserts the binary contents of <file> into the object code at
-      this position. The file will be searched first in the current
+      this position. When <offset> is specified, then the given number
+      of bytes will be skipped at the beginning of the file. The optional
+      <length> argument specifies the maximum number of bytes to be read
+      from that file.
+      The file will be searched first in the current
       directory, then in all paths defined by @option{-I} or @code{incdir}
       in the order of occurence.
 
@@ -541,6 +538,12 @@ CPU- and output-module support them):
 @item nopage
       Never start a new page in the listing file.
       This implementation will only prevent emitting the formfeed code.
+
+@item nref <symbol>[,<symbol>...]
+      Flag <symbol> as externally defined, similar to @code{xref},
+      but also indicate that references should be optimized to base-relative
+      addressing modes, when possible. This directive is only present
+      in PhxAss-compatibility mode.
 
 @item odd
       Aligns to an odd address. Equivalent to @code{cnop 1,2}.

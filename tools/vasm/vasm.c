@@ -1,5 +1,5 @@
 /* vasm.c  main module for vasm */
-/* (c) in 2002-2016 by Volker Barthelmann */
+/* (c) in 2002-2018 by Volker Barthelmann */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -7,8 +7,8 @@
 #include "vasm.h"
 #include "stabs.h"
 
-#define _VER "vasm 1.7g"
-char *copyright = _VER " (c) in 2002-2016 Volker Barthelmann";
+#define _VER "vasm 1.8c"
+char *copyright = _VER " (c) in 2002-2018 Volker Barthelmann";
 #ifdef AMIGA
 static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
 #endif
@@ -22,12 +22,13 @@ static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
    optimized at the same time. After that the resolver enters a safe mode,
    where only a single instruction per pass is changed. */
 #define MAXPASSES 1000
-#define FASTOPTPHASE 50
+#define FASTOPTPHASE 200
 
 source *cur_src=NULL;
 char *filename,*debug_filename;
 section *current_section;
 char *inname,*outname,*listname;
+taddr inst_alignment;
 int secname_attr;
 int unnamed_sections;
 int ignore_multinc;
@@ -37,6 +38,7 @@ int pic_check;
 int done,final_pass,debug;
 int exec_out;
 int chklabels;
+int warn_unalloc_ini_dat;
 int listena,listformfeed=1,listlinesperpage=40,listnosyms;
 listing *first_listing,*last_listing,*cur_listing;
 struct stabdef *first_nlist,*last_nlist;
@@ -52,7 +54,7 @@ static int listtitlecnt;
 
 static FILE *outfile=NULL;
 
-static int depend;
+static int depend,depend_all;
 #define DEPEND_LIST     1
 #define DEPEND_MAKE     2
 struct deplist {
@@ -110,11 +112,9 @@ void leave(void)
     exit(EXIT_SUCCESS);
 }
 
-/* Removes all unallocated (offset) sections from the list and converts
-   their label symbols into absolute expressions. */
-static void remove_unalloc_sects(void)
+/* Convert all labels from an offset-section into absolute expressions. */
+static void convert_offset_labels(void)
 {
-  section *prev,*sec;
   symbol *sym;
 
   for (sym=first_symbol; sym; sym=sym->next) {
@@ -124,6 +124,13 @@ static void remove_unalloc_sects(void)
       sym->sec = NULL;
     }
   }
+}
+
+/* Removes all unallocated (offset) sections from the list. */
+static void remove_unalloc_sects(void)
+{
+  section *prev,*sec;
+
   for (sec=first_section,prev=NULL; sec; sec=sec->next) {
     if (sec->flags&UNALLOCATED) {
       if (prev)
@@ -155,6 +162,8 @@ static void new_stabdef(aoutnlist *nlist,section *sec)
        new->base = NULL;
        general_error(38);  /* illegal relocation */
     }
+    else if (new->base != NULL)
+      new->base->flags |= REFERENCED;
   }
   if (last_nlist)
     last_nlist = last_nlist->next = new;
@@ -168,13 +177,13 @@ static void resolve_section(section *sec)
   taddr rorg_pc,org_pc;
   int fastphase=FASTOPTPHASE;
   int pass=0;
-  int extrapass;
+  int extrapass,rorg;
   size_t size;
   atom *p;
 
   do{
     done=1;
-    rorg_pc=0;
+    rorg=0;
     if (++pass>=MAXPASSES){
       general_error(7,sec->name);
       break;
@@ -195,17 +204,19 @@ static void resolve_section(section *sec)
       else
 #endif
       if(p->type==RORG){
-        if(rorg_pc!=0)
+        if(rorg)
           general_error(43);  /* reloc org is already set */
         rorg_pc=*p->content.rorg;
         org_pc=sec->pc;
         sec->pc=rorg_pc;
         sec->flags|=ABSOLUTE;
+        rorg=1;
       }
-      else if(p->type==RORGEND&&rorg_pc!=0){
+      else if(p->type==RORGEND&&rorg){
         sec->pc=org_pc+(sec->pc-rorg_pc);
         rorg_pc=0;
         sec->flags&=~ABSOLUTE;
+        rorg=0;
       }
       else if(p->type==LABEL){
         symbol *label=p->content.label;
@@ -249,7 +260,7 @@ static void resolve_section(section *sec)
       }
       sec->pc+=size;
     }
-    if(rorg_pc!=0){
+    if(rorg){
       sec->pc=org_pc+(sec->pc-rorg_pc);
       sec->flags&=~ABSOLUTE;  /* workaround for misssing RORGEND */
     }
@@ -272,27 +283,19 @@ static void resolve(void)
 static void assemble(void)
 {
   section *sec;
-  taddr basepc;
-  taddr rorg_pc=0;
-  taddr org_pc;
+  taddr basepc,rorg_pc,org_pc;
   atom *p;
-  char *attr;
-  int bss;
+  int bss,rorg;
 
-  remove_unalloc_sects();
+  convert_offset_labels();
   final_pass=1;
+  rorg=0;
   for(sec=first_section;sec;sec=sec->next){
     source *lasterrsrc=NULL;
-    int lasterrline=0;
+    utaddr oldpc;
+    int lasterrline=0,ovflw=0;
     sec->pc=sec->org;
-    attr=sec->attr;
-    bss=0;
-    while(*attr){
-      if(*attr++=='u'){
-        bss=1;
-        break;
-      }
-    }
+    bss=strchr(sec->attr,'u')!=NULL;
     for(p=sec->first;p;p=p->next){
       basepc=sec->pc;
       sec->pc=pcalign(p,sec->pc);
@@ -321,12 +324,14 @@ static void assemble(void)
         org_pc=sec->pc;
         sec->pc=rorg_pc;
         sec->flags|=ABSOLUTE;
+        rorg=1;
       }
       else if(p->type==RORGEND){
-        if(rorg_pc!=0){
+        if(rorg){
           sec->pc=org_pc+(sec->pc-rorg_pc);
           rorg_pc=0;
           sec->flags&=~ABSOLUTE;
+          rorg=0;
         }
         else
           general_error(44);  /* reloc org was not set */
@@ -376,13 +381,6 @@ static void assemble(void)
         else
           general_error(30);  /* expression must be constant */
       }
-      else if(p->type==DATA&&bss){
-        if(lasterrsrc!=p->src||lasterrline!=p->line){
-          general_error(31);  /* initialized data in bss */
-          lasterrsrc=p->src;
-          lasterrline=p->line;
-        }
-      }
 #if HAVE_CPU_OPTS
       else if(p->type==OPTS)
         cpu_opts(p->content.opts);
@@ -404,16 +402,36 @@ static void assemble(void)
       }
       else if(p->type==NLIST)
         new_stabdef(p->content.nlist,sec);
+      if(p->type==DATA&&bss){
+        if(lasterrsrc!=p->src||lasterrline!=p->line){
+          if(sec->flags&UNALLOCATED){
+            if(warn_unalloc_ini_dat)
+            general_error(54);  /* initialized data in offset section */
+          }
+          else
+            general_error(31);  /* initialized data in bss */
+          lasterrsrc=p->src;
+          lasterrline=p->line;
+        }
+      }
+      oldpc=sec->pc;
       sec->pc+=atom_size(p,sec,sec->pc);
+      if((utaddr)sec->pc!=oldpc){
+        if((utaddr)(sec->pc-1)<oldpc||ovflw)
+          general_error(45);  /* address space overflow */
+        ovflw=sec->pc==0;
+      }
       sec->flags&=~RESOLVE_WARN;
     }
     /* leave RORG-mode, when section ends */
-    if(rorg_pc!=0){
+    if(rorg){
       sec->pc=org_pc+(sec->pc-rorg_pc);
       rorg_pc=0;
       sec->flags&=~ABSOLUTE;
+      rorg=0;
     }
   }
+  remove_unalloc_sects();
 }
 
 static void undef_syms(void)
@@ -490,7 +508,7 @@ static int init_output(char *fmt)
     return init_output_aout(&output_copyright,&write_object,&output_args);
   if(!strcmp(fmt,"hunkexe")){
     exec_out=1;  /* executable format */
-    return init_output_hunkexe(&output_copyright,&write_object,&output_args);
+    return init_output_hunk(&output_copyright,&write_object,&output_args);
   }
   if(!strcmp(fmt,"tos")){
     exec_out=1;  /* executable format */
@@ -520,6 +538,7 @@ static int init_main(void)
   }
   new_include_path(".");
   taddrmask=MAKEMASK(bytespertaddr<<3);
+  inst_alignment=INST_ALIGN;
   return 1;
 }
 
@@ -676,18 +695,20 @@ int main(int argc,char **argv)
         continue;
       }
     }
-    if(!strncmp("-depend=",argv[i],8)){
-      if (!strcmp("list",&argv[i][8])) {
+    if(!strncmp("-depend=",argv[i],8) || !strncmp("-dependall=",argv[i],11)){
+      depend_all=argv[i][7]!='=';
+      if(!strcmp("list",&argv[i][depend_all?11:8])){
         depend=DEPEND_LIST;
         continue;
       }
-      else if (!strcmp("make",&argv[i][8])) {
+      else if(!strcmp("make",&argv[i][depend_all?11:8])){
         depend=DEPEND_MAKE;
         continue;
       }
     }
     if(!strcmp("-unnamed-sections",argv[i])){
       unnamed_sections=1;
+
       continue;
     }
     if(!strcmp("-ignore-mult-inc",argv[i])){
@@ -730,6 +751,10 @@ int main(int argc,char **argv)
     }
     else if(!strcmp("-chklabels",argv[i])){
       chklabels=1;
+      continue;
+    }
+    else if(!strcmp("-noialign",argv[i])) {
+      inst_alignment=1;
       continue;
     }
     if(cpu_args(argv[i]))
@@ -823,11 +848,12 @@ FILE *locate_file(char *filename,char *mode)
   struct include_path *ipath;
   FILE *f;
 
-  if (*filename=='.' || *filename=='/' || *filename=='\\' ||
-      strchr(filename,':')!=NULL) {
+  if (*filename=='.' || abs_path(filename)) {
     /* file name is absolute, then don't use any include paths */
+    /* @@@ FIXME: '.' is currently stripped by convert_path() */
     if (f = fopen(filename,mode)) {
-      add_depend(filename);
+      if (depend_all)
+        add_depend(pathbuf);
       return f;
     }
   }
@@ -838,7 +864,8 @@ FILE *locate_file(char *filename,char *mode)
         strcpy(pathbuf,ipath->path);
         strcat(pathbuf,filename);
         if (f = fopen(pathbuf,mode)) {
-          add_depend(pathbuf);
+          if (depend_all || !abs_path(pathbuf))
+            add_depend(pathbuf);
           return f;
         }
       }
@@ -957,6 +984,7 @@ source *new_source(char *filename,char *text,size_t size)
   s->size = size;
   s->macro = NULL;
   s->repeat = 1;        /* read just once */
+  s->irpname = NULL;
   s->cond_level = clev; /* remember level of conditional nesting */
   s->num_params = -1;   /* not a macro, no parameters */
   s->param[0] = emptystr;
@@ -964,7 +992,8 @@ source *new_source(char *filename,char *text,size_t size)
   s->id = id++;	        /* every source has unique id - important for macros */
   s->srcptr = text;
   s->line = 0;
-  s->linebuf = mymalloc(MAXLINELENGTH);
+  s->bufsize = INITLINELEN;
+  s->linebuf = mymalloc(INITLINELEN);
 #ifdef CARGSYM
   s->cargexp = NULL;
 #endif

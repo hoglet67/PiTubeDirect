@@ -349,10 +349,12 @@ static void linenoiseBeep(void) {
 /* Free a list of completion option populated by linenoiseAddCompletion(). */
 static void freeCompletions(linenoiseCompletions *lc) {
     size_t i;
-    for (i = 0; i < lc->len; i++)
-        free(lc->cvec[i]);
     if (lc->cvec != NULL)
-        free(lc->cvec);
+    {
+      for (i = 0; i < lc->len; i++)
+        free(lc->cvec[i]);    
+      free(lc->cvec);
+    }  
 }
 
 /* This is an helper function for linenoiseEdit() and is called when the
@@ -487,7 +489,7 @@ static void abFree(struct abuf *ab) {
 
 /* Helper of refreshSingleLine() and refreshMultiLine() to show hints
  * to the right of the prompt. */
-void refreshShowHints(struct abuf *ab, struct linenoiseState *l, int plen) {
+void refreshShowHints(struct abuf *ab, const struct linenoiseState *l, int plen) {
     char seq[64];
     if (hintsCallback && plen+l->len < l->cols) {
         int color = -1, bold = 0;
@@ -1072,7 +1074,7 @@ static char *linenoiseNoTTY(void) {
             char *oldval = line;
             line = realloc(line,maxlen);
             if (line == NULL) {
-                if (oldval) free(oldval);
+                free(oldval);
                 return NULL;
             }
         }

@@ -69,6 +69,9 @@ int ext_find_base(symbol **,expr *,section *,taddr);
 #define EXT_UNARY_EVAL(t,v,r,c) ext_unary_eval(t,v,r,c)
 #define EXT_FIND_BASE(b,e,s,p) ext_find_base(b,e,s,p)
 
+/* Z80 allows ':' as a statement delimiter in oldstyle-syntax */
+#define STATEMENT_DELIMITER ':'
+
 
 /* type to store each operand */
 typedef struct {

@@ -1,5 +1,5 @@
 /* output_aout.c a.out output driver for vasm */
-	/* (c) in 2008-2016 by Frank Wille */
+/* (c) in 2008-2016 by Frank Wille */
 
 #include "vasm.h"
 #include "output_aout.h"
@@ -378,8 +378,12 @@ static void aout_debugsyms(int be)
     val = nlist->value;
     if (nlist->base != NULL) {
       /* include section base offset in symbol value */
-      if (!(nlist->base->sec->flags & ABSOLUTE))
-        val += secoffs[nlist->base->sec->idx];
+      if (LOCREF(nlist->base)) {
+        if (!(nlist->base->sec->flags & ABSOLUTE))
+          val += secoffs[nlist->base->sec->idx];
+      }
+      else
+        ierror(0);  /* @@@ handle external references! How? */
     }
     aout_addsym(nlist->name.ptr,nlist->type,nlist->other,nlist->desc,val,be);
     nlist = nlist->next;

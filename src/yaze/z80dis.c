@@ -257,7 +257,7 @@ static inline uint32_t pfx_ireg(uint32_t addr, uint8_t a, const char **ptr, char
         case 0x36:
             opaddr = GetBYTE(addr++);
             opadd2 = GetBYTE(addr++);
-            snprintf(ibuf, IBUF_SIZE, "LD    (%s+%2.2Xh),%2.2Xh", ireg, opaddr, opadd2);
+            snprintf(ibuf, IBUF_SIZE, "LD    (%s+%2.2Xh),%2.2Xh", ireg, (uint8_t) opaddr, (uint8_t) opadd2);
             break;
         case 0x39:
             snprintf(ibuf, IBUF_SIZE, "ADD   %s,SP", ireg);

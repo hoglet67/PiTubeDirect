@@ -1,5 +1,5 @@
 /* cpu.h x86 cpu-description header-file */
-/* (c) in 2005-2006 by Frank Wille */
+/* (c) in 2005-2006,2017 by Frank Wille */
 
 #define LITTLEENDIAN 1
 #define BIGENDIAN 0
@@ -94,6 +94,15 @@ typedef struct {
 #define EsSeg       0x20000000  /* String instr. oper. with fixed ES seg. */
 #define JmpAbs      0x40000000  /* Absolute jump/call instruction */
 #define InvMem      0x80000000  /* modrm-byte doesn't support memory form */
+
+/* data operands (@@@ define their own flags?) */
+#define FloatData   (FloatAcc)
+#define Data8       (Disp8)
+#define Data16      (Disp16)
+#define Data32      (Disp32)
+#define Data64      (Disp64)
+#define Float32     (Disp32|FloatData)
+#define Float64     (Disp64|FloatData)
 
 /* operand type groups */
 #define Reg         (Reg8|Reg16|Reg32|Reg64)

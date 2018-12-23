@@ -208,7 +208,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
 };
 
 // Parse a value into a register.
-static void dbg_reg_parse(int which, char *strval) {
+static void dbg_reg_parse(int which,const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);

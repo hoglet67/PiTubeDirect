@@ -813,7 +813,7 @@ uint8_t op_grp2_8(uint8_t cnt)
   uint16_t msb;
 
   s = oper1b;
-  oldcf = cf;
+  
 #ifdef CPU_V20 //80186/V20 class CPUs limit shift count to 31
   cnt &= 0x1F;
 #endif
@@ -963,7 +963,7 @@ uint16_t op_grp2_16(uint8_t cnt)
   uint32_t msb;
 
   s = oper1;
-  oldcf = cf;
+
 #ifdef CPU_V20 //80186/V20 class CPUs limit shift count to 31
   cnt &= 0x1F;
 #endif
@@ -1141,7 +1141,7 @@ void op_idiv8(uint16_t valdiv, uint8_t divisor)
   s2 = divisor;
   sign = (((s1 ^ s2) & 0x8000) != 0);
   s1 = (s1 < 0x8000) ? s1 : ((~s1 + 1) & 0xffff);
-  s2 = (s2 < 0x8000) ? s2 : ((~s2 + 1) & 0xffff);
+  //s2 = (s2 < 0x8000) ? s2 : ((~s2 + 1) & 0xffff); //always true
   d1 = s1 / s2;
   d2 = s1 % s2;
   if (d1 & 0xFF00)
@@ -1286,8 +1286,8 @@ void op_idiv16(uint32_t valdiv, uint16_t divisor)
   s2 = divisor;
   s2 = (s2 & 0x8000) ? (s2 | 0xffff0000) : s2;
   sign = (((s1 ^ s2) & 0x80000000) != 0);
-  s1 = (s1 < 0x80000000) ? s1 : ((~s1 + 1) & 0xffffffff);
-  s2 = (s2 < 0x80000000) ? s2 : ((~s2 + 1) & 0xffffffff);
+  s1 = (s1 < 0x80000000) ? s1 : (~s1 + 1);
+  s2 = (s2 < 0x80000000) ? s2 : (~s2 + 1);
   d1 = s1 / s2;
   d2 = s1 % s2;
   if (d1 & 0xFFFF0000)

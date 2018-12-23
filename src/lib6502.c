@@ -445,13 +445,13 @@ byte tmpr;
 #define bitwise(ticks, adrmode, op)		\
   adrmode(ticks);				\
   fetch();					\
-  A op##= getMemory(ea);			\
+  A op getMemory(ea);			\
   setNZ(A & 0x80, !A);				\
   next();
 
-#define and(ticks, adrmode)	bitwise(ticks, adrmode, &)
-#define eor(ticks, adrmode)	bitwise(ticks, adrmode, ^)
-#define ora(ticks, adrmode)	bitwise(ticks, adrmode, |)
+#define and(ticks, adrmode)	bitwise(ticks, adrmode, &=)
+#define eor(ticks, adrmode)	bitwise(ticks, adrmode, ^=)
+#define ora(ticks, adrmode)	bitwise(ticks, adrmode, |=)
 
 #define asl(ticks, adrmode)			\
   adrmode(ticks);				\
@@ -1036,7 +1036,7 @@ static void outOfMemory(void)
 M6502 *M6502_new(M6502_Registers *registers, M6502_Memory memory, M6502_Callbacks *callbacks)
 {
   M6502 *mpu= calloc(1, sizeof(M6502));
-  if (!mpu) outOfMemory();
+  if (!mpu) {outOfMemory(); return NULL;}
 
   if (!registers)  { registers = (M6502_Registers *)calloc(1, sizeof(M6502_Registers));  mpu->flags |= M6502_RegistersAllocated; }
 #ifdef USE_MEMORY_POINTER

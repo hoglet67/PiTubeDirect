@@ -25,6 +25,10 @@ enum {
   REG_ACC,REG_ACC0,REG_ACC1,REG_ACC2,REG_ACC3,REG_ACCX01,REG_ACCX23,
   REG_MACSR,REG_MASK,REG_SFLEFT,REG_SFRIGHT,
 
+  REG_VX00,REG_VX01,REG_VX02,REG_VX03,REG_VX04,REG_VX05,REG_VX06,REG_VX07,
+  REG_VX08,REG_VX09,REG_VX10,REG_VX11,REG_VX12,REG_VX13,REG_VX14,REG_VX15,
+  REG_VX16,REG_VX17,REG_VX18,REG_VX19,REG_VX20,REG_VX21,REG_VX22,REG_VX23,
+
   REG_TC,REG_SRP,REG_CRP,REG_DRP,REG_CAL,REG_VAL,REG_SCC,REG_AC,
   REG_BAC0,REG_BAC1,REG_BAC2,REG_BAC3,REG_BAC4,REG_BAC5,REG_BAC6,REG_BAC7,
   REG_BAD0,REG_BAD1,REG_BAD2,REG_BAD3,REG_BAD4,REG_BAD5,REG_BAD6,REG_BAD7,
@@ -33,13 +37,16 @@ enum {
   REG_ACUSR,REG_AC0,REG_AC1,
 #endif
 
+  /* MOVEC control registers _CTRL */
   REG_SFC,REG_DFC,REG_CACR,REG_ASID,REG_TC_,
   REG_ITT0,REG_ITT1,REG_DTT0,REG_DTT1,
   REG_IACR0,REG_IACR1,REG_DACR0,REG_DACR1,
   REG_ACR0,REG_ACR1,REG_ACR2,REG_ACR3,
   REG_BUSCR,REG_MMUBAR,
+  REG_STR,REG_STC,REG_STH,REG_STB,REG_MWR,
   REG_USP,REG_VBR,REG_CAAR,REG_MSP,
   REG_ISP,REG_MMUSR_,REG_URP,REG_SRP_,REG_PCR,
+  REG_CCC,REG_IEP1,REG_IEP2,REG_BPC,REG_BPW,REG_DCH,REG_DCM,
   REG_ROMBAR,REG_ROMBAR0,REG_ROMBAR1,
   REG_RAMBAR,REG_RAMBAR0,REG_RAMBAR1,
   REG_MPCR,REG_EDRAMBAR,REG_SECMBAR,REG_MBAR,
@@ -55,10 +62,13 @@ enum {
 
 enum {
   OP_D8=1,OP_D16,OP_D32,OP_D64,OP_F32,OP_F64,OP_F96,
-  D_,A_,AI,R_,RM,DD,CS,PA,AP,DP,F_,FF,FR,FPIAR,IM,QI,IR,BR,AB,VA,RL,FL,FS,
-  AY,AM,MA,MI,FA,CF,MAQ,CFAM,CM,AL,DA,DN,CFDA,CT,AC,AD,CFAD,BD,BS,AK,MS,MR,
-  CFMM,CFMN,_CCR,_SR,_USP,_CACHES,_ACC,_MACSR,_MASK,_CTRL,_ACCX,_AEXT,
-  _VAL,_FC,_RP_030,_RP_851,_TC,_AC,_M1_B,_BAC,_BAD,_PSR,_PCSR,_TT,SH
+  D_,A_,B_,AI,IB,R_,RM,DD,CS,VDR2,VDR4,PA,AP,DP,
+  F_,FF,FR,FPIAR,IM,QI,IR,BR,AB,VA,M6,RL,FL,FS,
+  AY,AM,MA,MI,FA,CF,MAQ,CFAM,CM,AL,DA,DN,CFDA,CT,AC,AD,CFAD,
+  BD,BS,AK,MS,MR,CFMM,CFMN,ND,NI,NJ,NK,BY,BI,BJ,
+  _CCR,_SR,_USP,_CACHES,_ACC,_MACSR,_MASK,_CTRL,_ACCX,_AEXT,
+  _VAL,_FC,_RP_030,_RP_851,_TC,_AC,_M1_B,_BAC,_BAD,_PSR,_PCSR,
+  _TT,SH,VX,VXR2,VXR4
 };
 
 struct optype optypes[] = {
@@ -91,8 +101,14 @@ struct optype optypes[] = {
 /* A_        address register */
   _(0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),0,0,0,
 
+/* B_        (Apollo) base register */
+  _(0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),FL_BnReg,0,0,
+
 /* AI        address register indirect */
   _(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0),0,0,0,
+
+/* IB        (Apollo) base register indirect */
+  _(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0),FL_BnReg,0,0,
 
 /* R_        any data or address register */
   _(1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),0,0,0,
@@ -105,6 +121,12 @@ struct optype optypes[] = {
 
 /* CS        any double data or address register indirect (cas2) */
   _(0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0),FL_DoubleReg,0,0,
+
+/* VDR2      (Apollo) Dn:Dn+1 */
+  _(1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),OTF_VXRNG2,0,0,
+
+/* VDR4      (Apollo) Dn-Dn+3 */
+  _(1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),OTF_VXRNG4,0,0,
 
 /* PA        address register indirect with predecrement */
   _(0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0),0,0,0,
@@ -145,6 +167,9 @@ struct optype optypes[] = {
 /* VA        absolute value */
   _(0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0),OTF_NOSIZE,0,0,
 
+/* M6        mode 6 - addr. reg. indirect with index and displacement */
+  _(0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0),0,0,0,
+
 /* RL        An/Dn register list */
   _(0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),OTF_REGLIST,0,0,
 
@@ -170,16 +195,16 @@ struct optype optypes[] = {
 /* FA        memory addressing modes 2-6,7.0-4 with float immediate */
   _(0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0),OTF_FLTIMM,0,0,
 
-/* CF        ColdFire float addressing modes 2-5 and 7.2 */
+/* CF        (ColdFire) float addressing modes 2-5 and 7.2 */
   _(0,0,1,1,1,1,0,0,0,1,0,0,0,0,0,0),0,0,0,
 
 /* MAQ       memory addressing modes 2-6,7.0-4 with 64-bit immediate */
   _(0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0),OTF_QUADIMM,0,0,
 
-/* CFAM      ColdFire alterable memory 2-5 */
+/* CFAM      (ColdFire) alterable memory 2-5 */
   _(0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0),0,0,0,
 
-/* CM        ColdFire alterable memory 2-5 with MASK-flag (MAC) */
+/* CM        (ColdFire) alterable memory 2-5 with MASK-flag (MAC) */
   _(0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0),FL_MAC,0,0,
 
 /* AL        alterable 0-6,7.0-1 */
@@ -191,7 +216,7 @@ struct optype optypes[] = {
 /* DN        data, but not immediate 0,2-6,7.0-3 */
   _(1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0),0,0,0,
 
-/* CFDA      ColdFire float data 0,2-6,7.0-4 (=CF + mode 0) */
+/* CFDA      (ColdFire) float data 0,2-6,7.0-4 (=CF + mode 0) */
   _(1,0,1,1,1,1,0,0,0,1,0,0,0,0,0,0),0,0,0,
 
 /* CT        control, 2,5-6,7.0-3 */
@@ -203,7 +228,7 @@ struct optype optypes[] = {
 /* AD        alterable data, 0,2-6,7.0-1 */
   _(1,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0),0,0,0,
 
-/* CFAD      ColdFire alterable data, 0,2-5 */
+/* CFAD      (ColdFire) alterable data, 0,2-5 */
   _(1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0),0,0,0,
 
 /* BD        alterable control or data (bitfield), 0,2,5-6,7.0-1 */
@@ -221,11 +246,32 @@ struct optype optypes[] = {
 /* MR        restore operands, 2-3,5-6,7.0-3 */
   _(0,0,1,1,0,1,1,1,1,1,1,0,0,0,0,0),0,0,0,
 
-/* CFMM      ColdFire MOVEM, 2,5 */
+/* CFMM      (ColdFire) MOVEM, 2,5 */
   _(0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0),0,0,0,
 
-/* CFMN      ColdFire FMOVEM src-ea, 2,5,7.2 */
+/* CFMN      (ColdFire) FMOVEM src-ea, 2,5,7.2 */
   _(0,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0),0,0,0,
+
+/* ND        (Apollo) all except Dn, 1-6,7.0-4 */
+  _(0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0),0,0,0,
+
+/* NI        (Apollo) all except immediate, 0-6,7.0-3 */
+  _(1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0),0,0,0,
+
+/* NJ        (Apollo) all except Dn and immediate, 1-6,7.0-3 */
+  _(0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0),0,0,0,
+
+/* NK        (Apollo) all except An and immediate, 0,2-6,7.0-3 */
+  _(1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0),0,0,0,
+
+/* BY        (Apollo) all addressing modes 0-6,7.0-4 with An replaced by Bn */
+  _(1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0),FL_BnReg,0,0,
+
+/* BI        (Apollo) all except immediate, 0-6,7.0-3 with An repl. by Bn */
+  _(1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0),FL_BnReg,0,0,
+
+/* BJ        (Apollo) all except Dn/An & immediate, 0-6,7.0-3, An -> Bn */
+  _(0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0),FL_BnReg,0,0,
 
 /* special registers */
 /* _CCR */
@@ -277,6 +323,12 @@ struct optype optypes[] = {
   _(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1),OTF_SPECREG|OTF_CHKREG,REG_TT0,REG_TT1,
 /* SH */
   _(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1),OTF_SPECREG|OTF_CHKREG,REG_SFLEFT,REG_SFRIGHT,
+/* VX (Apollo) */
+  _(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1),OTF_SPECREG|OTF_SRRANGE|OTF_CHKREG,REG_VX00,REG_VX23,
+/* VXR2 (Apollo) En:En+1 */
+  _(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1),OTF_SPECREG|OTF_VXRNG2|OTF_SRRANGE|OTF_CHKREG,REG_VX00,REG_VX23,
+/* VXR4 (Apollo) En-En+3 */
+  _(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1),OTF_SPECREG|OTF_VXRNG4|OTF_SRRANGE|OTF_CHKREG,REG_VX00,REG_VX23,
 };
 
 #undef _
@@ -288,8 +340,8 @@ static void write_val(unsigned char *,int,int,taddr,int);
 
 static void insert_cas2(unsigned char *d,struct oper_insert *i,operand *o)
 {
-  unsigned short w1 = (*(d+2)<<8) | *(d+3);
-  unsigned short w2 = (*(d+4)<<8) | *(d+5);
+  uint16_t w1 = (*(d+2)<<8) | *(d+3);
+  uint16_t w2 = (*(d+4)<<8) | *(d+5);
 
   w1 |= (i->size==4 ? o->reg&15 : o->reg&7) << (16-((i->pos-16)+i->size));
   w2 |= (o->reg>>4) << (16-((i->pos-16)+i->size));
@@ -314,14 +366,18 @@ static void insert_macreg(unsigned char *d,struct oper_insert *i,operand *o)
 
 static void insert_muldivl(unsigned char *d,struct oper_insert *i,operand *o)
 {
-  *(d+2) |= (o->reg & 7) << 4;
-  *(d+3) |= o->reg & 7;
+  unsigned char r = o->reg & 7;
+
+  if (o->mode == MODE_An)
+    r |= REGAn;
+  *(d+2) |= r << 4;
+  *(d+3) |= r;
 }
 
 static void insert_divl(unsigned char *d,struct oper_insert *i,operand *o)
 {
-  *(d+2) |= o->reg & 0x70;
-  *(d+3) |= o->reg & 7;
+  *(d+2) |= o->reg & 0xf0;
+  *(d+3) |= o->reg & 0xf;
 }
 
 static void insert_tbl(unsigned char *d,struct oper_insert *i,operand *o)
@@ -358,12 +414,20 @@ static void insert_accx_rev(unsigned char *d,struct oper_insert *i,operand *o)
   *(d+3) |= (v&2) << 3;
 }
 
+static void insert_ammx(unsigned char *d,struct oper_insert *i,operand *o)
+{
+  unsigned char v = o->extval[0];
+
+  write_val(d,i->pos,i->size,v&15,0);
+  write_val(d,15-(i->flags&15),1,(v&16)!=0,0);
+}
+
 /* place to put an operand */
 enum {
   NOP=0,NEA,SEA,MEA,BEA,KEA,REA,EAM,BRA,DBR,RHI,RLO,RL4,R2H,R2M,R2L,R2P,
-  FPN,FPM,FMD,C2H,CS1,CS2,CS3,MDL,DVL,TBL,FPS,FPC,RMM,RMW,RMY,RMX,ACX,ACR,
-  DL8,DL4,D3Q,DL3,CAC,CTR,D16,D2R,EL8,E8R,EL3,EL4,EM3,EM4,EH3,BAX,
-  FCR,F13,M3Q,MSF,ACW,AHI,ALO,LIN
+  FPN,FPM,FMD,C2H,A2M,A2L,AXA,AXB,AXD,AX0,CS1,CS2,CS3,MDL,DVL,TBL,FPS,FPC,
+  RMM,RMW,RMY,RMX,ACX,ACR,DL8,DL4,D3Q,DL3,CAC,D16,S16,D2R,ELC,EL8,E8R,
+  EL3,EL4,EM3,EM4,EH3,BAX,FCR,F13,M3Q,MSF,ACW,AHI,ALO,LIN
 };
 
 struct oper_insert insert_info[] = {
@@ -427,8 +491,26 @@ struct oper_insert insert_info[] = {
 /* FMD register 3 bits in 2nd word bits 6-4 (FMOVE dynamic) */
   M_reg,3,25,0,0,
 
-/* C2H register 4 bits in 2nd word bits 15-12 (cmp2,chk2) */
+/* C2H register 4 bits in 2nd word bits 15-12 (cmp2,chk2,moves) */
   M_reg,4,16,0,0,
+
+/* A2M register 4 bits in 2nd word bits 11-8 (Apollo AMMX) */
+  M_reg,4,20,0,0,
+
+/* A2L register 4 bits in 2nd word bits 3-0 (Apollo AMMX) */
+  M_reg,4,28,0,0,
+
+/* AXA vector register field A (Apollo AMMX) */
+  M_func,4,28,IIF_A|IIF_ABSVAL,insert_ammx,
+
+/* AXB vector register field B (Apollo AMMX) */
+  M_func,4,16,IIF_B|IIF_ABSVAL,insert_ammx,
+
+/* AXD vector register field D (Apollo AMMX) */
+  M_func,4,20,IIF_D|IIF_ABSVAL,insert_ammx,
+
+/* AX0 vector register field A in first word (Apollo AMMX) */
+  M_func,4,12,IIF_A|IIF_ABSVAL,insert_ammx,
 
 /* CS1 register 3 bits for CAS2 bits 2-0 */
   M_func,3,29,0,insert_cas2,
@@ -439,10 +521,10 @@ struct oper_insert insert_info[] = {
 /* CS3 register 4 bits for CAS2 (CAS2) bits 15-12 */
   M_func,4,16,0,insert_cas2,
 
-/* MDL insert 3 bit reg. Dq/Dl into 2nd word bits 14-12/2-0 */
+/* MDL insert 4 bit reg. Dq/Dl into 2nd word bits 15-12/3-0 */
   M_func,0,0,0,insert_muldivl,
 
-/* DVL bit Dq to 2nd word bits 14-12, Dr to bits 2-0 */
+/* DVL 4 bit Dq to 2nd word bits 15-12, Dr to bits 3-0 */
   M_func,0,0,0,insert_divl,
 
 /* TBL 3 bit Dym to 1st w. bits 2-0, Dyn to 2nd w. 2-0 */
@@ -487,15 +569,18 @@ struct oper_insert insert_info[] = {
 /* CAC 2-bit cache field in bits 7-6 */
   M_val0,2,8,0,0,
 
-/* CTR 12-bit control register id in bits 11-0 of 2nd word */
-  M_val0,12,20,0,0,
-
 /* D16 16-bit data in 2nd word */
   M_val0,16,16,0,0,
+
+/* S16 signed 16-bit data in 2nd word */
+  M_val0,16,16,IIF_SIGNED,0,
 
 /* D2R 16-bit reversed data in 2nd word (movem predec.) */
   M_val0,16,16,IIF_REVERSE,0,
   
+/* ELC 12-bit value in bits 11-0 of 2nd word */
+  M_val0,12,20,0,0,
+
 /* EL8 8-bit data in lo-byte of extension word (2nd word) */
   M_val0,8,24,0,0,
 

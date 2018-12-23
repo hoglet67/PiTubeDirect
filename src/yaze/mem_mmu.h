@@ -54,7 +54,7 @@ typedef unsigned long	FASTWORK;
 
 #ifndef MEMSIZE			/* if MEMSIZE are not given */
  #ifdef MMU
-  #define MEMSIZE 16*Z80MEMSIZE	/* default with MMU: MEMSIZE = 8*Z80MEMSIZE */
+  #define MEMSIZE (16*Z80MEMSIZE)	/* default with MMU: MEMSIZE = 8*Z80MEMSIZE */
  #else
   #define MEMSIZE Z80MEMSIZE	/* default without MMU: MEMSIZE = Z80MEMSIZE */
  #endif
@@ -127,10 +127,10 @@ extern BYTE ram[MEMSIZE*1024];	/* RAM which is present */
 
 
  /* before access make --a */
- #define mm_RAM(a)	 *(tmp2=(--a), \
+ #define mm_RAM(a)	 *(tmp2=(--(a)), \
 			   (mmu->page[((tmp2&0xffff)>>12)]) + (tmp2&0x0fff) )
  /* before access make --a */
- #define mm_MRAM(xmmu,a) *(tmp2=(--a), \
+ #define mm_MRAM(xmmu,a) *(tmp2=(--(a)), \
 			    (xmmu->page[((tmp2&0xffff)>>12)]) + (tmp2&0x0fff) )
 
 #else
@@ -144,8 +144,8 @@ extern BYTE ram[MEMSIZE*1024];	/* RAM which is present */
  #define RAM_mm(a)	 ram[(a--)&0xffff]
  #define MRAM_mm(xmmu,a) ram[(a--)&0xffff]
 
- #define mm_RAM(a)	 ram[(--a)&0xffff]
- #define mm_MRAM(xmmu,a) ram[(--a)&0xffff]
+ #define mm_RAM(a)	 ram[(--(a))&0xffff]
+ #define mm_MRAM(xmmu,a) ram[(--(a))&0xffff]
 #endif
 
 /* Some important macros. They are the interface between an access from
@@ -157,11 +157,11 @@ extern void copro_z80_write_mem(unsigned int, unsigned char);
 #define GetBYTE(a)	    copro_z80_read_mem(a)
 #define GetBYTE_pp(a)	 copro_z80_read_mem( (a++) )
 #define GetBYTE_mm(a)	 copro_z80_read_mem( (a--) )
-#define mm_GetBYTE(a)	 copro_z80_read_mem( (--a) )
+#define mm_GetBYTE(a)	 copro_z80_read_mem( (--(a)) )
 #define PutBYTE(a, v)	 copro_z80_write_mem(a, v)
 #define PutBYTE_pp(a,v)	 copro_z80_write_mem( (a++) , v)
 #define PutBYTE_mm(a,v)	 copro_z80_write_mem( (a--) , v)
-#define mm_PutBYTE(a,v)	 copro_z80_write_mem( (--a) , v)
+#define mm_PutBYTE(a,v)	 copro_z80_write_mem( (--(a)) , v)
 #define GetWORD(a)	    (copro_z80_read_mem(a) | ( copro_z80_read_mem( (a) + 1) << 8) )
 #define PutWORD(a, v)    { copro_z80_write_mem( (a), (BYTE)(v & 0xFF) ); copro_z80_write_mem( ((a)+1), (v)>>8 ); }
 

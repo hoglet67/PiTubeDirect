@@ -157,10 +157,7 @@ darm_instr_t thumb2_load_store_multiple(darm_t *d, uint16_t w, uint16_t w2)
         if(L == 0) {
             return I_SRS;
         }
-        else if(L == 1) {
-            return I_RFE;
-        }
-        break;
+        return I_RFE;
 
     case 1:
         if(L == 0) {
@@ -854,7 +851,7 @@ darm_instr_t thumb2_load_byte_hints(darm_t *d, uint16_t w, uint16_t w2)
             return I_LDRSBT;
         }
     }
-    else if(op1 == 3) {
+    else {
         if(Rt == b1111) {
             d->instr_type = T_THUMB2_RN_REG;
             return I_PLI; // PLI literal/immediate
@@ -964,7 +961,7 @@ darm_instr_t thumb2_load_halfword_hints(darm_t *d, uint16_t w, uint16_t w2)
             return I_LDRSHT;
         }
     }
-    else if(op1 == 3) {
+    else {
         if(Rt == b1111) {
             return I_NOP;
         }
@@ -1203,6 +1200,7 @@ darm_instr_t thumb2_misc_op(darm_t *d, uint16_t w, uint16_t w2)
         case 3:
             return I_QDSUB;
         }
+        break;
 
     case 1:
         d->instr_type = T_THUMB2_RD_RM_REG;
@@ -1222,6 +1220,7 @@ darm_instr_t thumb2_misc_op(darm_t *d, uint16_t w, uint16_t w2)
         case 3:
             return I_REVSH;
         }
+        break;
 
     case 2:
         if(op2 == 0) {

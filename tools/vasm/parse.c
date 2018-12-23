@@ -1,5 +1,5 @@
 /* parse.c - global parser support functions */
-/* (c) in 2009-2016 by Volker Barthelmann and Frank Wille */
+/* (c) in 2009-2017 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 
@@ -23,8 +23,10 @@ static macro *cur_macro;
 static struct namelen *enddir_list;
 static size_t enddir_minlen;
 static struct namelen *reptdir_list;
+
 static int rept_cnt = -1;
-static char *rept_start;
+static char *rept_start,*rept_name,*rept_vals;
+
 static section *cur_struct;
 static section *struct_prevsect;
 
@@ -32,6 +34,7 @@ static section *struct_prevsect;
 char *escape(char *s,char *code)
 {
   char dummy;
+  int cnt;
 
   if (*s++ != '\\')
     ierror(0);
@@ -71,10 +74,11 @@ char *escape(char *s,char *code)
     case 'e':
       *code=27;
       return s+1;
-    case '0': case '1': case '2': case '3': 
-    case '4': case '5': case '6': case '7':
-      *code = 0;
-      while (*s>='0' && *s<='7') {
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+      *code=0;
+      cnt=0;
+      while (*s>='0' && *s<='9' && ++cnt<=3) {
         *code = *code*8 + *s-'0';
         s++;
       }
@@ -174,7 +178,9 @@ char *skip_identifier(char *s)
     s++;
     while (ISIDCHAR(*s))
       s++;
-    return CHKIDEND(name,s);
+    if (s = CHKIDEND(name,s))
+      if (!ISBADID(name,s-name))
+        return s;
   }
   return NULL;
 }
@@ -439,14 +445,17 @@ int real_line(void)
 }
 
 
-void new_repeat(int rcnt,struct namelen *reptlist,struct namelen *endrlist)
+void new_repeat(int rcnt,char *name,char *vals,
+                struct namelen *reptlist,struct namelen *endrlist)
 {
   if (cur_macro==NULL && cur_src!=NULL && enddir_list==NULL) {
     enddir_list = endrlist;
     enddir_minlen = dirlist_minlen(endrlist);
     reptdir_list = reptlist;
-    rept_cnt = rcnt;
     rept_start = cur_src->srcptr;
+    rept_name = name;
+    rept_vals = vals;
+    rept_cnt = rcnt;  /* also REPT_IRP or REPT_IRPC */
   }
   else
     ierror(0);
@@ -458,12 +467,26 @@ int find_macarg_name(source *src,char *name,size_t len)
   struct macarg *ma;
   int idx;
 
-  for (idx=0,ma=src->argnames; ma!=NULL && idx<maxmacparams;
-       idx++,ma=ma->argnext) {
-    /* @@@ case-sensitive comparison? */
-    if (ma->arglen==len && strncmp(ma->argname,name,len)==0)
-      return idx;
+  /* named macro arguments */
+  if (src->macro != NULL) {
+    for (idx=0,ma=src->argnames; ma!=NULL && idx<maxmacparams;
+         idx++,ma=ma->argnext) {
+      /* @@@ case-sensitive comparison? */
+      if (ma->arglen==len && strncmp(ma->argname,name,len)==0)
+        return idx;
+    }
   }
+
+  /* repeat-loop iterator name */
+  if (src->irpname != NULL) {
+    if (strlen(src->irpname)==len && strncmp(src->irpname,name,len)==0) {
+      /* copy current iterator value to param[MAXMACPARAMS] */
+      src->param[MAXMACPARAMS] = src->irpvals->argname;
+      src->param_len[MAXMACPARAMS] = src->irpvals->arglen;
+      return IRPVAL;
+    }
+  }
+
   return -1;
 }
 
@@ -514,8 +537,17 @@ macro *new_macro(char *name,struct namelen *endmlist,char *args)
     m->vararg = -1;
 
     if (find_name_nc(mnemohash,name,&data)) {
-      m->text = NULL;
-      general_error(51);  /* name conflicts with mnemonic */
+      int idx;
+
+      m->text = cur_src->srcptr;
+      for (idx=data.idx;
+           idx<mnemonic_cnt && !stricmp(mnemonics[idx].name,name); idx++) {
+        if (MNEMONIC_VALID(idx)) {
+          m->text = NULL;
+          general_error(51);  /* name conflicts with mnemonic */
+          break;
+        }
+      }
     }
     else if (find_name_nc(dirhash,name,&data)) {
       m->text = NULL;
@@ -754,22 +786,72 @@ static void start_repeat(char *rept_end)
 {
   char buf[MAXPATHLEN];
   source *src;
+  char *p,*val;
   int i;
 
   reptdir_list = NULL;
-  if (rept_cnt<0 || cur_src==NULL || strlen(cur_src->name) + 24 >= MAXPATHLEN)
+  if ((rept_cnt<0 && rept_cnt!=REPT_IRP && rept_cnt!=REPT_IRPC) ||
+      cur_src==NULL || strlen(cur_src->name) + 24 >= MAXPATHLEN)
     ierror(0);
 
-  if (rept_cnt > 0) {
+  if (rept_cnt != 0) {
     sprintf(buf,"REPEAT:%s:line %d",cur_src->name,cur_src->line);
     src = new_source(mystrdup(buf),rept_start,rept_end-rept_start);
-    src->repeat = (unsigned long)rept_cnt;
+    src->irpname = rept_name;
+    src->irpvals = NULL;
 #ifdef REPTNSYM
     src->reptn = 0;
     set_internal_abs(REPTNSYM,0);
 #endif
 
-    if (cur_src->num_params >= 0) {
+    switch (rept_cnt) {
+      case REPT_IRP:  /* iterate with comma separated values */
+        p = rept_vals;
+        if (!*p) {
+          addmacarg(&src->irpvals,p,p);
+          src->repeat = 1;
+        }
+        else {
+          src->repeat = 0;
+          while (val = parse_name(&p)) {
+            addmacarg(&src->irpvals,val,val+strlen(val));
+            myfree(val);
+            src->repeat++;
+            p = skip(p);
+            if (*p == ',')
+              p = skip(p+1);
+          }
+        }
+        break;
+
+      case REPT_IRPC:  /* iterate with each character */
+        p = rept_vals;
+        if (!*p) {
+          addmacarg(&src->irpvals,p,p);
+          src->repeat = 1;
+        }
+        else {
+          src->repeat = 0;
+          do {
+            while (!isspace((unsigned char )*p) && *p!=',' && !ISEOL(p)) {
+              addmacarg(&src->irpvals,p,p+1);
+              src->repeat++;
+              p++;
+            }
+            p = skip(p);
+            if (*p == ',')
+              p = skip(p+1);
+          }
+          while (!ISEOL(p));
+        }
+        break;
+
+      default:  /* iterate rept_cnt times */
+        src->repeat = (unsigned long)rept_cnt;
+        break;
+    }
+
+    if (cur_src->macro != NULL) {
       /* repetition in a macro: get parameters */
       src->num_params = cur_src->num_params;
       for (i=0; i<src->num_params; i++) {
@@ -786,6 +868,8 @@ static void start_repeat(char *rept_end)
       src->argnames = cur_src->argnames;
     }
 
+    if (src->repeat == 0)
+      ierror(0);
     cur_src = src;  /* repeat it */
   }
 }
@@ -810,33 +894,39 @@ static void add_macro(void)
 }
 
 
-/* copy macro parameter n to line buffer */
+/* copy macro parameter n to line buffer, return -1 when out of space */
 int copy_macro_param(source *src,int n,char *d,int len)
 {
-  int i = 0;
-
   if (n < 0) {
     ierror(0);
   }
-  else if (n<src->num_params && n<maxmacparams) {
-    for (; i<src->param_len[n] && len>0; i++,len--)
+  else if ((n<src->num_params && n<maxmacparams) || n==IRPVAL) {
+    int i;
+
+    if (n == IRPVAL)
+      n = MAXMACPARAMS;
+
+    for (i=0; i<src->param_len[n] && len>0; i++,len--)
       *d++ = src->param[n][i];
+
+    return i==src->param_len[n] ? i : -1;
   }
-  return i;
+  else
+    return 0;
 }
 
 
-/* copy nth macro qualifier to line buffer */
+/* copy nth macro qualifier to line buffer, return -1 when out of space */
 int copy_macro_qual(source *src,int n,char *d,int len)
 {
 #if MAX_QUALIFIERS > 0
-  int i = 0;
+  int i;
 
   if (n < src->num_quals) {
-    for (; i<src->qual_len[n] && len>0; i++,len--)
+    for (i=0; i<src->qual_len[n] && len>0; i++,len--)
       *d++ = src->qual[n][i];
   }
-  return i;
+  return i==src->qual_len[n] ? i : -1;
 #else
   return 0;
 #endif
@@ -891,9 +981,8 @@ section *find_structure(char *name,int name_len)
 /* reads the next input line */
 char *read_next_line(void)
 {
-  char *s,*srcend,*d,*lbufend;
-  int nparam;
-  int len = MAXLINELENGTH-2;
+  char *s,*srcend,*d;
+  int nparam,len;
   char *rept_end = NULL;
 
   /* check if end of source is reached */
@@ -901,8 +990,15 @@ char *read_next_line(void)
     srcend = cur_src->text + cur_src->size;
     if (cur_src->srcptr >= srcend || *(cur_src->srcptr) == '\0') {
       if (--cur_src->repeat > 0) {
+        struct macarg *irpval;
+
         cur_src->srcptr = cur_src->text;  /* back to start */
         cur_src->line = 0;
+        if (cur_src->irpname!=NULL && (irpval=cur_src->irpvals)!=NULL) {
+          /* remove and deallocate leading irpval of last iteration */
+          cur_src->irpvals = irpval->argnext;
+          myfree(irpval);
+        }
 #ifdef REPTNSYM
         set_internal_abs(REPTNSYM,++cur_src->reptn);
 #endif
@@ -935,7 +1031,7 @@ char *read_next_line(void)
   cur_src->line++;
   s = cur_src->srcptr;
   d = cur_src->linebuf;
-  lbufend = d + MAXLINELENGTH - 256;
+  len = cur_src->bufsize - 2;  /* excluding \0 at start and beginning */
   nparam = cur_src->num_params;
 
   /* line buffer starts with 0, to allow checks for left-hand character */
@@ -954,16 +1050,15 @@ char *read_next_line(void)
       if (dir = dirlist_match(s,srcend,enddir_list)) {
         if (cur_macro != NULL) {
           add_macro();  /* link macro-definition into hash-table */
-          s += dir->len;
           enddir_list = NULL;
           break;
         }
         else if (--rept_nest == 0) {
           rept_end = s;
-          s += dir->len;
           enddir_list = NULL;
           break;
         }
+        s += dir->len;
       }
       else if (cur_macro==NULL && reptdir_list!=NULL &&
                (dir = dirlist_match(s,srcend,reptdir_list)) != NULL) {
@@ -1007,41 +1102,64 @@ char *read_next_line(void)
     s = skip_eol(s,srcend);
   }
 
+  if (nparam<0 && cur_src->irpname!=NULL)
+    nparam = 0;  /* expand current repeat-iterator symbol into source */
+
   /* copy next line to linebuf */
-  while (s<srcend && *s!='\0' && *s!='\n') {
+  while (s<srcend && *s!='\0') {
     int nc;
 
-    if (d >= lbufend)
-      general_error(54);  /* line buffer overflow */
+    if (nparam >= 0)
+      nc = expand_macro(cur_src,&s,d,len);  /* try macro arg. expansion */
+    else
+      nc = 0;
 
-    if (nparam>=0 && (nc=expand_macro(cur_src,&s,d,len))>=0) {
-      /* expanded macro parameters */
+    if (nc > 0) {
+      /* expanded macro arguments */
       len -= nc;
       d += nc;
     }
-    else if (*s == '\r') {
-      if ((s>cur_src->srcptr && *(s-1)=='\n') ||
-          (s<(srcend-1) && *(s+1)=='\n')) {
-        /* ignore \r in \r\n and \n\r combinations */
-        s++;
+    else if (nc == 0) {
+      /* copy next character */
+      if (*s == '\r') {
+        if ((s>cur_src->srcptr && *(s-1)=='\n') ||
+            (s<(srcend-1) && *(s+1)=='\n')) {
+          /* ignore \r in \r\n and \n\r combinations */
+          s++;
+        }
+        else {
+          /* treat a single \r as \n */
+          s++;
+          break;
+        }
       }
-      else {
-        /* treat a single \r as \n */
+      else if (*s == '\n') {
         s++;
         break;
       }
+      else if (len > 0) {
+        *d++ = *s++;
+        len--;
+      }
+      else
+      	nc = -1;
     }
-    else if (len > 0) {
-      *d++ = *s++;
-      len--;
+
+    if (nc < 0) {
+      /* line buffer ran out of space, allocate a bigger one */
+      int offs = d - cur_src->linebuf;
+
+      /* double its size */
+      len += cur_src->bufsize;
+      cur_src->bufsize += cur_src->bufsize;
+      cur_src->linebuf = myrealloc(cur_src->linebuf,cur_src->bufsize);
+      d = cur_src->linebuf + offs;
+      if (debug)
+        printf("Doubled line buffer size to %lu bytes.\n",cur_src->bufsize);
     }
-    else
-      s++;  /* line buffer is full, ignore additional characters */
   }
 
   *d = '\0';
-  if (s<srcend && *s=='\n')
-    s++;
   cur_src->srcptr = s;
 
   if (listena) {

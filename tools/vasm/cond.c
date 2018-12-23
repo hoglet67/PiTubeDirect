@@ -8,7 +8,7 @@ int clev;  /* conditional level */
 static char cond[MAXCONDLEV+1];
 static char *condsrc[MAXCONDLEV+1];
 static int condline[MAXCONDLEV+1];
-static ifnesting;
+static int ifnesting;
 
 
 /* initialize conditional assembly */

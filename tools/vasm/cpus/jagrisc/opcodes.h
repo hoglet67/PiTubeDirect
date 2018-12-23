@@ -53,7 +53,7 @@
   "sh",       { REG,   REG   }, { 23, ANY },
   "sha",      { REG,   REG   }, { 26, ANY },
   "sharq",    { IMM1,  REG   }, { 27, ANY },
-  "shlq",     { IMM1,  REG   }, { 24, ANY },
+  "shlq",     { IMM1S, REG   }, { 24, ANY },
   "shrq",     { IMM1,  REG   }, { 25, ANY },
   "store",    { REG,   IREG  }, { 47, ANY|OPSWAP },
   "store",    { REG,   IR14R }, { 60, ANY|OPSWAP },

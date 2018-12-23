@@ -73,7 +73,7 @@ void rem_hashentry(hashtable *ht,char *name,int no_case)
   hashentry *p,*last;
 
   for(p=ht->entries[i],last=NULL;p;p=p->next){
-    if((no_case&&!stricmp(name,p->name))||(!no_case&&!strcmp(name,p->name))){
+    if(!strcmp(name,p->name)||(no_case&&!stricmp(name,p->name))){
       if(last==NULL)
         ht->entries[i]=p->next;
       else

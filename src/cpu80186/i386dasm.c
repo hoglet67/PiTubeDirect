@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 #define LSB_FIRST
 
@@ -24,12 +26,6 @@
 
 //#include "osd_cpu.h"
 
-typedef unsigned char						UINT8;
-typedef signed char 						INT8;
-typedef unsigned short						UINT16;
-typedef signed short						INT16;
-typedef unsigned int						UINT32;
-typedef signed int							INT32;
 typedef unsigned int                        offs_t;
 #define INLINE
 
@@ -38,11 +34,11 @@ typedef unsigned int                        offs_t;
 // exception (interrupt type 6)
 #define PATCH_FOR_80186
 
-extern UINT8 *RAM;
+extern uint8_t *RAM;
 
 /* ----- opcode and opcode argument reading ----- */
-INLINE UINT8  cpu_readop(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
-INLINE UINT8  cpu_readop_arg(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
+INLINE uint8_t  cpu_readop(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
+INLINE uint8_t  cpu_readop_arg(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
 
 enum {
 	PARAM_REG = 1,		/* 16 or 32-bit register */
@@ -101,10 +97,10 @@ enum {
 
 typedef struct {
 	char mnemonic[32];
-	UINT32 flags;
-	UINT32 param1;
-	UINT32 param2;
-	UINT32 param3;
+	uint32_t flags;
+	uint32_t param1;
+	uint32_t param2;
+	uint32_t param3;
 	offs_t dasm_flags;
 } I386_OPCODE;
 
@@ -1180,64 +1176,64 @@ static char i386_sreg[8][4] = {"es", "cs", "ss", "ds", "fs", "gs", "???", "???"}
 
 static int address_size;
 static int operand_size;
-static UINT32 pc;
-static UINT8 modrm;
-static UINT32 segment;
+static uint32_t pc;
+static uint8_t modrm;
+static uint32_t segment;
 static offs_t dasm_flags;
 static char modrm_string[256];
 
 #define MODRM_REG1	((modrm >> 3) & 0x7)
 #define MODRM_REG2	(modrm & 0x7)
 
-INLINE UINT8 FETCH(void)
+INLINE uint8_t FETCH(void)
 {
 	pc++;
 	return cpu_readop(pc-1);
 }
 
-INLINE UINT16 FETCH16(void)
+INLINE uint16_t FETCH16(void)
 {
-	UINT16 d;
+	uint16_t d;
 	d = cpu_readop(pc) | (cpu_readop(pc+1) << 8);
 	pc += 2;
 	return d;
 }
 
-INLINE UINT32 FETCH32(void)
+INLINE uint32_t FETCH32(void)
 {
-	UINT32 d;
+	uint32_t d;
 	d = cpu_readop(pc) | (cpu_readop(pc+1) << 8) | (cpu_readop(pc+2) << 16) | (cpu_readop(pc+3) << 24);
 	pc += 4;
 	return d;
 }
 
-INLINE UINT8 FETCHD(void)
+INLINE uint8_t FETCHD(void)
 {
 	pc++;
 	return cpu_readop_arg(pc-1);
 }
 
-INLINE UINT16 FETCHD16(void)
+INLINE uint16_t FETCHD16(void)
 {
-	UINT16 d;
+	uint16_t d;
 	d = cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8);
 	pc += 2;
 	return d;
 }
 
-INLINE UINT32 FETCHD32(void)
+INLINE uint32_t FETCHD32(void)
 {
-	UINT32 d;
+	uint32_t d;
 	d = cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8) | (cpu_readop_arg(pc+2) << 16) | (cpu_readop_arg(pc+3) << 24);
 	pc += 4;
 	return d;
 }
 
-static char* handle_sib_byte( char* s, UINT8 mod )
+static char* handle_sib_byte( char* s, uint8_t mod )
 {
-	UINT32 i32;
-	UINT8 scale, i, base;
-	UINT8 sib = FETCHD();
+	uint32_t i32;
+	uint8_t scale, i, base;
+	uint8_t sib = FETCHD();
 	scale = (sib >> 6) & 0x3;
 	i = (sib >> 3) & 0x7;
 	base = sib & 0x7;
@@ -1252,7 +1248,7 @@ static char* handle_sib_byte( char* s, UINT8 mod )
 		case 5:
 			if( mod == 0 ) {
 				i32 = FETCH32();
-				s += sprintf( s, "$%08X", i32 );
+				s += sprintf( s, "$%08" PRIX32, i32 );
 			} else if( mod == 1 ) {
 				s += sprintf( s, "ebp" );
 			} else if( mod == 2 ) {
@@ -1278,10 +1274,10 @@ static char* handle_sib_byte( char* s, UINT8 mod )
 
 static void handle_modrm(char* s)
 {
-	INT8 disp8;
-	INT16 disp16;
-	INT32 disp32;
-	UINT8 mod, rm;
+	int8_t disp8;
+	int16_t disp16;
+	int32_t disp32;
+	uint8_t mod, rm;
 
 	modrm = FETCHD();
 	mod = (modrm >> 6) & 0x3;
@@ -1312,7 +1308,7 @@ static void handle_modrm(char* s)
 			case 5:
 				if( mod == 0 ) {
 					disp32 = FETCHD32();
-					s += sprintf( s, "$%08X", disp32 );
+					s += sprintf( s, "$%08" PRIX32, disp32 );
 				} else {
 					s += sprintf( s, "ebp" );
 				}
@@ -1322,10 +1318,10 @@ static void handle_modrm(char* s)
 		}
 		if( mod == 1 ) {
 			disp8 = FETCHD();
-			s += sprintf( s, "+$%08X", (INT32)disp8 );
+			s += sprintf( s, "+$%08" PRIX32, (int32_t)disp8 );
 		} else if( mod == 2 ) {
 			disp32 = FETCHD32();
-			s += sprintf( s, "+$%08X", disp32 );
+			s += sprintf( s, "+$%08" PRIX32, disp32 );
 		}
 	} else {
 		switch( rm )
@@ -1339,7 +1335,7 @@ static void handle_modrm(char* s)
 			case 6:
 				if( mod == 0 ) {
 					disp16 = FETCHD16();
-					s += sprintf( s, "$%04X", (unsigned) (UINT16) disp16 );
+					s += sprintf( s, "$%04" PRIX16,  (uint16_t) disp16 );
 				} else {
 					s += sprintf( s, "bp" );
 				}
@@ -1348,25 +1344,25 @@ static void handle_modrm(char* s)
 		}
 		if( mod == 1 ) {
 			disp8 = FETCHD();
-			s += sprintf( s, "+$%08X", (INT32)disp8 );
+			s += sprintf( s, "+$%08" PRIX32, (int32_t)disp8 );
 		} else if( mod == 2 ) {
 			disp16 = FETCHD16();
-			s += sprintf( s, "+$%08X", (INT32)disp16 );
+			s += sprintf( s, "+$%08" PRIX32, (int32_t)disp16 );
 		}
 	}
-	s += sprintf( s, "]" );
+	sprintf( s, "]" );
 }
 
-static char* handle_param(char* s, UINT32 param)
+static char* handle_param(char* s, uint32_t param)
 {
-	UINT8 i8;
-	UINT16 i16;
-	UINT32 i32;
-	UINT16 ptr;
-	UINT32 addr;
-	INT8 d8;
-	INT16 d16;
-	INT32 d32;
+	uint8_t i8;
+	uint16_t i16;
+	uint32_t i32;
+	uint16_t ptr;
+	uint32_t addr;
+	int8_t d8;
+	int16_t d16;
+	int32_t d32;
 
 	switch(param)
 	{
@@ -1414,21 +1410,21 @@ static char* handle_param(char* s, UINT32 param)
 
 		case PARAM_I8:
 			i8 = FETCHD();
-			s += sprintf( s, "$%02X", i8 );
+			s += sprintf( s, "$%02" PRIX8, i8 );
 			break;
 
 		case PARAM_I16:
 			i16 = FETCHD16();
-			s += sprintf( s, "$%04X", i16 );
+			s += sprintf( s, "$%04" PRIX16, i16 );
 			break;
 
 		case PARAM_IMM:
 			if( operand_size ) {
 				i32 = FETCHD32();
-				s += sprintf( s, "$%08X", i32 );
+				s += sprintf( s, "$%08" PRIX32, i32 );
 			} else {
 				i16 = FETCHD16();
-				s += sprintf( s, "$%04X", i16 );
+				s += sprintf( s, "$%04" PRIX16, i16 );
 			}
 			break;
 
@@ -1436,41 +1432,41 @@ static char* handle_param(char* s, UINT32 param)
 			if( operand_size ) {
 				addr = FETCHD32();
 				ptr = FETCHD16();
-				s += sprintf( s, "[$%04X:%08X]",ptr,addr );
+				s += sprintf( s, "[$%04" PRIX16 ":%08" PRIX32 "]",ptr,addr );
 			} else {
 				addr = FETCHD16();
 				ptr = FETCHD16();
-				s += sprintf( s, "[$%04X:%04X]",ptr,addr );
+				s += sprintf( s, "[$%04" PRIX16 ":%04" PRIX32 "]",ptr,addr );
 			}
 			break;
 
 		case PARAM_REL:
 			if( operand_size ) {
 				d32 = FETCHD32();
-				s += sprintf( s, "[$%08X]", pc + d32 );
+				s += sprintf( s, "[$%08" PRIX32 "]", pc + d32 );
 			} else {
 				d16 = FETCHD16();
-				s += sprintf( s, "[$%08X]", pc + d16 );
+				s += sprintf( s, "[$%08" PRIX32 "]", pc + d16 );
 			}
 			break;
 
 		case PARAM_REL8:
 			d8 = FETCHD();
-			s += sprintf( s, "[$%08X]", pc + d8 );
+			s += sprintf( s, "[$%08" PRIX32 "]", pc + d8 );
 			break;
 
 		case PARAM_MEM_OFFS_B:
 			d8 = FETCHD();
-			s += sprintf( s, "[$%08X]", d8 );
+			s += sprintf( s, "[$%08" PRIX8 "]", d8 );
 			break;
 
 		case PARAM_MEM_OFFS_V:
 			if( address_size ) {
 				d32 = FETCHD32();
-				s += sprintf( s, "[$%08X]", d32 );
+				s += sprintf( s, "[$%08" PRIX32 "]", d32 );
 			} else {
 				d32 = FETCHD16();
-				s += sprintf( s, "[$%08X]", d32 );
+				s += sprintf( s, "[$%08" PRIX32 "]", d32 );
 			}
 			break;
 
@@ -1514,7 +1510,7 @@ static char* handle_param(char* s, UINT32 param)
 static void decode_opcode(char *s, I386_OPCODE *op)
 {
 	int i;
-	UINT8 op2;
+	uint8_t op2;
 
 	switch( op->flags )
 	{
@@ -1567,10 +1563,7 @@ static void decode_opcode(char *s, I386_OPCODE *op)
 
 		case GROUP:
 			handle_modrm( modrm_string );
-//->			for( i=0; i < (sizeof(group_op_table) / sizeof(GROUP_OP)); i++ ) {
-//++
 			for( i=0; i < (int) (sizeof(group_op_table) / sizeof(GROUP_OP)); i++ ) {
-//<-
 				if(strcmp(op->mnemonic, group_op_table[i].mnemonic) == 0 ) {
 					decode_opcode( s, &group_op_table[i].opcode[MODRM_REG1] );
 					return;
@@ -1598,7 +1591,7 @@ handle_params:
 
 	if( op->param3 != 0 ) {
 		s += sprintf( s, ", " );
-		s = handle_param( s, op->param3 );
+		handle_param( s, op->param3 );
 	}
 	return;
 
@@ -1606,9 +1599,9 @@ handle_unknown:
 	sprintf(s, "???");
 }
 
-int i386_dasm_one(char *buffer, UINT32 eip, int addr_size, int op_size)
+int i386_dasm_one(char *buffer, uint32_t eip, int addr_size, int op_size)
 {
-	UINT8 op;
+	uint8_t op;
 
 	opcode_table1 = i386_opcode_table1;
 	opcode_table2 = i386_opcode_table2;

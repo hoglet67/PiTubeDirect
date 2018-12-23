@@ -71,6 +71,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   static unsigned char a2;
   static unsigned char a1;
   static unsigned char a0;
+  static int remaining;
 
   int addr;
   int rnw;
@@ -95,7 +96,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   if (nrst == 1 && ntube == 0 && rnw == 0) {
 
     switch (state) {
-      
+
     case IDLE:
       if (addr == 1) {
         // R1 interrupt
@@ -146,7 +147,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         unexpected = 1;
       }
       break;
-      
+
     case ERROR_R2_00:
       if (addr == 3) {
         tubeRead(R2_DATA); // Always 0
@@ -246,18 +247,34 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         tubeRead(R4_DATA);
         count = 0;
         signature = 0;
-        if (type == 0) {
+        switch (type) {
+        case 6:
+          remaining = 256;
+          // fall though to...
+        case 0:
           state = TRANSFER_R3;
           // For a copro->host transfer, send the first byte in response to the sync byte
           tubeWrite(R3_DATA, *address);
           count++;
           signature += *address++;
           signature *= 13;
-        } else if (type == 1) {
+          break;
+        case 7:
+          remaining = 256;
+          // fall though to...
+        case 1:
           state = TRANSFER_R3;
-        } else if (type == 4  || type == 6 || type == 7) {
+          break;
+        case 2:
+        case 3:
+          printf("Type %d transfers are not implemented\r\n", type);
           state = IDLE;
-        } else {
+          break;
+        case 4:
+        case 5:
+          state = IDLE;
+          break;
+        default:
           printf("Unexpected transfer type %d\r\n", type);
           state = IDLE;
         }
@@ -269,12 +286,20 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
       break;
 
     case TRANSFER_R3:
-      if (addr == 5 && type == 1) {
+      if (addr == 5) {
+        if (type == 1 || (type == 7 && remaining > 0)) {
           // Read the R3 data register, which should also clear the NMI
           *address = tubeRead(R3_DATA);
           count++;
           signature += *address++;
           signature *= 13;
+        }
+        if (type == 7 && remaining > 0) {
+          remaining--;
+          if (remaining == 0) {
+            state = IDLE;
+          }
+        }
       } else if (addr == 7) {
         // R4 interrupt
         if (DEBUG_TRANSFER_CRC) {
@@ -292,27 +317,35 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   }
 
   // State machine updates on tube read cycles
-  
+
   if (nrst == 1 && ntube == 0 && rnw == 1) {
-    
-    switch (state) {      
-      
+
+    switch (state) {
+
     case TRANSFER_R3:
-      if (addr == 5 && type == 0) {
-        // Write the R3 data register, which should also clear the NMI
-        tubeWrite(R3_DATA, *address);
-        count++;
-        signature += *address++;
-        signature *= 13;
+      if (addr == 5) {
+        if (type == 0 || (type == 6 && remaining > 0)) {
+          // Write the R3 data register, which should also clear the NMI
+          tubeWrite(R3_DATA, *address);
+          count++;
+          signature += *address++;
+          signature *= 13;
+        }
+        if (type == 6 && remaining > 0) {
+          remaining--;
+          if (remaining == 0) {
+            state = IDLE;
+          }
+        }
       }
       break;
     default:
       break;
- 
+
     }
-    
+
   }
-  
+
   if (unexpected) {
     if (rnw == 0) {
       printf("Unexpected write to %d in state %d\r\n", addr, state);
@@ -386,9 +419,45 @@ void type_3_data_transfer(void) {
 }
 
 void type_6_data_transfer(void) {
+  uint32_t mailbox, intr;
+  int i;
+  for (i = 0; i < 256; i++) {
+    // Wait for a mailbox message
+    if (((*(volatile uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY) == 0) {
+      // Forward the message to the tube handler
+      mailbox = (*(volatile uint32_t *)MBOX0_READ) >> 4;
+      intr = tube_io_handler(mailbox);
+      // If there is an NMI condition, handle the byte
+      if (intr & 2) {
+        // Read the R3 data register, which should also clear the NMI
+        tubeWrite(R3_DATA, *address);
+        count++;
+        signature += *address++;
+        signature *= 13;
+      }
+    }
+  }
 }
 
 void type_7_data_transfer(void) {
+  uint32_t mailbox, intr;
+  int i;
+  for (i = 0; i < 256; i++) {
+    // Wait for a mailbox message
+    if (((*(volatile uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY) == 0) {
+      // Forward the message to the tube handler
+      mailbox = (*(volatile uint32_t *)MBOX0_READ) >> 4;
+      intr = tube_io_handler(mailbox);
+      // If there is an NMI condition, handle the byte
+      if (intr & 2) {
+        // Read the R3 data register, which should also clear the NMI
+        *address = tubeRead(R3_DATA);
+        count++;
+        signature += *address++;
+        signature *= 13;
+      }
+    }
+  }
 }
 
 void copro_armnative_tube_interrupt_handler(void) {

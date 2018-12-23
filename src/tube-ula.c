@@ -714,7 +714,6 @@ void tube_init_hardware()
           RPI_SetGpioPinFunction(A0_PIN_26PIN, FS_INPUT);
           RPI_SetGpioPinFunction(TEST_PIN_26PIN, FS_OUTPUT);
           test_pin = TEST_PIN_26PIN;
-          led_type = 0;
         break;
      
          
@@ -727,17 +726,33 @@ void tube_init_hardware()
           RPI_SetGpioPinFunction(TEST_PIN_40PIN, FS_OUTPUT);
           RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
           RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
-          test_pin = TEST_PIN_40PIN;
-#ifdef RPI3
-          led_type = 2;
-#else 
-          // Write 1 to the LED init nibble in the Function Select GPIO
+          test_pin = TEST_PIN_40PIN;         
+       break;   
+  }
+  
+  switch (get_revision())
+  {
+     case 2 :
+     case 3 :   led_type = 0;
+         break;
+     case 0xa02082: // Rpi3
+     case 0xa22082:
+     case 0xa32082:
+         led_type = 2;
+         break;
+     case 0x9020e0 : // rpi3a+
+     case 0xa020d3 : // rpi3b+
+         led_type = 3;
+         RPI_GpioBase-> GPFSEL[2] |= 1<<27;
+         break;
+     default :
+               // Write 1 to the LED init nibble in the Function Select GPIO
           // peripheral register to enable LED pin as an output  
           RPI_GpioBase-> GPFSEL[4] |= 1<<21;
           led_type = 1;
-#endif          
-          break;   
-  }
+         break;
+  }        
+  
   // Configure our pins as inputs
   RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
@@ -867,7 +882,7 @@ void start_vc_ula()
    func = (int) &tubevc_asm[0];
    r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
    r1   = led_type; 
-   r2   =  tube_delay;
+   r2   = tube_delay;
 
    r3   = host_addr_bus; 
    r4   = 0;

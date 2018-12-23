@@ -209,15 +209,15 @@ static void indexed (void)			/* note take 1 extra cycle */
 	  cpu_clk -= 4;
 	  break;
 	case 0x05:
-	  ea = (*R + ((INT8) B)) & 0xffff;
+	  ea = (*R + ((int8_t) B)) & 0xffff;
 	  cpu_clk -= 5;
 	  break;
 	case 0x06:
-	  ea = (*R + ((INT8) A)) & 0xffff;
+	  ea = (*R + ((int8_t) A)) & 0xffff;
 	  cpu_clk -= 5;
 	  break;
 	case 0x08:
-	  ea = (*R + ((INT8) imm_byte ())) & 0xffff;
+	  ea = (*R + ((int8_t) imm_byte ())) & 0xffff;
 	  cpu_clk -= 5;
 	  break;
 	case 0x09:
@@ -229,7 +229,7 @@ static void indexed (void)			/* note take 1 extra cycle */
 	  cpu_clk -= 8;
 	  break;
 	case 0x0c:
-	  ea = (INT8) imm_byte ();
+	  ea = (int8_t) imm_byte ();
 	  ea = (ea + PC) & 0xffff;
 	  cpu_clk -= 5;
 	  break;
@@ -260,19 +260,19 @@ static void indexed (void)			/* note take 1 extra cycle */
 	  cpu_clk -= 2;
 	  break;
 	case 0x15:
-	  ea = (*R + ((INT8) B)) & 0xffff;
+	  ea = (*R + ((int8_t) B)) & 0xffff;
 	  cpu_clk -= 5;
 	  ea = RDMEM16 (ea);
 	  cpu_clk -= 2;
 	  break;
 	case 0x16:
-	  ea = (*R + ((INT8) A)) & 0xffff;
+	  ea = (*R + ((int8_t) A)) & 0xffff;
 	  cpu_clk -= 5;
 	  ea = RDMEM16 (ea);
 	  cpu_clk -= 2;
 	  break;
 	case 0x18:
-	  ea = (*R + ((INT8) imm_byte ())) & 0xffff;
+	  ea = (*R + ((int8_t) imm_byte ())) & 0xffff;
 	  cpu_clk -= 5;
 	  ea = RDMEM16 (ea);
 	  cpu_clk -= 2;
@@ -290,7 +290,7 @@ static void indexed (void)			/* note take 1 extra cycle */
 	  cpu_clk -= 2;
 	  break;
 	case 0x1c:
-	  ea = (INT8) imm_byte ();
+	  ea = (int8_t) imm_byte ();
 	  ea = (ea + PC) & 0xffff;
 	  cpu_clk -= 5;
 	  ea = RDMEM16 (ea);
@@ -710,7 +710,7 @@ static unsigned asl (unsigned arg)		/* same as lsl */
 
 static unsigned asr (unsigned arg)
 {
-  unsigned res = (INT8) arg;
+  unsigned res = (int8_t) arg;
 
   C = res & 1;
   N = Z = res = (res >> 1) & 0xff;
@@ -1521,7 +1521,7 @@ static void andcc (void)
 
 static void bra (void)
 {
-  INT8 tmp = (INT8) imm_byte ();
+  int8_t tmp = (int8_t) imm_byte ();
   change_pc (PC + tmp);
 }
 
@@ -1537,7 +1537,7 @@ static void branch (unsigned cond)
 
 static void long_bra (void)
 {
-  INT16 tmp = (INT16) imm_word ();
+  int16_t tmp = (int16_t) imm_word ();
   change_pc (PC + tmp);
 }
 
@@ -1557,7 +1557,7 @@ static void long_branch (unsigned cond)
 
 static void long_bsr (void)
 {
-  INT16 tmp = (INT16) imm_word ();
+  int16_t tmp = (int16_t) imm_word ();
   ea = PC + tmp;
   S = (S - 2) & 0xffff;
   write_stack16 (S, PC & 0xffff);
@@ -1567,7 +1567,7 @@ static void long_bsr (void)
 
 static void bsr (void)
 {
-  INT8 tmp = (INT8) imm_byte ();
+  int8_t tmp = (int8_t) imm_byte ();
   ea = PC + tmp;
   S = (S - 2) & 0xffff;
   write_stack16 (S, PC & 0xffff);

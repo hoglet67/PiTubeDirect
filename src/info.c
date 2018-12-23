@@ -13,7 +13,7 @@ extern void init_info() {
   get_cmdline();
 }
 
-void print_tag_value(char *name, rpi_mailbox_property_t *buf, int hex) {
+void print_tag_value(char *name, const rpi_mailbox_property_t *buf, int hex) {
    int i;
    LOG_INFO("%20s : ", name);
    if (buf == NULL) {
@@ -147,7 +147,7 @@ char *get_cmdline_prop(char *prop) {
          }
       }
       // Skip to the next property
-      cmdptr = index(cmdptr, ' ');
+      cmdptr = strchr(cmdptr, ' ');
       while (cmdptr && *cmdptr == ' ') {
          cmdptr++;
       }

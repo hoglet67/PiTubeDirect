@@ -50,6 +50,7 @@
 
 .equ LED_TYPE0_BIT, 16
 .equ LED_TYPE1_BIT, 15
+.equ LED_TYPE3_BIT, 29 
 
 
 .equ GPU_ARM_MBOX, 0x7E00B880
@@ -298,8 +299,10 @@ toggle_led:
    beq    led_type0
    cmp    r19, 1
    beq    led_type1
+   cmp    r19, 3
+   beq    led_type3
    
-   # must be led_type3
+   # must be led_type2
    # only on raspberry pi 3
 
    rts
@@ -327,6 +330,18 @@ led_type1:
 led_type1_set:   
    st     r7,GPSET1_offset(r6)
    rts
+   
+# led_type 3 found on rpi3b+ GPIO29
+led_type3:
+   mov    r7, (1<<LED_TYPE3_BIT)
+   btst   r20, 0
+   not    r20, r20
+   bne    led_type1_set
+   st     r7,GPCLR0_offset(r6)
+   rts
+led_type3_set:   
+   st     r7,GPSET0_offset(r6)
+   rts   
    
 # This code is not currently used
         

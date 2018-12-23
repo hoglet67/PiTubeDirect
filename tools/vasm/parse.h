@@ -1,11 +1,11 @@
 /* parse.h - global parser support functions */
-/* (c) in 2009-2015 by Volker Barthelmann and Frank Wille */
+/* (c) in 2009-2017 by Volker Barthelmann and Frank Wille */
 
 #ifndef PARSE_H
 #define PARSE_H 
 
 /* defines */
-#define MAXLINELENGTH 4096
+#define INITLINELEN 256
 #ifndef MAXMACPARAMS
 #define MAXMACPARAMS 9
 #endif
@@ -57,7 +57,7 @@ char *parse_labeldef(char **,int);
 int check_indir(char *,char *);
 void include_binary_file(char *,long,unsigned long);
 int real_line(void);
-void new_repeat(int,struct namelen *,struct namelen *);
+void new_repeat(int,char *,char *,struct namelen *,struct namelen *);
 int find_macarg_name(source *,char *,size_t);
 struct macarg *addmacarg(struct macarg **,char *,char *);
 macro *new_macro(char *,struct namelen *,char *);
@@ -72,6 +72,13 @@ int end_structure(section **);
 section *find_structure(char *,int);
 char *read_next_line(void);
 int init_parse(void);
+
+/* new_repeat() repeat-types, a standard repeat-loop has a counter >= 0 */
+#define REPT_IRP -100           /* repetition with a list of values */
+#define REPT_IRPC -101          /* repetition with a list of characters */
+
+/* find_macarg_name(), copy_macro_param() for current REPT iterator value */
+#define IRPVAL 10000
 
 /* macros which may be overwritten by the syntax module */
 #ifndef SKIP_MACRO_ARGNAME

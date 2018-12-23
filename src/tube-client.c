@@ -12,6 +12,10 @@
 #include "info.h"
 #include "rpi-gpio.h"
 
+#ifdef INCLUDE_DEBUGGER
+#include "cpu_debug.h"
+#endif
+
 typedef void (*func_ptr)();
 
 extern int test_pin;
@@ -42,6 +46,7 @@ static const func_ptr emulator_functions[] = {
 #include "copro-opc5ls.h"
 #include "copro-opc6.h"
 #include "copro-opc7.h"
+#include "copro-pdp11.h"
 #include "copro-armnative.h"
 
 #ifdef DEBUG
@@ -51,16 +56,16 @@ static const char * emulator_names[] = {
    "65C02 (lib6502)",
    "65C02 (lib6502)",
    "Z80",
-   "Z80",
-   "Z80",
-   "OPC7",
-   "80286",
-   "MC6809 (Neal Crook)",
    "OPC5LS",
    "OPC6",
+   "OPC7",
+   "80286",
+   "MC6809",
+   "Null",
+   "PDP-11",
    "ARM2",
    "32016",
-   "Null/SPI",
+   "Null",
    "ARM Native"
 };
 #endif
@@ -82,7 +87,7 @@ static const func_ptr emulator_functions[] = {
    copro_80186_emulator,
    copro_mc6809nc_emulator,
    copro_null_emulator,
-   copro_null_emulator,
+   copro_pdp11_emulator,
    copro_arm2_emulator,
    copro_32016_emulator,
    copro_null_emulator,
@@ -110,7 +115,10 @@ unsigned char * copro_mem_reset(int length)
      // Wipe memory
      // Memory starts at zero now vectors have moved.
    unsigned char * mpu_memory = 0;  
+#pragma GCC diagnostic ignored "-Wnonnull"   
+     // cppcheck-suppress nullPointer
    memset(mpu_memory, 0, length);
+#pragma GCC diagnostic pop   
    // return pointer to memory
    return mpu_memory;
 }
@@ -146,6 +154,11 @@ void init_emulator() {
    LOG_DEBUG("Raspberry Pi Direct %u %s Client\r\n", copro,emulator_names[copro]);
 
    emulator = emulator_functions[copro];
+
+#ifdef INCLUDE_DEBUGGER
+   // reinitialize the debugger as the Co Pro has changed
+   debug_init();
+#endif
    
    _enable_interrupts();
 }

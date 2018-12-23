@@ -176,14 +176,12 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
 
    // Output instruction
    if (opcode < op_ljsr) {
-      len = snprintf(buf, bufsize, ": %s%s r%d, r%d, %08"PRIx32,
+      snprintf(buf, bufsize, ": %s%s r%d, r%d, %08"PRIx32,
                      pred_names[pred], opcode_names[opcode], dst, src, operand);      
    } else {
-      len = snprintf(buf, bufsize, ": %s%s r%d, %08"PRIx32,
+      snprintf(buf, bufsize, ": %s%s r%d, %08"PRIx32,
                      pred_names[pred], opcode_names[opcode], dst, operand);            
    }
-   buf += len;
-   bufsize -= len;
 
    return addr;
 };
@@ -263,7 +261,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
 };
 
 // Parse a value into a register.
-static void dbg_reg_parse(int which, char *strval) {
+static void dbg_reg_parse(int which, const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);

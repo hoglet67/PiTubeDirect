@@ -1,6 +1,6 @@
 /*
 ** cpu.h Jaguar RISC cpu-description header-file
-** (c) in 2014-2015 by Frank Wille
+** (c) in 2014-2017 by Frank Wille
 */
 
 extern int jag_big_endian;
@@ -47,6 +47,7 @@ enum {
   REG,                  /* register Rn */
   IMM0,                 /* 5-bit immediate expression (0-31) */
   IMM1,                 /* 5-bit immediate expression (1-32) */
+  IMM1S,                /* 5-bit immediate expression 32-(1-32) for SHLQ */
   SIMM,                 /* 5-bit signed immediate expression (-16 - 15) */
   IMMLW,                /* 32-bit immediate expression in extra longword */
   IREG,                 /* register indirect (Rn) */

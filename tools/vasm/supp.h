@@ -1,5 +1,5 @@
 /* supp.h miscellaneous support routines */
-/* (c) in 2008-2016 by Frank Wille */
+/* (c) in 2008-2017 by Frank Wille */
 
 #ifndef SUPP_H
 #define SUPP_H
@@ -49,6 +49,7 @@ void fwspace(FILE *,size_t);
 void fwalign(FILE *,taddr,taddr);
 taddr fwpcalign(FILE *,atom *,section *,taddr);
 size_t filesize(FILE *);
+int abs_path(char *);
 char *convert_path(char *);
 
 int stricmp(const char *,const char *);

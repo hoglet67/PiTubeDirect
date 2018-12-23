@@ -1,6 +1,6 @@
 /*
  * cpu.c Jaguar RISC cpu description file
- * (c) in 2014-2016 by Frank Wille
+ * (c) in 2014-2017 by Frank Wille
  */
 
 #include "vasm.h"
@@ -10,7 +10,7 @@ mnemonic mnemonics[] = {
 };
 int mnemonic_cnt = sizeof(mnemonics) / sizeof(mnemonics[0]);
 
-char *cpu_copyright = "vasm Jaguar RISC cpu backend 0.4a (c) 2014-2016 Frank Wille";
+char *cpu_copyright = "vasm Jaguar RISC cpu backend 0.4c (c) 2014-2017 Frank Wille";
 char *cpuname = "jagrisc";
 int bitsperbyte = 8;
 int bytespertaddr = 4;
@@ -276,6 +276,7 @@ int parse_operand(char *p, int len, operand *op, int required)
   switch (required) {
     case IMM0:
     case IMM1:
+    case IMM1S:
     case SIMM:
     case IMMLW:
       if (*p == '#')
@@ -283,7 +284,12 @@ int parse_operand(char *p, int len, operand *op, int required)
     case REL:
     case DATA_OP:
     case DATAI_OP:
-      op->val = parse_expr(&p);
+      if (required == IMM1S) {
+        op->val = make_expr(SUB,number_expr(32),parse_expr(&p));
+        required = IMM1;  /* turn into IMM1 32-val for SHLQ */
+      }
+      else
+        op->val = parse_expr(&p);
       break;
 
     case DATA64_OP:
@@ -367,6 +373,9 @@ static int32_t eval_oper(instruction *ip,operand *op,section *sec,
   taddr val,loval,hival,mask;
 
   switch (optype) {
+    case PC:
+      return 0;
+
     case REG:
     case IREG:
     case IR14R:
@@ -465,6 +474,10 @@ static int32_t eval_oper(instruction *ip,operand *op,section *sec,
       if (mask!=~0 && (val<loval || val>hival))
         cpu_error(1,(long)loval,(long)hival);
       return val & mask;
+
+    default:
+      ierror(0);
+      break;
   }
 
   return 0;  /* default */

@@ -1,12 +1,14 @@
 /* syntax.h  syntax header file for vasm */
-/* (c) in 2002,2005,2009-2012,2015 by Volker Barthelmann and Frank Wille */
+/* (c) in 2002,2005,2009-2015,2017
+   by Volker Barthelmann and Frank Wille */
 
 /* macros to recognize identifiers */
 int isidchar(char);
 int iscomment(char *);
 #define ISIDSTART(x) ((x)=='.'||(x)=='@'||(x)=='_'||isalpha((unsigned char)(x)))
 #define ISIDCHAR(x) isidchar(x)
-#define ISEOL(x) (*(x)=='\0'||iscomment(x))
+#define ISBADID(p,l) ((l)==1&&(*(p)=='.'||*(p)=='@'||*(p)=='_'))
+#define ISEOL(p) (*(p)=='\0'||iscomment(p))
 #ifdef VASM_CPU_M68K
 char *chkidend(char *,char *);
 #define CHKIDEND(s,e) chkidend((s),(e))

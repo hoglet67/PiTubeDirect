@@ -30,84 +30,137 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "armv7-tbl.h"
 darm_enctype_t armv7_instr_types[] = {
-    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,
-    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,
-    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,
-    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,
-    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,
-    T_ARM_ARITH_SHIFT, T_ARM_SM, T_ARM_CMP_OP, T_ARM_BRNCHMISC, T_ARM_CMP_OP,
-    T_ARM_SM, T_ARM_CMP_OP, T_ARM_MISC, T_ARM_CMP_OP, T_ARM_ARITH_SHIFT,
-    T_ARM_ARITH_SHIFT, T_ARM_DST_SRC, T_ARM_DST_SRC, T_ARM_ARITH_SHIFT,
-    T_ARM_ARITH_SHIFT, T_ARM_MISC, T_ARM_MISC, T_ARM_ARITH_IMM,
-    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM,
-    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM,
-    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM,
-    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_MOV_IMM,
-    T_ARM_CMP_IMM, T_ARM_OPLESS, T_ARM_CMP_IMM, T_ARM_MOV_IMM, T_ARM_CMP_IMM,
-    T_INVLD, T_ARM_CMP_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_MOV_IMM,
-    T_ARM_MOV_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_MOV_IMM,
-    T_ARM_MOV_IMM, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD,
-    T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD,
-    T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD,
-    T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD,
-    T_INVLD, T_INVLD, T_INVLD, T_ARM_PAS, T_ARM_PAS, T_ARM_PAS, T_INVLD,
-    T_ARM_PAS, T_ARM_PAS, T_ARM_PAS, T_ARM_MISC, T_INVLD, T_INVLD,
-    T_ARM_BITREV, T_INVLD, T_INVLD, T_INVLD, T_ARM_BITREV, T_ARM_SM, T_INVLD,
-    T_INVLD, T_INVLD, T_ARM_SM, T_ARM_SM, T_INVLD, T_INVLD, T_INVLD, T_INVLD,
-    T_ARM_BITS, T_ARM_BITS, T_ARM_BITS, T_ARM_BITS, T_ARM_BITS, T_ARM_UDF,
-    T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_INVLD,
-    T_INVLD, T_INVLD, T_INVLD, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS,
-    T_ARM_LDSTREGS, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_ARM_LDSTREGS,
-    T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_INVLD, T_INVLD, T_INVLD,
-    T_INVLD, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS,
-    T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_ARM_BRNCHSC, T_ARM_BRNCHSC,
-    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,
-    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,
-    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,
-    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,
-    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,
-    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,
-    T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD,
-    T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD,
-    T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD,
-    T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD, T_INVLD,
-    T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR,
-    T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR,
-    T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_BRNCHSC,
-    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,
-    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,
-    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC
+    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    0-3 
+    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    4-7
+    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    8-0xB
+    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //  0xC-0xF
+    T_ARM_SM, T_ARM_CMP_OP, T_ARM_BRNCHMISC, T_ARM_CMP_OP,                       // 0x10-0x13
+    T_ARM_SM, T_ARM_CMP_OP, T_ARM_MISC, T_ARM_CMP_OP,                            // 0x14-0x17 
+    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_DST_SRC, T_ARM_DST_SRC,          // 0x18-0x1B
+    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_MISC, T_ARM_MISC,                // 0x1C-0x1F
+    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM,          // 0x20-0x23
+    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM,          // 0x24-0x27
+    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM,          // 0x28-0x2B
+    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM,          // 0x2C-0x2F
+    T_ARM_MOV_IMM, T_ARM_CMP_IMM, T_ARM_OPLESS, T_ARM_CMP_IMM,                   // 0x30-0x33
+    T_ARM_MOV_IMM, T_ARM_CMP_IMM, T_INVLD, T_ARM_CMP_IMM,                        // 0x34-0x37
+    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_MOV_IMM, T_ARM_MOV_IMM,              // 0x38-0x3B
+    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_MOV_IMM, T_ARM_MOV_IMM,              // 0x3C-0x3F   
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x40-0x43   
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x44-0x47
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x48-0x4B
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x4C-0x4F
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x50-0x53
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x54-0x57
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x58-0x5b
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x5C-0x5f
+    T_INVLD, T_ARM_PAS, T_ARM_PAS, T_ARM_PAS,                                    // 0x60-0x63
+    T_INVLD, T_ARM_PAS, T_ARM_PAS, T_ARM_PAS,                                    // 0x64-0x67
+    T_ARM_MISC, T_INVLD, T_INVLD, T_ARM_BITREV,                                  // 0x68-0x6B   
+    T_INVLD, T_INVLD, T_INVLD, T_ARM_BITREV,                                     // 0x6c-0x6f   
+    T_ARM_SM, T_INVLD, T_INVLD, T_INVLD,                                         // 0x70-0x73
+    T_ARM_SM, T_ARM_SM, T_INVLD, T_INVLD,                                        // 0x74-0x77
+    T_INVLD, T_INVLD, T_ARM_BITS, T_ARM_BITS,                                    // 0x78-0x7b
+    T_ARM_BITS, T_ARM_BITS, T_ARM_BITS, T_ARM_UDF,                               // 0x7C-0x7f
+    T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS,              // 0x80-0x83
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x84-0x87
+    T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS,              // 0x88-0x8B
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x8c-0x8f
+    T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS,              // 0x90-0x93
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x94-0x97
+    T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS, T_ARM_LDSTREGS,              // 0x98-0x9b
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x9C-0x9f
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xA0-0xA3
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xA4-0xA7
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xA8-0xAB
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xAc-0xAf
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xB0-0xB3
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xB4-0xB7
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xB8-0xBb
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xBC-0xBf
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0xC0-0xC3
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0xC4-0xC7
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0xC8-0xCB
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0xCc-0xCf
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0xD0-0xD3
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0xD4-0xD7
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0xD8-0xDb
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0xDC-0xDf
+    T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR,                              // 0xE0-0xE3
+    T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR,                              // 0xE4-0xE7
+    T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR,                              // 0xE8-0xEB
+    T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR, T_ARM_MVCR,                              // 0xEc-0xEf
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xF0-0xF3
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xF4-0xF7
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC,                  // 0xF8-0xFb
+    T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC                   // 0xFC-0xFf
 };
 
-darm_instr_t armv7_instr_labels[] = {
-    I_AND, I_AND, I_EOR, I_EOR, I_SUB, I_SUB, I_RSB, I_RSB, I_ADD, I_ADD,
-    I_ADC, I_ADC, I_SBC, I_SBC, I_RSC, I_RSC, I_SMLA, I_TST, I_SMULW, I_TEQ,
-    I_SMLAL, I_CMP, I_SMC, I_CMN, I_ORR, I_ORR, I_STREXD, I_RRX, I_BIC, I_BIC,
-    I_MVN, I_MVN, I_AND, I_AND, I_EOR, I_EOR, I_SUB, I_SUB, I_RSB, I_RSB,
-    I_ADD, I_ADD, I_ADC, I_ADC, I_SBC, I_SBC, I_RSC, I_RSC, I_MOVW, I_TST,
-    I_YIELD, I_TEQ, I_MOVT, I_CMP, I_INVLD, I_CMN, I_ORR, I_ORR, I_MOV, I_MOV,
-    I_BIC, I_BIC, I_MVN, I_MVN, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_SSUB8, I_QSUB8, I_SHSUB8, I_INVLD,
-    I_USUB8, I_UQSUB8, I_UHSUB8, I_SEL, I_INVLD, I_INVLD, I_REV16, I_INVLD,
-    I_INVLD, I_INVLD, I_REVSH, I_SMUSD, I_INVLD, I_INVLD, I_INVLD, I_SMLSLD,
-    I_SMMUL, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_SBFX, I_SBFX, I_BFI, I_BFI,
-    I_UBFX, I_UDF, I_STMDA, I_LDMDA, I_STMDA, I_LDMDA, I_INVLD, I_INVLD,
-    I_INVLD, I_INVLD, I_STM, I_LDM, I_STM, I_LDM, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_STMDB, I_LDMDB, I_STMDB, I_LDMDB, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_STMIB, I_LDMIB, I_STMIB, I_LDMIB, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_B, I_B, I_B, I_B, I_B, I_B, I_B, I_B, I_B, I_B, I_B, I_B, I_B,
-    I_B, I_B, I_B, I_BL, I_BL, I_BL, I_BL, I_BL, I_BL, I_BL, I_BL, I_BL, I_BL,
-    I_BL, I_BL, I_BL, I_BL, I_BL, I_BL, I_INVLD, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD,
-    I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_MCR, I_MRC, I_MCR, I_MRC, I_MCR,
-    I_MRC, I_MCR, I_MRC, I_MCR, I_MRC, I_MCR, I_MRC, I_MCR, I_MRC, I_MCR,
-    I_MRC, I_SVC, I_SVC, I_SVC, I_SVC, I_SVC, I_SVC, I_SVC, I_SVC, I_SVC,
-    I_SVC, I_SVC, I_SVC, I_SVC, I_SVC, I_SVC, I_SVC
+darm_instr_t armv7_instr_labels[] = {                                            
+    I_AND, I_AND, I_EOR, I_EOR,           //    0-3 
+    I_SUB, I_SUB, I_RSB, I_RSB,           //    4-7
+    I_ADD, I_ADD, I_ADC, I_ADC,           //    8-0xB
+    I_SBC, I_SBC, I_RSC, I_RSC,           //  0xC-0xF
+    I_SMLA, I_TST, I_SMULW, I_TEQ,        // 0x10-0x13
+    I_SMLAL, I_CMP, I_SMC, I_CMN,         // 0x14-0x17 
+    I_ORR, I_ORR, I_STREXD, I_RRX,        // 0x18-0x1B
+    I_BIC, I_BIC, I_MVN, I_MVN,           // 0x1C-0x1F
+    I_AND, I_AND, I_EOR, I_EOR,           // 0x20-0x23
+    I_SUB, I_SUB, I_RSB, I_RSB,           // 0x24-0x27
+    I_ADD, I_ADD, I_ADC, I_ADC,           // 0x28-0x2B
+    I_SBC, I_SBC, I_RSC, I_RSC,           // 0x2C-0x2F
+    I_MOVW, I_TST, I_YIELD, I_TEQ,        // 0x30-0x33
+    I_MOVT, I_CMP, I_INVLD, I_CMN,        // 0x34-0x37
+    I_ORR, I_ORR, I_MOV, I_MOV,           // 0x38-0x3B
+    I_BIC, I_BIC, I_MVN, I_MVN,           // 0x3C-0x3F 
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x40-0x43 
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x44-0x47
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x48-0x4B
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x4C-0x4F
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x50-0x53
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x54-0x57
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x58-0x5b
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x5C-0x5f
+    I_INVLD, I_SSUB8, I_QSUB8, I_SHSUB8,  // 0x60-0x63
+    I_INVLD, I_USUB8, I_UQSUB8, I_UHSUB8, // 0x64-0x67
+    I_SEL, I_INVLD, I_INVLD, I_REV16,     // 0x68-0x6B 
+    I_INVLD, I_INVLD, I_INVLD, I_REVSH,   // 0x6c-0x6f 
+    I_SMUSD, I_INVLD, I_INVLD, I_INVLD,   // 0x70-0x73
+    I_SMLSLD, I_SMMUL, I_INVLD, I_INVLD,  // 0x74-0x77
+    I_INVLD, I_INVLD, I_SBFX, I_SBFX,     // 0x78-0x7b
+    I_BFI, I_BFI, I_UBFX, I_UDF,          // 0x7C-0x7f
+    I_STMDA, I_LDMDA, I_STMDA, I_LDMDA,   // 0x80-0x83
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x84-0x87
+    I_STM, I_LDM, I_STM, I_LDM,           // 0x88-0x8B
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x8c-0x8f
+    I_STMDB, I_LDMDB, I_STMDB, I_LDMDB,   // 0x90-0x93
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x94-0x97
+    I_STMIB, I_LDMIB, I_STMIB, I_LDMIB,   // 0x98-0x9b
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x9C-0x9f
+    I_B, I_B, I_B, I_B,                   // 0xA0-0xA3
+    I_B, I_B, I_B, I_B,                   // 0xA4-0xA7
+    I_B, I_B, I_B, I_B,                   // 0xA8-0xAB
+    I_B, I_B, I_B, I_B,                   // 0xAc-0xAf
+    I_BL, I_BL, I_BL, I_BL,               // 0xB0-0xB3
+    I_BL, I_BL, I_BL, I_BL,               // 0xB4-0xB7
+    I_BL, I_BL, I_BL, I_BL,               // 0xB8-0xBb
+    I_BL, I_BL, I_BL, I_BL,               // 0xBC-0xBf
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0xC0-0xC3
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0xC4-0xC7
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0xC8-0xCB
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0xCc-0xCf
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0xD0-0xD3
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0xD4-0xD7
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0xD8-0xDb
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0xDC-0xDf
+    I_MCR, I_MRC, I_MCR, I_MRC,           // 0xE0-0xE3
+    I_MCR, I_MRC, I_MCR, I_MRC,           // 0xE4-0xE7
+    I_MCR, I_MRC, I_MCR, I_MRC,           // 0xE8-0xEB
+    I_MCR, I_MRC, I_MCR, I_MRC,           // 0xEc-0xEf
+    I_SVC, I_SVC, I_SVC, I_SVC,           // 0xF0-0xF3
+    I_SVC, I_SVC, I_SVC, I_SVC,           // 0xF4-0xF7
+    I_SVC, I_SVC, I_SVC, I_SVC,           // 0xF8-0xFb
+    I_SVC, I_SVC, I_SVC, I_SVC            // 0xFC-0xFf
 };
 
 darm_instr_t type_shift_instr_lookup[] = {
@@ -240,8 +293,8 @@ const char *armv7_format_strings[479][3] = {
     [I_MRC] = {"cCptNJP"},
     [I_MRRC2] = {"cC<opc>t2J"},
     [I_MRRC] = {"cC<opc>t2J"},
-    [I_MRS] = {"cd<spec_reg>"},
-    [I_MSR] = {"c<spec_reg>n", "c<spec_reg>i"},
+    [I_MRS] = {"cdz"},
+    [I_MSR] = {"czn", "czi"},
     [I_MUL] = {"scdnm"},
     [I_MVN] = {"scdi", "scdmS"},
     [I_NOP] = {"c"},

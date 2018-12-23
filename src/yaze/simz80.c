@@ -376,7 +376,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
 };
 
 // Parse a value into a register.
-static void dbg_reg_parse(int which, char *strval) {
+static void dbg_reg_parse(int which, const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
@@ -1359,7 +1359,7 @@ simz80_execute(int tube_cycles)
       break;
    case 0xAF:         /* XOR A */
       sum = 0;//((AF ^ (AF)) >> 8) & 0xff;
-      AF = (sum << 8) | (sum & 0xa8) | (1 << 6) | partab[sum];
+      AF = /*(sum << 8) | (sum & 0xa8) | */(1 << 6) | partab[sum];
       break;
    case 0xB0:         /* OR B */
       sum = ((AF | (BC)) >> 8) & 0xff;
@@ -2468,7 +2468,7 @@ simz80_execute(int tube_cycles)
          Output(BC, hreg(HL));
          break;
       case 0x62:         /* SBC HL,HL */
-         HL &= 0xffff;
+         //HL &= 0xffff;
          sum = /*HL - HL*/0 - TSTFLAG(C);
          cbits = (/*HL ^ HL ^*/ sum) >> 8;
          HL = sum;

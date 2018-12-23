@@ -1,0 +1,251 @@
+GKAA - PDP 11/04 - BASIC CPU TEST
+=================================
+
+This test suite has 164 (octal) test cases.
+
+This is the first diagnostic test that Ed and I used.
+
+Found the following bugs:
+971c8bf1 PDP-11 Co Pro - fix ROR incorrectly setting Z flag
+31aa04d3 PDP-11 Co Pro - fix SWAB incorrectly setting Z flag
+a41816fd PDP-11 Co Pro - fix SUB incorrectly setting V flag
+ef26c2c3 PDP-11 Co Pro - fix SBC incorrectly setting C and Z flags
+02eaf775 PDP-11 Co Pro - fix ROR/ASR incorrectly setting V flag
+26a45f3f PDP-11 Co Pro - fix incorrect branches (C xor different to C++)
+
+After fixing these, the test suite passes with:
+
+END OF DGKAA
+END OF DGKAA
+END OF DGKAA
+END OF DGKAA
+...
+
+VKAA - PDP 11/03 (LSI-11) - BASIC CPU TEST
+==========================================
+
+This test suite has 122 (octal) test cases.
+
+Found the following bugs:
+
+fbe3d5ee PDP-11 Co Pro - fixed MARK instruction
+1dcebb00 PDP-11 Co Pro - fix INC/INCB incorrectly setting V flag
+079b658f PDP-11 Co Pro - fix NEGB incorrectly setting V flag
+fc9fa831 PDP-11 Co Pro - fix ADCB incorrectly setting C and V flags
+1b21667c PDP-11 Co Pro - fix SBCB incorrectly setting V flag
+214884b8 PDP-11 Co Pro - enable DEBUG in test harness
+1b269956 PDP-11 Co Pro - fix SXT/SXTB incorrectly setting Z and V flags
+e0c918e3 PDP-11 Co Pro - added MTPS/MFPS to emulator
+0ed16d6b PDP-11 Co Pro - test harness allows unaligned accesses
+
+After fixing these, the test suite passes with:
+
+END PASS
+END PASS
+END PASS
+END PASS
+...
+
+Note: This with the latest code this test is expected to fail in TEST
+55 (at 007420) with a trap 04, because the test relies on unligned
+accesses being ignored. To make the test pass, uncomment
+ALLOW_UNALIGNED in pdp11.c.
+
+FKAA - PDP 11/34 - BASIC INSTRUCTION TEST
+=========================================
+
+This test suite has 264 (octal) test cases.
+
+Found the following bugs:
+
+fb255892 PDP-11 Co Pro - sign extend MFPS if da is a register
+fb1b21aa PDP-11 Co Pro - don't allow setting of T bit in PS via @#177776
+6f8ed251 PDP-11 Co Pro - switch modes as appropriate via @#177776
+54ee0e9a PDP-11 Co Pro - fix MFPI/MTPI incorrectly setting C flag, and not clearing V flag
+b95139fc PDP-11 Co Pro - support byte access to PSW via @#177776
+
+After fixing these, the test suite passes with:
+
+CFKAAC0 11/34 BSC INST TST
+END PASS 1
+END PASS 2
+END PASS 3
+END PASS 4
+...
+
+KKAA - PDP 11/44 - BASIC INSTRUCTION TEST
+=========================================
+
+This test suite has 340 (octal) test cases.
+
+The test suite fails at 026054 in:
+    TEST 236 - TEST INDEPENDENCE OF USER/SUPER/KERNEL MODE R6, R6
+
+This test is failing because we don't implement a supervisor mode,
+just kernel and user.
+
+FKAB - PDP 11/34 - TRAPS TEST
+=============================
+
+This test suite has 113 (octal) test cases.
+
+Found the following bugs:
+
+5fa70a21 PDP-11 Co Pro - correct trap for invalid instruction
+044edb25 PDP-11 Co Pro - fix CCC affecting more than NVZC flags
+28ead39d PDP-11 Co Pro - illegal addressing modes should trap to 000004
+907383d6 PDP-11 Co Pro - move unaligned test into pdp11.c so trap can be generated easily
+
+The test suite fails at 010542 in:
+    TEST 57 - TEST THAT DECREMENT R6 TO A VALUE LESS THAN 400 TRAPS
+
+This test is failing because we don't implement any stack limits.
+
+VKAB - PDP 11/03 (LSI-11) - EIS INSTRUCTION TEST
+================================================
+
+This test has contains 310 (octal) test cases.
+
+Found the following bugs:
+30464aef PDP-11 Co Pro - fix ASH incorrectly calculating the V flag
+a6fd4cef PDP-11 Co Pro - fix ASHC, several issues
+1adde77f PDP-11 Co Pro - fix MUL incorrectly generating C flag
+b019152d PDP-11 Co Pro - fix DIV, several issues
+
+Then, in TEST:307 TEST THAT EIR ABORTS PROPERLY, it gets stuck in this
+infinite loop:
+
+016326 : 052704 000001        : BIS #000001, R4
+016332 : 072427 000020        : ASH R4, #000020
+016336 : 000773               : BR  016326
+
+It's waiting for a serial interrupt that never arrives, because out
+test harness does not emulate interrupts.
+
+FKAC - PDP 11/34 - EIS INSTRUCTION TEST
+=======================================
+
+This test has contains 307 (octal) test cases.
+
+It doesn't rely on console interrupts, like VKAB does.
+
+There were lots of failures, but the fixes for VKAB als fixed this test:
+
+END PASS��
+END PASS��
+END PASS��
+END PASS��
+...
+
+EKBA - PDP 11/70 CPU TEST PART 1
+================================
+
+This test suite has 111 (octal) test cases.
+
+Found the following bugs:
+28bba0af PDP-11 Co Pro - added SPL to emulator
+d26ed11c PDP-11 Co Pro - fix SOB
+
+After fixing these, the test suite passes with:
+
+CEKBAD0 11/70 CPU #1
+
+It the loops for 512 iterations without further output, which takes a while!
+
+EKBB - PDP 11/70 CPU TEST PART 2
+================================
+
+This test suite has 111 (octal) test cases.
+
+CEKBBF0 11/70 CPU #2
+
+RESET DIDN'T SEND OUT INIT
+ERRORPC TEST NUMBER
+006010  000002
+
+
+RESET DIDN'T SEND OUT INIT
+ERRORPC TEST NUMBER
+006010  000002
+
+
+CC'S BAD IN DVE.00
+ERRORPC       PSW         TST NUM
+         EXPECT  ACTUAL
+011162  000007  000003  000014
+
+
+QUTOIENT & REMAINDER BAD
+ERRORPC       R0                R1        TST NUM
+         EXPECT  ACTUAL   EXPECT  ACTUAL
+011410  000002  000267  000000  000000  000014
+
+
+QUTOIENT & REMAINDER BAD
+ERRORPC       R0                R1        TST NUM
+         EXPECT  ACTUAL   EXPECT  ACTUAL
+011410  000002  000314  000000  000000  000014
+
+���
+QUTOIENT & REMAINDER BAD
+ERRORPC       R0                R1        TST NUM
+         EXPECT  ACTUAL   EXPECT  ACTUAL
+011410  000002  000314  000000  000000  000014
+
+���
+GRAJ DIV QUIT DIDN'T GO LOW OR RACK E63(C0) STUCK HIGH
+ERRORPC TEST NUMBER
+011730  000014
+
+���
+GRAJ E5 BAD(Z2(0)*LEFT SAVE(1))
+ERRORPC TEST NUMBER
+012014  000014
+
+���
+GRAJ E5 BAD(Z2(0)*LEFT SAVE(1))
+ERRORPC TEST NUMBER
+012014  000014
+
+
+GRAJ E5 BAD(Z2(0)*LEFT SAVE(1))
+ERRORPC TEST NUMBER
+012014  000014
+
+
+RACK E63(D0) STUCK LOW
+ERRORPC TEST NUMBER
+012060  000014
+
+
+GRAJ E5(N(1)*SR15(1)) BAD OR ROM STATE BAD
+ERRORPC       R0                R1        TST NUM
+         EXPECT  ACTUAL   EXPECT  ACTUAL
+012202  000001  000001  000001  000000  000014
+
+
+GRAJ E5(N(1)*SR15(1)) BAD OR ROM STATE BAD
+ERRORPC       R0                R1        TST NUM
+         EXPECT  ACTUAL   EXPECT  ACTUAL
+012202  000001  000001  000001  000000  000014
+
+���
+GRAJ E5(N(1)*SR15(1)) BAD OR ROM STATE BAD
+ERRORPC       R0                R1        TST NUM
+         EXPECT  ACTUAL   EXPECT  ACTUAL
+012202  000001  000001  000001  000000  000014
+
+
+RACF E5 BAD
+ERRORPC TEST NUMBER
+006112  000015
+
+
+RACF E5 BAD
+ERRORPC TEST NUMBER
+006112  000015
+
+
+MTP.10 FAILED TO RELOAD THE DR
+ERRORPC TEST NUMBER
+012770  000016

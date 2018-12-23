@@ -1045,7 +1045,7 @@ void n32016_exec()
       Function = FunctionLookup[opcode & 0xFF];
       uint32_t Format   = Function >> 4;
 
-      if (Format < (FormatCount + 1))
+      //if (Format < (FormatCount + 1)) // always true
       {
          pc += FormatSizes[Format];                                        // Add the basic number of bytes for a particular instruction
       }
