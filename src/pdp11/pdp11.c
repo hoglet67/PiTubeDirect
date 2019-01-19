@@ -1379,6 +1379,7 @@ static void handleinterrupt() {
 void pdp11_reset(uint16_t address) {
    cpu.LKS = 1 << 7;
    cpu.R[7] = address;
+   cpu.PS = 0;
    cpu.halted = 0;
    uint8_t i;
    for (i = 0; i < ITABN; i++) {
