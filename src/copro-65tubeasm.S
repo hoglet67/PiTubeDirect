@@ -702,7 +702,7 @@
 .endm
 
 .macro BRANCH taken
-#if RPI3     
+#if RPI3
         B\taken opcode_80
         FETCH_NEXT_STAGE_012
 #else
@@ -717,7 +717,7 @@
         FETCH_NEXT_STAGE_2                   // 5 cycles
 
         // total of 13 if taken. 10 if not taken
-#endif        
+#endif
 .endm
 
 .macro BRANCH_AL
@@ -3296,6 +3296,7 @@ tube_store_handler_regA:
         mov     r1, regA
 tube_store_handler:
         push    {r2-r3,r12}
+        and     r1, #0xff
         bl      tube_parasite_write_banksel
         pop     {r2-r3,r12}
         FETCH_NEXT_STAGE_0
