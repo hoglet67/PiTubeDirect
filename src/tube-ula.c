@@ -2,7 +2,7 @@
  * Tube ULA Emulation
  *
  * (c) 2016 David Banks and Ed Spittles
- * 
+ *
  * Based on code from B-em v2.2 by Tom Walker
  *
  */
@@ -129,7 +129,7 @@ void tube_reset_buffer() {
 #endif
 /*
 static void tube_updateints_IRQ()
-{   
+{
    // Test for IRQ
    tube_irq = tube_irq & (0xFF - 1);
    if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= 1;
@@ -137,7 +137,7 @@ static void tube_updateints_IRQ()
 }
 
 static void tube_updateints_NMI()
-{   
+{
    // Test for NMI
    tube_irq = tube_irq &(0xFF - 2);
    if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) tube_irq|=2;
@@ -160,7 +160,7 @@ void tube_disable_fast6502(void)
    if ((cpsr & 0xc0) != 0xc0) {
     _enable_interrupts();
    }
-}  
+}
 
 void tube_ack_nmi(void)
 {
@@ -168,25 +168,25 @@ void tube_ack_nmi(void)
    tube_irq &= ~NMI_BIT;
    if ((cpsr & 0xc0) != 0xc0) {
     _enable_interrupts();
-   } 
+   }
 }
 
 void copro_command_excute(unsigned char copro_command,unsigned char val)
 {
     switch (copro_command)
     {
-      case 0 :      
+      case 0 :
           if (val == 0)
              copro_speed = 0;
           else
              copro_speed = (arm_speed/(1000000/256) / val);
           LOG_DEBUG("New Copro speed= %u, %u\r\n", val, copro_speed);
-          return; 
+          return;
       case 1 : // *fx 151,226,1 followed by *fx 151,228,val
                // Select memory size
                if (val & 128 )
                   copro_memory_size = (val & 127 ) * 8 * 1024 * 1024;
-               else 
+               else
                   copro_memory_size = (val & 127 ) * 64 * 1024 ;
                if (copro_memory_size > 16 *1024 * 1024)
                   copro_memory_size = 0;
@@ -196,11 +196,11 @@ void copro_command_excute(unsigned char copro_command,unsigned char val)
       default :
           break;
     }
-          
-}      
-      
+
+}
+
 static void tube_reset()
-{   
+{
    tube_irq |= TUBE_ENABLE_BIT;
    tube_irq &= ~(RESET_BIT + NMI_BIT + IRQ_BIT);
    hp3pos = 0;
@@ -229,7 +229,7 @@ static void tube_reset()
 // to be read are already pre-loaded into the tube_regs[]
 // array ready for the FIQ handler to read without any delay.
 // This is why there is no return value.
-// 
+//
 // Reading of status registers has no side effects, so nothing to
 // do here for even registers (all handled in the FIQ handler).
 
@@ -245,7 +245,7 @@ static void tube_host_read(uint16_t addr)
          if ( ph1len != 0)
          {
             if (ph1rdpos== 23)
-               ph1rdpos =0; 
+               ph1rdpos =0;
             else
                ph1rdpos++;
          }
@@ -292,11 +292,12 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       if (!(tube_irq & TUBE_ENABLE_BIT))
          return;
 
-      // Evaluate NMI before the control register written 
+      // Evaluate NMI before the control register written
       int nmi1 = 0;
-      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) nmi1 = 1;
-      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) nmi1 = 1;
-    
+      if (!(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) nmi1 = 1;
+      if ( (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) nmi1 = 1;
+      int nmi1_m = ((HSTAT1 & HBIT_3) && nmi1) ? 1 : 0;
+
       if (val & 0x80) {
          // Implement software tube reset
          if (val & 0x40) {
@@ -307,27 +308,37 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       } else {
          HSTAT1 &= ~BYTE_TO_WORD(val & 0x3F);
       }
-      
+
       if ( HSTAT1 & HBIT_5) {
          tube_irq |= RESET_BIT;
       } else {
          tube_irq &= ~RESET_BIT;
       }
 
-      // Evaluate NMI again after the control register written 
+      // Evaluate NMI again after the control register written
       int nmi2 = 0;
-      if ((HSTAT1 & HBIT_3) && !(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) nmi2 = 1;
-      if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) nmi2 = 1;
-      
+      if (!(HSTAT1 & HBIT_4) && ((hp3pos > 0) || (ph3pos == 0))) nmi2 = 1;
+      if ( (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) nmi2 = 1;
+      int nmi2_m = ((HSTAT1 & HBIT_3) && nmi2) ? 1 : 0;
+
+      // Ensure PSTAT3.7 (N) stays consistent with internal NMI when ever the control register is written
+      // (e.g. if we switch between one and two byte mode)
+      if (nmi2) {
+         PSTAT3 |= 0x80;
+      } else {
+         PSTAT3 &= 0x7F;
+      }
+
       // Only propagate significant rising edges
-      if (!nmi1 && nmi2) tube_irq |= NMI_BIT;
+      if (!nmi1_m && nmi2_m) tube_irq |= NMI_BIT;
 
       // And disable regardless
-      if (!nmi2) tube_irq &= ~(NMI_BIT);
+      if (!nmi2_m) tube_irq &= ~(NMI_BIT);
 
       tube_irq &= ~(IRQ_BIT);
       if ((HSTAT1 & HBIT_1) && (PSTAT1 & 128)) tube_irq  |= IRQ_BIT;
       if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= IRQ_BIT;
+
       break;
    case 1: /*Register 1*/
       //if (!tube_enabled)
@@ -338,7 +349,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       if (HSTAT1 & HBIT_1) tube_irq  |= IRQ_BIT; //tube_updateints_IRQ();
       break;
    case 2:
-      copro_command = val;   
+      copro_command = val;
       break;
    case 3: /*Register 2*/
       //if (!tube_enabled)
@@ -379,7 +390,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       }
       //tube_updateints_NMI();
       break;
-   case 6:  
+   case 6:
       copro = val;
       LOG_DEBUG("New Copro = %u\r\n", copro);
       return;
@@ -457,8 +468,8 @@ uint8_t tube_parasite_read(uint32_t addr)
          }
          //tube_updateints_NMI();
          // here we want to only clear NMI if required
-         if ( ( !(ph3pos == 0) ) && ( (!(HSTAT1 & HBIT_4) && (!(hp3pos >0))) || (HSTAT1 & HBIT_4) ) ) tube_irq &= ~NMI_BIT;     
-      }   
+         if ( ( !(ph3pos == 0) ) && ( (!(HSTAT1 & HBIT_4) && (!(hp3pos >0))) || (HSTAT1 & HBIT_4) ) ) tube_irq &= ~NMI_BIT;
+      }
       break;
    case 6: /*Register 4 stat*/
       temp = PSTAT4;
@@ -474,7 +485,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       }
       break;
    }
-  
+
 #ifdef DEBUG_TUBE
    if (addr & 1) {
       tube_buffer[tube_index++] = TUBE_READ_MARKER | ((addr & 7) << 8) | temp;
@@ -528,7 +539,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          } else {
             ph1[ph1wrpos] = val;
             if (ph1wrpos== 23)
-               ph1wrpos =0; 
+               ph1wrpos =0;
             else
                ph1wrpos++;
          }
@@ -558,7 +569,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          if (ph3pos == 2)
          {
             HSTAT3 |=  HBIT_7;
-            PSTAT3 &= ~0x40;
+            PSTAT3 &= ~0xC0;
          }
          //NMI if other case isn't seting it
          if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
@@ -574,7 +585,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
       }
       //tube_updateints_NMI();
       // here we want to only clear NMI if required
-      
+
       break;
    case 7: /*Register 4*/
       PH4 = BYTE_TO_WORD(val);
@@ -595,7 +606,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 int tube_io_handler(uint32_t mail)
 {
    int addr;
-#ifndef USE_GPU   
+#ifndef USE_GPU
    int data;
    int rnw;
    int ntube;
@@ -652,7 +663,7 @@ int tube_io_handler(uint32_t mail)
       exp_seq_num = (exp_seq_num + 1) & 15;
    }
    if ((exp_seq_num != act_seq_num) && (mail & NRST_MASK)) {
-      LOG_WARN("OVERRUN: exp=%X act=%X A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", exp_seq_num, act_seq_num, addr, data, rnw, ntube, nrst); 
+      LOG_WARN("OVERRUN: exp=%X act=%X A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", exp_seq_num, act_seq_num, addr, data, rnw, ntube, nrst);
    }
    if (mail & NRST_MASK) {
       // Not reset: sync to the last received sequence number
@@ -663,13 +674,13 @@ int tube_io_handler(uint32_t mail)
    }
 #else
    if ((mail & OVERRUN_MASK) && (mail & NRST_MASK)) {
-      LOG_WARN("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+      LOG_WARN("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
    }
 #endif
 
 
    if (mail & GLITCH_MASK) {
-      LOG_WARN("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
+      LOG_WARN("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
    } else if (nrst == 1) {
 
       if (ntube == 0) {
@@ -679,8 +690,8 @@ int tube_io_handler(uint32_t mail)
             tube_host_read(addr);
          }
       } else {
-         LOG_WARN("LATE: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst); 
-      }      
+         LOG_WARN("LATE: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+      }
    }
 
 #if TEST_MODE
@@ -700,11 +711,11 @@ void tube_init_hardware()
 {
 
   // early 26pin pins have a slightly different pin out
-  
+
   switch (get_revision())
   {
      case 2 :
-     case 3 :   
+     case 3 :
           // Write 1 to the LED init nibble in the Function Select GPIO
           // peripheral register to enable LED pin as an output
           RPI_GpioBase-> GPFSEL[1] |= 1<<18;
@@ -715,21 +726,21 @@ void tube_init_hardware()
           RPI_SetGpioPinFunction(TEST_PIN_26PIN, FS_OUTPUT);
           test_pin = TEST_PIN_26PIN;
         break;
-     
-         
+
+
      default :
 
           host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
           RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
           RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT); 
+          RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT);
           RPI_SetGpioPinFunction(TEST_PIN_40PIN, FS_OUTPUT);
           RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
           RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
-          test_pin = TEST_PIN_40PIN;         
-       break;   
+          test_pin = TEST_PIN_40PIN;
+       break;
   }
-  
+
   switch (get_revision())
   {
      case 2 :
@@ -747,12 +758,12 @@ void tube_init_hardware()
          break;
      default :
                // Write 1 to the LED init nibble in the Function Select GPIO
-          // peripheral register to enable LED pin as an output  
+          // peripheral register to enable LED pin as an output
           RPI_GpioBase-> GPFSEL[4] |= 1<<21;
           led_type = 1;
          break;
-  }        
-  
+  }
+
   // Configure our pins as inputs
   RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
   RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
@@ -774,9 +785,9 @@ void tube_init_hardware()
 #ifdef DEBUG
   dump_useful_info();
 #endif
-  
+
   // Initialize performance counters
-#if defined(RPI2) || defined(RPI3) 
+#if defined(RPI2) || defined(RPI3)
    pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
    pct.type[1] = PERF_TYPE_L1I_CACHE_REFILL;
@@ -881,10 +892,10 @@ void start_vc_ula()
    extern int tube_delay;
    func = (int) &tubevc_asm[0];
    r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
-   r1   = led_type; 
+   r1   = led_type;
    r2   = tube_delay;
 
-   r3   = host_addr_bus; 
+   r3   = host_addr_bus;
    r4   = 0;
    r5   = 1<<test_pin;                     // test pin
 
@@ -897,7 +908,7 @@ void start_vc_ula()
    LOG_DEBUG("VidCore   r3 = %08x\r\n", r3);
    LOG_DEBUG("VidCore   r4 = %08x\r\n", r4);
    LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);
-#endif   
+#endif
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
    RPI_PropertyProcessNoCheck();
