@@ -943,8 +943,8 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 
 # define begin()				for (;;) switch (MEM(PC++)) {
 # define fetch()
-# define next()					break
-# define dispatch(num, name, mode, cycles)	case 0x##num: name(cycles, mode);  next()
+# define next()
+# define dispatch(num, name, mode, cycles)	case 0x##num: name(cycles, mode); break;
 # define end()					}
 
 #endif
