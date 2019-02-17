@@ -101,10 +101,10 @@ void RPI_AuxMiniUartInit(int baud, int bits)
 
   // Enable weak pullups
   RPI_GpioBase->GPPUD = 2;
-  RPI_WaitMicroSeconds(1); // wait of 150 cycles needed see datasheet
+  RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
   
   RPI_GpioBase->GPPUDCLK0 = (1 << 14) | (1 << 15);
-  RPI_WaitMicroSeconds(1); // wait of 150 cycles needed see datasheet
+  RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
 
   RPI_GpioBase->GPPUDCLK0 = 0;
 
