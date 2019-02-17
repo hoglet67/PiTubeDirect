@@ -34,7 +34,7 @@ void copro_pdp11_write8(const uint16_t addr, const uint8_t data) {
 }
 
 uint8_t copro_pdp11_read8(const uint16_t addr) {
-   uint16_t data;
+   uint8_t data;
    if ((addr & 0xFFF0) == 0xFFF0) {
       data = tube_parasite_read((addr >> 1) & 7);
    } else {
