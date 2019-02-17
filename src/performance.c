@@ -127,7 +127,7 @@ const char * type_names[] = {
 const char *type_lookup(int type) {
    static const char *UNKNOWN = "UNKNOWN";
    int num_types = sizeof(type_names) / sizeof(type_names[0]);
-   if (type >= 0 || type < num_types) {
+   if (type >= 0 && type < num_types) {
       return type_names[type];
    } else {
       return UNKNOWN;
