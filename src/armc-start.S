@@ -194,6 +194,7 @@ _reset_continue:
     sub sp, r4, #C0_IRQ_STACK
 
     // Also setup the stack used for FIQs
+
     msr cpsr_c, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, #C0_FIQ_STACK
 
