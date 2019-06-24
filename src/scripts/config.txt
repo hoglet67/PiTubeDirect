@@ -27,6 +27,9 @@ kernel=kernelrpi3.img
 # Debug kernel (needs a 115200 serial connection)
 #kernel=debug/kernelrpi3.img
 
+[pi4]
+kernel=kernel8-32.img
+
 # Global settings
 [all]
 force_turbo=1

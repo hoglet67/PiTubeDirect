@@ -711,7 +711,10 @@ void tube_init_hardware()
 {
 
   // early 26pin pins have a slightly different pin out
+<<<<<<< HEAD
 
+=======
+>>>>>>> 702b1bf... Raspberry Pi 4 support
   switch (get_revision())
   {
      case 2 :
@@ -751,15 +754,21 @@ void tube_init_hardware()
      case 0xa32082:
          led_type = 2;
          break;
+	 case 0xa03111: // rpi4 1GB
+	 case 0xb03111: // rpi4 2GB
+	 case 0xc03111: // rpi4 4GB // LED pin GPIO 42
+	     RPI_GpioBase-> GPFSEL[4] |= 1<<6;
+		 led_type = 4 ; // Still needs to implement in vidcore
+		break;
      case 0x9020e0 : // rpi3a+
      case 0xa020d3 : // rpi3b+
          led_type = 3;
-         RPI_GpioBase-> GPFSEL[2] |= 1<<27;
+         RPI_GpioBase-> GPFSEL[2] |= 1<<27; // gpio 29
          break;
      default :
                // Write 1 to the LED init nibble in the Function Select GPIO
           // peripheral register to enable LED pin as an output
-          RPI_GpioBase-> GPFSEL[4] |= 1<<21;
+          RPI_GpioBase-> GPFSEL[4] |= 1<<21; // gpio 47
           led_type = 1;
          break;
   }
@@ -787,7 +796,7 @@ void tube_init_hardware()
 #endif
 
   // Initialize performance counters
-#if defined(RPI2) || defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
    pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
    pct.type[1] = PERF_TYPE_L1I_CACHE_REFILL;

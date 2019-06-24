@@ -2609,7 +2609,7 @@ opcode_EA:
 // Opcode EB - NOP ( Borrowed for instruction timing)
 opcode_EB:
 #if defined(TIMING_INSTRUCTION)
-#if defined(RPI2)|| defined(RPI3)
+#if defined(RPI2)|| defined(RPI3) || defined(RPI4)
         mrc     p15, 0, lr, c9, c13, 0
 #else
         MRC     p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register
@@ -2730,7 +2730,7 @@ opcode_FA:
 // Opcode FB - NOP
 opcode_FB:
 #if defined(TIMING_INSTRUCTION)
-#if defined(RPI2)|| defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
         mrc     p15, 0, lr, c9, c13, 0
 #else
         MRC     p15, 0, lr, c15, c12, 1    // Read Cycle Counter Register
@@ -3082,7 +3082,7 @@ exec_65tube:
                                         // Code assumes Bits 7,2,1 is zero
 
         // setup ARM cycle counter
-#if defined(RPI2)|| defined(RPI3)
+#if defined(RPI2)|| defined(RPI3)||defined(RPI4)
         mrc      p15 ,0, r0, c9, c12, 0
         BIC      r0, r0, #8
         mcr      p15, 0, r0, c9, c12, 0
@@ -3225,7 +3225,7 @@ noirq2:
 
         // loop until current time(R0) > nexttime(R1) ( nb deal with wrap around)
 waste_time:
-#if defined(RPI2)|| defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
         mrc     p15, 0, lr, c9, c13, 0
 #else
         MRC     p15, 0, lr, c15, c12, 1 // Read Cycle Counter Register

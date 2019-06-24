@@ -30,7 +30,7 @@
 #define DEFAULT_COPRO COPRO_65TUBE_0
 
 // Pi 2/3 Multicore options
-#if defined(RPI2) || defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
 // Indicate the platform has multiple cores
 #define HAS_MULTICORE

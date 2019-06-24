@@ -11,6 +11,7 @@
 #include "performance.h"
 #include "info.h"
 #include "rpi-gpio.h"
+#include "rpi-interrupts.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "cpu_debug.h"
@@ -152,17 +153,21 @@ unsigned char * copro_mem_reset(int length)
 
 void init_emulator() {
    _disable_interrupts();
+    tube_irq = 0; // Make sure everything is clear
+	// Set up FIQ handler
 
-      // Set up FIQ handler
-
-   tube_irq = 0; // Make sure everything is clear
    *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
-
-   // Direct Mail box to FIQ handler
-
+   _data_memory_barrier();
    (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
-   (*(volatile uint32_t *)FIQCTRL) = 0x80 +65;
+    // Direct Mail box to FIQ handler
 
+#if defined(RPI4)
+    RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_MAILBOX_IRQ ;
+#else
+    RPI_GetIrqController()->FIQ_control = 0x80 +65;
+#endif
+
+    _data_memory_barrier();
 
 #ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
@@ -309,7 +314,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    start_vc_ula();
 
    copro = get_copro_number();
-
 
 #ifdef BENCHMARK
   // Run a short set of CPU and Memory benchmarks
