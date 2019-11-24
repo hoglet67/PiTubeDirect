@@ -252,6 +252,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           remaining = 256;
           // fall though to...
         case 0:
+        case 2:
           state = TRANSFER_R3;
           // For a copro->host transfer, send the first byte in response to the sync byte
           tubeWrite(R3_DATA, *address);
@@ -263,12 +264,8 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           remaining = 256;
           // fall though to...
         case 1:
-          state = TRANSFER_R3;
-          break;
-        case 2:
         case 3:
-          printf("Type %d transfers are not implemented\r\n", type);
-          state = IDLE;
+          state = TRANSFER_R3;
           break;
         case 4:
         case 5:
@@ -287,7 +284,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
 
     case TRANSFER_R3:
       if (addr == 5) {
-        if (type == 1 || (type == 7 && remaining > 0)) {
+        if (type == 1 || type == 3 || (type == 7 && remaining > 0)) {
           // Read the R3 data register, which should also clear the NMI
           *address = tubeRead(R3_DATA);
           count++;
@@ -324,7 +321,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
 
     case TRANSFER_R3:
       if (addr == 5) {
-        if (type == 0 || (type == 6 && remaining > 0)) {
+        if (type == 0 || type == 2 || (type == 6 && remaining > 0)) {
           // Write the R3 data register, which should also clear the NMI
           tubeWrite(R3_DATA, *address);
           count++;
@@ -376,7 +373,7 @@ void type_0_data_transfer(void) {
       }
       // If there is an NMI condition, handle the byte
       if (intr & 2) {
-        // Read the R3 data register, which should also clear the NMI
+        // Write the R3 data register, which should also clear the NMI
         tubeWrite(R3_DATA, *address);
         count++;
         signature += *address++;
@@ -413,9 +410,63 @@ void type_1_data_transfer(void) {
 }
 
 void type_2_data_transfer(void) {
+  uint32_t mailbox, intr;
+  // Terminate the data transfer if IRQ falls (e.g. interrupt from tube release)
+  while (1) {
+    // Wait for a mailbox message
+    if (((*(volatile uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY) == 0) {
+      // Forward the message to the tube handler
+      mailbox = (*(volatile uint32_t *)MBOX0_READ) >> 4;
+      intr = tube_io_handler(mailbox);
+      // If there is an IRQ condition, terminate the transfer
+      if (intr & 1) {
+        return;
+      }
+      // If there is an NMI condition, handle the byte
+      if (intr & 2) {
+        // Write the R3 data register, which should also clear the NMI
+        tubeWrite(R3_DATA, *address);
+        count++;
+        signature += *address++;
+        signature *= 13;
+        // Write the R3 data register, which should also clear the NMI
+        tubeWrite(R3_DATA, *address);
+        count++;
+        signature += *address++;
+        signature *= 13;
+      }
+    }
+  }
 }
 
 void type_3_data_transfer(void) {
+  uint32_t mailbox, intr;
+  // Terminate the data transfer if IRQ falls (e.g. interrupt from tube release)
+  while (1) {
+    // Wait for a mailbox message
+    if (((*(volatile uint32_t *)MBOX0_STATUS) & MBOX0_EMPTY) == 0) {
+      // Forward the message to the tube handler
+      mailbox = (*(volatile uint32_t *)MBOX0_READ) >> 4;
+      intr = tube_io_handler(mailbox);
+      // If there is an IRQ condition, terminate the transfer
+      if (intr & 1) {
+        return;
+      }
+      // If there is an NMI condition, handle the byte
+      if (intr & 2) {
+        // Read the R3 data register, which should also clear the NMI
+        *address = tubeRead(R3_DATA);
+        count++;
+        signature += *address++;
+        signature *= 13;
+        // Read the R3 data register, which should also clear the NMI
+        *address = tubeRead(R3_DATA);
+        count++;
+        signature += *address++;
+        signature *= 13;
+      }
+    }
+  }
 }
 
 void type_6_data_transfer(void) {
