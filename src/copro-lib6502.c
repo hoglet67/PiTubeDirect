@@ -2,7 +2,7 @@
  * 6502 Co Processor Emulation
  *
  * (c) 2015 David Banks
- * 
+ *
  * based on code by
  * - Reuben Scratton.
  * - Tom Walker
@@ -38,7 +38,7 @@ static void copro_lib6502_reset(M6502 *mpu) {
   // Log ARM performance counters
   tube_log_performance_counters();
   // Re-instate the Tube ROM on reset
-  memcpy(mpu->memory + 0xf800, tuberom_6502_orig, 0x800);
+  memcpy(mpu->memory + 0xf800, tuberom_6502_intern_1_12_jgh, 0x800);
   // Reset lib6502
   M6502_reset(mpu);
   // Wait for rst become inactive before continuing to execute
@@ -99,7 +99,7 @@ static int copro_lib6502_poll(M6502 *mpu) {
          M6502_nmi(mpu);
          tube_ack_nmi();
       }
-      
+
       // IRQ is level sensitive, so check between every instruction
       if (tube_irq_copy & IRQ_BIT) {
          if (!(mpu->registers->p & 4)) {

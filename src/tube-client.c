@@ -51,10 +51,10 @@ static const func_ptr emulator_functions[] = {
 
 #ifdef DEBUG
 static const char * emulator_names[] = {
-   "65C02 (65tube)",         // 0
-   "65C02 (65tube)",         // 1
-   "65C02 (65tube)",         // 2
-   "65C02 (65tube)",         // 3
+   "65C02 (fast)",           // 0
+   "65C02 (3MHz)",           // 1
+   "65C102 (fast)",          // 2
+   "65C102 (4MHz)",          // 3
    "Z80",                    // 4
    "Null",                   // 5
    "Null",                   // 6
@@ -244,26 +244,41 @@ static unsigned int get_copro_number() {
 }
 
 static void get_copro_speed() {
-   char *copro_prop = get_cmdline_prop("copro1_speed");
-   copro_speed = 3; // default to 3MHz
+   char *copro_prop = NULL;
+   copro_speed = 0; // default
+   // Note: Co Pro Speed is only implemented in the 65tube Co Processors (copros 0/1/2/3)
+   if (copro == COPRO_65TUBE_1) {
+      copro_speed = 3; // default to 3MHz (65C02)
+      copro_prop = get_cmdline_prop("copro1_speed");
+   } else if (copro == COPRO_65TUBE_3) {
+      copro_speed = 4; // default to 4MHz (65C102)
+      copro_prop = get_cmdline_prop("copro3_speed");
+   }
    if (copro_prop) {
       copro_speed = atoi(copro_prop);
    }
-   if (copro_speed > 255){
+   if (copro_speed > 255) {
       copro_speed = 0;
    }
    LOG_DEBUG("emulator speed %u\r\n", copro_speed);
-   if (copro_speed !=0)
-      copro_speed = (arm_speed/(1000000/256) / copro_speed);
+   if (copro_speed !=0 ) {
+      copro_speed = (arm_speed / (1000000 / 256) / copro_speed);
+   }
 }
 
 static void get_copro_memory_size() {
-   char *copro_prop = get_cmdline_prop("copro13_memory_size");
+   char *copro_prop = NULL;
    copro_memory_size = 0; // default
+   // Note: Co Pro Memory Size is only implemented in the 80286 and 32016 Coprocessors (copros 8/13)
+   if (copro == COPRO_80286) {
+      copro_prop = get_cmdline_prop("copro8_memory_size");
+   } else if (copro == COPRO_32016) {
+      copro_prop = get_cmdline_prop("copro13_memory_size");
+   }
    if (copro_prop) {
       copro_memory_size = atoi(copro_prop);
    }
-   if (copro_memory_size > 32*1024 *1024){
+   if (copro_memory_size > 32*1024*1024) {
       copro_memory_size = 0;
    }
    LOG_DEBUG("Copro Memory size %u\r\n", copro_memory_size);
@@ -294,8 +309,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    start_vc_ula();
 
    copro = get_copro_number();
-   get_copro_speed();
-   get_copro_memory_size();
 
 
 #ifdef BENCHMARK
@@ -314,6 +327,15 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
   RPI_GpioBase->GPSET0 = (1 << test_pin);
 
   do {
+
+     // TODO: this will reset the current *FX 226/228 setting back to the default
+     // when changing Co Processor. We need to think if this is the correct
+     // behaviour
+
+     // Set the speed / memory size as appropriate
+     get_copro_speed();
+     get_copro_memory_size();
+
      // Run the emulator
      emulator();
 
