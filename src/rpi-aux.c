@@ -78,8 +78,6 @@ static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
 
 void RPI_AuxMiniUartInit(int baud, int bits)
 {
-  volatile int i;
-
   // Data memory barrier need to be places between accesses to different peripherals
   //
   // See page 7 of the BCM2853 manual
@@ -102,7 +100,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   // Enable weak pullups
   RPI_GpioBase->GPPUD = 2;
   RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
-  
+
   RPI_GpioBase->GPPUDCLK0 = (1 << 14) | (1 << 15);
   RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
 
@@ -139,14 +137,17 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   auxillary->MU_BAUD = ( sys_freq / (8 * baud)) - 1;
 
 #ifdef USE_IRQ
- {  extern unsigned int _interrupt_vector_h, _start;
-  tx_buffer = malloc(TX_BUFFER_SIZE);
-  tx_head = tx_tail = 0;
-  *((uint32_t *) (((char *)&_interrupt_vector_h) - ((char *)&_start))) = (uint32_t) RPI_AuxMiniUartIRQHandler;
-  _data_memory_barrier();
-  RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
-  _data_memory_barrier();
-  auxillary->MU_IER |= AUX_MUIER_RX_INT;  
+  {
+    extern unsigned int _interrupt_vector_h;
+    extern void _start( void );
+    tx_buffer = malloc(TX_BUFFER_SIZE);
+    tx_head = tx_tail = 0;
+    *((uint32_t *) (((char *)&_interrupt_vector_h) - ((char *)&_start))) = (uint32_t) RPI_AuxMiniUartIRQHandler;
+    _data_memory_barrier();
+    RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
+    _data_memory_barrier();
+    auxillary->MU_IER |= AUX_MUIER_RX_INT;
+  }
 #endif
 
   _data_memory_barrier();
