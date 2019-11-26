@@ -2,7 +2,7 @@
  * 6502 Co Processor Emulation
  *
  * (c) 2016 David Banks and Ed Spittles
- * 
+ *
  * based on code by
  * - Reuben Scratton.
  * - Tom Walker
@@ -43,7 +43,7 @@ void copro_65tube_dump_histogram() {
 static unsigned char *copro_65tube_poweron_reset(void) {
    // Wipe memory
    unsigned char * mpu_memory;
-   mpu_memory = copro_mem_reset(0xF800); // only need to goto 0xF800 as rom will be put in later 
+   mpu_memory = copro_mem_reset(0xF800); // only need to goto 0xF800 as rom will be put in later
    // Install test programs (like sphere)
    copy_test_programs(mpu_memory);
    return mpu_memory;
@@ -68,7 +68,7 @@ void copro_65tube_emulator() {
 
    mpu_memory = copro_65tube_poweron_reset();
    copro_65tube_reset(mpu_memory);
-   
+
      // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
   map_4k_page(16, 0);
 
@@ -77,7 +77,8 @@ void copro_65tube_emulator() {
       copro_65tube_init_histogram();
 #endif
       tube_reset_performance_counters();
-      exec_65tube(mpu_memory, (copro == COPRO_65TUBE_1) ?1:0);
+      // Copro 0 runs at full speed, Copro 1-3 run at original speed
+      exec_65tube(mpu_memory, (copro == COPRO_65TUBE_0) ? 0 : 1);
 
       tube_log_performance_counters();
 #ifdef HISTOGRAM
@@ -85,10 +86,10 @@ void copro_65tube_emulator() {
 #endif
       copro_65tube_reset(mpu_memory);
    }
-   
+
    // restore memory mapping
 
    for ( i= 0 ; i<=16; i++ )
      map_4k_page(i, i);
-  
+
 }

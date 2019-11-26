@@ -33,12 +33,12 @@ extern unsigned int copro;
 cpu_debug_t *cpu_debug_list[] = {
    NULL,                //  0 65tube
    NULL,                //  1 65tube
-   &lib6502_cpu_debug,  //  2 lib6502
-   &lib6502_cpu_debug,  //  3 lib6502
+   NULL,                //  2 65tube
+   NULL,                //  3 65tube
    &simz80_cpu_debug,   //  4 Z80
-   &opc5ls_cpu_debug,   //  5 OPC5LS
-   &opc6_cpu_debug,     //  6 OPC6
-   &opc7_cpu_debug,     //  7 OPC7
+   NULL,                //  5 unused
+   NULL,                //  6 unused
+   NULL,                //  7 unused
    &cpu80186_cpu_debug, //  8 80x86
    &mc6809nc_cpu_debug, //  9 6809
    NULL,                // 10 unused
@@ -47,6 +47,22 @@ cpu_debug_t *cpu_debug_list[] = {
    &n32016_cpu_debug,   // 13 32016
    NULL,                // 14 unused
    NULL,                // 15 Native ARM
+   &lib6502_cpu_debug,  // 16 lib6502
+   NULL,                // 17
+   NULL,                // 18
+   NULL,                // 19
+   &opc5ls_cpu_debug,   // 20 OPC5LS
+   &opc6_cpu_debug,     // 21 OPC6
+   &opc7_cpu_debug,     // 22 OPC7
+   NULL,                // 23
+   NULL,                // 24
+   NULL,                // 25
+   NULL,                // 26
+   NULL,                // 27
+   NULL,                // 28
+   NULL,                // 29
+   NULL,                // 30
+   NULL                 // 31
 };
 
 #define NUM_CMDS 23
