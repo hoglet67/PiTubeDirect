@@ -1,7 +1,7 @@
 /* lib6502.c -- MOS Technology 6502 emulator	-*- C -*- */
 
 /* Copyright (c) 2005 Ian Piumarta
- * 
+ *
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -18,7 +18,7 @@
  */
 
 /* Last edited: 2013-06-07 23:03:39 by piumarta on emilia.local
- * 
+ *
  * BUGS:
  *   - RTS and RTI do not check the return address for a callback
  *   - the disassembler cannot be configured to read two bytes for BRK
@@ -72,18 +72,18 @@ enum {
 static int elapsed;
 
 #ifdef notick
-#define tick(n)    
-#define tickIf(p) 
+#define tick(n)
+#define tickIf(p)
 #else
 #define tick(n)    elapsed+=n
-#define tickIf(p)  elapsed +=(p)?1:0 
+#define tickIf(p)  elapsed +=(p)?1:0
 #endif
 /* memory access (indirect if callback installed) -- ARGUMENTS ARE EVALUATED MORE THAN ONCE! */
 
 #ifdef USE_MEMORY_POINTER
 #define MEM(addr) memory[addr]
 #else
-#define MEM(addr) *(unsigned char *)(( int)addr ) 
+#define MEM(addr) *(unsigned char *)(( int)addr )
 #endif
 
 
@@ -120,7 +120,7 @@ byte tmpr;
 
 #else
 
-   
+
 #define putMemory(ADDR, BYTE)			\
   ( writeCallback[ADDR]				\
       ? writeCallback[ADDR](mpu, ADDR, BYTE)	\
@@ -131,7 +131,7 @@ byte tmpr;
       ?  readCallback[ADDR](mpu, ADDR, 0)	\
       :  MEM(ADDR) )
 
- 
+
 #define trap(ADDR, n)
 
 #endif
@@ -934,7 +934,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 
 # define pollints()        if (tube_irq & 7) { externalise(); if (poll(mpu)) return; internalise(); }
 # define begin()				fetch();  next()
-# define fetch()				
+# define fetch()
 # define next()            debug(); pollints(); tpc= itabp[MEM(PC++)]; goto *tpc
 # define dispatch(num, name, mode, cycles)	_##num: name(cycles, mode) //oops();  next()
 # define end()
@@ -950,7 +950,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 #endif
 #ifdef USE_MEMORY_POINTER
   register byte  *memory= mpu->memory;
-#endif  
+#endif
   register word   PC;
   word		  ea;
   byte		  A, X, Y, P, S;
@@ -1044,7 +1044,7 @@ M6502 *M6502_new(M6502_Registers *registers, M6502_Memory memory, M6502_Callback
   if (!memory) outOfMemory();
 #else
    { memory    = 0;    }
-#endif    
+#endif
   if (!callbacks)  { callbacks = (M6502_Callbacks *)calloc(1, sizeof(M6502_Callbacks));  mpu->flags |= M6502_CallbacksAllocated; }
 
   if (!registers || !callbacks) outOfMemory();
