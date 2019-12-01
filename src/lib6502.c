@@ -42,6 +42,7 @@ extern volatile int tube_irq;
 
 typedef uint8_t  byte;
 typedef uint16_t word;
+typedef uint32_t dword;
 
 enum {
   flagN= (1<<7),	/* negative 	 */
@@ -176,6 +177,24 @@ byte tmpr;
     PC += 2;					\
   }
 
+#ifdef TURBO
+
+#define absx(ticks)						\
+  tick(ticks);							\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);			        \
+  PC += 2;							\
+  tickIf((ticks == 4) && ((ea >> 8) != ((ea + X) >> 8)));	\
+  ea = (ea + X) & 0xFFFF;
+
+#define absy(ticks)						\
+  tick(ticks);							\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);			        \
+  PC += 2;							\
+  tickIf((ticks == 4) && ((ea >> 8) != ((ea + Y) >> 8)));	\
+  ea = (ea + Y) & 0xFFFF
+
+#else
+
 #define absx(ticks)						\
   tick(ticks);							\
   ea= MEM(PC) + (MEM(PC + 1) << 8);			        \
@@ -189,6 +208,8 @@ byte tmpr;
   PC += 2;							\
   tickIf((ticks == 4) && ((ea >> 8) != ((ea + Y) >> 8)));	\
   ea += Y
+
+#endif
 
 #define zp(ticks)				\
   tick(ticks);					\
@@ -211,6 +232,22 @@ byte tmpr;
     ea= MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);	\
   }
 
+#ifdef TURBO
+
+#define indy(ticks)						\
+  tick(ticks);							\
+  {								\
+    byte tmp= MEM(PC++);					\
+    ea= MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);			\
+    tickIf((ticks == 5) && ((ea >> 8) != ((ea + Y) >> 8)));	\
+    ea = (ea + Y) & 0xFFFF;                                     \
+    if (turbo) {						\
+      ea += ((MEM(((tmp + 1)&0xFF)+0x300)&0x03) << 16);		\
+    }								\
+  }
+
+#else
+
 #define indy(ticks)						\
   tick(ticks);							\
   {								\
@@ -220,6 +257,8 @@ byte tmpr;
     ea += Y;							\
   }
 
+#endif
+
 #define indabsx(ticks)					\
   tick(ticks);						\
   {							\
@@ -228,6 +267,21 @@ byte tmpr;
     ea = MEM(tmp) + (MEM(tmp + 1) << 8);		\
   }
 
+#ifdef TURBO
+
+#define indzp(ticks)                \
+  tick(ticks);						\
+  {							\
+    byte tmp;						\
+    tmp= MEM(PC++);					\
+    ea = MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);		\
+    if (turbo) {						\
+      ea += ((MEM(((tmp + 1)&0xFF)+0x300)&0x03) << 16);		\
+    }								\
+  }
+
+#else
+
 #define indzp(ticks)					\
   tick(ticks);						\
   {							\
@@ -235,6 +289,8 @@ byte tmpr;
     tmp= MEM(PC++);					\
     ea = MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);		\
   }
+
+#endif
 
 /* insns */
 
@@ -952,7 +1008,12 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
   register byte  *memory= mpu->memory;
 #endif
   register word   PC;
+#ifdef TURBO
+  dword		  ea;
+  byte            turbo = mpu->flags & M6502_Turbo;
+#else
   word		  ea;
+#endif
   byte		  A, X, Y, P, S;
   M6502_Callback *readCallback=  mpu->callbacks->read;
   M6502_Callback *writeCallback= mpu->callbacks->write;

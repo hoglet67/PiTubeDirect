@@ -1,18 +1,32 @@
 #ifndef __m6502_h
 #define __m6502_h
 
-
 #include <stdio.h>
 #include <stdint.h>
+
+// Define TURBO to compile in Acorn "6502 turbo" extensions
+// (ZP) and (ZP),Y use page 3 to extend addressing to 18 bits
+#define TURBO
 
 typedef struct _M6502           M6502;
 typedef struct _M6502_Registers M6502_Registers;
 typedef struct _M6502_Callbacks M6502_Callbacks;
 
-typedef int   (*M6502_Callback)(M6502 *mpu, uint16_t address, uint8_t data);
+#ifdef TURBO
+typedef uint32_t addr_t;
+#else
+typedef uint16_t addr_t;
+#endif
 
+typedef int   (*M6502_Callback)(M6502 *mpu, addr_t address, uint8_t data);
+
+#ifdef TURBO
+typedef M6502_Callback  M6502_CallbackTable[0x40000];
+typedef uint8_t         M6502_Memory[0x40000];
+#else
 typedef M6502_Callback  M6502_CallbackTable[0x10000];
 typedef uint8_t         M6502_Memory[0x10000];
+#endif
 
 // For testing for IRQ
 typedef int (*M6502_PollInterruptsCallback)(M6502 *mpu);
@@ -52,6 +66,9 @@ enum {
   M6502_RegistersAllocated = 1 << 0,
   M6502_MemoryAllocated    = 1 << 1,
   M6502_CallbacksAllocated = 1 << 2
+#ifdef TURBO
+, M6502_Turbo              = 1 << 3
+#endif
 };
 
 extern M6502 *M6502_new(M6502_Registers *registers, M6502_Memory memory, M6502_Callbacks *callbacks);

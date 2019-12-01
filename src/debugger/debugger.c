@@ -48,7 +48,7 @@ cpu_debug_t *cpu_debug_list[] = {
    NULL,                // 14 unused
    NULL,                // 15 Native ARM
    &lib6502_cpu_debug,  // 16 lib6502
-   NULL,                // 17
+   &lib6502_cpu_debug,  // 17 lib6502
    NULL,                // 18
    NULL,                // 19
    &opc5ls_cpu_debug,   // 20 OPC5LS

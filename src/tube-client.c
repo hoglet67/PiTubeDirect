@@ -68,7 +68,7 @@ static const char * emulator_names[] = {
    "Null",                   // 14
    "ARM Native",             // 15
    "65C02 (lib6502)",        // 16
-   "Null",                   // 17
+   "65C02 Turbo (lib6502)",  // 17
    "Null",                   // 18
    "Null",                   // 19
    "OPC5LS",                 // 20
@@ -104,7 +104,7 @@ static const func_ptr emulator_functions[] = {
    copro_null_emulator,      // 14
    copro_armnative_emulator, // 15
    copro_lib6502_emulator,   // 16
-   copro_null_emulator,      // 17
+   copro_lib6502_emulator,   // 17
    copro_null_emulator,      // 18
    copro_null_emulator,      // 19
    copro_opc5ls_emulator,    // 20
