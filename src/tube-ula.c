@@ -709,12 +709,32 @@ int tube_io_handler(uint32_t mail)
 
 void tube_init_hardware()
 {
+   int revision = get_revision();
+
+   // uuuu uuuu FMMM CCCC PPPP TTTT TTTT RRRR
+   //
+   // F = new revision code flags
+   // M = memory
+   // C = manufacturer
+   // P = processor
+   // T = type
+   // R = revision
+
+   // https://www.raspberrypi.org/documentation/hardware/raspberrypi/revision-codes/README.md
+
+   if (revision & 0x00800000) {
+      // New revision codes, we only care about type
+      revision &= 0xFF0;
+   } else {
+      // Old revision codes were only 16 bits
+      revision &= 0xFFFF;
+   }
 
    // early 26pin pins have a slightly different pin out
-   switch (get_revision())
+   switch (revision)
       {
-      case 2 :
-      case 3 :
+      case 0x02:
+      case 0x03:
          // Write 1 to the LED init nibble in the Function Select GPIO
          // peripheral register to enable LED pin as an output
          RPI_GpioBase-> GPFSEL[1] |= 1<<18;
@@ -727,8 +747,7 @@ void tube_init_hardware()
          break;
 
 
-      default :
-
+      default:
          host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
          RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
          RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
@@ -740,34 +759,52 @@ void tube_init_hardware()
          break;
       }
 
-   switch (get_revision())
-      {
-      case 2 :
-      case 3 :   led_type = 0;
-         break;
-      case 0xa02082: // Rpi3
-      case 0xa22082:
-      case 0xa32082:
-         led_type = 2;
-         break;
-      case 0xa03111: // rpi4 1GB
-      case 0xb03111: // rpi4 2GB
-      case 0xc03111: // rpi4 4GB // LED pin GPIO 42
-	     RPI_GpioBase-> GPFSEL[4] |= 1<<6;
-		 led_type = 4 ; // Still needs to implement in vidcore
-         break;
-      case 0x9020e0 : // rpi3a+
-      case 0xa020d3 : // rpi3b+
-         led_type = 3;
-         RPI_GpioBase-> GPFSEL[2] |= 1<<27; // gpio 29
-         break;
-      default :
-         // Write 1 to the LED init nibble in the Function Select GPIO
-         // peripheral register to enable LED pin as an output
-         RPI_GpioBase-> GPFSEL[4] |= 1<<21; // gpio 47
-         led_type = 1;
-         break;
-      }
+   // Write 1 to the LED init nibble in the Function Select GPIO
+   // peripheral register to enable LED pin as an output, and set
+   // the appropriate LED type (for the GPU code).
+   //
+   // LED type 0 is GPIO 16
+   // LED type 1 is GPIO 47
+   // LED type 2 means no LED supported (Pi 3)
+   // LED type 3 is GPIO 29
+   // LED type 4 is GPIO 42
+   switch (revision) {
+
+   case 0x02:  // rpi1 rev 1.0
+   case 0x03:  // rpi1 rev 1.0
+   case 0x04:  // rpi1 rev 2.0
+   case 0x05:  // rpi1 rev 2.0
+   case 0x06:  // rpi1 rev 2.0
+   case 0x07:  // rpi1 rev 2.0
+   case 0x08:  // rpi1 rev 2.0
+   case 0x09:  // rpi1 rev 2.0
+   case 0x0D:  // rpi1 rev 2.0
+   case 0x0E:  // rpi1 rev 2.0
+   case 0x0F:  // rpi1 rev 2.0
+      led_type = 0;
+      break;
+
+   case 0x080: // RPI 3B (no LED supported)
+      led_type = 2;
+      break;
+
+   case 0x110: // RPI 4B
+      led_type = 4;
+      RPI_GpioBase-> GPFSEL[4] |= 1<<6; // LED is GPIO 42
+      break;
+
+   case 0x0e0 : // RPI 3A+
+   case 0x0d0 : // RPI 3B+
+      led_type = 3;
+      RPI_GpioBase-> GPFSEL[2] |= 1<<27; // LED is GPIO 29
+      break;
+
+   default :
+      // All other models
+      led_type = 1;
+      RPI_GpioBase-> GPFSEL[4] |= 1<<21; // LED is GPIO 47
+      break;
+   }
 
    // Configure our pins as inputs
    RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
