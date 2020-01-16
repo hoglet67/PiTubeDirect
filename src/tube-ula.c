@@ -710,88 +710,88 @@ int tube_io_handler(uint32_t mail)
 void tube_init_hardware()
 {
 
-  // early 26pin pins have a slightly different pin out
-  switch (get_revision())
-  {
-     case 2 :
-     case 3 :
-          // Write 1 to the LED init nibble in the Function Select GPIO
-          // peripheral register to enable LED pin as an output
-          RPI_GpioBase-> GPFSEL[1] |= 1<<18;
-          host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
-          RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(A1_PIN_26PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(A0_PIN_26PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(TEST_PIN_26PIN, FS_OUTPUT);
-          test_pin = TEST_PIN_26PIN;
-        break;
-
-
-     default :
-
-          host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
-          RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT);
-          RPI_SetGpioPinFunction(TEST_PIN_40PIN, FS_OUTPUT);
-          RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
-          RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
-          test_pin = TEST_PIN_40PIN;
-       break;
-  }
-
-  switch (get_revision())
-  {
-     case 2 :
-     case 3 :   led_type = 0;
+   // early 26pin pins have a slightly different pin out
+   switch (get_revision())
+      {
+      case 2 :
+      case 3 :
+         // Write 1 to the LED init nibble in the Function Select GPIO
+         // peripheral register to enable LED pin as an output
+         RPI_GpioBase-> GPFSEL[1] |= 1<<18;
+         host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
+         RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(A1_PIN_26PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(A0_PIN_26PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(TEST_PIN_26PIN, FS_OUTPUT);
+         test_pin = TEST_PIN_26PIN;
          break;
-     case 0xa02082: // Rpi3
-     case 0xa22082:
-     case 0xa32082:
+
+
+      default :
+
+         host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
+         RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(TEST_PIN_40PIN, FS_OUTPUT);
+         RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
+         RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
+         test_pin = TEST_PIN_40PIN;
+         break;
+      }
+
+   switch (get_revision())
+      {
+      case 2 :
+      case 3 :   led_type = 0;
+         break;
+      case 0xa02082: // Rpi3
+      case 0xa22082:
+      case 0xa32082:
          led_type = 2;
          break;
-	 case 0xa03111: // rpi4 1GB
-	 case 0xb03111: // rpi4 2GB
-	 case 0xc03111: // rpi4 4GB // LED pin GPIO 42
+      case 0xa03111: // rpi4 1GB
+      case 0xb03111: // rpi4 2GB
+      case 0xc03111: // rpi4 4GB // LED pin GPIO 42
 	     RPI_GpioBase-> GPFSEL[4] |= 1<<6;
 		 led_type = 4 ; // Still needs to implement in vidcore
-		break;
-     case 0x9020e0 : // rpi3a+
-     case 0xa020d3 : // rpi3b+
+         break;
+      case 0x9020e0 : // rpi3a+
+      case 0xa020d3 : // rpi3b+
          led_type = 3;
          RPI_GpioBase-> GPFSEL[2] |= 1<<27; // gpio 29
          break;
-     default :
-               // Write 1 to the LED init nibble in the Function Select GPIO
-          // peripheral register to enable LED pin as an output
-          RPI_GpioBase-> GPFSEL[4] |= 1<<21; // gpio 47
-          led_type = 1;
+      default :
+         // Write 1 to the LED init nibble in the Function Select GPIO
+         // peripheral register to enable LED pin as an output
+         RPI_GpioBase-> GPFSEL[4] |= 1<<21; // gpio 47
+         led_type = 1;
          break;
-  }
+      }
 
-  // Configure our pins as inputs
-  RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(D5_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(D4_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(D3_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(D2_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(D1_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(D0_PIN, FS_INPUT);
+   // Configure our pins as inputs
+   RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(D6_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(D5_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(D4_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(D3_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(D2_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(D1_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(D0_PIN, FS_INPUT);
 
-  RPI_SetGpioPinFunction(PHI2_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
-  RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(PHI2_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(NTUBE_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
+   RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
-  // Initialise the info system with cached values (as we break the GPU property interface)
-  init_info();
+   // Initialise the info system with cached values (as we break the GPU property interface)
+   init_info();
 
 #ifdef DEBUG
-  dump_useful_info();
+   dump_useful_info();
 #endif
 
-  // Initialize performance counters
+   // Initialize performance counters
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
    pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
