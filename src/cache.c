@@ -13,7 +13,7 @@
 const static unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
 const static unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
 const static unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
-   
+
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
 
@@ -21,7 +21,7 @@ const static int aa = 1;
 const static int bb = 1;
 const static int shareable = 1;
 
-#if defined(RPI2) || defined (RPI3) || (RPI4)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
 #define SETWAY_LEVEL_SHIFT          1
 
@@ -109,13 +109,13 @@ void CleanDataCache (void)
 // 3      C     - cacheable     - TEX, C, B used together, see below
 // 2      B     - bufferable    - TEX, C, B used together, see below
 // 1      1
-// 0      1                     
+// 0      1
 
 void map_4k_page(int logical, int physical) {
   // Invalidate the data TLB before changing mapping
   _invalidate_dtlb_mva((void *)(logical << 12));
   // Setup the 4K page table entry
-  // Second level descriptors use extended small page format so inner/outer cacheing can be controlled 
+  // Second level descriptors use extended small page format so inner/outer cacheing can be controlled
   // Pi 0/1:
   //   XP (bit 23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
   // Pi 2/3:
@@ -137,7 +137,7 @@ void enable_MMU_and_IDCaches(void)
 
   unsigned i;
   unsigned base;
-  
+
   // TLB 1MB Sector Descriptor format
   // 31..20 Section Base Address
   // 19     NS    - ?             - set to 0
@@ -212,15 +212,15 @@ void enable_MMU_and_IDCaches(void)
     PageTable[i] +=1;
   }
 
-  // populate the second level page tables  
+  // populate the second level page tables
   for (base = 0; base < NUM_4K_PAGES; base++)
   {
     map_4k_page(base, base);
   }
- 
-  // relocate the vector pointer to the moved page 
-  asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" (HIGH_VECTORS_BASE)); 
-  
+
+  // relocate the vector pointer to the moved page
+  asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" (HIGH_VECTORS_BASE));
+
 #if defined(RPI3)||defined(RPI4)
   //unsigned cpuextctrl0, cpuextctrl1;
   //asm volatile ("mrrc p15, 1, %0, %1, c15" : "=r" (cpuextctrl0), "=r" (cpuextctrl1));
@@ -282,7 +282,7 @@ void enable_MMU_and_IDCaches(void)
   // Bit 12 enables the L1 instruction cache
   // Bit 11 enables branch pre-fetching
   // Bit  2 enables the L1 data cache
-  // Bit  0 enabled the MMU  
+  // Bit  0 enabled the MMU
   // The L1 instruction cache can be used independently of the MMU
   // The L1 data cache will one be enabled if the MMU is enabled
 
