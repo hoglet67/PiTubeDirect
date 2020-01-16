@@ -711,10 +711,6 @@ void tube_init_hardware()
 {
 
   // early 26pin pins have a slightly different pin out
-<<<<<<< HEAD
-
-=======
->>>>>>> 702b1bf... Raspberry Pi 4 support
   switch (get_revision())
   {
      case 2 :

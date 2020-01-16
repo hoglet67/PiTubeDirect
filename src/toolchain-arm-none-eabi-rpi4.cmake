@@ -42,8 +42,8 @@ set( CMAKE_SYSTEM_PROCESSOR     BCM2836 )
 set( TC_PATH "" )
 
 # The toolchain prefix for all toolchain executables
-#set( CROSS_COMPILE arm-none-eabi- )
-set( CROSS_COMPILE arm-eabi- )
+set( CROSS_COMPILE arm-none-eabi- )
+#set( CROSS_COMPILE arm-eabi- )
 
 # specify the cross compiler. We force the compiler so that CMake doesn't
 # attempt to build a simple test program as this will fail without us using
