@@ -114,7 +114,7 @@ int fork(void)
  in these examples, all files are regarded as character special devices. The
  sys/stat.h header file required is distributed in the include subdirectory
  for this C library. */
-int _fstat(int file, struct stat *st)
+__attribute__((used)) int _fstat(int file, struct stat *st)
 {
   st->st_mode = S_IFCHR;
   return 0;
@@ -131,7 +131,7 @@ int getpid(void)
 /* Query whether output stream is a terminal. For consistency with the other
  minimal implementations, which only support output to stdout, this minimal
  implementation is suggested: */
-int _isatty(int file)
+__attribute__((used)) int _isatty(int file)
 {
   return 1;
 }
