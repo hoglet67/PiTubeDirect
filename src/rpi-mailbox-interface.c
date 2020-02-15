@@ -158,7 +158,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             pt[pt_index++] = 16;
             pt[pt_index++] = 0; /* Request */
 
-            if( ( tag == TAG_SET_OVERSCAN ) )
+            if( tag == TAG_SET_OVERSCAN )
             {
                 pt[pt_index++] = va_arg( vl, int ); /* Top pixels */
                 pt[pt_index++] = va_arg( vl, int ); /* Bottom pixels */
