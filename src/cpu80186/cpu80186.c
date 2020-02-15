@@ -3301,7 +3301,7 @@ void exec86(uint32_t tube_cycles)
         {
           break;
         }
-        else if ((reptype == 2) & (zf == 1))
+        else if ((reptype == 2) && (zf == 1))
         {
           break;
         }
