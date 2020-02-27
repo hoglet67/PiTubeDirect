@@ -176,7 +176,6 @@ void init_emulator() {
    }
 #endif
 
-   copro &= 127 ; // Clear top bit which is used to signal full reset
    // Make sure that copro number is valid
    if (copro >= sizeof(emulator_functions) / sizeof(func_ptr)) {
       LOG_DEBUG("using default co pro\r\n");
@@ -196,6 +195,12 @@ void init_emulator() {
 }
 
 #ifdef HAS_MULTICORE
+
+#if 0
+
+// DMB: This method is no longer ever called, because we only
+// ever run the emulation on the main core.
+
 void run_core() {
    // Write first line without using printf
    // In case the VFP unit is not enabled
@@ -227,13 +232,13 @@ void run_core() {
 
    } while (1);
 }
+#endif
 
 static void start_core(int core, func_ptr func) {
    LOG_DEBUG("starting core %d\r\n", core);
    *(unsigned int *)(0x4000008C + 0x10 * core) = (unsigned int) func;
 }
 #endif
-
 
 static unsigned int get_copro_number() {
    unsigned int copro = DEFAULT_COPRO;
@@ -303,6 +308,8 @@ static void get_tube_delay() {
 
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
+   int last_copro = -1;
+
      // Initialise the UART to 57600 baud
    RPI_AuxMiniUartInit( 115200, 8 );
    enable_MMU_and_IDCaches();
@@ -332,16 +339,19 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
   do {
 
-     // TODO: this will reset the current *FX 226/228 setting back to the default
-     // when changing Co Processor. We need to think if this is the correct
-     // behaviour
-
-     // Set the speed / memory size as appropriate
-     get_copro_speed();
-     get_copro_memory_size();
+     // When changing Co Processors, reset the Co Pro speed and memory back to the
+     // configured default for that Co Pro.
+     if (copro != last_copro) {
+        get_copro_speed();
+        get_copro_memory_size();
+     }
+     last_copro = copro;
 
      // Run the emulator
      emulator();
+
+     // Clear top bit which is used to signal full reset
+     copro &= 127 ;
 
      // Reload the emulator as copro may have changed
      init_emulator();
