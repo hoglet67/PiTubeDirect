@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Fer-de-lance-dev"
+#define RELEASENAME "Fer-de-lance-rc0"
 
 #define NDEBUG
 
