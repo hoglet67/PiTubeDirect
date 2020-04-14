@@ -16,7 +16,7 @@ static int pt_index ;
 
 void RPI_PropertyInit( void )
 {
-    //memset(pt, 0, sizeof(pt));
+   memset(pt, 0, (size_t)64);
 
     /* Fill in the size on-the-fly */
     pt[PT_OSIZE] = 12;
@@ -91,13 +91,35 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             pt[pt_index++] = va_arg( vl, int ); // R3
             pt[pt_index++] = va_arg( vl, int ); // R4
             pt[pt_index++] = va_arg( vl, int ); // R5
-            break;   
+            break;
 
         case TAG_ALLOCATE_BUFFER:
             pt[pt_index++] = 8;
             pt[pt_index++] = 0; /* Request */
             pt[pt_index++] = va_arg( vl, int );
             pt_index += 1;
+            break;
+
+        case TAG_ENABLE_GPU:
+            pt[pt_index++] = 8;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = va_arg( vl, int ); /* 0 = disable, 1 = enable */
+            break;
+
+        case TAG_ALLOCATE_MEMORY:
+            pt[pt_index++] = 4;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = va_arg( vl, int ); /* u32: size      */
+            pt[pt_index++] = va_arg( vl, int ); /* u32: alignment */
+            pt[pt_index++] = va_arg( vl, int ); /* u32: flags     */
+            break;
+
+        case TAG_LOCK_MEMORY:
+        case TAG_RELEASE_MEMORY:
+        case TAG_UNLOCK_MEMORY:
+            pt[pt_index++] = 4;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = va_arg( vl, int ); /* u32: handle    */
             break;
 
         case TAG_GET_PHYSICAL_SIZE:
@@ -184,7 +206,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 int RPI_PropertyProcess( void )
 {
     int result;
-    
+
 #if( PRINT_PROP_DEBUG == 1 )
     int i;
     LOG_INFO( "%s Length: %d\r\n", __func__, pt[PT_OSIZE] );

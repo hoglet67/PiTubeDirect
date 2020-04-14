@@ -1,6 +1,6 @@
 # config.txt for PiTubeDirect (https://github.com/hoglet67/PiTubeDirect)
 #
-# default options 
+# default options
 core_freq=400
 kernel=kernelrpi.img
 # Debug kernel (needs a 115200 serial connection)
@@ -34,10 +34,12 @@ kernel=kernel8-32.img
 [all]
 force_turbo=1
 
-hdmi_blanking=2
-hdmi_ignore_edid=0xa5000080
-hdmi_ignore_hotplug=1
+#hdmi_blanking=2
+#hdmi_ignore_edid=0xa5000080
+#hdmi_ignore_hotplug=1
 boot_delay=0
+start_file=start.elf
+fixup_file=fixup.dat
 
 kernel_address=0x1f00000
 gpu_mem=16

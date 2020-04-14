@@ -18,6 +18,8 @@
 #include "cache.h"
 #include "info.h"
 #include "performance.h"
+#include "framebuffer.h"
+#include "v3d.h"
 
 // For predictable timing (i.e. stalling to to cache or memory contention)
 // we need to find somewhere in I/O space to place the tube registers.
@@ -350,6 +352,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       break;
    case 2:
       copro_command = val;
+      fb_writec(val);
       break;
    case 3: /*Register 2*/
       //if (!tube_enabled)
@@ -827,6 +830,10 @@ void tube_init_hardware()
 #ifdef DEBUG
    dump_useful_info();
 #endif
+
+   fb_initialize();
+
+   v3d_initialize();
 
    // Initialize performance counters
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)

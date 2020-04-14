@@ -89,6 +89,10 @@ file( GLOB core_files
     logging.h
     utils.c
     utils.h
+    framebuffer.c
+    framebuffer.h
+    v3d.c
+    v3d.h
 )
 
 # 6502 Co Processor using 65tube Implementation
