@@ -106,6 +106,7 @@ static unsigned int colour_table[256];
 #define IN_VDU17  17
 #define IN_VDU18  18
 #define IN_VDU19  19
+#define IN_VDU22  22
 #define IN_VDU23  23
 #define IN_VDU25  25
 #define IN_VDU29  29
@@ -425,6 +426,15 @@ void fb_writec(int c) {
       }
       return;
 
+   } else if (state == IN_VDU22) {
+      count++;
+      if (count == 2) {
+         fb_clear();
+         fb_draw_character(32, 1, 1);
+         state = NORMAL;
+      }
+      return;
+
    } else if (state == IN_VDU23) {
       vdu23buf[count] = c;
       if (count == 0) {
@@ -656,6 +666,11 @@ void fb_writec(int c) {
 
    case 19:
       state = IN_VDU19;
+      count = 0;
+      return;
+
+   case 22:
+      state = IN_VDU22;
       count = 0;
       return;
 
