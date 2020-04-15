@@ -180,9 +180,9 @@ void v3d_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned 
      c1_g = c2_g = c3_g = (float) ((colour >>  8) & 0xff) / 255.0f;
      c1_b = c2_b = c3_b = (float) ((colour      ) & 0xff) / 255.0f;
   } else {
-     c1_r = c2_r = c3_r = (float) ((colour >> 11) & 0x1f) / 15.0f;
-     c1_g = c2_g = c3_g = (float) ((colour >>  5) & 0x3f) / 31.0f;
-     c1_b = c2_b = c3_b = (float) ((colour      ) & 0x1f) / 15.0f;
+     c1_r = c2_r = c3_r = (float) ((colour >> 11) & 0x1f) / 31.0f;
+     c1_g = c2_g = c3_g = (float) ((colour >>  5) & 0x3f) / 63.0f;
+     c1_b = c2_b = c3_b = (float) ((colour      ) & 0x1f) / 31.0f;
   }
 
 // Configuration stuff
