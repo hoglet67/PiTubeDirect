@@ -23,18 +23,12 @@ copro_armnative_enable_mailbox:
         mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
         ldr     r1, =MBOX0_CONFIG       // to generate interrupts when data is present
         str     r0, [r1]
-        mov     r0, #0x80 + 65          // route that to FIQ
-        ldr     r1, =FIQCTRL
-        str     r0, [r1]        
         mov     pc, lr
 
 
 copro_armnative_disable_mailbox:
         mov     r0, #0                  // disable mailbox hardware to generate interrupts
         ldr     r1, =MBOX0_CONFIG       // when data is present
-        str     r0, [r1]
-        mov     r0, #0                  // disable FIQ
-        ldr     r1, =FIQCTRL
         str     r0, [r1]
         mov     pc, lr
 
@@ -163,7 +157,7 @@ _user_exec:
     mrs      r0, spsr             // Get spsr    
     stmfd    sp!, {r0}            // Save spsr, as this (and lr) will be corrupted by nested swis
 
-#if defined(RPI2) || defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
     stmfd    sp!, {r0-r3}         // Save the _user_exec params
     bl       CleanDataCache
     ldmfd    sp!, {r0-r3}         // Restore the _user_exec params

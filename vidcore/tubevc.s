@@ -22,7 +22,7 @@
 #  r4 - scratch
 #  r5 - debug pin mask (0 = no debug  xx= debug pin e.g 1<<21)
 #  r6 - GPFSEL0 constant
-#  r7 - scratch register 
+#  r7 - scratch register
 #  r8 - scratch register
 #  r9 - (0xF<<D0D3_shift) + (0xF<<D4D7_shift) constant
 # r10 - data bus driving values idle
@@ -34,7 +34,7 @@
 # r16 - A0 GPIO bit number
 # r17 - A1 GPIO bit number
 # r18 - A2 GPIO bit number
-# r19 - LEDTYPE        
+# r19 - LEDTYPE
 # r20 - led_state
 
 # GPIO registers
@@ -48,16 +48,25 @@
 .equ GPLEV0_offset, 0x34
 .equ GPEDS0_offset, 0x40
 
+# LED type 0 is GPIO 16
 .equ LED_TYPE0_BIT, 16
-.equ LED_TYPE1_BIT, 15
-.equ LED_TYPE3_BIT, 29 
 
+# LED type 1 is GPIO 47 (15 and use SEL1)
+.equ LED_TYPE1_BIT, 15
+
+# LED type 2 means no LED supported (Pi 3)
+
+# LED type 3 is GPIO 29
+.equ LED_TYPE3_BIT, 29
+
+# LED type 4 is GPIO 42 (10 and use SEL1)
+.equ LED_TYPE4_BIT, 10
 
 .equ GPU_ARM_MBOX, 0x7E00B880
 
 #.equ IC0_MASK,     0x7e002010
 #.equ IC1_MASK,     0x7e002810
-        
+
 # fixed pin bit positions (A2..0, TEST passed in dynamically)
 .equ nRST,          4
 .equ nTUBE,        17
@@ -85,7 +94,7 @@
 .equ OVERRUN_MASK, 30
 
 .equ RESET_MAILBOX_BIT, 12
-.equ RW_MAILBOX_BIT, 11 
+.equ RW_MAILBOX_BIT, 11
 
 .org 0
 
@@ -98,12 +107,12 @@
 
 # Setup interrupt vector
 # 0x1EC01E00 looks like the interrupt table
-# Vector 113 = 49 + 64 = GPIO0      
+# Vector 113 = 49 + 64 = GPIO0
 
 #  mov r8, (0x40000000 + 0x1EC01E00 + (113 << 2))
 #  lea r9, irq_handler(pc)
 #  st  r9, (r8)
- 
+
 # mask ARM interrupts
 #  mov r8, IC0_MASK
 #  mov r9, IC1_MASK
@@ -116,13 +125,13 @@
 #  add r9, 4
 #  sub r11, 1
 #  cmp r11, 0
-#  bne mask_all   
-   
+#  bne mask_all
+
 # enable the interupt (49 + 64 = 113)
 #  mov r8, IC0_MASK + 0x18
 #  mov r9, 0x00000010
 #  st  r9, (r8)
-   
+
    mov    r19, r1      # save LEDTYPE
    mov    r20, 0       # clear led_state
    mov    r9, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
@@ -135,15 +144,15 @@
    and    r18, 31
 
 
-   
+
 # r1, r3, r4 now free
 
    mov    r3, GPU_ARM_MBOX
- 
+
    mov    r6, GPFSEL0
-   
+
    # read GPIO registers to capture the bus idle state
-   
+
    ld     r10,  (r6)
    ld     r11, 4(r6)
    ld     r12, 8(r6)
@@ -151,12 +160,12 @@
    mov    r13, MAGIC_C0
    mov    r14, MAGIC_C1
    mov    r15, MAGIC_C2 | MAGIC_C3
-   or     r13, r10  
+   or     r13, r10
    or     r14, r11
    or     r15, r12
 
 # enable interrupts
-#  ei         
+#  ei
    rsb    r2, 40
    nop           #nop to align loop for speed
 # poll for nTube being low
@@ -169,17 +178,17 @@ Poll_tube_low:
    beq    post_reset
    btst   r8, nTUBE
    bne    Poll_tube_low
-   
+
 .rept 40
    addcmpbeq r1,1,41,delay_done
-.endr 
-  
-delay_done:      
+.endr
+
+delay_done:
    ld     r8, GPLEV0_offset(r6)  # check ntube again to remove glitches
 
    # we now know nTube is low
- # Extra read with might possible help with rnw on slow machines  
- #  ld     r8, GPLEV0_offset(r6)  # read bus again to ensure we have the correct address 
+ # Extra read with might possible help with rnw on slow machines
+ #  ld     r8, GPLEV0_offset(r6)  # read bus again to ensure we have the correct address
 
    # sort out the address bus
 
@@ -197,11 +206,11 @@ delay_done:
    bne    Poll_loop
    btst   r8, RnW
    beq    wr_cycle
-   
+
    # So we are in a read cycle
-   
+
    st     r13, (r6)              # Drive data bus
-   st     r14, 4(r6)             # Drive data bus        
+   st     r14, 4(r6)             # Drive data bus
    st     r15, 8(r6)             # Drive data bus
    or     r4,r5
    st     r4, GPSET0_offset(r6)  # Write word to data bus
@@ -221,7 +230,7 @@ rd_wait_for_clk_high1:
    bset   r7, RW_MAILBOX_BIT    # set read bit
    st     r7, (r3)              # store in mail box
    bl     toggle_led
-   
+
 # spin waiting for clk low
 rd_wait_for_clk_low:
    ld     r7, GPLEV0_offset(r6)
@@ -267,7 +276,7 @@ wr_wait_for_clk_low:
    lsr    r4,r8, D4D7_shift -4
    and    r7, 0x0F
    and    r4, 0xF0
-   or     r7, r4 
+   or     r7, r4
 
 #  move address bit to correct position
    btst   r8, r16
@@ -279,17 +288,17 @@ wr_wait_for_clk_low:
    st     r7, (r3)      # post mail
    bl     toggle_led
    b      Poll_loop
-        
+
 # Post a message to indicate a reset
 post_reset:
    mov    r7, 1<<RESET_MAILBOX_BIT
    st     r7, (r3)
-   bl     toggle_led   
+   bl     toggle_led
 # Wait for reset to be released (so we don't overflow the mailbox)
 post_reset_loop:
    ld     r7, GPLEV0_offset(r6)
    btst   r7, nRST
-   beq    post_reset_loop        
+   beq    post_reset_loop
    b      Poll_loop
 
 #### Toggle LED
@@ -301,7 +310,9 @@ toggle_led:
    beq    led_type1
    cmp    r19, 3
    beq    led_type3
-   
+   cmp    r19, 4
+   beq    led_type4
+
    # must be led_type2
    # only on raspberry pi 3
 
@@ -318,7 +329,7 @@ led_type0:
 led_type0_set:
    st     r7,GPSET0_offset(r6)
    rts
-   
+
 # led_type 1 found on most 40 pin raspberry pis
 led_type1:
    mov    r7, (1<<LED_TYPE1_BIT)
@@ -327,10 +338,10 @@ led_type1:
    bne    led_type1_set
    st     r7,GPCLR1_offset(r6)
    rts
-led_type1_set:   
+led_type1_set:
    st     r7,GPSET1_offset(r6)
    rts
-   
+
 # led_type 3 found on rpi3b+ GPIO29
 led_type3:
    mov    r7, (1<<LED_TYPE3_BIT)
@@ -339,14 +350,26 @@ led_type3:
    bne    led_type1_set
    st     r7,GPCLR0_offset(r6)
    rts
-led_type3_set:   
+led_type3_set:
    st     r7,GPSET0_offset(r6)
-   rts   
-   
+   rts
+
+# led_type 4 found on the Pi 4
+led_type4:
+   mov    r7, (1<<LED_TYPE4_BIT)
+   btst   r20, 0
+   not    r20, r20
+   bne    led_type4_set
+   st     r7,GPCLR1_offset(r6)
+   rts
+led_type4_set:
+   st     r7,GPSET1_offset(r6)
+   rts
+
 # This code is not currently used
-        
+
 .if 0
-        
+
 # The interrupt handler just deals with nRST being pressed
 # This saves two instructions in Poll_loop
 irq_handler:
@@ -360,20 +383,20 @@ irq_handler:
    bne    irq_handler_exit
 
    bl     do_post_mailbox
-        
+
 irq_handler_exit:
    rti
 
 demo_irq_handler:
 
    mov    r6, GPFSEL0
-        
+
    mov    r5, 0xffffffff
    st     r5, GPEDS0_offset(r6)
 
    mov    r5, (1<<20)
    st     r5, GPSET0_offset(r6) #DEBUG pin
    st     r5, GPCLR0_offset(r6) #DEBUG pin
-        
+
    rti
 .endif

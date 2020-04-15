@@ -4,7 +4,7 @@
 #include "startup.h"
 #include "performance.h"
 
-#if defined(RPI3)
+#if defined(RPI3) || defined(RPI4)
 
 const char * type_names[] = {
 
@@ -127,7 +127,7 @@ const char * type_names[] = {
 const char *type_lookup(int type) {
    static const char *UNKNOWN = "UNKNOWN";
    int num_types = sizeof(type_names) / sizeof(type_names[0]);
-   if (type >= 0 || type < num_types) {
+   if (type >= 0 && type < num_types) {
       return type_names[type];
    } else {
       return UNKNOWN;
@@ -144,7 +144,7 @@ void reset_performance_counters(perf_counters_t *pct) {
    unsigned ctrl = 0x0F;
    
 
-#if defined(RPI2) || defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
    int i;
    unsigned cntenset = (1U << 31);
 
@@ -179,7 +179,7 @@ void reset_performance_counters(perf_counters_t *pct) {
 }
 
 void read_performance_counters(perf_counters_t *pct) {
-#if defined(RPI2) || defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
    int i;
    for (i = 0; i < pct->num_counters; i++) {
       // Select the event count/type via the event type selection register
@@ -230,7 +230,7 @@ int benchmark() {
    unsigned char mem1[1024*1024];
    unsigned char mem2[1024*1024];
    mem2[0]=0;
-#if defined(RPI2) || defined(RPI3) 
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
    pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
    pct.type[1] = PERF_TYPE_L1I_CACHE_REFILL;

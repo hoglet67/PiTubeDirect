@@ -1,7 +1,7 @@
 /* lib6502.c -- MOS Technology 6502 emulator	-*- C -*- */
 
 /* Copyright (c) 2005 Ian Piumarta
- * 
+ *
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -18,7 +18,7 @@
  */
 
 /* Last edited: 2013-06-07 23:03:39 by piumarta on emilia.local
- * 
+ *
  * BUGS:
  *   - RTS and RTI do not check the return address for a callback
  *   - the disassembler cannot be configured to read two bytes for BRK
@@ -42,6 +42,7 @@ extern volatile int tube_irq;
 
 typedef uint8_t  byte;
 typedef uint16_t word;
+typedef uint32_t dword;
 
 enum {
   flagN= (1<<7),	/* negative 	 */
@@ -72,18 +73,18 @@ enum {
 static int elapsed;
 
 #ifdef notick
-#define tick(n)    
-#define tickIf(p) 
+#define tick(n)
+#define tickIf(p)
 #else
 #define tick(n)    elapsed+=n
-#define tickIf(p)  elapsed +=(p)?1:0 
+#define tickIf(p)  elapsed +=(p)?1:0
 #endif
 /* memory access (indirect if callback installed) -- ARGUMENTS ARE EVALUATED MORE THAN ONCE! */
 
 #ifdef USE_MEMORY_POINTER
 #define MEM(addr) memory[addr]
 #else
-#define MEM(addr) *(unsigned char *)(( int)addr ) 
+#define MEM(addr) *(unsigned char *)(( int)addr )
 #endif
 
 
@@ -120,7 +121,7 @@ byte tmpr;
 
 #else
 
-   
+
 #define putMemory(ADDR, BYTE)			\
   ( writeCallback[ADDR]				\
       ? writeCallback[ADDR](mpu, ADDR, BYTE)	\
@@ -131,7 +132,7 @@ byte tmpr;
       ?  readCallback[ADDR](mpu, ADDR, 0)	\
       :  MEM(ADDR) )
 
- 
+
 #define trap(ADDR, n)
 
 #endif
@@ -176,6 +177,24 @@ byte tmpr;
     PC += 2;					\
   }
 
+#ifdef TURBO
+
+#define absx(ticks)						\
+  tick(ticks);							\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);			        \
+  PC += 2;							\
+  tickIf((ticks == 4) && ((ea >> 8) != ((ea + X) >> 8)));	\
+  ea = (ea + X) & 0xFFFF;
+
+#define absy(ticks)						\
+  tick(ticks);							\
+  ea= MEM(PC) + (MEM(PC + 1) << 8);			        \
+  PC += 2;							\
+  tickIf((ticks == 4) && ((ea >> 8) != ((ea + Y) >> 8)));	\
+  ea = (ea + Y) & 0xFFFF
+
+#else
+
 #define absx(ticks)						\
   tick(ticks);							\
   ea= MEM(PC) + (MEM(PC + 1) << 8);			        \
@@ -189,6 +208,8 @@ byte tmpr;
   PC += 2;							\
   tickIf((ticks == 4) && ((ea >> 8) != ((ea + Y) >> 8)));	\
   ea += Y
+
+#endif
 
 #define zp(ticks)				\
   tick(ticks);					\
@@ -211,6 +232,22 @@ byte tmpr;
     ea= MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);	\
   }
 
+#ifdef TURBO
+
+#define indy(ticks)						\
+  tick(ticks);							\
+  {								\
+    byte tmp= MEM(PC++);					\
+    ea= MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);			\
+    tickIf((ticks == 5) && ((ea >> 8) != ((ea + Y) >> 8)));	\
+    ea = (ea + Y) & 0xFFFF;                                     \
+    if (turbo) {						\
+      ea += ((MEM(((tmp + 1)&0xFF)+0x300)&0x03) << 16);		\
+    }								\
+  }
+
+#else
+
 #define indy(ticks)						\
   tick(ticks);							\
   {								\
@@ -220,6 +257,8 @@ byte tmpr;
     ea += Y;							\
   }
 
+#endif
+
 #define indabsx(ticks)					\
   tick(ticks);						\
   {							\
@@ -228,6 +267,21 @@ byte tmpr;
     ea = MEM(tmp) + (MEM(tmp + 1) << 8);		\
   }
 
+#ifdef TURBO
+
+#define indzp(ticks)                \
+  tick(ticks);						\
+  {							\
+    byte tmp;						\
+    tmp= MEM(PC++);					\
+    ea = MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);		\
+    if (turbo) {						\
+      ea += ((MEM(((tmp + 1)&0xFF)+0x300)&0x03) << 16);		\
+    }								\
+  }
+
+#else
+
 #define indzp(ticks)					\
   tick(ticks);						\
   {							\
@@ -235,6 +289,8 @@ byte tmpr;
     tmp= MEM(PC++);					\
     ea = MEM(tmp) + (MEM((tmp + 1)&0xFF) << 8);		\
   }
+
+#endif
 
 /* insns */
 
@@ -934,7 +990,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 
 # define pollints()        if (tube_irq & 7) { externalise(); if (poll(mpu)) return; internalise(); }
 # define begin()				fetch();  next()
-# define fetch()				
+# define fetch()
 # define next()            debug(); pollints(); tpc= itabp[MEM(PC++)]; goto *tpc
 # define dispatch(num, name, mode, cycles)	_##num: name(cycles, mode) //oops();  next()
 # define end()
@@ -943,16 +999,21 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 
 # define begin()				for (;;) switch (MEM(PC++)) {
 # define fetch()
-# define next()					break
-# define dispatch(num, name, mode, cycles)	case 0x##num: name(cycles, mode);  next()
+# define next()
+# define dispatch(num, name, mode, cycles)	case 0x##num: name(cycles, mode); break;
 # define end()					}
 
 #endif
 #ifdef USE_MEMORY_POINTER
   register byte  *memory= mpu->memory;
-#endif  
+#endif
   register word   PC;
+#ifdef TURBO
+  dword		  ea;
+  byte            turbo = mpu->flags & M6502_Turbo;
+#else
   word		  ea;
+#endif
   byte		  A, X, Y, P, S;
   M6502_Callback *readCallback=  mpu->callbacks->read;
   M6502_Callback *writeCallback= mpu->callbacks->write;
@@ -1044,7 +1105,7 @@ M6502 *M6502_new(M6502_Registers *registers, M6502_Memory memory, M6502_Callback
   if (!memory) outOfMemory();
 #else
    { memory    = 0;    }
-#endif    
+#endif
   if (!callbacks)  { callbacks = (M6502_Callbacks *)calloc(1, sizeof(M6502_Callbacks));  mpu->flags |= M6502_CallbacksAllocated; }
 
   if (!registers || !callbacks) outOfMemory();

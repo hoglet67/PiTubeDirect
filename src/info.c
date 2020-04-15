@@ -14,12 +14,11 @@ extern void init_info() {
 }
 
 void print_tag_value(char *name, const rpi_mailbox_property_t *buf, int hex) {
-   int i;
    LOG_INFO("%20s : ", name);
    if (buf == NULL) {
       LOG_INFO("*** failed ***");
    } else {
-      for (i = 0;  i < (buf->byte_length + 3) >> 2; i++) {
+      for (int i = 0;  i < (buf->byte_length + 3) >> 2; i++) {
          if (hex) {
             LOG_INFO("%08x ", buf->data.buffer_32[i]);
          } else {
@@ -126,8 +125,7 @@ char *get_cmdline() {
 char *get_cmdline_prop(char *prop) {
    static char ret[PROP_SIZE];
    char *retptr = ret;
-   char *cmdline = get_cmdline();
-   char *cmdptr = cmdline;
+   char *cmdptr = get_cmdline();
    int proplen = strlen(prop);
 
    // continue until the end terminator

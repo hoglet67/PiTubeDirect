@@ -339,6 +339,7 @@ static inline uint32_t pfx_ireg(uint32_t addr, uint8_t a, const char **ptr, char
             switch(a & 0xC0) {
                 case 0x00:
                     snprintf(ibuf, IBUF_SIZE, "%s   (%s+%2.2Xh)", ins8[d], ireg, opaddr);
+                    break;
                 case 0x40:
                     snprintf(ibuf, IBUF_SIZE, "BIT   %d,(%s+%2.2Xh)", d, ireg, opaddr);
                     break;

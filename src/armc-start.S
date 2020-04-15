@@ -38,7 +38,7 @@
 .equ    C0_ABORT_STACK,      STACK_SIZE*5
 .equ    C0_UNDEFINED_STACK,  STACK_SIZE*6
 
-#if defined(RPI2) || defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 .equ    C1_SVR_STACK,        STACK_SIZE*7
 .equ    C1_IRQ_STACK,        STACK_SIZE*8
 .equ    C1_FIQ_STACK,        STACK_SIZE*9
@@ -70,6 +70,8 @@
 .global _invalidate_dtlb
 .global _invalidate_dtlb_mva
 .global _data_memory_barrier
+
+.global _interrupt_vector_h
 
 #ifdef HAS_MULTICORE
 .global _get_core
@@ -127,6 +129,11 @@ _fast_interrupt_vector_h:           .word   arm_fiq_handler
 
 .section ".text._reset_"
 _reset_:
+#if defined(RPI4)
+	ldr	r1,=0xff842000
+    mov  r2,#0
+	str r2,[r1]		// disable GIC on rpi4
+#endif
        BL _enable_l1_cache
 #ifdef HAS_MULTICORE
 
@@ -147,6 +154,14 @@ _core_loop:
 _core_continue:
 
 #else
+
+    //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
+    ldr     r0, =(0xf << 20)
+    mcr     p15, 0, r0, c1, c0, 2
+
+    // 2. Set the FPEXC EN bit to enable the NEON MPE:
+    mov     r0, #0x40000000
+    vmsr    fpexc, r0
 
     // if kernel_old=0 enter in HYP mode and need to force a switch to SVC mode
     //
@@ -192,6 +207,7 @@ _reset_continue:
     sub sp, r4, #C0_IRQ_STACK
 
     // Also setup the stack used for FIQs
+
     msr cpsr_c, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, #C0_FIQ_STACK
 
@@ -217,13 +233,7 @@ _reset_continue:
     // Enable VFP ------------------------------------------------------------
 
 #ifdef HAS_MULTICORE
-    //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
-    ldr     r0, =(0xf << 20)
-    mcr     p15, 0, r0, c1, c0, 2
 
-    // 2. Set the FPEXC EN bit to enable the NEON MPE:
-    mov     r0, #0x40000000
-    vmsr    fpexc, r0
 
 #else
     // r1 = Access Control Register
@@ -381,7 +391,7 @@ _invalidate_dtlb_mva:
 
 .section ".text._data_memory_barrier"
 _data_memory_barrier:
-#if defined(RPI2) || defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
     dmb
 #else
     mov      r0, #0

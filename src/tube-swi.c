@@ -218,7 +218,7 @@ SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_SWI_Not_Known,         // (&6B) -- OS_MMUControl
   tube_SWI_Not_Known,         // (&6C) -- OS_ResyncTime
   tube_SWI_Not_Known,         // (&6D) -- OS_PlatformFeatures
-  tube_SWI_Not_Known,         // (&6E) -- OS_SynchroniseCodeAreas
+  OS_SynchroniseCodeAreas,    // (&6E) -- OS_SynchroniseCodeAreas
   tube_SWI_Not_Known,         // (&6F) -- OS_CallASWI
   tube_SWI_Not_Known,         // (&70) -- OS_AMBControl
   tube_SWI_Not_Known,         // (&71) -- OS_CallASWIR12
@@ -955,6 +955,11 @@ void tube_WriteN(unsigned int *reg) {
   while (len-- > 0) {
     sendByte(R1_ID, *ptr++);
   }
+}
+
+void OS_SynchroniseCodeAreas(unsigned int *reg)
+{
+ _invalidate_icache();
 }
 
 // The purpose of this call is to lookup and output (via OS_WriteC) a help message for a given BASIC keyword.

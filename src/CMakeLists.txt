@@ -110,6 +110,7 @@ file( GLOB copro_lib6502_files
 file( GLOB shared_6502_files
     tuberom_6502.h
     tuberom_6502.c
+    tuberom_6502_turbo.c
 )
 
 # 80186 Co Pro
@@ -370,7 +371,7 @@ else()
     endif()
 
 endif()
-    
+
 target_link_libraries (tube-client m)
 
 add_custom_command(
@@ -391,4 +392,3 @@ add_custom_command(
 )
 
 add_dependencies(tube-client gitversion)
-
