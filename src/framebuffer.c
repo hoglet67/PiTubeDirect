@@ -1,3 +1,5 @@
+// #define DEBUG_VDU
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,6 +8,33 @@
 #include "rpi-mailbox-interface.h"
 #include "framebuffer.h"
 #include "v3d.h"
+#include "fonts.h"
+
+// Character colour / cursor position
+static int16_t c_bg_col;
+static int16_t c_fg_col;
+static int16_t c_x_pos;
+static int16_t c_y_pos;
+
+// Graphics colour / cursor position
+static int16_t g_bg_col;
+static int16_t g_fg_col;
+static int16_t g_x_origin;
+static int16_t g_x_pos;
+static int16_t g_x_pos_last1;
+static int16_t g_x_pos_last2;
+static int16_t g_y_origin;
+static int16_t g_y_pos;
+static int16_t g_y_pos_last1;
+static int16_t g_y_pos_last2;
+static int16_t g_mode;
+static int16_t g_plotmode;
+
+// Text or graphical cursor for printing characters
+static int8_t g_cursor;
+
+
+#include "vdu23.h"
 
 #define BBC_X_RESOLUTION 1280
 #define BBC_Y_RESOLUTION 1024
@@ -39,8 +68,17 @@
 #define D_GREEN ((((GREEN & ~ALPHA) >> 1) & GREEN) | ALPHA)
 #define D_BLUE  ((((BLUE & ~ALPHA)  >> 1) & BLUE)  | ALPHA)
 
-static int colour_table[] = {
-   0x0000,                   // Black
+// Fill modes:
+#define HL_LR_NB 1 // Horizontal line fill (left & right) to non-background
+#define HL_RO_BG 2 // Horizontal line fill (right only) to background
+#define HL_LR_FG 3 // Horizontal line fill (left & right) to foreground
+#define HL_RO_NF 4 // Horizontal line fill (right only) to non-foreground
+#define AF_NONBG 5 // Flood (area fill) to non-background
+#define AF_TOFGD 6 // Flood (area fill) to foreground
+
+
+static unsigned int default_colour_table[] = {
+   0x0000,                   // Dark Black
    D_RED,                    // Dark Red
    D_GREEN,                  // Dark Green
    D_RED | D_GREEN,          // Dark Yellow
@@ -49,7 +87,7 @@ static int colour_table[] = {
    D_GREEN | D_BLUE,         // Dark Cyan
    D_RED | D_GREEN | D_BLUE, // Dark White
 
-   0x0000,                   // Dark Black
+   0x2945,                   // Light Black
    RED,                      // Red
    GREEN,                    // Green
    RED | GREEN,              // Yellow
@@ -60,159 +98,18 @@ static int colour_table[] = {
 
 };
 
-// Character colour / cursor position
-static int16_t c_bg_col;
-static int16_t c_fg_col;
-static int16_t c_x_pos;
-static int16_t c_y_pos;
+static unsigned int colour_table[256];
 
-// Graphics colour / cursor position
-static int16_t g_bg_col;
-static int16_t g_fg_col;
-static int16_t g_x_origin;
-static int16_t g_x_pos;
-static int16_t g_x_pos_last1;
-static int16_t g_x_pos_last2;
-static int16_t g_y_origin;
-static int16_t g_y_pos;
-static int16_t g_y_pos_last1;
-static int16_t g_y_pos_last2;
-static int16_t g_mode;
-static int16_t g_plotmode;
-
-// 6847 font data
-
-uint8_t fontdata[] =
-{
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x02, 0x1a, 0x26, 0x26, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x14, 0x22, 0x22, 0x3e, 0x22, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3c, 0x12, 0x12, 0x1c, 0x12, 0x12, 0x3c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x20, 0x20, 0x20, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3c, 0x12, 0x12, 0x12, 0x12, 0x12, 0x3c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3e, 0x20, 0x20, 0x38, 0x20, 0x20, 0x3e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3e, 0x20, 0x20, 0x38, 0x20, 0x20, 0x20, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x20, 0x20, 0x26, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x22, 0x22, 0x3e, 0x22, 0x22, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x08, 0x08, 0x08, 0x08, 0x08, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x02, 0x02, 0x02, 0x02, 0x02, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x24, 0x28, 0x30, 0x28, 0x24, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x3e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x36, 0x2a, 0x2a, 0x22, 0x22, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x22, 0x32, 0x2a, 0x26, 0x22, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x22, 0x22, 0x22, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3c, 0x22, 0x22, 0x3c, 0x20, 0x20, 0x20, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x22, 0x22, 0x2a, 0x24, 0x1a, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3c, 0x22, 0x22, 0x3c, 0x28, 0x24, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x20, 0x1c, 0x02, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3e, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x22, 0x22, 0x14, 0x14, 0x08, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x22, 0x22, 0x22, 0x2a, 0x36, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x22, 0x14, 0x08, 0x14, 0x22, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x22, 0x14, 0x08, 0x08, 0x08, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3e, 0x02, 0x04, 0x08, 0x10, 0x20, 0x3e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x20, 0x10, 0x08, 0x04, 0x02, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x04, 0x04, 0x04, 0x04, 0x04, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x1c, 0x2a, 0x08, 0x08, 0x08, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x08, 0x10, 0x3e, 0x10, 0x08, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x08, 0x08, 0x08, 0x08, 0x00, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x14, 0x14, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x14, 0x14, 0x3e, 0x14, 0x3e, 0x14, 0x14, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x1e, 0x28, 0x1c, 0x0a, 0x3c, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x30, 0x32, 0x04, 0x08, 0x10, 0x26, 0x06, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x10, 0x28, 0x28, 0x10, 0x2a, 0x24, 0x1a, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x08, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x04, 0x08, 0x10, 0x10, 0x10, 0x08, 0x04, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x10, 0x08, 0x04, 0x04, 0x04, 0x08, 0x10, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x08, 0x2a, 0x1c, 0x1c, 0x2a, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x3e, 0x08, 0x08, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x10, 0x20, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3e, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x02, 0x04, 0x08, 0x10, 0x20, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x26, 0x2a, 0x32, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x18, 0x08, 0x08, 0x08, 0x08, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x02, 0x1c, 0x20, 0x20, 0x3e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x02, 0x04, 0x02, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x04, 0x0c, 0x14, 0x24, 0x3e, 0x04, 0x04, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3e, 0x20, 0x3c, 0x02, 0x02, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x20, 0x20, 0x3c, 0x22, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x3e, 0x02, 0x04, 0x08, 0x10, 0x20, 0x20, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x22, 0x1c, 0x22, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x22, 0x1e, 0x02, 0x02, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x08, 0x08, 0x10, 0x00,
-	0x00, 0x00, 0x00, 0x04, 0x08, 0x10, 0x20, 0x10, 0x08, 0x04, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x3e, 0x00, 0x3e, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x10, 0x08, 0x04, 0x02, 0x04, 0x08, 0x10, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x02, 0x04, 0x08, 0x00, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x14, 0x22, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x1c, 0x02, 0x1e, 0x22, 0x1e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x20, 0x20, 0x2c, 0x32, 0x22, 0x32, 0x2c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x1c, 0x22, 0x20, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x02, 0x02, 0x1a, 0x26, 0x22, 0x26, 0x1a, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x1c, 0x22, 0x3e, 0x20, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x04, 0x0a, 0x08, 0x1c, 0x08, 0x08, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x1a, 0x26, 0x22, 0x26, 0x1a, 0x02, 0x1c,
-	0x00, 0x00, 0x00, 0x20, 0x20, 0x2c, 0x32, 0x22, 0x22, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x00, 0x18, 0x08, 0x08, 0x08, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x02, 0x02, 0x02, 0x22, 0x1c, 0x00,
-	0x00, 0x00, 0x00, 0x20, 0x20, 0x24, 0x28, 0x30, 0x28, 0x24, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x18, 0x08, 0x08, 0x08, 0x08, 0x08, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x2a, 0x2a, 0x2a, 0x2a, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x32, 0x22, 0x22, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x1c, 0x22, 0x22, 0x22, 0x1c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x22, 0x22, 0x22, 0x3c, 0x20, 0x20,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x22, 0x22, 0x22, 0x1e, 0x02, 0x02,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x32, 0x20, 0x20, 0x20, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x20, 0x1c, 0x02, 0x3c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x10, 0x10, 0x38, 0x10, 0x10, 0x12, 0x0c, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x22, 0x22, 0x26, 0x1a, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x22, 0x22, 0x14, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x2a, 0x2a, 0x14, 0x14, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x14, 0x08, 0x14, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x22, 0x22, 0x1e, 0x02, 0x1c, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x3e, 0x04, 0x08, 0x10, 0x3e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x04, 0x08, 0x08, 0x10, 0x08, 0x08, 0x04, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x08, 0x08, 0x00, 0x08, 0x08, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x10, 0x08, 0x08, 0x04, 0x08, 0x08, 0x10, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x10, 0x2a, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x00, 0x08, 0x08, 0x08, 0x08, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x08, 0x1c, 0x20, 0x20, 0x20, 0x1c, 0x08, 0x00,
-	0x00, 0x00, 0x00, 0x0c, 0x12, 0x10, 0x38, 0x10, 0x10, 0x3e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x1c, 0x14, 0x1c, 0x22, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x22, 0x14, 0x08, 0x3e, 0x08, 0x3e, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x08, 0x08, 0x00, 0x08, 0x08, 0x08, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x20, 0x1c, 0x22, 0x1c, 0x02, 0x1c, 0x00, 0x00,
-	0x14, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x3e, 0x41, 0x5d, 0x51, 0x51, 0x5d, 0x41, 0x3e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x02, 0x1e, 0x22, 0x1e, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x0a, 0x14, 0x28, 0x14, 0x0a, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3e, 0x02, 0x02, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3e, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x3e, 0x41, 0x5d, 0x55, 0x59, 0x55, 0x41, 0x3e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x7e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x10, 0x28, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x08, 0x08, 0x3e, 0x08, 0x08, 0x00, 0x3e, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x18, 0x04, 0x08, 0x10, 0x1c, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x18, 0x04, 0x18, 0x04, 0x18, 0x00, 0x00, 0x00, 0x00,
-	0x04, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x12, 0x12, 0x12, 0x1c, 0x10, 0x20,
-	0x00, 0x00, 0x00, 0x1a, 0x2a, 0x2a, 0x1a, 0x0a, 0x0a, 0x0a, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x18,
-	0x00, 0x00, 0x00, 0x08, 0x18, 0x08, 0x08, 0x1c, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x1c, 0x22, 0x22, 0x22, 0x1c, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x28, 0x14, 0x0a, 0x14, 0x28, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x20, 0x20, 0x20, 0x22, 0x06, 0x0e, 0x02, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x20, 0x20, 0x20, 0x2e, 0x02, 0x04, 0x0e, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x70, 0x10, 0x70, 0x12, 0x76, 0x0e, 0x02, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x08, 0x00, 0x08, 0x08, 0x10, 0x12, 0x0c, 0x00, 0x00
-};
+#define NORMAL    0
+#define IN_VDU4   4
+#define IN_VDU5   5
+#define IN_VDU17  17
+#define IN_VDU18  18
+#define IN_VDU19  19
+#define IN_VDU23  23
+#define IN_VDU25  25
+#define IN_VDU29  29
+#define IN_VDU31  31
 
 static unsigned char* fb = NULL;
 static int width = 0, height = 0, bpp = 0, pitch = 0;
@@ -238,6 +135,9 @@ void fb_init_variables() {
    g_y_pos_last2 = 0;
    g_mode        = 0;
    g_plotmode    = 0;
+
+   // Cursor mode
+   g_cursor      = IN_VDU4;
 }
 
 
@@ -316,6 +216,9 @@ void fb_initialize() {
    int col, x, y;
     rpi_mailbox_property_t *mp;
 
+    /* Copy default colour table */
+    init_colour_table();
+
     /* Initialise a framebuffer... */
     RPI_PropertyInit();
     RPI_PropertyAddTag( TAG_ALLOCATE_BUFFER );
@@ -326,6 +229,7 @@ void fb_initialize() {
     RPI_PropertyAddTag( TAG_GET_PHYSICAL_SIZE );
     RPI_PropertyAddTag( TAG_GET_DEPTH );
     RPI_PropertyProcess();
+
 
     if( ( mp = RPI_PropertyGet( TAG_GET_PHYSICAL_SIZE ) ) )
     {
@@ -361,7 +265,11 @@ void fb_initialize() {
 
     fb_clear();
 
-    fb_writes("\r\n\r\nAcorn MOS\r\n\r\nMaster MMFS Turbo\r\n\r\nBASIC\r\n\r\n>");
+    fb_writes("\r\n\r\nACORN ATOM PI-VDU V0.86\r\n>");
+    #ifdef DEBUG_VDU
+    fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
+    #endif
+    printf("\r\n\r\nScreen size: %d,%d\r\n>", width, height);
 
 #ifdef BPP32
        for (y = 0; y < 16; y++) {
@@ -390,14 +298,7 @@ void fb_initialize() {
        //        int c = RPI_AuxMiniUartRead();
        //        fb_writec(c);
        //}
-
 }
-
-#define NORMAL    0
-#define IN_VDU17  1
-#define IN_VDU18  2
-#define IN_VDU25  3
-#define IN_VDU29  4
 
 void update_g_cursors(int16_t x, int16_t y) {
    g_x_pos_last2 = g_x_pos_last1;
@@ -447,6 +348,14 @@ void fb_draw_character(int c, int invert, int eor) {
    }
 }
 
+void init_colour_table() {
+   int i;
+   for (i=0; i<16; i++) {
+      colour_table[i] = default_colour_table[i];
+   }
+}
+
+
 void fb_writec(int c) {
    int invert;
 
@@ -454,6 +363,7 @@ void fb_writec(int c) {
    static int count = 0;
    static int16_t x_tmp = 0;
    static int16_t y_tmp = 0;
+   static int i, j;
 
    if (state == IN_VDU17) {
       state = NORMAL;
@@ -485,6 +395,44 @@ void fb_writec(int c) {
       }
       count++;
       if (count == 2) {
+         state = NORMAL;
+      }
+      return;
+
+   } else if (state == IN_VDU19) {
+      switch (count) {
+      case 0:
+         i = c;
+         j = 0;
+         break;
+      case 1:
+         j = (c&0x1F) << 11;
+         break;
+      case 2:
+         j += (c&0x3F) << 5;
+         break;
+      case 3:
+         j += (c&0x1F);
+         colour_table[i] = j;
+         break;
+      }
+      count++;
+      if (count == 4) {
+         if (i == 255) {
+            init_colour_table();
+         }
+         state = NORMAL;
+      }
+      return;
+
+   } else if (state == IN_VDU23) {
+      vdu23buf[count] = c;
+      if (count == 0) {
+         vdu23cnt = vdu23buf[0] == 7 ? 258 : 9;
+      }
+      count++;
+      if (count == vdu23cnt) {
+         do_vdu23();
          state = NORMAL;
       }
       return;
@@ -541,9 +489,54 @@ void fb_writec(int c) {
             } else if (g_mode >= 64 && g_mode < 72) {
                // Plot a single pixel
                fb_putpixel(g_x_pos, g_y_pos, g_fg_col);
+            } else if (g_mode >= 72 && g_mode < 80) {
+               // Horizontal line fill (left and right) to non background
+               fb_fill_area(g_x_pos, g_y_pos, col, HL_LR_NB);
             } else if (g_mode >= 80 && g_mode < 88) {
                // Fill a triangle
                fb_fill_triangle(g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, col);
+            } else if (g_mode >= 88 && g_mode < 96) {
+               // Horizontal line fill (right only) to background
+               fb_fill_area(g_x_pos, g_y_pos, col, HL_RO_BG);
+            } else if (g_mode >= 96 && g_mode < 104) {
+               // Fill a rectangle
+               fb_fill_rectangle(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, col);
+            } else if (g_mode >= 104 && g_mode < 112) {
+               // Horizontal line fill (left and right) to foreground
+               fb_fill_area(g_x_pos, g_y_pos, col, HL_LR_FG);
+            } else if (g_mode >= 112 && g_mode < 120) {
+               // Fill a parallelogram
+               fb_fill_parallelogram(g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, col);
+            } else if (g_mode >= 120 && g_mode < 128) {
+               // Horizontal line fill (right only) to non-foreground
+               fb_fill_area(g_x_pos, g_y_pos, col, HL_RO_NF);
+            } else if (g_mode >= 128 && g_mode < 136) {
+               // Flood fill to non-background
+               fb_fill_area(g_x_pos, g_y_pos, col, AF_NONBG);
+            } else if (g_mode >= 136 && g_mode < 144) {
+               // Flood fill to non-foreground
+               fb_fill_area(g_x_pos, g_y_pos, col, AF_TOFGD);
+            } else if (g_mode >= 144 && g_mode < 152) {
+               // Draw a circle outline
+               fb_draw_circle(g_x_pos_last1, g_y_pos_last1, g_x_pos, col);
+            } else if (g_mode >= 152 && g_mode < 160) {
+               // Fill a circle
+               fb_fill_circle(g_x_pos_last1, g_y_pos_last1, g_x_pos, col);
+            } else if (g_mode >= 160 && g_mode < 168) {
+               // Draw a rectangle outline
+               fb_draw_rectangle(g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, col);
+            } else if (g_mode >= 168 && g_mode < 176) {
+               // Draw a parallelogram outline
+               fb_draw_parallelogram(g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, col);
+            } else if (g_mode >= 176 && g_mode < 184) {
+               // Draw a triangle outline
+               fb_draw_triangle(g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, col);
+            } else if (g_mode >= 192 && g_mode < 200) {
+               // Draw an ellipse
+               fb_draw_ellipse(g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), col);
+            } else if (g_mode >= 200 && g_mode < 208) {
+               // Fill a n ellipse
+               fb_fill_ellipse(g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), col);
             }
          }
       }
@@ -577,10 +570,39 @@ void fb_writec(int c) {
          state = NORMAL;
       }
       return;
+
+   } else if (state == IN_VDU31) {
+      switch (count) {
+      case 0:
+         x_tmp = c;
+         break;
+      case 1:
+         y_tmp = c;
+         c_x_pos = x_tmp;
+         c_y_pos = y_tmp;
+
+#ifdef DEBUG_VDU
+         printf("cursor move to %d %d\r\n", x_tmp, y_tmp);
+#endif
+      }
+      count++;
+      if (count == 2) {
+         state = NORMAL;
+      }
+      return;
+
    }
 
 
    switch(c) {
+
+   case 4:
+      g_cursor = IN_VDU4;
+      break;
+
+   case 5:
+      g_cursor = IN_VDU5;
+      break;
 
    case 8:
       fb_draw_character(32, 1, 1);
@@ -617,6 +639,11 @@ void fb_writec(int c) {
       fb_draw_character(32, 1, 1);
       break;
 
+   case 16:
+      fb_clear();
+      fb_draw_character(32, 1, 1);
+      break;
+
    case 17:
       state = IN_VDU17;
       count = 0;
@@ -624,6 +651,16 @@ void fb_writec(int c) {
 
    case 18:
       state = IN_VDU18;
+      count = 0;
+      return;
+
+   case 19:
+      state = IN_VDU19;
+      count = 0;
+      return;
+
+   case 23:
+      state = IN_VDU23;
       count = 0;
       return;
 
@@ -643,6 +680,11 @@ void fb_writec(int c) {
       fb_draw_character(32, 1, 1);
       break;
 
+   case 31:
+      state = IN_VDU31;
+      count = 0;
+      return;
+
    case 127:
       fb_draw_character(32, 1, 1);
       fb_cursor_left();
@@ -651,31 +693,36 @@ void fb_writec(int c) {
 
    default:
 
-      // Convert c to index into 6847 character generator ROM
-      // chars 20-3F map to 20-3F
-      // chars 40-5F map to 00-1F
-      // chars 60-7F map to 40-5F
-      invert = c >= 0x80;
-      c &= 0x7f;
-      if (c < 0x20) {
-         return;
-      } else if (c >= 0x40 && c < 0x5F) {
-         c -= 0x40;
-      } else if (c >= 0x60) {
-         c -= 0x20;
+      if (g_cursor == IN_VDU4) {
+         // Convert c to index into 6847 character generator ROM
+         // chars 20-3F map to 20-3F
+         // chars 40-5F map to 00-1F
+         // chars 60-7F map to 40-5F
+         invert = c >= 0x80;
+         c &= 0x7f;
+         if (c < 0x20) {
+            return;
+         } else if (c >= 0x40 && c < 0x5F) {
+            c -= 0x40;
+         } else if (c >= 0x60) {
+            c -= 0x20;
+         }
+
+         // Erase the cursor
+         fb_draw_character(32, 1, 1);
+
+         // Draw the next character
+         fb_draw_character(c, invert, 0);
+
+         // Advance the drawing position
+         fb_cursor_next();
+
+         // Draw the cursor
+         fb_draw_character(32, 1, 1);
+      } else {
+         gr_draw_character(c, g_x_pos, g_y_pos, g_fg_col);
+         update_g_cursors(g_x_pos+font_scale_w*font_width+font_spacing, g_y_pos);
       }
-
-      // Erase the cursor
-      fb_draw_character(32, 1, 1);
-
-      // Draw the next character
-      fb_draw_character(c, invert, 0);
-
-      // Advance the drawing position
-      fb_cursor_next();
-
-      // Draw the cursor
-      fb_draw_character(32, 1, 1);
    }
 }
 
@@ -685,6 +732,10 @@ void fb_writes(char *string) {
    }
 }
 
+/* The difference between fb_putpixel and fb_setpixel is that
+ * fp_putpixel gets the colour from the logical colour table
+ * and fb_setpixel writes the 16 or 32 bits colour.
+ */
 void fb_putpixel(int x, int y, unsigned int colour) {
    x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
    y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
@@ -701,6 +752,41 @@ void fb_putpixel(int x, int y, unsigned int colour) {
 #endif
    *fbptr = colour_table[colour];
 }
+
+void fb_setpixel(int x, int y, unsigned int colour) {
+   x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+   if (x < 0  || x > SCREEN_WIDTH - 1) {
+      return;
+   }
+   if (y < 0 || y > SCREEN_HEIGHT - 1) {
+      return;
+   }
+#ifdef BPP32
+   uint32_t *fbptr = (uint32_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 4);
+#else
+   uint16_t *fbptr = (uint16_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 2);
+#endif
+   *fbptr = colour;
+}
+
+unsigned int fb_getpixel(int x, int y) {
+   x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+   if (x < 0  || x > SCREEN_WIDTH - 1) {
+      return g_bg_col;
+   }
+   if (y < 0 || y > SCREEN_HEIGHT - 1) {
+      return g_bg_col;
+   }
+#ifdef BPP32
+   uint32_t *fbptr = (uint32_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 4);
+#else
+   uint16_t *fbptr = (uint16_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 2);
+#endif
+   return *fbptr;
+}
+
 
 // Implementation of Bresenham's line drawing algorithm from here:
 // http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
@@ -750,6 +836,340 @@ void fb_fill_triangle(int x, int y, int x2, int y2, int x3, int y3, unsigned int
    v3d_draw_triangle(x, y, x2, y2, x3, y3, colour);
 }
 
+void fb_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
+   fb_draw_line(x1, y1, x2, y2, colour);
+   fb_draw_line(x2, y2, x3, y3, colour);
+   fb_draw_line(x3, y3, x1, y1, colour);
+}
+
+void fb_draw_circle(int xc, int yc, int r, unsigned int colour) {
+   int x=0;
+   int y=r;
+   int p=3-(2*r);
+
+   fb_putpixel(xc+x,yc-y,colour);
+
+   for(x=0;x<=y;x++)
+      {
+         if (p<0)
+            {
+               p+=4*x+6;
+            }
+         else
+            {
+               y--;
+               p+=4*(x-y)+10;
+            }
+
+         fb_putpixel(xc+x,yc-y,colour);
+         fb_putpixel(xc-x,yc-y,colour);
+         fb_putpixel(xc+x,yc+y,colour);
+         fb_putpixel(xc-x,yc+y,colour);
+         fb_putpixel(xc+y,yc-x,colour);
+         fb_putpixel(xc-y,yc-x,colour);
+         fb_putpixel(xc+y,yc+x,colour);
+         fb_putpixel(xc-y,yc+x,colour);
+      }
+}
+
+void fb_fill_circle(int xc, int yc, int r, unsigned int colour) {
+   int x=0;
+   int y=r;
+   int p=3-(2*r);
+
+   fb_putpixel(xc+x,yc-y,colour);
+
+   for(x=0;x<=y;x++)
+      {
+         if (p<0)
+            {
+               p+=4*x+6;
+            }
+         else
+            {
+               y--;
+               p+=4*(x-y)+10;
+            }
+
+         fb_draw_line(xc+x,yc-y,xc-x,yc-y,colour);
+         fb_draw_line(xc+x,yc+y,xc-x,yc+y,colour);
+         fb_draw_line(xc+y,yc-x,xc-y,yc-x,colour);
+         fb_draw_line(xc+y,yc+x,xc-y,yc+x,colour);
+      }
+}
+/* Bad rectangle due to triangle bug
+   void fb_fill_rectangle(int x1, int y1, int x2, int y2, unsigned int colour) {
+   fb_fill_triangle(x1, y1, x1, y2, x2, y2, colour);
+   fb_fill_triangle(x1, y1, x2, y1, x2, y2, colour);
+   }
+*/
+
+void fb_fill_rectangle(int x1, int y1, int x2, int y2, unsigned int colour) {
+   int y;
+   for (y = y1; y <= y2; y++) {
+      fb_draw_line(x1, y, x2, y, colour);
+   }
+}
+
+void fb_draw_rectangle(int x1, int y1, int x2, int y2, unsigned int colour) {
+   fb_draw_line(x1, y1, x2, y1, colour);
+   fb_draw_line(x2, y1, x2, y2, colour);
+   fb_draw_line(x2, y2, x1, y2, colour);
+   fb_draw_line(x1, y2, x1, y1, colour);
+}
+
+void fb_fill_parallelogram(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
+   int x4 = x3 - x2 + x1;
+   int y4 = y3 - y2 + y1;
+   fb_fill_triangle(x1, y1, x2, y2, x3, y3, colour);
+   fb_fill_triangle(x1, y1, x4, y4, x3, y3, colour);
+}
+
+void fb_draw_parallelogram(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
+   int x4 = x3 - x2 + x1;
+   int y4 = y3 - y2 + y1;
+   fb_draw_line(x1, y1, x2, y2, colour);
+   fb_draw_line(x2, y2, x3, y3, colour);
+   fb_draw_line(x3, y3, x4, y4, colour);
+   fb_draw_line(x4, y4, x1, y1, colour);
+}
+
+void fb_draw_ellipse(int xc, int yc, int width, int height, unsigned int colour) {
+   int a2 = width * width;
+   int b2 = height * height;
+   int fa2 = 4 * a2, fb2 = 4 * b2;
+   int x, y, sigma;
+
+   /* first half */
+   for (x = 0, y = height, sigma = 2*b2+a2*(1-2*height); b2*x <= a2*y; x++)
+      {
+         fb_putpixel(xc + x, yc + y, colour);
+         fb_putpixel(xc - x, yc + y, colour);
+         fb_putpixel(xc + x, yc - y, colour);
+         fb_putpixel(xc - x, yc - y, colour);
+         if (sigma >= 0)
+            {
+               sigma += fa2 * (1 - y);
+               y--;
+            }
+         sigma += b2 * ((4 * x) + 6);
+      }
+
+   /* second half */
+   for (x = width, y = 0, sigma = 2*a2+b2*(1-2*width); a2*y <= b2*x; y++)
+      {
+         fb_putpixel(xc + x, yc + y, colour);
+         fb_putpixel(xc - x, yc + y, colour);
+         fb_putpixel(xc + x, yc - y, colour);
+         fb_putpixel(xc - x, yc - y, colour);
+         if (sigma >= 0)
+            {
+               sigma += fb2 * (1 - x);
+               x--;
+            }
+         sigma += a2 * ((4 * y) + 6);
+      }
+}
+
+void fb_fill_ellipse(int xc, int yc, int width, int height, unsigned int colour) {
+   int a2 = width * width;
+   int b2 = height * height;
+   int fa2 = 4 * a2, fb2 = 4 * b2;
+   int x, y, sigma;
+
+   /* first half */
+   for (x = 0, y = height, sigma = 2*b2+a2*(1-2*height); b2*x <= a2*y; x++)
+      {
+         fb_draw_line(xc + x, yc + y, xc - x, yc + y, colour);
+         fb_draw_line(xc + x, yc - y, xc - x, yc - y, colour);
+         if (sigma >= 0)
+            {
+               sigma += fa2 * (1 - y);
+               y--;
+            }
+         sigma += b2 * ((4 * x) + 6);
+      }
+
+   /* second half */
+   for (x = width, y = 0, sigma = 2*a2+b2*(1-2*width); a2*y <= b2*x; y++)
+      {
+         fb_draw_line(xc + x, yc + y, xc - x, yc + y, colour);
+         fb_draw_line(xc + x, yc - y, xc - x, yc - y, colour);
+         if (sigma >= 0)
+            {
+               sigma += fb2 * (1 - x);
+               x--;
+            }
+         sigma += a2 * ((4 * y) + 6);
+      }
+}
+
+void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
+   /*   Modes:
+    * HL_LR_NB: horizontal line fill (left & right) to non-background - done
+    * HL_RO_BG: Horizontal line fill (right only) to background - done
+    * HL_LR_FG: Horizontal line fill (left & right) to foreground
+    * HL_RO_NF: Horizontal line fill (right only) to non-foreground - done
+    * AF_NONBG: Flood (area fill) to non-background
+    * AF_TOFGD: Flood (area fill) to foreground
+    */
+
+   int save_x = x;
+   int save_y = y;
+   int x_left = x;
+   int y_left = y;
+   int x_right = x;
+   int y_right = y;
+   int real_y;
+   unsigned int stop = 0;
+
+   // printf("Plot (%d,%d), colour %d, mode %d\r\n", x, y, colour, mode);
+   // printf("g_bg_col = %d, g_fg_col = %d\n\r", g_bg_col, g_fg_col);
+
+   switch(mode) {
+   case HL_LR_NB:
+      while (! stop) {
+         if (fb_getpixel(x_right,y) == colour_table[g_bg_col] && x_right <= BBC_X_RESOLUTION) {
+            x_right += BBC_X_RESOLUTION/SCREEN_WIDTH;   // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      stop = 0;
+      x = save_x - 1;
+      while (! stop) {
+         if (fb_getpixel(x_left,y) == colour_table[g_bg_col] && x_left >= 0) {
+            x_left -= BBC_X_RESOLUTION/SCREEN_WIDTH;    // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      break;
+
+   case HL_RO_BG:
+      while (! stop) {
+         if (fb_getpixel(x_right,y) != colour_table[g_bg_col] && x_right <= BBC_X_RESOLUTION) {
+            x_right += BBC_X_RESOLUTION/SCREEN_WIDTH;   // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      break;
+
+   case HL_LR_FG:
+      while (! stop) {
+         if (fb_getpixel(x_right,y) != colour_table[g_fg_col] && x_right <= BBC_X_RESOLUTION) {
+            x_right += BBC_X_RESOLUTION/SCREEN_WIDTH;   // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      stop = 0;
+      x = save_x - 1;
+      while (! stop) {
+         if (fb_getpixel(x_left,y) != colour_table[g_fg_col] && x_left >= 0) {
+            x_left -= BBC_X_RESOLUTION/SCREEN_WIDTH;    // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      break;
+
+
+   case HL_RO_NF:
+      while (! stop) {
+         if (fb_getpixel(x_right,y) != colour_table[g_fg_col] && x_right <= BBC_X_RESOLUTION) {
+            x_right += BBC_X_RESOLUTION/SCREEN_WIDTH;   // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      break;
+
+   case AF_NONBG:
+      // going up
+      while (! stop) {
+         if (fb_getpixel(x,y) == colour_table[g_bg_col] && y <= BBC_Y_RESOLUTION) {
+            fb_fill_area(x, y, colour, HL_LR_NB);
+            // As the BBC_Y_RESOLUTION is not a multiple of SCREEN_HEIGHT we have to increment
+            // y until the physical y-coordinate increases. If we don't do that and simply increment
+            // y by 2 then at some point the physical y-coordinate is the same as the previous drawn
+            // line and the floodings stops. This also speeds up drawing because each physical line
+            // is only drawn once.
+            real_y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION == real_y) {
+               y++;
+            }
+            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
+         } else {
+            stop = 1;
+         }
+      }
+      // going down
+      stop = 0;
+      x = save_x;
+      y = save_y - BBC_Y_RESOLUTION/SCREEN_HEIGHT;
+      while (! stop) {
+         if (fb_getpixel(x,y) == colour_table[g_bg_col] && y >= 0) {
+            fb_fill_area(x, y, colour, HL_LR_NB);
+            real_y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION == real_y) {
+               y--;
+            }
+            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
+         } else {
+            stop = 1;
+         }
+      }
+      colour = -1;  // prevents any additional line drawing
+      break;
+
+   case AF_TOFGD:
+      // going up
+      while (! stop) {
+         if (fb_getpixel(x,y) != colour_table[g_fg_col] && y <= BBC_Y_RESOLUTION) {
+            fb_fill_area(x, y, colour, HL_LR_FG);
+            real_y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION == real_y) {
+               y++;
+            }
+            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
+         } else {
+            stop = 1;
+         }
+      }
+      // going down
+      stop = 0;
+      x = save_x;
+      y = save_y - BBC_Y_RESOLUTION/SCREEN_HEIGHT;
+      while (! stop) {
+         if (fb_getpixel(x,y) != colour_table[g_fg_col] && y >= 0) {
+            fb_fill_area(x, y, colour, HL_LR_NB);
+            real_y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION == real_y) {
+               y--;
+            }
+            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
+         } else {
+            stop = 1;
+         }
+      }
+      colour = -1;  // prevents any additional line drawing
+      break;
+
+   default:
+      printf( "Unknown fill mode %d\r\n", mode);
+      break;
+   }
+
+   if (colour >= 0) {
+      fb_draw_line(x_left, y_left, x_right, y_right, colour);
+      g_x_pos_last1 = x_left;
+      g_y_pos_last1 = y_left;
+      g_x_pos_last2 = x_right;
+      g_y_pos_last2 = y_right;
+   }
+}
 
 uint32_t fb_get_address() {
    return (uint32_t) fb;
