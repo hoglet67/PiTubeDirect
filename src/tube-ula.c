@@ -606,7 +606,11 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
    }
    if ((cpsr & 0xc0) != 0xc0) {
       _set_interrupts(cpsr);
-  }
+   }
+   if ((addr & 7) == 0) {
+      // Write to &FEF8
+      fb_writec(val);
+   }
 }
 
 // Returns bit 0 set if IRQ is asserted by the tube
