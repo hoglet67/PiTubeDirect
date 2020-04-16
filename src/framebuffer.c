@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <math.h>
 #include "rpi-aux.h"
 #include "rpi-mailbox-interface.h"
 #include "framebuffer.h"
@@ -310,6 +311,10 @@ void update_g_cursors(int16_t x, int16_t y) {
    g_y_pos       = y;
 }
 
+int calc_radius(int x1, int y1, int x2, int y2) {
+   return (int)(sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
+}
+
 void fb_draw_character(int c, int invert, int eor) {
    int c_fgol;
    int c_bgol;
@@ -528,10 +533,12 @@ void fb_writec(int c) {
                fb_fill_area(g_x_pos, g_y_pos, col, AF_TOFGD);
             } else if (g_mode >= 144 && g_mode < 152) {
                // Draw a circle outline
-               fb_draw_circle(g_x_pos_last1, g_y_pos_last1, g_x_pos, col);
+               int radius = calc_radius(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos);
+               fb_draw_circle(g_x_pos_last1, g_y_pos_last1, radius, col);
             } else if (g_mode >= 152 && g_mode < 160) {
                // Fill a circle
-               fb_fill_circle(g_x_pos_last1, g_y_pos_last1, g_x_pos, col);
+               int radius = calc_radius(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos);
+               fb_fill_circle(g_x_pos_last1, g_y_pos_last1, radius, col);
             } else if (g_mode >= 160 && g_mode < 168) {
                // Draw a rectangle outline
                fb_draw_rectangle(g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, col);
