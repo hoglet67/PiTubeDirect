@@ -5,8 +5,13 @@
 #include <string.h>
 #include <inttypes.h>
 #include <math.h>
+#include "rpi-armtimer.h"
+#include "rpi-interrupts.h"
 #include "rpi-aux.h"
+#include "rpi-gpio.h"
 #include "rpi-mailbox-interface.h"
+#include "startup.h"
+#include "tube-defs.h"
 #include "framebuffer.h"
 #include "v3d.h"
 #include "fonts.h"
@@ -34,6 +39,11 @@ static int16_t g_plotmode;
 // Text or graphical cursor for printing characters
 static int8_t g_cursor;
 
+// VDU Queue
+#define VDU_QSIZE 8192
+static volatile int vdu_wp = 0;
+static volatile int vdu_rp = 0;
+static char vdu_queue[VDU_QSIZE];
 
 #include "vdu23.h"
 
@@ -267,6 +277,10 @@ void fb_initialize() {
 
     fb_clear();
 
+    // Initialize Timer Interrupts
+    RPI_ArmTimerInit();
+    RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
+
     fb_writes("\r\n\r\nACORN ATOM PI-VDU V0.86\r\n>");
     #ifdef DEBUG_VDU
     fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
@@ -361,9 +375,16 @@ void init_colour_table() {
    }
 }
 
+void fb_writec(char ch) {
+   // TODO: Deal with overflow
+   vdu_queue[vdu_wp] = ch;
+   vdu_wp = (vdu_wp + 1) & (VDU_QSIZE - 1);
+}
 
-void fb_writec(int c) {
+
+void fb_writec_int(char ch) {
    int invert;
+   unsigned char c = (unsigned char) ch;
 
    static int state = NORMAL;
    static int count = 0;
@@ -1211,4 +1232,14 @@ uint32_t fb_get_bpp32() {
 #else
    return 0;
 #endif
+}
+
+void fb_process_vdu_queue() {
+   _data_memory_barrier();
+   RPI_GetArmTimer()->IRQClear = 0;
+   while (vdu_rp != vdu_wp) {
+      char ch = vdu_queue[vdu_rp];
+      fb_writec_int(ch);
+      vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
+   }
 }

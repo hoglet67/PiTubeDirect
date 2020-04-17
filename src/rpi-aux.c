@@ -6,6 +6,7 @@
 #include "startup.h"
 #include "stdlib.h"
 #include "rpi-systimer.h"
+#include "framebuffer.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "debugger/debugger.h"
@@ -36,6 +37,9 @@ static volatile int tx_head;
 static volatile int tx_tail;
 
 static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
+
+  _data_memory_barrier();
+  RPI_SetGpioHi(TEST3_PIN);
 
   _data_memory_barrier();
 
@@ -71,6 +75,13 @@ static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
       }
     }
   }
+
+  // Periodically also process the VDU Queue
+  fb_process_vdu_queue();
+
+  _data_memory_barrier();
+
+  RPI_SetGpioLo(TEST3_PIN);
 
   _data_memory_barrier();
 }
