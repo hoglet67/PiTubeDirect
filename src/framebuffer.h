@@ -5,7 +5,7 @@
 
 void fb_initialize();
 
-void fb_writec(int c);
+void fb_writec(char c);
 
 void fb_writes(char *string);
 
@@ -45,10 +45,11 @@ void gr_draw_character(int c, int g_x_pos, int g_y_pos, int colour);
 
 void init_colour_table(void);
 
-
 uint32_t fb_get_address();
 uint32_t fb_get_width();
 uint32_t fb_get_height();
 uint32_t fb_get_bpp32();
+
+void fb_process_vdu_queue();
 
 #endif
