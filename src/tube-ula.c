@@ -94,6 +94,13 @@ volatile int tube_irq;
 #define PSTAT3 pstat[2]
 #define PSTAT4 pstat[3]
 
+#ifdef DEBUG_TRANSFERS
+unsigned long int checksum_h = 0;
+unsigned long int checksum_p = 0;
+unsigned long int count_h = 0;
+unsigned long int count_p = 0;
+#endif
+
 #ifdef DEBUG_TUBE
 
 #define  TUBE_READ_MARKER 0x80000000
