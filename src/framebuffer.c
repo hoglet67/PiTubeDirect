@@ -280,7 +280,7 @@ void fb_initialize() {
     RPI_ArmTimerInit();
     RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
 
-    fb_writes("\r\n\r\nACORN ATOM PI-VDU V0.86\r\n>");
+    fb_writes("\r\n\r\nPi Tube Direct VDU Driver v0.90\r\n>");
     #ifdef DEBUG_VDU
     fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
     #endif
