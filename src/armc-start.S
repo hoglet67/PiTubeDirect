@@ -85,6 +85,7 @@
 
 .global _fast_scroll
 .global _fast_clear
+.global _main_irq_handler
 
 // From the ARM ARM (Architecture Reference Manual). Make sure you get the
 // ARMv5 documentation which includes the ARMv6 documentation which is the
@@ -551,3 +552,10 @@ _fast_clear_loop:
         subs    r2, r2, #64
         bne     _fast_clear_loop
         pop     {r4-r10, pc}
+
+.section ".text._main_irq_handler"
+_main_irq_handler:
+        sub     lr, lr, #4
+        push    {r0, r1, r2, r3, ip, lr}
+        bl      RPI_AuxMiniUartIRQHandler
+        ldm     sp!, {r0, r1, r2, r3, ip, pc}^

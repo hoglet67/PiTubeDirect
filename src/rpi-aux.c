@@ -36,7 +36,18 @@ static char *tx_buffer;
 static volatile int tx_head;
 static volatile int tx_tail;
 
-static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
+// There is a GCC bug with __attribute__((interrupt("IRQ"))) in that it
+// does not respect registers reserved with -ffixed-reg.
+//
+// So instead, we wrap the C handler in a few lines of assembler:
+//
+//_main_irq_handler:
+//        sub     lr, lr, #4
+//        push    {r0, r1, r2, r3, ip, lr}
+//        bl      RPI_AuxMiniUartIRQHandler
+//        ldm     sp!, {r0, r1, r2, r3, ip, pc}^
+
+void RPI_AuxMiniUartIRQHandler() {
 
   _data_memory_barrier();
   RPI_SetGpioHi(TEST3_PIN);
@@ -153,7 +164,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
     extern void _start( void );
     tx_buffer = malloc(TX_BUFFER_SIZE);
     tx_head = tx_tail = 0;
-    *((uint32_t *) (((char *)&_interrupt_vector_h) - ((char *)&_start))) = (uint32_t) RPI_AuxMiniUartIRQHandler;
+    *((uint32_t *) (((char *)&_interrupt_vector_h) - ((char *)&_start))) = (uint32_t) _main_irq_handler;
     _data_memory_barrier();
     RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
     _data_memory_barrier();
