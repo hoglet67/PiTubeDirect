@@ -83,6 +83,9 @@
 .global _toggle_test_pin
 #endif
 
+.global _fast_scroll
+.global _fast_clear
+
 // From the ARM ARM (Architecture Reference Manual). Make sure you get the
 // ARMv5 documentation which includes the ARMv6 documentation which is the
 // correct processor type for the Broadcom BCM2835. The ARMv6-M manuals
@@ -509,3 +512,42 @@ _toggle_test_pin_loop:
         mov     pc, lr
 #endif
 
+
+
+.section ".text._fast_scroll"
+// R0 = dst
+// R1 = src
+// R2 = number of bytes, must be a multiple of 64
+_fast_scroll:
+        push    {r4-r10, lr}
+        bic     r2, r2, #0x4F
+_fast_scroll_loop:
+        ldmia   r1!,{r3, r4, r5, r6, r7, r8, r9, r10}
+        stmia   r0!,{r3, r4, r5, r6, r7, r8, r9, r10}
+        ldmia   r1!,{r3, r4, r5, r6, r7, r8, r9, r10}
+        stmia   r0!,{r3, r4, r5, r6, r7, r8, r9, r10}
+        subs    r2, r2, #64
+        bne     _fast_scroll_loop
+        pop     {r4-r10, pc}
+
+.section ".text._fast_clear"
+// R0 = dst
+// R1 = val
+// R2 = number of bytes, must be a multiple of 64
+_fast_clear:
+        push    {r4-r10, lr}
+        mov     r3, r1
+        mov     r4, r1
+        mov     r5, r1
+        mov     r6, r1
+        mov     r7, r1
+        mov     r8, r1
+        mov     r9, r1
+        mov     r10, r1
+        bic     r2, r2, #0x3F
+_fast_clear_loop:
+        stmia   r0!,{r3, r4, r5, r6, r7, r8, r9, r10}
+        stmia   r0!,{r3, r4, r5, r6, r7, r8, r9, r10}
+        subs    r2, r2, #64
+        bne     _fast_clear_loop
+        pop     {r4-r10, pc}
