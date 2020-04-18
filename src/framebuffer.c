@@ -11,7 +11,6 @@
 #include "rpi-gpio.h"
 #include "rpi-mailbox-interface.h"
 #include "startup.h"
-#include "tube-defs.h"
 #include "framebuffer.h"
 #include "v3d.h"
 #include "fonts.h"
@@ -152,10 +151,9 @@ void fb_init_variables() {
    g_cursor      = IN_VDU4;
 }
 
-
 void fb_scroll() {
-   memmove(fb, fb + 12 * pitch, (height - 12) * pitch);
-   memset(fb + (height - 12) * pitch, 0, 12 * pitch);
+   _fast_scroll(fb, fb + 12 * pitch, (height - 12) * pitch);
+   _fast_clear(fb + (height - 12) * pitch, 0, 12 * pitch);
 }
 
 void fb_clear() {
