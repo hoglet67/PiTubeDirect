@@ -519,43 +519,47 @@ _toggle_test_pin_loop:
 // R0 = dst
 // R1 = src
 // R2 = number of bytes, must be a multiple of 64
+// Note: R7 reserved by Fast 6502 FIQ handler, so avoid
 _fast_scroll:
-        push    {r4-r10, lr}
+        push    {r4, r5, r6, r8, r9, r10, r11, lr}
         bic     r2, r2, #0x4F
 _fast_scroll_loop:
-        ldmia   r1!,{r3, r4, r5, r6, r7, r8, r9, r10}
-        stmia   r0!,{r3, r4, r5, r6, r7, r8, r9, r10}
-        ldmia   r1!,{r3, r4, r5, r6, r7, r8, r9, r10}
-        stmia   r0!,{r3, r4, r5, r6, r7, r8, r9, r10}
+        ldmia   r1!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        ldmia   r1!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
         subs    r2, r2, #64
         bne     _fast_scroll_loop
-        pop     {r4-r10, pc}
+        pop     {r4, r5, r6, r8, r9, r10, r11, pc}
 
 .section ".text._fast_clear"
 // R0 = dst
 // R1 = val
 // R2 = number of bytes, must be a multiple of 64
+// Note: R7 reserved by Fast 6502 FIQ handler, so avoid
 _fast_clear:
-        push    {r4-r10, lr}
+        push    {r4, r5, r6, r8, r9, r10, r11, lr}
         mov     r3, r1
         mov     r4, r1
         mov     r5, r1
         mov     r6, r1
-        mov     r7, r1
         mov     r8, r1
         mov     r9, r1
         mov     r10, r1
+        mov     r11, r1
         bic     r2, r2, #0x3F
 _fast_clear_loop:
-        stmia   r0!,{r3, r4, r5, r6, r7, r8, r9, r10}
-        stmia   r0!,{r3, r4, r5, r6, r7, r8, r9, r10}
+        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
         subs    r2, r2, #64
         bne     _fast_clear_loop
-        pop     {r4-r10, pc}
+        pop     {r4, r5, r6, r8, r9, r10, r11, pc}
 
 .section ".text._main_irq_handler"
 _main_irq_handler:
         sub     lr, lr, #4
         push    {r0, r1, r2, r3, ip, lr}
+        // ARM ABI says that Callee must preserve r4-r8, r10, r11 and SP
+        // r9 is platform specific, but GCC seems to callee save that
         bl      RPI_AuxMiniUartIRQHandler
         ldm     sp!, {r0, r1, r2, r3, ip, pc}^
