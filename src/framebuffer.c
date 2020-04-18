@@ -287,32 +287,32 @@ void fb_initialize() {
     printf("\r\n\r\nScreen size: %d,%d\r\n>", width, height);
 
 #ifdef BPP32
-       for (y = 0; y < 16; y++) {
-          uint32_t *fbptr = (uint32_t *) (fb + pitch * y);
-          for (col = 23; col >= 0; col--) {
-             for (x = 0; x < 8; x++) {
-                *fbptr++ = 1 << col;
-             }
+    for (y = 0; y < 16; y++) {
+       uint32_t *fbptr = (uint32_t *) (fb + pitch * y);
+       for (col = 23; col >= 0; col--) {
+          for (x = 0; x < 8; x++) {
+             *fbptr++ = 1 << col;
           }
        }
+    }
 #else
-       for (y = 0; y < 16; y++) {
-          uint16_t *fbptr = (uint16_t *) (fb + pitch * y);
-          for (col = 15; col >= 0; col--) {
-             for (x = 0; x < 8; x++) {
-                *fbptr++ = 1 << col;
-             }
+    for (y = 0; y < 16; y++) {
+       uint16_t *fbptr = (uint16_t *) (fb + pitch * y);
+       for (col = 15; col >= 0; col--) {
+          for (x = 0; x < 8; x++) {
+             *fbptr++ = 1 << col;
           }
        }
+    }
 #endif
 
-       for (d = 0; d < 1000000; d++);
+    for (d = 0; d < 1000000; d++);
 
-       // Uncomment this for testing from the serial port
-       //while (1) {
-       //        int c = RPI_AuxMiniUartRead();
-       //        fb_writec(c);
-       //}
+    // Uncomment this for testing from the serial port
+    //while (1) {
+    //        int c = RPI_AuxMiniUartRead();
+    //        fb_writec(c);
+    //}
 }
 
 void update_g_cursors(int16_t x, int16_t y) {
@@ -453,7 +453,7 @@ void fb_writec_int(char ch) {
 
    } else if (state == IN_VDU22) {
       count++;
-      if (count == 2) {
+      if (count == 1) {
          fb_clear();
          fb_draw_character(32, 1, 1);
          state = NORMAL;
@@ -770,7 +770,7 @@ void fb_writec_int(char ch) {
 
 void fb_writes(char *string) {
    while (*string) {
-      fb_writec(*string++);
+      fb_writec_int(*string++);
    }
 }
 
