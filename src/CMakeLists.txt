@@ -211,6 +211,17 @@ file( GLOB copro_opc7_files
     opc7/tuberom.c
 )
 
+# F100
+file( GLOB copro_f100_files
+    copro-f100.h
+    copro-f100.c
+    f100/f100.h
+    f100/f100.c
+    f100/tuberom.h
+    f100/tuberom.c
+)
+
+
 # PDP 11
 file( GLOB copro_pdp11_files
     copro-pdp11.h
@@ -339,6 +350,7 @@ else()
             ${copro_opc5ls_files}
             ${copro_opc6_files}
             ${copro_opc7_files}
+            ${copro_f100_files}            
             ${copro_pdp11_files}
             ${copro_null_files}
             ${copro_arm_files}
@@ -363,6 +375,7 @@ else()
             ${copro_opc5ls_files}
             ${copro_opc6_files}
             ${copro_opc7_files}
+            ${copro_f100_files}                        
             ${copro_pdp11_files}
             ${copro_null_files}
             ${copro_arm_files}

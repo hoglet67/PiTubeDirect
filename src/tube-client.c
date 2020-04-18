@@ -47,6 +47,7 @@ static const func_ptr emulator_functions[] = {
 #include "copro-opc5ls.h"
 #include "copro-opc6.h"
 #include "copro-opc7.h"
+#include "copro-f100.h"
 #include "copro-pdp11.h"
 #include "copro-armnative.h"
 
@@ -80,7 +81,7 @@ static const char * emulator_names[] = {
    "Null",                   // 25
    "Null",                   // 26
    "Null",                   // 27
-   "Null",                   // 28
+   "Ferranti F100-L",        // 28
    "Null",                   // 29
    "Null",                   // 30
    "Null"                    // 31
@@ -116,7 +117,7 @@ static const func_ptr emulator_functions[] = {
    copro_null_emulator,      // 25
    copro_null_emulator,      // 26
    copro_null_emulator,      // 27
-   copro_null_emulator,      // 28
+   copro_f100_emulator,      // 28
    copro_null_emulator,      // 29
    copro_null_emulator,      // 30
    copro_null_emulator       // 31
