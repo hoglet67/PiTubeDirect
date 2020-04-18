@@ -52,4 +52,8 @@ extern void _spin_core();
 extern void _toggle_test_pin(int count);
 #endif
 
+extern void _fast_scroll(void *dst, void *src, int num_bytes);
+
+extern void _fast_clear(void *dst, unsigned int val, int num_bytes);
+
 #endif
