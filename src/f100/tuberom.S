@@ -154,9 +154,9 @@ print_string_exit:
 ; - all registers preserved
        
 mosWRCH:
-;        LDA     .r1status       
-;        AND     ,0x40
-;        JBS     ZERO CR mosWRCH
+        LDA     .r1status       
+        AND     ,0x40
+        JBS     ZERO CR mosWRCH
         LDA     R1
         STO     .r1data
         RTN
