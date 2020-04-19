@@ -104,14 +104,16 @@ InitVecLoop:
         ICZ     R0 InitVecLoop
         
         LDA     ,BannerMessage
+        STO     R1
         CAL     .print_string
 
-        LDA     ZERO                        ; send the terminator
+        LDA     ZERO            ; send the terminator
         STO     R1
-        CAL     .OSWRCH
+        CAL     .mosWRCH        ; FIXME - should go via vectored address
 
 Idle:
-        JMP     .Idle
+        JMP     .Idle           ; Comment out this instruction to finish emulation run on HALT
+        HALT   ,123             
         
 ; --------------------------------------------------------------
 ;
@@ -134,7 +136,7 @@ print_string_loop:
         CMP     ,0
         STO     R1
         JBS     ZERO CR print_string_exit
-        CAL     .OSWRCH
+        CAL     .mosWRCH        ; FIXME - should go through vectored address
         JMP     .print_string_loop
 print_string_exit:
         RTN
@@ -152,7 +154,7 @@ print_string_exit:
 ; - all registers preserved
        
 mosWRCH:
-        LDA     .r1status
+        LDA     .r1status       
         AND     ,0x40
         JBS     ZERO CR mosWRCH
         LDA     R1
