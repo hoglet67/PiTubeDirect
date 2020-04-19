@@ -8,9 +8,7 @@
 #include "f100.h"
 
 // Global Variables
-static bool     verbose = false;
 static cpu_t    cpu;
-static uint16_t operand_address, target;
 static uint16_t reset_vec;
 static uint16_t irq0_vec;
 static uint16_t irq1_vec;
@@ -49,8 +47,8 @@ void f100_execute() {
   uint32_t result;
   uint16_t stack_pointer;
   uint16_t pointer;
-  uint16_t operand_address;
-  uint16_t operand1_address;
+  uint16_t operand_address=0;
+  uint16_t operand1_address=0;
   uint16_t operand;
 
 
@@ -90,7 +88,6 @@ void f100_execute() {
     switch ( cpu.ir.F ) {
     case OP_F0:
       if (cpu.ir.T==0 && cpu.ir.S<2) { // Shifts
-        int i;
         if (cpu.ir.R==1) cpu.or = PACK_FLAGS;
         else if (cpu.ir.R==3) cpu.or = F100_READ_MEM(operand_address);
         if ( cpu.M==0 ) { // Single Length

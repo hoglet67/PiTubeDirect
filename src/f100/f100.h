@@ -1,5 +1,3 @@
-// $Id$
-
 #ifndef F100_H
 #define F100_H
 
@@ -87,24 +85,26 @@ void f100_irq(int id);
 #define OP_F14     0xE
 #define OP_JMP     0xF
 
-static char *mnemonic[] = {
-  "HALT/BIT/SHIFT/CONDJMP",
-  "SJM",
-  "CAL",
-  "RTN/RTC",
-  "STO",
-  "ADS",
-  "SBS",
-  "ICZ",
-  "LDA",
-  "ADD",
-  "SUB",
-  "CMP",
-  "AND",
-  "NEQ",
-  "F14",
-  "JMP",
-};
+
+// Not yet used in PiTubeDirect version - will be needed for debugger
+// static char *mnemonic[] = {
+//   "HALT/BIT/SHIFT/CONDJMP",
+//   "SJM",
+//   "CAL",
+//   "RTN/RTC",
+//   "STO",
+//   "ADS",
+//   "SBS",
+//   "ICZ",
+//   "LDA",
+//   "ADD",
+//   "SUB",
+//   "CMP",
+//   "AND",
+//   "NEQ",
+//   "F14",
+//   "JMP",
+// };
 
 typedef struct {
   uint16_t WORD;
