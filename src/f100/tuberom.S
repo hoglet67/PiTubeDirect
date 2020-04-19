@@ -1,4 +1,4 @@
-.equ        WORK 0x0700      ; system jump blocks (256 locations) below ROM
+.equ        WORK 0x0600      ; system jump blocks (512 locations) below ROM
 .equ        CODE 0x0800      ; This is the location of main F100 ROM
 .equ        TUBE 0x7EF8      ; Hardware mapped in here - tube registers
 .equ         MOS 0x7FC8      ; This is a small additional ROM at top of memory
@@ -59,17 +59,17 @@
 
 ; 0x0004 = OPC6 IRQ1 address
 
-.equ       USERV WORK + 0x0010
-.equ       WRCHV WORK + 0x0017
-
-.equ      ERRBUF WORK + 0x0030
-.equ      INPBUF WORK + 0x0030
-.equ      INPEND WORK + 0x00F6
-
-.equ        ADDR WORK + 0x00F6       ; tube execution address
-.equ      TMP_R1 WORK + 0x00FC       ; tmp store for R1 during IRQ
-.equ    LAST_ERR WORK + 0x00FD       ; last error
-.equ ESCAPE_FLAG WORK + 0x00FF       ; escape flag
+.equ       USERV WORK + 0x0010 + 0x0010 
+.equ       WRCHV WORK + 0x0017 + 0x0017 
+                                        
+.equ      ERRBUF WORK + 0x0030 + 0x0030 
+.equ      INPBUF WORK + 0x0030 + 0x0030 
+.equ      INPEND WORK + 0x00F6 + 0x00F6 
+                                        
+.equ        ADDR WORK + 0x00F6 + 0x00F6        ; tube execution address
+.equ      TMP_R1 WORK + 0x00FC + 0x00FC        ; tmp store for R1 during IRQ
+.equ    LAST_ERR WORK + 0x00FD + 0x00FD        ; last error
+.equ ESCAPE_FLAG WORK + 0x00FF + 0x00FF        ; escape flag
 
 ; -----------------------------------------------------------------------------
 ; 2K Rom Start 
@@ -91,7 +91,7 @@ ResetHandler:
         STO .USP
 
 
-.equ    START   0-(NUM_VECTORS-1)
+.equ    START   0-(2*NUM_VECTORS-1) ; need to write JMP <vector> to each addr = 2 words
         LDA     ,START
         STO     R0
         LDA     ,DefaultVectors
@@ -109,7 +109,7 @@ InitVecLoop:
 
         LDA     ZERO            ; send the terminator
         STO     R1
-        CAL     .mosWRCH        ; FIXME - should go via vectored address
+        CAL     .OSWRCH        
 
 Idle:
         JMP     .Idle           ; Comment out this instruction to finish emulation run on HALT
@@ -136,7 +136,7 @@ print_string_loop:
         CMP     ,0
         STO     R1
         JBS     ZERO CR print_string_exit
-        CAL     .mosWRCH        ; FIXME - should go through vectored address
+        CAL     .OSWRCH        
         JMP     .print_string_loop
 print_string_exit:
         RTN
@@ -154,9 +154,9 @@ print_string_exit:
 ; - all registers preserved
        
 mosWRCH:
-        LDA     .r1status       
-        AND     ,0x40
-        JBS     ZERO CR mosWRCH
+;        LDA     .r1status       
+;        AND     ,0x40
+;        JBS     ZERO CR mosWRCH
         LDA     R1
         STO     .r1data
         RTN
@@ -198,33 +198,34 @@ EscapeError:
 ; -----------------------------------------------------------------------------
 
 DefaultVectors:
-	.WORD Unsupported    ; &200 - USERV
-	.WORD ErrorHandler   ; &202 - BRKV
-	.WORD IRQ1Handler    ; &204 - IRQ1V
-	.WORD Unsupported    ; &206 - IRQ2V
-	.WORD mosCLI         ; &208 - CLIV
-	.WORD mosBYTE        ; &20A - BYTEV
-	.WORD mosWORD        ; &20C - WORDV
-	.WORD mosWRCH        ; &20E - WRCHV
-	.WORD mosRDCH        ; &210 - RDCHV
-	.WORD mosFILE        ; &212 - FILEV
-	.WORD mosARGS        ; &214 - ARGSV
-	.WORD mosBGET        ; &216 - BGetV
-	.WORD mosBPUT        ; &218 - BPutV
-	.WORD mosGBPB        ; &21A - GBPBV
-	.WORD mosFIND        ; &21C - FINDV
-	.WORD Unsupported    ; &21E - FSCV
-	.WORD NullReturn     ; &220 - EVNTV
-	.WORD Unsupported    ; &222 - UPTV
-	.WORD Unsupported    ; &224 - NETV
-	.WORD Unsupported    ; &226 - VduV
-	.WORD Unsupported    ; &228 - KEYV
-	.WORD Unsupported    ; &22A - INSV
-	.WORD Unsupported    ; &22C - RemV
-	.WORD Unsupported    ; &22E - CNPV
-	.WORD NullReturn     ; &230 - IND1V
-	.WORD NullReturn     ; &232 - IND2V
-	.WORD NullReturn     ; &234 - IND3V
+        
+	.WORD 0xF800,Unsupported    ; &200 - USERV (word addresses)
+	.WORD 0xF800,ErrorHandler   ; &202 - BRKV
+	.WORD 0xF800,IRQ1Handler    ; &204 - IRQ1V
+	.WORD 0xF800,Unsupported    ; &206 - IRQ2V
+	.WORD 0xF800,mosCLI         ; &208 - CLIV
+	.WORD 0xF800,mosBYTE        ; &20A - BYTEV
+	.WORD 0xF800,mosWORD        ; &20C - WORDV
+	.WORD 0xF800,mosWRCH        ; &20E - WRCHV
+	.WORD 0xF800,mosRDCH        ; &210 - RDCHV
+	.WORD 0xF800,mosFILE        ; &212 - FILEV
+	.WORD 0xF800,mosARGS        ; &214 - ARGSV
+	.WORD 0xF800,mosBGET        ; &216 - BGetV
+	.WORD 0xF800,mosBPUT        ; &218 - BPutV
+	.WORD 0xF800,mosGBPB        ; &21A - GBPBV
+	.WORD 0xF800,mosFIND        ; &21C - FINDV
+	.WORD 0xF800,Unsupported    ; &21E - FSCV
+	.WORD 0xF800,NullReturn     ; &220 - EVNTV
+	.WORD 0xF800,Unsupported    ; &222 - UPTV
+	.WORD 0xF800,Unsupported    ; &224 - NETV
+	.WORD 0xF800,Unsupported    ; &226 - VduV
+	.WORD 0xF800,Unsupported    ; &228 - KEYV
+	.WORD 0xF800,Unsupported    ; &22A - INSV
+	.WORD 0xF800,Unsupported    ; &22C - RemV
+	.WORD 0xF800,Unsupported    ; &22E - CNPV
+	.WORD 0xF800,NullReturn     ; &230 - IND1V
+	.WORD 0xF800,NullReturn     ; &232 - IND2V
+	.WORD 0xF800,NullReturn     ; &234 - IND3V
 
 ; -----------------------------------------------------------------------------
 ; MOS interface - normal for Acorn to be at the top of the memory map
@@ -236,6 +237,6 @@ DefaultVectors:
 .org MOS + (0xEE-0xC8)
 
 OSWRCH:                      ; &FFEE
-        JMP     ,WRCHV
+        JMP     .WRCHV       
 
 
