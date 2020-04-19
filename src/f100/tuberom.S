@@ -1,0 +1,239 @@
+.equ        WORK 0x0700      ; system jump blocks (256 locations) below ROM
+.equ        CODE 0x0800      ; This is the location of main F100 ROM
+.equ        TUBE 0x7EF8      ; Hardware mapped in here - tube registers
+.equ         MOS 0x7FC8      ; This is a small additional ROM at top of memory
+.equ         APP 0x1000      ; Application RAM starts here        
+.equ  END_MARKER 0x8000      ; makes the end of each command -ve
+
+;; ; These are passed in directly from the makefile 
+;; .equ     MEM_BOT _MEM_BOT_
+;; .equ     MEM_TOP _MEM_TOP_
+;; .equ       STACK _STACK_
+
+.equ    r1status TUBE
+.equ      r1data TUBE + 1
+.equ    r2status TUBE + 2
+.equ      r2data TUBE + 3
+.equ    r3status TUBE + 4
+.equ      r3data TUBE + 5
+.equ    r4status TUBE + 6
+.equ      r4data TUBE + 7
+
+
+.equ    CARRY           0x04    ; carry is bit 4 of the CR
+.equ    MULTI           0x05    ; multi-word flag is bit 5 of CR
+.equ    ZERO            0x01    ; zero bit in CR
+.equ    SIGN            0x03    ; sign bit in CR
+.equ    LSP             0       ; link stack pointer location
+.equ    USP             1       ; user stack pointer location
+.equ    LINK_STACK      0x7C01  ; initial value for link stack (must be ODD)
+.equ    USER_STACK      0x7800  ; initial value for user stack
+.equ    R0              10      ; loopctr
+.equ    R1              R0+1    ; nines
+.equ    R2              R0+2    ; output pointer
+.equ    R3              R0+3    ; c
+.equ    R4              R0+4    ; i (use -i to allow ICZ in inner loop)
+.equ    R5              R0+5    ; Q
+.equ    R6              R0+6    ; result
+.equ    R7              R0+7    ; pointer to remainders
+.equ    R8              R0+8    ; digit number
+.equ    R9              R0+9    ; predigit
+.equ    R10             R0+10   ; scratch
+.equ    R11             R0+11   ; scratch
+.equ    R12             R0+12   ; scratch
+.equ    R13             R0+13   ; scratch
+.equ    R14             R0+14   ; parameter reg
+.equ    R15             R0+15   ; parameter reg
+.equ    CONST0          R0+16   ; constant ZERO
+.equ    CONST1          R0+17   ; constant ONE
+        
+.equ    NUM_VECTORS     27      ; number of vectors in DefaultVectors table
+
+; -----------------------------------------------------------------------------
+; Memory from 0x0000 to 0x00FF is reserved for system use
+; -----------------------------------------------------------------------------
+
+; 0x0000 = OPC5/6 Reset address
+
+; 0x0002 = OPC5/6 IRQ0 address
+
+; 0x0004 = OPC6 IRQ1 address
+
+.equ       USERV WORK + 0x0010
+.equ       WRCHV WORK + 0x0017
+
+.equ      ERRBUF WORK + 0x0030
+.equ      INPBUF WORK + 0x0030
+.equ      INPEND WORK + 0x00F6
+
+.equ        ADDR WORK + 0x00F6       ; tube execution address
+.equ      TMP_R1 WORK + 0x00FC       ; tmp store for R1 during IRQ
+.equ    LAST_ERR WORK + 0x00FD       ; last error
+.equ ESCAPE_FLAG WORK + 0x00FF       ; escape flag
+
+; -----------------------------------------------------------------------------
+; 2K Rom Start 
+; -----------------------------------------------------------------------------
+
+.org CODE
+; ;;include "lib_printstring.s"
+; ;;include "lib_printhex.s"
+; ;;include "lib_printdec.s"
+; ;;include "lib_readhex.s"
+; ;;include "lib_srec.s"
+; ;;include "lib_dumpmem.s"
+; ;;include "lib_disassemble.s"
+
+ResetHandler:
+        LDA ,LINK_STACK         ; initialize link stack pointer
+        STO .LSP
+        LDA ,USER_STACK         ; initialize user stack pointer
+        STO .USP
+
+
+.equ    START   0-(NUM_VECTORS-1)
+        LDA     ,START
+        STO     R0
+        LDA     ,DefaultVectors
+        STO     R1
+        LDA     ,USERV
+        STO     R2        
+InitVecLoop:        
+        LDA     /R1+
+        STO     /R2+
+        ICZ     R0 InitVecLoop
+        
+        LDA     ,BannerMessage
+        CAL     .print_string
+
+        LDA     ZERO                        ; send the terminator
+        STO     R1
+        CAL     .OSWRCH
+
+Idle:
+        JMP     .Idle
+        
+; --------------------------------------------------------------
+;
+; print_string
+;
+; Prints the zero terminated ASCII string
+;
+; Entry:
+; - r1 points to the zero terminated string
+;
+; Exit:
+; - r1,r2 trashed, all other registers preserved
+
+print_string:
+        LDA     R1
+        STO     R2
+print_string_loop:
+        LDA     /R2+
+        AND     ,0xFF
+        CMP     ,0
+        STO     R1
+        JBS     ZERO CR print_string_exit
+        CAL     .OSWRCH
+        JMP     .print_string_loop
+print_string_exit:
+        RTN
+
+; --------------------------------------------------------------
+;
+; OSWRCH
+;
+; Prints single character
+;
+; Entry:
+; - R1 holds byte to be written
+;
+; Exit:
+; - all registers preserved
+       
+mosWRCH:
+        LDA     .r1status
+        AND     ,0x40
+        JBS     ZERO CR mosWRCH
+        LDA     R1
+        STO     .r1data
+        RTN
+
+; -----------------------------------------------------------------------------
+; Messages
+; -----------------------------------------------------------------------------
+
+BannerMessage:
+        .WORD   0x0a
+        ; .STRING "Ferranti F100-L Co Processor (32K words)"
+        .WORD   0x46,0x65,0x72,0x72,0x61,0x6e,0x74,0x69
+        .WORD   0x20,0x46,0x31,0x30,0x30,0x2d,0x4c
+        .WORD   0x20,0x43,0x6f,0x20,0x50,0x72,0x6f
+        .WORD   0x63,0x65,0x73,0x73,0x6f,0x72,0x20,0x28,0x33
+        .WORD   0x32,0x4b,0x20,0x77,0x6f,0x72,0x64,0x73,0x29,0x22        
+        .WORD   0x0a,0x0a,0x0d,0x00
+EscapeError:
+        .WORD    17
+        ; .STRING "Escape"
+        .WORD    0x00
+
+; -----------------------------------------------------------------------------
+; TUBE ULA registers
+; -----------------------------------------------------------------------------
+
+.org TUBE
+        .WORD 0x0000     ; 0xFEF8
+        .WORD 0x0000     ; 0xFEF9
+        .WORD 0x0000     ; 0xFEFA
+        .WORD 0x0000     ; 0xFEFB
+        .WORD 0x0000     ; 0xFEFC
+        .WORD 0x0000     ; 0xFEFD
+        .WORD 0x0000     ; 0xFEFE
+        .WORD 0x0000     ; 0xFEFF
+
+; -----------------------------------------------------------------------------
+; DEFAULT VECTOR TABLE
+; -----------------------------------------------------------------------------
+
+DefaultVectors:
+	.WORD Unsupported    ; &200 - USERV
+	.WORD ErrorHandler   ; &202 - BRKV
+	.WORD IRQ1Handler    ; &204 - IRQ1V
+	.WORD Unsupported    ; &206 - IRQ2V
+	.WORD mosCLI         ; &208 - CLIV
+	.WORD mosBYTE        ; &20A - BYTEV
+	.WORD mosWORD        ; &20C - WORDV
+	.WORD mosWRCH        ; &20E - WRCHV
+	.WORD mosRDCH        ; &210 - RDCHV
+	.WORD mosFILE        ; &212 - FILEV
+	.WORD mosARGS        ; &214 - ARGSV
+	.WORD mosBGET        ; &216 - BGetV
+	.WORD mosBPUT        ; &218 - BPutV
+	.WORD mosGBPB        ; &21A - GBPBV
+	.WORD mosFIND        ; &21C - FINDV
+	.WORD Unsupported    ; &21E - FSCV
+	.WORD NullReturn     ; &220 - EVNTV
+	.WORD Unsupported    ; &222 - UPTV
+	.WORD Unsupported    ; &224 - NETV
+	.WORD Unsupported    ; &226 - VduV
+	.WORD Unsupported    ; &228 - KEYV
+	.WORD Unsupported    ; &22A - INSV
+	.WORD Unsupported    ; &22C - RemV
+	.WORD Unsupported    ; &22E - CNPV
+	.WORD NullReturn     ; &230 - IND1V
+	.WORD NullReturn     ; &232 - IND2V
+	.WORD NullReturn     ; &234 - IND3V
+
+; -----------------------------------------------------------------------------
+; MOS interface - normal for Acorn to be at the top of the memory map
+;               - see http://mdfs.net/Software/Tube/Z80/ClientZ80.src for Z80 impl.
+; -----------------------------------------------------------------------------
+
+.org MOS
+
+.org MOS + (0xEE-0xC8)
+
+OSWRCH:                      ; &FFEE
+        JMP     ,WRCHV
+
+
