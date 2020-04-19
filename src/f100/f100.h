@@ -25,7 +25,7 @@ void f100_execute();
 void f100_irq(int id);
 
 // Define this to change the PC start address (mimic adsel pin on actual CPU)
-// #define ADSEL_2K      1
+#define ADSEL_2K      1
 #ifdef ADSEL_2K
 #define F100_PC_RST 2048
 #else 
