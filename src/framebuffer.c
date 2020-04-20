@@ -168,8 +168,9 @@ void fb_init_variables() {
 }
 
 
-static void fb_invert_cursor(int x_pos, int y_pos) {
-   for (int y = 10; y < 12; y++) {
+static void fb_invert_cursor(int x_pos, int y_pos, int editing) {
+   int y1 = editing ? 10 : 0;
+   for (int y = y1; y < 12; y++) {
 #ifdef BPP32
       uint32_t *fbptr = (uint32_t *)(fb + (y_pos * 12 + y) * pitch + x_pos * 8 * 4);
 #else
@@ -186,7 +187,7 @@ static void fb_show_cursor() {
    if (c_visible) {
       return;
    }
-   fb_invert_cursor(c_x_pos, c_y_pos);
+   fb_invert_cursor(c_x_pos, c_y_pos, 0);
    c_visible = 1;
 }
 
@@ -194,7 +195,7 @@ static void fb_show_edit_cursor() {
    if (e_visible) {
       return;
    }
-   fb_invert_cursor(e_x_pos, e_y_pos);
+   fb_invert_cursor(e_x_pos, e_y_pos, 1);
    e_visible = 1;
 }
 
@@ -202,7 +203,7 @@ static void fb_hide_cursor() {
    if (!c_visible) {
       return;
    }
-   fb_invert_cursor(c_x_pos, c_y_pos);
+   fb_invert_cursor(c_x_pos, c_y_pos, 0);
    c_visible = 0;
 }
 
@@ -210,7 +211,7 @@ static void fb_hide_edit_cursor() {
    if (!e_visible) {
       return;
    }
-   fb_invert_cursor(e_x_pos, e_y_pos);
+   fb_invert_cursor(e_x_pos, e_y_pos, 1);
    e_visible = 0;
 }
 
@@ -233,21 +234,13 @@ static void fb_disable_edit_cursor() {
 }
 
 static void fb_cursor_interrupt() {
-#if 0
    if (e_enabled) {
       if (e_visible) {
          fb_hide_edit_cursor();
       } else {
          fb_show_edit_cursor();
       }
-   } else {
-      if (c_visible) {
-         fb_hide_cursor();
-      } else {
-         fb_show_cursor();
-      }
    }
-#endif
 }
 
 static void fb_edit_cursor_up() {
@@ -294,6 +287,16 @@ static void fb_edit_cursor_right() {
    fb_show_edit_cursor();
 }
 
+static void fb_edit_cursor_next() {
+   fb_hide_edit_cursor();
+   if (e_x_pos < 79) {
+      e_x_pos++;
+   } else {
+      e_x_pos = 0;
+      fb_edit_cursor_down();
+   }
+   fb_show_edit_cursor();
+}
 
 void fb_scroll() {
    if (e_enabled) {
@@ -883,6 +886,14 @@ void fb_writec(char ch) {
       fb_cursor_left();
       break;
 
+   case 135:
+      // fake copy
+      if (e_enabled) {
+         fb_writec(fb_get_edit_cursor_char());
+         fb_edit_cursor_next();
+      }
+      break;
+
    case 136:
       fb_edit_cursor_left();
       break;
@@ -1436,9 +1447,9 @@ int fb_get_edit_cursor_char() {
    for (int y = 3; y < 10; y++) {
       uint8_t row = 0;
 #ifdef BPP32
-      uint32_t *fbptr = (uint32_t *)(fb + (c_y_pos * 12 + y) * pitch + c_x_pos * 8 * 4);
+      uint32_t *fbptr = (uint32_t *)(fb + (e_y_pos * 12 + y) * pitch + e_x_pos * 8 * 4);
 #else
-      uint16_t *fbptr = (uint16_t *)(fb + (c_y_pos * 12 + y) * pitch + c_x_pos * 8 * 2);
+      uint16_t *fbptr = (uint16_t *)(fb + (e_y_pos * 12 + y) * pitch + e_x_pos * 8 * 2);
 #endif
       for (int x = 0; x < 8; x++) {
          row <<= 1;
