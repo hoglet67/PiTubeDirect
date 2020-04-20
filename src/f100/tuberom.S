@@ -19,7 +19,6 @@
 .equ    r4status TUBE + 6
 .equ      r4data TUBE + 7
 
-
 .equ    CARRY           0x04    ; carry is bit 4 of the CR
 .equ    MULTI           0x05    ; multi-word flag is bit 5 of CR
 .equ    ZERO            0x01    ; zero bit in CR
@@ -28,36 +27,28 @@
 .equ    USP             1       ; user stack pointer location
 .equ    LINK_STACK      0x7C01  ; initial value for link stack (must be ODD)
 .equ    USER_STACK      0x7800  ; initial value for user stack
-.equ    R0              10      ; loopctr
-.equ    R1              R0+1    ; nines
-.equ    R2              R0+2    ; output pointer
-.equ    R3              R0+3    ; c
-.equ    R4              R0+4    ; i (use -i to allow ICZ in inner loop)
-.equ    R5              R0+5    ; Q
-.equ    R6              R0+6    ; result
-.equ    R7              R0+7    ; pointer to remainders
-.equ    R8              R0+8    ; digit number
-.equ    R9              R0+9    ; predigit
-.equ    R10             R0+10   ; scratch
-.equ    R11             R0+11   ; scratch
-.equ    R12             R0+12   ; scratch
-.equ    R13             R0+13   ; scratch
-.equ    R14             R0+14   ; parameter reg
-.equ    R15             R0+15   ; parameter reg
-.equ    CONST0          R0+16   ; constant ZERO
-.equ    CONST1          R0+17   ; constant ONE
+.equ    R0              2      
+.equ    R1              R0+1    
+.equ    R2              R0+2    
+.equ    R3              R0+3    
+.equ    R4              R0+4    
+.equ    R5              R0+5    
+.equ    R6              R0+6    
+.equ    R7              R0+7    
+.equ    R8              R0+8    
+.equ    R9              R0+9    
+.equ    R10             R0+10   
+.equ    R11             R0+11   
+.equ    R12             R0+12   
+.equ    R13             R0+13   
+.equ    R14             R0+14   
+.equ    R15             R0+15   
         
-.equ    NUM_VECTORS     27      ; number of vectors in DefaultVectors table
 
 ; -----------------------------------------------------------------------------
 ; Memory from 0x0000 to 0x00FF is reserved for system use
 ; -----------------------------------------------------------------------------
-
-; 0x0000 = OPC5/6 Reset address
-
-; 0x0002 = OPC5/6 IRQ0 address
-
-; 0x0004 = OPC6 IRQ1 address
+.equ      NUM_VECTORS     27            ; number of vectors in DefaultVectors table
 
 .equ       USERV WORK + 0x0010 + 0x0010 
 .equ       WRCHV WORK + 0x0017 + 0x0017 
@@ -66,10 +57,10 @@
 .equ      INPBUF WORK + 0x0030 + 0x0030 
 .equ      INPEND WORK + 0x00F6 + 0x00F6 
                                         
-.equ        ADDR WORK + 0x00F6 + 0x00F6        ; tube execution address
-.equ      TMP_R1 WORK + 0x00FC + 0x00FC        ; tmp store for R1 during IRQ
-.equ    LAST_ERR WORK + 0x00FD + 0x00FD        ; last error
-.equ ESCAPE_FLAG WORK + 0x00FF + 0x00FF        ; escape flag
+.equ        ADDR WORK + 0x00F6 + 0x00F6 ; tube execution address
+.equ      TMP_R1 WORK + 0x00FC + 0x00FC ; tmp store for R1 during IRQ
+.equ    LAST_ERR WORK + 0x00FD + 0x00FD ; last error
+.equ ESCAPE_FLAG WORK + 0x00FF + 0x00FF ; escape flag
 
 ; -----------------------------------------------------------------------------
 ; 2K Rom Start 
@@ -167,12 +158,10 @@ mosWRCH:
 
 BannerMessage:
         .WORD   0x0a
-        ; .STRING "Ferranti F100-L Co Processor (32K words)"
-        .WORD   0x46,0x65,0x72,0x72,0x61,0x6e,0x74,0x69
-        .WORD   0x20,0x46,0x31,0x30,0x30,0x2d,0x4c
-        .WORD   0x20,0x43,0x6f,0x20,0x50,0x72,0x6f
-        .WORD   0x63,0x65,0x73,0x73,0x6f,0x72,0x20,0x28,0x33
-        .WORD   0x32,0x4b,0x20,0x77,0x6f,0x72,0x64,0x73,0x29,0x22        
+                                ; .STRING "Ferranti F100-L (32K words)"
+
+        .WORD   0x46,0x65,0x72,0x72,0x61,0x6e,0x74,0x69,0x20,0x46,0x31,0x30,0x30,0x2d,0x4c,0x20
+        .WORD   0x28,0x33,0x32,0x4b,0x20,0x77,0x6f,0x72,0x64,0x73,0x29
         .WORD   0x0a,0x0a,0x0d,0x00
 EscapeError:
         .WORD    17
