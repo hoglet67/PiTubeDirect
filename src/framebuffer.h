@@ -5,6 +5,8 @@
 
 void fb_initialize();
 
+void fb_writec_buffered(char c);
+
 void fb_writec(char c);
 
 void fb_writes(char *string);
@@ -51,5 +53,11 @@ uint32_t fb_get_height();
 uint32_t fb_get_bpp32();
 
 void fb_process_vdu_queue();
+
+int fb_get_cursor_x();
+int fb_get_cursor_y();
+int fb_get_edit_cursor_x();
+int fb_get_edit_cursor_y();
+int fb_get_edit_cursor_char();
 
 #endif

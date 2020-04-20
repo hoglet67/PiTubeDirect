@@ -359,7 +359,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       break;
    case 2:
       copro_command = val;
-      fb_writec(val);
+      fb_writec_buffered(val);
       break;
    case 3: /*Register 2*/
       //if (!tube_enabled)
@@ -429,8 +429,23 @@ static void tube_host_write(uint16_t addr, uint8_t val)
 
 uint8_t tube_parasite_read(uint32_t addr)
 {
+   uint8_t temp = 0xAA;
+   // Squeeze in read-only framebuffer registers
+   if ((addr & 8) == 0) {
+      switch (addr & 7) {
+      case 0:
+         temp = fb_get_edit_cursor_x();
+         break;
+      case 1:
+         temp = fb_get_edit_cursor_y();
+         break;
+      case 2:
+         temp = fb_get_edit_cursor_char();
+         break;
+      }
+      return temp;
+   }
    int cpsr = _disable_interrupts();
-   uint8_t temp ;
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/

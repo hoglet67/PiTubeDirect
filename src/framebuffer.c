@@ -21,6 +21,10 @@ static int16_t c_fg_col;
 static int16_t c_x_pos;
 static int16_t c_y_pos;
 
+static int16_t e_enabled = 0;
+static int16_t e_x_pos;
+static int16_t e_y_pos;
+
 // Graphics colour / cursor position
 static int16_t g_bg_col;
 static int16_t g_fg_col;
@@ -125,13 +129,23 @@ static unsigned int colour_table[256];
 static unsigned char* fb = NULL;
 static int width = 0, height = 0, bpp = 0, pitch = 0;
 
+static int e_visible; // Current visibility of the edit cursor
+static int c_visible; // Current visibility of the write cursor
+
 void fb_init_variables() {
 
     // Character colour / cursor position
-   c_bg_col = 0;
-   c_fg_col = 15;
-   c_x_pos  = 0;
-   c_y_pos  = 0;
+   c_bg_col  = 0;
+   c_fg_col  = 15;
+   c_x_pos   = 0;
+   c_y_pos   = 0;
+   c_visible = 0;
+
+   // Edit cursor
+   e_x_pos   = 0;
+   e_y_pos   = 0;
+   e_visible = 0;
+   e_enabled = 0;
 
    // Graphics colour / cursor position
    g_bg_col      = 0;
@@ -149,11 +163,149 @@ void fb_init_variables() {
 
    // Cursor mode
    g_cursor      = IN_VDU4;
+
 }
 
+
+static void fb_invert_cursor(int x_pos, int y_pos) {
+   for (int y = 10; y < 12; y++) {
+#ifdef BPP32
+      uint32_t *fbptr = (uint32_t *)(fb + (y_pos * 12 + y) * pitch + x_pos * 8 * 4);
+#else
+      uint16_t *fbptr = (uint16_t *)(fb + (y_pos * 12 + y) * pitch + x_pos * 8 * 2);
+#endif
+      for (int x = 0; x < 8; x++) {
+         *fbptr ^= default_colour_table[15];
+         fbptr++;
+      }
+   }
+}
+
+static void fb_show_cursor() {
+   if (c_visible) {
+      return;
+   }
+   fb_invert_cursor(c_x_pos, c_y_pos);
+   c_visible = 1;
+}
+
+static void fb_show_edit_cursor() {
+   if (e_visible) {
+      return;
+   }
+   fb_invert_cursor(e_x_pos, e_y_pos);
+   e_visible = 1;
+}
+
+static void fb_hide_cursor() {
+   if (!c_visible) {
+      return;
+   }
+   fb_invert_cursor(c_x_pos, c_y_pos);
+   c_visible = 0;
+}
+
+static void fb_hide_edit_cursor() {
+   if (!e_visible) {
+      return;
+   }
+   fb_invert_cursor(e_x_pos, e_y_pos);
+   e_visible = 0;
+}
+
+static void fb_enable_edit_cursor() {
+   if (!e_enabled) {
+      e_enabled = 1;
+      e_x_pos = c_x_pos;
+      e_y_pos = c_y_pos;
+      fb_show_edit_cursor();
+   }
+}
+
+static void fb_disable_edit_cursor() {
+   if (e_enabled) {
+      fb_hide_edit_cursor();
+      e_x_pos = 0;
+      e_y_pos = 0;
+      e_enabled = 0;
+   }
+}
+
+static void fb_cursor_interrupt() {
+#if 0
+   if (e_enabled) {
+      if (e_visible) {
+         fb_hide_edit_cursor();
+      } else {
+         fb_show_edit_cursor();
+      }
+   } else {
+      if (c_visible) {
+         fb_hide_cursor();
+      } else {
+         fb_show_cursor();
+      }
+   }
+#endif
+}
+
+static void fb_edit_cursor_up() {
+   fb_enable_edit_cursor();
+   fb_hide_edit_cursor();
+   if (e_y_pos > 0) {
+      e_y_pos--;
+   } else {
+      e_y_pos = 39;
+   }
+   fb_show_edit_cursor();
+}
+
+static void fb_edit_cursor_down() {
+   fb_enable_edit_cursor();
+   fb_hide_edit_cursor();
+   if (e_y_pos < 39) {
+      e_y_pos++;
+   } else {
+      e_y_pos = 0;
+   }
+   fb_show_edit_cursor();
+}
+
+static void fb_edit_cursor_left() {
+   fb_enable_edit_cursor();
+   fb_hide_edit_cursor();
+   if (e_x_pos > 0) {
+      e_x_pos--;
+   } else {
+      e_x_pos = 79;
+   }
+   fb_show_edit_cursor();
+}
+
+static void fb_edit_cursor_right() {
+   fb_enable_edit_cursor();
+   fb_hide_edit_cursor();
+   if (e_x_pos < 79) {
+      e_x_pos++;
+   } else {
+      e_x_pos = 0;
+   }
+   fb_show_edit_cursor();
+}
+
+
 void fb_scroll() {
+   if (e_enabled) {
+      fb_hide_edit_cursor();
+   }
    _fast_scroll(fb, fb + 12 * pitch, (height - 12) * pitch);
    _fast_clear(fb + (height - 12) * pitch, 0, 12 * pitch);
+   if (e_enabled) {
+      if (e_y_pos > 0) {
+         e_y_pos--;
+      }
+      fb_show_edit_cursor();
+   }
 }
 
 void fb_clear() {
@@ -162,61 +314,74 @@ void fb_clear() {
    fb_init_variables();
    // clear frame buffer
    memset((void *)fb, colour_table[c_bg_col], height * pitch);
+   // Show the cursor
+   fb_show_cursor();
 }
 
+
 void fb_cursor_left() {
+   fb_hide_cursor();
    if (c_x_pos > 0) {
       c_x_pos--;
    } else {
       c_x_pos = 79;
    }
+   fb_show_cursor();
 }
 
 void fb_cursor_right() {
+   fb_hide_cursor();
    if (c_x_pos < 79) {
       c_x_pos++;
    } else {
       c_x_pos = 0;
    }
+   fb_show_cursor();
 }
 
 void fb_cursor_up() {
+   fb_hide_cursor();
    if (c_y_pos > 0) {
       c_y_pos--;
    } else {
       c_y_pos = 39;
    }
+   fb_show_cursor();
 }
 
 void fb_cursor_down() {
+   fb_hide_cursor();
    if (c_y_pos < 39) {
       c_y_pos++;
    } else {
       fb_scroll();
    }
+   fb_show_cursor();
 }
 
 void fb_cursor_col0() {
+   fb_disable_edit_cursor();
+   fb_hide_cursor();
    c_x_pos = 0;
+   fb_show_cursor();
 }
 
 void fb_cursor_home() {
+   fb_hide_cursor();
    c_x_pos = 0;
    c_y_pos = 0;
 }
 
 
 void fb_cursor_next() {
+   fb_hide_cursor();
    if (c_x_pos < 79) {
       c_x_pos++;
    } else {
       c_x_pos = 0;
       fb_cursor_down();
    }
-}
-
-void fb_cursor_invert() {
-
+   fb_show_cursor();
 }
 
 volatile int d;
@@ -373,14 +538,14 @@ void init_colour_table() {
    }
 }
 
-void fb_writec(char ch) {
+void fb_writec_buffered(char ch) {
    // TODO: Deal with overflow
    vdu_queue[vdu_wp] = ch;
    vdu_wp = (vdu_wp + 1) & (VDU_QSIZE - 1);
 }
 
 
-void fb_writec_int(char ch) {
+void fb_writec(char ch) {
    int invert;
    unsigned char c = (unsigned char) ch;
 
@@ -454,7 +619,6 @@ void fb_writec_int(char ch) {
       count++;
       if (count == 1) {
          fb_clear();
-         fb_draw_character(32, 1, 1);
          state = NORMAL;
       }
       return;
@@ -641,43 +805,31 @@ void fb_writec_int(char ch) {
       break;
 
    case 8:
-      fb_draw_character(32, 1, 1);
       fb_cursor_left();
-      fb_draw_character(32, 1, 1);
       break;
 
    case 9:
-      fb_draw_character(32, 1, 1);
       fb_cursor_right();
-      fb_draw_character(32, 1, 1);
       break;
 
    case 10:
-      fb_draw_character(32, 1, 1);
       fb_cursor_down();
-      fb_draw_character(32, 1, 1);
       break;
 
    case 11:
-      fb_draw_character(32, 1, 1);
       fb_cursor_up();
-      fb_draw_character(32, 1, 1);
       break;
 
    case 12:
       fb_clear();
-      fb_draw_character(32, 1, 1);
       break;
 
    case 13:
-      fb_draw_character(32, 1, 1);
       fb_cursor_col0();
-      fb_draw_character(32, 1, 1);
       break;
 
    case 16:
       fb_clear();
-      fb_draw_character(32, 1, 1);
       break;
 
    case 17:
@@ -716,9 +868,7 @@ void fb_writec_int(char ch) {
       return;
 
    case 30:
-      fb_draw_character(32, 1, 1);
       fb_cursor_home();
-      fb_draw_character(32, 1, 1);
       break;
 
    case 31:
@@ -727,9 +877,25 @@ void fb_writec_int(char ch) {
       return;
 
    case 127:
-      fb_draw_character(32, 1, 1);
       fb_cursor_left();
       fb_draw_character(32, 1, 0);
+      fb_cursor_left();
+      break;
+
+   case 136:
+      fb_edit_cursor_left();
+      break;
+
+   case 137:
+      fb_edit_cursor_right();
+      break;
+
+   case 138:
+      fb_edit_cursor_down();
+      break;
+
+   case 139:
+      fb_edit_cursor_up();
       break;
 
    default:
@@ -749,17 +915,14 @@ void fb_writec_int(char ch) {
             c -= 0x20;
          }
 
-         // Erase the cursor
-         fb_draw_character(32, 1, 1);
-
-         // Draw the next character
+         // Draw the next character at the cursor position
+         fb_hide_cursor();
          fb_draw_character(c, invert, 0);
+         fb_show_cursor();
 
          // Advance the drawing position
          fb_cursor_next();
 
-         // Draw the cursor
-         fb_draw_character(32, 1, 1);
       } else {
          gr_draw_character(c, g_x_pos, g_y_pos, g_fg_col);
          update_g_cursors(g_x_pos+font_scale_w*font_width+font_spacing, g_y_pos);
@@ -769,7 +932,7 @@ void fb_writec_int(char ch) {
 
 void fb_writes(char *string) {
    while (*string) {
-      fb_writec_int(*string++);
+      fb_writec(*string++);
    }
 }
 
@@ -1232,12 +1395,82 @@ uint32_t fb_get_bpp32() {
 #endif
 }
 
+
 void fb_process_vdu_queue() {
+   static int cursor_count = 0;
    _data_memory_barrier();
    RPI_GetArmTimer()->IRQClear = 0;
    while (vdu_rp != vdu_wp) {
       char ch = vdu_queue[vdu_rp];
-      fb_writec_int(ch);
+      fb_writec(ch);
       vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
    }
+   cursor_count++;
+   if (cursor_count == 250) {
+      fb_cursor_interrupt();
+      cursor_count = 0;
+   }
 }
+
+int fb_get_cursor_x() {
+   return c_x_pos;
+};
+
+int fb_get_cursor_y() {
+   return c_y_pos;
+};
+
+int fb_get_edit_cursor_x() {
+   return e_x_pos;
+};
+
+int fb_get_edit_cursor_y() {
+   return e_y_pos;
+};
+
+// TODO: Font height should not be hard coded!
+int fb_get_edit_cursor_char() {
+   uint8_t screen[12];
+   // Read the character from screenmemory
+   for (int y = 3; y < 10; y++) {
+      uint8_t row = 0;
+#ifdef BPP32
+      uint32_t *fbptr = (uint32_t *)(fb + (c_y_pos * 12 + y) * pitch + c_x_pos * 8 * 4);
+#else
+      uint16_t *fbptr = (uint16_t *)(fb + (c_y_pos * 12 + y) * pitch + c_x_pos * 8 * 2);
+#endif
+      for (int x = 0; x < 8; x++) {
+         row <<= 1;
+         if ((*fbptr) != 0) {
+            row |= 1;
+         }
+         fbptr++;
+      }
+      screen[y] = row;
+   }
+   // Match against font
+   for (int c = 0x00; c < 0x60; c++) {
+      int y;
+      for (y = 3; y < 10; y++) {
+         if (fontdata[c * 12 + y] != screen[y]) {
+            break;
+         }
+      }
+      if (y == 10) {
+         // We are still using the Atom 6847 character ROM!
+         //
+         // Demangle the
+         // 00-1F map to 40-5F
+         // 20-3F map to 20-3F
+         // 40-5F map to 60-7F
+         if (c < 0x20) {
+            return c + 0x40;
+         } else if (c < 0x40) {
+            return c;
+         } else {
+            return c + 0x20;
+         }
+      }
+   }
+   return '?';
+};
