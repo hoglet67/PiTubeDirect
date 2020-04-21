@@ -19,6 +19,7 @@
 #include "../opc6/opc6_debug.h"
 #include "../opc7/opc7_debug.h"
 #include "../pdp11/pdp11_debug.h"
+#include "../f100/f100_debug.h"
 
 #define USE_LINENOISE
 
@@ -59,7 +60,7 @@ cpu_debug_t *cpu_debug_list[] = {
    NULL,                // 25
    NULL,                // 26
    NULL,                // 27
-   NULL,                // 28
+   &f100_cpu_debug,     // 28 F100
    NULL,                // 29
    NULL,                // 30
    NULL                 // 31

@@ -28,7 +28,7 @@ void f100_irq(int id);
 #define ADSEL_2K      1
 #ifdef ADSEL_2K
 #define F100_PC_RST 2048
-#else 
+#else
 #define F100_PC_RST 16384
 #endif
 
@@ -45,7 +45,7 @@ void f100_irq(int id);
 #define COMPUTE_SZ(r)        COMPUTE_SIGN(r) ; COMPUTE_ZERO(r)
 #define COMPUTE_SV(r, a, b)  COMPUTE_SIGN(r) ; COMPUTE_OVERFLOW_ADD(r,a,b)
 #define COMPUTE_SV_ADD(r, a, b)  COMPUTE_SIGN(r) ; COMPUTE_OVERFLOW_ADD(r,a,b)
-#define COMPUTE_SV_SUB(r, a, b)  COMPUTE_SIGN(r) ; COMPUTE_OVERFLOW_SUB(r,a,b) 
+#define COMPUTE_SV_SUB(r, a, b)  COMPUTE_SIGN(r) ; COMPUTE_OVERFLOW_SUB(r,a,b)
 #define COMPUTE_SVZ_ADD(r, a, b) COMPUTE_SV_ADD(r,a,b) ; COMPUTE_ZERO(r)
 #define COMPUTE_SVZ_SUB(r, a, b) COMPUTE_SV_SUB(r,a,b) ; COMPUTE_ZERO(r)
 
@@ -106,6 +106,7 @@ void f100_irq(int id);
 //   "JMP",
 // };
 
+
 typedef struct {
   uint16_t WORD;
   uint8_t  B, F, I, J, P, R, S, T;
@@ -126,6 +127,10 @@ typedef struct {
   bool M;
   bool F;
   instr_t ir;
+  // For the debugger
+  uint16_t saved_pc;
 } cpu_t;
+
+extern cpu_t *m_f100;
 
 #endif
