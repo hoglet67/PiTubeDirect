@@ -141,7 +141,7 @@ void copro_lib6502_emulator() {
 
   copro_lib6502_mpu = mpu;
 
-  for (addr= 0xfef8; addr <= 0xfeff; addr++) {
+  for (addr= 0xfef0; addr <= 0xfeff; addr++) {
     M6502_setCallback(mpu, read,  addr, copro_lib6502_tube_read);
     M6502_setCallback(mpu, write, addr, copro_lib6502_tube_write);
   }
