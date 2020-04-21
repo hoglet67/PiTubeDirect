@@ -18,7 +18,7 @@ char_at_cursor = &FEF2
 
 cpu 1
 
-org &EE00
+org &F700
 
 .start
 
