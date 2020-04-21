@@ -318,7 +318,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    arm_speed = get_clock_rate(ARM_CLK_ID);
    get_tube_delay();
-   start_vc_ula();
 
    copro = get_copro_number();
 
