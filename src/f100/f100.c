@@ -5,7 +5,13 @@
 #include <ctype.h>
 #include <unistd.h>
 
+#ifdef INCLUDE_DEBUGGER
+#include "f100_debug.h"
+#include "../cpu_debug.h"
+#endif
+
 #include "f100.h"
+
 
 // Global Variables
 static cpu_t    cpu;
@@ -13,13 +19,15 @@ static uint16_t reset_vec;
 static uint16_t irq0_vec;
 static uint16_t irq1_vec;
 
+cpu_t *m_f100 = &cpu;
+
 // CPU Functions
 void f100_init(uint16_t *memory, uint16_t pc_rst, uint16_t pc_irq0, uint16_t pc_irq1) {
   //cpu.mem = (uint16_t *) malloc(F100MEMSZ * sizeof(uint16_t));
   cpu.mem = memory;
   reset_vec = pc_rst;
   irq0_vec = pc_irq0;
-  irq1_vec = pc_irq1;  
+  irq1_vec = pc_irq1;
 }
 
 void f100_irq(int id) {
@@ -53,6 +61,15 @@ void f100_execute() {
 
 
   do {
+
+#ifdef INCLUDE_DEBUGGER
+      if (f100_debug_enabled)
+      {
+         cpu.saved_pc = cpu.pc;
+         debug_preexec(&f100_cpu_debug, cpu.pc);
+      }
+#endif
+
     // Fetch and decode operand
     decode(F100_READ_MEM(cpu.pc));
     INC_ADDR(cpu.pc,1);
@@ -103,11 +120,11 @@ void f100_execute() {
             result = TRUNC16(operand>>places);
           }
           COMPUTE_SV(result,operand,operand);
-          cpu.acc = TRUNC16(result);          
+          cpu.acc = TRUNC16(result);
           if (cpu.ir.R==1) {
             // Overwrite flags with the shifted value
             UNPACK_FLAGS(cpu.acc);
-          } 
+          }
         } else { // Double Length
           uint8_t  places = (((cpu.ir.J&1)<<4) + cpu.ir.B);
           // Assemble acc+OR into 32bit result register to start shifting
@@ -127,7 +144,7 @@ void f100_execute() {
           if (cpu.ir.R==1) {
             // Overwrite flags with the shifted value, low word (in OR)
             UNPACK_FLAGS(cpu.or);
-          } 
+          }
         }
       } else if ( cpu.ir.T==0 && cpu.ir.S>1) { //  Bit conditional jumps and Bit manipulation
         uint16_t bmask;
@@ -214,7 +231,7 @@ void f100_execute() {
       result = cpu.or - cpu.acc;
       if (cpu.M) result += cpu.C-1;
       COMPUTE_BORROW(result) ;
-      COMPUTE_SVZ_SUB(result, cpu.or, cpu.acc) ;        
+      COMPUTE_SVZ_SUB(result, cpu.or, cpu.acc) ;
       if (cpu.ir.F==OP_SBS) F100_WRITE_MEM(operand_address, TRUNC16(result));
       if (cpu.ir.F!=OP_CMP) cpu.acc=TRUNC16(result);
       break;
@@ -225,7 +242,7 @@ void f100_execute() {
       if (cpu.M) result += cpu.C;
       COMPUTE_CARRY(result) ;
       COMPUTE_SVZ_ADD(result, cpu.acc, cpu.or) ;
-      cpu.acc=TRUNC16(result);      
+      cpu.acc=TRUNC16(result);
       if (cpu.ir.F==OP_ADS) F100_WRITE_MEM(operand_address, TRUNC16(result));
       break;
     case OP_AND:
@@ -239,7 +256,7 @@ void f100_execute() {
       cpu.acc = cpu.acc^cpu.or;
       CLEAR_CARRY;
       COMPUTE_SZ(cpu.acc);
-      break;  
+      break;
    default: break;
     }
   } while  (tubeContinueRunning());
