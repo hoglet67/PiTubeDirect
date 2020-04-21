@@ -5,6 +5,7 @@
 
 /* Mailbox 0 mapped to it's base address */
 static mailbox_t* rpiMailbox0 = (mailbox_t*)RPI_MAILBOX0_BASE;
+static mailbox_t* rpiMailbox1 = (mailbox_t*)RPI_MAILBOX1_BASE;
 
 void RPI_Mailbox0Write( mailbox0_channel_t channel, int value )
 {
@@ -17,10 +18,10 @@ void RPI_Mailbox0Write( mailbox0_channel_t channel, int value )
 
     /* Wait until the mailbox becomes available and then write to the mailbox
        channel */
-    while( ( rpiMailbox0->Status & ARM_MS_FULL ) != 0 ) { }
+    while( ( rpiMailbox1->Status & ARM_MS_FULL ) != 0 ) { }
 
     /* Write the modified value + channel number into the write register */
-    rpiMailbox0->Write = value;
+    rpiMailbox1->Data = value;
 }
 
 
@@ -39,7 +40,7 @@ int RPI_Mailbox0Read( mailbox0_channel_t channel )
 
         /* Extract the value from the Read register of the mailbox. The value
            is actually in the upper 28 bits */
-        value = rpiMailbox0->Read;
+        value = rpiMailbox0->Data;
     }
 
     /* Return just the value (the upper 28-bits) */
