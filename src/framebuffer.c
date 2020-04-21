@@ -272,6 +272,11 @@ static void fb_edit_cursor_left() {
       e_x_pos--;
    } else {
       e_x_pos = 79;
+      if (e_y_pos > 0) {
+         e_y_pos--;
+      } else {
+         e_y_pos = 39;
+      }
    }
    fb_show_edit_cursor();
 }
@@ -283,17 +288,11 @@ static void fb_edit_cursor_right() {
       e_x_pos++;
    } else {
       e_x_pos = 0;
-   }
-   fb_show_edit_cursor();
-}
-
-static void fb_edit_cursor_next() {
-   fb_hide_edit_cursor();
-   if (e_x_pos < 79) {
-      e_x_pos++;
-   } else {
-      e_x_pos = 0;
-      fb_edit_cursor_down();
+      if (e_y_pos < 39) {
+         e_y_pos++;
+      } else {
+         e_y_pos = 0;
+      }
    }
    fb_show_edit_cursor();
 }
@@ -448,7 +447,7 @@ void fb_initialize() {
     RPI_ArmTimerInit();
     RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
 
-    fb_writes("\r\n\r\nPi Tube Direct VDU Driver v0.90\r\n>");
+    fb_writes("\r\n\r\nPi Tube Direct VDU Driver v0.90\r\n");
     #ifdef DEBUG_VDU
     fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
     #endif
@@ -883,15 +882,6 @@ void fb_writec(char ch) {
    case 127:
       fb_cursor_left();
       fb_draw_character(32, 1, 0);
-      fb_cursor_left();
-      break;
-
-   case 135:
-      // fake copy
-      if (e_enabled) {
-         fb_writec(fb_get_edit_cursor_char());
-         fb_edit_cursor_next();
-      }
       break;
 
    case 136:
@@ -1484,5 +1474,5 @@ int fb_get_edit_cursor_char() {
          }
       }
    }
-   return '?';
+   return 0;
 };
