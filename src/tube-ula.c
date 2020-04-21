@@ -828,6 +828,9 @@ void tube_init_hardware()
    RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
    RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
+   // Run out Tube Handler code on 2nd VPU Core
+   start_vc_ula();
+
    // Initialise the info system with cached values (as we break the GPU property interface)
    init_info();
 
@@ -959,8 +962,15 @@ void start_vc_ula()
    LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);
 #endif
    RPI_PropertyInit();
-   RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
-   RPI_PropertyProcessNoCheck();
+   RPI_PropertyAddTag(TAG_LAUNCH_VPU1, func, r0, r1, r2, r3, r4, r5);
+   RPI_PropertyProcess();
+   rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_LAUNCH_VPU1);
+   if (buf) {
+      LOG_DEBUG("TAG_LAUNCH_VPU1 returned %08x\r\n", buf->data.buffer_32[0]);
+   } else {
+      LOG_DEBUG("TAG_LAUNCH_VPU1 ?\r\n");
+   }
+
 // for (r0 = 0x7E002000; r0 < 0x7E003000; r0+= 4) {
 //    rpi_mailbox_property_t *buf;
 //    RPI_PropertyInit();
