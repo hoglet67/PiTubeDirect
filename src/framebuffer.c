@@ -398,15 +398,14 @@ void fb_initialize() {
 
     /* Initialise a framebuffer... */
     RPI_PropertyInit();
-    RPI_PropertyAddTag( TAG_ALLOCATE_BUFFER );
-    RPI_PropertyAddTag( TAG_SET_PHYSICAL_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT );
-    RPI_PropertyAddTag( TAG_SET_VIRTUAL_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT * 2 );
-    RPI_PropertyAddTag( TAG_SET_DEPTH, SCREEN_DEPTH );
-    RPI_PropertyAddTag( TAG_GET_PITCH );
-    RPI_PropertyAddTag( TAG_GET_PHYSICAL_SIZE );
-    RPI_PropertyAddTag( TAG_GET_DEPTH );
+    RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER, 0x02000000);
+    RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT );
+    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT * 2 );
+    RPI_PropertyAddTag(TAG_SET_DEPTH, SCREEN_DEPTH );
+    RPI_PropertyAddTag(TAG_GET_PITCH );
+    RPI_PropertyAddTag(TAG_GET_PHYSICAL_SIZE );
+    RPI_PropertyAddTag(TAG_GET_DEPTH );
     RPI_PropertyProcess();
-
 
     if( ( mp = RPI_PropertyGet( TAG_GET_PHYSICAL_SIZE ) ) )
     {
@@ -472,7 +471,7 @@ void fb_initialize() {
     }
 #endif
 
-    for (d = 0; d < 1000000; d++);
+    //for (d = 0; d < 1000000; d++);
 
     // Uncomment this for testing from the serial port
     //while (1) {
