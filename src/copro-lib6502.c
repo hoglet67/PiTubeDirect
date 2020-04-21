@@ -92,6 +92,7 @@ int copro_lib6502_mem_write(M6502 *mpu, addr_t addr, uint8_t data) {
 
 #endif
 
+#ifdef TURBO
 static int copro_lib6502_reg0_write(M6502 *mpu, addr_t addr, uint8_t data) {
   if (mpu->flags & M6502_Turbo) {
     // On the 256K Co Pro (Co Pro 17) bit 7 of &FEF0 controls turbo mode
@@ -101,6 +102,7 @@ static int copro_lib6502_reg0_write(M6502 *mpu, addr_t addr, uint8_t data) {
   mpu->memory[addr] = data;
   return 0;
 }
+#endif
 
 static int copro_lib6502_tube_read(M6502 *mpu, addr_t addr, uint8_t data) {
   return tube_parasite_read(addr);
@@ -143,25 +145,25 @@ static int copro_lib6502_poll(M6502 *mpu) {
 }
 
 void copro_lib6502_emulator(int type) {
-  addr_t addr;
+  addr_t addr = 0xfef0;
 
   // Remember the current copro so we can exit if it changes
   last_copro = copro;
 
   M6502 *mpu = M6502_new(0, 0, 0);
+  copro_lib6502_mpu = mpu;
 
 #ifdef TURBO
   if (type == TYPE_TURBO) {
+     // Reg0 is the turbo enable/disable flag at &FEF0
+     M6502_setCallback(mpu, write, addr, copro_lib6502_reg0_write);
+     addr++;
+     // Set the turbo flag to indicate at runtime that this is the turbo copro instance
      mpu->flags |= M6502_Turbo;
   }
 #endif
 
-  copro_lib6502_mpu = mpu;
-
-  // Reg0 is the turbo enable/disable flag at &FEF0
-  M6502_setCallback(mpu, write, 0xfef0, copro_lib6502_reg0_write);
-
-  for (addr= 0xfef8; addr <= 0xfeff; addr++) {
+  for (; addr <= 0xfeff; addr++) {
     M6502_setCallback(mpu, read,  addr, copro_lib6502_tube_read);
     M6502_setCallback(mpu, write, addr, copro_lib6502_tube_write);
   }
