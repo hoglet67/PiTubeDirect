@@ -50,7 +50,7 @@ void init_colour_table(void);
 uint32_t fb_get_address();
 uint32_t fb_get_width();
 uint32_t fb_get_height();
-uint32_t fb_get_bpp32();
+uint32_t fb_get_depth();
 
 void fb_process_vdu_queue();
 
