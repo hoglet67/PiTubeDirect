@@ -862,7 +862,8 @@ void tube_init_hardware()
 
    fb_initialize();
 
-   v3d_initialize();
+   // This is broken in 8-BPP mode
+   // v3d_initialize();
 
    // Initialize performance counters
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
