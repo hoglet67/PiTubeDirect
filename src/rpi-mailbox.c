@@ -1,5 +1,6 @@
 #include <stdint.h>
 
+#include "cache.h"
 #include "rpi-gpio.h"
 #include "rpi-mailbox.h"
 
@@ -7,21 +8,18 @@
 static mailbox_t* rpiMailbox0 = (mailbox_t*)RPI_MAILBOX0_BASE;
 static mailbox_t* rpiMailbox1 = (mailbox_t*)RPI_MAILBOX1_BASE;
 
-void RPI_Mailbox0Write( mailbox0_channel_t channel, int value )
+void RPI_Mailbox0Write( mailbox0_channel_t channel, uint32_t *ptr )
 {
+    _clean_cache_area(ptr, ptr[0]);
     /* For information about accessing mailboxes, see:
        https://github.com/raspberrypi/firmware/wiki/Accessing-mailboxes */
-
-    /* Add the channel number into the lower 4 bits */
-    value &= ~(0xF);
-    value |= channel;
 
     /* Wait until the mailbox becomes available and then write to the mailbox
        channel */
     while( ( rpiMailbox1->Status & ARM_MS_FULL ) != 0 ) { }
 
     /* Write the modified value + channel number into the write register */
-    rpiMailbox1->Data = value;
+    rpiMailbox1->Data = ((uint32_t)ptr ) | channel;
 }
 
 

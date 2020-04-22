@@ -41,7 +41,7 @@ typedef struct {
     rpi_reg_rw_t Configuration;
     } mailbox_t;
 
-extern void RPI_Mailbox0Write( mailbox0_channel_t channel, int value );
+extern void RPI_Mailbox0Write( mailbox0_channel_t channel, uint32_t *ptr );
 extern int RPI_Mailbox0Read( mailbox0_channel_t channel );
 
 #endif

@@ -4,12 +4,14 @@
 
 #include "rpi-mailbox.h"
 #include "rpi-mailbox-interface.h"
-#include "cache.h"
 
 /* Make sure the property tag buffer is aligned to a 16-byte boundary because
    we only have 28-bits available in the property interface protocol to pass
    the address of the buffer to the VC. */
-static int *pt = ( int *) UNCACHED_MEM_BASE ;// [PROP_BUFFER_SIZE] __attribute__((aligned(16)));
+//static int *pt = ( int *) UNCACHED_MEM_BASE ;// [PROP_BUFFER_SIZE] __attribute__((aligned(16)));
+
+__attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t pt[PROP_BUFFER_SIZE];
+
 static int pt_index ;
 
 //#define PRINT_PROP_DEBUG 1
@@ -37,6 +39,7 @@ void RPI_PropertyInit( void )
 */
 void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 {
+    int num_colours;
     va_list vl;
     va_start( vl, tag );
 
@@ -191,6 +194,18 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             }
             break;
 
+       case TAG_SET_PALETTE:
+            num_colours = va_arg( vl, int);
+            pt[pt_index++] = 8 + num_colours * 4;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = 0;                        // Offset to first colour
+            pt[pt_index++] = num_colours;              // Number of colours
+            uint32_t *palette = va_arg( vl, uint32_t *);
+            for (int i = 0; i < num_colours; i++) {
+               pt[pt_index++] = palette[i];
+            }
+            break;
+
         default:
             /* Unsupported tags, just remove the tag from the list */
             pt_index--;
@@ -220,7 +235,7 @@ int RPI_PropertyProcess( void )
     for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
         LOG_INFO( "Request: %3d %8.8X\r\n", i, pt[i] );
 #endif
-    RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, (unsigned int)pt );
+    RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
 
     result = RPI_Mailbox0Read( MB0_TAGS_ARM_TO_VC );
 
@@ -245,13 +260,13 @@ void RPI_PropertyProcessNoCheck( void )
     for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
         LOG_INFO( "Request: %3d %8.8X\r\n", i, pt[i] );
 #endif
-    RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, (unsigned int)pt );
+    RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
 }
 
 rpi_mailbox_property_t* RPI_PropertyGet( rpi_mailbox_tag_t tag)
 {
     static rpi_mailbox_property_t property;
-    int* tag_buffer = NULL;
+    uint32_t* tag_buffer = NULL;
 
     property.tag = tag;
 
