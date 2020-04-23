@@ -638,7 +638,7 @@ int tube_io_handler(uint32_t mail)
    {
       addr = (mail>>8) & 7;
       if ( ( (mail >>11 ) & 1) == 0) {  // Check read write flag
-         tube_host_write(addr, mail & 0xFF);
+         tube_host_write(addr, (mail >> 16) & 0xFF);
       } else {
          tube_host_read(addr);
       }

@@ -228,6 +228,7 @@ rd_wait_for_clk_high1:
    sub    r7, r0                # just get the address bits
    lsl    r7, 6                 # put address bits in correct place
    bset   r7, RW_MAILBOX_BIT    # set read bit
+   and    r7, 0xFFFFFFF0        # clear the channel bits
    st     r7, (r3)              # store in mail box
    bl     toggle_led
 
@@ -271,11 +272,11 @@ wr_wait_for_clk_low:
 
 # Post a message to indicate a tube register write
 
-#  move databus to correct position
-   lsr    r7,r8, D0D3_shift
-   lsr    r4,r8, D4D7_shift -4
-   and    r7, 0x0F
-   and    r4, 0xF0
+#  move databus to correct position to D23..D16
+   lsl    r7,r8, 16 - D0D3_shift
+   lsr    r4,r8, D4D7_shift - 20
+   and    r7, 0x000F0000
+   and    r4, 0x00F00000
    or     r7, r4
 
 #  move address bit to correct position
@@ -291,6 +292,7 @@ wr_wait_for_clk_low:
    btst   r8, CLK
    bne    wr_wait_for_clk_low
 
+   and    r7, 0xFFFFFFF0       # clear the channel bits
    st     r7, (r3)      # post mail
    bl     toggle_led
    b      Poll_loop

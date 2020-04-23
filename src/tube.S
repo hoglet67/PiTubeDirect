@@ -21,12 +21,16 @@ arm_fiq_handler_flag1:
 
       ldr      r12, =MBOX0_READ        // Read the GPU mailbox
       push     {r0-r3,r14}
-	  ldr      r10,=tube_irq
+      ldr      r10,=tube_irq
       ldr      r0, [r12]               // Get Mailbox data
 
-      BL       tube_io_handler
+      tst      r0, #0x0F               // Discard if the channel bits are non-zero
+      popne    {r0-r3,r14}             // Clean up the stack
+      subnes   pc, lr, #4              // And return without invoking the handler
 
-	  ldr      r12,[r10]
+      bl       tube_io_handler
+
+      ldr      r12,[r10]
       pop      {r0-r3,r14}
       tst      r12, #FAST6502_BIT      // see if we should signal the 6502 Core
       tstne    r12,#RESET_BIT+NMI_BIT+IRQ_BIT
