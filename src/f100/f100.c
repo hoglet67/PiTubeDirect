@@ -72,12 +72,13 @@ void f100_execute() {
 
     // Fetch and decode operand
     decode(F100_READ_MEM(cpu.pc));
+    if ( cpu.ir.F==OP_F0 && cpu.ir.T==1) { // HALT
+      break;
+    }
     INC_ADDR(cpu.pc,1);
 
     // Fetch additional Operands if required
-    if ( cpu.ir.F==OP_F0 && cpu.ir.T==1) { // HALT
-      break;
-    } else if ( cpu.ir.F==1) {  // SJM - ignore all addressing bits
+    if ( cpu.ir.F==1) {  // SJM - ignore all addressing bits
     } else if ( cpu.ir.F!=0 && cpu.ir.I==0 && cpu.ir.N!=0) { // Direct data (single word)
       operand_address = cpu.ir.N;
     } else if ( cpu.ir.F!=0 && cpu.ir.I==0 && cpu.ir.N==0) { // Immediate data (double word)
