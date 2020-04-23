@@ -38,7 +38,6 @@
 .equ    R13             R0+13   
 .equ    R14             R0+14   
 .equ    R15             R0+15   
-        
 
 ; -----------------------------------------------------------------------------
 ; Memory from 0x0000 to 0x00FF is reserved for system use
@@ -93,12 +92,14 @@ InitVecLoop:
         STO     R0
         CAL     .print_string
 
+        CAL     .PI
+        CAL     .NEWLINE        
+
         LDA     ,0            ; send the terminator
         STO     R0
         CAL     .OSWRCH        
 
 Idle:
-        JMP     .Idle           ; Comment out this instruction to finish emulation run on HALT
         HALT   ,123             
         
 ; --------------------------------------------------------------
@@ -125,6 +126,26 @@ print_string_loop:
         CAL     .OSWRCH        
         JMP     .print_string_loop
 print_string_exit:
+        RTN
+; --------------------------------------------------------------
+;
+; NEWLINE
+;
+; emit a newline LF+CR pair
+;
+; Entry:
+; - None
+;
+; Exit:
+; - R0 trashed
+        
+NEWLINE:
+        LDA     ,0x0A
+        STO     R0
+        CAL     .OSWRCH
+        LDA     ,0x0D
+        STO     R0
+        CAL     .OSWRCH
         RTN
 
 ; --------------------------------------------------------------
@@ -197,7 +218,7 @@ DefaultVectors:
 ; -----------------------------------------------------------------------------
 ; Built-in application test: pi-spigot 
 ; -----------------------------------------------------------------------------
-.equ  DIGITS  64        
+.equ  DIGITS  32        
 .equ  COLS    1+(DIGITS*10//3)
 
 PI:
@@ -306,7 +327,7 @@ L8:     ICZ     R8 L3
         ;; Print last digit
         LDA     R9
         CAL     .OSWRDIG
-        HALT    ,0x0123
+        RTN
 
 ; ------------------------------------
 ; UDIV16
@@ -415,8 +436,14 @@ M16L_SKIPADD:
         ICZ M16L_count M16L_LOOP
         RTN
 
+
+; -----------------------------------------------------------------------------
+; E N D  O F  R O M 
+; -----------------------------------------------------------------------------        
+        
         .ORG APP                ; running pi-spigot uses all of apps area
 REMAINDER:                      ; array space for remainder (RAM)
+
 
         
 
