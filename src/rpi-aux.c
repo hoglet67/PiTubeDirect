@@ -17,7 +17,7 @@
  http://elinux.org/BCM2835_datasheet_errata */
 #define FALLBACK_SYS_FREQ    250000000
 
-#define USE_IRQ
+//#define USE_IRQ
 
 #define TX_BUFFER_SIZE 65536  // Must be a power of 2
 
@@ -28,13 +28,14 @@ aux_t* RPI_GetAux(void)
   return auxillary;
 }
 
-#if defined(USE_IRQ)
 
 #include "rpi-interrupts.h"
 
+#ifdef USE_IRQ
 static char *tx_buffer;
 static volatile int tx_head;
 static volatile int tx_tail;
+#endif // USE_IRQ
 
 // There is a GCC bug with __attribute__((interrupt("IRQ"))) in that it
 // does not respect registers reserved with -ffixed-reg.
@@ -52,6 +53,7 @@ void RPI_AuxMiniUartIRQHandler() {
   _data_memory_barrier();
   RPI_SetGpioHi(TEST3_PIN);
 
+#ifdef USE_IRQ
   _data_memory_barrier();
 
   while (1) {
@@ -86,6 +88,7 @@ void RPI_AuxMiniUartIRQHandler() {
       }
     }
   }
+#endif // USE_IRQ
 
   // Periodically also process the VDU Queue
   fb_process_vdu_queue();
@@ -96,7 +99,6 @@ void RPI_AuxMiniUartIRQHandler() {
 
   _data_memory_barrier();
 }
-#endif
 
 void RPI_AuxMiniUartInit(int baud, int bits)
 {
@@ -158,19 +160,20 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   /* Transposed calculation from Section 2.2.1 of the ARM peripherals manual */
   auxillary->MU_BAUD = ( sys_freq / (8 * baud)) - 1;
 
+  extern unsigned int _interrupt_vector_h;
+  extern void _start( void );
+  *((uint32_t *) (((char *)&_interrupt_vector_h) - ((char *)&_start))) = (uint32_t) _main_irq_handler;
+
 #ifdef USE_IRQ
   {
-    extern unsigned int _interrupt_vector_h;
-    extern void _start( void );
     tx_buffer = malloc(TX_BUFFER_SIZE);
     tx_head = tx_tail = 0;
-    *((uint32_t *) (((char *)&_interrupt_vector_h) - ((char *)&_start))) = (uint32_t) _main_irq_handler;
     _data_memory_barrier();
     RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
     _data_memory_barrier();
     auxillary->MU_IER |= AUX_MUIER_RX_INT;
   }
-#endif
+#endif // USE_IRQ
 
   _data_memory_barrier();
 
@@ -216,7 +219,7 @@ void RPI_AuxMiniUartWrite(char c)
   }
   /* Write the character to the FIFO for transmission */
   auxillary->MU_IO = c;
-#endif
+#endif // USE_IRQ
 }
 
 extern void RPI_EnableUart(const char* pMessage)
