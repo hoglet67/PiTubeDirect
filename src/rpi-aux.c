@@ -17,7 +17,7 @@
  http://elinux.org/BCM2835_datasheet_errata */
 #define FALLBACK_SYS_FREQ    250000000
 
-//#define USE_IRQ
+#define USE_IRQ
 
 #define TX_BUFFER_SIZE 65536  // Must be a power of 2
 
