@@ -41,6 +41,9 @@
 
 #define USE_HW_MAILBOX
 
+// If defined, the doorbell is used rather then the mailbox
+#define USE_DOORBELL
+
 //
 // tube_irq bit definitions
 //
@@ -61,7 +64,8 @@
 
 #include "rpi-base.h"
 
-
+#define DOORBELL        (PERIPHERAL_BASE + 0x00B844) // Doorbell 1
+#define DOORBELLDATA    (PERIPHERAL_BASE + 0x001028)
 #define MBOX0_READ      (PERIPHERAL_BASE + 0x00B880)
 #define MBOX0_STATUS    (PERIPHERAL_BASE + 0x00B898)
 #define MBOX0_CONFIG    (PERIPHERAL_BASE + 0x00B89C)

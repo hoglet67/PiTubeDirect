@@ -153,21 +153,32 @@ unsigned char * copro_mem_reset(int length)
 
 void init_emulator() {
    _disable_interrupts();
-    tube_irq = 0; // Make sure everything is clear
-	// Set up FIQ handler
+   tube_irq = 0; // Make sure everything is clear
+   // Set up FIQ handler
 
    *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
    _data_memory_barrier();
-   (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
-    // Direct Mail box to FIQ handler
 
+   (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
+
+
+#ifdef USE_DOORBELL
+   // Direct Doorbell to FIQ handler
 #if defined(RPI4)
-    RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_MAILBOX_IRQ ;
+   RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_DOORBELL_1_IRQ;
 #else
-    RPI_GetIrqController()->FIQ_control = 0x80 +65;
+   RPI_GetIrqController()->FIQ_control = 0x80 + 67;
+#endif
+#else
+   // Direct Mail box to FIQ handler
+#if defined(RPI4)
+   RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_MAILBOX_IRQ;
+#else
+   RPI_GetIrqController()->FIQ_control = 0x80 + 65;
+#endif
 #endif
 
-    _data_memory_barrier();
+   _data_memory_barrier();
 
 #ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {

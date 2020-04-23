@@ -15,6 +15,7 @@
 #include "v3d.h"
 #include "fonts.h"
 #include "info.h"
+#include "tube-defs.h"
 
 // Character colour / cursor position
 static int16_t c_bg_col;
@@ -111,17 +112,22 @@ static inline void set_colour(unsigned int index, int r, int g, int b) {
 }
 
 static void update_palette(int offset, int num_colours) {
-   //   LOG_INFO("Calling TAG_SET_PALETTE\r\n");
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_SET_PALETTE, offset, num_colours, colour_table);
-   // Call the NoCheck version as currently our FIQ handler swallows the response
-   RPI_PropertyProcessNoCheck();
+#ifdef USE_DOORBELL
+   // Call the Check version as doorbell and mailboxes are seperate
+   //LOG_INFO("Calling TAG_SET_PALETTE\r\n");
+   RPI_PropertyProcess();
    //rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_SET_PALETTE);
    //if (buf) {
    //   LOG_INFO("TAG_SET_PALETTE returned %08x\r\n", buf->data.buffer_32[0]);
    //} else {
    //   LOG_INFO("TAG_SET_PALETTE returned ?\r\n");
    //}
+#else
+   // Call the NoCheck version as our mailbox FIQ handler swallows the response
+   RPI_PropertyProcessNoCheck();
+#endif
 }
 
 #endif
