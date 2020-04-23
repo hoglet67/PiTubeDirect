@@ -72,34 +72,34 @@ void f100_execute() {
 
     // Fetch and decode operand
     decode(F100_READ_MEM(cpu.pc));
-    // Fetch additional Operands if required
     if ( cpu.ir.F==OP_F0 && cpu.ir.T==1) { // HALT
       break;
-    } else {
+    }
+    INC_ADDR(cpu.pc,1);
+
+    // Fetch additional Operands if required
+    if ( cpu.ir.F==1) {  // SJM - ignore all addressing bits
+    } else if ( cpu.ir.F!=0 && cpu.ir.I==0 && cpu.ir.N!=0) { // Direct data (single word)
+      operand_address = cpu.ir.N;
+    } else if ( cpu.ir.F!=0 && cpu.ir.I==0 && cpu.ir.N==0) { // Immediate data (double word)
+      operand_address = cpu.pc;
       INC_ADDR(cpu.pc,1);
-      if ( cpu.ir.F==1) {  // SJM - ignore all addressing bits
-      } else if ( cpu.ir.F!=0 && cpu.ir.I==0 && cpu.ir.N!=0) { // Direct data (single word)
-        operand_address = cpu.ir.N;
-      } else if ( cpu.ir.F!=0 && cpu.ir.I==0 && cpu.ir.N==0) { // Immediate data (double word)
-        operand_address = cpu.pc;
-        INC_ADDR(cpu.pc,1);
-      } else if ( cpu.ir.F!=0 && cpu.ir.I==1 && cpu.ir.P!=0) { // Pointer indirect (single word)
-        pointer = TRUNC15(F100_READ_MEM(cpu.ir.P));
-        if ( cpu.ir.R==1 ) INC_ADDR(pointer,1);
-        operand_address = pointer;
-        if ( cpu.ir.R==3 ) INC_ADDR(pointer,-1);
-        F100_WRITE_MEM(cpu.ir.P, pointer);
-      } else if (cpu.ir.F!=0 && cpu.ir.I==1 && cpu.ir.P==0) { // Immediate Indirect address (double word)
-        FETCH15(cpu.mem, operand_address, cpu.pc);
-      } else if (cpu.ir.F==0 && cpu.ir.T==0 && (cpu.ir.R==3||cpu.ir.S==2)) { // Shifts, bit manipulation and jumps
-        FETCH15(cpu.mem, operand_address, cpu.pc);
-        if (cpu.ir.S==2 && cpu.ir.R==3) { // Jumps (triple word)
-          FETCH15(cpu.mem, operand1_address, cpu.pc);
-        }
-      }
-      if (cpu.ir.F==OP_ICZ) { // ICZ takes an additional operand
+    } else if ( cpu.ir.F!=0 && cpu.ir.I==1 && cpu.ir.P!=0) { // Pointer indirect (single word)
+      pointer = TRUNC15(F100_READ_MEM(cpu.ir.P));
+      if ( cpu.ir.R==1 ) INC_ADDR(pointer,1);
+      operand_address = pointer;
+      if ( cpu.ir.R==3 ) INC_ADDR(pointer,-1);
+      F100_WRITE_MEM(cpu.ir.P, pointer);
+    } else if (cpu.ir.F!=0 && cpu.ir.I==1 && cpu.ir.P==0) { // Immediate Indirect address (double word)
+      FETCH15(cpu.mem, operand_address, cpu.pc);
+    } else if (cpu.ir.F==0 && cpu.ir.T==0 && (cpu.ir.R==3||cpu.ir.S==2)) { // Shifts, bit manipulation and jumps
+      FETCH15(cpu.mem, operand_address, cpu.pc);
+      if (cpu.ir.S==2 && cpu.ir.R==3) { // Jumps (triple word)
         FETCH15(cpu.mem, operand1_address, cpu.pc);
       }
+    }
+    if (cpu.ir.F==OP_ICZ) { // ICZ takes an additional operand
+      FETCH15(cpu.mem, operand1_address, cpu.pc);
     }
 
     // F100_Execute instruction
@@ -261,5 +261,4 @@ void f100_execute() {
    default: break;
     }
   } while  (tubeContinueRunning());
-//  if (HALT(cpu.ir)) printf("CPU Halted with halt number 0x%04X\n", cpu.ir.WORD & 0x03FF);
 }

@@ -5,6 +5,10 @@ set -e
 
 NAME=PiTubeDirect_$(date +"%Y%m%d_%H%M")_$USER
 
+# detect number of available CPUs for parallel make
+[ -z "$NCPUS" ] && [ ! -z "$(type -P nproc)" ] && NCPUS=$(nproc)
+[ -z "$NCPUS" ] && NCPUS=$(getconf _NPROCESSORS_ONLN) # fallback in case nproc unavailable
+
 DIR=releases/${NAME}
 mkdir -p ${DIR}/debug
 
@@ -13,12 +17,12 @@ do
     # compile normal kernel
     ./clobber.sh
     ./configure_${MODEL}.sh
-    make -B -j
+    make -B -j $NCPUS
     mv kernel*.img ${DIR}
     # compile debug kernel
     ./clobber.sh
     ./configure_${MODEL}.sh -DDEBUG=1
-    make -B -j
+    make -B -j $NCPUS
     mv kernel*.img ${DIR}/debug
 done
 
