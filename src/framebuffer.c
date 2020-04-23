@@ -116,7 +116,8 @@ static void update_palette() {
    //   LOG_INFO("Calling TAG_SET_PALETTE\r\n");
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_SET_PALETTE, num_colours, colour_table);
-   RPI_PropertyProcess();
+   // Call the NoCheck version as currently our FIQ handler swallows the response
+   RPI_PropertyProcessNoCheck();
    //rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_SET_PALETTE);
    //if (buf) {
    //   LOG_INFO("TAG_SET_PALETTE returned %08x\r\n", buf->data.buffer_32[0]);
@@ -611,7 +612,7 @@ void init_colour_table() {
       }
       set_colour(i, r, g, b);
    }
-   for (int i = 16; i < 255; i++) {
+   for (int i = 16; i < 256; i++) {
       set_colour(i, 0, 0, 0);
    }
 }
