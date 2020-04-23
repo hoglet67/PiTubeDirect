@@ -1,9 +1,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "rpi-mailbox.h"
 #include "rpi-mailbox-interface.h"
+#include "tube-defs.h"
 
 /* Make sure the property tag buffer is aligned to a 16-byte boundary because
    we only have 28-bits available in the property interface protocol to pass
@@ -13,8 +15,6 @@
 __attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t pt[PROP_BUFFER_SIZE];
 
 static int pt_index ;
-
-//#define PRINT_PROP_DEBUG 1
 
 void RPI_PropertyInit( void )
 {
@@ -181,6 +181,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             for (int i = 0; i < num_colours; i++) {
                pt[pt_index++] = palette[i];
             }
+            pt[pt_index++] = 0;
             break;
 
         default:
@@ -196,48 +197,74 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 }
 
 
-int RPI_PropertyProcess( void )
+static int RPI_PropertyProcessInternal(int debug)
 {
     int result;
 
-#ifdef PRINT_PROP_DEBUG
-    int i;
-    LOG_INFO( "%s Length: %d\r\n", __func__, pt[PT_OSIZE] );
-#endif
+    if (debug) {
+       LOG_INFO( "%s Length: %"PRIu32"\r\n", __func__, pt[PT_OSIZE] );
+    }
+
     /* Fill in the size of the buffer */
     pt[PT_OSIZE] = ( pt_index + 1 ) << 2;
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
-#ifdef PRINT_PROP_DEBUG
-    for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
-        LOG_INFO( "Request: %3d %8.8X\r\n", i, pt[i] );
-#endif
+    if (debug) {
+       for (int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
+        LOG_INFO( "Request: %3d %8.8"PRIX32"\r\n", i, pt[i] );
+       }
+    }
     RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
 
     result = RPI_Mailbox0Read( MB0_TAGS_ARM_TO_VC );
 
-#ifdef PRINT_PROP_DEBUG
-    for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
-        LOG_INFO( "Response: %3d %8.8X\r\n", i, pt[i] );
-#endif
+    if (debug) {
+       for (int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
+          LOG_INFO( "Response: %3d %8.8"PRIX32"\r\n", i, pt[i] );
+       }
+    }
+
     return result;
 }
 
-void RPI_PropertyProcessNoCheck( void )
+int RPI_PropertyProcess( void )
 {
-#ifdef PRINT_PROP_DEBUG
-    int i;
-    LOG_INFO( "%s Length: %d\r\n", __func__, pt[PT_OSIZE] );
-#endif
+   return RPI_PropertyProcessInternal(0);
+}
+
+int RPI_PropertyProcessDebug( void )
+{
+   return RPI_PropertyProcessInternal(1);
+}
+
+static void RPI_PropertyProcessNoCheckInternal(int debug)
+{
+
+   if (debug) {
+      LOG_INFO( "%s Length: %"PRIu32"\r\n", __func__, pt[PT_OSIZE] );
+   }
+
     /* Fill in the size of the buffer */
     pt[PT_OSIZE] = ( pt_index + 1 ) << 2;
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
-#ifdef PRINT_PROP_DEBUG
-    for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
-        LOG_INFO( "Request: %3d %8.8X\r\n", i, pt[i] );
-#endif
+    if (debug) {
+       for (int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
+          LOG_INFO( "Request: %3d %8.8"PRIX32"\r\n", i, pt[i] );
+       }
+    }
+
     RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
+}
+
+void RPI_PropertyProcessNoCheck( void )
+{
+   RPI_PropertyProcessNoCheckInternal(0);
+}
+
+void RPI_PropertyProcessNoCheckDebug( void )
+{
+   RPI_PropertyProcessNoCheckInternal(1);
 }
 
 rpi_mailbox_property_t* RPI_PropertyGet( rpi_mailbox_tag_t tag)
