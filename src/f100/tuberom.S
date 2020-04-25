@@ -231,7 +231,7 @@ mosCLI:
 mosCLI_Ack:
         CAL    .waitByteR2
         AND    ,0x80
-        JBC    ZERO CR dontEnterCode
+        JBS    ZERO CR dontEnterCode
         LDA    /USP-
         STO    R1
         STO    /USP+
