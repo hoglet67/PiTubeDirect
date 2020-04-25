@@ -120,8 +120,8 @@ InitVecLoop:
 
         LDA     ,BannerMessage
         CAL     .print_string
-        ; CAL     .PI             
-        ; CAL     .newline        
+        ; CAL     .PI
+        ; CAL     .newline
         LDA     ,0            ; send the terminator
         CAL     .OSWRCH
 
@@ -197,7 +197,7 @@ mosBPUT:
 
 ; --------------------------------------------------------------
 ; OSBYTE - Byte MOS functions
-; 
+;
 ; On entry, r1, r2, r3=OSBYTE parameters
 ; On exit,  r1  preserved
 ;           If r1<$80, r2=returned value
@@ -222,15 +222,16 @@ mosCLI:
         LDA    R1                       ; Save the string pointer
         STO    /USP+
         CAL    .cmdLocal                ; try to handle the command locally (return C=1 if done)
-        JBS    CARRY CR dontEnterCode   ; Yes nothing more to do
+        LDA    R0                       ; sets zero flag
+        JBS    ZERO CR dontEnterCode    ; Yes nothing more to do
         LDA    ,0x2                     ; send command &02  - OSCLI
         CAL    .sendByteR2
         LDA    /USP-                    ; restore string pointer into Acc
         CAL    .sendStringR2            ; send string pointed to by r2
 mosCLI_Ack:
         CAL    .waitByteR2
-        CMP    ,0x80
-        JBC    CARRY CR dontEnterCode
+        AND    ,0x80
+        JBC    ZERO CR dontEnterCode
         LDA    /USP-
         STO    R1
         STO    /USP+
@@ -245,7 +246,7 @@ dontEnterCode:
 
 enterCode:
         JMP     .ADDR
-        
+
 ; Find the start of the command string
 ;
 ; Lots of ways a file can be run:
@@ -272,7 +273,7 @@ prep_env_1:                         ; skip leading space or * characters
         CAL     .skip_spaces
         STO     R2
         CMP     ,0x2A
-        JBS     ZERO CR prep_env_1  
+        JBS     ZERO CR prep_env_1
         CMP     ,0x2F
         JBS     ZERO CR prep_env_4
         LDA     ,run_string-1
@@ -280,7 +281,7 @@ prep_env_1:                         ; skip leading space or * characters
         LDA     ,1
         SUB     R1
         STO     R3
-prep_env_2:                             ; skip a possibly abbreviated RUN 
+prep_env_2:                             ; skip a possibly abbreviated RUN
         LDA     ,1
         ADS     R2
         LDA     /R2
@@ -298,20 +299,20 @@ prep_env_2:                             ; skip a possibly abbreviated RUN
         CMP     R4                      ; match against R U N
         JBC     ZERO CR  prep_env_5
         JMP     .prep_env_2      ; loop back for more characters
-   
+
 prep_env_3:
         LDA     R3
         STO     R1
-   
+
 prep_env_4:
         LDA     ,1
         ADS     R1
-   
+
 prep_env_5:
         CAL     .skip_spaces
         STO     R2
         RTN
-   
+
 run_string:
         .WORD   0x52,0x55,0x4E,0x00 ; STRING  "RUN\0"
 
@@ -322,8 +323,8 @@ run_string:
 ; - r1 points to the user command
 ;
 ; On Exit:
-; - C == 0 if command successfully processed locally
-; - C != 0 if command should be
+; - R0 == 0 if command successfully processed locally
+; - R0 != 0 if command should be handled by host
 ;
 ; Register usage:
 ; r1 points to start of user command
@@ -383,8 +384,9 @@ cmdLocal:
 ;; -- CODEME --    POP     (r3)
 ;; -- CODEME --    POP     (r2)
 ;; -- CODEME --
-        
-        NEQ     ,0xFF           ; reset Carry flag to show command was not handled locally
+
+        LDA     ,0xFF           ; non-zero value in R0 to show command wasn't handled
+        STO     R0
         RTN
 
 
@@ -429,21 +431,21 @@ mosWORD:
         STO     /USP+
         LDA     R4
         STO     /USP+
-        
+
         LDA     R1
         STO     R3
         LDA     R2
         STO     R4
         LDA     ,0x8
-        CAL     .sendByteR2   ; Send command &08 - OSWORD 
+        CAL     .sendByteR2   ; Send command &08 - OSWORD
         LDA     R3
-        CAL     .sendByteR2   ; Send OSWORD number 
+        CAL     .sendByteR2   ; Send OSWORD number
 
         ; compute index into length table
         LDA       R3
         CMP       ,0x15
         JBC       CARRY CR mosWORDL1
-        LDA       ,0            ; >= OSWORD 0x15, use slot 0        
+        LDA       ,0            ; >= OSWORD 0x15, use slot 0
         STO       R3
 mosWORDL1:
         LDA     R3
@@ -457,7 +459,7 @@ mosWORDL1:
         LDA     /R0
         STO     R1
         LDA     R4
-        STO     R2        
+        STO     R2
         CAL     .sendBlockR2     ; Send request block
         LDA     R3
         ADD     ,word_out_len
@@ -470,7 +472,7 @@ mosWORDL1:
         LDA     /R0
         STO     R1
         LDA     R4
-        STO     R2        
+        STO     R2
         CAL     .receiveBlockR2  ; Receive response block
         LDA     /USP-
         STO     R4
@@ -502,7 +504,7 @@ skip_spaces_loop:
         JBS     ZERO CR skip_spaces_loop
         RTN
 
-        
+
 ; --------------------------------------------------------------
 ; print_string
 ;
@@ -564,7 +566,7 @@ sendBlockR2:
         STO     /USP+
         LDA     ,-1
         ADD     R1
-        STO     R4      ;  r4 = block length - 1        
+        STO     R4      ;  r4 = block length - 1
         JBS     SIGN CR sendBlockDone
 
         SRL     1 R4      ; calculate address of word containing last byte
@@ -609,7 +611,7 @@ sendBlockDone:
 ; Exit:
 ; - R0-2 trashed
 
-receiveBlockR2:      
+receiveBlockR2:
         LDA     R3
         STO     /USP+
         LDA     R4
@@ -630,7 +632,7 @@ receiveBlockB1:
         SLE     8 A             ; byte swap
         AND     ,0xFF00         ; mask off top byte
         ADS     R3              ; merge it into R3
-        LDA     ,1              ; decrement counter              
+        LDA     ,1              ; decrement counter
         SBS     R4
 receiveBlockB0:
         JBS     SIGN CR receiveBlockWrite
@@ -642,7 +644,7 @@ receiveBlockWrite:
         STO     /R2-            ; write word and post decrement R2
         LDA     ,0              ; clear the receive work for next bytes
         STO     R3
-        LDA     ,1             
+        LDA     ,1
         SBS     R4
         JBC     SIGN CR receiveBlockB1
 receiveBlockDone:
@@ -651,7 +653,7 @@ receiveBlockDone:
         LDA     /USP-
         STO     R3
         RTN
-        
+
 word_in_len:
         .WORD 16   ; OSWORD default
         .WORD 0    ;  1  =TIME
@@ -733,9 +735,9 @@ RDLINE:
         STO     R0
         LDA     /R0
         CAL     .sendByteR2  ; Send <buffer len>
-        LDA     ,0x07        
+        LDA     ,0x07
         CAL     .sendByteR2  ; Send <buffer addr MSB>
-        LDA     ,0        
+        LDA     ,0
         CAL     .sendByteR2   ; Send <buffer addr LSB>
         CAL     .waitByteR2   ; Wait for response &FF [escape] or &7F
         STO     R1
@@ -743,13 +745,13 @@ RDLINE:
         STO     R3           ; initialize response length to 0
         CMP     ,0x80        ; test for escape
         JBS     CARRY CR RdLineCont
-        LDA     ,0x10
-        STO     R1
+        LDA     ,0x10        ; set bit 4
+        STO     R1           ; R1 will be returned as Carry by RTN
         JMP     .RdLineEscape
 RdLineCont:
         LDA     /R2
         STO     R2           ; Load the local input buffer from the control block
-        
+
 RdLineLp:
         CAL     .waitByteR2  ; Receive a response byte
         STO     R0           ; save response for later check
@@ -761,9 +763,9 @@ RdLineLp:
         LDA     R0           ; reload response byte and
         CMP     ,0x0D        ; compare against terminator and loop back
         JBC     ZERO CR RdLineLp
-        LDA     ,0x10
-        STO     R1
-RdLineEscape:        
+        LDA     ,0           ; reset bit 4
+        STO     R1           ; R1 will be returned as Carry by RTN
+RdLineEscape:
         LDA     .LSP
         STO     R0
         LDA     R1
