@@ -740,15 +740,14 @@ RDLINE:
         LDA     ,0
         CAL     .sendByteR2   ; Send <buffer addr LSB>
         CAL     .waitByteR2   ; Wait for response &FF [escape] or &7F
-        STO     R1
-        LDA     ,0
-        STO     R3           ; initialize response length to 0
-        CMP     ,0x80        ; test for escape
-        JBS     CARRY CR RdLineCont
+        AND     ,0x80         ; test for escape
+        JBS     ZERO CR RdLineCont        
         LDA     ,0x10        ; set bit 4
         STO     R1           ; R1 will be returned as Carry by RTN
         JMP     .RdLineEscape
 RdLineCont:
+        LDA     ,0
+        STO     R3           ; initialize response length to 0
         LDA     /R2
         STO     R2           ; Load the local input buffer from the control block
 
