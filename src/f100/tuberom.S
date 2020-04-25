@@ -146,7 +146,7 @@ CmdOsEscape:
         LDA     ,0x7E
         CAL     .OSBYTE
         ;; FIXME Error(EscapeError)
-        RTN
+        JMP     .CmdOsLoop
 
 Idle:
         HALT   ,123
@@ -728,6 +728,11 @@ RDLINE:
         STO     R0
         LDA     /R0
         CAL     .sendByteR2  ; Send <char min>
+        LDA     R2
+        ADD     ,0x01
+        STO     R0
+        LDA     /R0
+        CAL     .sendByteR2  ; Send <buffer len>
         LDA     ,0x07        
         CAL     .sendByteR2  ; Send <buffer addr MSB>
         LDA     ,0        
@@ -737,7 +742,7 @@ RDLINE:
         LDA     ,0
         STO     R3           ; initialize response length to 0
         CMP     ,0x80        ; test for escape
-        JBS     CARRY CR RdLineEscape
+        JBC     CARRY CR RdLineEscape
         LDA     /R2
         STO     R2           ; Load the local input buffer from the control block
         
@@ -915,12 +920,6 @@ sendByteR4_L1:
         LDA     R0
         STO     .r4data
         RTN
-
-
-
-
-
-
 
 ; -----------------------------------------------------------------------------
 ; Messages
