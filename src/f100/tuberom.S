@@ -742,7 +742,11 @@ RDLINE:
         LDA     ,0
         STO     R3           ; initialize response length to 0
         CMP     ,0x80        ; test for escape
-        JBC     CARRY CR RdLineEscape
+        JBS     CARRY CR RdLineCont
+        LDA     ,0x10
+        STO     R1
+        JMP     .RdLineEscape
+RdLineCont:
         LDA     /R2
         STO     R2           ; Load the local input buffer from the control block
         
@@ -757,8 +761,13 @@ RdLineLp:
         LDA     R0           ; reload response byte and
         CMP     ,0x0D        ; compare against terminator and loop back
         JBC     ZERO CR RdLineLp
-        NEQ     R0           ; clear carry to indicate not-escape
+        LDA     ,0x10
+        STO     R1
 RdLineEscape:        
+        LDA     .LSP
+        STO     R0
+        LDA     R1
+        STO     /R0         ; overwrite CR bits on the stack for return
         LDA     /USP-
         STO     R2
         LDA     ,0
@@ -811,6 +820,7 @@ mosRDCH:
         LDA     ,0x00           ; Send command &00 - OSRDCH
         CAL     .sendByteR2
         CAL     .waitByteR2     ; Receive carry
+        ; need to convert data into a carry from previous call and place in CR on stack
         CAL     .waitByteR2     ; Receive byte
         RTN
 
