@@ -120,8 +120,8 @@ InitVecLoop:
 
         LDA     ,BannerMessage
         CAL     .print_string
-        CAL     .PI
-        CAL     .newline
+        ; CAL     .PI             
+        ; CAL     .newline        
         LDA     ,0            ; send the terminator
         CAL     .OSWRCH
 
@@ -751,14 +751,12 @@ RdLineLp:
         CMP     ,0x0D        ; Compare against terminator and loop back
         JBC     ZERO CR RdLineLp
         NEQ     R0           ; clear carry to indicate not-escape
-
-RdLineEscape:
+RdLineEscape:        
         LDA     /USP-
         STO     R2
         LDA     ,0
         STO     R1           ; Clear r1 to be tidy
         RTN
-
 ; -------------------------------------------------------------
 ; Control block for command prompt input
 ; --------------------------------------------------------------
@@ -835,7 +833,7 @@ gotByteR1:
 ; - Acc holds byte, all other registers preserved
 waitByteR2:
         LDA     .r2status
-        AND     0x80
+        AND     ,0x80
         JBS     ZERO CR waitByteR2
         LDA     .r2data
         RTN
@@ -894,7 +892,7 @@ sendStringR2_exit:
 ; - Acc holds byte, all other registers preserved
 waitByteR4:
         LDA     .r4status
-        AND     0x80
+        AND     ,0x80
         JBS     ZERO CR waitByteR4
         LDA     .r4data
         RTN
