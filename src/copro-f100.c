@@ -26,22 +26,24 @@ void copro_f100_write_mem(uint16_t addr, uint16_t data) {
    if ((addr & 0x7FF8) == 0x7EF8) {
       tube_parasite_write(addr & 7, data);
       DBG_PRINT("write: %d = %x\r\n", addr & 7, data);
-   } else {   
+   } else {
      memory[addr] = data;
    }
 }
 
 uint16_t copro_f100_read_mem(uint16_t addr) {
-   uint16_t data = memory[addr];
+   uint16_t data;
+   if ((addr & 0x7FF8) == 0x7EF8) {
+      data = tube_parasite_read(addr & 7);
+      DBG_PRINT("read: %d = %x\r\n", addr & 7, data);
+   } else {
+      data = memory[addr];
+   }
 #ifdef INCLUDE_DEBUGGER
    if (f100_debug_enabled) {
       debug_memread(&f100_cpu_debug, addr, data, 2);
    }
 #endif
-   if ((addr & 0x7FF8) == 0x7EF8) {
-      data = tube_parasite_read(addr & 7);
-      DBG_PRINT("read: %d = %x\r\n", addr & 7, data);
-   }   
    return data;
 }
 
@@ -54,7 +56,7 @@ static void copro_f100_poweron_reset() {
 
    // Copy over client ROM
    memcpy((void *) (memory + 0x0800), (void *)tuberom_f100, sizeof(tuberom_f100));
-   memcpy((void *) (memory + 0x7F00), (void *)tuberom_f100_high, sizeof(tuberom_f100_high));   
+   memcpy((void *) (memory + 0x7F00), (void *)tuberom_f100_high, sizeof(tuberom_f100_high));
 }
 
 static void copro_f100_reset() {
