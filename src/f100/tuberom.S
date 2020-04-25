@@ -152,47 +152,33 @@ Idle:
         HALT   ,123
 
 ; --------------------------------------------------------------
-; print_string
-;
-; Prints the zero terminated ASCII string
-;
-; Entry:
-; - ACC points to the location of the zero terminated string
-;
-; Exit:
-; - r0,r1 trashed
-
-print_string:
-        STO     R0
-        LDA     ,1
-        SUB     R0 ; Need addr-1 in R1 because we will use pre-incr pointer to address the string
-        STO     R1
-print_string_loop:
-        LDA     /R1+
-        AND     ,0xFF
-        JBS     ZERO CR print_string_exit
-        CAL     .OSWRCH
-        JMP     .print_string_loop
-print_string_exit:
-        RTN
-; --------------------------------------------------------------
-; NEWLINE
-;
-; emit a newline LF+CR pair
-;
-; Entry:
-; - None
-;
-; Exit:
-; - R0 trashed
-newline:
-        LDA     ,0x0A
-        CAL     .OSWRCH
-        LDA     ,0x0D
-        CAL     .OSWRCH
-        RTN
+; MOS interface
 ; --------------------------------------------------------------
 
+NullReturn:
+    RTN
+
+; --------------------------------------------------------------
+
+Unsupported:
+    RTN
+
+; --------------------------------------------------------------
+
+ErrorHandler:
+
+    LDA     ,LINK_STACK                 ; Clear the stack
+    STO     .LSP
+    CAL     .newline
+    LDA     ,LAST_ERR
+    STO     R0
+    LDA     /R0                         ; Address of the last error: <error num> <err string> <00>
+    ADD     ,1                          ; Skip over error num
+    CAL     .print_string               ; Print error string
+    CAL     .newline
+    JMP     .CmdPrompt                  ; Jump to command prompt
+
+; --------------------------------------------------------------
 mosARGS:
     ; TODO
     RTN
@@ -210,7 +196,202 @@ mosBPUT:
     RTN
 
 ; --------------------------------------------------------------
+; OSBYTE - Byte MOS functions
+; 
+; On entry, r1, r2, r3=OSBYTE parameters
+; On exit,  r1  preserved
+;           If r1<$80, r2=returned value
+;           If r1>$7F, r2, r3, Carry=returned values
+;
+mosBYTE:
+    ; TODO
+    RTN
 
+; --------------------------------------------------------------
+; OSCLI - Send command line to host
+;
+; Entry
+; r1 = command string pointer
+;
+; Tube data  &02 string &0D  --  &7F or &80
+;
+mosCLI:
+        ; TODO !
+        LDA    R2
+        STO    /USP+
+        LDA    R1                       ; Save the string pointer
+        STO    /USP+
+        CAL    .cmdLocal                ; try to handle the command locally (return C=1 if done)
+        JBS    CARRY CR dontEnterCode   ; Yes nothing more to do
+        LDA    ,0x2                     ; send command &02  - OSCLI
+        CAL    .sendByteR2
+        LDA    /USP-                    ; restore string pointer into Acc
+        CAL    .sendStringR2            ; send string pointed to by r2
+mosCLI_Ack:
+        CAL    .waitByteR2
+        CMP    ,0x80
+        JBC    CARRY CR dontEnterCode
+        LDA    /USP-
+        STO    R1
+        STO    /USP+
+        CAL    .prep_env
+        CAL    .enterCode
+dontEnterCode:
+        LDA    /USP-
+        STO    R1
+        LDA    /USP-
+        STO    R2
+        RTN
+
+enterCode:
+        JMP     .ADDR
+        
+; Find the start of the command string
+;
+; Lots of ways a file can be run:
+; *    filename params
+; * /  filename params
+; *R.  filename params
+; *RU. filename params
+; *RUN filename params
+;
+;
+; In general you want:
+; - skip leading space or * characters
+; - skip any form of *RUN, followed by trailing spaces
+; - leave the environment point at the first character of filename
+
+
+prep_env:
+        LDA     ,1
+        SBS     R1
+
+prep_env_1:                         ; skip leading space or * characters
+        LDA     ,1
+        ADS     R1
+        CAL     .skip_spaces
+        STO     R2
+        CMP     ,0x2A
+        JBS     ZERO CR prep_env_1  
+        CMP     ,0x2F
+        JBS     ZERO CR prep_env_4
+        LDA     ,run_string-1
+        STO     R2
+        LDA     ,1
+        SUB     R1
+        STO     R3
+prep_env_2:                             ; skip a possibly abbreviated RUN 
+        LDA     ,1
+        ADS     R2
+        LDA     /R2
+        STO     R4                      ; Read R U N <0>
+        JBS     ZERO CR prep_env_3
+        LDA     ,1
+        ADS     R3
+        LDA     /R3
+        STO     R5
+        CMP     ,0x2E
+        JBS     ZERO CR prep_env_3
+        LDA     ,0xDF                   ; force upper case
+        AND     R5
+        STO     R5
+        CMP     R4                      ; match against R U N
+        JBC     ZERO CR  prep_env_5
+        JMP     .prep_env_2      ; loop back for more characters
+   
+prep_env_3:
+        LDA     R3
+        STO     R1
+   
+prep_env_4:
+        LDA     ,1
+        ADS     R1
+   
+prep_env_5:
+        CAL     .skip_spaces
+        STO     R2
+        RTN
+   
+run_string:
+        .WORD   0x52,0x55,0x4E,0x00 ; STRING  "RUN\0"
+
+; --------------------------------------------------------------
+; Local Command Processor
+;
+; On Entry:
+; - r1 points to the user command
+;
+; On Exit:
+; - C == 0 if command successfully processed locally
+; - C != 0 if command should be
+;
+; Register usage:
+; r1 points to start of user command
+; r2 points within command table
+; r3 points within user command
+; r4 is current character in command table
+; r5 is current character in user command
+
+cmdLocal:
+;; -- CODEME --    PUSH    (r2)
+;; -- CODEME --    PUSH    (r3)
+;; -- CODEME --    PUSH    (r4)
+;; -- CODEME --    PUSH    (r5)
+;; -- CODEME --    PUSH    (r13)
+;; -- CODEME --
+;; -- CODEME --    sub     r1, r0, 1
+;; -- CODEME --cmdLoop0:
+;; -- CODEME --    add     r1, r0, 1
+;; -- CODEME --    JSR     (skip_spaces)           ; skip leading spaces
+;; -- CODEME --    cmp     r2, r0, ord('*')        ; also skip leading *
+;; -- CODEME --    z.mov   pc, r0, cmdLoop0
+;; -- CODEME --
+;; -- CODEME --    mov     r2, r0, cmdTable-1      ; initialize command table pointer (to char before)
+;; -- CODEME --
+;; -- CODEME --cmdLoop1:
+;; -- CODEME --    mov     r3, r1, -1              ; initialize user command pointer (to char before)
+;; -- CODEME --
+;; -- CODEME --cmdLoop2:
+;; -- CODEME --    add     r2, r0, 1               ; increment command table pointer
+;; -- CODEME --    add     r3, r0, 1               ; increment user command pointer
+;; -- CODEME --    ld      r4, r2                  ; read next character from command table
+;; -- CODEME --    mi.mov  pc, r0, cmdExec         ; if an address, then we are done
+;; -- CODEME --    ld      r5, r3                  ; read next character from user command
+;; -- CODEME --    or      r5, r0, 0x20            ; convert to lower case
+;; -- CODEME --    cmp     r5, r4                  ; compare the characters
+;; -- CODEME --    z.mov   pc, r0, cmdLoop2        ; if a match, loop back for more
+;; -- CODEME --
+;; -- CODEME --    sub     r2, r0, 1
+;; -- CODEME --cmdLoop3:                           ; skip to the end of the command in the table
+;; -- CODEME --    add     r2, r0, 1
+;; -- CODEME --    ld      r4, r2
+;; -- CODEME --    pl.mov  pc, r0, cmdLoop3
+;; -- CODEME --
+;; -- CODEME --    cmp     r5, r0, 0x2e            ; was the mis-match a '.'
+;; -- CODEME --    nz.mov  pc, r0, cmdLoop1        ; no, then start again with next command
+;; -- CODEME --
+;; -- CODEME --cmdExec:
+;; -- CODEME --
+;; -- CODEME --    mov     r1, r3                  ; r1 = the command pointer to the params
+;; -- CODEME --    mov     r2, r4                  ; r2 = the execution address
+;; -- CODEME --
+;; -- CODEME --    JSR     (cmdExecR2)
+;; -- CODEME --
+;; -- CODEME --    POP     (r13)
+;; -- CODEME --    POP     (r5)
+;; -- CODEME --    POP     (r4)
+;; -- CODEME --    POP     (r3)
+;; -- CODEME --    POP     (r2)
+;; -- CODEME --
+        
+        NEQ     ,0xFF           ; reset Carry flag to show command was not handled locally
+        RTN
+
+
+
+
+
+; --------------------------------------------------------------
 mosFILE:
     ; TODO
     RTN
@@ -227,7 +408,6 @@ mosGBPB:
     ; TODO
     RTN
 
-; --------------------------------------------------------------
 
 ; --------------------------------------------------------------
 ; mosWORD
@@ -271,26 +451,26 @@ mosWORDL1:
         STO     R0
         LDA     /R0
         CAL     .sendByteR2     ; Send request block length
-        LDA     R4
-        STO     R2
         LDA     R3
         ADD     ,word_in_len
         STO     R0
         LDA     /R0
-        STO     R1               
+        STO     R1
+        LDA     R4
+        STO     R2        
         CAL     .sendBlockR2     ; Send request block
         LDA     R3
         ADD     ,word_out_len
         STO     R0
         LDA     /R0
         CAL     .sendByteR2      ; Send response block length
-        LDA     R4
-        STO     R2
         LDA     R3
         ADD     ,word_out_len
         STO     R0
         LDA     /R0
         STO     R1
+        LDA     R4
+        STO     R2        
         CAL     .receiveBlockR2  ; Receive response block
         LDA     /USP-
         STO     R4
@@ -300,6 +480,69 @@ mosWORDL1:
         STO     R2
         LDA     /USP-
         STO     R1
+        RTN
+
+; --------------------------------------------------------------
+; skip_space
+;
+; Entry:
+; - r1 is the address of the string
+;
+; Exit:
+; - r1 is updated to skip and spaces
+; - ACC is non-space character
+; - all other registers preserved
+
+skip_spaces:
+        LDA     ,1
+        SBS     R1
+skip_spaces_loop:
+        LDA     /R1+
+        CMP     ,0x20
+        JBS     ZERO CR skip_spaces_loop
+        RTN
+
+        
+; --------------------------------------------------------------
+; print_string
+;
+; Prints the zero terminated ASCII string
+;
+; Entry:
+; - ACC points to the location of the zero terminated string
+;
+; Exit:
+; - r0,r1 trashed
+
+print_string:
+        STO     R0
+        LDA     ,1
+        SUB     R0 ; Need addr-1 in R1 because we will use pre-incr pointer to address the string
+        STO     R1
+print_string_loop:
+        LDA     /R1+
+        AND     ,0xFF
+        JBS     ZERO CR print_string_exit
+        CAL     .OSWRCH
+        JMP     .print_string_loop
+print_string_exit:
+        RTN
+
+; --------------------------------------------------------------
+; NEWLINE
+;
+; emit a newline LF+CR pair
+;
+; Entry:
+; - None
+;
+; Exit:
+; - R0 trashed
+newline:
+        LDA     ,0x0A
+        CAL     .OSWRCH
+        LDA     ,0x0D
+        CAL     .OSWRCH
         RTN
 
 ; --------------------------------------------------------------
@@ -337,15 +580,15 @@ sendBlockB1:
         ; byte swap R3 into R1
         SLE     8  R3
         CAL     .sendByteR2     ; send byte 1
-        LDA     ,-1             ; Decrement R4
+        LDA     ,1              ; Decrement R4
         SBS     R4
         JBS     SIGN CR sendBlockDone
 sendBlockB0:
         CAL     .sendByteR2     ; send byte 0
-        LDA     ,-1
+        LDA     ,1
         SBS     R4
         JBS     SIGN CR sendBlockDone
-        LDA     ,-1
+        LDA     ,1
         SBS     R2
         LDA     /R2
         STO     R3               ; load the next word from memory
@@ -371,7 +614,7 @@ receiveBlockR2:
         STO     /USP+
         LDA     R4
         STO     /USP+
-        LDA     ,-1
+        LDA     ,1
         SBS     R4      ; r4 = block length - 1
         JBS     SIGN CR receiveBlockDone
         SRL     1 R4 ; calculate address of word containing last byte
@@ -399,7 +642,7 @@ receiveBlockWrite:
         STO     /R2-            ; write word and post decrement R2
         LDA     ,0              ; clear the receive work for next bytes
         STO     R3
-        LDA     ,-1             
+        LDA     ,1             
         SBS     R4
         JBC     SIGN CR receiveBlockB1
 receiveBlockDone:
@@ -485,7 +728,7 @@ RDLINE:
         STO     R0
         LDA     /R0
         CAL     .sendByteR2  ; Send <char min>
-        LDA     ,0x07
+        LDA     ,0x07        
         CAL     .sendByteR2  ; Send <buffer addr MSB>
         LDA     ,0        
         CAL     .sendByteR2   ; Send <buffer addr LSB>
@@ -500,11 +743,11 @@ RDLINE:
         
 RdLineLp:
         CAL     .waitByteR2  ; Receive a response byte
-        STO     R2
-        LDA     /R2+         ; Increment buffer pointer
-        LDA     R3           ; increment count
-        ADD     ,1
-        STO     R3
+        STO     /R2
+        LDA     ,1
+        ADS     R2           ; Increment buffer pointer
+        LDA     ,1           ; increment count
+        ADS     R3
         CMP     ,0x0D        ; Compare against terminator and loop back
         JBC     ZERO CR RdLineLp
         NEQ     R0           ; clear carry to indicate not-escape
@@ -513,7 +756,7 @@ RdLineEscape:
         LDA     /USP-
         STO     R2
         LDA     ,0
-        STO     R0           ; Clear r0 to be tidy
+        STO     R1           ; Clear r1 to be tidy
         RTN
 
 ; -------------------------------------------------------------
@@ -676,42 +919,9 @@ sendByteR4_L1:
         RTN
 
 
-; --------------------------------------------------------------
-; MOS interface
-; --------------------------------------------------------------
 
-NullReturn:
-    RTN
 
-; --------------------------------------------------------------
 
-Unsupported:
-    RTN
-
-; --------------------------------------------------------------
-
-ErrorHandler:
-
-    LDA     ,LINK_STACK                 ; Clear the stack
-    STO     .LSP
-    CAL     .newline
-    LDA     .LAST_ERR                   ; Address of the last error: <error num> <err string> <00>
-    ADD     ,1                          ; Skip over error num
-    CAL     .print_string               ; Print error string
-    CAL     .newline
-    JMP     .CmdPrompt                  ; Jump to command prompt
-
-; --------------------------------------------------------------
-; OSCLI - Send command line to host
-;
-; Entry
-; r1 = command string pointer
-;
-; Tube data  &02 string &0D  --  &7F or &80
-;
-mosCLI:
-        ; TODO !
-        RTN
 
 
 ; -----------------------------------------------------------------------------
