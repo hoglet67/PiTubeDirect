@@ -318,6 +318,15 @@ static char *format_data(uint32_t i) {
    }
    return result;
 }
+static char *format_char(uint32_t i) {
+   static char result[32];
+   if (i < 32 || i > 126) {
+      i = '.';
+   }
+   sprintf(result,"( %c )", (char) i);
+   return result;
+}
+
 
 // Internal memory accessor helpers
 //
@@ -449,12 +458,12 @@ static inline void generic_memory_access(cpu_debug_t *cpu, uint32_t addr, uint32
       uint32_t pc = cpu->get_instr_addr();
       if (ptr->mode == MODE_BREAK) {
          noprompt();
-         printf("%s breakpoint hit at %s : %s = %s\r\n", type, format_addr(pc), format_addr2(addr), format_data(value));
+         printf("%s breakpoint hit at %s : %s = %s %s\r\n", type, format_addr(pc), format_addr2(addr), format_data(value), format_char(value));
          prompt();
          disassemble_addr(pc);
       } else {
          noprompt();
-         printf("%s watchpoint hit at %s : %s = %s\r\n", type, format_addr(pc), format_addr2(addr), format_data(value));
+         printf("%s watchpoint hit at %s : %s = %s %s\r\n", type, format_addr(pc), format_addr2(addr), format_data(value), format_char(value));
          prompt();
       }
       while (stopped);
@@ -864,7 +873,7 @@ static void doCmdFill(const char *params) {
    if (parse3params(params, 3, &start, &end, &data)) {
       return;
    }
-   printf("Wr: %s to %s = %s\r\n", format_addr(start), format_addr2(end), format_data(data));
+   printf("Wr: %s to %s = %s %s\r\n", format_addr(start), format_addr2(end), format_data(data), format_char(data));
    int stride = 1 << (width - cpu->mem_width);
    for (i = start; i <= end; i += stride) {
       memwrite(cpu, i, data);
@@ -944,7 +953,7 @@ static void doCmdRd(const char *params) {
       return;
    }
    data = memread(cpu, addr);
-   printf("Rd Mem: %s = %s\r\n", format_addr(addr), format_data(data));
+   printf("Rd Mem: %s = %s %s\r\n", format_addr(addr), format_data(data), format_char(data));
 }
 
 static void doCmdWr(const char *params) {
@@ -954,7 +963,7 @@ static void doCmdWr(const char *params) {
    if (parse2params(params, 2, &addr, &data)) {
       return;
    }
-   printf("Wr Mem: %s = %s\r\n", format_addr(addr), format_data(data));
+   printf("Wr Mem: %s = %s %s\r\n", format_addr(addr), format_data(data), format_char(data));
    memwrite(cpu, addr++, data);
 }
 
@@ -966,7 +975,7 @@ static void doCmdIn(const char *params) {
       return;
    }
    data = ioread(cpu, addr);
-   printf("Rd IO: %s = %s\r\n", format_addr(addr), format_data(data));
+   printf("Rd IO: %s = %s %s\r\n", format_addr(addr), format_data(data), format_char(data));
 }
 
 static void doCmdOut(const char *params) {
@@ -976,7 +985,7 @@ static void doCmdOut(const char *params) {
    if (parse2params(params, 2, &addr, &data)) {
       return;
    }
-   printf("Wr IO: %s = %s\r\n", format_addr(addr), format_data(data));
+   printf("Wr IO: %s = %s %s\r\n", format_addr(addr), format_data(data), format_char(data));
    iowrite(cpu, addr++, data);
 }
 
