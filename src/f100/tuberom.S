@@ -748,12 +748,14 @@ RDLINE:
         
 RdLineLp:
         CAL     .waitByteR2  ; Receive a response byte
+        STO     R0           ; save response for later check
         STO     /R2
         LDA     ,1
         ADS     R2           ; Increment buffer pointer
         LDA     ,1           ; increment count
         ADS     R3
-        CMP     ,0x0D        ; Compare against terminator and loop back
+        LDA     R0           ; reload response byte and
+        CMP     ,0x0D        ; compare against terminator and loop back
         JBC     ZERO CR RdLineLp
         NEQ     R0           ; clear carry to indicate not-escape
 RdLineEscape:        
