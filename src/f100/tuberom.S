@@ -1082,8 +1082,7 @@ Type0_loop:
         STO     .r3data         ; Send even byte to Tube R3
         LDA     ,1              ; Increment memory pointer
         ADS     R3
-        SLE     8 R2            ; Byte swap
-        AND     ,0x00FF         ; mask off low byte
+        SRL     8 R2            ; Move bits 15..8 down to 7..0
         ADD     ,0x8000         ; set top bit (odd byte flag)
         STO     R2
         JMP     .Type0_loop
