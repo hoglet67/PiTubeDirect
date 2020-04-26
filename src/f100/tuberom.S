@@ -1026,9 +1026,19 @@ LFD65:
         LDA     .r3data
         CAL     .waitByteR4 ; sync
 
-        LDA     ,TransferHandlerTable
-        ADS     R2
-        JMP     /R2
+        LDA     R2
+        ADD     R2
+        SJM
+
+;; TransferHandlerTable
+        JMP     .Type0
+    	JMP     .Type1
+    	JMP     .Type2
+    	JMP     .Type3
+    	JMP     .Type4
+    	JMP     .Release ; not actually used
+    	JMP     .Type6
+    	JMP     .Type7
 
 Release:
         LDA     /USP-
@@ -1039,16 +1049,6 @@ Release:
         STO     R1
         LDA     /USP-
         RTN
-
-TransferHandlerTable:
-        .word    Type0
-    	.word    Type1
-    	.word    Type2
-    	.word    Type3
-    	.word    Type4
-    	.word    Release ; not actually used
-    	.word    Type6
-    	.word    Type7
 
 ; ============================================================
 ; Type 0 transfer: 1-byte parasite -> host (SAVE)
