@@ -323,7 +323,9 @@ dontEnterCode:
         RTN
 
 enterCode:
-        JMP     .ADDR
+        LDA     .ADDR
+        STO     R0
+        JMP     /R0
 
 ; Find the start of the command string
 ;
@@ -1138,7 +1140,7 @@ Type1_odd_byte:
 
 Type4:
         LDA     R3
-        STO     ,ADDR
+        STO     .ADDR
 Type2:
 Type3:
 Type6:
