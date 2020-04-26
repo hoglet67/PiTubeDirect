@@ -1126,7 +1126,7 @@ Type1_loop:
         JMP     .Type1_loop
 Type1_odd_byte:
         LDA     R2              ; Clear upper byte of R2 ready for merging
-        AND     0x00FF
+        AND     ,0x00FF
         STO     R2
         LDA     .r3data         ; Read the odd byte from Tube T3
         SLL     8 A             ; Shift it to the upper byte
@@ -1162,7 +1162,7 @@ WaitByteR1:
         AND     ,0x80
         JBC     ZERO CR GotByteR1
         LDA     .r4status
-        AND     0x80
+        AND     ,0x80
         JBS     ZERO CR WaitByteR1
 
 GotByteR1:
@@ -1590,7 +1590,7 @@ OSRDCH:                      ; &7FE0
 .org MOS + (0xE3-0xC8)
 
 OSASCI:                      ; &7FE3
-    CMP     0x0d
+    CMP     ,0x0d
     JBC     ZERO CR OSWRCH
 
 .org MOS + (0xE7-0xC8)
@@ -1601,7 +1601,7 @@ OSNEWL:                      ; &7FE7
 .org MOS + (0xEC-0xC8)
 
 OSWRCR:                      ; &7FEC
-    LDA     0x0D
+    LDA     ,0x0D
 
 .org MOS + (0xEE-0xC8)
 
