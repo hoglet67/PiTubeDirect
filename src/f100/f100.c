@@ -38,8 +38,8 @@ void f100_irq(int id) {
     F100_WRITE_MEM(stack_pointer+1, cpu.pc);
     F100_WRITE_MEM(TRUNC15(stack_pointer+2), PACK_FLAGS);
     F100_WRITE_MEM(LSP, TRUNC15(stack_pointer+2));
-    cpu.I = 0;
-    cpu.PC = 0x7FFE;
+    cpu.I = 1;
+    cpu.pc = 0x7FFE;
   }
 }
 
