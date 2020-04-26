@@ -1534,87 +1534,87 @@ REMAINDER:                      ; array space for remainder (RAM)
 
 .org MOS
 
-NVRDCH:                      ; &FFC8
+NVRDCH:                      ; &7FC8
     JMP	.mosRDCH
 
 .org MOS + (0xCB-0xC8)
 
-NVWRCH:                      ; &FFCB
+NVWRCH:                      ; &7FCB
     JMP	.mosWRCH
 
 .org MOS + (0xCE-0xC8)
 
-OSFIND:                      ; &FFCE
+OSFIND:                      ; &7FCE
     JMP	.FINDV
 
 .org MOS + (0xD1-0xC8)
 
-OSGBPB:                      ; &FFD1
+OSGBPB:                      ; &7FD1
     JMP	.GBPBV
 
 .org MOS + (0xD4-0xC8)
 
-OSBPUT:                      ; &FFD4
+OSBPUT:                      ; &7FD4
     JMP	.BPUTV
 
 .org MOS + (0xD7-0xC8)
 
-OSBGET:                      ; &FFD7
+OSBGET:                      ; &7FD7
     JMP	.BGETV
 
 .org MOS + (0xDA-0xC8)
 
-OSARGS:                      ; &FFDA
+OSARGS:                      ; &7FDA
     JMP	.ARGSV
 
 .org MOS + (0xDD-0xC8)
 
-OSFILE:                      ; &FFDD
+OSFILE:                      ; &7FDD
     JMP	.FILEV
 
 .org MOS + (0xE0-0xC8)
 
-OSRDCH:                      ; &FFE0
+OSRDCH:                      ; &7FE0
     JMP	.RDCHV
 
 .org MOS + (0xE3-0xC8)
 
-OSASCI:                      ; &FFE3
+OSASCI:                      ; &7FE3
     CMP     0x0d
     JBC     ZERO CR OSWRCH
 
 .org MOS + (0xE7-0xC8)
 
-OSNEWL:                      ; &FFE7
+OSNEWL:                      ; &7FE7
     JMP     .newline
 
 .org MOS + (0xEC-0xC8)
 
-OSWRCR:                      ; &FFEC
+OSWRCR:                      ; &7FEC
     LDA     0x0D
 
 .org MOS + (0xEE-0xC8)
 
-OSWRCH:                      ; &FFEE
+OSWRCH:                      ; &7FEE
     JMP	.WRCHV
 
 .org MOS + (0xF1-0xC8)
 
-OSWORD:                      ; &FFF1
+OSWORD:                      ; &7FF1
     JMP	.WORDV
 
 .org MOS + (0xF4-0xC8)
 
-OSBYTE:                      ; &FFF4
+OSBYTE:                      ; &7FF4
     JMP	.BYTEV
 
 .org MOS + (0xF7-0xC8)
 
-OS_CLI:                      ; &FFF7
+OS_CLI:                      ; &7FF7
     JMP	.CLIV
 
 
 .org MOS + (0xFE-0xC8)
 
-IRQ_ENTRY:                   ; &FFFE
+IRQ_ENTRY:                   ; &7FFE
     JMP     .InterruptHandler

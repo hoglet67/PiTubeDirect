@@ -39,7 +39,7 @@ void f100_irq(int id) {
     F100_WRITE_MEM(TRUNC15(stack_pointer+2), PACK_FLAGS);
     F100_WRITE_MEM(LSP, TRUNC15(stack_pointer+2));
     cpu.I = 0;
-    cpu.PC = 0x7FEE;
+    cpu.PC = 0x7FFE;
   }
 }
 
