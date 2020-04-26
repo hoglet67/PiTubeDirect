@@ -31,6 +31,16 @@ void f100_init(uint16_t *memory, uint16_t pc_rst, uint16_t pc_irq0, uint16_t pc_
 }
 
 void f100_irq(int id) {
+  // Temporary fake interrupt implementation - jump to 0x7FEE for PiTubeDirect
+  if (!cpu.I) {
+    uint16_t stack_pointer ;
+    stack_pointer = F100_READ_MEM(LSP);
+    F100_WRITE_MEM(stack_pointer+1, cpu.pc);
+    F100_WRITE_MEM(TRUNC15(stack_pointer+2), PACK_FLAGS);
+    F100_WRITE_MEM(LSP, TRUNC15(stack_pointer+2));
+    cpu.I = 0;
+    cpu.PC = 0x7FEE;
+  }
 }
 
 void f100_reset() {
