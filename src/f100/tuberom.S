@@ -1011,7 +1011,7 @@ LFD65:
         LDA     R1
         STO     R2
         CAL     .waitByteR4
-        STO     R2
+        LDA     R2
         CMP     ,0x05
         JBS     ZERO CR Release
         CAL     .waitByteR4 ; block address MSB - ignored
@@ -1028,7 +1028,7 @@ LFD65:
 
         LDA     ,TransferHandlerTable
         ADS     R2
-        JMP     R2
+        JMP     /R2
 
 Release:
         LDA     /USP-
