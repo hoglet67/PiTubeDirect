@@ -46,6 +46,7 @@ void f100_irq(int id) {
 void f100_reset() {
   cpu.pc = reset_vec;
   cpu.I = 0;
+  cpu.M = 0;
 }
 
 
