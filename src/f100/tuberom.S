@@ -323,7 +323,9 @@ dontEnterCode:
         RTN
 
 enterCode:
-        JMP     .ADDR
+        LDA     .ADDR
+        STO     R0
+        JMP     /R0
 
 ; Find the start of the command string
 ;
@@ -1011,7 +1013,7 @@ LFD65:
         LDA     R1
         STO     R2
         CAL     .waitByteR4
-        STO     R2
+        LDA     R2
         CMP     ,0x05
         JBS     ZERO CR Release
         CAL     .waitByteR4 ; block address MSB - ignored
@@ -1026,9 +1028,19 @@ LFD65:
         LDA     .r3data
         CAL     .waitByteR4 ; sync
 
-        LDA     ,TransferHandlerTable
-        ADS     R2
-        JMP     R2
+        LDA     R2
+        ADD     R2
+        SJM
+
+;; TransferHandlerTable
+        JMP     .Type0
+    	JMP     .Type1
+    	JMP     .Type2
+    	JMP     .Type3
+    	JMP     .Type4
+    	JMP     .Release ; not actually used
+    	JMP     .Type6
+    	JMP     .Type7
 
 Release:
         LDA     /USP-
@@ -1039,16 +1051,6 @@ Release:
         STO     R1
         LDA     /USP-
         RTN
-
-TransferHandlerTable:
-        .word    Type0
-    	.word    Type1
-    	.word    Type2
-    	.word    Type3
-    	.word    Type4
-    	.word    Release ; not actually used
-    	.word    Type6
-    	.word    Type7
 
 ; ============================================================
 ; Type 0 transfer: 1-byte parasite -> host (SAVE)
@@ -1082,8 +1084,7 @@ Type0_loop:
         STO     .r3data         ; Send even byte to Tube R3
         LDA     ,1              ; Increment memory pointer
         ADS     R3
-        SLE     8 R2            ; Byte swap
-        AND     ,0x00FF         ; mask off low byte
+        SRL     8 R2            ; Move bits 15..8 down to 7..0
         ADD     ,0x8000         ; set top bit (odd byte flag)
         STO     R2
         JMP     .Type0_loop
@@ -1126,7 +1127,7 @@ Type1_loop:
         JMP     .Type1_loop
 Type1_odd_byte:
         LDA     R2              ; Clear upper byte of R2 ready for merging
-        AND     0x00FF
+        AND     ,0x00FF
         STO     R2
         LDA     .r3data         ; Read the odd byte from Tube T3
         SLL     8 A             ; Shift it to the upper byte
@@ -1139,7 +1140,7 @@ Type1_odd_byte:
 
 Type4:
         LDA     R3
-        STO     ,ADDR
+        STO     .ADDR
 Type2:
 Type3:
 Type6:
@@ -1162,7 +1163,7 @@ WaitByteR1:
         AND     ,0x80
         JBC     ZERO CR GotByteR1
         LDA     .r4status
-        AND     0x80
+        AND     ,0x80
         JBS     ZERO CR WaitByteR1
 
 GotByteR1:
@@ -1590,7 +1591,7 @@ OSRDCH:                      ; &7FE0
 .org MOS + (0xE3-0xC8)
 
 OSASCI:                      ; &7FE3
-    CMP     0x0d
+    CMP     ,0x0d
     JBC     ZERO CR OSWRCH
 
 .org MOS + (0xE7-0xC8)
@@ -1601,7 +1602,7 @@ OSNEWL:                      ; &7FE7
 .org MOS + (0xEC-0xC8)
 
 OSWRCR:                      ; &7FEC
-    LDA     0x0D
+    LDA     ,0x0D
 
 .org MOS + (0xEE-0xC8)
 
