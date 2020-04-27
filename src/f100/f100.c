@@ -118,47 +118,51 @@ void f100_execute() {
     switch ( cpu.ir.F ) {
     case OP_F0:
       if (cpu.ir.T==0 && cpu.ir.S<2) { // Shifts
+        uint8_t  places;
+        uint32_t mask;
+        
         if (cpu.ir.R==1) cpu.or = PACK_FLAGS;
         else if (cpu.ir.R==3) cpu.or = F100_READ_MEM(operand_address);
+
         if ( cpu.M==0 ) { // Single Length
-          uint8_t  places = cpu.ir.B;
           if (cpu.ir.R==1 || cpu.ir.R==3) operand = cpu.or;
           else operand = cpu.acc;
-          // S=Direction, J=0,1:Arith, 2:Logical, 3:Rotate, B=Num Places
-          if (cpu.ir.S) {
-            result = TRUNC16(operand<<places);
-          } else if (cpu.ir.J<2) {
-            result = TRUNC16((int16_t)operand>>places);
-          } else {
-            result = TRUNC16(operand>>places);
+          mask = 0x0000FFFF;          
+          places = cpu.ir.B;
+          result = TRUNC16(operand);
+        } else { // Double length
+          mask = 0xFFFFFFFF;          
+          places = (((cpu.ir.J&1)<<4) + cpu.ir.B);
+          result = ((cpu.acc<<16) | cpu.or) & mask;
+        }
+        // S=Direction, J=0,1:Arith, 2:Logical, 3:Rotate (single length only)
+        if (cpu.ir.S) {
+          if (cpu.ir.J<3 || cpu.M==1) {           // Arith & logic shift left all identical
+            result = (result << places) & mask;
+          } else {                                // Rotate (single length only)
+            result = TRUNC16((result << places) | (result >>(16-places)));
           }
+        } else {
+          if ( cpu.ir.J<2 ) {                     // Shift as a signed value to get arithmetic shift
+            result =  ((int32_t) result>>places) & mask;
+          } else if ( cpu.ir.J==2 || cpu.M==1) {  // Logical shift, single or double length
+            result = (result>>places) & mask;
+          } else {                                // Rotate (single length only)
+            result = TRUNC16((result >> places) | (result <<(16-places)));
+          }
+        }
+        if ( cpu.M== 0) { //Single length
           COMPUTE_SV(result,operand,operand);
           cpu.acc = TRUNC16(result);
-          if (cpu.ir.R==1) {
-            // Overwrite flags with the shifted value
-            UNPACK_FLAGS(cpu.acc);
-          }
-        } else { // Double Length
-          uint8_t  places = (((cpu.ir.J&1)<<4) + cpu.ir.B);
-          // Assemble acc+OR into 32bit result register to start shifting
-          result = (cpu.acc<<16) | cpu.or;
-          // S=Direction, J=0,1:Arith, 2:Logical, B=Num Places
-          if (cpu.ir.S) {
-            result = (result << places) & 0xFFFFFFFF;
-          } else if ( cpu.ir.J<2 ) {
-            // Shift as a signed value to get arithmetic shift
-            result =  ((int32_t) result>>places) & 0xFFFFFFFF;
-          } else {
-            result = result>>places;
-          }
+        } else { // Double length
           COMPUTE_SV(TRUNC16(result>>16), cpu.acc, cpu.acc);
           cpu.acc = TRUNC16((result>>16));
           cpu.or = TRUNC16(result);
-          if (cpu.ir.R==1) {
-            // Overwrite flags with the shifted value, low word (in OR)
-            UNPACK_FLAGS(cpu.or);
-          }
         }
+        if ( cpu.ir.R==1 ) {
+          // Overwrite flags with the shifted value, low word
+          UNPACK_FLAGS(result);
+        }          
       } else if ( cpu.ir.T==0 && cpu.ir.S>1) { //  Bit conditional jumps and Bit manipulation
         uint16_t bmask;
         uint16_t jump_address;
