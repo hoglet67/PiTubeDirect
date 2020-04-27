@@ -376,3 +376,75 @@ cpu_debug_t f100_cpu_debug = {
    .trap_names     = dbg_trap_names,
    .mem_width      = WIDTH_16BITS
 };
+
+/*****************************************************
+ * Standalone operation as a disassembler
+ *****************************************************/
+
+#ifdef STANDALONE
+
+#define MEM_SIZE 0x10000
+
+cpu_t *m_f100 = NULL;
+
+uint16_t memory[MEM_SIZE];
+
+void copro_f100_write_mem(uint16_t addr, uint16_t data) {
+   memory[addr] = data;
+}
+
+uint16_t copro_f100_read_mem(uint16_t addr) {
+   return memory[addr];
+}
+
+void main(int argc, char *argv[]) {
+   char buf[256];
+   int addr;
+   int lowest = MEM_SIZE;
+   int highest = 0;
+
+   FILE *f;
+   if (argc < 2 || (argc % 2) == 0) {
+      fprintf(stderr, "usage: f100dis file address [ file address ]...\n");
+      exit(1);
+   }
+
+   for (int i = 0; i < MEM_SIZE; i++) {
+      memory[i] = 0;
+   }
+
+   for (int i = 1; i < argc; i += 2) {
+
+      FILE *f = fopen(argv[i], "r");
+      if (f == NULL) {
+         perror(argv[i]);
+         exit(1);
+      }
+
+      addr = strtol(argv[i + 1], NULL, 16);
+
+      printf("%s: start %04x\n", argv[i], addr);
+      if (addr < lowest) {
+         lowest = addr;
+      }
+      size_t num;
+      do {
+         num = fread(memory + addr, sizeof(uint16_t), 1, f);
+         addr++;
+      } while (num > 0);
+      addr--;
+      printf("%s: end   %04x\n", argv[i], addr - 1);
+      if (addr > highest) {
+         highest = addr;
+      }
+   }
+
+   addr = lowest;
+   do {
+      addr = dbg_disassemble(addr, buf, sizeof(buf));
+      printf("%s\n", buf);
+   } while (addr < highest);
+
+}
+
+#endif
