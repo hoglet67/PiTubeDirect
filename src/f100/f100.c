@@ -144,7 +144,11 @@ void f100_execute() {
           }
         } else {
           if ( cpu.ir.J<2 ) {                     // Shift as a signed value to get arithmetic shift
-            result =  ((int32_t) result>>places) & mask;
+            if ( cpu.M==0) {                      // need to respect sign bit in different location for single/double shift
+              result =  TRUNC16((int16_t) result>>places);              
+            } else {
+              result =  ((int32_t) result>>places) & mask;              
+            }
           } else if ( cpu.ir.J==2 || cpu.M==1) {  // Logical shift, single or double length
             result = (result>>places) & mask;
           } else {                                // Rotate (single length only)
