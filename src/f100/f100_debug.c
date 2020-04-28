@@ -127,6 +127,9 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    // Track the instruction length
    int oplen = 1;
 
+   // Track words to skip following instruction
+   int skip = 0;
+
    // Format the operand
    uint16_t operand = 0;
    if (f == 0) {
@@ -210,23 +213,27 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
          // Shift, Bit Manipulation, Jump
          if (s == 2) {
             // Conditional Jump
-            snprintf(buf, bufsize, "%s   %x %s %04"PRIx16, jmp_names[j], b, op_buf, target);
+            len = snprintf(buf, bufsize, "%s   %x %s %04"PRIx16, jmp_names[j], b, op_buf, target);
          } else if (s == 3) {
             // Bit Manipulation
-            snprintf(buf, bufsize, "%s   %x %s", bit_names[j], b, op_buf);
+            len = snprintf(buf, bufsize, "%s   %x %s", bit_names[j], b, op_buf);
          } else {
             // Shift
-            snprintf(buf, bufsize, "%s   %x %s", shift_names[s * 4 + j], b, op_buf);
+            len = snprintf(buf, bufsize, "%s   %x %s", shift_names[s * 4 + j], b, op_buf);
             // TODO: How to distinguise the double length shifts
             // as these depend on CR.M. This makes an accurate disassembler
             // impossible!
          }
       } else if (t == 1) {
          // Halt
-         snprintf(buf, bufsize, "HALT ,%04"PRIx16, n & 0x3FF);
+         len = snprintf(buf, bufsize, "HALT ,%04"PRIx16, n & 0x3FF);
       } else {
          // External Functions
-         snprintf(buf, bufsize, "EXT  ,%04"PRIx16, n);
+         len = snprintf(buf, bufsize, "EXT  ,%04"PRIx16, n);
+         if (n >= 0x400 && n <= 0x40f) {
+            // F101L Co Pro instructions have three word addresses as args
+            skip = 3;
+         }
       }
       break;
 
@@ -234,25 +241,36 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
       // SJM
    case 14:
       // F14
-      snprintf(buf, bufsize, "%s", opcode_names[f]);
+      len = snprintf(buf, bufsize, "%s", opcode_names[f]);
       break;
 
    case 3:
       // RTN/RTC
-      snprintf(buf, bufsize, "%s", rtn_names[i]);
+      len = snprintf(buf, bufsize, "%s", rtn_names[i]);
       break;
 
    case 7:
       // ICZ
-      snprintf(buf, bufsize, "%s  %s %04"PRIx16, opcode_names[f], op_buf, target);
+      len = snprintf(buf, bufsize, "%s  %s %04"PRIx16, opcode_names[f], op_buf, target);
       break;
 
    default:
-      snprintf(buf, bufsize, "%s  %s", opcode_names[f], op_buf);
+      len = snprintf(buf, bufsize, "%s  %s", opcode_names[f], op_buf);
       break;
    }
+   buf += len;
+   bufsize -= len;
 
-   return addr + oplen;
+   // Output any additional words to be skipped following the instruction
+   addr += oplen;
+   for (int i = 0; i < skip; i++) {
+      len = snprintf(buf, bufsize, "\n%04"PRIx32" : %04"PRIX16"           : DATA", addr, copro_f100_read_mem(addr));
+      buf += len;
+      bufsize -= len;
+      addr++;
+   }
+
+   return addr;
 };
 
 // Get a register - which is the index into the names above
@@ -403,7 +421,7 @@ void usage() {
 }
 
 void main(int argc, char *argv[]) {
-   char buf[256];
+   char buf[1024];
    int addr = 0;
    int lowest = MEM_SIZE;
    int highest = 0;
