@@ -397,53 +397,63 @@ uint16_t copro_f100_read_mem(uint16_t addr) {
    return memory[addr];
 }
 
+void usage() {
+   fprintf(stderr, "usage: f100dis [-a <address> ] [ -x <xor pattern> ] file...\n");
+   exit(1);
+}
+
 void main(int argc, char *argv[]) {
    char buf[256];
-   int addr;
+   int addr = 0;
    int lowest = MEM_SIZE;
    int highest = 0;
 
-   FILE *f;
-   if (argc < 2 || (argc % 2) == 0) {
-      fprintf(stderr, "usage: f100dis file address [ file address ]...\n");
-      exit(1);
+   uint16_t xor = 0;
+
+   int s = 1;
+   while (s <= argc && argv[s][0] == '-') {
+      if (strcmp(argv[s], "-a") == 0) {
+         addr = strtol(argv[s + 1], NULL, 16);
+         s += 2;
+      } else if (strcmp(argv[s], "-x") == 0) {
+         xor = strtol(argv[s + 1], NULL, 16);
+         s += 2;
+      } else {
+         usage();
+      }
    }
 
    for (int i = 0; i < MEM_SIZE; i++) {
       memory[i] = 0;
    }
 
-   for (int i = 1; i < argc; i += 2) {
-
+   for (int i = s; i < argc; i++) {
       FILE *f = fopen(argv[i], "r");
       if (f == NULL) {
          perror(argv[i]);
          exit(1);
       }
-
-      addr = strtol(argv[i + 1], NULL, 16);
-
-      printf("%s: start %04x\n", argv[i], addr);
-      if (addr < lowest) {
-         lowest = addr;
-      }
       size_t num;
       do {
-         num = fread(memory + addr, sizeof(uint16_t), 1, f);
-         addr++;
+         int actual = addr ^ xor;
+         num = fread(memory + actual, sizeof(uint16_t), 1, f);
+         if (num > 0) {
+            if (actual < lowest) {
+               lowest = actual;
+            }
+            if (addr > highest) {
+               highest = addr;
+            }
+            addr++;
+         }
       } while (num > 0);
-      addr--;
-      printf("%s: end   %04x\n", argv[i], addr - 1);
-      if (addr > highest) {
-         highest = addr;
-      }
    }
 
    addr = lowest;
    do {
       addr = dbg_disassemble(addr, buf, sizeof(buf));
       printf("%s\n", buf);
-   } while (addr < highest);
+   } while (addr <= highest);
 
 }
 
