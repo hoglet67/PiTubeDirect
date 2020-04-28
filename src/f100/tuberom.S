@@ -495,8 +495,8 @@ mosGBPB:
 ; mosWORD
 ;
 ; Entry:
-; - R0 osword number
-; - R1 points to parameter block in memory
+; - R1 osword number
+; - R2 points to parameter block in memory
 ; Exit:
 ; - R0 trashed
 
@@ -931,8 +931,8 @@ IRQ1Handler:
 r1_irq:
         LDA     .r1data
         STO     R1
-        CMP     ,0x80
-        JBC     CARRY CR r1_irq_escape
+        AND     ,0x80
+        JBC     ZERO CR r1_irq_escape
         LDA     R2
         STO     /USP+
         LDA     R3
