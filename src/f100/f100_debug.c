@@ -81,6 +81,8 @@ static const char *opcode_names[] = {
    "JMP"     // F=15
 };
 
+static uint8_t* data_map = NULL;
+
 // NULL pointer terminated list of trap names.
 static const char *dbg_trap_names[] = {
    NULL
@@ -107,167 +109,185 @@ static void dbg_memwrite(uint32_t addr, uint32_t value) {
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    int len;
 
-   // Temporary buffer for formatting the operand
-   char op_buf[16];
-
-   // Read the instruction
-   uint16_t instr = copro_f100_read_mem(addr);
-
-   // Decode the instruction
-   uint16_t f = (instr >> 12) & 0x000F;
-   uint16_t i = (instr >> 11) & 0x0001;
-   uint16_t t = (instr >> 10) & 0x0003; // to qualify opcode=0
-   uint16_t r = (instr >>  8) & 0x0003;
-   uint16_t s = (instr >>  6) & 0x0003;
-   uint16_t j = (instr >>  4) & 0x0003;
-   uint16_t n = (instr      ) & 0x07FF;
-   uint16_t p = (instr      ) & 0x00FF;
-   uint16_t b = (instr      ) & 0x000F;
-
-   // Track the instruction length
-   int oplen = 1;
+   int need_newline = 1;
 
    // Track words to skip following instruction
    int skip = 0;
 
-   // Format the operand
-   uint16_t operand = 0;
-   if (f == 0) {
-      if (t == 0) {
-         // Shift, Bit Manipulation, Jump
-         if (r == 1) {
-            sprintf(op_buf, "CR");
-         } else if (r == 3) {
-            operand = copro_f100_read_mem(addr + oplen) & 0x7FFF;
-            oplen++;
-            sprintf(op_buf, "%04"PRIx16, operand);
-         } else {
-            sprintf(op_buf, "A");
-         }
-      }
-   } else if (f != 1 && f != 3 && f != 14) {
-      // Default group
-      if (i == 0) {
-         if (n == 0) {
-            operand = copro_f100_read_mem(addr + oplen);
-            oplen++;
-            sprintf(op_buf, ",%04"PRIx16, operand);
-         } else {
-            sprintf(op_buf, " %04"PRIx16, n);
-         }
-      } else {
-         if (p == 0) {
-            operand = copro_f100_read_mem(addr + oplen) & 0x7FFF;
-            oplen++;
-            sprintf(op_buf, ".%04"PRIx16, operand);
-         } else {
-            // Exclude CAL (f=2) from /P+ /P- as these have no effect
-            if (r == 1 && f != 2) {
-               sprintf(op_buf, "/%04"PRIx16"+", p);
-            } else if (r == 3 && f != 2) {
-               sprintf(op_buf, "/%04"PRIx16"-", p);
+   // Check if the word is mapped as data
+   if (data_map && data_map[addr]) {
+
+      skip = 1;
+      need_newline = 0;
+
+   } else {
+
+      // Temporary buffer for formatting the operand
+      char op_buf[16];
+
+      // Read the instruction
+      uint16_t instr = copro_f100_read_mem(addr);
+
+      // Decode the instruction
+      uint16_t f = (instr >> 12) & 0x000F;
+      uint16_t i = (instr >> 11) & 0x0001;
+      uint16_t t = (instr >> 10) & 0x0003; // to qualify opcode=0
+      uint16_t r = (instr >>  8) & 0x0003;
+      uint16_t s = (instr >>  6) & 0x0003;
+      uint16_t j = (instr >>  4) & 0x0003;
+      uint16_t n = (instr      ) & 0x07FF;
+      uint16_t p = (instr      ) & 0x00FF;
+      uint16_t b = (instr      ) & 0x000F;
+
+      // Track the instruction length
+      int oplen = 1;
+
+      // Format the operand
+      uint16_t operand = 0;
+      if (f == 0) {
+         if (t == 0) {
+            // Shift, Bit Manipulation, Jump
+            if (r == 1) {
+               sprintf(op_buf, "CR");
+            } else if (r == 3) {
+               operand = copro_f100_read_mem(addr + oplen) & 0x7FFF;
+               oplen++;
+               sprintf(op_buf, "%04"PRIx16, operand);
             } else {
-               sprintf(op_buf, "/%04"PRIx16, p);
+               sprintf(op_buf, "A");
+            }
+         }
+      } else if (f != 1 && f != 3 && f != 14) {
+         // Default group
+         if (i == 0) {
+            if (n == 0) {
+               operand = copro_f100_read_mem(addr + oplen);
+               oplen++;
+               sprintf(op_buf, ",%04"PRIx16, operand);
+            } else {
+               sprintf(op_buf, " %04"PRIx16, n);
+            }
+         } else {
+            if (p == 0) {
+               operand = copro_f100_read_mem(addr + oplen) & 0x7FFF;
+               oplen++;
+               sprintf(op_buf, ".%04"PRIx16, operand);
+            } else {
+               // Exclude CAL (f=2) from /P+ /P- as these have no effect
+               if (r == 1 && f != 2) {
+                  sprintf(op_buf, "/%04"PRIx16"+", p);
+               } else if (r == 3 && f != 2) {
+                  sprintf(op_buf, "/%04"PRIx16"-", p);
+               } else {
+                  sprintf(op_buf, "/%04"PRIx16, p);
+               }
             }
          }
       }
-   }
 
-   // Is there a additional target word
-   uint16_t target = 0;
-   if ((f == 0 && t == 0 && s == 2) || (f == 7)) {
-      // Conditional Jump and ICZ
-      target = copro_f100_read_mem(addr + oplen) & 0x7FFF;
-      oplen++;
-   }
+      // Is there a additional target word
+      uint16_t target = 0;
+      if ((f == 0 && t == 0 && s == 2) || (f == 7)) {
+         // Conditional Jump and ICZ
+         target = copro_f100_read_mem(addr + oplen) & 0x7FFF;
+         oplen++;
+      }
 
-   // Output address in hex and a seperator
-   len = snprintf(buf, bufsize, "%04"PRIx32" : ", addr);
-   buf += len;
-   bufsize -= len;
+      // Output address in hex and a seperator
+      len = snprintf(buf, bufsize, "%04"PRIx32" : ", addr);
+      buf += len;
+      bufsize -= len;
 
 
-   // Output the opcodes words in hex
-   for (int z = 0; z < 3; z++) {
-      if (z < oplen) {
-         len = snprintf(buf, bufsize, "%04"PRIx16" ", copro_f100_read_mem(addr + z));
-      } else {
-         len = snprintf(buf, bufsize, "     ");
+      // Output the opcodes words in hex
+      for (int z = 0; z < 3; z++) {
+         if (z < oplen) {
+            len = snprintf(buf, bufsize, "%04"PRIx16" ", copro_f100_read_mem(addr + z));
+         } else {
+            len = snprintf(buf, bufsize, "     ");
+         }
+         buf += len;
+         bufsize -= len;
+      }
+
+      // Output a seperator
+      len = snprintf(buf, bufsize, ": ");
+      buf += len;
+      bufsize -= len;
+
+
+      // Optput the instruction
+
+      switch (f) {
+
+      case 0:
+         if (t == 0) {
+            // Shift, Bit Manipulation, Jump
+            if (s == 2) {
+               // Conditional Jump
+               len = snprintf(buf, bufsize, "%s   %x %s %04"PRIx16, jmp_names[j], b, op_buf, target);
+            } else if (s == 3) {
+               // Bit Manipulation
+               len = snprintf(buf, bufsize, "%s   %x %s", bit_names[j], b, op_buf);
+            } else {
+               // Shift
+               len = snprintf(buf, bufsize, "%s   %x %s", shift_names[s * 4 + j], b, op_buf);
+               // TODO: How to distinguise the double length shifts
+               // as these depend on CR.M. This makes an accurate disassembler
+               // impossible!
+            }
+         } else if (t == 1) {
+            // Halt
+            len = snprintf(buf, bufsize, "HALT ,%04"PRIx16, n & 0x3FF);
+         } else {
+            // External Functions
+            len = snprintf(buf, bufsize, "EXT  ,%04"PRIx16, n);
+            if (n >= 0x400 && n <= 0x40f) {
+               // F101L Co Pro instructions have three word addresses as args
+               skip = 3;
+            }
+         }
+         break;
+
+      case 1:
+         // SJM
+      case 14:
+         // F14
+         len = snprintf(buf, bufsize, "%s", opcode_names[f]);
+         break;
+
+      case 3:
+         // RTN/RTC
+         len = snprintf(buf, bufsize, "%s", rtn_names[i]);
+         break;
+
+      case 7:
+         // ICZ
+         len = snprintf(buf, bufsize, "%s  %s %04"PRIx16, opcode_names[f], op_buf, target);
+         break;
+
+      default:
+         len = snprintf(buf, bufsize, "%s  %s", opcode_names[f], op_buf);
+         break;
       }
       buf += len;
       bufsize -= len;
+
+      addr += oplen;
    }
-
-   // Output a seperator
-   len = snprintf(buf, bufsize, ": ");
-   buf += len;
-   bufsize -= len;
-
-
-   // Optput the instruction
-
-   switch (f) {
-
-   case 0:
-      if (t == 0) {
-         // Shift, Bit Manipulation, Jump
-         if (s == 2) {
-            // Conditional Jump
-            len = snprintf(buf, bufsize, "%s   %x %s %04"PRIx16, jmp_names[j], b, op_buf, target);
-         } else if (s == 3) {
-            // Bit Manipulation
-            len = snprintf(buf, bufsize, "%s   %x %s", bit_names[j], b, op_buf);
-         } else {
-            // Shift
-            len = snprintf(buf, bufsize, "%s   %x %s", shift_names[s * 4 + j], b, op_buf);
-            // TODO: How to distinguise the double length shifts
-            // as these depend on CR.M. This makes an accurate disassembler
-            // impossible!
-         }
-      } else if (t == 1) {
-         // Halt
-         len = snprintf(buf, bufsize, "HALT ,%04"PRIx16, n & 0x3FF);
-      } else {
-         // External Functions
-         len = snprintf(buf, bufsize, "EXT  ,%04"PRIx16, n);
-         if (n >= 0x400 && n <= 0x40f) {
-            // F101L Co Pro instructions have three word addresses as args
-            skip = 3;
-         }
-      }
-      break;
-
-   case 1:
-      // SJM
-   case 14:
-      // F14
-      len = snprintf(buf, bufsize, "%s", opcode_names[f]);
-      break;
-
-   case 3:
-      // RTN/RTC
-      len = snprintf(buf, bufsize, "%s", rtn_names[i]);
-      break;
-
-   case 7:
-      // ICZ
-      len = snprintf(buf, bufsize, "%s  %s %04"PRIx16, opcode_names[f], op_buf, target);
-      break;
-
-   default:
-      len = snprintf(buf, bufsize, "%s  %s", opcode_names[f], op_buf);
-      break;
-   }
-   buf += len;
-   bufsize -= len;
 
    // Output any additional words to be skipped following the instruction
-   addr += oplen;
    for (int i = 0; i < skip; i++) {
-      len = snprintf(buf, bufsize, "\n%04"PRIx32" : %04"PRIX16"           : DATA", addr, copro_f100_read_mem(addr));
+      if (need_newline) {
+         len = snprintf(buf, bufsize, "\n");
+         buf += len;
+         bufsize -= len;
+      }
+      len = snprintf(buf, bufsize, "%04"PRIx32" : %04"PRIX16"           : DATA", addr, copro_f100_read_mem(addr));
       buf += len;
       bufsize -= len;
       addr++;
+      need_newline = 1;
    }
 
    return addr;
@@ -416,7 +436,7 @@ uint16_t copro_f100_read_mem(uint16_t addr) {
 }
 
 void usage() {
-   fprintf(stderr, "usage: f100dis [-a <address> ] [ -x <xor pattern> ] file...\n");
+   fprintf(stderr, "usage: f100dis [-a <address> ] [ -x <xor pattern> ] [ -d <data map file>] <binary file>...\n");
    exit(1);
 }
 
@@ -425,8 +445,10 @@ void main(int argc, char *argv[]) {
    int addr = 0;
    int lowest = MEM_SIZE;
    int highest = 0;
-
+   char *data_mapfile = NULL;
    uint16_t xor = 0;
+
+   const char whitespace[] = " \f\n\r\t\v";
 
    int s = 1;
    while (s <= argc && argv[s][0] == '-') {
@@ -436,9 +458,49 @@ void main(int argc, char *argv[]) {
       } else if (strcmp(argv[s], "-x") == 0) {
          xor = strtol(argv[s + 1], NULL, 16);
          s += 2;
+      } else if (strcmp(argv[s], "-d") == 0) {
+         data_mapfile = argv[s + 1];
+         s += 2;
       } else {
          usage();
       }
+   }
+
+   if (data_mapfile) {
+      data_map = (uint8_t *)malloc(MEM_SIZE);
+      memset(data_map, 0, MEM_SIZE);
+
+      FILE *f = fopen(data_mapfile, "r");
+      if (f == 0) {
+         perror(data_mapfile);
+         exit(1);
+      }
+      int done = 0;
+      do {
+         char *line = NULL;
+         size_t len = 0;
+         ssize_t lineSize = 0;
+         lineSize = getline(&line, &len, f);
+         if (lineSize > 0) {
+            char *start = line + strspn(line, whitespace);
+            if (start[0] != '#') {
+               int data_start = -1;
+               int data_end   = -1;
+               sscanf(start, "%x,%x", &data_start, &data_end);
+               if (data_end == -1) {
+                  data_end = data_start;
+               }
+               if (data_start >= 0) {
+                  for (int i = data_start; i <= data_end; i++) {
+                     data_map[i] = 1;
+                  }
+               }
+            }
+            free(line);
+         } else {
+            done = 1;
+         }
+      } while (!done);
    }
 
    for (int i = 0; i < MEM_SIZE; i++) {
@@ -473,6 +535,9 @@ void main(int argc, char *argv[]) {
       printf("%s\n", buf);
    } while (addr <= highest);
 
+   if (data_map) {
+      free(data_map);
+   }
 }
 
 #endif
