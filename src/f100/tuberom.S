@@ -820,17 +820,13 @@ RDLINE:
         LDA     ,0
         CAL     .sendByteR2   ; Send <buffer addr LSB>
         CAL     .waitByteR2   ; Wait for response &FF [escape] or &7F
-        AND     ,0x80         ; test for escape
-        JBS     ZERO CR RdLineCont
-        LDA     ,0x10        ; set bit 4
-        STO     R1           ; R1 will be returned as Carry by RTN
-        JMP     .RdLineEscape
+        AND     ,0x80         ; test for escape (and set Carry)
+        JBC     ZERO CR RdLineEscape
 RdLineCont:
         LDA     ,0
         STO     R3           ; initialize response length to 0
         LDA     /R2
         STO     R2           ; Load the local input buffer from the control block
-
 RdLineLp:
         CAL     .waitByteR2  ; Receive a response byte
         STO     R0           ; save response for later check
@@ -842,18 +838,13 @@ RdLineLp:
         LDA     R0           ; reload response byte and
         CMP     ,0x0D        ; compare against terminator and loop back
         JBC     ZERO CR RdLineLp
-        LDA     ,0           ; reset bit 4
-        STO     R1           ; R1 will be returned as Carry by RTN
+        NEQ     R0           ; Clear carry
 RdLineEscape:
-        LDA     .LSP
-        STO     R0
-        LDA     R1
-        STO     /R0         ; overwrite CR bits on the stack for return
         LDA     /USP-
         STO     R2
         LDA     ,0
         STO     R1           ; Clear r1 to be tidy
-        RTN
+        RTC
 ; -------------------------------------------------------------
 ; Control block for command prompt input
 ; --------------------------------------------------------------
@@ -994,9 +985,6 @@ err_loop:
         ADS     R2
         LDA     R1
         JBC     ZERO CR err_loop
-
-        ; FIXME - just jumping to Error handler here
-        ;    ERROR   (ERRBUF)
         LDA     ,ERRBUF
         STO     .LAST_ERR
         JMP     .ErrorHandler
@@ -1312,7 +1300,7 @@ DefaultVectors:
 ; -----------------------------------------------------------------------------
 ; Built-in application test: pi-spigot
 ; -----------------------------------------------------------------------------
-.equ  DIGITS  120
+.equ  DIGITS  159
 .equ  COLS    1+(DIGITS*10//3)
 
 PI:
@@ -1390,7 +1378,7 @@ L5:     LDA     R5              ; result = C+Q//10
 L5A:    LDA     R6              ; Check if result=10 (ie overflow)
         CMP     ,10
         JBC     ZERO CR L6
-        LDA     ,0            ; if yes, zero result
+        LDA     ,0              ; if yes, zero result
         STO     R6
         LDA     ,1              ; and inc predigit
         ADS     R9
@@ -1406,6 +1394,12 @@ L6:     LDA     R8              ; If this isnt the first digit then print the ex
         JBS     ZERO CR L7
         LDA     R9
         CAL     .OSWRDIG        ; print predigit and all nines
+        LDA     R8
+        CMP     ,-(DIGITS-1)    ; if it's the first digit printed then also print the .
+        JBC     ZERO CR L6A
+        LDA     ,0x2E
+        CAL     .OSWRCH
+L6A:    
         LDA     R2
         JBS     ZERO CR L7
 L6B:    LDA     ,9
