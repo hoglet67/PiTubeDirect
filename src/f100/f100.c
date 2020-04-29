@@ -157,15 +157,19 @@ void f100_execute() {
         }
         if ( cpu.M== 0) { //Single length
           COMPUTE_SV(result,operand,operand);
-          cpu.acc = TRUNC16(result);
+          cpu.or = TRUNC16(result) ; // Single length shifts always use the OR
+          if (cpu.ir.R==0 || cpu.ir.R==2) {
+            cpu.acc = cpu.or;
+          } else if (cpu.ir.R==1) {
+            // Overwrite flags with the shifted value, low word
+            UNPACK_FLAGS(result);
+          } else if (cpu.ir.R==3) {
+            F100_WRITE_MEM(operand_address, cpu.or);
+          }
         } else { // Double length
           COMPUTE_SV(TRUNC16(result>>16), cpu.acc, cpu.acc);
           cpu.acc = TRUNC16((result>>16));
           cpu.or = TRUNC16(result);
-        }
-        if ( cpu.ir.R==1 ) {
-          // Overwrite flags with the shifted value, low word
-          UNPACK_FLAGS(result);
         }
       } else if ( cpu.ir.T==0 && cpu.ir.S>1) { //  Bit conditional jumps and Bit manipulation
         uint16_t bmask;

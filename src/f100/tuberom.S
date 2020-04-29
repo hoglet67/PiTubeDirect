@@ -648,8 +648,8 @@ sendBlockR2:
         ADD     R1
         STO     R4      ;  r4 = block length - 1
         JBS     SIGN CR sendBlockDone
-
-        SRL     1 R4      ; calculate address of word containing last byte
+        LDA     R4
+        SRL     1 A      ; calculate address of word containing last byte
         ADD     R2
         STO     R2
         LDA     /R2     ; load the first word from memory
@@ -660,7 +660,8 @@ sendBlockR2:
         JBS     CARRY CR sendBlockB0
 sendBlockB1:
         ; byte swap R3 into R1
-        SLE     8  R3
+        LDA     R3
+        SLE     8  A
         CAL     .sendByteR2     ; send byte 1
         LDA     ,1              ; Decrement R4
         SBS     R4
@@ -699,7 +700,8 @@ receiveBlockR2:
         LDA     ,1
         SBS     R4      ; r4 = block length - 1
         JBS     SIGN CR receiveBlockDone
-        SRL     1 R4 ; calculate address of word containing last byte
+        LDA     R4
+        SRL     1 A ; calculate address of word containing last byte
         ADS     R2
         LDA     ,0
         STO     R3      ;  clear the receive word
@@ -1073,7 +1075,8 @@ Type0_loop:
         STO     .r3data         ; Send even byte to Tube R3
         LDA     ,1              ; Increment memory pointer
         ADS     R3
-        SRL     8 R2            ; Move bits 15..8 down to 7..0
+        LDA     R2
+        SRL     8 A            ; Move bits 15..8 down to 7..0
         ADD     ,0x8000         ; set top bit (odd byte flag)
         STO     R2
         JMP     .Type0_loop
@@ -1334,7 +1337,8 @@ L4:     LDA     /R7             ; Q += R[i]*10
         ADD     /R7
         ADD     /R7
         ADS     R5
-        SLA     1 R4            ; denom=(2*i)-1
+        LDA     R4
+        SLA     1 A            ; denom=(2*i)-1
         STO     R15
         LDA     ,1
         SBS     R15
@@ -1464,9 +1468,7 @@ UD16_L1:
          STO UD16_LCTR
 UD16_LOOP:
          SLA 1 UD16_Q
-         STO UD16_Q
          SLA 1 UD16_R
-         STO UD16_R
          JBC 15 UD16_N UD16_SKIP
          SET 0 UD16_R
 UD16_SKIP:
@@ -1478,7 +1480,6 @@ UD16_SKIP:
          SET 0 UD16_Q
 UD16_SKIP2:
          SLA 1 UD16_N
-         STO UD16_N
          ICZ UD16_LCTR UD16_LOOP
 UD16_EXIT:
          LDA UD16_R
@@ -1517,9 +1518,7 @@ M16L_LOOP:
         ADS M16L_res
 M16L_SKIPADD:
         SRA 1 M16L_aa
-        STO M16L_aa
         SLL 1 M16L_bb
-        STO M16L_bb
         ICZ M16L_count M16L_LOOP
         RTN
 
