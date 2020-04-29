@@ -950,6 +950,7 @@ LFD36:
 r1_irq_escape:
         LDA     R1
         ADS     R1
+        LDA     R1
         STO     .ESCAPE_FLAG
         LDA     /USP-
         STO     R1
@@ -1119,8 +1120,8 @@ Type1_odd_byte:
         STO     R2
         LDA     .r3data         ; Read the odd byte from Tube T3
         SLL     8 A             ; Shift it to the upper byte
-        ADS     R2              ; Merge into R2
-
+        ADD     R2              ; Merge into R2 (and Acc)
+        STO     R2
         STO     /R3             ; Write word to memory, increment memory pointer
         LDA     ,1
         ADS     R3
@@ -1382,6 +1383,7 @@ L5A:    LDA     R6              ; Check if result=10 (ie overflow)
         STO     R6
         LDA     ,1              ; and inc predigit
         ADS     R9
+        LDA     R9
         CAL     .OSWRDIG        ; print predigit and all nines will be zeros now
         LDA     R2
         JBS     ZERO CR L7
@@ -1399,7 +1401,7 @@ L6:     LDA     R8              ; If this isnt the first digit then print the ex
         JBC     ZERO CR L6A
         LDA     ,0x2E
         CAL     .OSWRCH
-L6A:    
+L6A:
         LDA     R2
         JBS     ZERO CR L7
 L6B:    LDA     ,9
