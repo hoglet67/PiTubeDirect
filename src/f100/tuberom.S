@@ -14,9 +14,10 @@
 .equ    r4status TUBE + 6
 .equ      r4data TUBE + 7
 
+.equ    INTLOCKOUT      0x00    ; Interrupt lockout bit of CR
 .equ    CARRY           0x04    ; carry is bit 4 of the CR
 .equ    MULTI           0x05    ; multi-word flag is bit 5 of CR
-.equ    ZERO            0x01    ; zero bit in CR
+.equ    ZERO            0x01    ; zero bit in CR        
 .equ    SIGN            0x03    ; sign bit in CR
 .equ    LSP             0       ; link stack pointer location
 .equ    USP             1       ; user stack pointer location
@@ -185,6 +186,8 @@ ErrorHandler:
     ADD     ,1                          ; Skip over error num
     CAL     .print_string               ; Print error string
     CAL     .newline
+    ;; Make sure interrupts are reenabled after an error
+    CLR     INTLOCKOUT CR                     
     JMP     .CmdPrompt                  ; Jump to command prompt
 
 ; --------------------------------------------------------------
@@ -873,8 +876,7 @@ mosWRCH:
         STO     R0              ; save in R0
 mosWRCH1:
         LDA     .r1status
-        AND     ,0x40
-        JBS     ZERO CR mosWRCH1
+        JBC     6 A mosWRCH1      ; loop again if bit 6 not set
         LDA     R0
         STO     .r1data
         RTN
@@ -1063,8 +1065,7 @@ Type0_loop:
 
         LDA     .r3status       ; Wait for Tube R3 free
         STO     R1
-        AND     ,0x40
-        JBS     ZERO CR Type0_loop
+        JBC     6 A Type0_loop
 
         LDA     ,0              ; test odd byte flag
         SUB     R2
@@ -1100,14 +1101,10 @@ Type1:
 
 Type1_loop:
         LDA     .r4status       ; Test for an pending interrupt signalling end of transfer
-        STO     R1
-        AND     ,0x80
-        JBC     ZERO CR Release
+        JBS     7 A Release
 
         LDA     .r3status       ; Wait for Tube R3 free
-        STO     R1
-        AND     ,0x80
-        JBS     ZERO CR Type1_loop
+        JBC     7 A Type1_loop
 
         LDA     ,0              ; test odd byte flag
         SUB     R2
@@ -1152,12 +1149,9 @@ Type7:
 
 WaitByteR1:
         LDA     .r1status
-        AND     ,0x80
-        JBC     ZERO CR GotByteR1
+        JBS     7 A GotByteR1
         LDA     .r4status
-        AND     ,0x80
-        JBS     ZERO CR WaitByteR1
-
+        JBC     7 A WaitByteR1
 GotByteR1:
         LDA     .r1data
         RTN
@@ -1173,8 +1167,7 @@ GotByteR1:
 ; - Acc holds byte, all other registers preserved
 waitByteR2:
         LDA     .r2status
-        AND     ,0x80
-        JBS     ZERO CR waitByteR2
+        JBC     7 A waitByteR2
         LDA     .r2data
         RTN
 
@@ -1191,8 +1184,7 @@ sendByteR2:
         STO     R0
 sendByteR2_L1:
         LDA     .r2status
-        AND     ,0x40
-        JBS     ZERO CR sendByteR2_L1
+        JBC     6 A sendByteR2_L1
         LDA     R0
         STO     .r2data
         RTN
@@ -1232,8 +1224,7 @@ sendStringR2_exit:
 ; - Acc holds byte, all other registers preserved
 waitByteR4:
         LDA     .r4status
-        AND     ,0x80
-        JBS     ZERO CR waitByteR4
+        JBC     7 A waitByteR4
         LDA     .r4data
         RTN
 
@@ -1250,8 +1241,7 @@ sendByteR4:
         STO     R0
 sendByteR4_L1:
         LDA     .r4status
-        AND     ,0x40
-        JBS     ZERO CR sendByteR4_L1
+        JBC     6 A sendByteR4_L1
         LDA     R0
         STO     .r4data
         RTN
