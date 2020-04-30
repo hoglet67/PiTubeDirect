@@ -17,7 +17,7 @@
 .equ    INTLOCKOUT      0x00    ; Interrupt lockout bit of CR
 .equ    CARRY           0x04    ; carry is bit 4 of the CR
 .equ    MULTI           0x05    ; multi-word flag is bit 5 of CR
-.equ    ZERO            0x01    ; zero bit in CR        
+.equ    ZERO            0x01    ; zero bit in CR
 .equ    SIGN            0x03    ; sign bit in CR
 .equ    LSP             0       ; link stack pointer location
 .equ    USP             1       ; user stack pointer location
@@ -187,7 +187,7 @@ ErrorHandler:
     CAL     .print_string               ; Print error string
     CAL     .newline
     ;; Make sure interrupts are reenabled after an error
-    CLR     INTLOCKOUT CR                     
+    CLR     INTLOCKOUT CR
     JMP     .CmdPrompt                  ; Jump to command prompt
 
 ; --------------------------------------------------------------
@@ -311,8 +311,7 @@ mosCLI:
         CAL    .sendStringR2            ; send string pointed to by r2
 mosCLI_Ack:
         CAL    .waitByteR2
-        AND    ,0x80
-        JBS    ZERO CR dontEnterCode
+        JBC     7 A dontEnterCode
         LDA    /USP-
         STO    R1
         STO    /USP+
@@ -915,8 +914,7 @@ IRQ1Handler:
         AND     ,0x080
         JBC     ZERO CR r4_irq
         LDA     .r1status
-        AND     ,0x80
-        JBC     ZERO CR r1_irq
+        JBS     7 A r1_irq
         JMP     .IRQ2V
 
 ; -----------------------------------------------------------------------------
@@ -926,8 +924,7 @@ IRQ1Handler:
 r1_irq:
         LDA     .r1data
         STO     R1
-        AND     ,0x80
-        JBC     ZERO CR r1_irq_escape
+        JBS     7 A r1_irq_escape
         LDA     R2
         STO     /USP+
         LDA     R3
@@ -967,8 +964,7 @@ r1_irq_escape:
 r4_irq:
         LDA     .r4data
         STO     R1
-        AND     ,0x80
-        JBS     ZERO CR LFD65 ; b7=0, jump for data transfer
+        JBC     7 A LFD65 ; b7=0, jump for data transfer
 ;
 ; Error    R4: &FF R2: &00 err string &00
 ;
@@ -1060,8 +1056,7 @@ Type0:
 Type0_loop:
         LDA     .r4status       ; Test for an pending interrupt signalling end of transfer
         STO     R1
-        AND     ,0x80
-        JBC     ZERO CR Release
+        JBS     7 A Release
 
         LDA     .r3status       ; Wait for Tube R3 free
         STO     R1
@@ -1076,10 +1071,8 @@ Type0_loop:
         STO     .r3data         ; Send even byte to Tube R3
         LDA     ,1              ; Increment memory pointer
         ADS     R3
-        LDA     R2
-        SRL     8 A            ; Move bits 15..8 down to 7..0
-        ADD     ,0x8000         ; set top bit (odd byte flag)
-        STO     R2
+        SRL     8 R2            ; Move bits 15..8 down to 7..0
+        SET     15 R2           ; set top bit (odd byte flag)
         JMP     .Type0_loop
 
 Type0_odd_byte:
@@ -1111,7 +1104,7 @@ Type1_loop:
         JBS     SIGN CR Type1_odd_byte
 
         LDA     .r3data         ; Read the even byte from Tube T3
-        ADD     ,0x8000         ; set the odd byte flag
+        SET     15 A            ; set the odd byte flag
         STO     R2
         JMP     .Type1_loop
 Type1_odd_byte:
@@ -1294,28 +1287,28 @@ DefaultVectors:
 ; -----------------------------------------------------------------------------
 ; Built-in application test: pi-spigot
 ; -----------------------------------------------------------------------------
-.equ  DIGITS  159
-.equ  COLS    1+(DIGITS*10//3)
+.equ  PIDIGITS  159
+.equ  PICOLS    1+(PIDIGITS*10//3)
 
 PI:
         ; Initialise remainder array to 2
         LDA     ,REMAINDER-1
         STO     R1
-        LDA     ,-COLS          ;  -cols negative counter for use with ICZ
+        LDA     ,-PICOLS          ;  -cols negative counter for use with ICZ
         STO     R0
 LOOP:
         LDA     ,2
         STO     /R1+            ; init remainder values to 2
         ICZ     R0 LOOP
 
-        LDA     ,-DIGITS        ; Digit counter from -Digits to 0
+        LDA     ,-PIDIGITS        ; Digit counter from -Digits to 0
         STO     R8
         LDA     ,0             ; C = 0
         STO     R3
         STO     R9              ; init outer loop counter
         STO     R2              ; nines=0
 
-L3:     LDA     ,COLS-1         ; i = COLS-1
+L3:     LDA     ,PICOLS-1         ; i = PICOLS-1
         STO     R4
         ADD     ,REMAINDER      ; setup remainder pointer to end of data
         STO     R7
@@ -1386,12 +1379,12 @@ L5B:    LDA     ,0
         ICZ     R2 L5B
 
 L6:     LDA     R8              ; If this isnt the first digit then print the existing pre-digit
-        CMP     ,-DIGITS
+        CMP     ,-PIDIGITS
         JBS     ZERO CR L7
         LDA     R9
         CAL     .OSWRDIG        ; print predigit and all nines
         LDA     R8
-        CMP     ,-(DIGITS-1)    ; if it's the first digit printed then also print the .
+        CMP     ,-(PIDIGITS-1)    ; if it's the first digit printed then also print the .
         JBC     ZERO CR L6A
         LDA     ,0x2E
         CAL     .OSWRCH
@@ -1408,6 +1401,79 @@ L8:     ICZ     R8 L3
         ;; Print last digit
         LDA     R9
         CAL     .OSWRDIG
+        RTN
+
+; -----------------------------------------------------------------------------
+; Built-in application test: e-spigot
+; -----------------------------------------------------------------------------
+.equ  EDIGITS  159
+.equ  ECOLS    EDIGITS+2
+
+E:
+        ;; R0 = loopctr
+        ;; R1 = pointer to remainders
+        ;; R2 = q
+        ;; R3 = n
+        ;; R4 = i (use -i to allow ICZ in inner loop)
+        ;; R5 = j (use -j to allow ICZ in inner loop)
+        ;; R6 = unused
+        ;; R10 = scratch
+        ;; R11 = scratch
+        ;; R12 = scratch
+        ;; R13 = scratch
+        ;; R14 = parameter reg
+        ;; R15 = parameter reg
+        ;; Zero remainder array
+        LDA     ,2
+        CAL    .OSWRDIG
+        LDA     ,46             ; char = '.'
+        CAL    .OSWRCH
+
+        LDA     ,ECOLS
+        SUB     ,0
+        STO     R0
+        LDA     ,(REMAINDER-1)  ; ptr pre-incremented before use
+        STO     R1
+ELOOP:
+        LDA     ,1
+        STO     /R1+            ; init values to 1
+        ICZ     R0 ELOOP
+        LDA     ,0              ; except first which is 0
+        STO     .REMAINDER
+        LDA     ,EDIGITS-1      ; j counter
+        SUB     ,0              ; negate it
+        STO     R5
+EOUTER:
+        LDA     ,0
+        STO     R2
+        LDA     ,ECOLS
+        STO     R4
+        LDA     ,REMAINDER
+        ADD     R4
+        STO     R1              ; initialize pointer to remainder array
+        LDA     ,0-ECOLS        ; compute -i to allow use of ICZ
+        STO     R4
+EINNER:
+        LDA     /R1            	; get remainder[i]
+        STO     R10            	; save it
+        SLL     3 A            	; multiply by 8
+        ADD     R10            	; add the orignal number twice
+        ADD     R10            	; .. to end up with remainder[i]*10
+        ADD     R2             	; add Q
+        STO     R3             	; save in N
+        STO     R14            	; N= numerator for div call
+        LDA     R4
+        SUB     ,1             	; get negative R4 and then add 1
+        STO     R15            	; (i+1)=denominateor for div call
+        CAL     .UDIV16
+        LDA     R14            	; get quotient
+        STO     R2
+        LDA     R15            	; get remainder
+        STO     /R1-           	; save in remainder array and point to next (post dec)
+        ICZ     R4 EINNER
+        LDA     R2
+        CAL     .OSWRDIG
+        ICZ     R5  EOUTER
         RTN
 
 ; ------------------------------------
@@ -1511,15 +1577,12 @@ M16L_SKIPADD:
         SLL 1 M16L_bb
         ICZ M16L_count M16L_LOOP
         RTN
-
-
 ; -----------------------------------------------------------------------------
 ; E N D  O F  R O M
 ; -----------------------------------------------------------------------------
 
         .ORG APP                ; running pi-spigot uses all of apps area
 REMAINDER:                      ; array space for remainder (RAM)
-
 
 
 
