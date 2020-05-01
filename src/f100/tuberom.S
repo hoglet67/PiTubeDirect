@@ -586,7 +586,6 @@ skip_spaces_loop:
         JBS     ZERO CR skip_spaces_loop
         RTN
 
-
 ; --------------------------------------------------------------
 ; print_string
 ;
@@ -599,10 +598,8 @@ skip_spaces_loop:
 ; - r0,r1 trashed
 
 print_string:
-        STO     R0
-        LDA     ,1
-        SUB     R0 ; Need addr-1 in R1 because we will use pre-incr pointer to address the string
-        STO     R1
+        STO     R1              ; copy A to pointer reg
+        LDA     /R1-            ; decr pointer because we use pre-inc in loop
 print_string_loop:
         LDA     /R1+
         AND     ,0xFF
@@ -707,14 +704,10 @@ receiveBlockR2:
         ADS     R2
         LDA     ,0
         STO     R3      ;  clear the receive word
-        LDA     ,1
-        AND     R4      ; work out the byte alignment of the last byte in the block (first byte to send)
-        JBS     ZERO CR receiveBlockB0
+        JBC     0 R4 receiveBlockB0 ; work out the byte alignment of the last byte in the block (first byte to send)
 receiveBlockB1:
-        ; JBS     SIGN CR receiveBlockWrite
         CAL     .waitByteR2     ; receive byte 1 in Acc
-        SLE     8 A             ; byte swap
-        AND     ,0xFF00         ; mask off top byte
+        SLL     8 A             ; Move into top byte
         ADS     R3              ; merge it into R3
         LDA     ,1              ; decrement counter
         SBS     R4
@@ -726,7 +719,7 @@ receiveBlockB0:
 receiveBlockWrite:
         LDA     R3
         STO     /R2-            ; write word and post decrement R2
-        LDA     ,0              ; clear the receive work for next bytes
+        LDA     ,0              ; clear the receive word for next bytes
         STO     R3
         LDA     ,1
         SBS     R4
@@ -1008,8 +1001,7 @@ LFD65:
         CAL     .waitByteR4 ; block address MSB - ignored
         CAL     .waitByteR4 ; block address ... - ignored
         CAL     .waitByteR4 ; block address ...
-        SLE     8 A         ; byte swap into upper byte
-        AND     ,0xFF00
+        SLL     8 A         ; move into upper byte
         STO     R3
         CAL     .waitByteR4 ; block address LSB
         ADS     R3          ; merge new byte into lower byte
@@ -1194,10 +1186,8 @@ sendByteR2_L1:
 ; - r0,r1 trashed
 
 sendStringR2:
-        STO     R0
-        LDA     ,1
-        SUB     R0 ; Need addr-1 in R1 because we will use pre-incr pointer to address the string
-        STO     R1
+        STO     R1              ; copy Acc to pointer reg
+        LDA     /R1-            ; decrement pointer, because we use pre-inc addressing to get the data
 sendStringR2_loop:
         LDA     /R1+
         CAL     .sendByteR2
@@ -1321,10 +1311,9 @@ L4:     LDA     /R7             ; Q += R[i]*10
         ADD     /R7
         ADS     R5
         LDA     R4
-        SLA     1 A            ; denom=(2*i)-1
+        SLA     1 A             ; denom=(2*i)-1
         STO     R15
-        LDA     ,1
-        SBS     R15
+        LDA     /R15-           ; decrement R15 (discard acc)
         LDA     R5              ; r[i] = q % denom ; q = q//denom
         STO     R14
         CAL     .UDIV16         ; returns R14=Quotient, R15=Remainder
@@ -1335,7 +1324,7 @@ L4:     LDA     /R7             ; Q += R[i]*10
         LDA     ,1
         SBS     R4              ; R4--
         JBS     ZERO CR L5
-        LDA     /R7-            ; decrement pointer R7
+        LDA     /R7-            ; decrement pointer R7 (discard acc)
         LDA     R5              ; Q *= i
         STO     R14
         LDA     R4
@@ -1359,8 +1348,7 @@ L5:     LDA     R5              ; result = C+Q//10
         LDA     R6              ; check if result=9
         CMP     ,9
         JBC     ZERO CR L5A
-        LDA     ,1              ; decrement 9s if yes (-ve counting)
-        SBS     R2
+        LDA     /R2-            ; decrement 9s if yes (-ve counting)
         ICZ     R8 L3           ; loop again without printing digits
 
 L5A:    LDA     R6              ; Check if result=10 (ie overflow)
@@ -1368,8 +1356,7 @@ L5A:    LDA     R6              ; Check if result=10 (ie overflow)
         JBC     ZERO CR L6
         LDA     ,0              ; if yes, zero result
         STO     R6
-        LDA     ,1              ; and inc predigit
-        ADS     R9
+        LDA     /R9+            ; and inc predigit (discard acc)
         LDA     R9
         CAL     .OSWRDIG        ; print predigit and all nines will be zeros now
         LDA     R2
