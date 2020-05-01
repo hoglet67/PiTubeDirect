@@ -240,12 +240,14 @@ void f100_execute() {
       F100_WRITE_MEM(LSP, TRUNC15(stack_pointer-2));
       break;
     case OP_LDA:
-      cpu.acc = F100_READ_MEM(operand_address);
+      cpu.or = F100_READ_MEM(operand_address);
+      cpu.acc = cpu.or;
       COMPUTE_SZ(cpu.acc) ;
       CLEAR_OVERFLOW ;
       break;
     case OP_STO:
-      F100_WRITE_MEM(operand_address, cpu.acc);
+      cpu.or = cpu.acc;
+      F100_WRITE_MEM(operand_address, cpu.or);
       COMPUTE_SZ(cpu.acc) ;
       CLEAR_OVERFLOW ;
       break;
