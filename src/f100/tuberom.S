@@ -433,11 +433,11 @@ cmdLoop0:
         LDA     ,cmdTable-1
         STO     R2                      ; initialize command table pointer (to char before)
 cmdLoop1:
-        LDA     /R1-
-        LDA     R1
+        LDA     ,1
+        SUB     R1
         STO     R3                      ; initialize user command pointer (to char before)
 cmdLoop2:
-        LDA     /R3+                    ; increment user command pointer        
+        LDA     /R3+                    ; increment user command pointer
         LDA     /R2+                    ; increment command table pointer
         STO     R4                      ; read next character from command table
         JBS     SIGN CR cmdExec         ; if an address, then we are done
@@ -470,7 +470,7 @@ cmdExec:
         STO     R2
 
         RTN
-;  -------------------------------------------------------------- 
+;  --------------------------------------------------------------
 
 cmdGo:
         CAL     .read_hex
@@ -493,10 +493,10 @@ cmdExecR2:
 
 ; --------------------------------------------------------------
 
-cmdTable:       
+cmdTable:
         .WORD    0x2E                   ; '.'
         .WORD    cmdEnd  | END_MARKER
-        .WORD    0x47, 0x4F             ; "GO" 
+        .WORD    0x47, 0x4F             ; "GO"
         .WORD    cmdGo   | END_MARKER
         .WORD    cmdEnd  | END_MARKER
 ; --------------------------------------------------------------
@@ -1265,7 +1265,7 @@ sendByteR4_L1:
 ;
 ; - all registers preserved
 
-read_hex:        
+read_hex:
         LDA     R3
         STO     /USP+
         CAL     .skip_spaces
@@ -1275,7 +1275,7 @@ read_hex:
         STO     R3
 read_hex_loop:
         CAL     .read_hex_1
-        JCS     CARRY CR read_hex_exit  ;  non-hex char, exit with c=1
+        JBS     CARRY CR read_hex_exit  ;  non-hex char, exit with c=1
         LDA     ,1
         SBS     R3
         JBC     ZERO CR read_hex_loop
@@ -1300,24 +1300,31 @@ read_hex_exit:
 ; - r2 contains the hex value
 ; - carry set if there was an error
 ; - all registers preserved
-        
+
 read_hex_1:
         LDA     R3
         STO     /USP+
         LDA     /R1
         STO     R3
-        CMP     ,0x30
+        CMP     ,0x2F
         JBS     CARRY CR read_hex_1_invalid
-        CMP     ,0x3A
+        CMP     ,0x39
         JBS     CARRY CR read_hex_1_valid
         AND     ,0xDF
         STO     R3
         LDA     ,0x07
         SBS     R3
-        JBS     CARRY CR read_hex_1_invalid
         LDA     R3
-        CMP     ,0x40
-        JBC     CARRY CR read_hex_1_invalid
+        CMP     ,0x39
+        JBS     CARRY CR read_hex_1_invalid
+        CMP     ,0x3F
+        JBS     CARRY CR read_hex_1_valid
+
+read_hex_1_invalid:
+        AND     ,0              ; set carry
+        LDA     /USP-
+        STO     R3
+        RTC
 
 read_hex_1_valid:
         SLL     4 R2
@@ -1328,17 +1335,8 @@ read_hex_1_valid:
         NEQ     ,0              ; clear carry
         LDA     /USP-
         STO     R3
-        RTC     
-        
-read_hex_1_invalid:
-        AND     ,0              ; set carry 
-        LDA     /USP-
-        STO     R3
         RTC
-        
 
-
-        
 ; -----------------------------------------------------------------------------
 ; Messages
 ; -----------------------------------------------------------------------------
