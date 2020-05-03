@@ -157,13 +157,13 @@ void f100_execute() {
         }
         if ( cpu.M== 0) { //Single length
           COMPUTE_SV(result,operand,operand);
-          cpu.or = TRUNC16(result) ; // Single length shifts always use the OR
           if (cpu.ir.R==0 || cpu.ir.R==2) {
-            cpu.acc = cpu.or;
+            cpu.acc = TRUNC16(result) ; 
           } else if (cpu.ir.R==1) {
             // Overwrite flags with the shifted value, low word
             UNPACK_FLAGS(result);
           } else if (cpu.ir.R==3) {
+            cpu.or = TRUNC16(result) ; 
             F100_WRITE_MEM(operand_address, cpu.or);
           }
         } else { // Double length
@@ -187,9 +187,9 @@ void f100_execute() {
         bmask = (1<<cpu.ir.B);
         if ( cpu.ir.S==2 ) { // Jumps only
           if ( cpu.ir.J==0 || cpu.ir.J==2) { // Jump on bit clear
-            cpu.pc = (!(operand & bmask))? jump_address: cpu.pc;
+            cpu.pc = (!(operand & bmask))? TRUNC15(jump_address): cpu.pc;
           } else { // Jump on bit set
-            cpu.pc = (operand & bmask)? jump_address: cpu.pc;
+            cpu.pc = (operand & bmask)? TRUNC15(jump_address): cpu.pc;
           }
         }
         if (cpu.ir.J>1) { // Set or clear bit
@@ -221,7 +221,7 @@ void f100_execute() {
     case OP_ICZ:
       cpu.or = 1+F100_READ_MEM(operand_address);
       F100_WRITE_MEM(operand_address, cpu.or);
-      if (cpu.or!=0) cpu.pc=operand1_address ;
+      if (cpu.or!=0) cpu.pc=TRUNC15(operand1_address);
       break;
     case OP_JMP:
       cpu.pc = TRUNC15(operand_address);

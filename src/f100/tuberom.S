@@ -353,7 +353,6 @@ prep_env_1:                         ; skip leading space or * characters
         LDA     ,1
         ADS     R1
         CAL     .skip_spaces
-        STO     R2
         CMP     ,0x2A
         JBS     ZERO CR prep_env_1
         CMP     ,0x2F
@@ -593,7 +592,7 @@ mosWORDL1:
 ;
 ; Exit:
 ; - r1 is updated to skip and spaces
-; - ACC is non-space character
+; - r2 (and Acc) is non-space character
 ; - all other registers preserved
 
 skip_spaces:
@@ -603,6 +602,7 @@ skip_spaces_loop:
         LDA     /R1+
         CMP     ,0x20
         JBS     ZERO CR skip_spaces_loop
+        STO     R2
         RTN
 
 ; --------------------------------------------------------------
