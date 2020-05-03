@@ -303,7 +303,7 @@ mosCLI:
         LDA    R1                       ; Save the string pointer
         STO    /USP+
         CAL    .cmdLocal                ; try to handle the command locally (return C=1 if done)
-        LDA    R0                       ; sets zero flag
+        LDA    R1                       ; sets zero flag
         JBS    ZERO CR dontEnterCode    ; Yes nothing more to do
         LDA    ,0x2                     ; send command &02  - OSCLI
         CAL    .sendByteR2
@@ -405,8 +405,8 @@ run_string:
 ; - r1 points to the user command
 ;
 ; On Exit:
-; - R0 == 0 if command successfully processed locally
-; - R0 != 0 if command should be handled by host
+; - R1 == 0 if command successfully processed locally
+; - R1 != 0 if command should be handled by host
 ;
 ; Register usage:
 ; r1 points to start of user command
@@ -416,82 +416,101 @@ run_string:
 ; r5 is current character in user command
 
 cmdLocal:
-;; -- CODEME --    PUSH    (r2)
-;; -- CODEME --    PUSH    (r3)
-;; -- CODEME --    PUSH    (r4)
-;; -- CODEME --    PUSH    (r5)
-;; -- CODEME --    PUSH    (r13)
-;; -- CODEME --
-;; -- CODEME --    sub     r1, r0, 1
-;; -- CODEME --cmdLoop0:
-;; -- CODEME --    add     r1, r0, 1
-;; -- CODEME --    JSR     (skip_spaces)           ; skip leading spaces
-;; -- CODEME --    cmp     r2, r0, ord('*')        ; also skip leading *
-;; -- CODEME --    z.mov   pc, r0, cmdLoop0
-;; -- CODEME --
-;; -- CODEME --    mov     r2, r0, cmdTable-1      ; initialize command table pointer (to char before)
-;; -- CODEME --
-;; -- CODEME --cmdLoop1:
-;; -- CODEME --    mov     r3, r1, -1              ; initialize user command pointer (to char before)
-;; -- CODEME --
-;; -- CODEME --cmdLoop2:
-;; -- CODEME --    add     r2, r0, 1               ; increment command table pointer
-;; -- CODEME --    add     r3, r0, 1               ; increment user command pointer
-;; -- CODEME --    ld      r4, r2                  ; read next character from command table
-;; -- CODEME --    mi.mov  pc, r0, cmdExec         ; if an address, then we are done
-;; -- CODEME --    ld      r5, r3                  ; read next character from user command
-;; -- CODEME --    or      r5, r0, 0x20            ; convert to lower case
-;; -- CODEME --    cmp     r5, r4                  ; compare the characters
-;; -- CODEME --    z.mov   pc, r0, cmdLoop2        ; if a match, loop back for more
-;; -- CODEME --
-;; -- CODEME --    sub     r2, r0, 1
-;; -- CODEME --cmdLoop3:                           ; skip to the end of the command in the table
-;; -- CODEME --    add     r2, r0, 1
-;; -- CODEME --    ld      r4, r2
-;; -- CODEME --    pl.mov  pc, r0, cmdLoop3
-;; -- CODEME --
-;; -- CODEME --    cmp     r5, r0, 0x2e            ; was the mis-match a '.'
-;; -- CODEME --    nz.mov  pc, r0, cmdLoop1        ; no, then start again with next command
-;; -- CODEME --
-;; -- CODEME --cmdExec:
-;; -- CODEME --
-;; -- CODEME --    mov     r1, r3                  ; r1 = the command pointer to the params
-;; -- CODEME --    mov     r2, r4                  ; r2 = the execution address
-;; -- CODEME --
-;; -- CODEME --    JSR     (cmdExecR2)
-;; -- CODEME --
-;; -- CODEME --    POP     (r13)
-;; -- CODEME --    POP     (r5)
-;; -- CODEME --    POP     (r4)
-;; -- CODEME --    POP     (r3)
-;; -- CODEME --    POP     (r2)
-;; -- CODEME --
+        LDA     R2
+        STO     /USP+
+        LDA     R3
+        STO     /USP+
+        LDA     R4
+        STO     /USP+
+        LDA     R5
+        STO     /USP+
+        LDA     /R1-
+cmdLoop0:
+        LDA     /R1+
+        CAL     .skip_spaces            ; skip leading spaces
+        LDA     R2
+        CMP     ,0x2A                   ; also skip leading *
+        JBS     ZERO CR cmdLoop0
+        LDA     ,cmdTable-1
+        STO     R2                      ; initialize command table pointer (to char before)
+cmdLoop1:
+        LDA     /R1-
+        LDA     R1
+        STO     R3                      ; initialize user command pointer (to char before)
+cmdLoop2:
+        LDA     /R3+                    ; increment user command pointer        
+        LDA     /R2+                    ; increment command table pointer
+        STO     R4                      ; read next character from command table
+        JBS     SIGN CR cmdExec         ; if an address, then we are done
+        LDA     /R3
+        STO     R5                      ; read next character from user command
+        AND     ,0xDF                   ; convert to upper case
+        CMP     R4                      ; compare the characters
+        JBS     ZERO CR cmdLoop2        ; if a match, loop back for more
+        LDA     /R2-
+cmdLoop3:                               ; skip to the end of the command in the table
+        LDA     /R2+
+        STO     R4
+        JBC     SIGN CR cmdLoop3
+        LDA     ,0x2E
+        CMP     R5                      ; was the mis-match a '.'
+        JBC     ZERO CR cmdLoop1        ; no, then start again with next command
+cmdExec:
+        LDA     R3                      ; r1 = the command pointer to the params
+        STO     R1
+        LDA     R4                      ; r2 = the execution address
+        STO     R2
+        CAL     .cmdExecR2
+        LDA     /USP-
+        STO     R5
+        LDA     /USP-
+        STO     R4
+        LDA     /USP-
+        STO     R3
+        LDA     /USP-
+        STO     R2
 
-        LDA     ,0xFF           ; non-zero value in R0 to show command wasn't handled
-        STO     R0
+        RTN
+;  -------------------------------------------------------------- 
+
+cmdGo:
+        CAL     .read_hex
+        CAL     .cmdExecR2
+        LDA     ,0
+        STO     R1
         RTN
 
+; ---------------------------------------------------------
 
-
-
+cmdEnd:
+        LDA     ,1
+        STO     R1
+        RTN
 
 ; --------------------------------------------------------------
-mosFILE:
-    ; TODO
-    RTN
 
+cmdExecR2:
+        JMP     /R2
+
+; --------------------------------------------------------------
+
+cmdTable:       
+        .WORD    0x2E                   ; '.'
+        .WORD    cmdEnd  | END_MARKER
+        .WORD    0x47, 0x4F             ; "GO" 
+        .WORD    cmdGo   | END_MARKER
+        .WORD    cmdEnd  | END_MARKER
+; --------------------------------------------------------------
+mosFILE:
+        RTN
 ; --------------------------------------------------------------
 
 mosFIND:
-    ; TODO
-    RTN
-
+        RTN
 ; --------------------------------------------------------------
 
 mosGBPB:
-    ; TODO
-    RTN
-
+        RTN
 
 ; --------------------------------------------------------------
 ; mosWORD
@@ -1229,6 +1248,97 @@ sendByteR4_L1:
         STO     .r4data
         RTN
 
+
+
+; --------------------------------------------------------------
+;
+; read_hex
+;
+; Read a word sized hex value, optionally terminated by a non-hex character
+;
+; Entry:
+; - r1 is the address of the hex string
+;
+; Exit:
+; - r1 is updated after processing the string
+; - r2 contains the hex value
+;
+; - all registers preserved
+
+read_hex:        
+        LDA     R3
+        STO     /USP+
+        CAL     .skip_spaces
+        LDA     ,0
+        STO     R2              ; r2 will contain the hex value
+        LDA     ,4              ; number of hex nybbles per word
+        STO     R3
+read_hex_loop:
+        CAL     .read_hex_1
+        JCS     CARRY CR read_hex_exit  ;  non-hex char, exit with c=1
+        LDA     ,1
+        SBS     R3
+        JBC     ZERO CR read_hex_loop
+        NEQ     ,0              ; clear carry flag
+read_hex_exit:
+        LDA     /USP-
+        STO     R3
+        RTN
+
+; --------------------------------------------------------------
+;
+; read_hex_1
+;
+; Read a 1-digit hex value
+;
+; Entry:
+; - r1 is the address of the hex string
+; - r2 contains the hex value (accumulated so far)
+;
+; Exit:
+; - r1 is updated after processing the string
+; - r2 contains the hex value
+; - carry set if there was an error
+; - all registers preserved
+        
+read_hex_1:
+        LDA     R3
+        STO     /USP+
+        LDA     /R1
+        STO     R3
+        CMP     ,0x30
+        JBS     CARRY CR read_hex_1_invalid
+        CMP     ,0x3A
+        JBS     CARRY CR read_hex_1_valid
+        AND     ,0xDF
+        STO     R3
+        LDA     ,0x07
+        SBS     R3
+        JBS     CARRY CR read_hex_1_invalid
+        LDA     R3
+        CMP     ,0x40
+        JBC     CARRY CR read_hex_1_invalid
+
+read_hex_1_valid:
+        SLL     4 R2
+        LDA     ,0x0F
+        AND     R3
+        ADS     R2
+        LDA     /R1+            ; increment R1, discard A
+        NEQ     ,0              ; clear carry
+        LDA     /USP-
+        STO     R3
+        RTC     
+        
+read_hex_1_invalid:
+        AND     ,0              ; set carry 
+        LDA     /USP-
+        STO     R3
+        RTC
+        
+
+
+        
 ; -----------------------------------------------------------------------------
 ; Messages
 ; -----------------------------------------------------------------------------
