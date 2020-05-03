@@ -459,7 +459,7 @@ cmdExec:
         STO     R1
         LDA     R4                      ; r2 = the execution address
         STO     R2
-        CAL     .cmdExecR2
+        CAL     /R2
         LDA     /USP-
         STO     R5
         LDA     /USP-
@@ -474,22 +474,17 @@ cmdExec:
 
 cmdGo:
         CAL     .read_hex
-        CAL     .cmdExecR2
+        CAL     /R2
         LDA     ,0
         STO     R1
         RTN
 
-; ---------------------------------------------------------
+;  --------------------------------------------------------------
 
 cmdEnd:
         LDA     ,1
         STO     R1
         RTN
-
-; --------------------------------------------------------------
-
-cmdExecR2:
-        JMP     /R2
 
 ; --------------------------------------------------------------
 
@@ -1421,7 +1416,8 @@ L4:     LDA     /R7             ; Q += R[i]*10
         LDA     R4
         SLA     1 A             ; denom=(2*i)-1
         STO     R15
-        LDA     /R15-           ; decrement R15 (discard acc)
+        LDA     ,1
+        SBS     R15             ; decrement R15 (discard acc)
         LDA     R5              ; r[i] = q % denom ; q = q//denom
         STO     R14
         CAL     .UDIV16         ; returns R14=Quotient, R15=Remainder
@@ -1432,7 +1428,8 @@ L4:     LDA     /R7             ; Q += R[i]*10
         LDA     ,1
         SBS     R4              ; R4--
         JBS     ZERO CR L5
-        LDA     /R7-            ; decrement pointer R7 (discard acc)
+        LDA     ,1
+        SBS     R7              ; decrement pointer R7 (discard acc)
         LDA     R5              ; Q *= i
         STO     R14
         LDA     R4
@@ -1456,7 +1453,8 @@ L5:     LDA     R5              ; result = C+Q//10
         LDA     R6              ; check if result=9
         CMP     ,9
         JBC     ZERO CR L5A
-        LDA     /R2-            ; decrement 9s if yes (-ve counting)
+        LDA     ,1              ; decrement 9s if yes (-ve counting)
+        SBS     R2
         ICZ     R8 L3           ; loop again without printing digits
 
 L5A:    LDA     R6              ; Check if result=10 (ie overflow)
