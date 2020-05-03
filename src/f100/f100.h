@@ -2,7 +2,7 @@
 #define F100_H
 
 // Use this to enable full 64KWord addressing rather than F100's limited 64KWords
-#define F200
+//#define F200
 #include <inttypes.h>
 #include <stdbool.h>
 #include "../tube.h"
