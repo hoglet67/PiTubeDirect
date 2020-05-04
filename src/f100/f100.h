@@ -64,6 +64,9 @@ void f100_irq(int id);
 #define TRUNC15(m)        ((m) & 0x7FFF)
 #endif
 #define INC_ADDR(m,n)     ((m) = TRUNC15(m+n))
+// Define an INC_PTR operation - we think pointers use full 16 bit arithmetic but
+// may need to revisit this once we see an actual IC in operation
+#define INC_PTR(m,n)     ((m) = TRUNC16(m+n))
 #define FETCH15(m, o, pc) o=TRUNC15(F100_READ_MEM(pc)); INC_ADDR(pc,1)
 #define HALT(ir)          (ir.F==0 && ir.T==1)
 #define LSP               0
