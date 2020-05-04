@@ -97,11 +97,11 @@ void f100_execute() {
       operand_address = cpu.pc;
       INC_ADDR(cpu.pc,1);
     } else if ( cpu.ir.F!=0 && cpu.ir.I==1 && cpu.ir.P!=0) { // Pointer indirect (single word)
-      pointer = TRUNC15(F100_READ_MEM(cpu.ir.P));
-      if ( cpu.ir.R==1 ) INC_ADDR(pointer,1);
-      operand_address = pointer;
-      if ( cpu.ir.R==3 ) INC_ADDR(pointer,-1);
-      F100_WRITE_MEM(cpu.ir.P, pointer);
+      pointer = F100_READ_MEM(cpu.ir.P);
+      if ( cpu.ir.R==1 ) INC_PTR(pointer,1);
+      operand_address = TRUNC15(pointer);
+      if ( cpu.ir.R==3 ) INC_PTR(pointer,-1);
+      F100_WRITE_MEM(cpu.ir.P, TRUNC15(pointer));
     } else if (cpu.ir.F!=0 && cpu.ir.I==1 && cpu.ir.P==0) { // Immediate Indirect address (double word)
       FETCH15(cpu.mem, operand_address, cpu.pc);
     } else if (cpu.ir.F==0 && cpu.ir.T==0 && (cpu.ir.R==3||cpu.ir.S==2)) { // Shifts, bit manipulation and jumps
@@ -158,18 +158,20 @@ void f100_execute() {
         if ( cpu.M== 0) { //Single length
           COMPUTE_SV(result,operand,operand);
           if (cpu.ir.R==0 || cpu.ir.R==2) {
-            cpu.acc = TRUNC16(result) ; 
+            cpu.acc = TRUNC16(result) ;
           } else if (cpu.ir.R==1) {
             // Overwrite flags with the shifted value, low word
             UNPACK_FLAGS(result);
-          } else if (cpu.ir.R==3) {
-            cpu.or = TRUNC16(result) ; 
-            F100_WRITE_MEM(operand_address, cpu.or);
+          } else {
+            cpu.or = TRUNC16(result) ;
           }
         } else { // Double length
           COMPUTE_SV(TRUNC16(result>>16), cpu.acc, cpu.acc);
           cpu.acc = TRUNC16((result>>16));
           cpu.or = TRUNC16(result);
+        }
+        if (cpu.ir.R==3) {
+          F100_WRITE_MEM(operand_address, cpu.or);
         }
       } else if ( cpu.ir.T==0 && cpu.ir.S>1) { //  Bit conditional jumps and Bit manipulation
         uint16_t bmask;
