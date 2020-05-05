@@ -436,30 +436,30 @@ cmdLoop1:
         LDA     ,1
         SUB     R1
         STO     R3                      ; initialize user command pointer (to char before)
-cmdLoop2:
-        LDA     /R3+                    ; increment user command pointer
-        LDA     /R2+                    ; increment command table pointer
-        STO     R4                      ; read next character from command table
-        JBS     SIGN CR cmdExec         ; if an address, then we are done
-        LDA     /R3
-        STO     R5                      ; read next character from user command
+cmdLoop2:        
+        LDA     /R3+                    ; read next char from user command 
         AND     ,0xDF                   ; convert to upper case
-        CMP     R4                      ; compare the characters
+        STO     R5
+        LDA     /R2+                    ; read next character from command table
+        STO     R4                      ; save address in R4 for cmdExec        
+        JBS     SIGN CR cmdCheck        ; if an address, then we are done matching                
+        CMP     R5                      ; compare the characters
         JBS     ZERO CR cmdLoop2        ; if a match, loop back for more
         LDA     /R2-
 cmdLoop3:                               ; skip to the end of the command in the table
         LDA     /R2+
-        STO     R4
         JBC     SIGN CR cmdLoop3
         LDA     ,0x2E
         CMP     R5                      ; was the mis-match a '.'
         JBC     ZERO CR cmdLoop1        ; no, then start again with next command
+        LDA     /R3+                    ; increment user command pointer past the '.' 
 cmdExec:
         LDA     R3                      ; r1 = the command pointer to the params
         STO     R1
         LDA     R4                      ; r2 = the execution address
         STO     R2
         CAL     /R2
+cmdExit:
         LDA     /USP-
         STO     R5
         LDA     /USP-
@@ -468,24 +468,47 @@ cmdExec:
         STO     R3
         LDA     /USP-
         STO     R2
-
         RTN
-;  --------------------------------------------------------------
+                                        ; Additional code to make the match non-greedy
+                                        ; e.g. *MEMORY should not match against the MEM command
+                                        ;      also exclude *MEM.
+cmdCheck:
+        LDA     R5
+        CMP     ,0x2E                   ; check the first non-matching user char against '.'
+        JBS     ZERO CR cmdReject       ; if == '.' then reject the command
+        CMP     ,0x40                   ; check the first non-matching user char against 'a'
+        JBS     CARRY CR cmdExec        ; if <= 'a'-1 then execute the local command
+        CMP     ,0x5a                   ; check the first non-matching user char against 'z'
+        JBC     CARRY CR cmdExec        ; if > 'z' then execute the local command
+cmdReject:
+        LDA     ,1                      ; flag command as not handled here then return
+        STO     R1
+        JMP     .cmdExit                ; allowing the command to be handled elsewhere
 
+;  --------------------------------------------------------------
 cmdGo:
         CAL     .read_hex
         CAL     /R2
-        LDA     ,0
+        LDA     ,0                      ; Command handled successfully
         STO     R1
         RTN
-
 ;  --------------------------------------------------------------
-
+cmdPI:
+        CAL     .PI
+        LDA     ,0                      ; Command handled successfully
+        STO     R1
+        RTN
+;  --------------------------------------------------------------
+cmdE:
+        CAL     .E
+        LDA     ,0                      ; Command handled successfully
+        STO     R1
+        RTN
+;  --------------------------------------------------------------        
 cmdEnd:
         LDA     ,1
         STO     R1
         RTN
-
 ; --------------------------------------------------------------
 
 cmdTable:
@@ -493,6 +516,10 @@ cmdTable:
         .WORD    cmdEnd  | END_MARKER
         .WORD    0x47, 0x4F             ; "GO"
         .WORD    cmdGo   | END_MARKER
+        .WORD    0x50, 0x49             ; "PI"
+        .WORD    cmdPI   | END_MARKER
+        .WORD    0x45                   ; "E"
+        .WORD    cmdE   | END_MARKER
         .WORD    cmdEnd  | END_MARKER
 ; --------------------------------------------------------------
 mosFILE:
