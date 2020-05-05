@@ -43,11 +43,14 @@
 .equ    R17             R0+17
 .equ    R18             R0+18
 .equ    R19             R0+19
-
+                                ;  Reserve some registers for constant values which can turn repeated operations
+                                ; in tight loops from 2 word instructions to 1 word instructions        
+.equ    K0              R19+1   ; constant 0        
+.equ    K1              K0+1    ; constant 1
+.equ    K10             K1+1    ; constant 10
 
 .equ    MEM_BOT         APP
 .equ    MEM_TOP         0x77FF
-
 
 ; -----------------------------------------------------------------------------
 ; Memory from 0x0000 to 0x00FF is reserved for system use
@@ -109,7 +112,14 @@ ResetHandler:
         LDA ,USER_STACK         ; initialize user stack pointer
         STO .USP
 
-
+        ;;  Initialize constants
+        LDA     ,0
+        STO     K0
+        LDA     ,1
+        STO     K1
+        LDA     ,10
+        STO     K10
+        
 .equ    START   0-(2*NUM_VECTORS-1) ; need to write JMP <vector> to each addr = 2 words
         LDA     ,START
         STO     R0
@@ -126,7 +136,7 @@ InitVecLoop:
         CAL     .print_string
         ; CAL     .PI
         ; CAL     .newline
-        LDA     ,0            ; send the terminator
+        LDA     K0            ; send the terminator
         CAL     .OSWRCH
 
         CAL     .waitByteR2
@@ -135,7 +145,7 @@ CmdPrompt:
 CmdOsLoop:
         LDA     ,0x2A
         CAL     .OSWRCH
-        LDA     ,0
+        LDA     K0
         STO     R1
         LDA     ,osword0_param_block
         STO     R2
@@ -239,7 +249,7 @@ mosBYTE:
         RTN
 
 ByteHigh:
-        LDA     ,0
+        LDA     K0
         STO     R0
         LDA     R1
         CMP     ,0x82
@@ -285,7 +295,7 @@ Byte83:                         ; Read bottom of memory
         STO     R1
         RTN
 Byte82:                         ; Return &0000 as memory high word
-        LDA     ,0x0
+        LDA     K0
         STO     R1
         RTN
 
@@ -489,19 +499,19 @@ cmdReject:
 cmdGo:
         CAL     .read_hex
         CAL     /R2
-        LDA     ,0                      ; Command handled successfully
+        LDA     K0                      ; Command handled successfully
         STO     R1
         RTN
 ;  --------------------------------------------------------------
 cmdPI:
         CAL     .PI
-        LDA     ,0                      ; Command handled successfully
+        LDA     K0                      ; Command handled successfully
         STO     R1
         RTN
 ;  --------------------------------------------------------------
 cmdE:
         CAL     .E
-        LDA     ,0                      ; Command handled successfully
+        LDA     K0                      ; Command handled successfully
         STO     R1
         RTN
 ;  --------------------------------------------------------------        
@@ -567,7 +577,7 @@ mosWORD:
         LDA       R3
         CMP       ,0x15
         JBC       CARRY CR mosWORDL1
-        LDA       ,0            ; >= OSWORD 0x15, use slot 0
+        LDA       K0            ; >= OSWORD 0x15, use slot 0
         STO       R3
 mosWORDL1:
         LDA     R3
@@ -743,7 +753,7 @@ receiveBlockR2:
         LDA     R4
         SRL     1 A ; calculate address of word containing last byte
         ADS     R2
-        LDA     ,0
+        LDA     K0
         STO     R3      ;  clear the receive word
         JBC     0 R4 receiveBlockB0 ; work out the byte alignment of the last byte in the block (first byte to send)
 receiveBlockB1:
@@ -760,7 +770,7 @@ receiveBlockB0:
 receiveBlockWrite:
         LDA     R3
         STO     /R2-            ; write word and post decrement R2
-        LDA     ,0              ; clear the receive word for next bytes
+        LDA     K0              ; clear the receive word for next bytes
         STO     R3
         LDA     ,1
         SBS     R4
@@ -849,19 +859,19 @@ RDLINE:
         LDA     /R0
         CAL     .sendByteR2  ; Send <char min>
         LDA     R2
-        ADD     ,0x01
+        ADD     K1
         STO     R0
         LDA     /R0
         CAL     .sendByteR2  ; Send <buffer len>
         LDA     ,0x07
         CAL     .sendByteR2  ; Send <buffer addr MSB>
-        LDA     ,0
+        LDA     K0
         CAL     .sendByteR2   ; Send <buffer addr LSB>
         CAL     .waitByteR2   ; Wait for response &FF [escape] or &7F
         AND     ,0x80         ; test for escape (and set Carry)
         JBC     ZERO CR RdLineEscape
 RdLineCont:
-        LDA     ,0
+        LDA     K0
         STO     R3           ; initialize response length to 0
         LDA     /R2
         STO     R2           ; Load the local input buffer from the control block
@@ -880,7 +890,7 @@ RdLineLp:
 RdLineEscape:
         LDA     /USP-
         STO     R2
-        LDA     ,0
+        LDA     K0
         STO     R1           ; Clear r1 to be tidy
         RTC
 ; -------------------------------------------------------------
@@ -926,7 +936,7 @@ mosWRCH1:
 ; - Acc holds word read
 
 mosRDCH:
-        LDA     ,0x00           ; Send command &00 - OSRDCH
+        LDA     K0              ; Send command &00 - OSRDCH
         CAL     .sendByteR2
         CAL     .waitByteR2     ; Receive carry
         ; need to convert data into a carry from previous call and place in CR on stack
@@ -1083,7 +1093,7 @@ Release:
 ; ============================================================
 
 Type0:
-        LDA     ,0
+        LDA     K0
         STO     R2              ; clean the odd byte flag (start with an even byte)
 
 Type0_loop:
@@ -1095,7 +1105,7 @@ Type0_loop:
         STO     R1
         JBC     6 A Type0_loop
 
-        LDA     ,0              ; test odd byte flag
+        LDA     K0              ; test odd byte flag
         SUB     R2
         JBS     SIGN CR Type0_odd_byte
 
@@ -1122,7 +1132,7 @@ Type0_odd_byte:
 ; ============================================================
 
 Type1:
-        LDA     ,0
+        LDA     K0
         STO     R2              ; clean the odd byte flag (start with an even byte)
 
 Type1_loop:
@@ -1132,7 +1142,7 @@ Type1_loop:
         LDA     .r3status       ; Wait for Tube R3 free
         JBC     7 A Type1_loop
 
-        LDA     ,0              ; test odd byte flag
+        LDA     K0              ; test odd byte flag
         SUB     R2
         JBS     SIGN CR Type1_odd_byte
 
@@ -1291,7 +1301,7 @@ read_hex:
         LDA     R3
         STO     /USP+
         CAL     .skip_spaces
-        LDA     ,0
+        LDA     K0
         STO     R2              ; r2 will contain the hex value
         LDA     ,4              ; number of hex nybbles per word
         STO     R3
@@ -1301,7 +1311,7 @@ read_hex_loop:
         LDA     ,1
         SBS     R3
         JBC     ZERO CR read_hex_loop
-        NEQ     ,0              ; clear carry flag
+        NEQ     K0              ; clear carry flag
 read_hex_exit:
         LDA     /USP-
         STO     R3
@@ -1343,7 +1353,7 @@ read_hex_1:
         JBS     CARRY CR read_hex_1_valid
 
 read_hex_1_invalid:
-        AND     ,0              ; set carry
+        AND     K0              ; set carry
         LDA     /USP-
         STO     R3
         RTC
@@ -1354,7 +1364,7 @@ read_hex_1_valid:
         AND     R3
         ADS     R2
         LDA     /R1+            ; increment R1, discard A
-        NEQ     ,0              ; clear carry
+        NEQ     K0              ; clear carry
         LDA     /USP-
         STO     R3
         RTC
@@ -1423,7 +1433,7 @@ LOOP:
 
         LDA     ,-PIDIGITS        ; Digit counter from -Digits to 0
         STO     R8
-        LDA     ,0             ; C = 0
+        LDA     K0             ; C = 0
         STO     R3
         STO     R9              ; init outer loop counter
         STO     R2              ; nines=0
@@ -1432,7 +1442,7 @@ L3:     LDA     ,PICOLS-1         ; i = PICOLS-1
         STO     R4
         ADD     ,REMAINDER      ; setup remainder pointer to end of data
         STO     R7
-        LDA     ,0            ; Q = 0
+        LDA     K0            ; Q = 0
         STO     R5
 
 L4:     LDA     /R7             ; Q += R[i]*10
@@ -1443,34 +1453,26 @@ L4:     LDA     /R7             ; Q += R[i]*10
         LDA     R4
         SLA     1 A             ; denom=(2*i)-1
         STO     R15
-        LDA     ,1
-        SBS     R15             ; decrement R15 (discard acc)
+        LDA     /R15-           ; decrement R15 (discard acc)
         LDA     R5              ; r[i] = q % denom ; q = q//denom
         STO     R14
         CAL     .UDIV16         ; returns R14=Quotient, R15=Remainder
-        LDA     R14
-        STO     R5              ; Q = quotient
         LDA     R15
         STO     /R7             ; r[i] = remainder
-        LDA     ,1
-        SBS     R4              ; R4--
+        LDA     K1
+        SBS     R4              ; R4-- and check for zero
         JBS     ZERO CR L5
-        LDA     ,1
-        SBS     R7              ; decrement pointer R7 (discard acc)
-        LDA     R5              ; Q *= i
-        STO     R14
-        LDA     R4
+        LDA     /R7-            ; decrement pointer R7 (discard acc)
+        LDA     R4              ; (R14 still holds Q at this point)
         STO     R15
         CAL     .MUL16
         LDA     R15
-        STO     R5
+        STO     R5              ; save Q in R5
         JMP     .L4
 
-L5:     LDA     R5              ; result = C+Q//10
-        STO     R14
-        LDA     ,10
+L5:     LDA     K10             ; result = C+Q//10 (Q held in R14 at this point)
         STO     R15
-        CAL     .UDIV16
+        CAL     .UDIV16         ; returns R14=Quotient, R15=Remainder
         LDA     R14
         ADD     R3
         STO     R6
@@ -1480,21 +1482,21 @@ L5:     LDA     R5              ; result = C+Q//10
         LDA     R6              ; check if result=9
         CMP     ,9
         JBC     ZERO CR L5A
-        LDA     ,1              ; decrement 9s if yes (-ve counting)
+        LDA     K1              ; decrement 9s if yes (-ve counting)
         SBS     R2
         ICZ     R8 L3           ; loop again without printing digits
 
 L5A:    LDA     R6              ; Check if result=10 (ie overflow)
-        CMP     ,10
+        CMP     K10
         JBC     ZERO CR L6
-        LDA     ,0              ; if yes, zero result
+        LDA     K0              ; if yes, zero result
         STO     R6
         LDA     /R9+            ; and inc predigit (discard acc)
         LDA     R9
         CAL     .OSWRDIG        ; print predigit and all nines will be zeros now
         LDA     R2
         JBS     ZERO CR L7
-L5B:    LDA     ,0
+L5B:    LDA     K0
         CAL     .OSWRDIG
         ICZ     R2 L5B
 
@@ -1550,21 +1552,21 @@ E:
         CAL    .OSWRCH
 
         LDA     ,ECOLS
-        SUB     ,0
+        SUB     K0
         STO     R0
         LDA     ,(REMAINDER-1)  ; ptr pre-incremented before use
         STO     R1
 ELOOP:
-        LDA     ,1
+        LDA     K1
         STO     /R1+            ; init values to 1
         ICZ     R0 ELOOP
-        LDA     ,0              ; except first which is 0
+        LDA     K0              ; except first which is 0
         STO     .REMAINDER
         LDA     ,EDIGITS-1      ; j counter
-        SUB     ,0              ; negate it
+        SUB     K0              ; negate it
         STO     R5
 EOUTER:
-        LDA     ,0
+        LDA     K0
         STO     R2
         LDA     ,ECOLS
         STO     R4
@@ -1580,11 +1582,10 @@ EINNER:
         ADD     R10            	; add the orignal number twice
         ADD     R10            	; .. to end up with remainder[i]*10
         ADD     R2             	; add Q
-        STO     R3             	; save in N
-        STO     R14            	; N= numerator for div call
+        STO     R14            	; move to N= numerator for div call
         LDA     R4
-        SUB     ,1             	; get negative R4 and then add 1
-        STO     R15            	; (i+1)=denominateor for div call
+        SUB     K1             	; get negative R4 and then add 1
+        STO     R15            	; (i+1)=denominator for div call
         CAL     .UDIV16
         LDA     R14            	; get quotient
         STO     R2
@@ -1636,7 +1637,7 @@ EINNER:
 .equ UD16_LCTR R11
 
 UDIV16:
-         LDA ,0
+         LDA K0
          STO UD16_Q
          STO UD16_R
 UD16_L1:
@@ -1686,7 +1687,7 @@ MUL16:
         STO M16L_count
         LDA R15
         STO M16L_aa
-        LDA ,0
+        LDA K0
         STO M16L_res
 M16L_LOOP:
         JBC 0 M16L_aa M16L_SKIPADD
