@@ -336,7 +336,11 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
 int user_exec_fn(FunctionPtr_Type f, int param ) {
   int ret;
   if (DEBUG_ARM) {
-    printf("Execution passing to %08x cpsr = %08x param = %s\r\n", (unsigned int)f, _get_cpsr(), (unsigned char *)param);
+    printf("Execution passing to %08x cpsr = %08x", (unsigned int)f, _get_cpsr());
+    if (param) {
+       printf(" param = %s", (unsigned char *)param);
+    }
+    printf("\r\n");
   }
   // setTubeLibDebug(1);
   // The machine code version in copro-armnativeasm.S does the real work
