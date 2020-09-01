@@ -69,6 +69,8 @@ static const char *prompt = "arm>*";
 
 Environment_type *env = &defaultEnvironment;
 
+static int reset_sent = 0;
+
 /***********************************************************
  * Default Handlers
  ***********************************************************/
@@ -118,7 +120,7 @@ static void defaultExitHandler() {
   // Move back to supervisor mode
   swi(SWI_OS_EnterOS);
   // Jump back to the command prompt
-  longjmp(enterOS, 1);  
+  longjmp(enterOS, 1);
 }
 
 static void defaultUndefinedInstructionHandler() {
@@ -209,6 +211,7 @@ static void tube_Reset() {
   }
   sendString(R1_ID, 0x00, banner);
   sendByte(R1_ID, 0x00);
+  reset_sent = 1;
   if (DEBUG_ARM) {
     printf( "Banner sent, awaiting response\r\n" );
   }
@@ -268,7 +271,7 @@ void copro_armnative_reset() {
   // Move back to supervisor mode
   swi(SWI_OS_EnterOS);
   // Jump back to the boot message
-  longjmp(reboot, 1);  
+  longjmp(reboot, 1);
 }
 
 /***********************************************************
@@ -302,28 +305,28 @@ void copro_armnative_emulator() {
   // Initialize the environment structure
   initEnv();
 
-  // If the default exit handler is called during tube_Reset(), we return here
-  // This should not be necessary, but I've seen a couple of cases
-  // where R4 errors happened during the startup message
+  // Flag to ensure the reset message is only sent once
+  reset_sent = 0;
+
+  // When the default exit handler is called, we return here
   setjmp(enterOS);
-
-  // Log ARM performance counters
-  tube_log_performance_counters();
-
-  // Wait for rst become inactive before continuing to execute
-  tube_wait_for_rst_release();
 
   // Enable interrupts!
   _enable_interrupts();
 
-  // Reset ARM performance counters
-  tube_reset_performance_counters();
+  if (!reset_sent) {
+     // Log ARM performance counters
+     tube_log_performance_counters();
 
-  // Send reset message
-  tube_Reset();
+     // Wait for rst become inactive before continuing to execute
+     tube_wait_for_rst_release();
 
-  // When the default exit handler is called, we return here
-  setjmp(enterOS);
+     // Reset ARM performance counters
+     tube_reset_performance_counters();
+
+     // Send reset message
+     tube_Reset();
+  }
 
   // Make sure the reentrant interrupt flag is clear
 #ifdef USE_REENTRANT_FIQ_HANDLER
