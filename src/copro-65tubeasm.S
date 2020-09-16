@@ -228,7 +228,7 @@
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1b
 .endm
-#endif 
+#endif
 
 
 .macro FETCH_NEXT_STAGE_12
@@ -237,14 +237,14 @@
 .endm
 
 #ifdef RPI4
-.macro FETCH_NEXT_STAGE_012 
+.macro FETCH_NEXT_STAGE_012
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a
         FETCH_NEXT_STAGE_1b
         FETCH_NEXT_STAGE_2
 .endm
 #else
-.macro FETCH_NEXT_STAGE_012 
+.macro FETCH_NEXT_STAGE_012
         FETCH_NEXT_STAGE_1a
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1b
@@ -1940,7 +1940,7 @@ opcode_84:
 
 // Opcode 85 - STA $00
 opcode_85:
-#ifdef RPI4 
+#ifdef RPI4
         STORE_BYTE    regA
         ARMV8_NOP
         FETCH_NEXT_STAGE_012
@@ -1948,7 +1948,7 @@ opcode_85:
 		FETCH_NEXT_STAGE_0
         STORE_BYTE    regA
         FETCH_NEXT_STAGE_12
-#endif		
+#endif
         .balign I_ALIGN
 
 // Opcode 86 - STX $00
