@@ -3186,8 +3186,9 @@ noirq:
 handle_irq_adjust_regPC:
         sub     regPC, regPC ,#1
         msr     CPSR_flg, temp2            // Safely restore the 6502 flags and prepare to
-        mrs     temp2, CPSR                // re-enable ARM interrupts without affecting the MODE bits
-        bic     temp2, temp2, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
+        INTR    -2, 0
+        FETCH_NEXT_3B_MERGED SUBPC
+
 handle_irq:
         msr     CPSR, temp2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -2, 0
