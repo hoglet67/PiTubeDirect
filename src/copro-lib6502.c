@@ -30,6 +30,7 @@ M6502 *copro_lib6502_mpu;
 #ifdef TURBO
 #define ADDR_MASK      0x3FFFF
 #define ADDR_MASK_TUBE 0x3FFF8
+uint8_t turbo;
 #else
 #define ADDR_MASK       0xFFFF
 #define ADDR_MASK_TUBE  0xFFF8
@@ -50,11 +51,10 @@ static void copro_lib6502_reset(M6502 *mpu) {
   // (Slot 16 normal version, Slot 17 turbo 256K version)
   if (copro & 1) {
     memcpy(mpu->memory + 0xf800, tuberom_6502_turbo, 0x800);
-    mpu->flags |= M6502_Turbo;
   } else {
     memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
-    mpu->flags &= ~M6502_Turbo;
   }
+  turbo = 0;
 #else
     memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
 #endif
@@ -90,6 +90,16 @@ int copro_lib6502_mem_write(M6502 *mpu, addr_t addr, uint8_t data) {
 }
 
 #endif
+
+static int copro_lib6502_reg0_write(M6502 *mpu, addr_t addr, uint8_t data) {
+  if (copro & 1) {
+    // On the 256K Co Pro (Co Pro 17) bit 7 of &FEF0 controls turbo mode
+    turbo = data & 0x80;
+  }
+  // And also write this back to memory
+  mpu->memory[addr] = data;
+  return 0;
+}
 
 static int copro_lib6502_tube_read(M6502 *mpu, addr_t addr, uint8_t data) {
   return tube_parasite_read(addr);
@@ -140,6 +150,9 @@ void copro_lib6502_emulator() {
   M6502 *mpu = M6502_new(0, 0, 0);
 
   copro_lib6502_mpu = mpu;
+
+  // Reg0 is the turbo enable/disable flag at &FEF0
+  M6502_setCallback(mpu, write, 0xfef0, copro_lib6502_reg0_write);
 
   for (addr= 0xfef8; addr <= 0xfeff; addr++) {
     M6502_setCallback(mpu, read,  addr, copro_lib6502_tube_read);

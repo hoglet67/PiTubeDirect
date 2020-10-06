@@ -1010,7 +1010,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
   register word   PC;
 #ifdef TURBO
   dword		  ea;
-  byte            turbo = mpu->flags & M6502_Turbo;
+  extern uint8_t turbo;
 #else
   word		  ea;
 #endif
