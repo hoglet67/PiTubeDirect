@@ -7,9 +7,6 @@
 #define L2_CACHED_MEM_BASE 0x0F000000
 #define UNCACHED_MEM_BASE  0x0F000000
 
-// Location of the high vectors (last page of L1 cached memory)
-#define HIGH_VECTORS_BASE _start
-
 // The first 2MB of memory is mapped at 4K pages so the 6502 Co Pro
 // can play tricks with banks selection
 #define NUM_4K_PAGES 512

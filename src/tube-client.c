@@ -135,8 +135,8 @@ static func_ptr emulator;
 
 // This magic number come form cache.c where we have relocated the vectors to
 // Might be better to just read the vector pointer register instead.
-#define SWI_VECTOR (HIGH_VECTORS_BASE + _software_interrupt_vector_h)
-#define FIQ_VECTOR (HIGH_VECTORS_BASE + _fast_interrupt_vector_h)
+#define SWI_VECTOR ( _software_interrupt_vector_h)
+#define FIQ_VECTOR ( _fast_interrupt_vector_h)
 
 unsigned char * copro_mem_reset(int length)
 {
