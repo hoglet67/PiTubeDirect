@@ -156,7 +156,7 @@ void init_emulator() {
     tube_irq = 0; // Make sure everything is clear
 	// Set up FIQ handler
 
-   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
+   FIQ_VECTOR = (uint32_t) arm_fiq_handler_flag1;
    _data_memory_barrier();
    (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
     // Direct Mail box to FIQ handler
@@ -171,8 +171,8 @@ void init_emulator() {
 
 #ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
-      *((uint32_t *) SWI_VECTOR) = (uint32_t) copro_armnative_swi_handler;
-      *((uint32_t *) FIQ_VECTOR) = (uint32_t) copro_armnative_fiq_handler;
+      SWI_VECTOR = (uint32_t) copro_armnative_swi_handler;
+      FIQ_VECTOR = (uint32_t) copro_armnative_fiq_handler;
    }
 #endif
 
