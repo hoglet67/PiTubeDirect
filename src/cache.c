@@ -101,6 +101,30 @@ void CleanDataCache (void)
 }
 #endif
 
+void _clean_cache_area(void * start, unsigned int length)
+{
+#if defined(RPI2) || defined(RPI3)
+   uint32_t cachelinesize;
+   char * startptr = start;
+   char * endptr;
+   asm volatile ("mrc p15, 0, %0, c0, c0,  1" : "=r" (cachelinesize));
+   cachelinesize = (cachelinesize>> 16 ) & 0xF;
+   cachelinesize = 4<<cachelinesize;
+   endptr = startptr + length;
+
+   // round down start address
+   startptr = (char *)(((uint32_t)start) & ~(cachelinesize - 1));
+
+   do{
+      asm volatile ("mcr     p15, 0, %0, c7, c14, 1" : : "r" (startptr));
+      startptr = startptr + cachelinesize;
+   } while ( startptr  < endptr);
+#else
+   asm volatile("mcrr p15,0,%0,%1,c14"::"r" (start+length), "r" (start));
+   _data_memory_barrier();
+#endif
+}
+
 // TLB 4KB Section Descriptor format
 // 31..12 Section Base Address
 // 11..9        - unused, set to zero
