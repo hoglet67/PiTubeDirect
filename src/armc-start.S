@@ -71,7 +71,9 @@
 .global _invalidate_dtlb_mva
 .global _data_memory_barrier
 
+.global _software_interrupt_vector_h
 .global _interrupt_vector_h
+.global _fast_interrupt_vector_h
 
 #ifdef HAS_MULTICORE
 .global _get_core
