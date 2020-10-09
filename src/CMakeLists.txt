@@ -232,6 +232,8 @@ file( GLOB copro_arm_files
     copro-armnative.c
     copro-armnativeasm.S
     copro-armnative.h
+    armbasic.h
+    armbasic.c
     rpi-armtimer.c
     rpi-armtimer.h
     rpi-systimer.c

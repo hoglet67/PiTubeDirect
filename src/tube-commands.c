@@ -7,6 +7,9 @@
 #include "tube-commands.h"
 #include "darm/darm.h"
 
+// Include ARM Basic
+#include "armbasic.h"
+
 const char *help = "ARM Tube Client 0.10\r\n";
 
 char line[256];
@@ -15,7 +18,7 @@ char line[256];
  * Build in Commands
  ***********************************************************/
 
-#define NUM_CMDS 7
+#define NUM_CMDS 8
 
 // Must be kept in step with cmdFuncs (just below)
 char *cmdStrings[NUM_CMDS] = {
@@ -25,7 +28,8 @@ char *cmdStrings[NUM_CMDS] = {
   "MEM",
   "DIS",
   "FILL",
-  "CRC"
+  "CRC",
+  "ARMBASIC"
 };
 
 int (*cmdFuncs[NUM_CMDS])(const char *params) = {
@@ -35,10 +39,12 @@ int (*cmdFuncs[NUM_CMDS])(const char *params) = {
   doCmdMem,
   doCmdDis,
   doCmdFill,
-  doCmdCrc
+  doCmdCrc,
+  doCmdArmBasic
 };
 
 int cmdMode[NUM_CMDS] = {
+  MODE_USER,
   MODE_USER,
   MODE_USER,
   MODE_USER,
@@ -58,12 +64,12 @@ int dispatchCmd(char *cmd) {
   while (isblank((int) *cmd)) {
     cmd++;
   }
-  // Match the command 
+  // Match the command
   for (i = 0; i < NUM_CMDS; i++) {
     cmdPtr = cmd;
     refPtr = cmdStrings[i];
     do {
-      c = tolower((int)*cmdPtr);      
+      c = tolower((int)*cmdPtr);
       r = tolower((int)*refPtr);
       // a command can be terminated with any non-alpha character
       if ((r == 0 && !isalpha(c)) || c == '.') {
@@ -140,7 +146,7 @@ int doCmdMem(const char *params) {
     for (i = 0; i < 16; i++) {
       ptr = line;
       // Generate the address
-      ptr += sprintf(ptr, "%08X ", memAddr);    
+      ptr += sprintf(ptr, "%08X ", memAddr);
       // Generate the hex values
       for (j = 0; j < 16; j++) {
         c = *((unsigned char *)(memAddr + j));
@@ -158,7 +164,7 @@ int doCmdMem(const char *params) {
       OS_Write0(line);
       memAddr += 0x10;
     }
-    OS_ReadC(&flags);   
+    OS_ReadC(&flags);
   } while ((flags & CARRY_MASK) == 0);
   OS_Byte(0x7e, 0x00, 0x00, NULL, NULL);
   return 0;
@@ -187,7 +193,7 @@ int doCmdDis(const char *params) {
       OS_Write0(line);
       memAddr += 4;
     }
-    OS_ReadC(&flags);   
+    OS_ReadC(&flags);
   } while ((flags & CARRY_MASK) == 0);
   OS_Byte(0x7e, 0x00, 0x00, NULL, NULL);
   return 0;
@@ -213,5 +219,14 @@ int doCmdCrc(const char *params) {
   }
   sprintf(line, "%04X\r\n", (unsigned short)crc);
   OS_Write0(line);
+  return 0;
+}
+
+int doCmdArmBasic(const char *params) {
+  FunctionPtr_Type f;
+  armbasic = 1;
+  // Cast address to a generic function pointer
+  f = (FunctionPtr_Type) ARM_BASIC_EXEC;
+  f(params);
   return 0;
 }

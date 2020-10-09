@@ -34,6 +34,7 @@
 #include <string.h>
 
 #include "copro-armnative.h"
+#include "armbasic.h"
 
 #include "rpi-aux.h"
 #include "rpi-armtimer.h"
@@ -194,8 +195,8 @@ static void initEnv() {
   env->handler[                 UPCALL_HANDLER].handler = defaultUpcallHandler;
 
   // Handlers where the handler is just data
-  env->handler[           MEMORY_LIMIT_HANDLER].handler = (EnvironmentHandler_type) (16 * 1024 * 1024);
-  env->handler[      APPLICATION_SPACE_HANDLER].handler = (EnvironmentHandler_type) (16 * 1024 * 1024);
+  env->handler[           MEMORY_LIMIT_HANDLER].handler = (EnvironmentHandler_type) (216 * 1024 * 1024); // 216MB
+  env->handler[      APPLICATION_SPACE_HANDLER].handler = (EnvironmentHandler_type) (216 * 1024 * 1024); // 216MB
   env->handler[CURRENTLY_ACTIVE_OBJECT_HANDLER].handler = (EnvironmentHandler_type) (0);
 }
 
@@ -279,6 +280,7 @@ void copro_armnative_reset() {
  ***********************************************************/
 
 void copro_armnative_emulator() {
+  unsigned int last_break;
 
   // Disable interrupts!
   _disable_interrupts();
@@ -289,6 +291,9 @@ void copro_armnative_emulator() {
   // Active the mailbox
   copro_armnative_enable_mailbox();
 
+  // Default to armbasic off when Co Pro starts
+  armbasic = 0;
+
   // When a reset occurs, we want to return to here
   setjmp(reboot);
 
@@ -298,6 +303,9 @@ void copro_armnative_emulator() {
     // Allow another copro to be selected
     return;
   }
+
+  // Always copy ARM Basic into memory (in case it's been corrupted)
+  copy_armbasic();
 
   // Create the startup banner
   sprintf(banner, "Native ARM Co Processor %dMHz\r\n\n", get_speed());
@@ -326,6 +334,19 @@ void copro_armnative_emulator() {
 
      // Send reset message
      tube_Reset();
+  }
+
+  // Read the last break type
+  OS_Byte(0xfd, 0x00, 0xFF, &last_break, NULL);
+
+  // If hard or power up break, then don't re-enter ARM Basic
+  if ((last_break & 0xff) > 0) {
+     armbasic = 0;
+  }
+
+  // Re-start ARMBASIC if active before reset
+  if (armbasic) {
+     OS_CLI("ARMBASIC");
   }
 
   // Make sure the reentrant interrupt flag is clear
