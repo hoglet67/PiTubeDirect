@@ -191,15 +191,12 @@ _reset_continue:
     // We enter execution in supervisor mode. For more information on
     // processor modes see ARM Section A2.2 (Processor Modes)
 
-    ldr     r0,=_start
-    mov     r1, #0x00000000
-    ldmia   r0!,{r2, r3, r4, r5, r6, r7, r8, r9}
-    stmia   r1!,{r2, r3, r4, r5, r6, r7, r8, r9}
-    ldmia   r0!,{r2, r3, r4, r5, r6, r7, r8, r9}
-    stmia   r1!,{r2, r3, r4, r5, r6, r7, r8, r9}
+
+    // move the vector pointer to the begining of the code
+    ldr     r4, =_start
+    mcr     p15, 0, r4, c12, c0, 0
 
     // Initialise Stack Pointers ---------------------------------------------
-    ldr     r4,=_start
 
     // We're going to use interrupt mode, so setup the interrupt mode
     // stack pointer which differs to the application stack pointer:
