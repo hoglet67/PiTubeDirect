@@ -1,7 +1,7 @@
 #define CASE2(in) case (in): case ((in) | 0x80)
 #define CASE4(in) case (in): case ((in) | 0x40): case ((in) | 0x80): case ((in) | 0xC0)
 
-uint8_t FunctionLookup[256];
+extern uint8_t FunctionLookup[256];
 
 #define F_BASE(in) ((in) << 4)
 enum Functions
