@@ -13,8 +13,6 @@
 // Uncomment to log all tube FIFO reads/writes (excluding status only)
 // #define DEBUG_TUBE
 
-extern volatile int tube_irq;
-
 extern void disable_tube();
 
 //extern void tube_host_read(uint16_t addr);
