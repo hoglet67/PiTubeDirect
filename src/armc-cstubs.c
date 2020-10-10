@@ -96,7 +96,7 @@ int _close(int file)
 
 /* Transfer control to a new process. Minimal implementation (for a system
  without processes): */
-int execve(char *name, char **argv, char **env)
+int execve(const char *name, char * const *argv, char * const *env)
 {
   errno = ENOMEM;
   return -1;
