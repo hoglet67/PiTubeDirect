@@ -17,6 +17,10 @@
 #include "cpu_debug.h"
 #endif
 
+#ifdef DEBUG
+#include "emulator-names.h"
+#endif
+
 typedef void (*func_ptr)();
 
 extern int test_pin;
@@ -24,12 +28,6 @@ extern int test_pin;
 #include "copro-65tube.h"
 
 #ifdef MINIMAL_BUILD
-
-#ifdef DEBUG
-static const char * emulator_names[] = {
-   "65C02 (65tube)"
-};
-#endif
 
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator
@@ -50,43 +48,6 @@ static const func_ptr emulator_functions[] = {
 #include "copro-f100.h"
 #include "copro-pdp11.h"
 #include "copro-armnative.h"
-
-#ifdef DEBUG
-static const char * emulator_names[] = {
-   "65C02 (fast)",           // 0
-   "65C02 (3MHz)",           // 1
-   "65C102 (fast)",          // 2
-   "65C102 (4MHz)",          // 3
-   "Z80",                    // 4
-   "Null",                   // 5
-   "Null",                   // 6
-   "Null",                   // 7
-   "80286",                  // 8
-   "MC6809",                 // 9
-   "Null",                   // 10
-   "PDP-11",                 // 11
-   "ARM2",                   // 12
-   "32016",                  // 13
-   "Null",                   // 14
-   "ARM Native",             // 15
-   "65C02 (lib6502)",        // 16
-   "65C02 Turbo (lib6502)",  // 17
-   "Null",                   // 18
-   "Null",                   // 19
-   "OPC5LS",                 // 20
-   "OPC6",                   // 21
-   "OPC7",                   // 22
-   "Null",                   // 23
-   "Null",                   // 24
-   "Null",                   // 25
-   "Null",                   // 26
-   "Null",                   // 27
-   "Ferranti F100-L",        // 28
-   "Null",                   // 29
-   "Null",                   // 30
-   "Null"                    // 31
-};
-#endif
 
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator,    // 0
