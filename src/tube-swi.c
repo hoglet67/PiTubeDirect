@@ -677,10 +677,17 @@ void tube_Word(unsigned int *reg) {
   receiveBlock(R2_ID, out_len, block);
 }
 
+void print_debug_string(char *s) {
+   while (*s >= ' ') {
+      putchar(*s++);
+   }
+   putchar(10);
+   putchar(13);
+}
 void tube_File(unsigned int *reg) {
   if (DEBUG_ARM) {
     printf("%08x %08x %08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]);
-    printf("%s\r\n", (char *)reg[1]);
+    print_debug_string((char *)reg[1]);
   }
   // start at the last param (r5)
   unsigned int *ptr = reg + 5;
