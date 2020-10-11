@@ -556,7 +556,7 @@ void tube_CLI(unsigned int *reg) {
     run++;
     lptr++;
   }
-  env->commandBuffer[run]=0x0D;
+  env->commandBuffer[run]=0;
 //  env->handler[MEMORY_LIMIT_HANDLER].handler=???; // Can't remember if these are set now or later
 //  env->timeBuffer=now_centiseconds();     // Will need to check real hardware
 
