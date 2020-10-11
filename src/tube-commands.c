@@ -6,11 +6,15 @@
 #include "tube-swi.h"
 #include "tube-commands.h"
 #include "darm/darm.h"
+#include "tube-defs.h"
+#include "gitversion.h"
 
 // Include ARM Basic
 #include "armbasic.h"
 
-const char *help = "ARM Tube Client 0.10\r\n";
+const char *help = "Native ARM Tube Client ("RELEASENAME"/"GITVERSION")\r\n";
+
+const char *help_key = "ARM";
 
 char line[256];
 
@@ -54,46 +58,49 @@ int cmdMode[NUM_CMDS] = {
   MODE_USER
 };
 
-int dispatchCmd(char *cmd) {
-  int i;
+const char *matchCommand(const char *cmdPtr, const char *refPtr, int minLen) {
   int c;
   int r;
-  char *cmdPtr;
-  char *refPtr;
+  int index = 0;
+  do {
+    c = tolower((int)*cmdPtr);
+    r = tolower((int)*refPtr);
+    // a command can be terminated with any non-alpha character
+    if ((r == 0 && !isalpha(c)) || (c == '.' && index >= minLen)) {
+      // if the terminator was a . then skip over it
+      if (r != 0 && c == '.') {
+        cmdPtr++;
+      }
+      // skip any trailing space becore the params
+      while (isblank((int)*cmdPtr)) {
+        cmdPtr++;
+      }
+      return cmdPtr;
+    }
+    cmdPtr++;
+    refPtr++;
+    index++;
+  } while (c != 0 && c == r);
+  return NULL;
+}
+
+int dispatchCmd(char *cmd) {
   //  skip any leading space
   while (isblank((int) *cmd)) {
     cmd++;
   }
   // Match the command
-  for (i = 0; i < NUM_CMDS; i++) {
-    cmdPtr = cmd;
-    refPtr = cmdStrings[i];
-    int count = 0;
-    do {
-      c = tolower((int)*cmdPtr);
-      r = tolower((int)*refPtr);
-      // a command can be terminated with any non-alpha character
-      if ((r == 0 && !isalpha(c)) || (c == '.' && count > 0)) {
-        // if the terminator was a . then skip over it
-        if (r != 0 && c == '.') {
-          cmdPtr++;
-        }
-        // skip any trailing space becore the params
-        while (isblank((int)*cmdPtr)) {
-          cmdPtr++;
-        }
-        if (cmdMode[i] == MODE_USER) {
-          // Execute the command in user mode
-          return user_exec_fn(cmdFuncs[i], (int) cmdPtr);
-        } else {
-          // Execute the command in supervisor mode
-          return cmdFuncs[i](cmdPtr);
-        }
+  for (int i = 0; i < NUM_CMDS; i++) {
+    const char *paramPtr = matchCommand(cmd, cmdStrings[i], 1);
+    if (paramPtr) {
+      if (cmdMode[i] == MODE_USER) {
+        // Execute the command in user mode
+        return user_exec_fn(cmdFuncs[i], (int) paramPtr);
+      } else {
+        // Execute the command in supervisor mode
+        return cmdFuncs[i](paramPtr);
       }
-      cmdPtr++;
-      refPtr++;
-      count++;
-    } while (c != 0 && c == r);
+    }
   }
   // non-zero means pass the command onto the CLI processor
   return 1;
@@ -105,17 +112,25 @@ int doCmdTest(const char *params) {
 }
 
 int doCmdHelp(const char *params) {
-  int i;
-  OS_Write0(help);
-  if (strncasecmp(params, "ARM", 3) == 0) {
-    for (i = 0; i < NUM_CMDS; i++) {
+  if (*params == 0x00 || *params == 0x0a || *params == 0x0d) {
+    // *HELP without any parameters
+    OS_Write0(help);
+    OS_Write0("  ");
+    OS_Write0(help_key);
+    OS_Write0("\r\n");
+  } else if (matchCommand(params, help_key, 0)) {
+    // *HELP ARM
+    // *HELP AR.
+    // *HELP A.
+    // *HELP .
+    OS_Write0(help);
+    for (int i = 0; i < NUM_CMDS; i++) {
       OS_Write0("  ");
       OS_Write0(cmdStrings[i]);
       OS_Write0("\r\n");
     }
-    return 0;
   }
-  // pass the command on to the CLI
+  // pass the command on to the CLI regardless
   return 1;
 }
 
