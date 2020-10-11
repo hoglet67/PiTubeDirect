@@ -199,6 +199,9 @@ _user_exec:
     // Called with the error buffer ppointer in R0 and the error handler address in R1
 _error_handler_wrapper:
 
+    // Re-enable ARM FIQ and IRQ interrupts
+    CPSIE   if
+
     // Move to user mode
     CPS      #CPSR_MODE_USER
 
@@ -226,6 +229,9 @@ _exit_handler_wrapper:
 
     // Move the "R12 value" into R12
     mov      r12, r0
+
+    // Re-enable ARM FIQ and IRQ interrupts
+    CPSIE   if
 
     // Move to user mode
     CPS      #CPSR_MODE_USER
