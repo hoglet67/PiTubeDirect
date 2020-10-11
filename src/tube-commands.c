@@ -68,11 +68,12 @@ int dispatchCmd(char *cmd) {
   for (i = 0; i < NUM_CMDS; i++) {
     cmdPtr = cmd;
     refPtr = cmdStrings[i];
+    int count = 0;
     do {
       c = tolower((int)*cmdPtr);
       r = tolower((int)*refPtr);
       // a command can be terminated with any non-alpha character
-      if ((r == 0 && !isalpha(c)) || c == '.') {
+      if ((r == 0 && !isalpha(c)) || (c == '.' && count > 0)) {
         // skip any trailing space becore the params
         while (isblank((int)*cmdPtr)) {
           cmdPtr++;
@@ -87,6 +88,7 @@ int dispatchCmd(char *cmd) {
       }
       cmdPtr++;
       refPtr++;
+      count++;
     } while (c != 0 && c == r);
   }
   // non-zero means pass the command onto the CLI processor
