@@ -118,6 +118,8 @@ static void defaultExitHandler() {
   if (DEBUG_ARM) {
     printf("Invoking default exit handler\r\n");
   }
+  // Avoid re-entering ARM Basic
+  armbasic = 0;
   // Move back to supervisor mode
   swi(SWI_OS_EnterOS);
   // Jump back to the command prompt
