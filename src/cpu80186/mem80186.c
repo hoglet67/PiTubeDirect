@@ -85,7 +85,7 @@ void write86(uint32_t addr32, uint8_t value)
 #endif
    uint32_t addr = map_address(addr32);
    if (addr < RAM_LIMIT) {
-#if USE_MEMORY_POINTER
+#ifdef USE_MEMORY_POINTER
       RAM[addr] = value;
 #else
       *(unsigned char *)(addr) = value;
@@ -103,7 +103,7 @@ uint8_t read86(uint32_t addr32)
 {
    addr32 &= 0xFFFFFF;
    uint32_t addr = map_address(addr32);
-#if USE_MEMORY_POINTER
+#ifdef USE_MEMORY_POINTER
    uint8_t value = (RAM[addr]);
 #else
    uint8_t value = *(unsigned char *)(addr) ;

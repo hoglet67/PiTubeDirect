@@ -41,7 +41,7 @@ void copro_mc6809nc_write(uint16_t addr, uint8_t data) {
    } else {
 #ifdef USE_MEMORY_POINTER
       copro_mc6809_ram[addr & 0xffff] = data;
-#else 
+#else
       *(unsigned char *)(addr & 0xffff) = data;
 #endif
    }
@@ -55,7 +55,7 @@ uint8_t copro_mc6809nc_read(uint16_t addr) {
    } else if (overlay_rom) {
       data = copro_mc6809_rom[addr & 0x7ff];
    } else {
-#if USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
       data = copro_mc6809_ram[addr & 0xffff];
 #else
       data = *(unsigned char *)(addr & 0xffff);

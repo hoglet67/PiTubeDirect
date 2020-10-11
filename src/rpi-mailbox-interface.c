@@ -94,7 +94,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             pt[pt_index++] = va_arg( vl, int ); // R3
             pt[pt_index++] = va_arg( vl, int ); // R4
             pt[pt_index++] = va_arg( vl, int ); // R5
-            break;   
+            break;
 
         case TAG_ALLOCATE_BUFFER:
             pt[pt_index++] = 8;
@@ -199,8 +199,8 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 int RPI_PropertyProcess( void )
 {
     int result;
-    
-#if( PRINT_PROP_DEBUG == 1 )
+
+#ifdef PRINT_PROP_DEBUG
     int i;
     LOG_INFO( "%s Length: %d\r\n", __func__, pt[PT_OSIZE] );
 #endif
@@ -208,7 +208,7 @@ int RPI_PropertyProcess( void )
     pt[PT_OSIZE] = ( pt_index + 1 ) << 2;
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
-#if( PRINT_PROP_DEBUG == 1 )
+#ifdef PRINT_PROP_DEBUG
     for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
         LOG_INFO( "Request: %3d %8.8X\r\n", i, pt[i] );
 #endif
@@ -216,7 +216,7 @@ int RPI_PropertyProcess( void )
 
     result = RPI_Mailbox0Read( MB0_TAGS_ARM_TO_VC );
 
-#if( PRINT_PROP_DEBUG == 1 )
+#ifdef PRINT_PROP_DEBUG
     for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
         LOG_INFO( "Response: %3d %8.8X\r\n", i, pt[i] );
 #endif
@@ -225,7 +225,7 @@ int RPI_PropertyProcess( void )
 
 void RPI_PropertyProcessNoCheck( void )
 {
-#if( PRINT_PROP_DEBUG == 1 )
+#ifdef PRINT_PROP_DEBUG
     int i;
     LOG_INFO( "%s Length: %d\r\n", __func__, pt[PT_OSIZE] );
 #endif
@@ -233,7 +233,7 @@ void RPI_PropertyProcessNoCheck( void )
     pt[PT_OSIZE] = ( pt_index + 1 ) << 2;
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
-#if( PRINT_PROP_DEBUG == 1 )
+#ifdef PRINT_PROP_DEBUG
     for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
         LOG_INFO( "Request: %3d %8.8X\r\n", i, pt[i] );
 #endif

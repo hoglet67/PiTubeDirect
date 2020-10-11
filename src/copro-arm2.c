@@ -43,7 +43,7 @@ UINT8 copro_arm2_read8(int addr) {
    UINT8 result;
 
    if (addr <= RAM_MASK8) {
-#if USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
       result = *(UINT8*) (arm2_ram + addr);
 #else
       result = *(UINT8*) (addr);
@@ -52,7 +52,7 @@ UINT8 copro_arm2_read8(int addr) {
       int type = (addr >> 24) & 3;
       switch (type) {
       case 0:
-#if USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
          result = *(UINT8*) (arm2_ram + (addr & RAM_MASK8));
 #else
          result = *(UINT8*) ((addr & RAM_MASK8));
@@ -81,7 +81,7 @@ UINT32 copro_arm2_read32(int addr)
   UINT32 result;
 
    if ((addr & ~RAM_MASK32) == 0) {
-#if USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
       result = *(UINT32*) (arm2_ram + addr);
 #else
       result = *(UINT32*) (addr);
@@ -90,7 +90,7 @@ UINT32 copro_arm2_read32(int addr)
       int type = (addr >> 24) & 3;
       switch (type) {
       case 0:
-#if USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
          result = *(UINT32*) (arm2_ram + (addr & RAM_MASK32));
 #else
          result = *(UINT32*) ((addr & RAM_MASK32));
@@ -137,7 +137,7 @@ void copro_arm2_write8(int addr, UINT8 data)
    int type = (addr >> 24) & 3;
    switch (type) {
    case 0:
-#if USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
       *(UINT8*) (arm2_ram + (addr & RAM_MASK8)) = data;
 #else
       *(UINT8*) ( (addr & RAM_MASK8)) = data;
@@ -158,7 +158,7 @@ void copro_arm2_write32(int addr, UINT32 data) {
    int type = (addr >> 24) & 3;
    switch (type) {
    case 0:
-#if USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
       *(UINT32*) (arm2_ram + (addr & RAM_MASK32)) = data;
 #else
       *(UINT32*) ( (addr & RAM_MASK32)) = data;
