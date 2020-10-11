@@ -484,10 +484,19 @@ void tube_ReadC(unsigned int *reg) {
   reg[0] = receiveByte(R2_ID);
 }
 
+
+// Legitimate terminators for OS_CLI are are 0x00, 0x0A or 0x0D
+
 void tube_CLI(unsigned int *reg) {
+
+  // Keep a copy of the original command, so it's not perturbed when we fake the environmeny
+  char command[256];
   char *ptr = (char *)(*reg);
-  char *lptr = ptr;
-  int run=0;
+  char c;
+  int index = 0;
+  do {
+    c = (command[index++] = *ptr++);
+  } while (c != 0x00 && c != 0x0d && c != 0x0d && index < sizeof(command));
 
 // We need to prepare the environment in case code is entered
 // Command buffer is:
@@ -500,9 +509,13 @@ void tube_CLI(unsigned int *reg) {
 // *  *** * ** R.    foobar   hazel  sheila
 //                   ^
 
-  while (*lptr == ' ' || *lptr == '*') {
-    lptr++;    // Skip leading spaces and stars
+// Skip leading spaces and stars, leaving ptr pointing
+// to what needs to be passed to the filesystem, or parsed
+  ptr = command;
+  while (*ptr == ' ' || *ptr == '*') {
+    ptr++;
   }
+
 // Now at:
 // *foobar hazel
 //  ^
@@ -513,9 +526,11 @@ void tube_CLI(unsigned int *reg) {
 // *RUN foobar hazel
 //  ^
 
+  char *lptr = ptr;
+  int run = 0;
   if (lptr[0] == '/') {
-     run   = 1;                     // */file or */ file
-     lptr += 1;                     // skip past /
+    run   = 1;                     // */file or */ file
+    lptr += 1;                     // skip past /
   } else {
     if ((lptr[0] & 0xDF) == 'R') {  // Might be *RUN
       if (lptr[1] == '.') {
@@ -549,18 +564,17 @@ void tube_CLI(unsigned int *reg) {
 // *RUN foobar hazel
 //      ^
 
-// Fake an OS_SetEnv call
-  run = 0;
+  // Fake an OS_SetEnv call
+  index = 0;
   while (*lptr >= ' ') {         // Copy this command to environment string
-    env->commandBuffer[run] = *lptr;
-    run++;
-    lptr++;
+    env->commandBuffer[index++] = *lptr++;
   }
-  env->commandBuffer[run]=0;
+  env->commandBuffer[index]=0;
 //  env->handler[MEMORY_LIMIT_HANDLER].handler=???; // Can't remember if these are set now or later
 //  env->timeBuffer=now_centiseconds();     // Will need to check real hardware
 
-  if (dispatchCmd(ptr)) {       // dispatchCmd returns 0 if command was handled locally
+
+  if (run || dispatchCmd(ptr)) {       // dispatchCmd returns 0 if command was handled locally
     // OSCLI    R2: &02 string &0D                    &7F or &80
     sendByte(R2_ID, 0x02);
     // Send the command, excluding terminating control character (anything < 0x20)
