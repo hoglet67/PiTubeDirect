@@ -177,7 +177,7 @@ org &F700
     PLA
 
 .store
-    STA (&E8),Y    ; store character in designated buffer
+    STA (bufptr),Y ; store character in designated buffer
     CMP #&0D       ; is it CR?
     BEQ exit_ok    ; if so E96C
     CPY pcopy+2    ; else check the line length
@@ -195,6 +195,7 @@ org &F700
 .exit_err
     LDA &FF        ; A=ESCAPE FLAG
     ROL A          ; put bit 7 into carry
+    LDA #&00       ; Preserve A
     RTS            ; and exit routine
 
 .osword6_param
