@@ -14,7 +14,7 @@ osbyte         = &FFF4
 
 page           = &09
 
-char_at_cursor = &FEF2
+char_at_cursor = &FEF3
 
 cpu 1
 
@@ -169,7 +169,7 @@ org &F700
 
 ;; Handle Copy Key (&87)
 .copy
-    LDA &FEF2      ; read character at edit cursor from frame buffer
+    LDA char_at_cursor ; read character at edit cursor from frame buffer
     BEQ cloop2     ; invalid char, loop back
     PHA
     LDA #&89
@@ -177,7 +177,7 @@ org &F700
     PLA
 
 .store
-    STA (&E8),Y    ; store character in designated buffer
+    STA (bufptr),Y ; store character in designated buffer
     CMP #&0D       ; is it CR?
     BEQ exit_ok    ; if so E96C
     CPY pcopy+2    ; else check the line length
@@ -195,6 +195,7 @@ org &F700
 .exit_err
     LDA &FF        ; A=ESCAPE FLAG
     ROL A          ; put bit 7 into carry
+    LDA #&00       ; Preserve A
     RTS            ; and exit routine
 
 .osword6_param
