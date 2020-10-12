@@ -14,7 +14,7 @@ osbyte         = &FFF4
 
 page           = &09
 
-char_at_cursor = &FEF2
+char_at_cursor = &FEF3
 
 cpu 1
 
@@ -169,7 +169,7 @@ org &F700
 
 ;; Handle Copy Key (&87)
 .copy
-    LDA &FEF2      ; read character at edit cursor from frame buffer
+    LDA char_at_cursor ; read character at edit cursor from frame buffer
     BEQ cloop2     ; invalid char, loop back
     PHA
     LDA #&89

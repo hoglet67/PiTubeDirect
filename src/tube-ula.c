@@ -430,21 +430,23 @@ static void tube_host_write(uint16_t addr, uint8_t val)
 uint8_t tube_parasite_read(uint32_t addr)
 {
    uint8_t temp = 0xAA;
-   // Squeeze in read-only framebuffer registers
-   //   if ((addr & 8) == 0) {
-   //      switch (addr & 7) {
-   //      case 0:
-   //         temp = fb_get_edit_cursor_x();
-   //         break;
-   //      case 1:
-   //         temp = fb_get_edit_cursor_y();
-   //         break;
-   //      case 2:
-   //         temp = fb_get_edit_cursor_char();
-   //         break;
-   //      }
-   //      return temp;
-   //   }
+   // Squeeze in read-only framebuffer registers at FEF1, FEF2, FEF3
+   // note: only the 6502 Co Pros pass a full 16-bit address in
+   // note: avoid FEF0 as this is Reg0 in the Turbo Co Pro
+   if ((addr & 0xFFF8) == 0xFEF0) {
+      switch (addr & 7) {
+      case 1:
+         temp = fb_get_edit_cursor_x();
+         break;
+      case 2:
+         temp = fb_get_edit_cursor_y();
+         break;
+      case 3:
+         temp = fb_get_edit_cursor_char();
+         break;
+      }
+      return temp;
+   }
    int cpsr = _disable_interrupts();
    switch (addr & 7)
    {
