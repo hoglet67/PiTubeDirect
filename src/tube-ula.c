@@ -431,20 +431,20 @@ uint8_t tube_parasite_read(uint32_t addr)
 {
    uint8_t temp = 0xAA;
    // Squeeze in read-only framebuffer registers
-   if ((addr & 8) == 0) {
-      switch (addr & 7) {
-      case 0:
-         temp = fb_get_edit_cursor_x();
-         break;
-      case 1:
-         temp = fb_get_edit_cursor_y();
-         break;
-      case 2:
-         temp = fb_get_edit_cursor_char();
-         break;
-      }
-      return temp;
-   }
+   //   if ((addr & 8) == 0) {
+   //      switch (addr & 7) {
+   //      case 0:
+   //         temp = fb_get_edit_cursor_x();
+   //         break;
+   //      case 1:
+   //         temp = fb_get_edit_cursor_y();
+   //         break;
+   //      case 2:
+   //         temp = fb_get_edit_cursor_char();
+   //         break;
+   //      }
+   //      return temp;
+   //   }
    int cpsr = _disable_interrupts();
    switch (addr & 7)
    {
