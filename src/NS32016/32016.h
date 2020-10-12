@@ -368,7 +368,7 @@ extern int tubecycles;
 #ifdef BEM
 extern int tube_irq;
 #else
-extern volatile int tube_irq;
+//extern volatile int tube_irq;
 #endif
 
 extern uint32_t genaddr[2];

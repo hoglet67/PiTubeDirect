@@ -7,6 +7,9 @@
 
 /* Found in the *start.S file, implemented in assembler */
 
+extern unsigned int _software_interrupt_vector_h;
+extern unsigned int _fast_interrupt_vector_h;
+
 extern void _start( void );
 
 extern void _enable_interrupts( void );

@@ -26,40 +26,33 @@ ErrorBlock_type isrErrorBlock;
 // Error    R4: &FF R2: &00 err string &00
 // Transfer R4: action ID block sync R3: data
 //
-// idle
-// event_r1_y
-// event_r1_x
-// event_r1_a
-// error_r2_00
-// error_r2_err
-// error_r2_string
-// transfer_r4_id
-// transfer_r4_a3
-// transfer_r4_a2
-// transfer_r4_a1
-// transfer_r4_a0
-// transfer_r4_sync
-// transfer_r3
 
 typedef enum {
-  IDLE,            // 0
+  IDLE_R1,         // 0
   EVENT_R1_Y,      // 1
   EVENT_R1_X,      // 2
   EVENT_R1_A,      // 3
-  ERROR_R2_00,     // 4
-  ERROR_R2_ERR,    // 5
-  ERROR_R2_STRING, // 6
-  TRANSFER_R4_ID,  // 7
-  TRANSFER_R4_A3,  // 8
-  TRANSFER_R4_A2,  // 9
-  TRANSFER_R4_A1,  // 10
-  TRANSFER_R4_A0,  // 11
-  TRANSFER_R4_SYNC,// 12
-  TRANSFER_R3      // 13
-} tih_state_type;
+} r1_state_type;
+
+typedef enum {
+  IDLE_R4,         // 0
+  ERROR_R2_00,     // 1
+  ERROR_R2_ERR,    // 2
+  ERROR_R2_STRING, // 3
+  TRANSFER_R4_ID,  // 4
+  TRANSFER_R4_A3,  // 5
+  TRANSFER_R4_A2,  // 6
+  TRANSFER_R4_A1,  // 7
+  TRANSFER_R4_A0,  // 8
+  TRANSFER_R4_SYNC,// 9
+  TRANSFER_R3      // 10
+} r4_state_type;
+
 
 void copro_armnative_tube_interrupt_handler(uint32_t mail) {
-  static tih_state_type state = IDLE;
+  static r1_state_type r1_state = IDLE_R1;
+  static r4_state_type r4_state = IDLE_R4;
+
   static unsigned char a;
   static unsigned char x;
   static unsigned char y;
@@ -77,7 +70,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   int rnw;
   int ntube;
   int nrst;
-  int unexpected = 0;
+  unsigned char flag;
 
   addr = (mail>>8) & 7;
   rnw   = ( (mail >>11 ) & 1);
@@ -86,74 +79,69 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
 
   // Handle a reset
   if (nrst == 0) {
-    state = IDLE;
+    r1_state = IDLE_R1;
+    r4_state = IDLE_R4;
     copro_armnative_reset();
     // This never returns as it uses longjmp
   }
 
   // State machine updates on tube write cycles
 
-  if (nrst == 1 && ntube == 0 && rnw == 0) {
+  if (nrst == 1 && ntube == 0 && rnw == 0 && addr == 1) {
 
-    switch (state) {
+    switch (r1_state) {
 
-    case IDLE:
-      if (addr == 1) {
-        // R1 interrupt
-        unsigned char flag = tubeRead(R1_DATA);
-        if (flag & 0x80) {
-          // Escape
-          // The escape handler is called with the escape flag value in R11
-          // That's with this wrapper achieves
-          _escape_handler_wrapper(flag & 0x40, env->handler[ESCAPE_HANDLER].handler);
-        } else {
-          state = EVENT_R1_Y;
-        }
-      } else if (addr == 7) {
-        // R4 interrupt
-        type = tubeRead(R4_DATA);
-        if (type == 0xff) {
-          state = ERROR_R2_00;
-        } else {
-          state = TRANSFER_R4_ID;
-        }
+    case IDLE_R1:
+      // R1 interrupt
+      flag = tubeRead(R1_DATA);
+      if (flag & 0x80) {
+        // Escape
+        // The escape handler is called with the escape flag value in R11
+        // That's with this wrapper achieves
+        _escape_handler_wrapper(flag & 0x40, env->handler[ESCAPE_HANDLER].handler);
+      } else {
+        r1_state = EVENT_R1_Y;
       }
       break;
 
     case EVENT_R1_Y:
-      if (addr == 1) {
-        y = tubeRead(R1_DATA);
-        state = EVENT_R1_X;
-      } else {
-        unexpected = 1;
-      }
+      y = tubeRead(R1_DATA);
+      r1_state = EVENT_R1_X;
       break;
 
     case EVENT_R1_X:
-      if (addr == 1) {
-        x = tubeRead(R1_DATA);
-        state = EVENT_R1_A;
-      } else {
-        unexpected = 1;
-      }
+      x = tubeRead(R1_DATA);
+      r1_state = EVENT_R1_A;
       break;
 
     case EVENT_R1_A:
-      if (addr == 1) {
-        a = tubeRead(R1_DATA);
-        env->handler[EVENT_HANDLER].handler(a, x, y);
-        state = IDLE;
-      } else {
-        unexpected = 1;
+      a = tubeRead(R1_DATA);
+      env->handler[EVENT_HANDLER].handler(a, x, y);
+      r1_state = IDLE_R1;
+      break;
+    }
+  }
+
+  if (nrst == 1 && ntube == 0 && rnw == 0) {
+
+    switch (r4_state) {
+
+    case IDLE_R4:
+      if (addr == 7) {
+        // R4 interrupt
+        type = tubeRead(R4_DATA);
+        if (type == 0xff) {
+          r4_state = ERROR_R2_00;
+        } else {
+          r4_state = TRANSFER_R4_ID;
+        }
       }
       break;
 
     case ERROR_R2_00:
       if (addr == 3) {
         tubeRead(R2_DATA); // Always 0
-        state = ERROR_R2_ERR;
-      } else {
-        unexpected = 1;
+        r4_state = ERROR_R2_ERR;
       }
       break;
 
@@ -163,9 +151,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         eblk = &isrErrorBlock;
         emsg = eblk->errorMsg;
         eblk->errorNum = tubeRead(R2_DATA);
-        state = ERROR_R2_STRING;
-      } else {
-        unexpected = 1;
+        r4_state = ERROR_R2_STRING;
       }
       break;
 
@@ -174,15 +160,13 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         unsigned char c = tubeRead(R2_DATA);
         *emsg++ = c;
         if (c) {
-          state = ERROR_R2_STRING;
+          r4_state = ERROR_R2_STRING;
         } else {
-          state = IDLE;
+          r4_state = IDLE_R4;
           // SWI OS_GenerateError need the error block in R0
           OS_GenerateError(eblk);
           // OS_GenerateError() probably never returns
         }
-      } else {
-        unexpected = 1;
       }
       break;
 
@@ -193,39 +177,31 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           if (DEBUG_TRANSFER) {
             printf("Transfer = %02x %02x\r\n", type, id);
           }
-          state = IDLE;
+          r4_state = IDLE_R4;
         } else {
-          state = TRANSFER_R4_A3;
+          r4_state = TRANSFER_R4_A3;
         }
-      } else {
-        unexpected = 1;
       }
       break;
 
     case TRANSFER_R4_A3:
       if (addr == 7) {
         a3 = tubeRead(R4_DATA);
-        state = TRANSFER_R4_A2;
-      } else {
-        unexpected = 1;
+        r4_state = TRANSFER_R4_A2;
       }
       break;
 
     case TRANSFER_R4_A2:
       if (addr == 7) {
         a2 = tubeRead(R4_DATA);
-        state = TRANSFER_R4_A1;
-      } else {
-        unexpected = 1;
+        r4_state = TRANSFER_R4_A1;
       }
       break;
 
     case TRANSFER_R4_A1:
       if (addr == 7) {
         a1 = tubeRead(R4_DATA);
-        state = TRANSFER_R4_A0;
-      } else {
-        unexpected = 1;
+        r4_state = TRANSFER_R4_A0;
       }
       break;
 
@@ -236,9 +212,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         if (DEBUG_TRANSFER) {
           printf("Transfer = %02x %02x %08x\r\n", type, id, (unsigned int)address);
         }
-        state = TRANSFER_R4_SYNC;
-      } else {
-        unexpected = 1;
+        r4_state = TRANSFER_R4_SYNC;
       }
       break;
 
@@ -250,10 +224,10 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         switch (type) {
         case 6:
           remaining = 256;
-          // fall though to...
+          // fall through
         case 0:
         case 2:
-          state = TRANSFER_R3;
+          r4_state = TRANSFER_R3;
           // For a copro->host transfer, send the first byte in response to the sync byte
           tubeWrite(R3_DATA, *address);
           count++;
@@ -262,23 +236,19 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           break;
         case 7:
           remaining = 256;
-          // fall though to...
+          // fall through
         case 1:
         case 3:
-          state = TRANSFER_R3;
+          r4_state = TRANSFER_R3;
           break;
         case 4:
         case 5:
-          state = IDLE;
+          r4_state = IDLE_R4;
           break;
         default:
           printf("Unexpected transfer type %d\r\n", type);
-          state = IDLE;
+          r4_state = IDLE_R4;
         }
-      } else if (addr == 0) {
-        // A write to the tube control register is expected at this point
-      } else {
-        unexpected = 1;
       }
       break;
 
@@ -294,7 +264,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         if (type == 7 && remaining > 0) {
           remaining--;
           if (remaining == 0) {
-            state = IDLE;
+            r4_state = IDLE_R4;
           }
         }
       } else if (addr == 7) {
@@ -304,20 +274,20 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         }
         type = tubeRead(R4_DATA);
         if (type == 0xff) {
-          state = ERROR_R2_00;
+          r4_state = ERROR_R2_00;
         } else {
-          state = TRANSFER_R4_ID;
+          r4_state = TRANSFER_R4_ID;
         }
       }
       break;
     }
   }
 
-  // State machine updates on tube read cycles
+  // R4_State machine updates on tube read cycles
 
   if (nrst == 1 && ntube == 0 && rnw == 1) {
 
-    switch (state) {
+    switch (r4_state) {
 
     case TRANSFER_R3:
       if (addr == 5) {
@@ -331,25 +301,14 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         if (type == 6 && remaining > 0) {
           remaining--;
           if (remaining == 0) {
-            state = IDLE;
+            r4_state = IDLE_R4;
           }
         }
       }
       break;
     default:
       break;
-
     }
-
-  }
-
-  if (unexpected) {
-    if (rnw == 0) {
-      printf("Unexpected write to %d in state %d\r\n", addr, state);
-    } else {
-      printf("Unexpected read from %d in state %d\r\n", addr, state);
-    }
-    state = IDLE;
   }
 }
 

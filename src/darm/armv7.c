@@ -130,7 +130,7 @@ static int armv7_disas_uncond(darm_t *d, uint32_t w)
         // PLI instruction
         // we fall-through here, as 0b011 also handles the PLD and PLI
         // instructions
-
+        // fall through
     case b011:
         // if the 24th bit is set, then this is a PLD instruction, otherwise
         // it's a PLI instruction

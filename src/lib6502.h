@@ -66,9 +66,6 @@ enum {
   M6502_RegistersAllocated = 1 << 0,
   M6502_MemoryAllocated    = 1 << 1,
   M6502_CallbacksAllocated = 1 << 2
-#ifdef TURBO
-, M6502_Turbo              = 1 << 3
-#endif
 };
 
 extern M6502 *M6502_new(M6502_Registers *registers, M6502_Memory memory, M6502_Callbacks *callbacks);

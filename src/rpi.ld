@@ -7,7 +7,9 @@ SEARCH_DIR("=/usr/local/lib"); SEARCH_DIR("=/lib"); SEARCH_DIR("=/usr/lib");
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
-  PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x01F00000)); . = SEGMENT_START("text-segment", 0x01F00000);
+
+  /* Change segment to 0x0EC00000 to relocate kernel to 220MB */
+  PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x0EC00000)); . = SEGMENT_START("text-segment", 0x0EC00000);
   .interp         : { *(.interp) }
   .note.gnu.build-id : { *(.note.gnu.build-id) }
   .hash           : { *(.hash) }

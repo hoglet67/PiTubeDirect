@@ -10,16 +10,16 @@
 // At that point, the stack appears to vanish and the data read back is 0x55555555
 // Reason turned out to be failure to correctly invalidate the entire data cache
 
-const static unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
-const static unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
-const static unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
+static const unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
+static const unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
+static const unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
 
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
 
-const static int aa = 1;
-const static int bb = 1;
-const static int shareable = 1;
+static const int aa = 1;
+static const int bb = 1;
+static const int shareable = 1;
 
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
@@ -221,14 +221,6 @@ void enable_MMU_and_IDCaches(void)
     PageTable[base] = base << 20 | 0x10C16;
   }
 
-  // suppress a warning as we really do want to copy from src address 0!
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnonnull"
-  // copy vectors from virtual address zero to a higher unused location
-  // cppcheck-suppress nullPointer
-  memcpy((void *)HIGH_VECTORS_BASE, (void *)0, 0x1000);
-#pragma GCC diagnostic pop
-
   // replace the first N 1MB entries with second level page tables, giving N x 256 4K pages
   for (i = 0; i < NUM_4K_PAGES >> 8; i++)
   {
@@ -241,9 +233,6 @@ void enable_MMU_and_IDCaches(void)
   {
     map_4k_page(base, base);
   }
-
-  // relocate the vector pointer to the moved page
-  asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" (HIGH_VECTORS_BASE));
 
 #if defined(RPI3)||defined(RPI4)
   //unsigned cpuextctrl0, cpuextctrl1;

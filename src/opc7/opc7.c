@@ -9,7 +9,7 @@
 #endif
 
 // Encapsulate the persistent CPU state
-opc7_state s;
+static opc7_state s;
 
 opc7_state *m_opc7 = &s;
 

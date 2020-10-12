@@ -1,8 +1,11 @@
 #include <inttypes.h>
 #include <string.h>
+#include <stdio.h>
 #include "info.h"
+#include "tube-client.h"
 #include "tube-defs.h"
 #include "gitversion.h"
+#include "emulator-names.h"
 
 // if DORMANN_6502 is defined, the Dormann 6502 tests are included at #3400
 // if DORMANN_65C02 is defined, the Dormann 6502 tests are included at #3400
@@ -350,6 +353,20 @@ unsigned char clocksp[] = {
   0x29, 0x2f, 0x37, 0x2e, 0x38, 0x29, 0x0d, 0x02, 0x76, 0x1b, 0xf4, 0x20,
   0x52, 0x65, 0x74, 0x75, 0x72, 0x6e, 0x73, 0x20, 0x43, 0x50, 0x55, 0x20,
   0x73, 0x70, 0x65, 0x65, 0x64, 0x2a, 0x31, 0x30, 0x30, 0x0d, 0xff
+};
+
+
+//  CO-PROCESSOR LIST
+//  Displays a list of co-processor options
+
+unsigned char coprolist[] = {
+  0xa9, 0x00, 0xa2, 0x01, 0x20, 0xf4, 0xff, 0xe0, 0x00, 0xd0, 0x0a, 0xa9,
+  0x34, 0x8d, 0x44, 0x20, 0xa9, 0x37, 0x8d, 0x45, 0x20, 0xa9, 0x30, 0x85,
+  0x70, 0xa9, 0x20, 0x85, 0x71, 0xa0, 0x00, 0xb1, 0x70, 0xf0, 0x0c, 0x20,
+  0xe3, 0xff, 0xe6, 0x70, 0xd0, 0xf5, 0xe6, 0x71, 0x4c, 0x1f, 0x20, 0x60,
+  ' ',  'n',  ' ',  'P',  'r',  'o',  'c',  'e',  's',  's',  'o',  'r',
+  ' ',  '-',  ' ',  '*',  'F',  'X',  ' ',  '1',  '5',  '1',  ',',  '2',
+  '3',  '0',  ',',  'n',  0x0d
 };
 
 
@@ -2823,6 +2840,31 @@ void copy_test_programs(uint8_t *memory) {
    strcpy((char *)memory + 0x805 + 0x4F, get_info_string());
 
    memcpy(memory + 0x1000, clocksp, sizeof(clocksp));
+
+   memcpy(memory + 0x2000, coprolist, sizeof(coprolist));
+
+   // add list of copros to end of code
+   unsigned char *list_end = memory + 0x2000 + sizeof(coprolist);
+   int list_remain = 480;   // write max 480 chars, +1 for \0
+   for (int copro_num = 0;
+        copro_num < sizeof(emulator_names) / sizeof(const char *);
+        copro_num++) {
+
+      if (strcmp(emulator_names[copro_num], "Null") == 0) {
+         continue;
+      }
+
+      int reqd = snprintf((char *) list_end, list_remain, "%2d %s\r",
+                          copro_num, emulator_names[copro_num]);
+
+      // if we had space for the complete line move on, else scrap it
+      if (reqd < list_remain) {
+         list_end += reqd;
+         list_remain -= reqd;
+      }
+   }
+   *list_end = '\0';   // end of text marker
+
 #if defined(DORMANN_6502)
    memcpy(memory + 0x3400, dormann_d6502, sizeof(dormann_d6502));
 #elif defined(DORMANN_65C02)

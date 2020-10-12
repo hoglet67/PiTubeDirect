@@ -48,15 +48,15 @@ uint16_t processOperand(uint16_t operand)
    {
       return 0; // --none--
    }
-   else if (                operand <= 7)
+   else if ( operand <= 7)
    {
       return 2; // RN
    }
-   else if (operand >= 8 && operand <= 15)
+   else if ( operand <= 15)
    {
       return 3; // disp(RN)
    }
-   else if (operand >= 16 && operand <= 27)
+   else if ( operand <= 27)
    {
       return operand - 12; // everything else
    }

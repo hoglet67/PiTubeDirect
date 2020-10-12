@@ -228,7 +228,7 @@
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1b
 .endm
-#endif 
+#endif
 
 
 .macro FETCH_NEXT_STAGE_12
@@ -237,14 +237,14 @@
 .endm
 
 #ifdef RPI4
-.macro FETCH_NEXT_STAGE_012 
+.macro FETCH_NEXT_STAGE_012
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1a
         FETCH_NEXT_STAGE_1b
         FETCH_NEXT_STAGE_2
 .endm
 #else
-.macro FETCH_NEXT_STAGE_012 
+.macro FETCH_NEXT_STAGE_012
         FETCH_NEXT_STAGE_1a
         FETCH_NEXT_STAGE_0
         FETCH_NEXT_STAGE_1b
@@ -1940,7 +1940,7 @@ opcode_84:
 
 // Opcode 85 - STA $00
 opcode_85:
-#ifdef RPI4 
+#ifdef RPI4
         STORE_BYTE    regA
         ARMV8_NOP
         FETCH_NEXT_STAGE_012
@@ -1948,7 +1948,7 @@ opcode_85:
 		FETCH_NEXT_STAGE_0
         STORE_BYTE    regA
         FETCH_NEXT_STAGE_12
-#endif		
+#endif
         .balign I_ALIGN
 
 // Opcode 86 - STX $00
@@ -3185,6 +3185,10 @@ noirq:
 
 handle_irq_adjust_regPC:
         sub     regPC, regPC ,#1
+        msr     CPSR_flg, temp2            // Safely restore the 6502 flags and prepare to
+        INTR    -2, 0
+        FETCH_NEXT_3B_MERGED SUBPC
+
 handle_irq:
         msr     CPSR, temp2                // Restore the 6502 flags and re-enable ARM interrupts
         INTR    -2, 0

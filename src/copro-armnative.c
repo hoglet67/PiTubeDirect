@@ -34,6 +34,7 @@
 #include <string.h>
 
 #include "copro-armnative.h"
+#include "armbasic.h"
 
 #include "rpi-aux.h"
 #include "rpi-armtimer.h"
@@ -68,6 +69,8 @@ static char banner[80];
 static const char *prompt = "arm>*";
 
 Environment_type *env = &defaultEnvironment;
+
+static int reset_sent = 0;
 
 /***********************************************************
  * Default Handlers
@@ -115,10 +118,12 @@ static void defaultExitHandler() {
   if (DEBUG_ARM) {
     printf("Invoking default exit handler\r\n");
   }
+  // Avoid re-entering ARM Basic
+  armbasic = 0;
   // Move back to supervisor mode
   swi(SWI_OS_EnterOS);
   // Jump back to the command prompt
-  longjmp(enterOS, 1);  
+  longjmp(enterOS, 1);
 }
 
 static void defaultUndefinedInstructionHandler() {
@@ -192,8 +197,8 @@ static void initEnv() {
   env->handler[                 UPCALL_HANDLER].handler = defaultUpcallHandler;
 
   // Handlers where the handler is just data
-  env->handler[           MEMORY_LIMIT_HANDLER].handler = (EnvironmentHandler_type) (16 * 1024 * 1024);
-  env->handler[      APPLICATION_SPACE_HANDLER].handler = (EnvironmentHandler_type) (16 * 1024 * 1024);
+  env->handler[           MEMORY_LIMIT_HANDLER].handler = (EnvironmentHandler_type) (216 * 1024 * 1024); // 216MB
+  env->handler[      APPLICATION_SPACE_HANDLER].handler = (EnvironmentHandler_type) (216 * 1024 * 1024); // 216MB
   env->handler[CURRENTLY_ACTIVE_OBJECT_HANDLER].handler = (EnvironmentHandler_type) (0);
 }
 
@@ -209,6 +214,7 @@ static void tube_Reset() {
   }
   sendString(R1_ID, 0x00, banner);
   sendByte(R1_ID, 0x00);
+  reset_sent = 1;
   if (DEBUG_ARM) {
     printf( "Banner sent, awaiting response\r\n" );
   }
@@ -268,7 +274,7 @@ void copro_armnative_reset() {
   // Move back to supervisor mode
   swi(SWI_OS_EnterOS);
   // Jump back to the boot message
-  longjmp(reboot, 1);  
+  longjmp(reboot, 1);
 }
 
 /***********************************************************
@@ -276,6 +282,7 @@ void copro_armnative_reset() {
  ***********************************************************/
 
 void copro_armnative_emulator() {
+  unsigned int last_break;
 
   // Disable interrupts!
   _disable_interrupts();
@@ -285,6 +292,9 @@ void copro_armnative_emulator() {
 
   // Active the mailbox
   copro_armnative_enable_mailbox();
+
+  // Default to armbasic off when Co Pro starts
+  armbasic = 0;
 
   // When a reset occurs, we want to return to here
   setjmp(reboot);
@@ -296,34 +306,50 @@ void copro_armnative_emulator() {
     return;
   }
 
+  // Always copy ARM Basic into memory (in case it's been corrupted)
+  copy_armbasic();
+
   // Create the startup banner
   sprintf(banner, "Native ARM Co Processor %dMHz\r\n\n", get_speed());
 
   // Initialize the environment structure
   initEnv();
 
-  // If the default exit handler is called during tube_Reset(), we return here
-  // This should not be necessary, but I've seen a couple of cases
-  // where R4 errors happened during the startup message
+  // Flag to ensure the reset message is only sent once
+  reset_sent = 0;
+
+  // When the default exit handler is called, we return here
   setjmp(enterOS);
-
-  // Log ARM performance counters
-  tube_log_performance_counters();
-
-  // Wait for rst become inactive before continuing to execute
-  tube_wait_for_rst_release();
 
   // Enable interrupts!
   _enable_interrupts();
 
-  // Reset ARM performance counters
-  tube_reset_performance_counters();
+  if (!reset_sent) {
+     // Log ARM performance counters
+     tube_log_performance_counters();
 
-  // Send reset message
-  tube_Reset();
+     // Wait for rst become inactive before continuing to execute
+     tube_wait_for_rst_release();
 
-  // When the default exit handler is called, we return here
-  setjmp(enterOS);
+     // Reset ARM performance counters
+     tube_reset_performance_counters();
+
+     // Send reset message
+     tube_Reset();
+  }
+
+  // Read the last break type
+  OS_Byte(0xfd, 0x00, 0xFF, &last_break, NULL);
+
+  // If hard or power up break, then don't re-enter ARM Basic
+  if ((last_break & 0xff) > 0) {
+     armbasic = 0;
+  }
+
+  // Re-start ARMBASIC if active before reset
+  if (armbasic) {
+     OS_CLI("ARMBASIC");
+  }
 
   // Make sure the reentrant interrupt flag is clear
 #ifdef USE_REENTRANT_FIQ_HANDLER

@@ -17,6 +17,10 @@
 #include "cpu_debug.h"
 #endif
 
+#ifdef DEBUG
+#include "emulator-names.h"
+#endif
+
 typedef void (*func_ptr)();
 
 extern int test_pin;
@@ -24,12 +28,6 @@ extern int test_pin;
 #include "copro-65tube.h"
 
 #ifdef MINIMAL_BUILD
-
-#ifdef DEBUG
-static const char * emulator_names[] = {
-   "65C02 (65tube)"
-};
-#endif
 
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator
@@ -47,45 +45,9 @@ static const func_ptr emulator_functions[] = {
 #include "copro-opc5ls.h"
 #include "copro-opc6.h"
 #include "copro-opc7.h"
+#include "copro-f100.h"
 #include "copro-pdp11.h"
 #include "copro-armnative.h"
-
-#ifdef DEBUG
-static const char * emulator_names[] = {
-   "65C02 (fast)",           // 0
-   "65C02 (3MHz)",           // 1
-   "65C102 (fast)",          // 2
-   "65C102 (4MHz)",          // 3
-   "Z80",                    // 4
-   "Null",                   // 5
-   "Null",                   // 6
-   "Null",                   // 7
-   "80286",                  // 8
-   "MC6809",                 // 9
-   "Null",                   // 10
-   "PDP-11",                 // 11
-   "ARM2",                   // 12
-   "32016",                  // 13
-   "Null",                   // 14
-   "ARM Native",             // 15
-   "65C02 (lib6502)",        // 16
-   "65C02 Turbo (lib6502)",  // 17
-   "Null",                   // 18
-   "Null",                   // 19
-   "OPC5LS",                 // 20
-   "OPC6",                   // 21
-   "OPC7",                   // 22
-   "Null",                   // 23
-   "Null",                   // 24
-   "Null",                   // 25
-   "Null",                   // 26
-   "Null",                   // 27
-   "Null",                   // 28
-   "Null",                   // 29
-   "Null",                   // 30
-   "Null"                    // 31
-};
-#endif
 
 static const func_ptr emulator_functions[] = {
    copro_65tube_emulator,    // 0
@@ -116,7 +78,7 @@ static const func_ptr emulator_functions[] = {
    copro_null_emulator,      // 25
    copro_null_emulator,      // 26
    copro_null_emulator,      // 27
-   copro_null_emulator,      // 28
+   copro_f100_emulator,      // 28
    copro_null_emulator,      // 29
    copro_null_emulator,      // 30
    copro_null_emulator       // 31
@@ -135,8 +97,8 @@ static func_ptr emulator;
 
 // This magic number come form cache.c where we have relocated the vectors to
 // Might be better to just read the vector pointer register instead.
-#define SWI_VECTOR (HIGH_VECTORS_BASE + 0x28)
-#define FIQ_VECTOR (HIGH_VECTORS_BASE + 0x3C)
+#define SWI_VECTOR ( _software_interrupt_vector_h)
+#define FIQ_VECTOR ( _fast_interrupt_vector_h)
 
 unsigned char * copro_mem_reset(int length)
 {
@@ -156,7 +118,7 @@ void init_emulator() {
    tube_irq = 0; // Make sure everything is clear
    // Set up FIQ handler
 
-   *((uint32_t *) FIQ_VECTOR) = (uint32_t) arm_fiq_handler_flag1;
+   FIQ_VECTOR = (uint32_t) arm_fiq_handler_flag1;
    _data_memory_barrier();
 
    (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
@@ -182,8 +144,8 @@ void init_emulator() {
 
 #ifndef MINIMAL_BUILD
    if (copro == COPRO_ARMNATIVE) {
-      *((uint32_t *) SWI_VECTOR) = (uint32_t) copro_armnative_swi_handler;
-      *((uint32_t *) FIQ_VECTOR) = (uint32_t) copro_armnative_fiq_handler;
+      SWI_VECTOR = (uint32_t) copro_armnative_swi_handler;
+      FIQ_VECTOR = (uint32_t) copro_armnative_fiq_handler;
    }
 #endif
 

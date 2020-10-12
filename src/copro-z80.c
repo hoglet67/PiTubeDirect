@@ -288,7 +288,7 @@ int copro_z80_read_mem(unsigned int addr) {
    if (overlay_rom) {
       data = copro_z80_rom[addr & 0xfff];
    } else {
-#if USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
       data = copro_z80_ram[addr & 0xffff];
 #else
       data = *(unsigned char *)(addr & 0xffff);

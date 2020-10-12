@@ -161,8 +161,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   auxillary->MU_BAUD = ( sys_freq / (8 * baud)) - 1;
 
   extern unsigned int _interrupt_vector_h;
-  extern void _start( void );
-  *((uint32_t *) (((char *)&_interrupt_vector_h) - ((char *)&_start))) = (uint32_t) _main_irq_handler;
+  _interrupt_vector_h = (uint32_t) _main_irq_handler;
 
 #ifdef USE_IRQ
   {
