@@ -149,9 +149,12 @@
 
 # r1, r3, r4 now free
 
-#  mov    r3, GPU_ARM_MBOX
+.if USE_DOORBELL
    mov    r3, GPU_ARM_DBELL
    mov    r21, GPU_ARM_DBELLDATA
+.else
+   mov    r3, GPU_ARM_MBOX
+.endif
 
    mov    r6, GPFSEL0
 
@@ -233,7 +236,9 @@ rd_wait_for_clk_high1:
    lsl    r7, 6                 # put address bits in correct place
    bset   r7, RW_MAILBOX_BIT    # set read bit
    and    r7, 0xFFFFFFF0        # clear the channel bits
+.if USE_DOORBELL
    st     r7, (r21)             # store in register we are using for doorbell data
+.endif
    st     r7, (r3)              # store in mail box
    bl     toggle_led
 
@@ -292,7 +297,9 @@ wr_wait_for_clk_low:
    btst   r8, r18
    bsetne r7, 10
    and    r7, 0xFFFFFFF0       # clear the channel bits
+.if USE_DOORBELL
    st     r7, (r21)             # store in register we are using for doorbell data
+.endif
    st     r7, (r3)      # post mail
    bl     toggle_led
    b      Poll_loop
@@ -300,7 +307,9 @@ wr_wait_for_clk_low:
 # Post a message to indicate a reset
 post_reset:
    mov    r7, 1<<RESET_MAILBOX_BIT
+.if USE_DOORBELL
    st     r7, (r21)             # store in register we are using for doorbell data
+.endif
    st     r7, (r3)
    bl     toggle_led
 # Wait for reset to be released (so we don't overflow the mailbox)
