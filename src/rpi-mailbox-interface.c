@@ -206,7 +206,6 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             for (int i = 0; i < num_colours; i++) {
                pt[pt_index++] = palette[offset + i];
             }
-            pt[pt_index++] = 0;
             break;
 
         default:
