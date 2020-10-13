@@ -60,6 +60,8 @@ file( GLOB core_files
     armc-cstartup.c
     armc-cstubs.c
     armc-start.S
+    copro-defs.c
+    copro-defs.h
     tube-client.c
     tube-defs.h
     tube-exception.c
@@ -75,6 +77,8 @@ file( GLOB core_files
     rpi-mailbox.h
     rpi-mailbox-interface.c
     rpi-mailbox-interface.h
+    rpi-systimer.c
+    rpi-systimer.h
     tube.S
     tube-ula.c
     programs.c
@@ -247,8 +251,6 @@ file( GLOB copro_arm_files
     armbasic.c
     rpi-armtimer.c
     rpi-armtimer.h
-    rpi-systimer.c
-    rpi-systimer.h
     swi.c
     swi.h
     tube-env.h

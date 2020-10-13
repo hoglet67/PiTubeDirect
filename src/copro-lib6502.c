@@ -19,6 +19,7 @@
 #include "programs.h"
 #include "copro-lib6502.h"
 #include "startup.h"
+#include "copro-defs.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "cpu_debug.h"
@@ -49,14 +50,14 @@ static void copro_lib6502_reset(M6502 *mpu) {
   // Re-instate the Tube ROM on reset
 #ifdef TURBO
   // (Slot 16 normal version, Slot 17 turbo 256K version)
-  if (copro & 1) {
+  if (mpu->flags & M6502_Turbo) {
     memcpy(mpu->memory + 0xf800, tuberom_6502_turbo, 0x800);
   } else {
     memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
   }
   turbo = 0;
 #else
-    memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
+  memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
 #endif
   // Reset lib6502
   M6502_reset(mpu);
@@ -92,7 +93,7 @@ int copro_lib6502_mem_write(M6502 *mpu, addr_t addr, uint8_t data) {
 #endif
 
 static int copro_lib6502_reg0_write(M6502 *mpu, addr_t addr, uint8_t data) {
-  if (copro & 1) {
+  if (mpu->flags & M6502_Turbo) {
     // On the 256K Co Pro (Co Pro 17) bit 7 of &FEF0 controls turbo mode
     turbo = data & 0x80;
   }
@@ -141,13 +142,19 @@ static int copro_lib6502_poll(M6502 *mpu) {
    return 0;
 }
 
-void copro_lib6502_emulator() {
+void copro_lib6502_emulator(int type) {
   addr_t addr;
 
   // Remember the current copro so we can exit if it changes
   last_copro = copro;
 
   M6502 *mpu = M6502_new(0, 0, 0);
+
+#ifdef TURBO
+  if (type == TYPE_TURBO) {
+     mpu->flags |= M6502_Turbo;
+  }
+#endif
 
   copro_lib6502_mpu = mpu;
 
