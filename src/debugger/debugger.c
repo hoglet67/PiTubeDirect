@@ -9,17 +9,7 @@
 #include "../rpi-aux.h"
 #include "../cpu_debug.h"
 
-#include "../lib6502_debug.h"
-#include "../yaze/simz80.h"
-#include "../cpu80186/cpu80186_debug.h"
-#include "../mc6809nc/mc6809_debug.h"
-#include "../mame/arm_debug.h"
-#include "../NS32016/32016_debug.h"
-#include "../opc5ls/opc5ls_debug.h"
-#include "../opc6/opc6_debug.h"
-#include "../opc7/opc7_debug.h"
-#include "../pdp11/pdp11_debug.h"
-#include "../f100/f100_debug.h"
+#include "../copro-defs.h"
 
 #define USE_LINENOISE
 
@@ -30,41 +20,6 @@
 static const char * prompt_str = ">> ";
 
 extern unsigned int copro;
-
-cpu_debug_t *cpu_debug_list[] = {
-   NULL,                //  0 65tube
-   NULL,                //  1 65tube
-   NULL,                //  2 65tube
-   NULL,                //  3 65tube
-   &simz80_cpu_debug,   //  4 Z80
-   NULL,                //  5 unused
-   NULL,                //  6 unused
-   NULL,                //  7 unused
-   &cpu80186_cpu_debug, //  8 80x86
-   &mc6809nc_cpu_debug, //  9 6809
-   NULL,                // 10 unused
-   &pdp11_cpu_debug,    // 11 PDP11
-   &arm2_cpu_debug,     // 12 ARM2
-   &n32016_cpu_debug,   // 13 32016
-   NULL,                // 14 unused
-   NULL,                // 15 Native ARM
-   &lib6502_cpu_debug,  // 16 lib6502
-   &lib6502_cpu_debug,  // 17 lib6502
-   NULL,                // 18
-   NULL,                // 19
-   &opc5ls_cpu_debug,   // 20 OPC5LS
-   &opc6_cpu_debug,     // 21 OPC6
-   &opc7_cpu_debug,     // 22 OPC7
-   NULL,                // 23
-   NULL,                // 24
-   NULL,                // 25
-   NULL,                // 26
-   NULL,                // 27
-   &f100_cpu_debug,     // 28 F100
-   NULL,                // 29
-   NULL,                // 30
-   NULL                 // 31
-};
 
 #define NUM_CMDS 23
 #define NUM_IO_CMDS 6
@@ -273,8 +228,8 @@ static int base;
 
 static int width;
 
-static cpu_debug_t *getCpu() {
-   return cpu_debug_list[copro];
+static const cpu_debug_t *getCpu() {
+   return copro_defs[copro].debugger;
 }
 
 static char *format_addr(uint32_t i) {
@@ -340,7 +295,7 @@ static char *format_char(uint32_t i) {
 // To simplify matters, the width command doesn't let
 // use set the width less than the cpu width.
 
-static uint32_t memread(cpu_debug_t *cpu, uint32_t addr) {
+static uint32_t memread(const cpu_debug_t *cpu, uint32_t addr) {
    uint32_t value = 0;
    int num  = 1 << (width - cpu->mem_width);
    int size = 1 << (3 + cpu->mem_width);
@@ -355,7 +310,7 @@ static uint32_t memread(cpu_debug_t *cpu, uint32_t addr) {
    return value;
 }
 
-static void memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
+static void memwrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
    internal = 1;
    int num  = 1 << (width - cpu->mem_width);
    int size = 1 << (3 + cpu->mem_width);
@@ -368,7 +323,7 @@ static void memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
    internal = 0;
 }
 
-static uint32_t ioread(cpu_debug_t *cpu, uint32_t addr) {
+static uint32_t ioread(const cpu_debug_t *cpu, uint32_t addr) {
    uint32_t value = 0;
    int num  = 1 << (width - cpu->io_width);
    int size = 1 << (3 + cpu->io_width);
@@ -383,7 +338,7 @@ static uint32_t ioread(cpu_debug_t *cpu, uint32_t addr) {
    return value;
 }
 
-static void iowrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
+static void iowrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
    internal = 1;
    int num  = 1 << (width - cpu->io_width);
    int size = 1 << (3 + cpu->io_width);
@@ -426,7 +381,7 @@ static void cpu_continue() {
 }
 
 static void disassemble_addr(uint32_t addr) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    internal = 1;
    next_addr = cpu->disassemble(addr, strbuf, sizeof(strbuf));
    internal = 0;
@@ -451,7 +406,7 @@ static inline breakpoint_t *check_for_breakpoints(uint32_t addr, breakpoint_t *p
 
 // TODO: size should not be ignored!
 
-static inline void generic_memory_access(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size,
+static inline void generic_memory_access(const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size,
                                          const char *type, breakpoint_t *list) {
    breakpoint_t *ptr = check_for_breakpoints(addr, list);
    if (ptr) {
@@ -471,7 +426,7 @@ static inline void generic_memory_access(cpu_debug_t *cpu, uint32_t addr, uint32
 }
 
 void debug_init () {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    int i;
    // Clear any pre-existing breakpoints
    breakpoint_t *lists[] = {
@@ -521,31 +476,31 @@ void debug_init () {
    }
 };
 
-void debug_memread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
+void debug_memread (const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
    if (!internal) {
       generic_memory_access(cpu, addr, value, size, "Mem Rd", mem_rd_breakpoints);
    }
 };
 
-void debug_memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
+void debug_memwrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
    if (!internal) {
       generic_memory_access(cpu, addr, value, size, "Mem Wr", mem_wr_breakpoints);
    }
 };
 
-void debug_ioread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
+void debug_ioread (const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
    if (!internal) {
       generic_memory_access(cpu, addr, value, size, "IO Rd", io_rd_breakpoints);
    }
 };
 
-void debug_iowrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
+void debug_iowrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
    if (!internal) {
       generic_memory_access(cpu, addr, value, size, "IO Wr", io_wr_breakpoints);
    }
 };
 
-void debug_preexec (cpu_debug_t *cpu, uint32_t addr) {
+void debug_preexec (const cpu_debug_t *cpu, uint32_t addr) {
    int show = 0;
 
    if (addr == break_next_addr) {
@@ -749,7 +704,7 @@ static void doCmdBase(const char *params) {
 }
 
 static void doCmdWidth(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    int i = -1;
    sscanf(params, "%d", &i);
    if (i == 8) {
@@ -774,7 +729,7 @@ static void doCmdWidth(const char *params) {
 }
 
 static void doCmdHelp(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    int i = parseCommand(&params);
    if (i >= 0) {
       printf("%8s %s\r\n", dbgCmdStrings[i], dbgHelpStrings[i]);
@@ -796,7 +751,7 @@ static void doCmdHelp(const char *params) {
 }
 
 static void doCmdRegs(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    const char **reg = cpu->reg_names;
    char name[100];
    char value[100];
@@ -835,7 +790,7 @@ static void doCmdRegs(const char *params) {
 }
 
 static void doCmdTraps(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    const char **trap = cpu->trap_names;
    if (*trap) {
       while (*trap) {
@@ -848,7 +803,7 @@ static void doCmdTraps(const char *params) {
 }
 
 static void doCmdDis(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    int i = 0;
    unsigned int endAddr = 0;
    if (parse2params(params, 1, &memAddr, &endAddr)) {
@@ -865,7 +820,7 @@ static void doCmdDis(const char *params) {
 }
 
 static void doCmdFill(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    unsigned int i;
    unsigned int start;
    unsigned int end;
@@ -881,7 +836,7 @@ static void doCmdFill(const char *params) {
 }
 
 static void doCmdCrc(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    unsigned int i;
    unsigned int j;
    unsigned int start;
@@ -906,7 +861,7 @@ static void doCmdCrc(const char *params) {
 }
 
 static void doCmdMem(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    int i, j;
    unsigned int row[16];
    unsigned int endAddr = 0;
@@ -946,7 +901,7 @@ static void doCmdMem(const char *params) {
 }
 
 static void doCmdRd(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
    if (parse1params(params, 1, &addr)) {
@@ -957,7 +912,7 @@ static void doCmdRd(const char *params) {
 }
 
 static void doCmdWr(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
    if (parse2params(params, 2, &addr, &data)) {
@@ -968,7 +923,7 @@ static void doCmdWr(const char *params) {
 }
 
 static void doCmdIn(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
    if (parse1params(params, 1, &addr) < 0) {
@@ -979,7 +934,7 @@ static void doCmdIn(const char *params) {
 }
 
 static void doCmdOut(const char *params) {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    unsigned int addr;
    unsigned int data;
    if (parse2params(params, 2, &addr, &data)) {
@@ -1152,7 +1107,7 @@ static void doCmdContinue(const char *params) {
 
 
 static void updateDebugFlag() {
-   cpu_debug_t *cpu = getCpu();
+   const cpu_debug_t *cpu = getCpu();
    int enable = 0;
    if (stepping) {
       enable = 1;
@@ -1189,7 +1144,7 @@ static void updateDebugFlag() {
 static void dispatchCmd(const char *cmd) {
    int cmdNum = parseCommand(&cmd);
    if (cmdNum >= 0) {
-      cpu_debug_t *cpu = getCpu();
+      const cpu_debug_t *cpu = getCpu();
       if (cpu == NULL) {
          printf("No debugger available for this co pro\r\n");
       } else {

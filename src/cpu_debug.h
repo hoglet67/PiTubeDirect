@@ -31,11 +31,11 @@ typedef struct {
 } cpu_debug_t;
 
 extern void debug_init    ();
-extern void debug_memread (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
-extern void debug_memwrite(cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
-extern void debug_ioread  (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
-extern void debug_iowrite (cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
-extern void debug_preexec (cpu_debug_t *cpu, uint32_t addr);
+extern void debug_memread (const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
+extern void debug_memwrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
+extern void debug_ioread  (const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
+extern void debug_iowrite (const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size);
+extern void debug_preexec (const cpu_debug_t *cpu, uint32_t addr);
 extern void debug_trap    (const cpu_debug_t *cpu, uint32_t addr, int reason);
 
 #endif

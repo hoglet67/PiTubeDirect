@@ -5,7 +5,7 @@
 #include "tube-client.h"
 #include "tube-defs.h"
 #include "gitversion.h"
-#include "emulator-names.h"
+#include "copro-defs.h"
 
 // if DORMANN_6502 is defined, the Dormann 6502 tests are included at #3400
 // if DORMANN_65C02 is defined, the Dormann 6502 tests are included at #3400
@@ -2846,16 +2846,15 @@ void copy_test_programs(uint8_t *memory) {
    // add list of copros to end of code
    unsigned char *list_end = memory + 0x2000 + sizeof(coprolist);
    int list_remain = 480;   // write max 480 chars, +1 for \0
-   for (int copro_num = 0;
-        copro_num < sizeof(emulator_names) / sizeof(const char *);
-        copro_num++) {
+   for (int i = 0; i < num_copros(); i++) {
 
-      if (strcmp(emulator_names[copro_num], "Null") == 0) {
+      copro_def_t *copro_def = &copro_defs[i];
+
+      if (copro_def->type == TYPE_HIDDEN) {
          continue;
       }
 
-      int reqd = snprintf((char *) list_end, list_remain, "%2d %s\r",
-                          copro_num, emulator_names[copro_num]);
+      int reqd = snprintf((char *) list_end, list_remain, "%2d %s\r", i, copro_def->name);
 
       // if we had space for the complete line move on, else scrap it
       if (reqd < list_remain) {
