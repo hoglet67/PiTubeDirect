@@ -11,6 +11,8 @@
 
 #include "../copro-defs.h"
 
+#include "../info.h"
+
 #define USE_LINENOISE
 
 #define HAS_IO (getCpu()->ioread != NULL)
@@ -21,7 +23,7 @@ static const char * prompt_str = ">> ";
 
 extern unsigned int copro;
 
-#define NUM_CMDS 23
+#define NUM_CMDS 24
 #define NUM_IO_CMDS 6
 
 // The Atom CRC Polynomial
@@ -71,6 +73,7 @@ static void doCmdDis(const char *params);
 static void doCmdFill(const char *params);
 static void doCmdHelp(const char *params);
 static void doCmdIn(const char *params);
+static void doCmdInfo(const char *params);
 static void doCmdList(const char *params);
 static void doCmdMem(const char *params);
 static void doCmdNext(const char *params);
@@ -93,6 +96,7 @@ static void doCmdWr(const char *params);
 
 // Must be kept in step with dbgCmdFuncs (just below)
 static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
+   "info",
    "help",
    "continue",
    "step",
@@ -125,6 +129,7 @@ static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
 };
 
 static char *dbgHelpStrings[NUM_CMDS + NUM_IO_CMDS] = {
+   "",                       // info
    "[ <command> ]",          // help
    "",                       // continue
    "[ <num instructions> ]", // step
@@ -158,6 +163,7 @@ static char *dbgHelpStrings[NUM_CMDS + NUM_IO_CMDS] = {
 
 // Must be kept in step with dbgCmdStrings (just above)
 static void (*dbgCmdFuncs[NUM_CMDS + NUM_IO_CMDS])(const char *params) = {
+   doCmdInfo,
    doCmdHelp,
    doCmdContinue,
    doCmdStep,
@@ -727,6 +733,9 @@ static void doCmdWidth(const char *params) {
       printf("Setting data width to %s\r\n", width_names[i]);
    }
 }
+static void doCmdInfo(const char *params) {
+   dump_useful_info();
+}
 
 static void doCmdHelp(const char *params) {
    const cpu_debug_t *cpu = getCpu();
@@ -1144,7 +1153,12 @@ static void dispatchCmd(const char *cmd) {
    if (cmdNum >= 0) {
       const cpu_debug_t *cpu = getCpu();
       if (cpu == NULL) {
-         printf("No debugger available for this co pro\r\n");
+         if (cmdNum == 0) {
+            // Allow info even without a debugger
+            (*dbgCmdFuncs[cmdNum])(cmd);
+         } else {
+            printf("No debugger available for this co pro\r\n");
+         }
       } else {
          (*dbgCmdFuncs[cmdNum])(cmd);
          updateDebugFlag();
