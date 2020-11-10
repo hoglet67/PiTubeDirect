@@ -8,6 +8,8 @@
 #include "darm/darm.h"
 #include "tube-defs.h"
 #include "gitversion.h"
+#include "copro-defs.h"
+#include "utils.h"
 
 // Include ARM Basic
 #include "armbasic.h"
@@ -15,6 +17,8 @@
 const char *help = "Native ARM Tube Client ("RELEASENAME"/"GITVERSION")\r\n";
 
 const char *help_key = "ARM";
+
+const char *copro_key = "COPROS";
 
 char line[256];
 
@@ -118,6 +122,9 @@ int doCmdHelp(const char *params) {
     OS_Write0("  ");
     OS_Write0(help_key);
     OS_Write0("\r\n");
+    OS_Write0("  ");
+    OS_Write0(copro_key);
+    OS_Write0("\r\n");
   } else if (matchCommand(params, help_key, 0)) {
     // *HELP ARM
     // *HELP AR.
@@ -129,6 +136,34 @@ int doCmdHelp(const char *params) {
       OS_Write0(cmdStrings[i]);
       OS_Write0("\r\n");
     }
+  } else if (matchCommand(params, copro_key, 0)) {
+     // *HELP COPROS
+     // *HELP COPRO.
+     // *HELP COPR.
+     // *HELP COP.
+     // *HELP CO.
+     // *HELP C.
+     OS_Write0(" n Processor - *FX ");
+     OS_Write0(get_elk_mode() ? "147" : "151");
+     OS_Write0(",230,n\r\n");
+     for (int i = 0; i < num_copros(); i++) {
+
+        copro_def_t *copro_def = &copro_defs[i];
+
+        if (copro_def->type == TYPE_HIDDEN) {
+           continue;
+        }
+
+        if (i >= 10) {
+           OS_WriteC('0' + i / 10);
+        } else {
+           OS_WriteC(' ');
+        }
+        OS_WriteC('0' + i % 10);
+        OS_WriteC(' ');
+        OS_Write0(copro_def->name);
+        OS_Write0("\r\n");
+     }
   }
   // pass the command on to the CLI regardless
   return 1;

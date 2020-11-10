@@ -9,13 +9,17 @@
  * LDA &FEE5 => LDA &FCE5 (&AD)
  */
 
-void check_elk_mode_and_patch(unsigned char *rom, int start, int len, int expected) {
+int get_elk_mode() {
    char *elk_mode_prop = get_cmdline_prop("elk_mode");
-   int elk_mode = 0; // default 
+   int elk_mode = 0; // default
    if (elk_mode_prop) {
       elk_mode = atoi(elk_mode_prop);
    }
-   if (elk_mode) {
+   return elk_mode;
+}
+
+void check_elk_mode_and_patch(unsigned char *rom, int start, int len, int expected) {
+   if (get_elk_mode()) {
       int actual = 0;
       for (int i = start; i < start + len - 2; i++) {
          if ((rom[i] == 0x8D) && (rom[i + 1] == 0xE5) && (rom[i + 2] == 0xFE)) {
