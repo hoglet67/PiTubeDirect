@@ -324,6 +324,9 @@ void copro_armnative_emulator() {
   // Enable interrupts!
   _enable_interrupts();
 
+  // Inhibit the language transfer to avoid any BASIC programs getting trashed
+  set_ignore_transfer(1);
+
   if (!reset_sent) {
      // Log ARM performance counters
      tube_log_performance_counters();
@@ -337,6 +340,9 @@ void copro_armnative_emulator() {
      // Send reset message
      tube_Reset();
   }
+
+  // Re-enable the language transfer
+  set_ignore_transfer(0);
 
   // Read the last break type
   OS_Byte(0xfd, 0x00, 0xFF, &last_break, NULL);

@@ -19,6 +19,13 @@ ErrorBlock_type isrErrorBlock;
 
 #ifdef TUBE_ISR_STATE_MACHINE
 
+static int ignore_transfer = 0;
+
+void set_ignore_transfer(int on) {
+   ignore_transfer = on;
+}
+
+
 // Host-to-Client transfers
 // ------------------------
 // Escape   R1: flag, b7=1
@@ -256,9 +263,14 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
       if (addr == 5) {
         if (type == 1 || type == 3 || (type == 7 && remaining > 0)) {
           // Read the R3 data register, which should also clear the NMI
-          *address = tubeRead(R3_DATA);
+          if (ignore_transfer) {
+            signature += tubeRead(R3_DATA);
+          } else {
+            *address = tubeRead(R3_DATA);
+            signature += *address;
+          }
+          address++;
           count++;
-          signature += *address++;
           signature *= 13;
         }
         if (type == 7 && remaining > 0) {

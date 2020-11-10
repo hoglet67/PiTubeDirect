@@ -13,4 +13,6 @@ extern void copro_armnative_tube_interrupt_handler(uint32_t mail);
 extern void copro_armnative_tube_interrupt_handler();
 #endif
 
+void set_ignore_transfer(int on);
+
 #endif
