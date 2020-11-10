@@ -345,7 +345,7 @@ static void  dbg_reg_set(int which, uint32_t value) {
       m_f100->S = (value >> 3) & 1;
       m_f100->C = (value >> 4) & 1;
       m_f100->M = (value >> 5) & 1;
-      m_f100->V = (value >> 6) & 1;
+      m_f100->F = (value >> 6) & 1;
    }
 };
 
