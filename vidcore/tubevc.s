@@ -262,6 +262,10 @@ wr_wait_for_clk_high1:
    btst   r7, CLK
    beq    wr_wait_for_clk_high1
 
+   ld     r7, GPLEV0_offset(r6)
+   btst   r7, CLK
+   beq    wr_wait_for_clk_high1
+
 # spin waiting for clk low
 wr_wait_for_clk_low:
    mov    r8, r7
