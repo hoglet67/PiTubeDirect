@@ -43,12 +43,14 @@ boot_delay=0
 #
 # 0x00000000   0MB - Start of RAM
 # 0x0D800000 216MB - ARM Basic (allow 4MB)
-# 0x0DC00000 220MB - Stack space (allow 16 x 1MB)
-# 0x0EC00000 236MB - Pi Kernel (allow 4MB)
-# 0x0F000000 240MB - Top of cached RAM, start of GPU Memory
+# 0x0DC00000 220MB - Stack space (allow 16 x 0.5MB)
+# 0x0E400000 228MB - Pi Kernel (allow 4MB)
+# 0x0E800000 232MB - Frame Buffer (allow 8MB)
+# 0x0E800000 232MB - Top of cached RAM
+# 0x0F000000 240MB - Start of GPU Memory
 # 0x10000000 256MB - Top of physical RAM on 256MB Pi Model
 
-kernel_address=0x0EC00000
+kernel_address=0x0E400000
 gpu_mem=16
 
 # See fully annotated config.txt at

@@ -25,11 +25,11 @@
 //  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 //  POSSIBILITY OF SUCH DAMAGE.
 
-//  Relocate to just below 32MB
+//  Relocate to 228MB
 
 #include "tube-defs.h"
 
-.equ    STACK_SIZE,           0x00100000
+.equ    STACK_SIZE,           0x00080000
 
 .equ    C0_SVR_STACK,        0
 .equ    C0_IRQ_STACK,        (STACK_SIZE*1)
@@ -507,4 +507,3 @@ _toggle_test_pin_loop:
         bne     _toggle_test_pin_loop
         mov     pc, lr
 #endif
-
