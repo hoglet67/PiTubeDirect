@@ -262,10 +262,6 @@ wr_wait_for_clk_high1:
    btst   r7, CLK
    beq    wr_wait_for_clk_high1
 
-   ld     r7, GPLEV0_offset(r6)
-   btst   r7, CLK
-   beq    wr_wait_for_clk_high1
-
 # spin waiting for clk low
 wr_wait_for_clk_low:
    mov    r8, r7
@@ -289,6 +285,12 @@ wr_wait_for_clk_low:
    bsetne r7, 9
    btst   r8, r18
    bsetne r7, 10
+
+#check clock is still low this filters out clock glitches
+   ld     r8, GPLEV0_offset(r6)
+   btst   r8, CLK
+   bne    wr_wait_for_clk_low
+
    st     r7, (r3)      # post mail
    bl     toggle_led
    b      Poll_loop
