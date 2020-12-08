@@ -143,7 +143,7 @@ uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t
                 snprintf(buf, bufsize, "%02X       %s #%02X     ", p1, op_name, p1);
             else {
                 p2 = cpu->memread(addr++);
-                snprintf(buf, bufsize, "%02X %02X    %s #%02X%02X     ", p1, p2, op_name, p1, p2);
+                snprintf(buf, bufsize, "%02X %02X    %s #%02X%02X     ", p1, p2, op_name, p2, p1);
             }
             break;
         case IMX:
@@ -152,7 +152,7 @@ uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t
                 snprintf(buf, bufsize, "%02X       %s #%02X     ", p1, op_name, p1);
             else {
                 p2 = cpu->memread(addr++);
-                snprintf(buf, bufsize, "%02X %02X    %s #%02X%02X     ", p1, p2, op_name, p1, p2);
+                snprintf(buf, bufsize, "%02X %02X    %s #%02X%02X     ", p1, p2, op_name, p2, p1);
             }
             break;
         case ZP:
@@ -248,7 +248,7 @@ uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t
             p2 = cpu->memread(addr++);
             temp = (int16_t)((uint16_t)p1 | (uint16_t)p2 <<8);
             temp += addr;
-            snprintf(buf, bufsize, "%02X %02X     %s %04X    ", p1, p2, op_name, temp);
+            snprintf(buf, bufsize, "%02X %02X    %s %04X    ", p1, p2, op_name, temp);
             break;
         case BITC:
             p1 = cpu->memread(addr++);
