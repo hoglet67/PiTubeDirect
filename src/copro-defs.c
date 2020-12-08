@@ -17,6 +17,7 @@
 #include "copro-opc6.h"
 #include "copro-opc7.h"
 #include "copro-f100.h"
+#include "copro-65816.h"
 #include "copro-pdp11.h"
 #include "copro-armnative.h"
 
@@ -35,6 +36,7 @@
 #include "../opc7/opc7_debug.h"
 #include "../pdp11/pdp11_debug.h"
 #include "../f100/f100_debug.h"
+#include "../65816/65816_debug.h"
 
 #define DEBUGGER(n) (n)
 #define NO_DEBUGGER (NULL)
@@ -160,10 +162,10 @@ copro_def_t copro_defs[] = {
       DEBUGGER(&lib6502_cpu_debug)
    },
    {
-      "Null",                   // 18
-      copro_null_emulator,
-      TYPE_HIDDEN,
-      NO_DEBUGGER
+      "65C816",                 // 18
+      copro_65816_emulator,
+      TYPE_GENERIC,
+      DEBUGGER(&w65816_cpu_debug)
    },
    {
       "Null",                   // 19
