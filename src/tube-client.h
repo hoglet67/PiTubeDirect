@@ -5,6 +5,7 @@
 
 
 unsigned char * copro_mem_reset(int length);
+unsigned int get_copro_mhz(int copro_num);
 
 
 #endif

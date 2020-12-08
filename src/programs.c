@@ -2733,7 +2733,6 @@ unsigned char dormann_d65c02[] = {
 #endif
 
 void copy_test_programs(uint8_t *memory) {
-
    memcpy(memory + 0x800, sphere, sizeof(sphere));
 
    strcpy((char *)memory + 0x805,        " PiTubeDirect "RELEASENAME);
@@ -2749,20 +2748,28 @@ void copy_test_programs(uint8_t *memory) {
    unsigned char *list_end = memory + 0x2000 + sizeof(coprolist);
    int list_remain = 480;   // write max 480 chars, +1 for \0
    for (int i = 0; i < num_copros(); i++) {
-
       copro_def_t *copro_def = &copro_defs[i];
 
       if (copro_def->type == TYPE_HIDDEN) {
          continue;
       }
 
-      int reqd = snprintf((char *) list_end, list_remain, "%2d %s\r", i, copro_def->name);
+      // write the name of the processor to the output buffer
+      int reqd =
+         (i == 1 || i == 3)?
+            snprintf((char *) list_end, list_remain, "%2d %s (%uMHz)\r",
+                     i, copro_def->name, get_copro_mhz(i)):
+            snprintf((char *) list_end, list_remain, "%2d %s\r",
+                     i, copro_def->name);
 
-      // if we had space for the complete line move on, else scrap it
-      if (reqd < list_remain) {
-         list_end += reqd;
-         list_remain -= reqd;
+      // if we didn't have space for this line, stop here
+      if (reqd >= list_remain) {
+         break;
       }
+
+      // move the pointers for the next line / remaining space
+      list_end += reqd;
+      list_remain -= reqd;
    }
    *list_end = '\0';   // end of text marker
 

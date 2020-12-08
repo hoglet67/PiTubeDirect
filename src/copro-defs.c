@@ -58,7 +58,7 @@ copro_def_t copro_defs[] = {
       NO_DEBUGGER
    },
    {
-      "65C02 (3MHz)",           // 1
+      "65C02",                  // 1
       copro_65tube_emulator,
       TYPE_65TUBE_1,
       NO_DEBUGGER
@@ -70,7 +70,7 @@ copro_def_t copro_defs[] = {
       NO_DEBUGGER
    },
    {
-      "65C102 (4MHz)",          // 3
+      "65C102",                 // 3
       copro_65tube_emulator,
       TYPE_65TUBE_3,
       NO_DEBUGGER
