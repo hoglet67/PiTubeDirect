@@ -1051,6 +1051,11 @@ static void xce(void)
     p.c = p.e;
     p.e = temp;
     readmem(pbr | pc);
+    // When re-entering native mode, the X and M flags will be 1 (8-bits)
+    // (i.e. these flags are not preserved in emulation mode)
+    if (p.c && !p.e) {
+        p.ex = p.m = 1;
+    }
     updatecpumode();
 }
 
