@@ -390,10 +390,23 @@ RESET:
 		clc
 		xce
 
+		; Twiddle the bank registers to select 512KB mode and map in the ROM
+		; banking=1100
+		lda     #4
+		sta     $fef0
+		lda     #4
+		sta     $fef0
+		lda     #5
+		sta     $fef0
+		lda     #5
+		sta     $fef0
+		; turn on the def override
+		lda     #0
+		sta     $fef0
+
 		; set direct page to 0
 		pea 		0
 		pld
-
 
 		.i16
 		.a16
@@ -404,20 +417,21 @@ RESET:
 		lda		#$20 - 1
 		ldx		#NAT_VECT
 		ldy		#$FFE0
-		mvn		1, 0
+		; CA65 vesion 2.19 uses <src>,<dst>
+		mvn		#0, #1
 
 		; copy top page (OS and CPU vectors from ROM to RAM)
 		lda		#$100 - 1
 		ldx		#$ff00
 		ldy		#$ff00
-		mvn		0, 0
+		mvn		#0, #0
 
 
 		; Set up default vectors
 		lda		#TBL_DefVectorsEnd - TBL_DefVectors - 1
 		ldx		#TBL_DefVectors
 		ldy		#USERV
-		mvn		0, 0
+		mvn		#0, #0
 
 		; Clear stack (set x to $FF)
 		ldx		#$1FF
@@ -427,13 +441,13 @@ RESET:
 		lda		#$FEF0 - ROMSTART - 1
 		ldx		#ROMSTART
 		ldy		#ROMSTART
-		mvn		0, 0
+		mvn		#0, #0
 
 		; Copy jump code to $100
 		lda		#(bootBounceEnd - bootoff) - 1
 		ldx		#bootoff
 		ldy		#$100
-		mvn		0, 0
+		mvn		#0, #0
 
 		lda		ZP_PROG			; Copy ZP_PROG to ZP_ADDR
 		sta		ZP_ADDR
@@ -458,6 +472,15 @@ RESET:
 		; --------------------------------------
 		jmp		$0100
 bootoff:
+		; banking=0100 - unmap the ROM
+		lda     #4
+		sta     $fef0
+		lda     #4
+		sta     $fef0
+		lda     #5
+		sta     $fef0
+		lda     #4
+		sta     $fef0
 		lda		TubeS1
 		cli
 		; Check Tube R1 status to page ROM out
