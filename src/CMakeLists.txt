@@ -241,7 +241,8 @@ file( GLOB copro_65816_files
     65816/65816.c
     65816/65816.h
     65816/tuberom_65816.h
-    65816/tuberom_65816.c
+    65816/tuberom_dominic65816.c
+    65816/tuberom_reco65816.c
     copro-65816.c
     copro-65816.h
 )

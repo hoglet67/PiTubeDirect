@@ -1,0 +1,21 @@
+MEMORY
+{
+   MEM_ZP:          start = $0000, size = $0100;
+   MEM_PAD:         start = $8000, size = $7300, fill = yes, fillval = $ff;
+   MEM_CODE0:       start = $f300, size = $0bf0, fill = yes, fillval = $ff;
+   MEM_TUBE_REGS:   start = $fef0, size = $0010;
+   MEM_DEF_VEC:     start = $ff00, size = $00b6;
+   MEM_OS_VEC:      start = $ffb6, size = $0044;
+   MEM_CPU_VEC:     start = $fffa, size = $0006;
+}
+
+SEGMENTS
+{
+   ZP:          load = MEM_ZP,        type = zp;
+   PAD:         load = MEM_PAD,       type = ro;
+   CODE0:       load = MEM_CODE0,     type = rw;
+   TUBE_REGS:   load = MEM_TUBE_REGS, type = rw;
+   DEF_VEC:     load = MEM_DEF_VEC,   type = rw;
+   OS_VEC:      load = MEM_OS_VEC,    type = rw;
+   CPU_VEC:     load = MEM_CPU_VEC,   type = rw;
+}

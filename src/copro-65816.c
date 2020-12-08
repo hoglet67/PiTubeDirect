@@ -15,10 +15,12 @@
 #include "65816/tuberom_65816.h"
 #include "startup.h"
 
-#define ROM_BASE 0xF800
-
-static void copro_65816_poweron_reset() {
-   w65816_init(tuberom_65816);
+static void copro_65816_poweron_reset(int romset) {
+   if (romset) {
+      w65816_init(tuberom_reco65816_bin);
+   } else {
+      w65816_init(tuberom_dominic65816_bin);
+   }
 }
 
 static void copro_65816_reset() {
@@ -37,7 +39,7 @@ void copro_65816_emulator() {
    // Remember the current copro so we can exit if it changes
    int last_copro = copro;
 
-   copro_65816_poweron_reset();
+   copro_65816_poweron_reset(copro & 1);
    copro_65816_reset();
 
    while (1) {

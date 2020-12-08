@@ -162,16 +162,16 @@ copro_def_t copro_defs[] = {
       DEBUGGER(&lib6502_cpu_debug)
    },
    {
-      "65C816",                 // 18
+      "65C816 (Dominic Beesley)", // 18
       copro_65816_emulator,
       TYPE_GENERIC,
       DEBUGGER(&w65816_cpu_debug)
    },
    {
-      "Null",                   // 19
-      copro_null_emulator,
-      TYPE_HIDDEN,
-      NO_DEBUGGER
+      "65C816 (ReCo)",           // 19
+      copro_65816_emulator,
+      TYPE_GENERIC,
+      DEBUGGER(&w65816_cpu_debug)
    },
    {
       "OPC5LS",                 // 20
