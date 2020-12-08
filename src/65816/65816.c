@@ -209,18 +209,24 @@ static void dbg_reg_set(int which, uint32_t value)
 
 size_t dbg65816_print_flags(char *buf, size_t bufsize)
 {
-    if (bufsize >= 9) {
+    if (bufsize >= 10) {
         *buf++ = p.n  ? 'N' : ' ';
         *buf++ = p.v  ? 'V' : ' ';
-        *buf++ = p.m  ? 'M' : ' ';
-        *buf++ = p.ex ? 'X' : ' ';
+        if (p.e) {
+            *buf++ = '-';
+            *buf++ = 'B';
+        } else {
+            *buf++ = p.m  ? 'M' : ' ';
+            *buf++ = p.ex ? 'X' : ' ';
+        }
         *buf++ = p.d  ? 'D' : ' ';
         *buf++ = p.i  ? 'I' : ' ';
         *buf++ = p.z  ? 'Z' : ' ';
         *buf++ = p.c  ? 'C' : ' ';
+        *buf++ = p.e  ? 'E' : ' ';
         // Also add a terminator, as snprintf would
         *buf++ = 0;
-        return 8;
+        return 9;
     }
     return 0;
 }
@@ -341,6 +347,7 @@ static void do_writemem65816(uint32_t a, uint32_t v)
             w65816mask = 0xFFFF;
         else
             w65816mask = 0x7FFFF;
+        printf("def=%x divider=%x banking=%x banknum=%x mask=%lx\r\n", def, divider, banking, banknum, w65816mask);
         return;
     }
     if ((a & ~7) == 0xFEF8) {
@@ -5788,7 +5795,7 @@ static void irq65816(void)
         writemem(s.w--, pc >> 8);
         writemem(s.w--, pc & 0xFF);
         writemem(s.w--, pack_flags());
-        pc = readmemw(0xFFEE);
+        pc = readmemw(0x01FFEE); // Bank 1
         pbr = 0;
         p.i = 1;
         p.d = 0;
@@ -5799,7 +5806,7 @@ static void irq65816(void)
         s.b.l--;
         writemem(s.w, pack_flags_em(0x20));
         s.b.l--;
-        pc = readmemw(0xFFFE);
+        pc = readmemw(0x00FFFE); // Bank 0
         pbr = 0;
         p.i = 1;
         p.d = 0;
