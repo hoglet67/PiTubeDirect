@@ -30,6 +30,7 @@ typedef enum {
     SR,     // Stack relative (65816 only)
     SRY,    // Stack relative indirect indexed (by Y).
     BM,     // Block moves (65816 only)
+    // Note: BITC/BITB are not present in the 65816
     BITC,   // Bit change (set/reset) as used by RMB, SMB
     BITB    // Branch on bit set/reset (BBR, BBS.)
 } addr_mode_t;
@@ -98,9 +99,9 @@ static const uint8_t am_816[256]=
 /*90*/  PCR,  INDY, IND,  SRY,  ZPX,  ZPX,  ZPY,  INDYL,IMP,  ABSY, IMP,  IMP,  ABS,  ABSX, ABSX, ABSXL,
 /*A0*/  IMX,  INDX, IMX,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
 /*B0*/  PCR,  INDY, IND,  SRY,  ZPX,  ZPX,  ZPY,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSX, ABSX, ABSY, ABSXL,
-/*C0*/  IMX,  INDX, IMV,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
+/*C0*/  IMX,  INDX, IMM,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
 /*D0*/  PCR,  INDY, IND,  SRY,  IMP,  ZPX,  ZPX,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSL, IND16,ABSX, ABSXL,
-/*E0*/  IMX,  INDX, IMV,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
+/*E0*/  IMX,  INDX, IMM,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
 /*F0*/  PCR,  INDY, IND,  SRY,  IMP,  ZPX,  ZPX,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSX, ABSX, ABSX, ABSXL
 };
 

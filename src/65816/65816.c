@@ -209,7 +209,7 @@ static void dbg_reg_set(int which, uint32_t value)
 
 size_t dbg65816_print_flags(char *buf, size_t bufsize)
 {
-    if (bufsize >= 8) {
+    if (bufsize >= 9) {
         *buf++ = p.n  ? 'N' : ' ';
         *buf++ = p.v  ? 'V' : ' ';
         *buf++ = p.m  ? 'M' : ' ';
@@ -218,6 +218,8 @@ size_t dbg65816_print_flags(char *buf, size_t bufsize)
         *buf++ = p.i  ? 'I' : ' ';
         *buf++ = p.z  ? 'Z' : ' ';
         *buf++ = p.c  ? 'C' : ' ';
+        // Also add a terminator, as snprintf would
+        *buf++ = 0;
         return 8;
     }
     return 0;
