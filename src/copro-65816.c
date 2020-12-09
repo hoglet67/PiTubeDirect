@@ -17,9 +17,9 @@
 
 static void copro_65816_poweron_reset(int romset) {
    if (romset) {
-      w65816_init(tuberom_reco65816_bin);
+      w65816_init(tuberom_reco65816_bin, 0x00);
    } else {
-      w65816_init(tuberom_dominic65816_bin);
+      w65816_init(tuberom_dominic65816_bin, 0x01); // TODO: Should raise this in the client ROM
    }
 }
 

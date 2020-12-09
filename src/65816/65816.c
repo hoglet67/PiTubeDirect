@@ -20,6 +20,9 @@
 
 static uint8_t *w65816ram, *w65816rom;
 
+// The bank number to load any native vectors from
+static uint8_t w65816nvb = 0x00;
+
 /*Registers*/
 typedef union {
     uint16_t w;
@@ -4256,7 +4259,7 @@ static void op_brk(void)
     writemem(s.w--, pc >> 8);
     writemem(s.w--, pc & 0xFF);
     writemem(s.w--, pack_flags());
-    pc = readmemw(0xFFE6);
+    pc = readmemw((w65816nvb << 16) | 0xFFE6);
     pbr = 0;
     p.i = 1;
     p.d = 0;
@@ -4281,7 +4284,7 @@ static void cop(void)
     writemem(s.w--, pc >> 8);
     writemem(s.w--, pc & 0xFF);
     writemem(s.w--, pack_flags());
-    pc = readmemw(0xFFE4);
+    pc = readmemw((w65816nvb << 16) | 0xFFE4);
     pbr = 0;
     p.i = 1;
     p.d = 0;
@@ -5637,10 +5640,12 @@ static void updatecpumode(void)
 void w65816_reset(void)
 {
     def = 1;
-    if (def || (banking & 4))
-        w65816mask = 0xFFFF;
-    else
-        w65816mask = 0x7FFFF;
+    // This test is rather academic as def is 1 at this point
+    //if (def || !(banking & 4))
+    //    w65816mask = 0xFFFF;
+    //else
+    //    w65816mask = 0x7FFFF;
+    w65816mask = 0xFFFF;
     pbr = dbr = 0;
     s.w = 0x1FF;
     set_cpu_mode(4);
@@ -5731,10 +5736,11 @@ static void w65816_loadstate(ZFILE * zfp)
 
 #endif
 
-void w65816_init(void *rom)
+void w65816_init(void *rom, uint8_t nativeVectBank)
 {
     w65816ram = copro_mem_reset(W65816_RAM_SIZE);
     w65816rom = rom;
+    w65816nvb = nativeVectBank;
 #if 0
     tube_type = W65816;
     tube_readmem = readmem65816;
@@ -5759,7 +5765,7 @@ static void nmi65816(void)
         writemem(s.w--, pc >> 8);
         writemem(s.w--, pc & 0xFF);
         writemem(s.w--, pack_flags());
-        pc = readmemw(0xFFEA);
+        pc = readmemw((w65816nvb << 16) | 0xFFEA);
         pbr = 0;
         p.i = 1;
         p.d = 0;
@@ -5795,7 +5801,7 @@ static void irq65816(void)
         writemem(s.w--, pc >> 8);
         writemem(s.w--, pc & 0xFF);
         writemem(s.w--, pack_flags());
-        pc = readmemw(0x01FFEE); // Bank 1
+        pc = readmemw((w65816nvb << 16) | 0xFFEE);
         pbr = 0;
         p.i = 1;
         p.d = 0;
@@ -5806,7 +5812,7 @@ static void irq65816(void)
         s.b.l--;
         writemem(s.w, pack_flags_em(0x20));
         s.b.l--;
-        pc = readmemw(0x00FFFE); // Bank 0
+        pc = readmemw(0xFFFE);
         pbr = 0;
         p.i = 1;
         p.d = 0;
