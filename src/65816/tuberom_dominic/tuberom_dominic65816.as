@@ -1112,6 +1112,7 @@ RdLineEscape:	pla
 		pla
 		lda		#$00           		; Return A=0, Y=len, X=FF, Cy=1
 		plp					; DB Reset aXX, iXX if in nat mode
+        sec
 		rts
 
 do_OSARGS:	; OSARGS - Read info on open file
