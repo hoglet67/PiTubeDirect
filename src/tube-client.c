@@ -216,7 +216,7 @@ static void get_tube_delay() {
 
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
-   int last_copro = -1;
+   unsigned int last_copro;
 
      // Initialise the UART to 57600 baud
    RPI_AuxMiniUartInit( 115200, 8 );
@@ -229,7 +229,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    start_vc_ula();
 
    copro = get_copro_number();
-
+   last_copro = copro +1; // force new core
 #ifdef BENCHMARK
   // Run a short set of CPU and Memory benchmarks
   benchmark();
