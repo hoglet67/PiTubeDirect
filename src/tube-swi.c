@@ -493,10 +493,10 @@ void tube_CLI(unsigned int *reg) {
   char command[256];
   char *ptr = (char *)(*reg);
   char c;
-  int index = 0;
+  unsigned int index = 0;
   do {
     c = (command[index++] = *ptr++);
-  } while (c != 0x00 && c != 0x0d && c != 0x0d && index < sizeof(command));
+  } while (c != 0x00 && c != 0x0a && c != 0x0d && index < sizeof(command));
 
 // We need to prepare the environment in case code is entered
 // Command buffer is:
