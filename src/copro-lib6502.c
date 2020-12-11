@@ -111,7 +111,7 @@ static int copro_lib6502_tube_write(M6502 *mpu, addr_t addr, uint8_t data) {
   return 0;
 }
 
-static int last_copro;
+static unsigned int last_copro;
 
 static int copro_lib6502_poll(M6502 *mpu) {
    unsigned int tube_irq_copy;
