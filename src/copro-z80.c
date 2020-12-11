@@ -361,9 +361,9 @@ void copro_z80_emulator()
    // Patch the OSWORD &FF code to change FEE5 to FCE5 (2 changes expected)
    check_elk_mode_and_patch(copro_z80_rom, 0xD30, 0xAA, 2);
 
-   copro_z80_ram = copro_mem_reset(0x10000); 
+   copro_z80_ram = copro_mem_reset(0x10000);
    copro_z80_reset();
-  
+
    while (1)
    {
       // Execute emulator for one instruction
