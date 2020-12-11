@@ -63,7 +63,7 @@ static void copro_65tube_reset(int type, unsigned char mpu_memory[]) {
 
 void copro_65tube_emulator(int type) {
    // Remember the current copro so we can exit if it changes
-   int last_copro = copro;
+   unsigned int last_copro = copro;
   // unsigned char *addr;
    //__attribute__ ((aligned (64*1024))) unsigned char mpu_memory[64*1024]; // allocate the amount of ram
    unsigned char * mpu_memory; // now the arm vectors have moved we can set the core memory to start at 0
