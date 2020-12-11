@@ -9,10 +9,10 @@
 #define UINT32 unsigned int
 #define nullptr NULL
 
-extern UINT8  copro_arm2_read8(int addr);
-extern UINT32 copro_arm2_read32(int addr);
-extern void   copro_arm2_write8(int addr, UINT8 data);
-extern void   copro_arm2_write32(int addr, UINT32 data);
+extern UINT8  copro_arm2_read8(unsigned int addr);
+extern UINT32 copro_arm2_read32(unsigned int addr);
+extern void   copro_arm2_write8(unsigned int addr, UINT8 data);
+extern void   copro_arm2_write32(unsigned int addr, UINT32 data);
 
 extern UINT32 m_sArmRegister[];
 
