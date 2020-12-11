@@ -45,9 +45,9 @@ void copro_80186_emulator()
    // Remember the current copro so we can exit if it changes
    unsigend int last_copro = copro;
 
-   copro_80186_poweron_reset(); 
+   copro_80186_poweron_reset();
    copro_80186_reset();
-  
+
    while (1)
    {
       exec86(1);
