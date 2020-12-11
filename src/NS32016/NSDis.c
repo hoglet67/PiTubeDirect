@@ -363,7 +363,7 @@ static void AddInstructionText(uint32_t Function, uint32_t opcode, uint32_t Oper
    if (Function < InstructionCount)
    {
       char Str[80];
-      int s;
+      unsigned int s;
 
       switch (Function)
       {
@@ -844,7 +844,7 @@ static void Decode(uint32_t* pPC)
 
 uint32_t n32016_disassemble(uint32_t addr, char *buf, size_t bufsize)
 {
-   int i;
+   unsigned int i;
    uint32_t old = addr;
    int len;
    StringInit(buf, bufsize);
