@@ -148,7 +148,7 @@ int doCmdHelp(const char *params) {
      OS_Write0(" n Processor - *FX ");
      OS_Write0(get_elk_mode() ? "147" : "151");
      OS_Write0(",230,n\r\n");
-     for (int i = 0; i < num_copros(); i++) {
+     for (unsigned int i = 0; i < num_copros(); i++) {
 
         copro_def_t *copro_def = &copro_defs[i];
 
