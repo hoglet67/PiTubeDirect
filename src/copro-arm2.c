@@ -39,7 +39,7 @@ UINT8 * arm2_ram;
 
 #define R15 arm2_getR15()
 
-UINT8 copro_arm2_read8(int addr) {
+UINT8 copro_arm2_read8(unsigned int addr) {
    UINT8 result;
 
    if (addr <= RAM_MASK8) {
@@ -76,7 +76,7 @@ UINT8 copro_arm2_read8(int addr) {
    return result;
 }
 
-UINT32 copro_arm2_read32(int addr)
+UINT32 copro_arm2_read32(unsigned int addr)
 {
   UINT32 result;
 
@@ -127,7 +127,7 @@ UINT32 copro_arm2_read32(int addr)
    return result;
 }
 
-void copro_arm2_write8(int addr, UINT8 data)
+void copro_arm2_write8(unsigned int addr, UINT8 data)
 {
 #ifdef INCLUDE_DEBUGGER
    if (arm2_debug_enabled) {
@@ -149,7 +149,7 @@ void copro_arm2_write8(int addr, UINT8 data)
    }
 }
 
-void copro_arm2_write32(int addr, UINT32 data) {
+void copro_arm2_write32(unsigned int addr, UINT32 data) {
 #ifdef INCLUDE_DEBUGGER
    if (arm2_debug_enabled) {
       debug_memwrite(&arm2_cpu_debug, addr, data, 4);
@@ -196,11 +196,11 @@ void copro_arm2_emulator() {
    unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
-   int last_copro = copro;
+   unsigned int last_copro = copro;
 
    copro_arm2_poweron_reset();
    copro_arm2_reset();
-  
+
    while (1)
    {
       arm2_execute_run(1);
