@@ -248,10 +248,10 @@ copro_def_t copro_defs[] = {
 #endif
 };
 
-int default_copro() {
+unsigned int default_copro() {
    return DEFAULT_COPRO;
 }
 
-int num_copros() {
+unsigned int num_copros() {
    return sizeof(copro_defs) / sizeof(copro_def_t);
 };
