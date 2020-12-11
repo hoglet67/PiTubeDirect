@@ -254,4 +254,4 @@ int default_copro() {
 
 int num_copros() {
    return sizeof(copro_defs) / sizeof(copro_def_t);
-};
+}
