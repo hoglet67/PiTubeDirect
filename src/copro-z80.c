@@ -356,7 +356,7 @@ void copro_z80_emulator()
    unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
-   int last_copro = copro;
+   unsigned int last_copro = copro;
 
    // Patch the OSWORD &FF code to change FEE5 to FCE5 (2 changes expected)
    check_elk_mode_and_patch(copro_z80_rom, 0xD30, 0xAA, 2);
