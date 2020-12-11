@@ -52,7 +52,7 @@
 #include "tube-isr.h"
 #include "tube-ula.h"
 
-static int last_copro;
+static unsigned int last_copro;
 
 static jmp_buf reboot;
 
@@ -168,7 +168,7 @@ static void defaultUpcallHandler() {
 
 static void initEnv() {
   defaultEscapeFlag = 0;
-  int i;
+  unsigend int i;
   for (i = 0; i < sizeof(env->commandBuffer); i++) {
     env->commandBuffer[i] = 0;
   }
