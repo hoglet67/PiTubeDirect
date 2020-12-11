@@ -248,7 +248,7 @@ rpi_mailbox_property_t* RPI_PropertyGet( rpi_mailbox_tag_t tag)
     property.tag = tag;
 
     /* Get the tag from the buffer. Start at the first tag position  */
-    int index = 2;
+    unsigned int index = 2;
 
     while( index < ( pt[PT_OSIZE] >> 2 ) )
     {
