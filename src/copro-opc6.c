@@ -95,7 +95,7 @@ void copro_opc6_emulator()
    unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
-   int last_copro = copro;
+   unsigned int last_copro = copro;
 
    copro_opc6_poweron_reset();
    copro_opc6_reset();
