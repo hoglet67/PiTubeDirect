@@ -2757,9 +2757,9 @@ void copy_test_programs(uint8_t *memory) {
       // write the name of the processor to the output buffer
       int reqd =
          (i == 1 || i == 3)?
-            snprintf((char *) list_end, list_remain, "%2d %s (%uMHz)\r",
+            snprintf((char *) list_end, list_remain, "%2u %s (%uMHz)\r",
                      i, copro_def->name, get_copro_mhz(i)):
-            snprintf((char *) list_end, list_remain, "%2d %s\r",
+            snprintf((char *) list_end, list_remain, "%2u %s\r",
                      i, copro_def->name);
 
       // if we didn't have space for this line, stop here
