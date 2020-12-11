@@ -97,7 +97,7 @@ void copro_mc6809nc_emulator()
    unsigned int tube_irq_copy;
    
    // Remember the current copro so we can exit if it changes
-   int last_copro = copro;
+   unsigned int last_copro = copro;
 
    copro_mc6809_poweron_reset(); 
    copro_mc6809_reset();
