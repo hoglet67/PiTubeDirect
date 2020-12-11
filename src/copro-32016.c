@@ -37,7 +37,7 @@ static void copro_32016_reset() {
 void copro_32016_emulator() {
 
    // Remember the current copro so we can exit if it changes
-   int last_copro = copro;
+   unsigned int last_copro = copro;
 
    copro_32016_poweron_reset();
    copro_32016_reset();
