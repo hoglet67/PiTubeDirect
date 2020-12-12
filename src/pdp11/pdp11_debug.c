@@ -389,9 +389,9 @@ static uint16_t disasm(char *buf, uint16_t a) {
    buf += sprintf(buf, "%06o : ", a);
 
    // Output the instruction, max len is 3 words
-   for (int i = 0; i < 6; i += 2) {
-      if (i < len) {
-         buf += sprintf(buf, "%06o ", read16(a + i));
+   for (int j = 0; j < 6; j += 2) {
+      if (j < len) {
+         buf += sprintf(buf, "%06o ", read16(a + j));
       } else {
          buf += sprintf(buf, "       ");
       }
