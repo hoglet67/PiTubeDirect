@@ -54,7 +54,7 @@ void f100_irq(int id);
 #define CLEAR_OVERFLOW    cpu.V = 0
 #define CLEAR_MULTI       cpu.M = 0
 #define UNPACK_FLAGS(f)   cpu.I=(f&1);cpu.Z=(f>>1)&1;cpu.V=(f>>2)&1;cpu.S=(f>>3)&1;cpu.C=(f>>4)&1;cpu.M=(f>>5)&1;cpu.F=(f>>6)&1
-#define PACK_FLAGS        (((cpu.F<<6)|(cpu.M<<5)|(cpu.C<<4)|(cpu.S<<3)|(cpu.V<<2)|(cpu.Z<<1)|(cpu.I)) & 0x7F)
+#define PACK_FLAGS        (((cpu.F<<6)|(cpu.M<<5)|(cpu.C<<4)|(cpu.S<<3)|(cpu.V<<2)|(cpu.Z<<1)|(cpu.I?1:0)) & 0x7F)
 #define TRUNC16(m)        ((m) & 0xFFFF)
 
 #ifdef F200
