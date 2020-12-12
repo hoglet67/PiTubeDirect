@@ -58,7 +58,7 @@ extern FASTWORK simz80(FASTREG PC);
 #define FLAG_S	128
 
 #define SETFLAG(f,c)	AF = (c) ? AF | FLAG_ ## f : AF & ~FLAG_ ## f
-#define TSTFLAG(f)	((AF & FLAG_ ## f) != 0)
+#define TSTFLAG(f)	((AF & FLAG_ ## f)?1:0)
 
 #define ldig(x)		((x) & 0xf)
 #define hdig(x)		(((x)>>4)&0xf)
