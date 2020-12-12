@@ -1062,18 +1062,16 @@ int genericClear(uint32_t addr, char *type, breakpoint_t *list) {
       if (addr < i) {
          i = addr;
       } else {
-         i = -1;
+         return 0;
       }
    }
-   if (i >= 0) {
-      printf("Removed %s breakpoint at %s\r\n", type, format_addr(list[i].addr));
-      do {
-         copyBreakpoint(list + i, list + i + 1);
-         i++;
-      } while (list[i - 1].mode != MODE_LAST);
-      return 1;
-   }
-   return 0;
+   
+   printf("Removed %s breakpoint at %s\r\n", type, format_addr(list[i].addr));
+   do {
+      copyBreakpoint(list + i, list + i + 1);
+      i++;
+   } while (list[i - 1].mode != MODE_LAST);
+   return 1;
 }
 
 
