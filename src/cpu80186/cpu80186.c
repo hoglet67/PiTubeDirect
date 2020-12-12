@@ -780,7 +780,7 @@ void writerm8(uint8_t rmval, uint8_t value)
 
 void op_daa_das(int8_t low_nibble, int8_t high_nibble) {
   oldal = regs.byteregs[regal];
-  oldcf = cf;
+  uint8_t oldcf = cf;
 
   if (((regs.byteregs[regal] & 0xF) > 9) || (af == 1))
   {
@@ -1492,7 +1492,7 @@ void reset(void)
 
 void exec86(uint32_t tube_cycles)
 {
-  uint8_t docontinue;
+  uint8_t docontinue, oldcf;
   static uint16_t firstip;
   static uint16_t trap_toggle = 0;
 
