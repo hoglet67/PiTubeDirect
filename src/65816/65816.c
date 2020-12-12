@@ -281,21 +281,21 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize)
 
 #endif
 
-static uint32_t do_readmem65816(uint32_t a)
+static uint32_t do_readmem65816(uint32_t addr)
 {
     uint8_t temp;
-    a &= w65816mask;
-    if ((a & ~7) == 0xFEF8) {
-        temp = tube_parasite_read(a);
+    addr &= w65816mask;
+    if ((addr & ~7) == 0xFEF8) {
+        temp = tube_parasite_read(addr);
         return temp;
     }
-    if ((a & 0x78000) == 0x8000 && (def || (banking & 8)))
-        return w65816rom[a & 0x7FFF];
-    if ((a & 0x7C000) == 0x4000 && !def && (banking & 1))
-        return w65816ram[(a & 0x3FFF) | ((banknum & 7) << 14)];
-    if ((a & 0x7C000) == 0x8000 && !def && (banking & 2))
-        return w65816ram[(a & 0x3FFF) | (((banknum >> 3) & 7) << 14)];
-    return w65816ram[a];
+    if ((addr & 0x78000) == 0x8000 && (def || (banking & 8)))
+        return w65816rom[addr & 0x7FFF];
+    if ((addr & 0x7C000) == 0x4000 && !def && (banking & 1))
+        return w65816ram[(addr & 0x3FFF) | ((banknum & 7) << 14)];
+    if ((addr & 0x7C000) == 0x8000 && !def && (banking & 2))
+        return w65816ram[(addr & 0x3FFF) | (((banknum >> 3) & 7) << 14)];
+    return w65816ram[addr];
 }
 
 static uint8_t readmem65816(uint32_t addr)
@@ -324,26 +324,26 @@ static uint16_t readmemw65816(uint32_t a)
 
 static int endtimeslice;
 
-static void do_writemem65816(uint32_t a, uint32_t v)
+static void do_writemem65816(uint32_t addr, uint32_t val)
 {
-    a &= w65816mask;
-    if ((a & ~7) == 0xFEF0) {
-        switch (v & 7) {
+    addr &= w65816mask;
+    if ((addr & ~7) == 0xFEF0) {
+        switch (val & 7) {
             case 0:
             case 1:
-                def = v & 1;
+                def = val & 1;
                 break;
             case 2:
             case 3:
-                divider = (divider >> 1) | ((v & 1) << 3);
+                divider = (divider >> 1) | ((val & 1) << 3);
                 break;
             case 4:
             case 5:
-                banking = (banking >> 1) | ((v & 1) << 3);
+                banking = (banking >> 1) | ((val & 1) << 3);
                 break;
             case 6:
             case 7:
-                banknum = (banknum >> 1) | ((v & 1) << 5);
+                banknum = (banknum >> 1) | ((val & 1) << 5);
                 break;
         }
         if (def || !(banking & 4))
@@ -353,20 +353,20 @@ static void do_writemem65816(uint32_t a, uint32_t v)
         printf("def=%x divider=%x banking=%x banknum=%x mask=%lx\r\n", def, divider, banking, banknum, w65816mask);
         return;
     }
-    if ((a & ~7) == 0xFEF8) {
-        tube_parasite_write(a, v);
+    if ((addr & ~7) == 0xFEF8) {
+        tube_parasite_write(addr, val);
         endtimeslice = 1;
         return;
     }
-    if ((a & 0x7C000) == 0x4000 && !def && (banking & 1)) {
-        w65816ram[(a & 0x3FFF) | ((banknum & 7) << 14)] = v;
+    if ((addr & 0x7C000) == 0x4000 && !def && (banking & 1)) {
+        w65816ram[(addr & 0x3FFF) | ((banknum & 7) << 14)] = val;
         return;
     }
-    if ((a & 0x7C000) == 0x8000 && !def && (banking & 2)) {
-        w65816ram[(a & 0x3FFF) | (((banknum >> 3) & 7) << 14)] = v;
+    if ((addr & 0x7C000) == 0x8000 && !def && (banking & 2)) {
+        w65816ram[(addr & 0x3FFF) | (((banknum >> 3) & 7) << 14)] = val;
         return;
     }
-    w65816ram[a] = v;
+    w65816ram[addr] = val;
 }
 
 static void writemem65816(uint32_t addr, uint8_t val)
