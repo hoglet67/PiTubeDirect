@@ -168,7 +168,7 @@ static void defaultUpcallHandler() {
 
 static void initEnv() {
   defaultEscapeFlag = 0;
-  unsigend int i;
+  unsigned int i;
   for (i = 0; i < sizeof(env->commandBuffer); i++) {
     env->commandBuffer[i] = 0;
   }

@@ -43,7 +43,7 @@ void copro_80186_emulator()
    unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
-   unsigend int last_copro = copro;
+   unsigned int last_copro = copro;
 
    copro_80186_poweron_reset();
    copro_80186_reset();
@@ -67,13 +67,13 @@ void copro_80186_emulator()
             intcall86(2);
             tube_ack_nmi();
          }
-   
+
          // IRQ is level sensitive, so check between every instruction
          if (tube_irq_copy & IRQ_BIT) {
             if (ifl) {
                intcall86(12);
             }
-         }   
+         }
       }
    }
 }
