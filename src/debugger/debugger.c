@@ -846,7 +846,7 @@ static void doCmdCrc(const char *params) {
    if (parse2params(params, 2, &start, &end)) {
       return;
    }
-   int stride = 1 << (width - cpu->mem_width);
+   unsigned int stride = 1 << (width - cpu->mem_width);
    for (i = start; i <= end; i += stride) {
       data = memread(cpu, i);
       for (j = 0; j < 8 * stride; j++) {
@@ -1049,7 +1049,7 @@ static void doCmdWatchOut(const char *params) {
 
 int genericClear(uint32_t addr, char *type, breakpoint_t *list) {
 
-   int i = 0;
+   unsigned int i = 0;
 
    // Assume addr is an address, and try to map to an index
    while (list[i].mode != MODE_LAST) {
