@@ -77,9 +77,6 @@ union _bytewordregs_ regs;
 uint8_t debugmode, showcsip, verbose = 1, mouseemu, didbootstrap = 0;
 uint8_t ethif;
 
-
-void intcall86(uint8_t intnum);
-
 #define makeflagsword() \
 	(\
 	2 | (uint16_t) cf | ((uint16_t) pf << 2) | ((uint16_t) af << 4) | ((uint16_t) zf << 6) | ((uint16_t) sf << 7) | \
