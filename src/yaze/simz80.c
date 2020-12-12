@@ -95,7 +95,7 @@ static const unsigned char partab[256] = {
    mm_PutBYTE(SP, x);                        \
 } while (0)
 
-#define JPC(cond) PC = cond ? GetWORD(PC) : PC+2
+#define JPC(cond) PC = cond ? (FASTREG) GetWORD(PC) : PC+2
 
 #define CALLC(cond) {                     \
     if (cond) {                        \
