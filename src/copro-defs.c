@@ -254,4 +254,4 @@ unsigned int default_copro() {
 
 unsigned int num_copros() {
    return sizeof(copro_defs) / sizeof(copro_def_t);
-};
+}
