@@ -563,7 +563,7 @@ int parseNparams(const char *p, int required, int total, unsigned int **result) 
    int n = 0;
    for (i = 0; i < total; i++) {
       // Check if there is something to parse
-      while (isspace(*p)) {
+      while (isspace((int)*p)) {
          p++;
       }
       // Exit if not (allows later parems to be optional)
@@ -661,7 +661,7 @@ static int parseCommand(const char ** cmdptr) {
    int cmdStringLen;
    int cmdLen = 0;
    const char *cmd = *cmdptr;
-   while (isspace(*cmd)) {
+   while (isspace((int)*cmd)) {
       cmd++;
    }
    while (cmd[cmdLen] >= 'a' && cmd[cmdLen] <= 'z') {
