@@ -494,7 +494,17 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
 #endif
       if (Function < InstructionCount)
       {
-         AddInstructionText(Function, opcode, OperandSize->Op[0]);
+         switch (Function)
+         {
+            case ROT:
+            case ASH:
+            case LSH:
+               AddInstructionText(Function, opcode, OperandSize->Op[1]);
+               break;
+            default:
+               AddInstructionText(Function, opcode, OperandSize->Op[0]);
+         }
+
 
          switch (Function)
          {
