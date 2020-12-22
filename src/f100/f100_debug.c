@@ -484,13 +484,13 @@ void main(int argc, char *argv[]) {
          if (lineSize > 0) {
             char *start = line + strspn(line, whitespace);
             if (start[0] != '#') {
-               int data_start = -1;
-               int data_end   = -1;
-               sscanf(start, "%x,%x", &data_start, &data_end);
-               if (data_end == -1) {
+               unsigned int data_start = 0;
+               unsigned int data_end   = 0;
+               int n = sscanf(start, "%x,%x", &data_start, &data_end);
+               if (n < 2) {
                   data_end = data_start;
                }
-               if (data_start >= 0) {
+               if (n > 0) {
                   for (int i = data_start; i <= data_end; i++) {
                      data_map[i] = 1;
                   }
