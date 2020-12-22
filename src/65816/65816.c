@@ -350,7 +350,7 @@ static void do_writemem65816(uint32_t addr, uint32_t val)
             w65816mask = 0xFFFF;
         else
             w65816mask = 0x7FFFF;
-        printf("def=%x divider=%x banking=%x banknum=%x mask=%lx\r\n", def, divider, banking, banknum, w65816mask);
+        printf("def=%x divider=%x banking=%x banknum=%x mask=%"PRIX32"\r\n", def, divider, banking, banknum, w65816mask);
         return;
     }
     if ((addr & ~7) == 0xFEF8) {
