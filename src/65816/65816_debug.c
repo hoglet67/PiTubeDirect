@@ -24,6 +24,7 @@ typedef enum {
     ABSXL,  // Absolute indexed by X, long
     ABSY,   // Absolute indexed by Y
     IND16,  // Indirect 16bit (for JMP).
+    IND16L, // Indirect 24bit (for JMP).
     IND1X,  // Indexed (by X) indirect (for JMP)
     PCR,    // PC-relative.  8bit signed offset from PC for branch instructions.
     PCRL,   // PC-relative.  16bit signed offset from PC.
@@ -100,7 +101,7 @@ static const uint8_t am_816[256]=
 /*A0*/  IMX,  INDX, IMX,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
 /*B0*/  PCR,  INDY, IND,  SRY,  ZPX,  ZPX,  ZPY,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSX, ABSX, ABSY, ABSXL,
 /*C0*/  IMX,  INDX, IMM,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
-/*D0*/  PCR,  INDY, IND,  SRY,  IND,  ZPX,  ZPX,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSL, ABSX, ABSX, ABSXL,
+/*D0*/  PCR,  INDY, IND,  SRY,  IND,  ZPX,  ZPX,  INDYL,IMP,  ABSY, IMP,  IMP, IND16L,ABSX, ABSX, ABSXL,
 /*E0*/  IMX,  INDX, IMM,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
 /*F0*/  PCR,  INDY, IND,  SRY,  ABS,  ZPX,  ZPX,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSX, ABSX, ABSX, ABSXL
 };
@@ -231,6 +232,11 @@ uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t
             p1 = cpu->memread(addr++);
             p2 = cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X    %s (%02X%02X)  ", p1, p2, op_name, p2, p1);
+            break;
+        case IND16L:
+            p1 = cpu->memread(addr++);
+            p2 = cpu->memread(addr++);
+            snprintf(buf, bufsize, "%02X %02X    %s [%02X%02X]  ", p1, p2, op_name, p2, p1);
             break;
         case IND1X:
             p1 = cpu->memread(addr++);
