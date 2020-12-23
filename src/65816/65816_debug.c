@@ -204,7 +204,7 @@ uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t
             p1 = cpu->memread(addr++);
             p2 = cpu->memread(addr++);
             p3 = cpu->memread(addr++);
-            snprintf(buf, bufsize, "%02X %02X %02X %s %02X%02X%02X  ", p1, p2, p3, op_name, p2, p1, p3);
+            snprintf(buf, bufsize, "%02X %02X %02X %s %02X%02X%02X  ", p1, p2, p3, op_name, p3, p2, p1);
             break;
         case ABSX:
             p1 = cpu->memread(addr++);
@@ -220,7 +220,7 @@ uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t
             p1 = cpu->memread(addr++);
             p2 = cpu->memread(addr++);
             p3 = cpu->memread(addr++);
-            snprintf(buf, bufsize, "%02X %02X %02X  %s %02X%02X%02X,X  ", p1, p2, p3, op_name, p2, p1, p3);
+            snprintf(buf, bufsize, "%02X %02X %02X  %s %02X%02X%02X,X  ", p1, p2, p3, op_name, p3, p2, p1);
             break;
         case BM:
             p1 = cpu->memread(addr++);
