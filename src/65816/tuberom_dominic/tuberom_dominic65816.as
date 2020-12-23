@@ -1,4 +1,10 @@
-; 65816 tube host code (c) 2015 Dominic Beesley
+; TODO: 24bit address pointers
+; TODO: NAT/EMU vectors
+; TODO: Softload flag (don't copy from ROM on BRK)
+;
+
+
+		; 65816 tube host code (c) 2015 Dominic Beesley
 		; Taken from JGH Dissasembly
 		; REM Code copyright Acorn Computer
 		; Commentary copyright J.G.Harston
@@ -7,20 +13,21 @@
 
 		.segment "ZP"
 		.org $E4
-		; Memory addresses
+		; Memory addresses (note the addresses in [] below are the _original_ 6502 addresses
+		; not the addresses used in this ROM)
 ZP_MON_PTR:	.res 2; monitor PTR
 ZP_MON_ACC:	.res 1; monitor accumulator
-		.res 7; spare
-ZP_PROG: 	.res 2; $ee/F = PROG   - Current program
-ZP_NUM:		.res 2; $f0/1 = NUM    - hex accumulator
-ZP_MEMTOP:	.res 2; $f2/3 = MEMTOP - top of memory
-ZP_NMIADDR:	.res 2; $f4/5 = address of byte transfer address, NMIAddr or ADDR
-ZP_ADDR:	.res 2; $f6/7 = ADDR   - Data transfer address
-ZP_OSWORDCTL:	.res 2; $f8/9 = String pointer, OSWORD control block
-ZP_CTL:		.res 2; $fa/B = CTRL   - OSFILE, OSGBPB control block, PrText string pointer
-ZP_IRQA:	.res 1; $fc   = IRQ A store
-ZP_LAST_E:	.res 2; $fd/E => last error
-ZP_ESC:		.res 1; $ff   = Escape flag
+ZP_PROG: 	.res 3; [$ee/F] = PROG   - Current program
+ZP_NUM:		.res 3; [$f0/1] = NUM    - hex accumulator
+ZP_MEMTOP:	.res 3; [$f2/3] = MEMTOP - top of memory
+ZP_NMIADDR:	.res 2; [$f4/5] = address of byte transfer address, NMIAddr or ADDR
+ZP_ADDR:	.res 3; [$f6/7] = ADDR   - Data transfer address
+ZP_OSWORDCTL:	.res 3; [$f8/9] = String pointer, OSWORD control block
+ZP_CTL:		.res 3; [$fa/B] = CTRL   - OSFILE, OSGBPB control block, PrText string pointer
+ZP_IRQA:	.res 1; [$fc]   = IRQ A store
+ZP_LAST_E_BANK:	.res 1;		= NEW: the program bank of the last error in native mode
+ZP_LAST_E:	.res 2; [$fd/E] => last error
+ZP_ESC:		.res 1; [$ff]   = Escape flag
 
 
 		.segment "PAD"
@@ -82,8 +89,12 @@ ZP_ESC:		.res 1; $ff   = Escape flag
 
 		ERR_ESC = 17
 
+
+
 		.org	 $f300
 ROMSTART:
+		JMP	RUNFROMRAM
+
 MON_LAST_DUMP:	.res	2
 MON_REGSAVE:
 MON_REGSAVE_NE:	.res	1	; flags with C set to Nat/Emu
@@ -426,6 +437,10 @@ RESET:
 		ldy		#$ff00
 		mvn		#0, #0
 
+RUNFROMRAM:
+		clc
+		xce
+		rep		#PF_A16 + PF_I16
 
 		; Set up default vectors
 		lda		#TBL_DefVectorsEnd - TBL_DefVectors - 1
@@ -454,13 +469,18 @@ RESET:
 
 		; back to 8 bit A
 		.a8
+		lda		ZP_PROG+2
+		sta		ZP_ADDR+2
+
 		SEP		#PF_A16
 		stz		ZP_ESC
 
 		; Set memtop to start of ROM
 		stz		ZP_MEMTOP
+		stz		ZP_MEMTOP + 2
 		lda		#>ROMSTART
 		sta		ZP_MEMTOP + 1
+		; TODO: Work out MEMTOP API
 
 		.i8
 		.a8
@@ -492,8 +512,10 @@ rstBannerOrLoop:
 bootBounceEnd:
 
 PrBanner:	jsr		PrText                 	; Display startup banner
-		.byte 		10, "Dossytronics 65816", 10, 10, 13, 0
-		nop
+		.byte 		13, "Dossytronics 65816 Tube", 13, 13, 0
+
+		lda		#0
+		jsr		OSWRCH
 
 		rep		#PF_I16
 		.i16
@@ -503,13 +525,31 @@ PrBanner:	jsr		PrText                 	; Display startup banner
 		.i8
 
 		jsr		WaitByte                ; Wait for Acknowledge
-		cmp		#$80
-		beq		EnterCode     		; If $80, jump to enter code
+		;cmp		#$80
+		;beq		EnterCode     		; If $80, jump to enter code
+		bpl		CmdOSLoop
+		clc
+		jsr		EnterCode
 
 		; Otherwise, enter command prompt loop
 		; Minimal Command prompt
 		; ======================
 CmdOSLoop:
+		; force native mode
+		clc
+		xce
+
+		; claim error handler
+		jsr		setupErrorHandler
+		; make this the current program
+		rep		#PF_A16
+		.a16
+		lda		#CmdOSLoop
+		sta		ZP_PROG
+		sep		#PF_A16
+		.a8
+		stz		ZP_PROG+2
+
 		lda		#'*'
 		jsr		OSWRCH    		; Print '*' prompt
 		ldx		#<OSWORD_INPBUF
@@ -528,70 +568,106 @@ CmdOSEscape:	lda		#OSBYTE_ESC_ACK
 		.byte 		ERR_ESC, "Escape"
 		brk
 
+ZP_LAST_EtoZP_OSWORDCTL:
+		lda	ZP_LAST_E
+		sta	ZP_OSWORDCTL
+		lda	ZP_LAST_E+1
+		sta	ZP_OSWORDCTL+1
+		lda	ZP_LAST_E_BANK
+		sta	ZP_OSWORDCTL+2
+		rts
+
 		; Enter Code pointed to by ZP_ADDR
 		; ==============================
 		; Checks to see if code has a ROM header, and verifies
-		; it if it has
+		; it if it has. This is updated as per 6502 Client JGH update
 		; TODO make this for em mode round call, if so remove force from SaveProgEnterCode in OSCLI
-EnterCode:	rep	#PF_A16
+EnterCode:
+
+		php						; save RESET/OSCLI flag
+		cld
+
+		rep	#PF_A16
 		.a16
-		lda		ZP_ADDR
-		sta		ZP_PROG
-		sta		ZP_MEMTOP			; Set current program and memtop
+
 		ldy		#$07
-		lda		(ZP_PROG), Y     		; Get copyright offset
+		lda		[ZP_ADDR], Y     		; Get copyright offset
 		tay
 		tya						; get bottom 8 bits
-		cld
 		clc
-		adc		ZP_PROG
+		adc		ZP_ADDR
 		sta		ZP_LAST_E			; ZP_LAST_E=>copyright message
+
 		.a8
 		sep	#PF_A16
+		lda		ZP_ADDR+2
+		adc		#0
+		sta		ZP_LAST_E_BANK
 
-		; Now check for $00,"(C)"
-		; =======================
-		ldy		#$00
-		lda		(ZP_LAST_E), Y
-		bne		@NotROM			; Jump if no initial $00
+		jsr		ZP_LAST_EtoZP_OSWORDCTL
+
+		ldy		#0
+		ldx		#3
+EnterCheck:	lda		[ZP_OSWORDCTL],Y
+		cmp		CheckCopy, X			; check for 0,(C)
+		bne		@NotROM
 		iny
-		lda		(ZP_LAST_E), Y
-		cmp		#'('
-		bne		@NotROM 		; Jump if no '('
-		iny
-		lda		(ZP_LAST_E), Y
-		cmp		#'C'
-		bne		@NotROM			; Jump if no 'C'
-		iny
-		lda		(ZP_LAST_E), Y
-		cmp		#')'
-		bne		@NotROM 		; Jump if no ')'
+		dex
+		bpl		EnterCheck
 
 		; $00,"(C)" exists - check if a language
 		;==================
 		ldy		#$06
-		lda		(ZP_PROG), Y 		; Get ROM type
+		lda		[ZP_ADDR], Y 		; Get ROM type
 		and		#$4f
 		cmp		#$40
 		bcc		NotLanguage  		; b6=0, not a language
 		and		#$0d
 		bne		Not6502Code  		; type<>0 and <>2, not 6502 code
 							; TODO add 65816 type here?
-@NotROM:
-		lda		#$01
+
+@NotROM:	; At this point, X=&FF if header, X=0..3 if raw
+		txa
+		rol		A
+		rol		A
+		and		#1			; A=0 - raw, A=1 - header
+
+		;DB: TODO: this bit checks for a code <8000 and makes assumptions
+		;    not sure these assumptions are valid or wanted for 816?!
+
+		; for now assume anything >8000 in bank0 is a language!
+		ldx		ZP_ADDR+2
+		bne		@notlang
+
+		rep		#PF_I16
+		.i16
+		ldx		ZP_ADDR
+		bpl		@notlang
+		stx		ZP_MEMTOP
+		stx		ZP_PROG
+		sep		#PF_I16
+		ldx		ZP_ADDR+2
+		stx		ZP_MEMTOP+2
+		stx		ZP_PROG+2
+@notlang:
+		sep		#PF_I16
+		.i8
 		sec
 		xce
-		jmp		(ZP_MEMTOP)		; Enter code with A=1 in emulation mode
+		plp
+		jmp		[ZP_ADDR]		; Enter code with A=1 in emulation mode
+
+CheckCopy:	.byte	")C(",0
 
 NotLanguage:
 		; Any existing error handler will probably have been overwritten
 		; Set up new error handler before generating an error
 		jsr		setupErrorHandler
 		brk
-		.byte 0, "This is not a language", 0
+		.byte 249, "This is not a language", 0
 Not6502Code:	jsr		setupErrorHandler
 		brk
-		.byte 0, "I cannot run this code", 0
+		.byte 249, "I cannot run this code", 0
 
 setupErrorHandler:
 		rep		#PF_A16
@@ -605,9 +681,10 @@ setupErrorHandler:
 ErrorHandler:
 		ldx		#$ff
 		txs					; Clear stack
+		jsr		ZP_LAST_EtoZP_OSWORDCTL
 		jsr		OSNEWL
 		ldy		#$01
-@lp1:		lda		(ZP_LAST_E), Y
+@lp1:		lda		[ZP_OSWORDCTL], Y
 		beq		@sk1      		; Print error string
 		jsr		OSWRCH
 		iny
@@ -668,6 +745,7 @@ do_OSRDCH:
 		bcs		@retcs
 		plp					; pull old a8/16 mode
 		rts
+
 @retcs:		plp					; pull old a8/a16 mode and set carry
 		sec
 		rts
@@ -686,17 +764,17 @@ NullReturn:	rts
 		; Skip Spaces
 		; ===========
 inYSkipSpaces:	iny
-SkipSpaces:	lda		(ZP_OSWORDCTL), Y
+SkipSpaces:	lda		[ZP_OSWORDCTL], Y
 		cmp		#$20
 		beq		inYSkipSpaces
 		rts
 
 		; Scan hex
 		; ========
-ScanHex:	ldx		#$00
-		stx		ZP_NUM
-		stx		ZP_NUM + 1   		; Clear hex accumulator
-@s2:		lda		(ZP_OSWORDCTL), Y	; Get current character
+ScanHex:	stz		ZP_NUM
+		stz		ZP_NUM + 1
+		stz		ZP_NUM + 2; Clear hex accumulator
+@s2:		lda		[ZP_OSWORDCTL], Y	; Get current character
 		cmp		#$30
 		bcc		@skhex			; <'0', exit
 		cmp		#$3a
@@ -714,7 +792,8 @@ ScanHex:	ldx		#$00
 		ldx		#$03 			; Prepare to move 3+1 bits
 @s3:		asl		A
 		rol		ZP_NUM
-		rol		ZP_NUM + 1     		; Move bits into accumulator
+		rol		ZP_NUM + 1
+		rol		ZP_NUM + 2     		; Move bits into accumulator
 		dex
 		bpl		@s3         		; Loop for four bits, no overflow check
 		iny
@@ -726,10 +805,13 @@ SendString:	; Send string to Tube R2
 		; ======================
 		stx		ZP_OSWORDCTL
 		sty		ZP_OSWORDCTL + 1	; Set ZP_OSWORDCLT to string
+		phb
+		ply
+		sty		ZP_OSWORDCTL + 2
 SendStringF8:	ldy		#$00
 @l1:		bit		TubeS2
 		bvc		@l1			; Wait for Tube R2 free
-		lda		(ZP_OSWORDCTL), Y
+		lda		[ZP_OSWORDCTL], Y
 		sta		TubeR2     		; Send character to Tube R2
 		iny
 		cmp		#$0d
@@ -739,8 +821,8 @@ SendStringF8:	ldy		#$00
 
 do_OSCLI:	; OSCLI - Execute command
 		; =======================
-		; On entry, XY=>command string
-		; On exit,  XY= preserved
+		; On entry, B:XY=>command string
+		; On exit,  B:XY= preserved
 		;
 		; DB - make native mode agnostic
 
@@ -758,6 +840,9 @@ do_OSCLI:	; OSCLI - Execute command
 		.i8
 		stx		ZP_OSWORDCTL
 		sty		ZP_OSWORDCTL + 1	; Save A, ZP_OSWORDCTL=>command string
+		phb
+		ply
+		sty		ZP_OSWORDCTL + 2
 		ldy		#$00
 @l1:		jsr		SkipSpaces
 		iny
@@ -768,7 +853,7 @@ do_OSCLI:	; OSCLI - Execute command
 		jmp		MonitorCommand
 @skmon:		and		#$df
 		tax					; Ignore case, and save in X
-		lda		(ZP_OSWORDCTL), Y	; Get next character
+		lda		[ZP_OSWORDCTL], Y	; Get next character
 		cpx		#'G'
 		beq		CmdGO			; Jump to check '*GO'
 		cpx		#'H'
@@ -779,21 +864,21 @@ do_OSCLI:	; OSCLI - Execute command
 		cmp		#'E'
 		bne		do_OSCLI_IO		; Not "HE---", jump to pass to Tube
 		iny
-		lda		(ZP_OSWORDCTL), Y	; Get next character
+		lda		[ZP_OSWORDCTL], Y	; Get next character
 		cmp		#'.'
 		beq		CmdHELP			; "HE.", jump to do * unlistable token
 		and		#$df			; Ignore case
 		cmp		#'L'
 		bne		do_OSCLI_IO		; Not "HEL---", jump to pass to Tube
 		iny
-		lda		(ZP_OSWORDCTL), Y	; Get next character
+		lda		[ZP_OSWORDCTL], Y	; Get next character
 		cmp		#'.'
 		beq		CmdHELP			; "HEL.", jump to do * unlistable token
 		and		#$df			; Ignore case
 		cmp		#'P'
 		bne		do_OSCLI_IO		; Not "HELP---", jump to pass to Tube
 		iny
-		lda		(ZP_OSWORDCTL), Y	; Get next character
+		lda		[ZP_OSWORDCTL], Y	; Get next character
 		and		#$df			; Ignore case
 		cmp		#'A'
 		bcc		CmdHELP			; "HELP" terminated by non-letter, do * unlistable token
@@ -806,8 +891,7 @@ CmdHELP:
 		; *Help - Display help information
 		; --------------------------------
 		jsr		PrText                 	; Print help message
-		.byte 10, 13, "65816 tube 0.01", 10, 13
-		nop
+		.byte 13, "65816 tube 0.03", 13, 0
 		; Continue to pass '* unlistable token ' command to Tube
 
 do_OSCLI_IO:
@@ -817,18 +901,23 @@ do_OSCLI_IO:
 		;
 		; Tube data  $02 string $0d  --  $7f or $80
 		;
-		sec
-		xce					; DB: Always switch to EM mode at this point! TODO: Make this native after writing native mode NMI handlers?
 		php
+		sep		#PF_A16|PF_I16		; ensure 8 bit mode
 		lda		#$02
 		jsr		SendCommand   		; Send command $02 - OSCLI
 		jsr		SendStringF8  		; Send command string at ZP_OSWORDCTL
 do_OSCLI_Ack:	jsr		WaitByte		; Wait for acknowledgement
+
+		bmi		SavePROGEnterCode	; Jump if code to be entered
 		plp
-		xce					; Switch back to native / em mode
-		cmp		#$80
-		beq		SavePROGEnterCode	; Jump if code to be entered
 		bra		OSCLIRET
+
+CmdGOS:		; *GOS - enter oscli loop
+		iny
+		lda		[ZP_OSWORDCTL],Y
+		cmp		#'A'
+		bcs		do_OSCLI_IO
+		jmp		CmdOSLoop
 
 
 CmdGO:
@@ -837,29 +926,50 @@ CmdGO:
 		and		#$df    		; Ignore case
 		cmp		#'O'
 		bne		do_OSCLI_IO		; Not '*GO', jump to pass to Tube
-		jsr		inYSkipSpaces		; Move past any spaces
+		iny
+		lda		[ZP_OSWORDCTL],Y
+		cmp		#'S'
+		beq		CmdGOS
+		cmp		#'A'
+		bcs		do_OSCLI_IO
+
+
+		jsr		SkipSpaces		; Move past any spaces
 		jsr		ScanHex
 		jsr		SkipSpaces 		; Read hex value and move past spaces
 		cmp		#$0d
 		bne		do_OSCLI_IO   		; More parameters, pass to Tube to deal with
+
+		; use ZP_PROG as default entry address
+		lda		ZP_PROG
+		sta		ZP_ADDR
+		lda		ZP_PROG+1
+		sta		ZP_ADDR+1
+		lda		ZP_PROG+2
+		sta		ZP_ADDR+2
+
 		txa
 		beq		SavePROGEnterCode	; If no address given, jump to current program
 		lda		ZP_NUM
 		sta		ZP_ADDR			; Set program start to address read
 		lda		ZP_NUM + 1
 		sta		ZP_ADDR + 1
+		lda		ZP_NUM + 2
+		sta		ZP_ADDR + 2
 SavePROGEnterCode:
-		; DB - need to enter emulated mode here and save all registers
-		sec
+		clc
 		xce
 		php					; save nat / em mode in C
 
 		; TODO - save bank regs and get a long address
 
+		lda		ZP_PROG + 2
+		pha
 		lda		ZP_PROG + 1
 		pha
 		lda		ZP_PROG
 		pha					; Save current program
+		sec					; indicate not RESET/enter lang
 		jsr		EnterCode
 		pla
 		sta		ZP_PROG
@@ -867,6 +977,9 @@ SavePROGEnterCode:
 		pla
 		sta		ZP_PROG + 1
 		sta		ZP_MEMTOP + 1		;  set address top of memory to it
+		pla
+		sta		ZP_PROG + 2
+		sta		ZP_MEMTOP + 2		;  set address top of memory to it
 		plp
 		xce					; back to nat / em mode
 OSCLIRET:	rep		#PF_A16 + PF_I16
@@ -891,8 +1004,9 @@ do_OSBYTE:
 		;           If A<$80, X=returned value
 		;           If A>$7f, X, Y, Carry=returned values
 		;
-		; DB	- make nat/em agnostic
 
+		clc
+		xce
 		php
 		sep		#PF_A16 + PF_I16
 
@@ -963,23 +1077,35 @@ ByteHigh:	cmp		#$82
 @l7:		bit		TubeS2
 		bpl		@l7		; Wait for Tube R2 data present
 		ldx		TubeR2		; Get return low byte
-		plp
-@sk1:		rts
+		bcs		@sksec
+
+@sk1:		plp
+		xce
+		clc
+		rts
+
+@sksec:		plp
+		xce
+		sec
+		rts
 
 Byte84:
 		ldx		ZP_MEMTOP	; Read top of memory from $f2/3
 		ldy		ZP_MEMTOP + 1
 		plp
+		xce
 		rts
 Byte83:
 		ldx		#$00		; Read bottom of memory
 		ldy		#$08
 		plp
+		xce
 		rts
 Byte82:
 		ldx		#$00		; Return $0000 as memory high word
 		ldy		#$00
 		plp
+		xce
 		rts
 
 do_OSWORD:
@@ -988,14 +1114,18 @@ do_OSWORD:
 		; On entry, A =function
 		;           XY=>control block
 		;
-		; DB make em/nat agnostic
 		; TODO - trashes X, Y, A high bytes
 
+		clc
+		xce
 		php
 		sep		#PF_A16 + PF_I16	; set a8, i8 if in nat mode
 
 		stx		ZP_OSWORDCTL
 		sty		ZP_OSWORDCTL + 1	; ZP_OSWORDCTL=>control block
+		phb
+		ply
+		sty		ZP_OSWORDCTL + 2
 		tay
 		beq		RDLINE			; OSWORD 0, jump to read line
 		pha
@@ -1009,7 +1139,7 @@ do_OSWORD:
 		tax
 		bpl		@WordSendLow		; Jump with functions<$80
 		ldy		#$00
-		lda		(ZP_OSWORDCTL), Y	; Get send block length from control block
+		lda		[ZP_OSWORDCTL], Y	; Get send block length from control block
 		tay
 		jmp		@WordSend		; Jump to send control block
 @WordSendLow:	ldy		WordLengthsLo-1, X      ; Get send block length from table
@@ -1023,14 +1153,14 @@ do_OSWORD:
 		bmi		@sk2			; Zero or $81..$ff length, nothing to send
 @l3:		bit		TubeS2
 		bvc		@l3       		; Wait for Tube R2 free
-		lda		(ZP_OSWORDCTL), Y
+		lda		[ZP_OSWORDCTL], Y
 		sta		TubeR2			; Send byte from control block
 		dey
 		bpl		@l3			; Loop for number to be sent
 @sk2:		txa
 		bpl		@WordRecvLow        	; Jump with functions<$80
 		ldy		#$01
-		lda		(ZP_OSWORDCTL), Y	; Get receive block length from control block
+		lda		[ZP_OSWORDCTL], Y	; Get receive block length from control block
 		tay
 		jmp		@WordRecv		; Jump to receive control block
 @WordRecvLow:	ldy		WordLengthsHi-1, X	; Get receive length from table
@@ -1045,7 +1175,7 @@ do_OSWORD:
 @l4:		bit		TubeS2
 		bpl		@l4			; Wait for Tube R2 data present
 		lda		TubeR2
-		sta		(ZP_OSWORDCTL), Y	; Get byte to control block
+		sta		[ZP_OSWORDCTL], Y	; Get byte to control block
 		dey
 		bpl		@l4			; Loop for number to receive
 @restoreXY:	ldy		ZP_OSWORDCTL + 1	; Restore registers
@@ -1059,7 +1189,7 @@ RDLINE:
 		; RDLINE - Read a line of text
 		; ============================
 		; On entry, A =0
-		;           XY=>control block
+		;           B:XY=>control block
 		; On exit,  A =undefined
 		;           Y =length of returned string
 		;           Cy=0 ok, Cy=1 Escape
@@ -1071,20 +1201,20 @@ RDLINE:
 		ldy		#$04
 @l1:		bit		TubeS2
 		bvc		@l1			; Wait for Tube R2 free
-		lda		(ZP_OSWORDCTL), Y
+		lda		[ZP_OSWORDCTL], Y
 		sta		TubeR2     		; Send control block
 		dey
 		cpy		#$01
 		bne		@l1   			; Loop for 4, 3, 2
 		lda		#$07
 		jsr		SendByte		; Send $07 as address high byte
-		lda		(ZP_OSWORDCTL), Y
+		lda		[ZP_OSWORDCTL], Y
 		pha					; Get text buffer address high byte
 		dey
 @l2:		bit		TubeS2
 		bvc		@l2			; Wait for Tube R2 free
 		sty		TubeR2			; Send $00 as address low byte
-		lda		(ZP_OSWORDCTL), Y
+		lda		[ZP_OSWORDCTL], Y
 		pha					; Get text buffer address low byte
 		ldx		#$ff
 		jsr		WaitByte		; Wait for response
@@ -1094,11 +1224,12 @@ RDLINE:
 		sta		ZP_OSWORDCTL
 		pla
 		sta		ZP_OSWORDCTL + 1	; Set ZP_OSWORDCTL=>text buffer
+		stz		ZP_OSWORDCTL + 2
 		ldy		#$00
 RdLineLp:	bit		TubeS2
 		bpl		RdLineLp		; Wait for Tube R2 data present
 		lda		TubeR2
-		sta		(ZP_OSWORDCTL), Y	; Store returned character
+		sta		[ZP_OSWORDCTL], Y	; Store returned character
 		iny
 		cmp		#$0d
 		bne		RdLineLp  		; Loop until <cr>
@@ -1126,9 +1257,9 @@ do_OSARGS:	; OSARGS - Read info on open file
 		;
 		; Tube data  $0c handle block function  --  result block
 		;
-		; DB Make em / nat agnostic
-		; TODO X, Y high bytes lost in NAT MODE
 
+		clc
+		xce
 		php
 		sep		#PF_A16 + PF_I16	; set a8, i8 if in nat mode
 		pha
@@ -1159,6 +1290,7 @@ do_OSARGS:	; OSARGS - Read info on open file
 		sta		$00, X
 		pla
 		plp					; restore aXX, iXX nat mode
+		xce
 		rts					; Get result back and return
 
 
@@ -1172,9 +1304,8 @@ do_OSFIND:
 		; Tube data  $12 function string $0d  --  handle
 		;            $12 $00 handle  --  $7f
 		;
-		; DB Make em / nat agnostic
-		; TODO X, Y high bytes lost in NAT MODE
-
+		clc
+		xce
 		php
 		sep		#PF_A16 + PF_I16	; set a8, i8 if in nat mode
 
@@ -1195,7 +1326,8 @@ do_OSFIND:
 OPEN:
 		jsr		SendString              ; Send pathname
 		jsr		WaitByte
-		plp					; restore aXX, iXX nat mode
+		plp
+		xce					; restore aXX, iXX nat mode
 		rts
 
 
@@ -1210,9 +1342,9 @@ do_OSBGET:
 		;
 		; Tube data  $0e handle --  Carry byte
 		;
-		; DB Make em / nat agnostic
 		; TODO X, Y high bytes lost in NAT MODE
-
+		clc
+		xce
 		php
 		sep		#PF_A16 + PF_I16	; set a8, i8 if in nat mode
 		lda		#$0e
@@ -1220,7 +1352,14 @@ do_OSBGET:
 		tya
 		jsr		SendByte           	; Send handle
 		jsr		WaitCarryChar		; Jump to wait for Carry and byte
-		plp					; restore aXX, iXX nat mode
+		bcs		@secret
+		plp
+		xce					; restore aXX, iXX nat mode
+		clc
+		rts
+@secret:	plp
+		xce
+		sec					; restore aXX, iXX nat mode
 		rts
 
 
@@ -1234,9 +1373,9 @@ do_OSBPUT:
 		;
 		; Tube data  $10 handle byte  --  $7f
 		;
-		; DB Make em / nat agnostic
 		; TODO X, Y high bytes lost in NAT MODE
-
+		clc
+		xce
 		php
 		sep		#PF_A16 + PF_I16	; set a8, i8 if in nat mode
 		pha
@@ -1250,6 +1389,7 @@ do_OSBPUT:
 		jsr		WaitByte
 		pla
 		plp					; restore aXX, iXX nat mode
+		xce
 		rts					; Wait for acknowledge and return
 
 
@@ -1272,10 +1412,9 @@ do_OSFILE:
 		;
 		; Tube data  $14 block string <cr> function  --  result block
 		;
-		; DB Make em / nat agnostic
 		; TODO X, Y high bytes lost in NAT MODE
 
-		sec
+		clc
 		xce
 		php
 
@@ -1296,6 +1435,8 @@ do_OSFILE:
 		iny
 		lda		(ZP_CTL), Y
 		tay					; Get pathname address to XY
+		phk
+		plb					; String is always in Bank0!
 		jsr		SendString		; Send pathname
 		pla
 		jsr		SendByte		; Send function
@@ -1325,9 +1466,10 @@ do_OSGBPB:
 		;
 		; Tube data  $16 block function  --   block Carry result
 		;
-		; DB Make em / nat agnostic
 		; TODO X, Y high bytes lost in NAT MODE
 
+		clc
+		xce
 		php
 		sep		#PF_A16 + PF_I16	; set a8, i8 if in nat mode
 
@@ -1351,8 +1493,16 @@ do_OSGBPB:
 		ldy		ZP_CTL + 1
 		ldx		ZP_CTL			; Restore registers
 		jsr		WaitCarryChar          	; Jump to get Carry and result
-		plp					; restore aXX, iXX nat mode
+		bcs		@secrts
+		plp
+		xce					; restore aXX, iXX nat mode
+		clc
 		rts
+@secrts:	plp
+		xce					; restore aXX, iXX nat mode
+		sec
+		rts
+
 
 Unsupported:
 		brk
@@ -1361,17 +1511,17 @@ Unsupported:
 		; OSWORD control block lengths
 		; ============================
 WordLengthsLo:
-		.byte $00, $05, $00, $05
-		.byte $04, $05, $08, $0e
-		; ** Different, 6502 TUBE sends only 2 bytes for =IO
-		.byte $04, $01, $01, $05
-		.byte $00, $01, $20, $10
-		.byte $0d, $00, $04, $80
-WordLengthsHi:	.byte $05, $00, $05, $00
-		.byte $05, $00, $00, $00
-		.byte $05, $09, $05, $00
-		.byte $08, $18, $00, $01
-		.byte $0d, $80, $04, $80
+		.byte $00, $05, $00, $05	; 1 ..4
+		.byte $04, $05, $08, $0e	; 5 ..8		5  ** Different, 6502 TUBE sends only 2 bytes for =IO
+		.byte $04, $01, $01, $05	; 9 ..12
+		.byte $00, $08, $20, $10	; 13..16	14 ** Different, 8 bytes for BCD time
+		.byte $0d, $00, $08, $80	; 17..20
+
+WordLengthsHi:	.byte $05, $00, $05, $00	; 1 ..4
+		.byte $05, $00, $00, $00	; 5 ..8
+		.byte $05, $09, $05, $00	; 9 ..12
+		.byte $08, $18, $00, $01	; 13..16
+		.byte $0d, $80, $04, $80	; 17..20
 
 		; Interrupt Handler - Native mode
 		; ===============================
@@ -1379,6 +1529,13 @@ WordLengthsHi:	.byte $05, $00, $05, $00
 InterruptHandlerNAT:
 		.a16
 		.i16
+		phd
+		phk
+		phk
+		pld
+		phb
+		phk
+		plb
 		rep		#PF_A16 + PF_I16
 		pha
 		phx
@@ -1404,37 +1561,52 @@ NATIRQRET:	clc
 		ply
 		plx
 		pla
+		plb
+		pld
 		rti
 
 
-BrkHandlerNAT:	; TODO need an API for native mode break - this will only handler breaks in 1st bank
+BrkHandlerNAT:	; TODO need an API for native mode break - this will only handle breaks in 1st bank
 		.a16
 		.i16
+
+		phk
+		phk
+		pld
+		phk
+		plb
+
 		rep		#PF_A16 + PF_I16
 		lda		2, S			; Get BRK address from stack
 		;	cld = not needed
 		sec
 		sbc		#$01
 		sta		ZP_LAST_E		; ZP_LAST_E=>after BRK opcode
+		sep		#PF_A16 + PF_I16
+		.a8
+		.i8
+		;TODO: check this and remove comment above?
+		lda		4, S
+		sbc		#0
+		sta		ZP_LAST_E_BANK
+
 		sec					; go to emulated mode! = TODO - what to do?
 		xce
 		cli
 		jmp		(BRKV)          	; Restore IRQs, jump to Error Handler
 
 
-		.a8
-		.i8
 
 		; Interrupt Handler
 		; =================
 InterruptHandler:
-		; note we no longer store A at ZP_IRQA, that is bogus and
-		; only used to satisfy IRQ1/2V capturers
 		sta		ZP_IRQA			; Save A
 		lda		1, S			; get flags ; DB - use new stack rel addressing
 		and		#$10
 		bne		BRKHandler		; If BRK, jump to BRK handler
 IntCallIRQ1V:	jmp		(IRQ1V)         	; Continue via IRQ1V handler
+
+
 IRQ1Handler:	bit		TubeS4
 		bmi		irqR4Trans		; If data in Tube R4, jump to process errors and transfers
 		bit		TubeS1
@@ -1450,6 +1622,7 @@ BRKHandler:	lda		2, S; Get low byte of error address from stack ; DB - use new s
 		lda		3, S
 		sbc		#$00
 		sta		ZP_LAST_E + 1 		; ZP_LAST_E=>after BRK opcode
+		stz		ZP_LAST_E_BANK
 		lda		ZP_IRQA			; pull old A
 		cli
 		jmp		(BRKV)          	; Restore IRQs, jump to Error Handler
@@ -1504,6 +1677,7 @@ irqDataTrans:
 		; Data transfer initiated by IRQ via Tube R4
 		; ------------------------------------------
 		phy					; save Y
+		phx
 		tay					; put trans type in Y
 		lda		Tbl_DataTransLO, Y
 		sta		NMIV+0			; get NMI routine address from table
@@ -1521,13 +1695,15 @@ irqDataTrans:
 		cpy		#$05
 		beq		irqDataTransExit	; If 'TubeRelease', jump to exit
 		phy					; Save transfer type
-		ldy		#$01
+		ldy		#$02
 @lp2:		bit		TubeS4
 		bpl		@lp2       		; Wait for Tube R4 data present
-		lda		TubeR4          	; Fetch and disgard address byte 4 TODO: We need this?
+		lda		TubeR4          	; Fetch and discard address byte 4 TODO: We need this?
 @lp3:		bit		TubeS4
 		bpl		@lp3       		; Wait for Tube R4 data present
-		lda		TubeR4          	; Fetch and disgard address byte 3 TODO: We need this?
+		lda		TubeR4          	;
+		sta		(ZP_NMIADDR), Y 	; Fetch address byte 2, store in address
+		dey
 @lp4:		bit		TubeS4
 		bpl		@lp4       		; Wait for Tube R4 data present
 		lda		TubeR4
@@ -1549,13 +1725,13 @@ irqDataTrans:
 
 		; Send 256 bytes to Tube via R3
 		; -----------------------------
-		ldy		#$00
+		ldx		#$00
 irqDataTransLP7:lda		TubeS3
 		and		#$80
 		bpl		irqDataTransLP7		; Wait for Tube R3 free
-NMI6Addr:	lda		$ffff, Y
+NMI6Addr:	lda		F:$ffffff, X
 		sta		TubeR3     		; Fetch byte and send to Tube R3
-		iny
+		inx
 		bne		irqDataTransLP7		; Loop for 256 bytes
 
 
@@ -1563,6 +1739,7 @@ NMI6Addr:	lda		$ffff, Y
 		bpl		@lp8			; Wait for Tube R3 free
 		sta		TubeR3			; Send final sync byte
 irqDataTransExit:
+		plx
 		ply					; Restore registers and return
 		lda		ZP_IRQA
 		rti
@@ -1571,13 +1748,13 @@ irqDataTransExit:
 		; Read 256 bytes from Tube via R3
 		; -------------------------------
 irqDataTransRd256:
-		ldy		#$00
+		ldx		#$00
 irqDataTransLP8:lda		TubeS3
 		and		#$80
 		bpl		irqDataTransLP8		; Wait for Tube R3 data present
 		lda		TubeR3			; Fetch byte from Tube R3
-NMI7Addr:	sta		$ffff, Y
-		iny
+NMI7Addr:	sta		f:$ffffff, X
+		inx
 		bne		irqDataTransLP8		; Store byte and loop for 256 bytes
 		beq		irqDataTransExit	; Jump to restore registers and return
 
@@ -1596,7 +1773,7 @@ NMI7Addr:	sta		$ffff, Y
 		; Transfer 0 - Transfer a single byte from memory to TUBE
 NMI0:		sep		#PF_A16			; force 8 bit mode if in native mode
 		pha
-NMI0Addr:	lda		$FFFF
+NMI0Addr:	lda		f:$ffffff
 		sta		TubeR3			; Get byte and send to Tube R3
 		inc		NMI0Addr + 1
 		bne		@sk1
@@ -1621,7 +1798,7 @@ NMI0Addr:	lda		$FFFF
 NMI1:		sep		#PF_A16			; force 8 bit mode if in Native
 		pha
 		lda		TubeR3             	; Save A, get byte from Tube R3
-NMI1Addr:	sta		$ffff                  	; Store byte
+NMI1Addr:	sta		F:$ffffff                  	; Store byte
 		inc		NMI1Addr + 1
 		bne		@sk3
 		inc		NMI1Addr + 2
@@ -1653,16 +1830,20 @@ NMI2:		; Transfer 2 - Transfer two bytes to Tube
 		; ---------------------------------------
 		sep		#PF_A16			; force 8 bit mode			; 3	2
 		pha										; 3	1
-		lda		(ZP_ADDR)							; 5	2
+		lda		[ZP_ADDR]							; 5	2
 		sta		TubeR3     		; Get byte and send to Tube R3		; 4	3
 		inc		ZP_ADDR								; 5	2
 		bne		@sk1								; 3	2
 		inc		ZP_ADDR + 1		; Increment transfer address		; -	2
-@sk1:		lda		(ZP_ADDR)							; 5	2
+		bne		@sk1
+		inc		ZP_ADDR + 2		; Increment transfer address		; -	2
+@sk1:		lda		[ZP_ADDR]							; 5	2
 		sta		TubeR3     		; Get byte and send to Tube R3		; 4	3
 		inc		ZP_ADDR								; 5	2
 		bne		@sk4								; 3	2
 		inc		ZP_ADDR + 1		; Increment transfer address		; -	2
+		bne		@sk4								; 3	2
+		inc		ZP_ADDR + 2		; Increment transfer address		; -	2
 @sk4:		pla										; 3	1
 		rti									;======= 43	26
 
@@ -1691,15 +1872,19 @@ NMI3:		; Transfer 3 - Transfer two bytes from Tube
 		sep		#PF_A16			; force 8 bit mode
 		pha
 		lda		TubeR3
-		sta		(ZP_ADDR)	     	; Get byte from Tube R3 and store
+		sta		[ZP_ADDR]	     	; Get byte from Tube R3 and store
 		inc		ZP_ADDR
 		bne		@sk5
 		inc		ZP_ADDR + 1  		; Increment transfer address
+		bne		@sk5
+		inc		ZP_ADDR + 2  		; Increment transfer address
 @sk5:		lda		TubeR3
 		sta		(ZP_ADDR)		; Get byte from Tube R3 and store
 		inc		ZP_ADDR
 		bne		@sk6
 		inc		ZP_ADDR + 1		; Increment transfer address
+		bne		@sk6
+		inc		ZP_ADDR + 2		; Increment transfer address
 @sk6:		pla
 		rti
 
@@ -1730,30 +1915,40 @@ waitR1noblockR4:
 lda_TubeR1:	lda		TubeR1			; Fetch byte from Tube R1 and return
 		rts
 
+;TODO: do we need to check for native/emu here?
+;TODO: program/bank/jsl?
 PrText:		; =====================
 		; Print embedded string
 		; =====================
+		clc
+		xce
 		php
-		sep		#PF_A16			; ensure 8 bit A
-		rep		#PF_I16			; 16 bit Y
-		phy
+		sep		#PF_A16|PF_I16		; ensure 8 bit A,Y
 		.a8
-		.i16
+		.i8
 		ldy		#0
-inc_FAFB:	clc
-		lda		4, S
-		adc		#1
-		sta		4, S
-		lda		5, S
-		adc		#0
-		sta		5, S
-print_str_FA:	lda		(4, S), Y		; Print character and loop back for more
-		bmi		jmp_ind_FA      	; Get character, exit if >$7f
-		jsr		OSWRCH
-		bra		inc_FAFB
-jmp_ind_FA:	ply
-		plp					; restore reg sizes
+@lp:		jsr		@incRET
+		lda		(2, S), Y		; Print character and loop back for more
+		beq		@sk      		; Get character, exit if 0
+		jsr		OSASCI
+		bra		@lp
+@sk:		plp					; restore reg sizes
+		xce					; restore nat/emu
 		rts                			; Jump back to code after string
+@incRET:	rep		#PF_A16
+		.a16
+		lda		4,S
+		inc		A
+		sta		4,S
+		sep		#PF_A16
+		.a8
+		rts
+
+		.a8
+		.i8
+
+
+;TODO JGH PrString here!
 
 NMI_Ack:	sta		TubeR3			; Store to TubeR3 to acknowlege NMI
 		rti
@@ -1785,10 +1980,10 @@ TEST_VECTO:
 
 		.a8
 		.i8
-brkNatVec:	sec
+		sec
 		xce
 		brk
-		.byte		45, "Native Vector Called", 0
+		.byte		45, "Unknown vector called", 0
 		nop
 		stp
 
@@ -1847,7 +2042,7 @@ TBL_DefVectors:
 		.addr NullReturn       		; $234 - IND3V
 TBL_DefVectorsEnd:
 
-
+;TODO: Print HexXY, PrintHexA, PrString, ScanHex
 		.SEGMENT "OS_VEC"
 		.org		$FFB6
 VECDEF:	 	.byte		TBL_DefVectorsEnd - TBL_DefVectors
