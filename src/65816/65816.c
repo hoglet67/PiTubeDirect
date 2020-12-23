@@ -66,7 +66,7 @@ static int cycles = 0;
 
 static int def = 1, divider = 0, banking = 0, banknum = 0;
 static uint32_t w65816mask = 0xFFFF;
-static uint16_t toldpc;
+static uint32_t toldpc;
 
 #ifdef INCLUDE_DEBUGGER
 
@@ -5693,7 +5693,7 @@ static void w65816_savestate(ZFILE * zfp)
     *ptr++ = banking;
     *ptr++ = banknum;
     ptr = save_uint32(ptr, w65816mask);
-    ptr = save_uint16(ptr, toldpc);
+    ptr = save_uint32(ptr, toldpc);
     savestate_zwrite(zfp, bytes, sizeof bytes);
     savestate_zwrite(zfp, w65816ram, W65816_RAM_SIZE);
     savestate_zwrite(zfp, w65816rom, W65816_ROM_SIZE);
@@ -5729,7 +5729,7 @@ static void w65816_loadstate(ZFILE * zfp)
     banking = *ptr++;
     banknum = *ptr++;
     ptr = load_uint32(ptr, &w65816mask);
-    ptr = load_uint16(ptr, &toldpc);
+    ptr = load_uint32(ptr, &toldpc);
     savestate_zread(zfp, w65816ram, W65816_RAM_SIZE);
     savestate_zread(zfp, w65816rom, W65816_ROM_SIZE);
 }
@@ -5827,7 +5827,8 @@ void w65816_exec(int tubecycles)
 
     while (cycles > 0) {
         ia = pbr | pc;
-        toldpc = pc++;
+        toldpc = ia;
+        pc++;
 #ifdef INCLUDE_DEBUGGER
         if (dbg_w65816)
             debug_preexec(&w65816_cpu_debug, ia);
