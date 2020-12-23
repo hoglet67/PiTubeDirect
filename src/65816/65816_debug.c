@@ -102,7 +102,7 @@ static const uint8_t am_816[256]=
 /*C0*/  IMX,  INDX, IMM,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
 /*D0*/  PCR,  INDY, IND,  SRY,  IND,  ZPX,  ZPX,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSL, IND16,ABSX, ABSXL,
 /*E0*/  IMX,  INDX, IMM,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMP,  IMP,  ABS,  ABS,  ABS,  ABSL,
-/*F0*/  PCR,  INDY, IND,  SRY,  IMP,  ZPX,  ZPX,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSX, ABSX, ABSX, ABSXL
+/*F0*/  PCR,  INDY, IND,  SRY,  ABS,  ZPX,  ZPX,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSX, ABSX, ABSX, ABSXL
 };
 
 uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t bufsize)
