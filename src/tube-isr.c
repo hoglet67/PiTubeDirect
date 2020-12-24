@@ -106,7 +106,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         // The escape handler is called with the escape flag value in R11
         // That's with this wrapper achieves
         unsigned int r11 = flag & 0x40;
-        unsigned int r12 = env->handler[EXIT_HANDLER].r12;
+        unsigned int r12 = env->handler[ESCAPE_HANDLER].r12;
         _escape_handler_wrapper(r11, r12, env->handler[ESCAPE_HANDLER].handler);
       } else {
         r1_state = EVENT_R1_Y;
@@ -497,7 +497,7 @@ void copro_armnative_tube_interrupt_handler(void) {
       // The escape handler is called with the escape flag value in R11
       // That's with this wrapper achieves
        unsigned int r11 = flag & 0x40;
-       unsigned int r12 = env->handler[EXIT_HANDLER].r12;
+       unsigned int r12 = env->handler[ESCAPE_HANDLER].r12;
        _escape_handler_wrapper(r11, r12, env->handler[ESCAPE_HANDLER].handler);
     } else {
       // Event
