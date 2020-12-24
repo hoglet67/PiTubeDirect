@@ -214,8 +214,11 @@ _escape_handler_wrapper:
     // Move the escape flag into R11
     mov      r11, r0
 
+    // Move the workspace value into R12
+    mov      r12, r1
+
     // Call the escape handler
-    blx      r1
+    blx      r2
 
     // Restore stacked resisters and return
     ldmfd    sp!, {r11-r12, lr}

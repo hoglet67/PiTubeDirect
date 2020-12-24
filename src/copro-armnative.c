@@ -94,7 +94,7 @@ static void defaultErrorHandler(const ErrorBuffer_type *eb) {
 
 // Note, the way we invoke this via the _escape_handler_wrapper will
 // work, because the flag will also still be in r0.
-static void defaultEscapeHandler(unsigned int flag) {
+static void defaultEscapeHandler(unsigned int flag, unsigned int workspace) {
   if (DEBUG_ARM) {
     printf("Escape flag = %02x\r\n", flag);
   }
