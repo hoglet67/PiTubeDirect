@@ -903,7 +903,16 @@ void tube_ReadPoint(unsigned int *reg) {
   receiveByte(R2_ID);           // MSB of X coord
   receiveByte(R2_ID);           // LSB of Y coord
   receiveByte(R2_ID);           // MSB of Y coord
-  reg[2] = receiveByte(R2_ID);  // logical colour of point, or 0xFF is the point is off screen
+  int pt = receiveByte(R2_ID);  // logical colour of point, or 0xFF is the point is off screen
+  if (pt == 0xff) {
+     reg[2] = -1;
+     reg[3] = 0;
+     reg[4] = -1;
+  } else {
+     reg[2] = pt;
+     reg[3] = 0;
+     reg[4] = 0;
+  }
 }
 
 // Entry:
