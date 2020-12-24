@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Gecko-rc0"
+#define RELEASENAME "Gecko-rc1"
 
 #define NDEBUG
 
