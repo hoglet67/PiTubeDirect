@@ -894,16 +894,17 @@ void tube_ReadPoint(unsigned int *reg) {
   sendByte(R2_ID, 0x08);
   sendByte(R2_ID, 0x09);        // OSWORD A=&09
   sendByte(R2_ID, 0x04);        // inlen = 4
-  sendByte(R2_ID, reg[0]);      // LSB of X coord
-  sendByte(R2_ID, reg[0] >> 8); // MSB of X coord
-  sendByte(R2_ID, reg[1]);      // LSB of Y coord
+  // Blocks are sent in reverse (high downto low)
   sendByte(R2_ID, reg[1] >> 8); // MSB of Y coord
+  sendByte(R2_ID, reg[1]);      // LSB of Y coord
+  sendByte(R2_ID, reg[0] >> 8); // MSB of X coord
+  sendByte(R2_ID, reg[0]);      // LSB of X coord
   sendByte(R2_ID, 0x05);        // outlen = 5
-  receiveByte(R2_ID);           // LSB of X coord
-  receiveByte(R2_ID);           // MSB of X coord
-  receiveByte(R2_ID);           // LSB of Y coord
-  receiveByte(R2_ID);           // MSB of Y coord
   int pt = receiveByte(R2_ID);  // logical colour of point, or 0xFF is the point is off screen
+  receiveByte(R2_ID);           // MSB of Y coord
+  receiveByte(R2_ID);           // LSB of Y coord
+  receiveByte(R2_ID);           // MSB of X coord
+  receiveByte(R2_ID);           // LSB of X coord
   if (pt == 0xff) {
      reg[2] = -1;
      reg[3] = 0;
