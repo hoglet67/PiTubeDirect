@@ -77,11 +77,6 @@ union _bytewordregs_ regs;
 uint8_t debugmode, showcsip, verbose = 1, mouseemu, didbootstrap = 0;
 uint8_t ethif;
 
-extern uint8_t verbose;
-
-
-void intcall86(uint8_t intnum);
-
 #define makeflagsword() \
 	(\
 	2 | (uint16_t) cf | ((uint16_t) pf << 2) | ((uint16_t) af << 4) | ((uint16_t) zf << 6) | ((uint16_t) sf << 7) | \
@@ -132,7 +127,7 @@ unsigned int trace_data[TRACE_N];
 #define TYPE_REG_CX     4
 #define TYPE_REG_DX     5
 #define TYPE_REG_SI     6
-#define TYPE_REG_DI     7 
+#define TYPE_REG_DI     7
 #define TYPE_REG_BP     8
 #define TYPE_REG_SP     9
 #define TYPE_REG_IP    10
@@ -211,7 +206,7 @@ static void trace_dump_item(unsigned int item) {
     break;
   case TYPE_REG_FLAGS:
     printf("FLAGS=%04x\r\n", data);
-    break;     
+    break;
   }
 }
 
@@ -270,10 +265,10 @@ static void trace_instruction(uint16_t cs, uint16_t pc) {
     trace_write(TYPE_FETCH_IP, pc);
 }
 #else
-// In this case tracing is selecttive, and the buffer is dumped when full 
+// In this case tracing is selecttive, and the buffer is dumped when full
 static void trace_instruction(uint16_t cs, uint16_t pc) {
   static int tracing = 0;
-  // Trace for TRACE_N instructions (the size of the trace 
+  // Trace for TRACE_N instructions (the size of the trace
   if (pc == 0x22d8) {
     tracing = 1;
   }
@@ -297,14 +292,14 @@ static void trace_instruction(uint16_t cs, uint16_t pc) {
 void flag_szp8(uint8_t value)
 {
   zf = (!value) ? 1 : 0;															// set or clear zero flag
-  sf = (value & 0x80) ? 1 : 0;												// set or clear sign flag 
+  sf = (value & 0x80) ? 1 : 0;												// set or clear sign flag
   pf = parity[value]; 								// retrieve parity state from lookup table
 }
 
 void flag_szp16(uint16_t value)
 {
   zf = (!value) ? 1 : 0;															// set or clear zero flag
-  sf = (value & 0x8000) ? 1 : 0;											// set or clear sign flag 
+  sf = (value & 0x8000) ? 1 : 0;											// set or clear sign flag
   pf = parity[value & 0xFF];					// retrieve parity state from lookup table
 }
 
@@ -782,7 +777,7 @@ void writerm8(uint8_t rmval, uint8_t value)
 
 void op_daa_das(int8_t low_nibble, int8_t high_nibble) {
   oldal = regs.byteregs[regal];
-  oldcf = cf;
+  uint8_t oldcf = cf;
 
   if (((regs.byteregs[regal] & 0xF) > 9) || (af == 1))
   {
@@ -794,13 +789,13 @@ void op_daa_das(int8_t low_nibble, int8_t high_nibble) {
     }
     af = 1;
   }
-  
+
   if ((oldal > 0x99) || (oldcf == 1))
   {
     regs.byteregs[regal] = regs.byteregs[regal] + high_nibble;
     cf = 1;
   }
-  
+
   flag_szp8(regs.byteregs[regal]);
 }
 
@@ -813,7 +808,7 @@ uint8_t op_grp2_8(uint8_t cnt)
   uint16_t msb;
 
   s = oper1b;
-  
+
 #ifdef CPU_V20 //80186/V20 class CPUs limit shift count to 31
   cnt &= 0x1F;
 #endif
@@ -1494,7 +1489,7 @@ void reset(void)
 
 void exec86(uint32_t tube_cycles)
 {
-  uint8_t docontinue;
+  uint8_t docontinue, oldcf;
   static uint16_t firstip;
   static uint16_t trap_toggle = 0;
 
@@ -3301,7 +3296,7 @@ void exec86(uint32_t tube_cycles)
         {
           break;
         }
-        else if ((reptype == 2) & (zf == 1))
+        else if ((reptype == 2) && (zf == 1))
         {
           break;
         }
@@ -3802,6 +3797,6 @@ void exec86(uint32_t tube_cycles)
         }
         break;
       }
-    tubeUseCycles(1); 
+    tubeUseCycles(1);
     }while (tubeContinueRunning());
   }

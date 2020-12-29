@@ -288,7 +288,7 @@ int copro_z80_read_mem(unsigned int addr) {
    if (overlay_rom) {
       data = copro_z80_rom[addr & 0xfff];
    } else {
-#if USE_MEMORY_POINTER       
+#ifdef USE_MEMORY_POINTER
       data = copro_z80_ram[addr & 0xffff];
 #else
       data = *(unsigned char *)(addr & 0xffff);
@@ -356,14 +356,14 @@ void copro_z80_emulator()
    unsigned int tube_irq_copy;
 
    // Remember the current copro so we can exit if it changes
-   int last_copro = copro;
+   unsigned int last_copro = copro;
 
    // Patch the OSWORD &FF code to change FEE5 to FCE5 (2 changes expected)
    check_elk_mode_and_patch(copro_z80_rom, 0xD30, 0xAA, 2);
 
-   copro_z80_ram = copro_mem_reset(0x10000); 
+   copro_z80_ram = copro_mem_reset(0x10000);
    copro_z80_reset();
-  
+
    while (1)
    {
       // Execute emulator for one instruction

@@ -17,6 +17,9 @@
  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#ifndef _CPU80186_H_
+#define _CPU80186_H_
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -90,4 +93,5 @@ extern union _bytewordregs_ regs;
 extern uint32_t getinstraddr86();
 extern uint16_t getflags86();
 extern void putflags86(uint16_t value);
+#endif
 #endif

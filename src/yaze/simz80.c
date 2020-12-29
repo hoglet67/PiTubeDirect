@@ -95,7 +95,7 @@ static const unsigned char partab[256] = {
    mm_PutBYTE(SP, x);                        \
 } while (0)
 
-#define JPC(cond) PC = cond ? GetWORD(PC) : PC+2
+#define JPC(cond) PC = cond ? (FASTREG) GetWORD(PC) : PC+2
 
 #define CALLC(cond) {                     \
     if (cond) {                        \
@@ -2339,7 +2339,7 @@ simz80_execute(int tube_cycles)
          AF = (-(AF & 0xff00) & 0xff00);
          AF |= ((AF >> 8) & 0xa8) | (((AF & 0xff00) == 0) << 6) |
             (((temp & 0x0f) != 0) << 4) | ((temp == 0x80) << 2) |
-            2 | (temp != 0);
+            2 | (temp?1:0);
          break;
       case 0x45:         /* RETN */
       case 0x4D:         /* RETI - functionally identical to RETN */

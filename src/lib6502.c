@@ -62,12 +62,11 @@ enum {
 #define getZ()	(P & flagZ)
 #define getC()	(P & flagC)
 
-#define setNVZC(N,V,Z,C)	(P= (P & ~(flagN | flagV | flagZ | flagC)) | (N) | ((V)<<6) | ((Z)<<1) | (C))
-#define setNZC(N,Z,C)		(P= (P & ~(flagN |         flagZ | flagC)) | (N) |            ((Z)<<1) | (C))
-#define setNZ(N,Z)		(P= (P & ~(flagN |         flagZ        )) | (N) |            ((Z)<<1)      )
-#define setZ(Z)			(P= (P & ~(                flagZ        )) |                  ((Z)<<1)      )
-#define setC(C)			(P= (P & ~(                        flagC)) |                             (C))
-
+#define setNVZC(N,V,Z,C)   (P= (P & ~(flagN | flagV | flagZ | flagC)) | (N) | ((V)?flagV:0) | ((Z)?flagZ:0) | ((C)?flagC:0))
+#define setNZC(N,Z,C)      (P= (P & ~(flagN |         flagZ | flagC)) | (N) |                 ((Z)?flagZ:0) | ((C)?flagC:0))
+#define setNZ(N,Z)         (P= (P & ~(flagN |         flagZ        )) | (N) |                 ((Z)?flagZ:0)                )
+#define setZ(Z)            (P= (P & ~(                flagZ        )) |                       ((Z)?flagZ:0)                )
+#define setC(C)            (P= (P & ~(                        flagC)) |                                       ((C)?flagC:0))
 #define NAND(P, Q)	(!((P) & (Q)))
 
 static int elapsed;
@@ -1010,7 +1009,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
   register word   PC;
 #ifdef TURBO
   dword		  ea;
-  byte            turbo = mpu->flags & M6502_Turbo;
+  extern uint8_t turbo;
 #else
   word		  ea;
 #endif

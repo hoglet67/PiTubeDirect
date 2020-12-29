@@ -602,7 +602,8 @@ int darm_reglist(uint16_t reglist, char *out)
         int32_t reg, start = __builtin_ctz(reglist);
 
         // most registers have length two
-        *(uint16_t *) out = *(uint16_t *) darm_registers[start];
+        out[0] = darm_registers[start][0];
+        out[1] = darm_registers[start][1];
         out[2] = darm_registers[start][2];
         out += 2 + (out[2] != 0);
 
@@ -618,7 +619,8 @@ int darm_reglist(uint16_t reglist, char *out)
             // registers have been found, but we prefer the notation
             // {r0,r1} over {r0-r1} in that case
             *out++ = reg == start + 2 ? ',' : '-';
-            *(uint16_t *) out = *(uint16_t *) darm_registers[reg-1];
+            out[0] = darm_registers[reg-1][0];
+            out[1] = darm_registers[reg-1][1];
             out[2] = darm_registers[reg-1][2];
             out += 2 + (out[2] != 0);
         }

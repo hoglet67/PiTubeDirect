@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Fer-de-lance"
+#define RELEASENAME "Gecko"
 
 #define NDEBUG
 
@@ -16,18 +16,6 @@
 #define LOG_INFO(...) printf(__VA_ARGS__)
 
 #define LOG_WARN(...) printf(__VA_ARGS__)
-
-// Certain Co Pro numbers need to be pre-defined, as tube-client.c special cases these
-// (define these as needed)
-#define COPRO_65TUBE_0   0
-#define COPRO_65TUBE_1   1
-#define COPRO_65TUBE_2   2
-#define COPRO_65TUBE_3   3
-#define COPRO_80286      8
-#define COPRO_32016     13
-#define COPRO_ARMNATIVE 15
-
-#define DEFAULT_COPRO COPRO_65TUBE_0
 
 // Pi 2/3 Multicore options
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)

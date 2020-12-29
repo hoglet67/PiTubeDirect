@@ -130,7 +130,7 @@ static int armv7_disas_uncond(darm_t *d, uint32_t w)
         // PLI instruction
         // we fall-through here, as 0b011 also handles the PLD and PLI
         // instructions
-
+        // fall through
     case b011:
         // if the 24th bit is set, then this is a PLD instruction, otherwise
         // it's a PLI instruction
@@ -400,7 +400,7 @@ static int armv7_disas_cond(darm_t *d, uint32_t w)
         // op1 represents the upper three bits, and A = 0b1111 represents
         if(op2 == b011) {
             // the lower bit
-            d->instr = type_pusr_instr_lookup[(op1 << 1) | (A == b1111)];
+            d->instr = type_pusr_instr_lookup[(op1 << 1) | ((A == b1111)?1:0)];
             if(d->instr != I_INVLD) {
                 d->Rd = (w >> 12) & b1111;
                 d->Rm = w & b1111;

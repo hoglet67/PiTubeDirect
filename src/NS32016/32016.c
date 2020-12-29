@@ -957,7 +957,7 @@ void WarnIfShiftInvalid(uint32_t shift, uint8_t size)
    size *= 8;    // 8, 16, 32
    // We allow a shift of +- 33 without warning, as we see examples
    // of this in BBC Basic.
-   if ((shift > size + 1 && shift < 0xFF - size - 1) || (shift > 0xFF))
+   if ((shift > (uint32_t )size + 1 && shift < 0xFF - (uint32_t) size - 1) || (shift > 0xFF))
    {
       PiWARN("Invalid shift of %08"PRIX32" for size %"PRId8, shift, size);
    }

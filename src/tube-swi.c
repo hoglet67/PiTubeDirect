@@ -336,7 +336,11 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
 int user_exec_fn(FunctionPtr_Type f, int param ) {
   int ret;
   if (DEBUG_ARM) {
-    printf("Execution passing to %08x cpsr = %08x param = %s\r\n", (unsigned int)f, _get_cpsr(), (unsigned char *)param);
+    printf("Execution passing to %08x cpsr = %08x", (unsigned int)f, _get_cpsr());
+    if (param) {
+       printf(" param = %s", (unsigned char *)param);
+    }
+    printf("\r\n");
   }
   // setTubeLibDebug(1);
   // The machine code version in copro-armnativeasm.S does the real work
@@ -480,10 +484,19 @@ void tube_ReadC(unsigned int *reg) {
   reg[0] = receiveByte(R2_ID);
 }
 
+
+// Legitimate terminators for OS_CLI are are 0x00, 0x0A or 0x0D
+
 void tube_CLI(unsigned int *reg) {
+
+  // Keep a copy of the original command, so it's not perturbed when we fake the environmeny
+  char command[256];
   char *ptr = (char *)(*reg);
-  char *lptr = ptr;
-  int run=0;
+  char c;
+  unsigned int index = 0;
+  do {
+    c = (command[index++] = *ptr++);
+  } while (c != 0x00 && c != 0x0a && c != 0x0d && index < sizeof(command));
 
 // We need to prepare the environment in case code is entered
 // Command buffer is:
@@ -496,9 +509,13 @@ void tube_CLI(unsigned int *reg) {
 // *  *** * ** R.    foobar   hazel  sheila
 //                   ^
 
-  while (*lptr == ' ' || *lptr == '*') {
-    lptr++;    // Skip leading spaces and stars
+// Skip leading spaces and stars, leaving ptr pointing
+// to what needs to be passed to the filesystem, or parsed
+  ptr = command;
+  while (*ptr == ' ' || *ptr == '*') {
+    ptr++;
   }
+
 // Now at:
 // *foobar hazel
 //  ^
@@ -509,9 +526,11 @@ void tube_CLI(unsigned int *reg) {
 // *RUN foobar hazel
 //  ^
 
+  char *lptr = ptr;
+  int run = 0;
   if (lptr[0] == '/') {
-     run   = 1;                     // */file or */ file
-     lptr += 1;                     // skip past /
+    run   = 1;                     // */file or */ file
+    lptr += 1;                     // skip past /
   } else {
     if ((lptr[0] & 0xDF) == 'R') {  // Might be *RUN
       if (lptr[1] == '.') {
@@ -545,18 +564,17 @@ void tube_CLI(unsigned int *reg) {
 // *RUN foobar hazel
 //      ^
 
-// Fake an OS_SetEnv call
-  run = 0;
+  // Fake an OS_SetEnv call
+  index = 0;
   while (*lptr >= ' ') {         // Copy this command to environment string
-    env->commandBuffer[run] = *lptr;
-    run++;
-    lptr++;
+    env->commandBuffer[index++] = *lptr++;
   }
-  env->commandBuffer[run]=0x0D;
+  env->commandBuffer[index]=0;
 //  env->handler[MEMORY_LIMIT_HANDLER].handler=???; // Can't remember if these are set now or later
 //  env->timeBuffer=now_centiseconds();     // Will need to check real hardware
 
-  if (dispatchCmd(ptr)) {       // dispatchCmd returns 0 if command was handled locally
+
+  if (run || dispatchCmd(ptr)) {       // dispatchCmd returns 0 if command was handled locally
     // OSCLI    R2: &02 string &0D                    &7F or &80
     sendByte(R2_ID, 0x02);
     // Send the command, excluding terminating control character (anything < 0x20)
@@ -673,10 +691,17 @@ void tube_Word(unsigned int *reg) {
   receiveBlock(R2_ID, out_len, block);
 }
 
+void print_debug_string(char *s) {
+   while (*s >= ' ') {
+      putchar(*s++);
+   }
+   putchar(10);
+   putchar(13);
+}
 void tube_File(unsigned int *reg) {
   if (DEBUG_ARM) {
     printf("%08x %08x %08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]);
-    printf("%s\r\n", (char *)reg[1]);
+    print_debug_string((char *)reg[1]);
   }
   // start at the last param (r5)
   unsigned int *ptr = reg + 5;
@@ -869,16 +894,26 @@ void tube_ReadPoint(unsigned int *reg) {
   sendByte(R2_ID, 0x08);
   sendByte(R2_ID, 0x09);        // OSWORD A=&09
   sendByte(R2_ID, 0x04);        // inlen = 4
-  sendByte(R2_ID, reg[0]);      // LSB of X coord
-  sendByte(R2_ID, reg[0] >> 8); // MSB of X coord
-  sendByte(R2_ID, reg[1]);      // LSB of Y coord
+  // Blocks are sent in reverse (high downto low)
   sendByte(R2_ID, reg[1] >> 8); // MSB of Y coord
+  sendByte(R2_ID, reg[1]);      // LSB of Y coord
+  sendByte(R2_ID, reg[0] >> 8); // MSB of X coord
+  sendByte(R2_ID, reg[0]);      // LSB of X coord
   sendByte(R2_ID, 0x05);        // outlen = 5
-  receiveByte(R2_ID);           // LSB of X coord
-  receiveByte(R2_ID);           // MSB of X coord
-  receiveByte(R2_ID);           // LSB of Y coord
+  int pt = receiveByte(R2_ID);  // logical colour of point, or 0xFF is the point is off screen
   receiveByte(R2_ID);           // MSB of Y coord
-  reg[2] = receiveByte(R2_ID);  // logical colour of point, or 0xFF is the point is off screen
+  receiveByte(R2_ID);           // LSB of Y coord
+  receiveByte(R2_ID);           // MSB of X coord
+  receiveByte(R2_ID);           // LSB of X coord
+  if (pt == 0xff) {
+     reg[2] = -1;
+     reg[3] = 0;
+     reg[4] = -1;
+  } else {
+     reg[2] = pt;
+     reg[3] = 0;
+     reg[4] = 0;
+  }
 }
 
 // Entry:

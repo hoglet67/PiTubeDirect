@@ -60,6 +60,8 @@ file( GLOB core_files
     armc-cstartup.c
     armc-cstubs.c
     armc-start.S
+    copro-defs.c
+    copro-defs.h
     tube-client.c
     tube-defs.h
     tube-exception.c
@@ -75,6 +77,8 @@ file( GLOB core_files
     rpi-mailbox.h
     rpi-mailbox-interface.c
     rpi-mailbox-interface.h
+    rpi-systimer.c
+    rpi-systimer.h
     tube.S
     tube-ula.c
     programs.c
@@ -211,6 +215,17 @@ file( GLOB copro_opc7_files
     opc7/tuberom.c
 )
 
+# F100
+file( GLOB copro_f100_files
+    copro-f100.h
+    copro-f100.c
+    f100/f100.h
+    f100/f100.c
+    f100/tuberom.h
+    f100/tuberom.c
+)
+
+
 # PDP 11
 file( GLOB copro_pdp11_files
     copro-pdp11.h
@@ -219,6 +234,17 @@ file( GLOB copro_pdp11_files
     pdp11/pdp11.c
     pdp11/tuberom.h
     pdp11/tuberom.c
+)
+
+# 65816
+file( GLOB copro_65816_files
+    65816/65816.c
+    65816/65816.h
+    65816/tuberom_65816.h
+    65816/tuberom_dominic65816.c
+    65816/tuberom_reco65816.c
+    copro-65816.c
+    copro-65816.h
 )
 
 # Null co processor
@@ -232,10 +258,10 @@ file( GLOB copro_arm_files
     copro-armnative.c
     copro-armnativeasm.S
     copro-armnative.h
+    armbasic.h
+    armbasic.c
     rpi-armtimer.c
     rpi-armtimer.h
-    rpi-systimer.c
-    rpi-systimer.h
     swi.c
     swi.h
     tube-env.h
@@ -296,6 +322,10 @@ file( GLOB debugger_files
     opc7/opc7_debug.h
     pdp11/pdp11_debug.c
     pdp11/pdp11_debug.h
+    f100/f100_debug.c
+    f100/f100_debug.h
+    65816/65816_debug.c
+    65816/65816_debug.h
 )
 
 if( ${DEBUG} )
@@ -339,6 +369,8 @@ else()
             ${copro_opc5ls_files}
             ${copro_opc6_files}
             ${copro_opc7_files}
+            ${copro_f100_files}
+            ${copro_65816_files}
             ${copro_pdp11_files}
             ${copro_null_files}
             ${copro_arm_files}
@@ -363,6 +395,8 @@ else()
             ${copro_opc5ls_files}
             ${copro_opc6_files}
             ${copro_opc7_files}
+            ${copro_f100_files}
+            ${copro_65816_files}
             ${copro_pdp11_files}
             ${copro_null_files}
             ${copro_arm_files}

@@ -249,7 +249,7 @@ void SetModeRegister(int mode, int rIndex, UINT32 value)
 
 void arm2_device_reset()
 {
-  int i;
+  unsigned int i;
   m_copro_type = ARM_COPRO_TYPE_VL86C020;
   for (i = 0; i < sizeof(m_sArmRegister) / sizeof(UINT32); i++)
   {
@@ -756,7 +756,7 @@ void HandleALU(UINT32 insn)
     if ((rn = (insn & INSN_RN) >> INSN_RN_SHIFT) == eR15)
     {
       if (ARM_DEBUG_CORE)
-        logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,(insn&INSN_I?8:12));
+        logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,((insn&INSN_I)?8:12));
 
         /* Docs strongly suggest the mode bits should be included here, but it breaks Captain
          America, as it starts doing unaligned reads */

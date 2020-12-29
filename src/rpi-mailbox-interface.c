@@ -4,12 +4,14 @@
 
 #include "rpi-mailbox.h"
 #include "rpi-mailbox-interface.h"
-#include "cache.h"
 
 /* Make sure the property tag buffer is aligned to a 16-byte boundary because
    we only have 28-bits available in the property interface protocol to pass
    the address of the buffer to the VC. */
-static int *pt = ( int *) UNCACHED_MEM_BASE ;// [PROP_BUFFER_SIZE] __attribute__((aligned(16)));
+//static int *pt = ( int *) UNCACHED_MEM_BASE ;// [PROP_BUFFER_SIZE] __attribute__((aligned(16)));
+
+__attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t pt[PROP_BUFFER_SIZE];
+
 static int pt_index ;
 
 //#define PRINT_PROP_DEBUG 1
@@ -37,6 +39,7 @@ void RPI_PropertyInit( void )
 */
 void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 {
+    int num_colours;
     va_list vl;
     va_start( vl, tag );
 
@@ -91,7 +94,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             pt[pt_index++] = va_arg( vl, int ); // R3
             pt[pt_index++] = va_arg( vl, int ); // R4
             pt[pt_index++] = va_arg( vl, int ); // R5
-            break;   
+            break;
 
         case TAG_ALLOCATE_BUFFER:
             pt[pt_index++] = 8;
@@ -155,7 +158,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             pt[pt_index++] = 16;
             pt[pt_index++] = 0; /* Request */
 
-            if( ( tag == TAG_SET_OVERSCAN ) )
+            if( tag == TAG_SET_OVERSCAN )
             {
                 pt[pt_index++] = va_arg( vl, int ); /* Top pixels */
                 pt[pt_index++] = va_arg( vl, int ); /* Bottom pixels */
@@ -165,6 +168,18 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             else
             {
                 pt_index += 4;
+            }
+            break;
+
+       case TAG_SET_PALETTE:
+            num_colours = va_arg( vl, int);
+            pt[pt_index++] = 8 + num_colours * 4;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = 0;                        // Offset to first colour
+            pt[pt_index++] = num_colours;              // Number of colours
+            uint32_t *palette = va_arg( vl, uint32_t *);
+            for (int i = 0; i < num_colours; i++) {
+               pt[pt_index++] = palette[i];
             }
             break;
 
@@ -184,8 +199,8 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 int RPI_PropertyProcess( void )
 {
     int result;
-    
-#if( PRINT_PROP_DEBUG == 1 )
+
+#ifdef PRINT_PROP_DEBUG
     int i;
     LOG_INFO( "%s Length: %d\r\n", __func__, pt[PT_OSIZE] );
 #endif
@@ -193,15 +208,15 @@ int RPI_PropertyProcess( void )
     pt[PT_OSIZE] = ( pt_index + 1 ) << 2;
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
-#if( PRINT_PROP_DEBUG == 1 )
+#ifdef PRINT_PROP_DEBUG
     for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
         LOG_INFO( "Request: %3d %8.8X\r\n", i, pt[i] );
 #endif
-    RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, (unsigned int)pt );
+    RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
 
     result = RPI_Mailbox0Read( MB0_TAGS_ARM_TO_VC );
 
-#if( PRINT_PROP_DEBUG == 1 )
+#ifdef PRINT_PROP_DEBUG
     for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
         LOG_INFO( "Response: %3d %8.8X\r\n", i, pt[i] );
 #endif
@@ -210,7 +225,7 @@ int RPI_PropertyProcess( void )
 
 void RPI_PropertyProcessNoCheck( void )
 {
-#if( PRINT_PROP_DEBUG == 1 )
+#ifdef PRINT_PROP_DEBUG
     int i;
     LOG_INFO( "%s Length: %d\r\n", __func__, pt[PT_OSIZE] );
 #endif
@@ -218,22 +233,22 @@ void RPI_PropertyProcessNoCheck( void )
     pt[PT_OSIZE] = ( pt_index + 1 ) << 2;
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
-#if( PRINT_PROP_DEBUG == 1 )
+#ifdef PRINT_PROP_DEBUG
     for( i = 0; i < (pt[PT_OSIZE] >> 2); i++ )
         LOG_INFO( "Request: %3d %8.8X\r\n", i, pt[i] );
 #endif
-    RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, (unsigned int)pt );
+    RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
 }
 
 rpi_mailbox_property_t* RPI_PropertyGet( rpi_mailbox_tag_t tag)
 {
     static rpi_mailbox_property_t property;
-    int* tag_buffer = NULL;
+    uint32_t* tag_buffer = NULL;
 
     property.tag = tag;
 
     /* Get the tag from the buffer. Start at the first tag position  */
-    int index = 2;
+    unsigned int index = 2;
 
     while( index < ( pt[PT_OSIZE] >> 2 ) )
     {

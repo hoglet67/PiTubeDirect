@@ -67,7 +67,7 @@ enum {
   M6502_MemoryAllocated    = 1 << 1,
   M6502_CallbacksAllocated = 1 << 2
 #ifdef TURBO
-, M6502_Turbo              = 1 << 3
+  , M6502_Turbo            = 1 << 3
 #endif
 };
 

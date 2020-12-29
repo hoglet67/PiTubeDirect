@@ -139,10 +139,9 @@ void RPI_AuxMiniUartInit(int baud, int bits)
 #ifdef USE_IRQ
   {
     extern unsigned int _interrupt_vector_h;
-    extern void _start( void );
     tx_buffer = malloc(TX_BUFFER_SIZE);
     tx_head = tx_tail = 0;
-    *((uint32_t *) (((char *)&_interrupt_vector_h) - ((char *)&_start))) = (uint32_t) RPI_AuxMiniUartIRQHandler;
+    _interrupt_vector_h = (uint32_t) RPI_AuxMiniUartIRQHandler;
     _data_memory_barrier();
     RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
     _data_memory_barrier();
