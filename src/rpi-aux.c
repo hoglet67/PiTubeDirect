@@ -84,8 +84,16 @@ void RPI_AuxMiniUartInit(int baud, int bits)
 
   _data_memory_barrier();
 
-  int sys_freq = get_clock_rate(CORE_CLK_ID);
+  clock_info_t *sys_clock_info = get_clock_rates(CORE_CLK_ID);
 
+  int sys_freq = sys_clock_info->rate;
+
+  // Sanity-check against the min clock rate
+  if (sys_freq < sys_clock_info->min_rate) {
+     sys_freq = sys_clock_info->min_rate;
+  }
+
+  // Sanity-check against zero
   if (!sys_freq) {
      sys_freq = FALLBACK_SYS_FREQ;
   }
