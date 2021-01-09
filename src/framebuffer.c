@@ -11,11 +11,11 @@
 #include "rpi-gpio.h"
 #include "rpi-mailbox-interface.h"
 #include "startup.h"
-#include "tube-defs.h"
 #include "framebuffer.h"
 #include "v3d.h"
 #include "fonts.h"
 #include "info.h"
+#include "tube-defs.h"
 
 // Character colour / cursor position
 static int16_t c_bg_col;
@@ -62,8 +62,6 @@ static char vdu_queue[VDU_QSIZE];
 
 #define NUM_COLOURS 256
 
-static int num_colours = NUM_COLOURS;
-
 static uint32_t colour_table[NUM_COLOURS];
 
 #if defined(BPP32)
@@ -78,7 +76,7 @@ static inline void set_colour(unsigned int index, int r, int g, int b) {
    colour_table[index] = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
 };
 
-static void update_palette() {
+static void update_palette(int offset, int num_colours) {
 }
 
 
@@ -97,7 +95,7 @@ static inline void set_colour(unsigned int index, int r, int g, int b) {
    colour_table[index] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
 }
 
-static void update_palette() {
+static void update_palette(int offset, int num_colours) {
 }
 
 
@@ -113,18 +111,23 @@ static inline void set_colour(unsigned int index, int r, int g, int b) {
    colour_table[index] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
 }
 
-static void update_palette() {
-   //   LOG_INFO("Calling TAG_SET_PALETTE\r\n");
+static void update_palette(int offset, int num_colours) {
    RPI_PropertyInit();
-   RPI_PropertyAddTag(TAG_SET_PALETTE, num_colours, colour_table);
-   // Call the NoCheck version as currently our FIQ handler swallows the response
-   RPI_PropertyProcessNoCheck();
+   RPI_PropertyAddTag(TAG_SET_PALETTE, offset, num_colours, colour_table);
+#ifdef USE_DOORBELL
+   // Call the Check version as doorbell and mailboxes are seperate
+   //LOG_INFO("Calling TAG_SET_PALETTE\r\n");
+   RPI_PropertyProcess();
    //rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_SET_PALETTE);
    //if (buf) {
    //   LOG_INFO("TAG_SET_PALETTE returned %08x\r\n", buf->data.buffer_32[0]);
    //} else {
    //   LOG_INFO("TAG_SET_PALETTE returned ?\r\n");
    //}
+#else
+   // Call the NoCheck version as our mailbox FIQ handler swallows the response
+   RPI_PropertyProcessNoCheck();
+#endif
 }
 
 #endif
@@ -473,7 +476,7 @@ void fb_initialize() {
     init_colour_table();
 
     /* Update the palette (only in 8-bpp modes) */
-    update_palette();
+    update_palette(0, NUM_COLOURS);
 
     /* Clear the screen to the background colour */
     fb_clear();
@@ -691,6 +694,7 @@ void fb_writec(char ch) {
          b = c;
          if (p == 255) {
             init_colour_table();
+            update_palette(l, NUM_COLOURS);
          } else {
             // See http://beebwiki.mdfs.net/VDU_19
             if (p < 16) {
@@ -700,9 +704,9 @@ void fb_writec(char ch) {
                r = (p & 1) ? i : 0;
             }
             set_colour(l, r, g, b);
+            update_palette(l, 1);
          }
          state = NORMAL;
-         update_palette();
          break;
       }
       count++;
