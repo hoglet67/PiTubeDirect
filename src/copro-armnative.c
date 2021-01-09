@@ -82,8 +82,9 @@ static void defaultErrorHandler(const ErrorBuffer_type *eb) {
   if (DEBUG_ARM) {
     printf("Error = %p %02x %s\r\n", eb->errorAddr, eb->errorBlock.errorNum, eb->errorBlock.errorMsg);
   }
-  sendString(R1_ID, 0x00, eb->errorBlock.errorMsg);
-  sendString(R1_ID, 0x00, "\n\r");
+  OS_Write0(eb->errorBlock.errorMsg);
+  OS_WriteC(10);
+  OS_WriteC(13);
   OS_Exit();
 }
 
