@@ -36,10 +36,12 @@ kernel=kernel8-32.img
 [all]
 force_turbo=1
 
-hdmi_blanking=2
-hdmi_ignore_edid=0xa5000080
-hdmi_ignore_hotplug=1
+#hdmi_blanking=2
+#hdmi_ignore_edid=0xa5000080
+#hdmi_ignore_hotplug=1
 boot_delay=0
+start_file=start.elf
+fixup_file=fixup.dat
 
 # Memory map to stay compatible with 256MB Pi Models
 #
