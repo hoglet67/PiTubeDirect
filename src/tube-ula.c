@@ -18,8 +18,8 @@
 #include "cache.h"
 #include "info.h"
 #include "performance.h"
-#include "framebuffer.h"
-#include "v3d.h"
+#include "framebuffer/framebuffer.h"
+#include "framebuffer/v3d.h"
 
 // For predictable timing (i.e. stalling to to cache or memory contention)
 // we need to find somewhere in I/O space to place the tube registers.

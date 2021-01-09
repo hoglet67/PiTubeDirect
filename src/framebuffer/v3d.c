@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "rpi-base.h"
-#include "rpi-mailbox-interface.h"
+#include "../rpi-base.h"
+#include "../rpi-mailbox-interface.h"
+
 #include "v3d.h"
 #include "framebuffer.h"
 

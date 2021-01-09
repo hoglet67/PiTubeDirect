@@ -34,7 +34,7 @@
 #include "tube-env.h"
 #include "tube-swi.h"
 #include "tube-isr.h"
-#include "framebuffer.h"
+#include "framebuffer/framebuffer.h"
 
 #define NUM_SWI_HANDLERS 0x80
 

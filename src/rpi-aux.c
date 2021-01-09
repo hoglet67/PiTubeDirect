@@ -6,7 +6,7 @@
 #include "startup.h"
 #include "stdlib.h"
 #include "rpi-systimer.h"
-#include "framebuffer.h"
+#include "framebuffer/framebuffer.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "debugger/debugger.h"

@@ -5,17 +5,19 @@
 #include <string.h>
 #include <inttypes.h>
 #include <math.h>
-#include "rpi-armtimer.h"
-#include "rpi-interrupts.h"
-#include "rpi-aux.h"
-#include "rpi-gpio.h"
-#include "rpi-mailbox-interface.h"
-#include "startup.h"
+
+#include "../info.h"
+#include "../rpi-armtimer.h"
+#include "../rpi-aux.h"
+#include "../rpi-gpio.h"
+#include "../rpi-interrupts.h"
+#include "../rpi-mailbox-interface.h"
+#include "../startup.h"
+#include "../tube-defs.h"
+
 #include "framebuffer.h"
 #include "v3d.h"
 #include "fonts.h"
-#include "info.h"
-#include "tube-defs.h"
 
 // Character colour / cursor position
 static int16_t c_bg_col;
