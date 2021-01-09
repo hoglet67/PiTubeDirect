@@ -20,16 +20,19 @@
 .equ    C_FLAG,      0x20000000
 
 copro_armnative_enable_mailbox:
+#ifndef USE_DOORBELL
         mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
         ldr     r1, =MBOX0_CONFIG       // to generate interrupts when data is present
         str     r0, [r1]
+#endif
         mov     pc, lr
 
-
 copro_armnative_disable_mailbox:
+#ifndef USE_DOORBELL
         mov     r0, #0                  // disable mailbox hardware to generate interrupts
         ldr     r1, =MBOX0_CONFIG       // when data is present
         str     r0, [r1]
+#endif
         mov     pc, lr
 
 #ifdef USE_REENTRANT_FIQ_HANDLER
@@ -40,7 +43,13 @@ copro_armnative_fiq_handler:
 
         push    {r0-r8,lr}             // Save register state to FIQ stack
 
+#ifdef USE_DOORBELL
+        ldr     r1, =DOORBELL          // Read the GPU doorbell
+        ldr     r0, [r1]
+        ldr     r1, =DOORBELLDATA      // Read the GPU doorbell
+#else
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
+#endif
         ldr     r0, [r1]
 
         bl      tube_io_handler        // Update the Tube ULA emulation
@@ -106,7 +115,13 @@ copro_armnative_fiq_handler:
 
         push    {r0-r7, lr}            // Save everything that is not shadowed
 
+#ifdef USE_DOORBELL
+        ldr     r1, =DOORBELL          // Read the GPU doorbell
+        ldr     r0, [r1]
+        ldr     r1, =DOORBELLDATA      // Read the GPU doorbell
+#else
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
+#endif
         ldr     r0, [r1]
 
         push    {r0}

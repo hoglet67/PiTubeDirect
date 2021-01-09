@@ -65,21 +65,35 @@ void init_emulator() {
    LOG_DEBUG("Raspberry Pi Direct %u %s Client\r\n", copro, copro_def->name);
 
 
-    tube_irq = 0; // Make sure everything is clear
-	// Set up FIQ handler
+   tube_irq = 0; // Make sure everything is clear
+   // Set up FIQ handler
 
    FIQ_VECTOR = (uint32_t) arm_fiq_handler_flag1;
    _data_memory_barrier();
-   (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
-    // Direct Mail box to FIQ handler
+
+#ifdef USE_DOORBELL
+   // Direct Doorbell to FIQ handler
 
 #if defined(RPI4)
-    RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_MAILBOX_IRQ ;
+   RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_DOORBELL_1_IRQ;
 #else
-    RPI_GetIrqController()->FIQ_control = 0x80 +65;
+   RPI_GetIrqController()->FIQ_control = 0x80 + 67;
 #endif
 
-    _data_memory_barrier();
+#else
+   // Direct Mail box to FIQ handler
+   (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
+   _data_memory_barrier();
+
+#if defined(RPI4)
+   RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_MAILBOX_IRQ;
+#else
+   RPI_GetIrqController()->FIQ_control = 0x80 + 65;
+#endif
+
+#endif
+
+   _data_memory_barrier();
 
 #ifndef MINIMAL_BUILD
    if (copro_def->type == TYPE_ARMNATIVE) {

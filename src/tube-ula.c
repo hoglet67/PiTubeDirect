@@ -942,7 +942,11 @@ void start_vc_ula()
 {
    int func,r0,r1, r2,r3,r4,r5;
    extern int tube_delay;
-   func = (int) &tubevc_asm[0];
+#ifdef USE_DOORBELL
+   func = (int) &tubevc_doorbell_asm[0];
+#else
+   func = (int) &tubevc_mailbox_asm[0];
+#endif
    r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
    r1   = led_type;
    r2   = tube_delay;
