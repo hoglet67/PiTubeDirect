@@ -27,7 +27,7 @@ char line[256];
  * Build in Commands
  ***********************************************************/
 
-#define NUM_CMDS 8
+#define NUM_CMDS 9
 
 // Must be kept in step with cmdFuncs (just below)
 char *cmdStrings[NUM_CMDS] = {
@@ -38,7 +38,8 @@ char *cmdStrings[NUM_CMDS] = {
   "DIS",
   "FILL",
   "CRC",
-  "ARMBASIC"
+  "ARMBASIC",
+  "PIVDU"
 };
 
 int (*cmdFuncs[NUM_CMDS])(const char *params) = {
@@ -49,10 +50,12 @@ int (*cmdFuncs[NUM_CMDS])(const char *params) = {
   doCmdDis,
   doCmdFill,
   doCmdCrc,
-  doCmdArmBasic
+  doCmdArmBasic,
+  doCmdPiVDU
 };
 
 int cmdMode[NUM_CMDS] = {
+  MODE_USER,
   MODE_USER,
   MODE_USER,
   MODE_USER,
@@ -292,4 +295,30 @@ int doCmdArmBasic(const char *params) {
   f = (FunctionPtr_Type) ARM_BASIC_EXEC;
   f(params);
   return 0;
+}
+
+int doCmdPiVDU(const char *params) {
+   int device = atoi(params);
+   OS_Write0("Beeb VDU:");
+   if (device & 1) {
+      OS_Write0("enabled\r\n");
+   } else {
+      OS_Write0("disabled\r\n");
+   }
+   OS_Write0("  Pi VDU:");
+   if (device & 2) {
+      OS_Write0("enabled\r\n");
+   } else {
+      OS_Write0("disabled\r\n");
+   }
+   if (device & 2) {
+      // *FX 4,1 to disable cursor editing
+      OS_Byte(4, 1, 0, NULL, NULL);
+   } else {
+      // *FX 4,0 to enable cursor editing
+      OS_Byte(4, 0, 0, NULL, NULL);
+   }
+   setVDUDevice(device);
+   // TODO: Need to add a host oswrch redirector (for output of OSCLI commands)
+   return 0;
 }

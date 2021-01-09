@@ -42,6 +42,9 @@ void handler_not_defined(unsigned int num);
 void handler_not_implemented(char *type);
 void tube_SWI_Not_Known(unsigned int *reg);
 
+// VDU control
+void setVDUDevice(int device);
+
 // SWI handler prototypes
 void tube_WriteC(unsigned int *reg);            // &00
 void tube_WriteS(unsigned int *reg);            // &01
