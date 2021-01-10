@@ -1,5 +1,8 @@
 // framebuffer.h
 
+#define DEBUG_VDU
+
+
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 

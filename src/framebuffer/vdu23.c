@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
 
@@ -11,10 +12,12 @@
 
 static char vdu23buf[300];
 
-static void do_vdu23_command(screen_mode_t *screen, font_t *font) {
+static void do_vdu23_command(screen_mode_t *screen, font_t **fontp) {
 
    unsigned int x, y, col;
    unsigned int p, i, b, mp;
+
+   font_t *font = *fontp;
 
 #ifdef DEBUG_VDU
    for (i=0; i<9; i++) {
@@ -26,11 +29,11 @@ static void do_vdu23_command(screen_mode_t *screen, font_t *font) {
    // VDU 23,3: select font by name
    // params: eight bytes font name, trailing zeros if name shorter than 8 chars
    if (vdu23buf[0] == 3) {
-      font_t *font = get_font(vdu23buf+1);
-      if (!font) {
-         fb_writes("No matching font found\r\n");
-         // TODO: Fix hard-coded font data size
+      font = get_font(vdu23buf+1);
+      if (font) {
+         *fontp = font;
       } else {
+         fb_writes("No matching font found\r\n");
       }
    }
 
@@ -41,7 +44,7 @@ static void do_vdu23_command(screen_mode_t *screen, font_t *font) {
       font->scale_h = vdu23buf[2] > 0 ? vdu23buf[2] : 1;
       font->spacing = vdu23buf[3];
 #ifdef DEBUG_VDU
-      printf("Font scale set to %d,%d\r\n", font_scale_w, font_scale_h);
+      printf("Font scale set to %d,%d\r\n", font->scale_w, font->scale_h);
 #endif
    }
 
@@ -136,7 +139,7 @@ static void do_vdu23_command(screen_mode_t *screen, font_t *font) {
 }
 
 
-vdu_state_t do_vdu23(screen_mode_t *screen, font_t *font, uint8_t c) {
+vdu_state_t do_vdu23(screen_mode_t *screen, font_t **fontp, uint8_t c) {
    static int count = 0;
    static int size = 0;
 
@@ -147,7 +150,7 @@ vdu_state_t do_vdu23(screen_mode_t *screen, font_t *font, uint8_t c) {
    }
 
    if (count == size - 1) {
-      do_vdu23_command(screen, font);
+      do_vdu23_command(screen, fontp);
       count = 0;
       return NORMAL;
    } else {

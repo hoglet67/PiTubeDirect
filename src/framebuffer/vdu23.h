@@ -7,6 +7,6 @@
 #include "fonts.h"
 #include "vdu_state.h"
 
-vdu_state_t do_vdu23(screen_mode_t *screen, font_t *font, uint8_t c);
+vdu_state_t do_vdu23(screen_mode_t *screen, font_t **fontp, uint8_t c);
 
 #endif

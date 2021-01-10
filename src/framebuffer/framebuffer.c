@@ -1,5 +1,3 @@
-// #define DEBUG_VDU
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,10 +25,6 @@
 // Logical resolution
 #define BBC_X_RESOLUTION 1280
 #define BBC_Y_RESOLUTION 1024
-
-// Font Size - TODO this should be dynamic
-#define FONT_WIDTH   8
-#define FONT_HEIGHT 12
 
 // Default colours - TODO this should be dynamic
 #define COL_BLACK    0
@@ -96,7 +90,15 @@ static inline void set_colour(unsigned int index, int r, int g, int b) {
 static int e_visible; // Current visibility of the edit cursor
 static int c_visible; // Current visibility of the write cursor
 
-void fb_init_variables() {
+static void calc_text_area() {
+   // Calculate the text size
+   if (screen && font) {
+      text_width = screen->width / font->width;
+      text_height = screen->height / font->height;
+   }
+}
+
+static void fb_init_variables() {
 
     // Character colour / cursor position
    c_bg_col  = COL_BLACK;
@@ -128,20 +130,16 @@ void fb_init_variables() {
    // Cursor mode
    g_cursor      = IN_VDU4;
 
-   // Calculate the text size
-   if (screen && font) {
-      text_width = screen->width / font->width;
-      text_height = screen->height / font->height;
-   }
-
+   // Calculate the size of the text area
+   calc_text_area();
 }
 
 static void fb_invert_cursor(int x_pos, int y_pos, int editing) {
-   int x = x_pos * FONT_WIDTH;
-   int y = screen->height - y_pos * FONT_HEIGHT - 1;
-   int y1 = editing ? FONT_HEIGHT - 2 : 0;
-   for (int i = y1; i < FONT_HEIGHT; i++) {
-      for (int j = 0; j < FONT_WIDTH; j++) {
+   int x = x_pos * font->width;
+   int y = screen->height - y_pos * font->height - 1;
+   int y1 = editing ? font->height - 2 : 0;
+   for (int i = y1; i < font->height; i++) {
+      for (int j = 0; j < font->width; j++) {
          int col = screen->get_pixel(screen, x + j, y - i);
          col ^= get_colour(COL_WHITE);
          screen->set_pixel(screen, x + j, y - i, col);
@@ -522,7 +520,12 @@ void fb_writec(char ch) {
 
    } else if (state == IN_VDU23) {
       // Pass to the vdu23 code (in vdu23.c)
-      state = do_vdu23(screen, font, c);
+      font_t *old_font = font;
+      state = do_vdu23(screen, &font, c);
+      if (font != old_font) {
+         // Re-calculate the size of the text area
+         calc_text_area();
+      }
       return;
 
    } else if (state == IN_VDU25) {
@@ -790,19 +793,8 @@ void fb_writec(char ch) {
    default:
 
       if (g_cursor == IN_VDU4) {
-         // Convert c to index into 6847 character generator ROM
-         // chars 20-3F map to 20-3F
-         // chars 40-5F map to 00-1F
-         // chars 60-7F map to 40-5F
          invert = c >= 0x80;
          c &= 0x7f;
-         if (c < 0x20) {
-            return;
-         } else if (c >= 0x40 && c < 0x5F) {
-            c -= 0x40;
-         } else if (c >= 0x60) {
-            c -= 0x20;
-         }
 
          // Draw the next character at the cursor position
          fb_hide_cursor();

@@ -116,8 +116,6 @@ static int default_read_character(font_t *font, screen_mode_t *screen, int x_pos
 
    // TODO: Account for font scaling
 
-   // TODO: Normalize charater order (6847 font)
-
    // Read the character from screen memory
    int x = x_pos;
    int y = y_pos;
@@ -132,7 +130,7 @@ static int default_read_character(font_t *font, screen_mode_t *screen, int x_pos
       screendata[i] = row;
    }
    // Match against font
-   for (int c = 0x00; c < 0x60; c++) {
+   for (int c = 0x20; c < font->num_chars; c++) {
       int y;
       for (y = 0; y < font->height - cursor_lines; y++) {
          if (fontbuffer[c * font->bytes_per_char + y] != screendata[y]) {
@@ -140,19 +138,7 @@ static int default_read_character(font_t *font, screen_mode_t *screen, int x_pos
          }
       }
       if (y == font->height - cursor_lines) {
-         // We are still using the Atom 6847 character ROM!
-         //
-         // Demangle the
-         // 00-1F map to 40-5F
-         // 20-3F map to 20-3F
-         // 40-5F map to 60-7F
-         if (c < 0x20) {
-            return c + 0x40;
-         } else if (c < 0x40) {
-            return c;
-         } else {
-            return c + 0x20;
-         }
+         return c;
       }
    }
    return 0;
