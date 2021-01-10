@@ -14,9 +14,6 @@ typedef struct screen_mode {
 
    int num_colours; // number of colours
 
-   int text_width;  // width in text characters
-   int text_height; // height in text characters
-
    int pitch;       // filled in by init
 
    void           (*init)(struct screen_mode *screen);

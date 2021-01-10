@@ -41,6 +41,8 @@ static screen_mode_t *screen = NULL;
 
 // Current font
 static font_t *font = NULL;
+static int16_t text_width;
+static int16_t text_height;
 
 // Character colour / cursor position
 static int16_t c_bg_col;
@@ -125,6 +127,13 @@ void fb_init_variables() {
 
    // Cursor mode
    g_cursor      = IN_VDU4;
+
+   // Calculate the text size
+   if (screen && font) {
+      text_width = screen->width / font->width;
+      text_height = screen->height / font->height;
+   }
+
 }
 
 static void fb_invert_cursor(int x_pos, int y_pos, int editing) {
@@ -206,7 +215,7 @@ static void fb_edit_cursor_up() {
    if (e_y_pos > 0) {
       e_y_pos--;
    } else {
-      e_y_pos = screen->text_height - 1;
+      e_y_pos = text_height - 1;
    }
    fb_show_edit_cursor();
 }
@@ -214,7 +223,7 @@ static void fb_edit_cursor_up() {
 static void fb_edit_cursor_down() {
    fb_enable_edit_cursor();
    fb_hide_edit_cursor();
-   if (e_y_pos < screen->text_height - 1) {
+   if (e_y_pos < text_height - 1) {
       e_y_pos++;
    } else {
       e_y_pos = 0;
@@ -228,11 +237,11 @@ static void fb_edit_cursor_left() {
    if (e_x_pos > 0) {
       e_x_pos--;
    } else {
-      e_x_pos = screen->text_width - 1;
+      e_x_pos = text_width - 1;
       if (e_y_pos > 0) {
          e_y_pos--;
       } else {
-         e_y_pos = screen->text_height - 1;
+         e_y_pos = text_height - 1;
       }
    }
    fb_show_edit_cursor();
@@ -241,11 +250,11 @@ static void fb_edit_cursor_left() {
 static void fb_edit_cursor_right() {
    fb_enable_edit_cursor();
    fb_hide_edit_cursor();
-   if (e_x_pos < screen->text_width - 1) {
+   if (e_x_pos < text_width - 1) {
       e_x_pos++;
    } else {
       e_x_pos = 0;
-      if (e_y_pos < screen->text_height - 1) {
+      if (e_y_pos < text_height - 1) {
          e_y_pos++;
       } else {
          e_y_pos = 0;
@@ -286,14 +295,14 @@ void fb_cursor_left() {
    if (c_x_pos > 0) {
       c_x_pos--;
    } else {
-      c_x_pos = screen->text_width - 1;
+      c_x_pos = text_width - 1;
    }
    fb_show_cursor();
 }
 
 void fb_cursor_right() {
    fb_hide_cursor();
-   if (c_x_pos < screen->text_width - 1) {
+   if (c_x_pos < text_width - 1) {
       c_x_pos++;
    } else {
       c_x_pos = 0;
@@ -306,14 +315,14 @@ void fb_cursor_up() {
    if (c_y_pos > 0) {
       c_y_pos--;
    } else {
-      c_y_pos = screen->text_height - 1;
+      c_y_pos = text_height - 1;
    }
    fb_show_cursor();
 }
 
 void fb_cursor_down() {
    fb_hide_cursor();
-   if (c_y_pos < screen->text_height - 1) {
+   if (c_y_pos < text_height - 1) {
       c_y_pos++;
    } else {
       fb_scroll();
@@ -337,7 +346,7 @@ void fb_cursor_home() {
 
 void fb_cursor_next() {
    fb_hide_cursor();
-   if (c_x_pos < screen->text_width - 1) {
+   if (c_x_pos < text_width - 1) {
       c_x_pos++;
    } else {
       c_x_pos = 0;
@@ -349,8 +358,6 @@ void fb_cursor_next() {
 volatile int d;
 
 void fb_initialize() {
-   fb_init_variables();
-
    font = get_font(DEFAULT_FONT);
 
    if (!font) {
@@ -358,6 +365,8 @@ void fb_initialize() {
    } else {
       printf("Font %s loaded\n\r", font->name);
    }
+
+   fb_init_variables();
 
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
