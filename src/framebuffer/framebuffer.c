@@ -20,7 +20,7 @@
 #include "fonts.h"
 
 // Default screen mode
-#define DEFAULT_SCREEN_MODE 0
+#define DEFAULT_SCREEN_MODE 8
 
 // Logical resolution
 #define BBC_X_RESOLUTION 1280
@@ -72,7 +72,7 @@ static char vdu_queue[VDU_QSIZE];
 
 #include "vdu23.h"
 
-static inline unsigned int get_colour(unsigned int index) {
+static inline pixel_t get_colour(unsigned int index) {
    return screen->get_colour(screen, index);
 }
 
@@ -139,8 +139,8 @@ void fb_init_variables() {
 }
 
 static void fb_invert_cursor(int x_pos, int y_pos, int editing) {
-   int x = x_pos * 8;
-   int y = screen->height - y_pos * 12 - 1;
+   int x = x_pos * FONT_WIDTH;
+   int y = screen->height - y_pos * FONT_HEIGHT - 1;
    int y1 = editing ? FONT_HEIGHT - 2 : 0;
    for (int i = y1; i < FONT_HEIGHT; i++) {
       for (int j = 0; j < FONT_WIDTH; j++) {
@@ -364,16 +364,16 @@ void fb_initialize() {
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
 
+   // TODO: This should be elsewhere
    // Initialize Timer Interrupts
    RPI_ArmTimerInit();
    RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
 
-   fb_writes("\r\n\r\nPi Tube Direct VDU Driver\r\n");
+   fb_writes("\r\nPiTubeDirect VDU Driver\r\n");
 #ifdef DEBUG_VDU
    fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
 #endif
-   printf("\r\n\r\nScreen size: %d,%d\r\n>", screen->width, screen->height);
-
+   fb_writes("\r\n");
 }
 
 void update_g_cursors(int16_t x, int16_t y) {
