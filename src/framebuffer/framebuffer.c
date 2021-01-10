@@ -11,13 +11,31 @@
 #include "../rpi-aux.h"
 #include "../rpi-gpio.h"
 #include "../rpi-interrupts.h"
-#include "../rpi-mailbox-interface.h"
 #include "../startup.h"
 #include "../tube-defs.h"
 
+#include "screen_modes.h"
 #include "framebuffer.h"
 #include "v3d.h"
 #include "fonts.h"
+
+// Default screen mode
+#define DEFAULT_SCREEN_MODE 0
+
+// Logical resolution
+#define BBC_X_RESOLUTION 1280
+#define BBC_Y_RESOLUTION 1024
+
+// Font Size - TODO this should be dynamic
+#define FONT_WIDTH   8
+#define FONT_HEIGHT 12
+
+// Default colours - TODO this should be dynamic
+#define COL_BLACK    0
+#define COL_WHITE   15
+
+// Current screen mode
+static screen_mode_t *screen = NULL;
 
 // Character colour / cursor position
 static int16_t c_bg_col;
@@ -54,89 +72,13 @@ static char vdu_queue[VDU_QSIZE];
 
 #include "vdu23.h"
 
-#define BBC_X_RESOLUTION 1280
-#define BBC_Y_RESOLUTION 1024
-
-#define SCREEN_WIDTH    640
-#define SCREEN_HEIGHT   480
-
-#define BPP8
-
-#define NUM_COLOURS 256
-
-static uint32_t colour_table[NUM_COLOURS];
-
-#if defined(BPP32)
-
-#define SCREEN_DEPTH    32
-
 static inline unsigned int get_colour(unsigned int index) {
-   return colour_table[index];
+   return screen->get_colour(screen, index);
 }
 
 static inline void set_colour(unsigned int index, int r, int g, int b) {
-   colour_table[index] = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
-};
-
-static void update_palette(int offset, int num_colours) {
+   screen->set_colour(screen, index, r, g, b);
 }
-
-
-#elif defined (BPP16)
-
-#define SCREEN_DEPTH    16
-
-static inline unsigned int get_colour(unsigned int index) {
-   return colour_table[index];
-}
-
-// 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
-// R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
-
-static inline void set_colour(unsigned int index, int r, int g, int b) {
-   colour_table[index] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
-}
-
-static void update_palette(int offset, int num_colours) {
-}
-
-
-#else
-
-#define SCREEN_DEPTH    8
-
-static inline unsigned int get_colour(unsigned int index) {
-   return index;
-}
-
-static inline void set_colour(unsigned int index, int r, int g, int b) {
-   colour_table[index] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
-}
-
-static void update_palette(int offset, int num_colours) {
-   RPI_PropertyInit();
-   RPI_PropertyAddTag(TAG_SET_PALETTE, offset, num_colours, colour_table);
-#ifdef USE_DOORBELL
-   // Call the Check version as doorbell and mailboxes are seperate
-   //LOG_INFO("Calling TAG_SET_PALETTE\r\n");
-   RPI_PropertyProcess();
-   //rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_SET_PALETTE);
-   //if (buf) {
-   //   LOG_INFO("TAG_SET_PALETTE returned %08x\r\n", buf->data.buffer_32[0]);
-   //} else {
-   //   LOG_INFO("TAG_SET_PALETTE returned ?\r\n");
-   //}
-#else
-   // Call the NoCheck version as our mailbox FIQ handler swallows the response
-   RPI_PropertyProcessNoCheck();
-#endif
-}
-
-#endif
-
-#define D_RED   ((((RED & ~ALPHA)   >> 1) & RED)   | ALPHA)
-#define D_GREEN ((((GREEN & ~ALPHA) >> 1) & GREEN) | ALPHA)
-#define D_BLUE  ((((BLUE & ~ALPHA)  >> 1) & BLUE)  | ALPHA)
 
 // Fill modes:
 #define HL_LR_NB 1 // Horizontal line fill (left & right) to non-background
@@ -159,8 +101,6 @@ static void update_palette(int offset, int num_colours) {
 #define IN_VDU29  29
 #define IN_VDU31  31
 
-static unsigned char* fb = NULL;
-static int width = 0, height = 0, bpp = 0, pitch = 0;
 
 static int e_visible; // Current visibility of the edit cursor
 static int c_visible; // Current visibility of the write cursor
@@ -168,8 +108,8 @@ static int c_visible; // Current visibility of the write cursor
 void fb_init_variables() {
 
     // Character colour / cursor position
-   c_bg_col  = 0;
-   c_fg_col  = 15;
+   c_bg_col  = COL_BLACK;
+   c_fg_col  = COL_WHITE;
    c_x_pos   = 0;
    c_y_pos   = 0;
    c_visible = 0;
@@ -181,8 +121,8 @@ void fb_init_variables() {
    e_enabled = 0;
 
    // Graphics colour / cursor position
-   g_bg_col      = 0;
-   g_fg_col      = 15;
+   g_bg_col      = COL_BLACK;
+   g_fg_col      = COL_WHITE;
    g_x_origin    = 0;
    g_x_pos       = 0;
    g_x_pos_last1 = 0;
@@ -196,22 +136,17 @@ void fb_init_variables() {
 
    // Cursor mode
    g_cursor      = IN_VDU4;
-
 }
 
 static void fb_invert_cursor(int x_pos, int y_pos, int editing) {
-   int y1 = editing ? 10 : 0;
-   for (int y = y1; y < 12; y++) {
-#if defined(BPP32)
-      uint32_t *fbptr = (uint32_t *)(fb + (y_pos * 12 + y) * pitch + x_pos * 8 * 4);
-#elif defined(BPP16)
-      uint16_t *fbptr = (uint16_t *)(fb + (y_pos * 12 + y) * pitch + x_pos * 8 * 2);
-#else
-      uint8_t *fbptr = (uint8_t *)(fb + (y_pos * 12 + y) * pitch + x_pos * 8);
-#endif
-      for (int x = 0; x < 8; x++) {
-         *fbptr ^= get_colour(15);
-         fbptr++;
+   int x = x_pos * 8;
+   int y = screen->height - y_pos * 12 - 1;
+   int y1 = editing ? FONT_HEIGHT - 2 : 0;
+   for (int i = y1; i < FONT_HEIGHT; i++) {
+      for (int j = 0; j < FONT_WIDTH; j++) {
+         int col = screen->get_pixel(screen, x + j, y - i);
+         col ^= get_colour(COL_WHITE);
+         screen->set_pixel(screen, x + j, y - i, col);
       }
    }
 }
@@ -282,7 +217,7 @@ static void fb_edit_cursor_up() {
    if (e_y_pos > 0) {
       e_y_pos--;
    } else {
-      e_y_pos = 39;
+      e_y_pos = screen->text_height - 1;
    }
    fb_show_edit_cursor();
 }
@@ -290,7 +225,7 @@ static void fb_edit_cursor_up() {
 static void fb_edit_cursor_down() {
    fb_enable_edit_cursor();
    fb_hide_edit_cursor();
-   if (e_y_pos < 39) {
+   if (e_y_pos < screen->text_height - 1) {
       e_y_pos++;
    } else {
       e_y_pos = 0;
@@ -304,11 +239,11 @@ static void fb_edit_cursor_left() {
    if (e_x_pos > 0) {
       e_x_pos--;
    } else {
-      e_x_pos = 79;
+      e_x_pos = screen->text_width - 1;
       if (e_y_pos > 0) {
          e_y_pos--;
       } else {
-         e_y_pos = 39;
+         e_y_pos = screen->text_height - 1;
       }
    }
    fb_show_edit_cursor();
@@ -317,11 +252,11 @@ static void fb_edit_cursor_left() {
 static void fb_edit_cursor_right() {
    fb_enable_edit_cursor();
    fb_hide_edit_cursor();
-   if (e_x_pos < 79) {
+   if (e_x_pos < screen->text_width - 1) {
       e_x_pos++;
    } else {
       e_x_pos = 0;
-      if (e_y_pos < 39) {
+      if (e_y_pos < screen->text_height - 1) {
          e_y_pos++;
       } else {
          e_y_pos = 0;
@@ -334,8 +269,7 @@ static void fb_scroll() {
    if (e_enabled) {
       fb_hide_edit_cursor();
    }
-   _fast_scroll(fb, fb + 12 * pitch, (height - 12) * pitch);
-   _fast_clear(fb + (height - 12) * pitch, 0, 12 * pitch);
+   screen->scroll(screen);
    if (e_enabled) {
       if (e_y_pos > 0) {
          e_y_pos--;
@@ -352,8 +286,7 @@ void fb_clear() {
    // TODO: clearing all of these may not be strictly correct
    fb_init_variables();
    // clear frame buffer
-   // TODO: This needs to take acount of the size and bit depth
-   memset((void *)fb, get_colour(c_bg_col), height * pitch);
+   screen->clear(screen, get_colour(c_bg_col));
    // Show the cursor
    fb_show_cursor();
 }
@@ -364,14 +297,14 @@ void fb_cursor_left() {
    if (c_x_pos > 0) {
       c_x_pos--;
    } else {
-      c_x_pos = 79;
+      c_x_pos = screen->text_width - 1;
    }
    fb_show_cursor();
 }
 
 void fb_cursor_right() {
    fb_hide_cursor();
-   if (c_x_pos < 79) {
+   if (c_x_pos < screen->text_width - 1) {
       c_x_pos++;
    } else {
       c_x_pos = 0;
@@ -384,14 +317,14 @@ void fb_cursor_up() {
    if (c_y_pos > 0) {
       c_y_pos--;
    } else {
-      c_y_pos = 39;
+      c_y_pos = screen->text_height - 1;
    }
    fb_show_cursor();
 }
 
 void fb_cursor_down() {
    fb_hide_cursor();
-   if (c_y_pos < 39) {
+   if (c_y_pos < screen->text_height - 1) {
       c_y_pos++;
    } else {
       fb_scroll();
@@ -415,7 +348,7 @@ void fb_cursor_home() {
 
 void fb_cursor_next() {
    fb_hide_cursor();
-   if (c_x_pos < 79) {
+   if (c_x_pos < screen->text_width - 1) {
       c_x_pos++;
    } else {
       c_x_pos = 0;
@@ -427,108 +360,20 @@ void fb_cursor_next() {
 volatile int d;
 
 void fb_initialize() {
+   fb_init_variables();
+   fb_writec(22);
+   fb_writec(DEFAULT_SCREEN_MODE);
 
-   int col, x, y;
-    rpi_mailbox_property_t *mp;
+   // Initialize Timer Interrupts
+   RPI_ArmTimerInit();
+   RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
 
-    /* Initialise a framebuffer... */
-    RPI_PropertyInit();
-    RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER);
-    RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT );
-    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT * 2 ); // TODO: FIX ME
-    RPI_PropertyAddTag(TAG_SET_DEPTH, SCREEN_DEPTH );
-    RPI_PropertyAddTag(TAG_GET_PITCH );
-    RPI_PropertyAddTag(TAG_GET_PHYSICAL_SIZE );
-    RPI_PropertyAddTag(TAG_GET_DEPTH );
-    RPI_PropertyProcess();
-
-    if( ( mp = RPI_PropertyGet( TAG_GET_PHYSICAL_SIZE ) ) )
-    {
-        width = mp->data.buffer_32[0];
-        height = mp->data.buffer_32[1];
-
-        printf( "Initialised Framebuffer: %dx%d ", width, height );
-    }
-
-    if( ( mp = RPI_PropertyGet( TAG_GET_DEPTH ) ) )
-    {
-        bpp = mp->data.buffer_32[0];
-        printf( "%dbpp\r\n", bpp );
-    }
-
-    if( ( mp = RPI_PropertyGet( TAG_GET_PITCH ) ) )
-    {
-        pitch = mp->data.buffer_32[0];
-        printf( "Pitch: %d bytes\r\n", pitch );
-    }
-
-    if( ( mp = RPI_PropertyGet( TAG_ALLOCATE_BUFFER ) ) )
-    {
-        fb = (unsigned char*)mp->data.buffer_32[0];
-        printf( "Framebuffer address: %8.8X\r\n", (unsigned int)fb );
-    }
-
-    // On the Pi 2/3 the mailbox returns the address with bits 31..30 set, which is wrong
-    fb = (unsigned char *)(((unsigned int) fb) & 0x3fffffff);
-
-    // Change bpp from bits to bytes
-    bpp >>= 3;
-
-    /* Copy default colour table */
-    init_colour_table();
-
-    /* Update the palette (only in 8-bpp modes) */
-    update_palette(0, NUM_COLOURS);
-
-    /* Clear the screen to the background colour */
-    fb_clear();
-
-    // Initialize Timer Interrupts
-    RPI_ArmTimerInit();
-    RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
-
-    fb_writes("\r\n\r\nPi Tube Direct VDU Driver v0.90\r\n");
-    #ifdef DEBUG_VDU
-    fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
-    #endif
-    printf("\r\n\r\nScreen size: %d,%d\r\n>", width, height);
-
-#if defined(BPP32)
-    for (y = 0; y < 16; y++) {
-       uint32_t *fbptr = (uint32_t *) (fb + pitch * y);
-       for (col = 23; col >= 0; col--) {
-          for (x = 0; x < 8; x++) {
-             *fbptr++ = 1 << col;
-          }
-       }
-    }
-#elif defined(BPP16)
-    for (y = 0; y < 16; y++) {
-       uint16_t *fbptr = (uint16_t *) (fb + pitch * y);
-       for (col = 15; col >= 0; col--) {
-          for (x = 0; x < 8; x++) {
-             *fbptr++ = 1 << col;
-          }
-       }
-    }
-#else
-    for (y = 0; y < 16; y++) {
-       uint8_t *fbptr = (uint8_t *) (fb + pitch * y);
-       for (col = 0; col < 16; col++) {
-          for (x = 0; x < 8; x++) {
-             *fbptr++ = col;
-          }
-       }
-    }
+   fb_writes("\r\n\r\nPi Tube Direct VDU Driver\r\n");
+#ifdef DEBUG_VDU
+   fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
 #endif
+   printf("\r\n\r\nScreen size: %d,%d\r\n>", screen->width, screen->height);
 
-    //for (d = 0; d < 1000000; d++);
-
-    // Uncomment this for testing from the serial port
-    //while (1) {
-    //        int c = RPI_AuxMiniUartRead();
-    //        fb_writec(c);
-    //}
 }
 
 void update_g_cursors(int16_t x, int16_t y) {
@@ -544,84 +389,35 @@ int calc_radius(int x1, int y1, int x2, int y2) {
    return (int)(sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
 }
 
-void fb_draw_character(int c, int invert, int eor) {
-   int c_fgol;
-   int c_bgol;
+static void fb_draw_character(int c, int invert) {
+   int c_fgol = get_colour(c_fg_col);
+   int c_bgol = get_colour(c_bg_col);
    int i;
    int j;
+
    // Map the character to a section of the 6847 font data
-   c *= 12;
+   c *= FONT_HEIGHT;
+
+   // Pixel 0,0 is in the bottom left
+   // Character 0,0 is in the top left
+   // So the Y axis needs flipping
+   int x = c_x_pos * FONT_WIDTH;
+   int y = screen->height - c_y_pos * FONT_HEIGHT - 1;
    // Copy the character into the frame buffer
-   for (i = 0; i < 12; i++) {
+   for (i = 0; i < FONT_HEIGHT; i++) {
       int data = fontdata[c + i];
-      unsigned char *fbptr = fb + c_x_pos * 8 * bpp + (c_y_pos * 12 + i) * pitch;
       if (invert) {
          data ^= 0xff;
       }
-      c_fgol = get_colour(c_fg_col);
-      c_bgol = get_colour(c_bg_col);
-
-      for (j = 0; j < 8; j++) {
+      for (j = 0; j < FONT_WIDTH; j++) {
          int col = (data & 0x80) ? c_fgol : c_bgol;
-#if defined(BPP32)
-         if (eor) {
-            *(uint32_t *)fbptr ^= col;
-         } else {
-            *(uint32_t *)fbptr = col;
-         }
-         fbptr += 4;
-#elif defined(BPP16)
-         if (eor) {
-            *(uint16_t *)fbptr ^= col;
-         } else {
-            *(uint16_t *)fbptr = col;
-         }
-         fbptr += 2;
-#else
-         if (eor) {
-            *(uint8_t *)fbptr ^= col;
-         } else {
-            *(uint8_t *)fbptr = col;
-         }
-         fbptr += 1;
-#endif
+         screen->set_pixel(screen, x + j, y, col);
          data <<= 1;
       }
+      y--;
    }
 }
 
-void init_colour_table() {
-   // Colour  0 = Black
-   // Colour  1 = Dark Red
-   // Colour  2 = Dark Green
-   // Colour  3 = Dark Yellow
-   // Colour  4 = Dark Blue
-   // Colour  5 = Dark Magenta
-   // Colour  6 = Dark Cyan
-   // Colour  7 = Dark White
-   // Colour  8 = Dark Black
-   // Colour  9 = Red
-   // Colour 10 = Green
-   // Colour 11 = Yellow
-   // Colour 12 = Blue
-   // Colour 13 = Magenta
-   // Colour 14 = Cyan
-   // Colour 15 = White
-   // Colour 16-255 Black
-   for (int i = 0; i < 16; i++) {
-      int intensity = (i & 8) ? 255 : 127;
-      int b = (i & 4) ? intensity : 0;
-      int g = (i & 2) ? intensity : 0;
-      int r = (i & 1) ? intensity : 0;
-      if (i == 8) {
-         r = g = b = 63;
-      }
-      set_colour(i, r, g, b);
-   }
-   for (int i = 16; i < 256; i++) {
-      set_colour(i, 0, 0, 0);
-   }
-}
 
 void fb_writec_buffered(char ch) {
    // TODO: Deal with overflow
@@ -695,8 +491,8 @@ void fb_writec(char ch) {
       case 4:
          b = c;
          if (p == 255) {
-            init_colour_table();
-            update_palette(l, NUM_COLOURS);
+            // init_colour_table();
+            // update_palette(l, NUM_COLOURS);
          } else {
             // See http://beebwiki.mdfs.net/VDU_19
             if (p < 16) {
@@ -706,7 +502,6 @@ void fb_writec(char ch) {
                r = (p & 1) ? i : 0;
             }
             set_colour(l, r, g, b);
-            update_palette(l, 1);
          }
          state = NORMAL;
          break;
@@ -717,8 +512,17 @@ void fb_writec(char ch) {
    } else if (state == IN_VDU22) {
       count++;
       if (count == 1) {
-         fb_clear();
          state = NORMAL;
+         screen_mode_t *new_screen = get_screen_mode(c);
+         if (new_screen != NULL) {
+            if (new_screen != screen) {
+               screen = new_screen;
+               screen->init(screen);
+            }
+            fb_clear();
+         } else {
+            fb_writes("Unsupported screen mode!\r\n");
+         }
       }
       return;
 
@@ -977,7 +781,7 @@ void fb_writec(char ch) {
 
    case 127:
       fb_cursor_left();
-      fb_draw_character(32, 1, 0);
+      fb_draw_character(32, 1);
       break;
 
    case 136:
@@ -1015,7 +819,7 @@ void fb_writec(char ch) {
 
          // Draw the next character at the cursor position
          fb_hide_cursor();
-         fb_draw_character(c, invert, 0);
+         fb_draw_character(c, invert);
          fb_show_cursor();
 
          // Advance the drawing position
@@ -1039,60 +843,31 @@ void fb_writes(char *string) {
  * and fb_setpixel writes the 16 or 32 bits colour.
  */
 void fb_putpixel(int x, int y, unsigned int colour) {
-   x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
-   y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
-   if (x < 0  || x > SCREEN_WIDTH - 1) {
-      return;
-   }
-   if (y < 0 || y > SCREEN_HEIGHT - 1) {
-      return;
-   }
-#if defined(BPP32)
-   uint32_t *fbptr = (uint32_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 4);
-#elif defined(BPP16)
-   uint16_t *fbptr = (uint16_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 2);
-#else
-   uint8_t *fbptr = (uint8_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x);
-#endif
-   *fbptr = get_colour(colour);
+   fb_setpixel(x, y, get_colour(colour));
 }
 
 void fb_setpixel(int x, int y, unsigned int colour) {
-   x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
-   y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
-   if (x < 0  || x > SCREEN_WIDTH - 1) {
+   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   if (x < 0  || x > screen->width - 1) {
       return;
    }
-   if (y < 0 || y > SCREEN_HEIGHT - 1) {
+   if (y < 0 || y > screen->height - 1) {
       return;
    }
-#if defined(BPP32)
-   uint32_t *fbptr = (uint32_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 4);
-#elif defined(BPP16)
-   uint16_t *fbptr = (uint16_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 2);
-#else
-   uint8_t *fbptr = (uint8_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x);
-#endif
-   *fbptr = colour;
+   screen->set_pixel(screen, x, y, colour);
 }
 
 unsigned int fb_getpixel(int x, int y) {
-   x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
-   y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
-   if (x < 0  || x > SCREEN_WIDTH - 1) {
+   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   if (x < 0  || x > screen->width - 1) {
       return g_bg_col;
    }
-   if (y < 0 || y > SCREEN_HEIGHT - 1) {
+   if (y < 0 || y > screen->height - 1) {
       return g_bg_col;
    }
-#if defined(BPP32)
-   uint32_t *fbptr = (uint32_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 4);
-#elif defined(BPP16)
-   uint16_t *fbptr = (uint16_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x * 2);
-#else
-   uint8_t *fbptr = (uint8_t *)(fb + (SCREEN_HEIGHT - y - 1) * pitch + x);
-#endif
-   return *fbptr;
+   return screen->get_pixel(screen, x, y);
 }
 
 
@@ -1130,16 +905,16 @@ void fb_draw_line(int x,int y,int x2, int y2, unsigned int color) {
 }
 
 void fb_fill_triangle(int x, int y, int x2, int y2, int x3, int y3, unsigned int colour) {
-   x = ((x + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
-   y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
-   x3 = ((x3 + g_x_origin) * SCREEN_WIDTH)  / BBC_X_RESOLUTION;
-   y3 = ((y3 + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
+   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x3 = ((x3 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y3 = ((y3 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
    // Flip y axis
-   y = SCREEN_HEIGHT - 1 - y;
-   y2 = SCREEN_HEIGHT - 1 - y2;
-   y3 = SCREEN_HEIGHT - 1 - y3;
+   y = screen->height - 1 - y;
+   y2 = screen->height - 1 - y2;
+   y3 = screen->height - 1 - y3;
    colour = get_colour(colour);
    v3d_draw_triangle(x, y, x2, y2, x3, y3, colour);
 }
@@ -1338,7 +1113,7 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
    case HL_LR_NB:
       while (! stop) {
          if (fb_getpixel(x_right,y) == get_colour(g_bg_col) && x_right <= BBC_X_RESOLUTION) {
-            x_right += BBC_X_RESOLUTION/SCREEN_WIDTH;   // speeds up but might fail if not integer
+            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
          } else {
             stop = 1;
          }
@@ -1347,7 +1122,7 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
       x = save_x - 1;
       while (! stop) {
          if (fb_getpixel(x_left,y) == get_colour(g_bg_col) && x_left >= 0) {
-            x_left -= BBC_X_RESOLUTION/SCREEN_WIDTH;    // speeds up but might fail if not integer
+            x_left -= BBC_X_RESOLUTION/screen->width;    // speeds up but might fail if not integer
          } else {
             stop = 1;
          }
@@ -1357,7 +1132,7 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
    case HL_RO_BG:
       while (! stop) {
          if (fb_getpixel(x_right,y) != get_colour(g_bg_col) && x_right <= BBC_X_RESOLUTION) {
-            x_right += BBC_X_RESOLUTION/SCREEN_WIDTH;   // speeds up but might fail if not integer
+            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
          } else {
             stop = 1;
          }
@@ -1367,7 +1142,7 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
    case HL_LR_FG:
       while (! stop) {
          if (fb_getpixel(x_right,y) != get_colour(g_fg_col) && x_right <= BBC_X_RESOLUTION) {
-            x_right += BBC_X_RESOLUTION/SCREEN_WIDTH;   // speeds up but might fail if not integer
+            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
          } else {
             stop = 1;
          }
@@ -1376,7 +1151,7 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
       x = save_x - 1;
       while (! stop) {
          if (fb_getpixel(x_left,y) != get_colour(g_fg_col) && x_left >= 0) {
-            x_left -= BBC_X_RESOLUTION/SCREEN_WIDTH;    // speeds up but might fail if not integer
+            x_left -= BBC_X_RESOLUTION/screen->width;    // speeds up but might fail if not integer
          } else {
             stop = 1;
          }
@@ -1387,7 +1162,7 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
    case HL_RO_NF:
       while (! stop) {
          if (fb_getpixel(x_right,y) != get_colour(g_fg_col) && x_right <= BBC_X_RESOLUTION) {
-            x_right += BBC_X_RESOLUTION/SCREEN_WIDTH;   // speeds up but might fail if not integer
+            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
          } else {
             stop = 1;
          }
@@ -1399,13 +1174,13 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
       while (! stop) {
          if (fb_getpixel(x,y) == get_colour(g_bg_col) && y <= BBC_Y_RESOLUTION) {
             fb_fill_area(x, y, colour, HL_LR_NB);
-            // As the BBC_Y_RESOLUTION is not a multiple of SCREEN_HEIGHT we have to increment
+            // As the BBC_Y_RESOLUTION is not a multiple of screen->height we have to increment
             // y until the physical y-coordinate increases. If we don't do that and simply increment
             // y by 2 then at some point the physical y-coordinate is the same as the previous drawn
             // line and the floodings stops. This also speeds up drawing because each physical line
             // is only drawn once.
-            real_y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
-            while(((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION == real_y) {
+            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
                y++;
             }
             x = (g_x_pos_last1 + g_x_pos_last2) / 2;
@@ -1416,12 +1191,12 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
       // going down
       stop = 0;
       x = save_x;
-      y = save_y - BBC_Y_RESOLUTION/SCREEN_HEIGHT;
+      y = save_y - BBC_Y_RESOLUTION/screen->height;
       while (! stop) {
          if (fb_getpixel(x,y) == get_colour(g_bg_col) && y >= 0) {
             fb_fill_area(x, y, colour, HL_LR_NB);
-            real_y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
-            while(((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION == real_y) {
+            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
                y--;
             }
             x = (g_x_pos_last1 + g_x_pos_last2) / 2;
@@ -1437,8 +1212,8 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
       while (! stop) {
          if (fb_getpixel(x,y) != get_colour(g_fg_col) && y <= BBC_Y_RESOLUTION) {
             fb_fill_area(x, y, colour, HL_LR_FG);
-            real_y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
-            while(((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION == real_y) {
+            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
                y++;
             }
             x = (g_x_pos_last1 + g_x_pos_last2) / 2;
@@ -1449,12 +1224,12 @@ void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
       // going down
       stop = 0;
       x = save_x;
-      y = save_y - BBC_Y_RESOLUTION/SCREEN_HEIGHT;
+      y = save_y - BBC_Y_RESOLUTION/screen->height;
       while (! stop) {
          if (fb_getpixel(x,y) != get_colour(g_fg_col) && y >= 0) {
             fb_fill_area(x, y, colour, HL_LR_NB);
-            real_y = ((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION;
-            while(((y + g_y_origin) * SCREEN_HEIGHT) / BBC_Y_RESOLUTION == real_y) {
+            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
                y--;
             }
             x = (g_x_pos_last1 + g_x_pos_last2) / 2;
@@ -1484,15 +1259,19 @@ uint32_t fb_get_address() {
 }
 
 uint32_t fb_get_width() {
-   return width;
+   return screen->width;
 }
 
 uint32_t fb_get_height() {
-   return height;
+   return screen->height;
 }
 
 uint32_t fb_get_depth() {
-   return SCREEN_DEPTH;
+   if (screen) {
+      return screen->bpp;
+   } else {
+      return 0;
+   }
 }
 
 
@@ -1528,33 +1307,26 @@ int fb_get_edit_cursor_y() {
    return e_y_pos;
 };
 
-// TODO: Font height should not be hard coded!
 int fb_get_edit_cursor_char() {
-   uint8_t screen[12];
-   // Read the character from screenmemory
-   for (int y = 3; y < 10; y++) {
+   uint8_t screendata[FONT_HEIGHT];
+   // Read the character from screen memory
+   int x = e_x_pos * FONT_WIDTH;
+   int y = screen->height - e_y_pos * FONT_HEIGHT - 1;
+   for (int i = 3; i < FONT_HEIGHT - 2; i++) {
       uint8_t row = 0;
-#if defined(BPP32)
-      uint32_t *fbptr = (uint32_t *)(fb + (e_y_pos * 12 + y) * pitch + e_x_pos * 8 * 4);
-#elif defined(BPP16)
-      uint16_t *fbptr = (uint16_t *)(fb + (e_y_pos * 12 + y) * pitch + e_x_pos * 8 * 2);
-#else
-      uint8_t *fbptr = (uint8_t *)(fb + (e_y_pos * 12 + y) * pitch + e_x_pos * 8);
-#endif
-      for (int x = 0; x < 8; x++) {
+      for (int j = 0; j < FONT_WIDTH; j++) {
          row <<= 1;
-         if ((*fbptr) != 0) {
+         if (screen->get_pixel(screen, x + j, y - i)) {
             row |= 1;
          }
-         fbptr++;
       }
-      screen[y] = row;
+      screendata[i] = row;
    }
    // Match against font
    for (int c = 0x00; c < 0x60; c++) {
       int y;
-      for (y = 3; y < 10; y++) {
-         if (fontdata[c * 12 + y] != screen[y]) {
+      for (y = 3; y < FONT_HEIGHT - 2; y++) {
+         if (fontdata[c * FONT_HEIGHT + y] != screendata[y]) {
             break;
          }
       }
