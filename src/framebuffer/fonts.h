@@ -3,7 +3,7 @@
 
 #include "screen_modes.h"
 
-#define DEFAULT_FONT "6847"
+#define DEFAULT_FONT "BBC"
 
 #define MAX_FONT_HEIGHT 32
 

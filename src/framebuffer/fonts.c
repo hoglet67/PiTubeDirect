@@ -7,6 +7,7 @@
 // These include define the actual font bitmaps
 // (they should really be .c files)
 
+#include "fonts/bbc.fnt.h"
 #include "fonts/6847.fnt.h"
 #include "fonts/8x10.fnt.h"
 #include "fonts/8x11snsf.fnt.h"
@@ -46,6 +47,7 @@ static uint8_t fontbuffer[4096];
 // Font Catalog
 
 static font_t font_catalog[] = {
+   {"BBC",      fontbbc,   8, 128, 0, 8,  8},
    {"6847",     font6847, 12, 128, 0, 8, 12},
    {"8X10",     font01,   16, 256, 0, 8, 16},
    {"8X11SNSF", font02,   16, 256, 0, 8, 16},
