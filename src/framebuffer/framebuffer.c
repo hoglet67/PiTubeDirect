@@ -18,6 +18,8 @@
 #include "framebuffer.h"
 #include "v3d.h"
 #include "fonts.h"
+#include "vdu23.h"
+#include "vdu_state.h"
 
 // Default screen mode
 #define DEFAULT_SCREEN_MODE 8
@@ -36,6 +38,9 @@
 
 // Current screen mode
 static screen_mode_t *screen = NULL;
+
+// Current font
+static font_t *font = NULL;
 
 // Character colour / cursor position
 static int16_t c_bg_col;
@@ -70,8 +75,6 @@ static volatile int vdu_wp = 0;
 static volatile int vdu_rp = 0;
 static char vdu_queue[VDU_QSIZE];
 
-#include "vdu23.h"
-
 static inline pixel_t get_colour(unsigned int index) {
    return screen->get_colour(screen, index);
 }
@@ -87,20 +90,6 @@ static inline void set_colour(unsigned int index, int r, int g, int b) {
 #define HL_RO_NF 4 // Horizontal line fill (right only) to non-foreground
 #define AF_NONBG 5 // Flood (area fill) to non-background
 #define AF_TOFGD 6 // Flood (area fill) to foreground
-
-
-#define NORMAL    0
-#define IN_VDU4   4
-#define IN_VDU5   5
-#define IN_VDU17  17
-#define IN_VDU18  18
-#define IN_VDU19  19
-#define IN_VDU22  22
-#define IN_VDU23  23
-#define IN_VDU25  25
-#define IN_VDU29  29
-#define IN_VDU31  31
-
 
 static int e_visible; // Current visibility of the edit cursor
 static int c_visible; // Current visibility of the write cursor
@@ -361,6 +350,15 @@ volatile int d;
 
 void fb_initialize() {
    fb_init_variables();
+
+   font = get_font(DEFAULT_FONT);
+
+   if (!font) {
+      printf("No font loaded\n\r");
+   } else {
+      printf("Font %s loaded\n\r", font->name);
+   }
+
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
 
@@ -374,6 +372,7 @@ void fb_initialize() {
    fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
 #endif
    fb_writes("\r\n");
+
 }
 
 void update_g_cursors(int16_t x, int16_t y) {
@@ -390,31 +389,17 @@ int calc_radius(int x1, int y1, int x2, int y2) {
 }
 
 static void fb_draw_character(int c, int invert) {
-   int c_fgol = get_colour(c_fg_col);
-   int c_bgol = get_colour(c_bg_col);
-   int i;
-   int j;
-
-   // Map the character to a section of the 6847 font data
-   c *= FONT_HEIGHT;
-
+   int fg_col = get_colour(c_fg_col);
+   int gb_col = get_colour(c_bg_col);
+   int x = c_x_pos * font->width;
    // Pixel 0,0 is in the bottom left
    // Character 0,0 is in the top left
    // So the Y axis needs flipping
-   int x = c_x_pos * FONT_WIDTH;
-   int y = screen->height - c_y_pos * FONT_HEIGHT - 1;
-   // Copy the character into the frame buffer
-   for (i = 0; i < FONT_HEIGHT; i++) {
-      int data = fontdata[c + i];
-      if (invert) {
-         data ^= 0xff;
-      }
-      for (j = 0; j < FONT_WIDTH; j++) {
-         int col = (data & 0x80) ? c_fgol : c_bgol;
-         screen->set_pixel(screen, x + j, y, col);
-         data <<= 1;
-      }
-      y--;
+   int y = screen->height - c_y_pos * font->height - 1;
+   if (invert) {
+      font->draw_character(font, screen, c, x, y, gb_col, fg_col);
+   } else {
+      font->draw_character(font, screen, c, x, y, fg_col, gb_col);
    }
 }
 
@@ -430,7 +415,7 @@ void fb_writec(char ch) {
    int invert;
    unsigned char c = (unsigned char) ch;
 
-   static int state = NORMAL;
+   static vdu_state_t state = NORMAL;
    static int count = 0;
    static int16_t x_tmp = 0;
    static int16_t y_tmp = 0;
@@ -527,15 +512,8 @@ void fb_writec(char ch) {
       return;
 
    } else if (state == IN_VDU23) {
-      vdu23buf[count] = c;
-      if (count == 0) {
-         vdu23cnt = vdu23buf[0] == 7 ? 258 : 9;
-      }
-      count++;
-      if (count == vdu23cnt) {
-         do_vdu23();
-         state = NORMAL;
-      }
+      // Pass to the vdu23 code (in vdu23.c)
+      state = do_vdu23(screen, font, c);
       return;
 
    } else if (state == IN_VDU25) {
@@ -826,8 +804,8 @@ void fb_writec(char ch) {
          fb_cursor_next();
 
       } else {
-         gr_draw_character(c, g_x_pos, g_y_pos, g_fg_col);
-         update_g_cursors(g_x_pos+font_scale_w*font_width+font_spacing, g_y_pos);
+         font->draw_character(font, screen, c, g_x_pos, g_y_pos, g_fg_col, g_bg_col);
+         update_g_cursors(g_x_pos + font->scale_w * font->width + font->spacing, g_y_pos);
       }
    }
 }
@@ -1308,43 +1286,15 @@ int fb_get_edit_cursor_y() {
 };
 
 int fb_get_edit_cursor_char() {
-   uint8_t screendata[FONT_HEIGHT];
-   // Read the character from screen memory
-   int x = e_x_pos * FONT_WIDTH;
-   int y = screen->height - e_y_pos * FONT_HEIGHT - 1;
-   for (int i = 3; i < FONT_HEIGHT - 2; i++) {
-      uint8_t row = 0;
-      for (int j = 0; j < FONT_WIDTH; j++) {
-         row <<= 1;
-         if (screen->get_pixel(screen, x + j, y - i)) {
-            row |= 1;
-         }
-      }
-      screendata[i] = row;
-   }
-   // Match against font
-   for (int c = 0x00; c < 0x60; c++) {
-      int y;
-      for (y = 3; y < FONT_HEIGHT - 2; y++) {
-         if (fontdata[c * FONT_HEIGHT + y] != screendata[y]) {
-            break;
-         }
-      }
-      if (y == 10) {
-         // We are still using the Atom 6847 character ROM!
-         //
-         // Demangle the
-         // 00-1F map to 40-5F
-         // 20-3F map to 20-3F
-         // 40-5F map to 60-7F
-         if (c < 0x20) {
-            return c + 0x40;
-         } else if (c < 0x40) {
-            return c;
-         } else {
-            return c + 0x20;
-         }
-      }
-   }
-   return 0;
+   int x = e_x_pos * font->width;
+   int y = screen->height - e_y_pos * font->height - 1;
+   return font->read_character(font, screen, x, y);
 };
+
+int16_t fb_get_g_bg_col() {
+   return g_bg_col;
+}
+
+int16_t fb_get_g_fg_col() {
+   return g_fg_col;
+}

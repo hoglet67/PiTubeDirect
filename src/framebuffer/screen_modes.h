@@ -23,7 +23,7 @@ typedef struct screen_mode {
    void          (*clear)(struct screen_mode *screen, int value);
    void         (*scroll)(struct screen_mode *screen);
    void     (*set_colour)(struct screen_mode *screen, unsigned int index, int r, int g, int b);
-   uint32_t (*get_colour)(struct screen_mode *screen, unsigned int index);
+   pixel_t  (*get_colour)(struct screen_mode *screen, unsigned int index);
    void      (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
    pixel_t   (*get_pixel)(struct screen_mode *screen, int x, int y);
 

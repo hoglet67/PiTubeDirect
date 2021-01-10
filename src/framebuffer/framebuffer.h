@@ -41,12 +41,6 @@ void fb_fill_ellipse(int xc, int yc, int width, int height, unsigned int colour)
 
 void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode);
 
-void do_vdu23(void);
-
-void gr_draw_character(int c, int g_x_pos, int g_y_pos, int colour);
-
-void init_colour_table(void);
-
 uint32_t fb_get_address();
 uint32_t fb_get_width();
 uint32_t fb_get_height();
@@ -59,5 +53,8 @@ int fb_get_cursor_y();
 int fb_get_edit_cursor_x();
 int fb_get_edit_cursor_y();
 int fb_get_edit_cursor_char();
+
+int16_t fb_get_g_bg_col();
+int16_t fb_get_g_fg_col();
 
 #endif

@@ -11,7 +11,7 @@ unsigned char* fb = NULL;
 
 // Palette for 8bpp modes
 #define NUM_COLOURS 256
-static uint32_t colour_table[NUM_COLOURS];
+static pixel_t colour_table[NUM_COLOURS];
 static int sync_palette;
 
 static void update_palette(int offset, int num_colours) {
@@ -157,15 +157,15 @@ static void set_colour_32bpp(screen_mode_t *screen, unsigned int index, int r, i
    colour_table[index] = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
 }
 
-static uint32_t get_colour_8bpp(screen_mode_t *screen, unsigned int index) {
+static pixel_t get_colour_8bpp(screen_mode_t *screen, unsigned int index) {
    return index;
 }
 
-static uint32_t get_colour_16bpp(screen_mode_t *screen, unsigned int index) {
+static pixel_t get_colour_16bpp(screen_mode_t *screen, unsigned int index) {
    return colour_table[index];
 }
 
-static uint32_t get_colour_32bpp(screen_mode_t *screen, unsigned int index) {
+static pixel_t get_colour_32bpp(screen_mode_t *screen, unsigned int index) {
    return colour_table[index];
 }
 

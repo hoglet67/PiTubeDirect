@@ -98,6 +98,14 @@ file( GLOB core_files
     framebuffer/framebuffer.h
     framebuffer/screen_modes.c
     framebuffer/screen_modes.h
+    framebuffer/fonts.c
+    framebuffer/fonts.h
+    framebuffer/mousepointers.c
+    framebuffer/mousepointers.h
+    framebuffer/sprites.c
+    framebuffer/sprites.h
+    framebuffer/vdu23.c
+    framebuffer/vdu23.h
     framebuffer/v3d.c
     framebuffer/v3d.h
 )
