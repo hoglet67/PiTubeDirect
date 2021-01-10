@@ -35,6 +35,8 @@ static screen_mode_t *screen = NULL;
 
 // Current font
 static font_t *font = NULL;
+static int16_t font_width;
+static int16_t font_height;
 static int16_t text_width;
 static int16_t text_height;
 
@@ -91,10 +93,12 @@ static int e_visible; // Current visibility of the edit cursor
 static int c_visible; // Current visibility of the write cursor
 
 static void calc_text_area() {
-   // Calculate the text size
+   // Calculate the text params
    if (screen && font) {
-      text_width = screen->width / font->width;
-      text_height = screen->height / font->height;
+      font_width  = font->width * font->scale_w + font->spacing;
+      font_height = font->height * font->scale_h + font->spacing;
+      text_width  = screen->width / font_width;
+      text_height = screen->height / font_height;
    }
 }
 
@@ -135,11 +139,11 @@ static void fb_init_variables() {
 }
 
 static void fb_invert_cursor(int x_pos, int y_pos, int editing) {
-   int x = x_pos * font->width;
-   int y = screen->height - y_pos * font->height - 1;
-   int y1 = editing ? font->height - 2 : 0;
-   for (int i = y1; i < font->height; i++) {
-      for (int j = 0; j < font->width; j++) {
+   int x = x_pos * font_width;
+   int y = screen->height - y_pos * font_height - 1;
+   int y1 = editing ? font_height - 2 : 0;
+   for (int i = y1; i < font_height; i++) {
+      for (int j = 0; j < font_width; j++) {
          int col = screen->get_pixel(screen, x + j, y - i);
          col ^= get_colour(COL_WHITE);
          screen->set_pixel(screen, x + j, y - i, col);
@@ -265,7 +269,7 @@ static void fb_scroll() {
    if (e_enabled) {
       fb_hide_edit_cursor();
    }
-   screen->scroll(screen);
+   screen->scroll(screen, font_height);
    if (e_enabled) {
       if (e_y_pos > 0) {
          e_y_pos--;
@@ -398,11 +402,11 @@ int calc_radius(int x1, int y1, int x2, int y2) {
 static void fb_draw_character(int c, int invert) {
    int fg_col = get_colour(c_fg_col);
    int gb_col = get_colour(c_bg_col);
-   int x = c_x_pos * font->width;
+   int x = c_x_pos * font_width;
    // Pixel 0,0 is in the bottom left
    // Character 0,0 is in the top left
    // So the Y axis needs flipping
-   int y = screen->height - c_y_pos * font->height - 1;
+   int y = screen->height - c_y_pos * font_height - 1;
    if (invert) {
       font->draw_character(font, screen, c, x, y, gb_col, fg_col);
    } else {
@@ -806,7 +810,7 @@ void fb_writec(char ch) {
 
       } else {
          font->draw_character(font, screen, c, g_x_pos, g_y_pos, g_fg_col, g_bg_col);
-         update_g_cursors(g_x_pos + font->scale_w * font->width + font->spacing, g_y_pos);
+         update_g_cursors(g_x_pos + font_width, g_y_pos);
       }
    }
 }
@@ -1287,8 +1291,8 @@ int fb_get_edit_cursor_y() {
 };
 
 int fb_get_edit_cursor_char() {
-   int x = e_x_pos * font->width;
-   int y = screen->height - e_y_pos * font->height - 1;
+   int x = e_x_pos * font_width;
+   int y = screen->height - e_y_pos * font_height - 1;
    return font->read_character(font, screen, x, y);
 };
 

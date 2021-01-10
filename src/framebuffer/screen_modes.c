@@ -132,10 +132,9 @@ static void clear_screen(screen_mode_t *screen, int value) {
    memset((void *)fb, value, screen->height * screen->pitch);
 }
 
-static void scroll_screen(screen_mode_t *screen) {
-   // TODO: Fix Hard Coded Font Size
-   _fast_scroll(fb, fb + 12 * screen->pitch, (screen->height - 12) * screen->pitch);
-   _fast_clear(fb + (screen->height - 12) * screen->pitch, 0, 12 * screen->pitch);
+static void scroll_screen(screen_mode_t *screen, int pixel_rows) {
+   _fast_scroll(fb, fb + pixel_rows * screen->pitch, (screen->height - pixel_rows) * screen->pitch);
+   _fast_clear(fb + (screen->height - pixel_rows) * screen->pitch, 0, pixel_rows * screen->pitch);
 }
 
 

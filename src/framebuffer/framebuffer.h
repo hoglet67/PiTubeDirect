@@ -1,10 +1,7 @@
-// framebuffer.h
-
-#define DEBUG_VDU
-
-
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
+
+// #define DEBUG_VDU
 
 void fb_initialize();
 
