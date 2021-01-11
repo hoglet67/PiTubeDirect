@@ -360,7 +360,7 @@ void fb_cursor_next() {
 volatile int d;
 
 void fb_initialize() {
-   font = get_font(DEFAULT_FONT);
+   font = get_font_by_number(DEFAULT_FONT);
 
    if (!font) {
       printf("No font loaded\n\r");

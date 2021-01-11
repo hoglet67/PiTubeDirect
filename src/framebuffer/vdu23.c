@@ -29,7 +29,11 @@ static void do_vdu23_command(screen_mode_t *screen, font_t **fontp) {
    // VDU 23,3: select font by name
    // params: eight bytes font name, trailing zeros if name shorter than 8 chars
    if (vdu23buf[0] == 3) {
-      font = get_font(vdu23buf+1);
+      if (vdu23buf[1] == 0) {
+         font = get_font_by_number(vdu23buf[2]);
+      } else {
+         font = get_font_by_name(vdu23buf+1);
+      }
       if (font) {
          *fontp = font;
       } else {
