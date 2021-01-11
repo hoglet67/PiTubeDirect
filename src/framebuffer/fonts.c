@@ -110,18 +110,14 @@ static void default_draw_character(font_t *font, screen_mode_t *screen, int c, i
    }
 }
 
+// TODO: Account for font scaling
+
 static int default_read_character(font_t *font, screen_mode_t *screen, int x_pos, int y_pos) {
    uint8_t screendata[MAX_FONT_HEIGHT];
-
-   // TODO - this is hack to ignore the flashing cursor
-   int cursor_lines = 2;
-
-   // TODO: Account for font scaling
-
    // Read the character from screen memory
    int x = x_pos;
    int y = y_pos;
-   for (int i = 0; i < font->height - cursor_lines; i++) {
+   for (int i = 0; i < font->height; i++) {
       int row = 0;
       for (int j = 0; j < font->width; j++) {
          row <<= 1;
@@ -134,12 +130,13 @@ static int default_read_character(font_t *font, screen_mode_t *screen, int x_pos
    // Match against font
    for (int c = 0x20; c < font->num_chars; c++) {
       int y;
-      for (y = 0; y < font->height - cursor_lines; y++) {
-         if (fontbuffer[c * font->bytes_per_char + y] != screendata[y]) {
+      for (y = 0; y < font->height; y++) {
+         int xor = fontbuffer[c * font->bytes_per_char + y] ^ screendata[y];
+         if (xor != 0x00 && xor != 0xff) {
             break;
          }
       }
-      if (y == font->height - cursor_lines) {
+      if (y == font->height) {
          return c;
       }
    }
