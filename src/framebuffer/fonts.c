@@ -113,19 +113,20 @@ static void default_draw_character(font_t *font, screen_mode_t *screen, int c, i
 // TODO: Account for font scaling
 
 static int default_read_character(font_t *font, screen_mode_t *screen, int x_pos, int y_pos) {
-   uint8_t screendata[MAX_FONT_HEIGHT];
+   int screendata[MAX_FONT_HEIGHT];
    // Read the character from screen memory
    int x = x_pos;
    int y = y_pos;
-   for (int i = 0; i < font->height; i++) {
+   int *dp = screendata;
+   for (int i = 0; i < font->height * font->scale_h; i += font->scale_h) {
       int row = 0;
-      for (int j = 0; j < font->width; j++) {
+      for (int j = 0; j < font->width * font->scale_w; j += font->scale_w) {
          row <<= 1;
          if (screen->get_pixel(screen, x + j, y - i)) {
             row |= 1;
          }
       }
-      screendata[i] = row;
+      *dp++ = row;
    }
    // Match against font
    for (int c = 0x20; c < font->num_chars; c++) {
