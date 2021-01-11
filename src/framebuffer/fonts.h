@@ -17,9 +17,9 @@ typedef struct font {
    // These control the way the font is rendered
    int width;
    int height;
+   int spacing;
    int scale_w;
    int scale_h;
-   int spacing;
    // Functions
    void  (*draw_character)(struct font *font, screen_mode_t *screen, int c, int x_pos, int y_pos, pixel_t fg_col, pixel_t bg_col);
    int   (*read_character)(struct font *font, screen_mode_t *screen,        int x_pos, int y_pos);

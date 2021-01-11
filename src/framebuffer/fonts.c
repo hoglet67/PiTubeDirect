@@ -47,39 +47,39 @@ static uint8_t fontbuffer[4096];
 // Font Catalog
 
 static font_t font_catalog[] = {
-   {"BBC",      fontbbc,   8, 128, 0, 8,  8},
-   {"8X10",     font01,   16, 256, 0, 8, 12},
-   {"8X11SNSF", font02,   16, 256, 0, 8, 12},
-   {"8X14",     font03,   16, 256, 0, 8, 14},
-   {"8X8",      font04,   16, 256, 0, 8,  8},
-   {"8X8ITAL",  font05,   16, 256, 0, 8,  8},
-   {"9X16",     font06,   16, 256, 0, 8, 16}, // spacing 1
-   {"BIGSERIF", font07,   16, 256, 0, 8, 16}, // spacing 1
-   {"BLCKSNSF", font08,   16, 256, 0, 8, 10},
-   {"BLOCK",    font09,   16, 256, 0, 8, 16}, // spacing 1
-   {"BOLD",     font10,   16, 256, 0, 8, 14}, // spacing 1
-   {"BROADWAY", font11,   16, 256, 0, 8, 16}, // spacing 1
-   {"COMPUTER", font12,   16, 256, 0, 8, 16}, // spacing 1
-   {"COURIER",  font13,   16, 256, 0, 8, 14},
-   {"FUTURE",   font14,   16, 256, 0, 8, 14},
-   {"GREEK",    font15,   16, 256, 0, 8, 14},
-   {"HOLLOW",   font16,   16, 256, 0, 8, 14},
-   {"ITALICS",  font17,   16, 256, 0, 8, 14},
-   {"LCD",      font18,   16, 256, 0, 8, 14},
-   {"MEDIEVAL", font19,   16, 256, 0, 8, 14},
-   {"NORWAY",   font20,   16, 256, 0, 8, 14},
-   {"SANSERIF", font21,   16, 256, 0, 8, 14},
-   {"SCRIPT",   font22,   16, 256, 0, 8, 14},
-   {"SLANT",    font23,   16, 256, 0, 8, 14},
-   {"SMALL",    font24,   16, 256, 0, 8, 14},
-   {"STANDARD", font25,   16, 256, 0, 8, 14},
-   {"STRETCH",  font26,   16, 256, 0, 8, 14},
-   {"SUB",      font27,   16, 256, 0, 8, 14},
-   {"SUPER",    font28,   16, 256, 0, 8, 14},
-   {"THIN",     font29,   16, 256, 0, 8, 14},
-   {"THIN8X8",  font30,   16, 256, 0, 8, 14},
-   {"THNSERIF", font31,   16, 256, 0, 8, 14},
-   {"6847",     font6847, 12, 128, 0, 8, 12}
+   {"BBC",      fontbbc,   8, 128, 0, 8,  8, 0},
+   {"8X10",     font01,   16, 256, 0, 8, 10, 0},
+   {"8X11SNSF", font02,   16, 256, 0, 8, 11, 0},
+   {"8X14",     font03,   16, 256, 0, 8, 14, 0},
+   {"8X8",      font04,   16, 256, 0, 8, 10, 0},
+   {"8X8ITAL",  font05,   16, 256, 0, 8, 10, 0},
+   {"9X16",     font06,   16, 256, 0, 8, 14, 1},
+   {"BIGSERIF", font07,   16, 256, 0, 8, 14, 1},
+   {"BLCKSNSF", font08,   16, 256, 0, 8, 10, 0},
+   {"BLOCK",    font09,   16, 256, 0, 8, 14, 1},
+   {"BOLD",     font10,   16, 256, 0, 8, 14, 1},
+   {"BROADWAY", font11,   16, 256, 0, 8, 14, 1},
+   {"COMPUTER", font12,   16, 256, 0, 8, 14, 1},
+   {"COURIER",  font13,   16, 256, 0, 8, 14, 1},
+   {"FUTURE",   font14,   16, 256, 0, 8, 14, 1},
+   {"GREEK",    font15,   16, 256, 0, 8, 14, 1},
+   {"HOLLOW",   font16,   16, 256, 0, 8, 14, 1},
+   {"ITALICS",  font17,   16, 256, 0, 8, 14, 1},
+   {"LCD",      font18,   16, 256, 0, 8, 14, 1},
+   {"MEDIEVAL", font19,   16, 256, 0, 8, 14, 1},
+   {"NORWAY",   font20,   16, 256, 0, 8, 14, 1},
+   {"SANSERIF", font21,   16, 256, 0, 8, 14, 1},
+   {"SCRIPT",   font22,   16, 256, 0, 8, 14, 1},
+   {"SLANT",    font23,   16, 256, 0, 8, 14, 0},
+   {"SMALL",    font24,   16, 256, 0, 6,  8, 0},
+   {"STANDARD", font25,   16, 256, 0, 8, 14, 1},
+   {"STRETCH",  font26,   16, 256, 0, 8, 14, 1},
+   {"SUB",      font27,   16, 256, 0, 8, 14, 0},
+   {"SUPER",    font28,   16, 256, 0, 8, 14, 0},
+   {"THIN",     font29,   16, 256, 0, 8, 14, 1},
+   {"THIN8X8",  font30,   16, 256, 0, 8,  8, 0},
+   {"THNSERIF", font31,   16, 256, 0, 8, 14, 0},
+   {"6847",     font6847, 12, 128, 0, 8, 12, 0}
 };
 
 #define NUM_FONTS (sizeof(font_catalog) / sizeof(font_t))
@@ -150,10 +150,9 @@ static int default_read_character(font_t *font, screen_mode_t *screen, int x_pos
 static void initialize_font(font_t * font) {
    // Copy the font into a local font buffer, so VDU 23 can update it
    memcpy(fontbuffer, font->data, font->num_chars * font->bytes_per_char);
-   // Set the default scaling/spacing
+   // Set the default scale
    font->scale_w = 1;
    font->scale_h = 1;
-   font->spacing = 0;
    // Set the defauls handlers
    font->draw_character = default_draw_character;
    font->read_character = default_read_character;

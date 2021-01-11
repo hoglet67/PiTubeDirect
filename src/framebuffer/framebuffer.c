@@ -414,6 +414,22 @@ static void fb_draw_character(int c, int invert) {
    }
 }
 
+static void fb_draw_character_and_advance(int c) {
+   int invert = 0;
+   if (font->num_chars <= 128) {
+      invert = c >= 0x80;
+      c &= 0x7f;
+   }
+
+   // Draw the next character at the cursor position
+   fb_hide_cursor();
+   fb_draw_character(c, invert);
+   fb_show_cursor();
+
+   // Advance the drawing position
+   fb_cursor_next();
+}
+
 
 void fb_writec_buffered(char ch) {
    // TODO: Deal with overflow
@@ -423,7 +439,6 @@ void fb_writec_buffered(char ch) {
 
 
 void fb_writec(char ch) {
-   int invert;
    unsigned char c = (unsigned char) ch;
 
    static vdu_state_t state = NORMAL;
@@ -643,6 +658,12 @@ void fb_writec(char ch) {
       }
       return;
 
+   } else if (state == IN_VDU27) {
+
+      fb_draw_character_and_advance(c);
+      state = NORMAL;
+      return;
+
    } else if (state == IN_VDU29) {
       switch (count) {
       case 0:
@@ -759,6 +780,11 @@ void fb_writec(char ch) {
       count = 0;
       return;
 
+   case 27:
+      state = IN_VDU27;
+      count = 0;
+      return;
+
    case 29:
       state = IN_VDU29;
       count = 0;
@@ -797,17 +823,7 @@ void fb_writec(char ch) {
    default:
 
       if (g_cursor == IN_VDU4) {
-         invert = c >= 0x80;
-         c &= 0x7f;
-
-         // Draw the next character at the cursor position
-         fb_hide_cursor();
-         fb_draw_character(c, invert);
-         fb_show_cursor();
-
-         // Advance the drawing position
-         fb_cursor_next();
-
+         fb_draw_character_and_advance(c);
       } else {
          font->draw_character(font, screen, c, g_x_pos, g_y_pos, g_fg_col, g_bg_col);
          update_g_cursors(g_x_pos + font_width, g_y_pos);

@@ -11,6 +11,7 @@ typedef enum {
    IN_VDU22,
    IN_VDU23,
    IN_VDU25,
+   IN_VDU27,
    IN_VDU29,
    IN_VDU31
 } vdu_state_t;
