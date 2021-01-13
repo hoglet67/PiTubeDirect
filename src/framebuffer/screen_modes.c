@@ -139,32 +139,32 @@ static void scroll_screen(screen_mode_t *screen, int pixel_rows) {
 
 
 
-static void set_colour_8bpp(screen_mode_t *screen, unsigned int index, int r, int g, int b) {
+static void set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
    colour_table[index] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
    if (sync_palette) {
       update_palette(index, 1);
    }
 }
 
-static void set_colour_16bpp(screen_mode_t *screen, unsigned int index, int r, int g, int b) {
+static void set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
    // 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
    // R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
    colour_table[index] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
 }
 
-static void set_colour_32bpp(screen_mode_t *screen, unsigned int index, int r, int g, int b) {
+static void set_colour_32bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
    colour_table[index] = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
 }
 
-static pixel_t get_colour_8bpp(screen_mode_t *screen, unsigned int index) {
+static pixel_t get_colour_8bpp(screen_mode_t *screen, colour_index_t index) {
    return index;
 }
 
-static pixel_t get_colour_16bpp(screen_mode_t *screen, unsigned int index) {
+static pixel_t get_colour_16bpp(screen_mode_t *screen, colour_index_t index) {
    return colour_table[index];
 }
 
-static pixel_t get_colour_32bpp(screen_mode_t *screen, unsigned int index) {
+static pixel_t get_colour_32bpp(screen_mode_t *screen, colour_index_t index) {
    return colour_table[index];
 }
 

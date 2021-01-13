@@ -5,6 +5,8 @@
 
 typedef uint32_t pixel_t;
 
+typedef unsigned int colour_index_t;
+
 typedef struct screen_mode {
    int mode_num;    // Mode number, used by VDU 22,N
 
@@ -19,8 +21,8 @@ typedef struct screen_mode {
    void           (*init)(struct screen_mode *screen);
    void          (*clear)(struct screen_mode *screen, int value);
    void         (*scroll)(struct screen_mode *screen, int pixel_rows);
-   void     (*set_colour)(struct screen_mode *screen, unsigned int index, int r, int g, int b);
-   pixel_t  (*get_colour)(struct screen_mode *screen, unsigned int index);
+   void     (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
+   pixel_t  (*get_colour)(struct screen_mode *screen, colour_index_t index);
    void      (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
    pixel_t   (*get_pixel)(struct screen_mode *screen, int x, int y);
 
