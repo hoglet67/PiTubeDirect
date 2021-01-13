@@ -67,11 +67,18 @@ static int16_t g_plotmode;
 // Text or graphical cursor for printing characters
 static int8_t g_cursor;
 
+static int e_visible; // Current visibility of the edit cursor
+static int c_visible; // Current visibility of the write cursor
+
 // VDU Queue
 #define VDU_QSIZE 8192
 static volatile int vdu_wp = 0;
 static volatile int vdu_rp = 0;
 static char vdu_queue[VDU_QSIZE];
+
+// ==========================================================================
+// Static methods
+// ==========================================================================
 
 static inline pixel_t get_colour(unsigned int index) {
    return screen->get_colour(screen, index);
@@ -80,17 +87,6 @@ static inline pixel_t get_colour(unsigned int index) {
 static inline void set_colour(unsigned int index, int r, int g, int b) {
    screen->set_colour(screen, index, r, g, b);
 }
-
-// Fill modes:
-#define HL_LR_NB 1 // Horizontal line fill (left & right) to non-background
-#define HL_RO_BG 2 // Horizontal line fill (right only) to background
-#define HL_LR_FG 3 // Horizontal line fill (left & right) to foreground
-#define HL_RO_NF 4 // Horizontal line fill (right only) to non-foreground
-#define AF_NONBG 5 // Flood (area fill) to non-background
-#define AF_TOFGD 6 // Flood (area fill) to foreground
-
-static int e_visible; // Current visibility of the edit cursor
-static int c_visible; // Current visibility of the write cursor
 
 static void calc_text_area() {
    // Calculate the text params
@@ -278,10 +274,7 @@ static void fb_scroll() {
    }
 }
 
-// ==========================================================
-
-
-void fb_clear() {
+static void fb_clear() {
    // initialize the cursor positions, origin, colours, etc.
    // TODO: clearing all of these may not be strictly correct
    fb_init_variables();
@@ -292,7 +285,7 @@ void fb_clear() {
 }
 
 
-void fb_cursor_left() {
+static void fb_cursor_left() {
    fb_hide_cursor();
    if (c_x_pos > 0) {
       c_x_pos--;
@@ -302,7 +295,7 @@ void fb_cursor_left() {
    fb_show_cursor();
 }
 
-void fb_cursor_right() {
+static void fb_cursor_right() {
    fb_hide_cursor();
    if (c_x_pos < text_width - 1) {
       c_x_pos++;
@@ -312,7 +305,7 @@ void fb_cursor_right() {
    fb_show_cursor();
 }
 
-void fb_cursor_up() {
+static void fb_cursor_up() {
    fb_hide_cursor();
    if (c_y_pos > 0) {
       c_y_pos--;
@@ -322,7 +315,7 @@ void fb_cursor_up() {
    fb_show_cursor();
 }
 
-void fb_cursor_down() {
+static void fb_cursor_down() {
    fb_hide_cursor();
    if (c_y_pos < text_height - 1) {
       c_y_pos++;
@@ -332,21 +325,21 @@ void fb_cursor_down() {
    fb_show_cursor();
 }
 
-void fb_cursor_col0() {
+static void fb_cursor_col0() {
    fb_disable_edit_cursor();
    fb_hide_cursor();
    c_x_pos = 0;
    fb_show_cursor();
 }
 
-void fb_cursor_home() {
+static void fb_cursor_home() {
    fb_hide_cursor();
    c_x_pos = 0;
    c_y_pos = 0;
 }
 
 
-void fb_cursor_next() {
+static void fb_cursor_next() {
    fb_hide_cursor();
    if (c_x_pos < text_width - 1) {
       c_x_pos++;
@@ -357,36 +350,8 @@ void fb_cursor_next() {
    fb_show_cursor();
 }
 
-volatile int d;
 
-void fb_initialize() {
-   font = get_font_by_number(DEFAULT_FONT);
-
-   if (!font) {
-      printf("No font loaded\n\r");
-   } else {
-      printf("Font %s loaded\n\r", font->name);
-   }
-
-   fb_init_variables();
-
-   fb_writec(22);
-   fb_writec(DEFAULT_SCREEN_MODE);
-
-   // TODO: This should be elsewhere
-   // Initialize Timer Interrupts
-   RPI_ArmTimerInit();
-   RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
-
-   fb_writes("\r\nPiTubeDirect VDU Driver\r\n");
-#ifdef DEBUG_VDU
-   fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
-#endif
-   fb_writes("\r\n");
-
-}
-
-void update_g_cursors(int16_t x, int16_t y) {
+static void update_g_cursors(int16_t x, int16_t y) {
    g_x_pos_last2 = g_x_pos_last1;
    g_x_pos_last1 = g_x_pos;
    g_x_pos       = x;
@@ -395,9 +360,13 @@ void update_g_cursors(int16_t x, int16_t y) {
    g_y_pos       = y;
 }
 
-int calc_radius(int x1, int y1, int x2, int y2) {
+static int calc_radius(int x1, int y1, int x2, int y2) {
    return (int)(sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
 }
+
+// ==========================================================================
+// Drawing Primitives
+// ==========================================================================
 
 static void fb_draw_character(int c, int invert) {
    int fg_col = get_colour(c_fg_col);
@@ -431,12 +400,475 @@ static void fb_draw_character_and_advance(int c) {
 }
 
 
+static void fb_setpixel(int x, int y, unsigned int colour) {
+   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   if (x < 0  || x > screen->width - 1) {
+      return;
+   }
+   if (y < 0 || y > screen->height - 1) {
+      return;
+   }
+   screen->set_pixel(screen, x, y, colour);
+}
+
+static unsigned int fb_getpixel(int x, int y) {
+   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   if (x < 0  || x > screen->width - 1) {
+      return g_bg_col;
+   }
+   if (y < 0 || y > screen->height - 1) {
+      return g_bg_col;
+   }
+   return screen->get_pixel(screen, x, y);
+}
+
+
+/* The difference between fb_putpixel and fb_setpixel is that
+ * fp_putpixel gets the colour from the logical colour table
+ * and fb_setpixel writes the 16 or 32 bits colour.
+ */
+static void fb_putpixel(int x, int y, unsigned int colour) {
+   fb_setpixel(x, y, get_colour(colour));
+}
+
+// Implementation of Bresenham's line drawing algorithm from here:
+// http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
+static void fb_draw_line(int x,int y,int x2, int y2, unsigned int color) {
+   int i;
+   int w = x2 - x;
+   int h = y2 - y;
+   int dx1 = 0, dy1 = 0, dx2 = 0, dy2 = 0;
+   if (w < 0) dx1 = -1 ; else if (w > 0) dx1 = 1;
+   if (h < 0) dy1 = -1 ; else if (h > 0) dy1 = 1;
+   if (w < 0) dx2 = -1 ; else if (w > 0) dx2 = 1;
+   int longest = abs(w);
+   int shortest = abs(h);
+   if (!(longest > shortest)) {
+      longest = abs(h);
+      shortest = abs(w);
+      if (h < 0) dy2 = -1 ; else if (h > 0) dy2 = 1;
+      dx2 = 0;
+   }
+   int numerator = longest >> 1 ;
+   for (i = 0; i <= longest; i++) {
+      fb_putpixel(x, y, color);
+      numerator += shortest;
+      if (!(numerator < longest)) {
+         numerator -= longest;
+         x += dx1;
+         y += dy1;
+      } else {
+         x += dx2;
+         y += dy2;
+      }
+   }
+}
+
+static void fb_fill_triangle(int x, int y, int x2, int y2, int x3, int y3, unsigned int colour) {
+   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x3 = ((x3 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y3 = ((y3 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   // Flip y axis
+   y = screen->height - 1 - y;
+   y2 = screen->height - 1 - y2;
+   y3 = screen->height - 1 - y3;
+   colour = get_colour(colour);
+   v3d_draw_triangle(screen, x, y, x2, y2, x3, y3, colour);
+}
+
+static void fb_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
+   fb_draw_line(x1, y1, x2, y2, colour);
+   fb_draw_line(x2, y2, x3, y3, colour);
+   fb_draw_line(x3, y3, x1, y1, colour);
+}
+
+static void fb_draw_circle(int xc, int yc, int r, unsigned int colour) {
+   int x=0;
+   int y=r;
+   int p=3-(2*r);
+
+   fb_putpixel(xc+x,yc-y,colour);
+
+   for(x=0;x<=y;x++)
+      {
+         if (p<0)
+            {
+               p+=4*x+6;
+            }
+         else
+            {
+               y--;
+               p+=4*(x-y)+10;
+            }
+
+         fb_putpixel(xc+x,yc-y,colour);
+         fb_putpixel(xc-x,yc-y,colour);
+         fb_putpixel(xc+x,yc+y,colour);
+         fb_putpixel(xc-x,yc+y,colour);
+         fb_putpixel(xc+y,yc-x,colour);
+         fb_putpixel(xc-y,yc-x,colour);
+         fb_putpixel(xc+y,yc+x,colour);
+         fb_putpixel(xc-y,yc+x,colour);
+      }
+}
+
+static void fb_fill_circle(int xc, int yc, int r, unsigned int colour) {
+   int x=0;
+   int y=r;
+   int p=3-(2*r);
+
+   fb_putpixel(xc+x,yc-y,colour);
+
+   for(x=0;x<=y;x++)
+      {
+         if (p<0)
+            {
+               p+=4*x+6;
+            }
+         else
+            {
+               y--;
+               p+=4*(x-y)+10;
+            }
+
+         fb_draw_line(xc+x,yc-y,xc-x,yc-y,colour);
+         fb_draw_line(xc+x,yc+y,xc-x,yc+y,colour);
+         fb_draw_line(xc+y,yc-x,xc-y,yc-x,colour);
+         fb_draw_line(xc+y,yc+x,xc-y,yc+x,colour);
+      }
+}
+/* Bad rectangle due to triangle bug
+   void fb_fill_rectangle(int x1, int y1, int x2, int y2, unsigned int colour) {
+   fb_fill_triangle(x1, y1, x1, y2, x2, y2, colour);
+   fb_fill_triangle(x1, y1, x2, y1, x2, y2, colour);
+   }
+*/
+
+static void fb_fill_rectangle(int x1, int y1, int x2, int y2, unsigned int colour) {
+   int y;
+   for (y = y1; y <= y2; y++) {
+      fb_draw_line(x1, y, x2, y, colour);
+   }
+}
+
+static void fb_draw_rectangle(int x1, int y1, int x2, int y2, unsigned int colour) {
+   fb_draw_line(x1, y1, x2, y1, colour);
+   fb_draw_line(x2, y1, x2, y2, colour);
+   fb_draw_line(x2, y2, x1, y2, colour);
+   fb_draw_line(x1, y2, x1, y1, colour);
+}
+
+static void fb_fill_parallelogram(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
+   int x4 = x3 - x2 + x1;
+   int y4 = y3 - y2 + y1;
+   fb_fill_triangle(x1, y1, x2, y2, x3, y3, colour);
+   fb_fill_triangle(x1, y1, x4, y4, x3, y3, colour);
+}
+
+static void fb_draw_parallelogram(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
+   int x4 = x3 - x2 + x1;
+   int y4 = y3 - y2 + y1;
+   fb_draw_line(x1, y1, x2, y2, colour);
+   fb_draw_line(x2, y2, x3, y3, colour);
+   fb_draw_line(x3, y3, x4, y4, colour);
+   fb_draw_line(x4, y4, x1, y1, colour);
+}
+
+static void fb_draw_ellipse(int xc, int yc, int width, int height, unsigned int colour) {
+   int a2 = width * width;
+   int b2 = height * height;
+   int fa2 = 4 * a2, fb2 = 4 * b2;
+   int x, y, sigma;
+
+   /* first half */
+   for (x = 0, y = height, sigma = 2*b2+a2*(1-2*height); b2*x <= a2*y; x++)
+      {
+         fb_putpixel(xc + x, yc + y, colour);
+         fb_putpixel(xc - x, yc + y, colour);
+         fb_putpixel(xc + x, yc - y, colour);
+         fb_putpixel(xc - x, yc - y, colour);
+         if (sigma >= 0)
+            {
+               sigma += fa2 * (1 - y);
+               y--;
+            }
+         sigma += b2 * ((4 * x) + 6);
+      }
+
+   /* second half */
+   for (x = width, y = 0, sigma = 2*a2+b2*(1-2*width); a2*y <= b2*x; y++)
+      {
+         fb_putpixel(xc + x, yc + y, colour);
+         fb_putpixel(xc - x, yc + y, colour);
+         fb_putpixel(xc + x, yc - y, colour);
+         fb_putpixel(xc - x, yc - y, colour);
+         if (sigma >= 0)
+            {
+               sigma += fb2 * (1 - x);
+               x--;
+            }
+         sigma += a2 * ((4 * y) + 6);
+      }
+}
+
+static void fb_fill_ellipse(int xc, int yc, int width, int height, unsigned int colour) {
+   int a2 = width * width;
+   int b2 = height * height;
+   int fa2 = 4 * a2, fb2 = 4 * b2;
+   int x, y, sigma;
+
+   /* first half */
+   for (x = 0, y = height, sigma = 2*b2+a2*(1-2*height); b2*x <= a2*y; x++)
+      {
+         fb_draw_line(xc + x, yc + y, xc - x, yc + y, colour);
+         fb_draw_line(xc + x, yc - y, xc - x, yc - y, colour);
+         if (sigma >= 0)
+            {
+               sigma += fa2 * (1 - y);
+               y--;
+            }
+         sigma += b2 * ((4 * x) + 6);
+      }
+
+   /* second half */
+   for (x = width, y = 0, sigma = 2*a2+b2*(1-2*width); a2*y <= b2*x; y++)
+      {
+         fb_draw_line(xc + x, yc + y, xc - x, yc + y, colour);
+         fb_draw_line(xc + x, yc - y, xc - x, yc - y, colour);
+         if (sigma >= 0)
+            {
+               sigma += fb2 * (1 - x);
+               x--;
+            }
+         sigma += a2 * ((4 * y) + 6);
+      }
+}
+
+static void fb_fill_area(int x, int y, unsigned int colour, fill_t mode) {
+
+   /*   Modes:
+    * HL_LR_NB: horizontal line fill (left & right) to non-background - done
+    * HL_RO_BG: Horizontal line fill (right only) to background - done
+    * HL_LR_FG: Horizontal line fill (left & right) to foreground
+    * HL_RO_NF: Horizontal line fill (right only) to non-foreground - done
+    * AF_NONBG: Flood (area fill) to non-background
+    * AF_TOFGD: Flood (area fill) to foreground
+    */
+
+   int save_x = x;
+   int save_y = y;
+   int x_left = x;
+   int y_left = y;
+   int x_right = x;
+   int y_right = y;
+   int real_y;
+   unsigned int stop = 0;
+
+   // printf("Plot (%d,%d), colour %d, mode %d\r\n", x, y, colour, mode);
+   // printf("g_bg_col = %d, g_fg_col = %d\n\r", g_bg_col, g_fg_col);
+
+   switch(mode) {
+   case HL_LR_NB:
+      while (! stop) {
+         if (fb_getpixel(x_right,y) == get_colour(g_bg_col) && x_right <= BBC_X_RESOLUTION) {
+            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      stop = 0;
+      x = save_x - 1;
+      while (! stop) {
+         if (fb_getpixel(x_left,y) == get_colour(g_bg_col) && x_left >= 0) {
+            x_left -= BBC_X_RESOLUTION/screen->width;    // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      break;
+
+   case HL_RO_BG:
+      while (! stop) {
+         if (fb_getpixel(x_right,y) != get_colour(g_bg_col) && x_right <= BBC_X_RESOLUTION) {
+            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      break;
+
+   case HL_LR_FG:
+      while (! stop) {
+         if (fb_getpixel(x_right,y) != get_colour(g_fg_col) && x_right <= BBC_X_RESOLUTION) {
+            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      stop = 0;
+      x = save_x - 1;
+      while (! stop) {
+         if (fb_getpixel(x_left,y) != get_colour(g_fg_col) && x_left >= 0) {
+            x_left -= BBC_X_RESOLUTION/screen->width;    // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      break;
+
+
+   case HL_RO_NF:
+      while (! stop) {
+         if (fb_getpixel(x_right,y) != get_colour(g_fg_col) && x_right <= BBC_X_RESOLUTION) {
+            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
+         } else {
+            stop = 1;
+         }
+      }
+      break;
+
+   case AF_NONBG:
+      // going up
+      while (! stop) {
+         if (fb_getpixel(x,y) == get_colour(g_bg_col) && y <= BBC_Y_RESOLUTION) {
+            fb_fill_area(x, y, colour, HL_LR_NB);
+            // As the BBC_Y_RESOLUTION is not a multiple of screen->height we have to increment
+            // y until the physical y-coordinate increases. If we don't do that and simply increment
+            // y by 2 then at some point the physical y-coordinate is the same as the previous drawn
+            // line and the floodings stops. This also speeds up drawing because each physical line
+            // is only drawn once.
+            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
+               y++;
+            }
+            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
+         } else {
+            stop = 1;
+         }
+      }
+      // going down
+      stop = 0;
+      x = save_x;
+      y = save_y - BBC_Y_RESOLUTION/screen->height;
+      while (! stop) {
+         if (fb_getpixel(x,y) == get_colour(g_bg_col) && y >= 0) {
+            fb_fill_area(x, y, colour, HL_LR_NB);
+            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
+               y--;
+            }
+            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
+         } else {
+            stop = 1;
+         }
+      }
+      colour = -1;  // prevents any additional line drawing
+      break;
+
+   case AF_TOFGD:
+      // going up
+      while (! stop) {
+         if (fb_getpixel(x,y) != get_colour(g_fg_col) && y <= BBC_Y_RESOLUTION) {
+            fb_fill_area(x, y, colour, HL_LR_FG);
+            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
+               y++;
+            }
+            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
+         } else {
+            stop = 1;
+         }
+      }
+      // going down
+      stop = 0;
+      x = save_x;
+      y = save_y - BBC_Y_RESOLUTION/screen->height;
+      while (! stop) {
+         if (fb_getpixel(x,y) != get_colour(g_fg_col) && y >= 0) {
+            fb_fill_area(x, y, colour, HL_LR_NB);
+            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
+               y--;
+            }
+            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
+         } else {
+            stop = 1;
+         }
+      }
+      colour = -1;  // prevents any additional line drawing
+      break;
+
+   default:
+      printf( "Unknown fill mode %d\r\n", mode);
+      break;
+   }
+
+   if (colour >= 0) {
+      fb_draw_line(x_left, y_left, x_right, y_right, colour);
+      g_x_pos_last1 = x_left;
+      g_y_pos_last1 = y_left;
+      g_x_pos_last2 = x_right;
+      g_y_pos_last2 = y_right;
+   }
+}
+
+// ==========================================================================
+// Public interface
+// ==========================================================================
+
+void fb_initialize() {
+   font = get_font_by_number(DEFAULT_FONT);
+
+   if (!font) {
+      printf("No font loaded\n\r");
+   } else {
+      printf("Font %s loaded\n\r", font->name);
+   }
+
+   fb_init_variables();
+
+   fb_writec(22);
+   fb_writec(DEFAULT_SCREEN_MODE);
+
+   // TODO: This should be elsewhere
+   // Initialize Timer Interrupts
+   RPI_ArmTimerInit();
+   RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
+
+   fb_writes("\r\nPiTubeDirect VDU Driver\r\n");
+#ifdef DEBUG_VDU
+   fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
+#endif
+   fb_writes("\r\n");
+
+}
+
 void fb_writec_buffered(char ch) {
    // TODO: Deal with overflow
    vdu_queue[vdu_wp] = ch;
    vdu_wp = (vdu_wp + 1) & (VDU_QSIZE - 1);
 }
 
+void fb_process_vdu_queue() {
+   static int cursor_count = 0;
+   _data_memory_barrier();
+   RPI_GetArmTimer()->IRQClear = 0;
+   while (vdu_rp != vdu_wp) {
+      char ch = vdu_queue[vdu_rp];
+      fb_writec(ch);
+      vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
+   }
+   cursor_count++;
+   if (cursor_count == 250) {
+      fb_cursor_interrupt();
+      cursor_count = 0;
+   }
+}
 
 void fb_writec(char ch) {
    unsigned char c = (unsigned char) ch;
@@ -837,480 +1269,23 @@ void fb_writes(char *string) {
    }
 }
 
-/* The difference between fb_putpixel and fb_setpixel is that
- * fp_putpixel gets the colour from the logical colour table
- * and fb_setpixel writes the 16 or 32 bits colour.
- */
-void fb_putpixel(int x, int y, unsigned int colour) {
-   fb_setpixel(x, y, get_colour(colour));
-}
-
-void fb_setpixel(int x, int y, unsigned int colour) {
-   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   if (x < 0  || x > screen->width - 1) {
-      return;
-   }
-   if (y < 0 || y > screen->height - 1) {
-      return;
-   }
-   screen->set_pixel(screen, x, y, colour);
-}
-
-unsigned int fb_getpixel(int x, int y) {
-   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   if (x < 0  || x > screen->width - 1) {
-      return g_bg_col;
-   }
-   if (y < 0 || y > screen->height - 1) {
-      return g_bg_col;
-   }
-   return screen->get_pixel(screen, x, y);
-}
-
-
-// Implementation of Bresenham's line drawing algorithm from here:
-// http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
-void fb_draw_line(int x,int y,int x2, int y2, unsigned int color) {
-   int i;
-   int w = x2 - x;
-   int h = y2 - y;
-   int dx1 = 0, dy1 = 0, dx2 = 0, dy2 = 0;
-   if (w < 0) dx1 = -1 ; else if (w > 0) dx1 = 1;
-   if (h < 0) dy1 = -1 ; else if (h > 0) dy1 = 1;
-   if (w < 0) dx2 = -1 ; else if (w > 0) dx2 = 1;
-   int longest = abs(w);
-   int shortest = abs(h);
-   if (!(longest > shortest)) {
-      longest = abs(h);
-      shortest = abs(w);
-      if (h < 0) dy2 = -1 ; else if (h > 0) dy2 = 1;
-      dx2 = 0;
-   }
-   int numerator = longest >> 1 ;
-   for (i = 0; i <= longest; i++) {
-      fb_putpixel(x, y, color);
-      numerator += shortest;
-      if (!(numerator < longest)) {
-         numerator -= longest;
-         x += dx1;
-         y += dy1;
-      } else {
-         x += dx2;
-         y += dy2;
-      }
-   }
-}
-
-void fb_fill_triangle(int x, int y, int x2, int y2, int x3, int y3, unsigned int colour) {
-   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x3 = ((x3 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y3 = ((y3 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   // Flip y axis
-   y = screen->height - 1 - y;
-   y2 = screen->height - 1 - y2;
-   y3 = screen->height - 1 - y3;
-   colour = get_colour(colour);
-   v3d_draw_triangle(x, y, x2, y2, x3, y3, colour);
-}
-
-void fb_draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
-   fb_draw_line(x1, y1, x2, y2, colour);
-   fb_draw_line(x2, y2, x3, y3, colour);
-   fb_draw_line(x3, y3, x1, y1, colour);
-}
-
-void fb_draw_circle(int xc, int yc, int r, unsigned int colour) {
-   int x=0;
-   int y=r;
-   int p=3-(2*r);
-
-   fb_putpixel(xc+x,yc-y,colour);
-
-   for(x=0;x<=y;x++)
-      {
-         if (p<0)
-            {
-               p+=4*x+6;
-            }
-         else
-            {
-               y--;
-               p+=4*(x-y)+10;
-            }
-
-         fb_putpixel(xc+x,yc-y,colour);
-         fb_putpixel(xc-x,yc-y,colour);
-         fb_putpixel(xc+x,yc+y,colour);
-         fb_putpixel(xc-x,yc+y,colour);
-         fb_putpixel(xc+y,yc-x,colour);
-         fb_putpixel(xc-y,yc-x,colour);
-         fb_putpixel(xc+y,yc+x,colour);
-         fb_putpixel(xc-y,yc+x,colour);
-      }
-}
-
-void fb_fill_circle(int xc, int yc, int r, unsigned int colour) {
-   int x=0;
-   int y=r;
-   int p=3-(2*r);
-
-   fb_putpixel(xc+x,yc-y,colour);
-
-   for(x=0;x<=y;x++)
-      {
-         if (p<0)
-            {
-               p+=4*x+6;
-            }
-         else
-            {
-               y--;
-               p+=4*(x-y)+10;
-            }
-
-         fb_draw_line(xc+x,yc-y,xc-x,yc-y,colour);
-         fb_draw_line(xc+x,yc+y,xc-x,yc+y,colour);
-         fb_draw_line(xc+y,yc-x,xc-y,yc-x,colour);
-         fb_draw_line(xc+y,yc+x,xc-y,yc+x,colour);
-      }
-}
-/* Bad rectangle due to triangle bug
-   void fb_fill_rectangle(int x1, int y1, int x2, int y2, unsigned int colour) {
-   fb_fill_triangle(x1, y1, x1, y2, x2, y2, colour);
-   fb_fill_triangle(x1, y1, x2, y1, x2, y2, colour);
-   }
-*/
-
-void fb_fill_rectangle(int x1, int y1, int x2, int y2, unsigned int colour) {
-   int y;
-   for (y = y1; y <= y2; y++) {
-      fb_draw_line(x1, y, x2, y, colour);
-   }
-}
-
-void fb_draw_rectangle(int x1, int y1, int x2, int y2, unsigned int colour) {
-   fb_draw_line(x1, y1, x2, y1, colour);
-   fb_draw_line(x2, y1, x2, y2, colour);
-   fb_draw_line(x2, y2, x1, y2, colour);
-   fb_draw_line(x1, y2, x1, y1, colour);
-}
-
-void fb_fill_parallelogram(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
-   int x4 = x3 - x2 + x1;
-   int y4 = y3 - y2 + y1;
-   fb_fill_triangle(x1, y1, x2, y2, x3, y3, colour);
-   fb_fill_triangle(x1, y1, x4, y4, x3, y3, colour);
-}
-
-void fb_draw_parallelogram(int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
-   int x4 = x3 - x2 + x1;
-   int y4 = y3 - y2 + y1;
-   fb_draw_line(x1, y1, x2, y2, colour);
-   fb_draw_line(x2, y2, x3, y3, colour);
-   fb_draw_line(x3, y3, x4, y4, colour);
-   fb_draw_line(x4, y4, x1, y1, colour);
-}
-
-void fb_draw_ellipse(int xc, int yc, int width, int height, unsigned int colour) {
-   int a2 = width * width;
-   int b2 = height * height;
-   int fa2 = 4 * a2, fb2 = 4 * b2;
-   int x, y, sigma;
-
-   /* first half */
-   for (x = 0, y = height, sigma = 2*b2+a2*(1-2*height); b2*x <= a2*y; x++)
-      {
-         fb_putpixel(xc + x, yc + y, colour);
-         fb_putpixel(xc - x, yc + y, colour);
-         fb_putpixel(xc + x, yc - y, colour);
-         fb_putpixel(xc - x, yc - y, colour);
-         if (sigma >= 0)
-            {
-               sigma += fa2 * (1 - y);
-               y--;
-            }
-         sigma += b2 * ((4 * x) + 6);
-      }
-
-   /* second half */
-   for (x = width, y = 0, sigma = 2*a2+b2*(1-2*width); a2*y <= b2*x; y++)
-      {
-         fb_putpixel(xc + x, yc + y, colour);
-         fb_putpixel(xc - x, yc + y, colour);
-         fb_putpixel(xc + x, yc - y, colour);
-         fb_putpixel(xc - x, yc - y, colour);
-         if (sigma >= 0)
-            {
-               sigma += fb2 * (1 - x);
-               x--;
-            }
-         sigma += a2 * ((4 * y) + 6);
-      }
-}
-
-void fb_fill_ellipse(int xc, int yc, int width, int height, unsigned int colour) {
-   int a2 = width * width;
-   int b2 = height * height;
-   int fa2 = 4 * a2, fb2 = 4 * b2;
-   int x, y, sigma;
-
-   /* first half */
-   for (x = 0, y = height, sigma = 2*b2+a2*(1-2*height); b2*x <= a2*y; x++)
-      {
-         fb_draw_line(xc + x, yc + y, xc - x, yc + y, colour);
-         fb_draw_line(xc + x, yc - y, xc - x, yc - y, colour);
-         if (sigma >= 0)
-            {
-               sigma += fa2 * (1 - y);
-               y--;
-            }
-         sigma += b2 * ((4 * x) + 6);
-      }
-
-   /* second half */
-   for (x = width, y = 0, sigma = 2*a2+b2*(1-2*width); a2*y <= b2*x; y++)
-      {
-         fb_draw_line(xc + x, yc + y, xc - x, yc + y, colour);
-         fb_draw_line(xc + x, yc - y, xc - x, yc - y, colour);
-         if (sigma >= 0)
-            {
-               sigma += fb2 * (1 - x);
-               x--;
-            }
-         sigma += a2 * ((4 * y) + 6);
-      }
-}
-
-void fb_fill_area(int x, int y, unsigned int colour, unsigned int mode) {
-   /*   Modes:
-    * HL_LR_NB: horizontal line fill (left & right) to non-background - done
-    * HL_RO_BG: Horizontal line fill (right only) to background - done
-    * HL_LR_FG: Horizontal line fill (left & right) to foreground
-    * HL_RO_NF: Horizontal line fill (right only) to non-foreground - done
-    * AF_NONBG: Flood (area fill) to non-background
-    * AF_TOFGD: Flood (area fill) to foreground
-    */
-
-   int save_x = x;
-   int save_y = y;
-   int x_left = x;
-   int y_left = y;
-   int x_right = x;
-   int y_right = y;
-   int real_y;
-   unsigned int stop = 0;
-
-   // printf("Plot (%d,%d), colour %d, mode %d\r\n", x, y, colour, mode);
-   // printf("g_bg_col = %d, g_fg_col = %d\n\r", g_bg_col, g_fg_col);
-
-   switch(mode) {
-   case HL_LR_NB:
-      while (! stop) {
-         if (fb_getpixel(x_right,y) == get_colour(g_bg_col) && x_right <= BBC_X_RESOLUTION) {
-            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
-         } else {
-            stop = 1;
-         }
-      }
-      stop = 0;
-      x = save_x - 1;
-      while (! stop) {
-         if (fb_getpixel(x_left,y) == get_colour(g_bg_col) && x_left >= 0) {
-            x_left -= BBC_X_RESOLUTION/screen->width;    // speeds up but might fail if not integer
-         } else {
-            stop = 1;
-         }
-      }
-      break;
-
-   case HL_RO_BG:
-      while (! stop) {
-         if (fb_getpixel(x_right,y) != get_colour(g_bg_col) && x_right <= BBC_X_RESOLUTION) {
-            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
-         } else {
-            stop = 1;
-         }
-      }
-      break;
-
-   case HL_LR_FG:
-      while (! stop) {
-         if (fb_getpixel(x_right,y) != get_colour(g_fg_col) && x_right <= BBC_X_RESOLUTION) {
-            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
-         } else {
-            stop = 1;
-         }
-      }
-      stop = 0;
-      x = save_x - 1;
-      while (! stop) {
-         if (fb_getpixel(x_left,y) != get_colour(g_fg_col) && x_left >= 0) {
-            x_left -= BBC_X_RESOLUTION/screen->width;    // speeds up but might fail if not integer
-         } else {
-            stop = 1;
-         }
-      }
-      break;
-
-
-   case HL_RO_NF:
-      while (! stop) {
-         if (fb_getpixel(x_right,y) != get_colour(g_fg_col) && x_right <= BBC_X_RESOLUTION) {
-            x_right += BBC_X_RESOLUTION/screen->width;   // speeds up but might fail if not integer
-         } else {
-            stop = 1;
-         }
-      }
-      break;
-
-   case AF_NONBG:
-      // going up
-      while (! stop) {
-         if (fb_getpixel(x,y) == get_colour(g_bg_col) && y <= BBC_Y_RESOLUTION) {
-            fb_fill_area(x, y, colour, HL_LR_NB);
-            // As the BBC_Y_RESOLUTION is not a multiple of screen->height we have to increment
-            // y until the physical y-coordinate increases. If we don't do that and simply increment
-            // y by 2 then at some point the physical y-coordinate is the same as the previous drawn
-            // line and the floodings stops. This also speeds up drawing because each physical line
-            // is only drawn once.
-            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
-               y++;
-            }
-            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
-         } else {
-            stop = 1;
-         }
-      }
-      // going down
-      stop = 0;
-      x = save_x;
-      y = save_y - BBC_Y_RESOLUTION/screen->height;
-      while (! stop) {
-         if (fb_getpixel(x,y) == get_colour(g_bg_col) && y >= 0) {
-            fb_fill_area(x, y, colour, HL_LR_NB);
-            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
-               y--;
-            }
-            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
-         } else {
-            stop = 1;
-         }
-      }
-      colour = -1;  // prevents any additional line drawing
-      break;
-
-   case AF_TOFGD:
-      // going up
-      while (! stop) {
-         if (fb_getpixel(x,y) != get_colour(g_fg_col) && y <= BBC_Y_RESOLUTION) {
-            fb_fill_area(x, y, colour, HL_LR_FG);
-            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
-               y++;
-            }
-            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
-         } else {
-            stop = 1;
-         }
-      }
-      // going down
-      stop = 0;
-      x = save_x;
-      y = save_y - BBC_Y_RESOLUTION/screen->height;
-      while (! stop) {
-         if (fb_getpixel(x,y) != get_colour(g_fg_col) && y >= 0) {
-            fb_fill_area(x, y, colour, HL_LR_NB);
-            real_y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-            while(((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION == real_y) {
-               y--;
-            }
-            x = (g_x_pos_last1 + g_x_pos_last2) / 2;
-         } else {
-            stop = 1;
-         }
-      }
-      colour = -1;  // prevents any additional line drawing
-      break;
-
-   default:
-      printf( "Unknown fill mode %d\r\n", mode);
-      break;
-   }
-
-   if (colour >= 0) {
-      fb_draw_line(x_left, y_left, x_right, y_right, colour);
-      g_x_pos_last1 = x_left;
-      g_y_pos_last1 = y_left;
-      g_x_pos_last2 = x_right;
-      g_y_pos_last2 = y_right;
-   }
-}
-
 uint32_t fb_get_address() {
    return (uint32_t) fb;
 }
 
-uint32_t fb_get_width() {
-   return screen->width;
-}
-
-uint32_t fb_get_height() {
-   return screen->height;
-}
-
-uint32_t fb_get_depth() {
-   if (screen) {
-      return screen->bpp;
-   } else {
-      return 0;
-   }
-}
-
-
-void fb_process_vdu_queue() {
-   static int cursor_count = 0;
-   _data_memory_barrier();
-   RPI_GetArmTimer()->IRQClear = 0;
-   while (vdu_rp != vdu_wp) {
-      char ch = vdu_queue[vdu_rp];
-      fb_writec(ch);
-      vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
-   }
-   cursor_count++;
-   if (cursor_count == 250) {
-      fb_cursor_interrupt();
-      cursor_count = 0;
-   }
-}
-
-int fb_get_cursor_x() {
-   return c_x_pos;
-};
-
-int fb_get_cursor_y() {
-   return c_y_pos;
-};
-
 int fb_get_edit_cursor_x() {
    return e_x_pos;
-};
+}
 
 int fb_get_edit_cursor_y() {
    return e_y_pos;
-};
+}
 
 int fb_get_edit_cursor_char() {
    int x = e_x_pos * font_width;
    int y = screen->height - e_y_pos * font_height - 1;
    return font->read_character(font, screen, x, y);
-};
+}
 
 int16_t fb_get_g_bg_col() {
    return g_bg_col;
