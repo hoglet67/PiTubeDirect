@@ -98,6 +98,8 @@ file( GLOB core_files
     framebuffer/framebuffer.h
     framebuffer/screen_modes.c
     framebuffer/screen_modes.h
+    framebuffer/primitives.c
+    framebuffer/primitives.h
     framebuffer/fonts.c
     framebuffer/fonts.h
     framebuffer/mousepointers.c
