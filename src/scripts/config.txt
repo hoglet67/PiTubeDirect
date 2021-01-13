@@ -1,7 +1,6 @@
 # config.txt for PiTubeDirect (https://github.com/hoglet67/PiTubeDirect)
 #
 # default options
-core_freq=400
 kernel=kernelrpi.img
 # Debug kernel (needs a 115200 serial connection)
 #kernel=debug/kernelrpi.img
@@ -11,6 +10,7 @@ core_freq=350
 
 # Settings for Pi 2
 [pi2]
+core_freq=400
 kernel=kernelrpi2.img
 # Debug kernel (needs a 115200 serial connection)
 #kernel=debug/kernelrpi2.img
@@ -29,6 +29,8 @@ kernel=kernelrpi3.img
 
 [pi4]
 kernel=kernel8-32.img
+# Debug kernel (needs a 115200 serial connection)
+#kernel=debug/kernel8-32.img
 
 # Global settings
 [all]
