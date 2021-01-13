@@ -77,8 +77,9 @@ static int reset_sent = 0;
  ***********************************************************/
 
 // Note: this will be executed in user mode
-static void defaultErrorHandler(const ErrorBuffer_type *eb) {
+static void defaultErrorHandler(unsigned int r0) {
   // TODO: Consider resetting the user stack?
+  const ErrorBuffer_type *eb = &defaultErrorBuffer;
   if (DEBUG_ARM) {
     printf("Error = %p %02x %s\r\n", eb->errorAddr, eb->errorBlock.errorNum, eb->errorBlock.errorMsg);
   }

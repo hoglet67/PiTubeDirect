@@ -249,7 +249,8 @@ void generate_error(void * address, unsigned int errorNum, char *errorMsg) {
   // Copy the error string into the handler's error block
   strcpy(ebuf->errorBlock.errorMsg, errorMsg);
   // The wrapper drops back to user mode and calls the handler
-  _error_handler_wrapper(ebuf, env->handler[ERROR_HANDLER].handler);
+  unsigned int r0 = env->handler[ERROR_HANDLER].r12;
+  _error_handler_wrapper(r0, env->handler[ERROR_HANDLER].handler);
 }
 
 void updateOverflow(unsigned char ovf, unsigned int *reg) {
