@@ -103,7 +103,7 @@ void CleanDataCache (void)
 
 void _clean_cache_area(void * start, unsigned int length)
 {
-#if defined(RPI2) || defined(RPI3)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
    uint32_t cachelinesize;
    char * startptr = start;
    char * endptr;
