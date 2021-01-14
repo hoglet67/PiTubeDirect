@@ -57,7 +57,6 @@ static int16_t g_y_pos;
 static int16_t g_y_pos_last1;
 static int16_t g_y_pos_last2;
 static int16_t g_mode;
-static int16_t g_plotmode;
 
 // Text or graphical cursor for printing characters
 static int8_t g_cursor;
@@ -110,7 +109,6 @@ static void fb_init_variables() {
    g_y_pos_last1 = 0;
    g_y_pos_last2 = 0;
    g_mode        = 0;
-   g_plotmode    = 0;
 
    // Cursor mode
    g_cursor      = IN_VDU4;
@@ -120,6 +118,7 @@ static void fb_init_variables() {
 
    // Set the graphics origin to 0,0
    fb_set_graphics_origin(0, 0);
+   fb_set_graphics_plotmode(0);
 }
 
 static void fb_invert_cursor(int x_pos, int y_pos, int editing) {
@@ -456,12 +455,12 @@ void fb_writec(char ch) {
    if (state == IN_VDU17) {
       state = NORMAL;
       if (c & 128) {
-         c_bg_col = c & 15;
+         c_bg_col = c & 127;
 #ifdef DEBUG_VDU
          printf("bg = %d\r\n", c_bg_col);
 #endif
       } else {
-         c_fg_col = c & 15;
+         c_fg_col = c & 127;
 #ifdef DEBUG_VDU
          printf("fg = %d\r\n", c_fg_col);
 #endif
@@ -471,13 +470,13 @@ void fb_writec(char ch) {
    } else if (state == IN_VDU18) {
       switch (count) {
       case 0:
-         g_plotmode = c;
+         fb_set_graphics_plotmode(c);
          break;
       case 1:
          if (c & 128) {
-            g_bg_col = c & 15;
+            g_bg_col = c & 127;
          } else {
-            g_fg_col = c & 15;
+            g_fg_col = c & 127;
          }
          break;
       }

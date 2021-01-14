@@ -17,8 +17,17 @@ typedef enum {
    AF_TOFGD = 6  // Flood (area fill) to foreground
 } fill_t;
 
+typedef enum {
+   PM_NORMAL = 0,
+   PM_OR     = 1,
+   PM_AND    = 2,
+   PM_XOR    = 3,
+   PM_INVERT = 4
+} plotmode_t;
 
 void fb_set_graphics_origin(int16_t x, int16_t y);
+
+void fb_set_graphics_plotmode(uint8_t plotmode);
 
 void fb_setpixel(screen_mode_t *screen, int x, int y, pixel_t colour);
 void fb_draw_line(screen_mode_t *screen, int x,int y,int x2, int y2, pixel_t colour);

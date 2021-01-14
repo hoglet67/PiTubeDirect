@@ -4,6 +4,8 @@
 #include "framebuffer.h"
 #include "v3d.h"
 
+static uint8_t g_plotmode;
+
 static int16_t g_x_origin;
 static int16_t g_y_origin;
 
@@ -15,6 +17,10 @@ static int fill_y_pos_last2;
 void fb_set_graphics_origin(int16_t x, int16_t y) {
    g_x_origin = x;
    g_y_origin = y;
+}
+
+void fb_set_graphics_plotmode(uint8_t plotmode) {
+   g_plotmode = plotmode;
 }
 
 // TODO: (Maybe... need to consider the implications of working at lower resolution)
@@ -41,6 +47,23 @@ void fb_setpixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
    }
    if (y < 0 || y > screen->height - 1) {
       return;
+   }
+   if (g_plotmode != PM_NORMAL) {
+      pixel_t existing = screen->get_pixel(screen, x, y);
+      switch (g_plotmode) {
+      case PM_OR:
+         colour |= existing;
+         break;
+      case PM_AND:
+         colour &= existing;
+         break;
+      case PM_XOR:
+         colour ^= existing;
+         break;
+      case PM_INVERT:
+         colour = existing ^ 0xFF;
+         break;
+      }
    }
    screen->set_pixel(screen, x, y, colour);
 }
