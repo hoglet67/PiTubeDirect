@@ -27,7 +27,7 @@ char line[256];
  * Build in Commands
  ***********************************************************/
 
-#define NUM_CMDS 9
+#define NUM_CMDS 10
 
 // Must be kept in step with cmdFuncs (just below)
 char *cmdStrings[NUM_CMDS] = {
@@ -39,7 +39,8 @@ char *cmdStrings[NUM_CMDS] = {
   "FILL",
   "CRC",
   "ARMBASIC",
-  "PIVDU"
+  "PIVDU",
+  "PILIFE"
 };
 
 int (*cmdFuncs[NUM_CMDS])(const char *params) = {
@@ -51,10 +52,12 @@ int (*cmdFuncs[NUM_CMDS])(const char *params) = {
   doCmdFill,
   doCmdCrc,
   doCmdArmBasic,
-  doCmdPiVDU
+  doCmdPiVDU,
+  doCmdPiLIFE,
 };
 
 int cmdMode[NUM_CMDS] = {
+  MODE_USER,
   MODE_USER,
   MODE_USER,
   MODE_USER,
@@ -320,5 +323,112 @@ int doCmdPiVDU(const char *params) {
    }
    setVDUDevice(device);
    // TODO: Need to add a host oswrch redirector (for output of OSCLI commands)
+   return 0;
+}
+
+int doCmdPiLIFE(const char *params) {
+   int resolution = 0;
+   int generations = 0;
+   int mode = 0;
+
+   int nargs = sscanf(params, "%d %d %d", &resolution, &generations, &mode);
+
+   if (nargs < 1) {
+      resolution = 256;
+   }
+   if (nargs < 2) {
+      generations = 1000;
+   }
+   if (nargs < 3) {
+      mode = 0;
+   }
+
+   int shift = (mode < 8) ? 2 : (mode & 1) ? 0 : 1;
+
+   int sx = resolution;
+   int sy = resolution;
+
+   uint8_t *a = malloc(sx * sy);
+   uint8_t *b = malloc(sx * sy);
+
+   // Clear
+   memset(a, 0, sx * sy);
+   memset(b, 0, sx * sy);
+
+   // Randomize interior
+   for (int y = 1; y < sy - 1; y++) {
+      uint8_t *p = a + y * sx;
+      for (int x = 1; x < sx - 1; x++) {
+         *p++ = random() & 1;
+      }
+   }
+
+   // MODE n
+   OS_WriteC(22);
+   OS_WriteC(mode);
+
+   // GCOL 0,15
+   OS_WriteC(18);
+   OS_WriteC(0);
+   OS_WriteC(15);
+
+   // GCOL 0,128
+   OS_WriteC(18);
+   OS_WriteC(0);
+   OS_WriteC(128);
+
+   // Draw Initial Configuration
+   for (int y = 1; y < sy - 1; y++) {
+      uint8_t *p = a + y * sx;
+      for (int x = 1; x < sx - 1; x++) {
+         if (*p++) {
+            OS_WriteC(25);
+            OS_WriteC(69);
+            OS_WriteC((x << shift) & 255);
+            OS_WriteC((x >> (8 - shift)) & 255);
+            OS_WriteC((y << shift) & 255);
+            OS_WriteC((y >> (8 - shift)) & 255);
+         }
+      }
+   }
+
+   // Run Life
+   for (int gen = 0; gen < generations; gen++) {
+      for (int y = 1; y < sy - 1; y++) {
+         uint8_t *p1 = a + (y - 1) * sx;
+         uint8_t *p2 = a +  y      * sx;
+         uint8_t *p3 = a + (y + 1) * sx;
+         uint8_t *p4 = b + y * sx + 1;
+         for (int x = 1; x < sx - 1; x++) {
+            int count =
+               *p1 + *(p1 + 1) + *(p1 + 2) +
+               *p2 +             *(p2 + 2) +
+               *p3 + *(p3 + 1) + *(p3 + 2);
+            int o = *(p2 + 1);
+            int n = ((count == 2 && o == 1) || count == 3) ? 1 : 0;
+            *p4 = n;
+            p1++;
+            p2++;
+            p3++;
+            p4++;
+            if (n != o) {
+               OS_WriteC(25);
+               OS_WriteC(n ? 69 : 71);
+               OS_WriteC((x << shift) & 255);
+               OS_WriteC((x >> (8 - shift)) & 255);
+               OS_WriteC((y << shift) & 255);
+               OS_WriteC((y >> (8 - shift)) & 255);
+            }
+         }
+      }
+      // Swap a and b
+      uint8_t *tmp = a;
+      a = b;
+      b = tmp;
+   }
+
+   free(a);
+   free(b);
+
    return 0;
 }

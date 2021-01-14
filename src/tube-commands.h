@@ -14,6 +14,7 @@ int doCmdFill(const char *params);
 int doCmdCrc(const char *params);
 int doCmdArmBasic(const char *params);
 int doCmdPiVDU(const char *params);
+int doCmdPiLIFE(const char *params);
 
 // The Atom CRC Polynomial
 #define CRC_POLY          0x002d
