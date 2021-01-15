@@ -17,15 +17,15 @@
 #include "primitives.h"
 #include "v3d.h"
 #include "fonts.h"
-#include "vdu23.h"
-#include "vdu_state.h"
+#include "mousepointers.h"
+#include "sprites.h"
 
 // Default screen mode
 #define DEFAULT_SCREEN_MODE 8
 
 // Default colours - TODO this should be dynamic
 #define COL_BLACK    0
-#define COL_WHITE   15
+#define COL_WHITE   63
 
 // Current screen mode
 static screen_mode_t *screen = NULL;
@@ -69,6 +69,24 @@ static int c_visible; // Current visibility of the write cursor
 static volatile int vdu_wp = 0;
 static volatile int vdu_rp = 0;
 static char vdu_queue[VDU_QSIZE];
+
+static char vdu23buf[300];
+static int vdu23len;
+
+typedef enum {
+   NORMAL,
+   IN_VDU4,
+   IN_VDU5,
+   IN_VDU17,
+   IN_VDU18,
+   IN_VDU19,
+   IN_VDU22,
+   IN_VDU23,
+   IN_VDU25,
+   IN_VDU27,
+   IN_VDU29,
+   IN_VDU31
+} vdu_state_t;
 
 // ==========================================================================
 // Static methods
@@ -387,6 +405,181 @@ static int calc_radius(int x1, int y1, int x2, int y2) {
 }
 
 // ==========================================================================
+// VDU 23 commands
+// ==========================================================================
+
+
+void vdu23_3(char *buf) {
+   // VDU 23,3: select font by name
+   // params: eight bytes font name, trailing zeros if name shorter than 8 chars
+   // (selects the default font if the lookup fails)
+   if (buf[1] == 0) {
+      font = get_font_by_number(buf[2]);
+   } else {
+      font = get_font_by_name(buf+1);
+   }
+   calc_text_area();
+}
+
+void vdu23_4(char *buf) {
+   // VDU 23,4: set font scale
+   // params: hor. scale, vert. scale, char spacing, other 5 bytes are ignored
+   font->scale_w = buf[1] > 0 ? buf[1] : 1;
+   font->scale_h = buf[2] > 0 ? buf[2] : 1;
+   font->spacing = buf[3];
+#ifdef DEBUG_VDU
+   printf("Font scale set to %d,%d\r\n", font->scale_w, font->scale_h);
+#endif
+   calc_text_area();
+}
+
+void vdu23_5(char *buf) {
+   // VDU 23,5: set mouse pointer
+   // params:   mouse pointer id ( 0...31)
+   //           mouse x ( 0 < x < 256)
+   //           reserved: should be 0
+   //           mouse y ( 64 < y < 256)
+   //           reserved: should be 0
+   //           mouse colour red (0 < r < 31)
+   //           mouse colour green (0 < g < 63)
+   //           mouse colour blue (0 < b < 31)
+   int x = buf[2] * 5;
+   int y = (buf[4]-64) * 5.3333;
+   if (mp_save_x != 65535) {
+      mp_restore(screen);
+   }
+   mp_save_x = x;
+   mp_save_y = y;
+   mp_save(screen);
+   int col = ((buf[6]&0x1F) << 11) + ((buf[7]&0x3F) << 5) + (buf[8]&0x1F);
+   // Draw black mask in actuale background colour
+   int mp = buf[1];
+
+   // Read the current graphics background colour, and translate to a pixel value
+   pixel_t g_bg_col = screen->get_colour(screen, fb_get_g_bg_col());
+   for (int i=0; i<8; i++) {
+      int p = mpblack[mp * 8 + i];
+      for (int b=0; b<8; b++) {
+         if (p&0x80) {
+            // mask pixel set, set to bg colour
+            screen->set_pixel(screen, x + b * 2, y - i * 2, g_bg_col);
+         }
+         p <<= 1;
+      }
+   }
+
+   // Draw white mask in given foreground colour
+   for (int i=0; i<8; i++) {
+      int p = mpwhite[mp * 8 + i];
+      for (int b=0; b<8; b++) {
+         if (p&0x80) {
+            // mask pixel set, set to foreground colour
+            screen->set_pixel(screen, x + b * 2, y - i * 2, col);
+         }
+         p <<= 1;
+      }
+   }
+}
+
+void vdu23_6(char *buf) {
+   // VDU 23,6: turn off mouse pointer
+   // params:   none
+   mp_restore(screen);
+   mp_save_x = 0xFFFF;
+   mp_save_y = 0xFFFF;
+
+}
+
+void vdu23_7(char *buf) {
+   // VDU 23,7: define sprite
+   // params:   sprite number
+   //           16x16 pixels (256 bytes)
+   memcpy(sprites+buf[1]*256, buf+2, 256);
+}
+
+void vdu23_8(char *buf) {
+   // vdu 23,8: set sprite
+   // params:   sprite number (1 byte)
+   //           x position (1 word)
+   //           y position (1 word)
+   int x = buf[2] + buf[3]*256;
+   int y = buf[4] + buf[5]*256;
+   int p = buf[1];
+   sp_save(screen, p, x, y);
+   sp_set(screen, p, x, y);
+}
+
+void vdu23_9(char *buf) {
+   // vdu 23,9: unset sprite
+   // params:   sprite number (1 byte)
+   //           x position (1 word)
+   //           y position (1 word)
+   int x = buf[2] + buf[3]*256;
+   int y = buf[4] + buf[5]*256;
+   int p = buf[1];
+   sp_restore(screen, p, x, y);
+}
+
+
+void vdu23_17(char *buf) {
+   int16_t tmp;
+   // vdu 23,17: Set subsidary colour effects
+   switch (buf[1]) {
+   case 0:
+      // VDU 23,17,0 - sets tint for text foreground colour
+      c_fg_col = ((c_fg_col) & 0x3f) | (buf[2] & 0xc0);
+      break;
+   case 1:
+      // VDU 23,17,1 - sets tint for text background colour
+      c_bg_col = ((c_bg_col) & 0x3f) | (buf[2] & 0xc0);
+   case 2:
+      // VDU 23,17,2 - sets tint for graphics foreground colour
+      g_fg_col = ((g_fg_col) & 0x3f) | (buf[2] & 0xc0);
+   case 3:
+      // VDU 23,17,3 - sets tint for graphics background colour
+      g_bg_col = ((g_bg_col) & 0x3f) | (buf[2] & 0xc0);
+      break;
+   case 4:
+      // TODO: VDU 23,17,4 - Select colour patterns
+      break;
+   case 5:
+      // TODO: VDU 23,17,5 - Swap text colours
+      tmp = c_fg_col;
+      c_fg_col = g_bg_col;
+      c_bg_col = tmp;
+      break;
+   case 6:
+      // TODO: VDU 23,17,6 - Set ECF origin
+      break;
+   case 7:
+      // TODO VDU 23,17,7 - Set character size and spacing
+      // VDU 23,17,7,flags,xsize;ysize;0,0
+      break;
+   default:
+      break;
+   }
+}
+
+void vdu23(char *buf) {
+#ifdef DEBUG_VDU
+   for (i=0; i<9; i++) {
+      printf("%X", buf[i]);
+      printf("\n\r");
+   }
+#endif
+   switch (buf[0]) {
+   case  3: vdu23_3(buf); break;
+   case  4: vdu23_4(buf); break;
+   case  5: vdu23_5(buf); break;
+   case  6: vdu23_6(buf); break;
+   case  7: vdu23_7(buf); break;
+   case  8: vdu23_8(buf); break;
+   case  9: vdu23_9(buf); break;
+   case 17: vdu23_17(buf); break;
+   }
+}
+
+// ==========================================================================
 // Public interface
 // ==========================================================================
 
@@ -474,9 +667,9 @@ void fb_writec(char ch) {
          break;
       case 1:
          if (c & 128) {
-            g_bg_col = c & 127;
+            g_bg_col = c & 63;
          } else {
-            g_fg_col = c & 127;
+            g_fg_col = c & 63;
          }
          break;
       }
@@ -539,12 +732,15 @@ void fb_writec(char ch) {
       return;
 
    } else if (state == IN_VDU23) {
-      // Pass to the vdu23 code (in vdu23.c)
-      font_t *old_font = font;
-      state = do_vdu23(screen, &font, c);
-      if (font != old_font) {
-         // Re-calculate the size of the text area
-         calc_text_area();
+      vdu23buf[count] = c;
+      if (count == 0) {
+         vdu23len = (c == 7) ? 258 : 9;
+      }
+      if (count == vdu23len - 1) {
+         vdu23(vdu23buf);
+         state = NORMAL;
+      } else {
+         count++;
       }
       return;
 

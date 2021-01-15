@@ -106,8 +106,6 @@ file( GLOB core_files
     framebuffer/mousepointers.h
     framebuffer/sprites.c
     framebuffer/sprites.h
-    framebuffer/vdu23.c
-    framebuffer/vdu23.h
     framebuffer/v3d.c
     framebuffer/v3d.h
 )

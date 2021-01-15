@@ -34,35 +34,19 @@ static void update_palette(int offset, int num_colours) {
 }
 
 static void init_colour_table(screen_mode_t *screen) {
-   // Colour  0 = Black
-   // Colour  1 = Dark Red
-   // Colour  2 = Dark Green
-   // Colour  3 = Dark Yellow
-   // Colour  4 = Dark Blue
-   // Colour  5 = Dark Magenta
-   // Colour  6 = Dark Cyan
-   // Colour  7 = Dark White
-   // Colour  8 = Dark Black
-   // Colour  9 = Red
-   // Colour 10 = Green
-   // Colour 11 = Yellow
-   // Colour 12 = Blue
-   // Colour 13 = Magenta
-   // Colour 14 = Cyan
-   // Colour 15 = White
-   // Colour 16-255 Black
-   for (int i = 0; i < 16; i++) {
-      int intensity = (i & 8) ? 255 : 127;
-      int b = (i & 4) ? intensity : 0;
-      int g = (i & 2) ? intensity : 0;
-      int r = (i & 1) ? intensity : 0;
-      if (i == 8) {
-         r = g = b = 63;
-      }
+   // Default 256-colour mode palette
+   // Bits 1..0 = R    (0x00, 0x44, 0x88, 0xCC)
+   // Bits 3..2 = G    (0x00, 0x44, 0x88, 0xCC)
+   // Bits 5..4 = B    (0x00, 0x44, 0x88, 0xCC)
+   // Bits 7..6 = Tint (0x00, 0x11, 0x22, 0x33) added
+   for (int i = 0; i < 256; i++) {
+      // Tint
+      int tint = ((i >> 6) & 0x03) * 0x11;
+      // Colour
+      int r = ((i     ) & 0x03) * 0x44 + tint;
+      int g = ((i >> 2) & 0x03) * 0x44 + tint;
+      int b = ((i >> 4) & 0x03) * 0x44 + tint;
       screen->set_colour(screen, i, r, g, b);
-   }
-   for (int i = 16; i < 256; i++) {
-      screen->set_colour(screen, i, 0, 0, 0);
    }
 }
 
