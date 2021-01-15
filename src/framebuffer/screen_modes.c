@@ -116,6 +116,19 @@ static void init_colour_table(screen_mode_t *screen) {
    }
 }
 
+static void reset_screen(screen_mode_t *screen) {
+
+    /* Copy default colour table */
+    sync_palette = 0;
+    init_colour_table(screen);
+    sync_palette = 1;
+
+    /* Update the palette (only in 8-bpp modes) */
+    if (screen->bpp == 8) {
+       update_palette(0, NUM_COLOURS);
+    }
+}
+
 static void init_screen(screen_mode_t *screen) {
 
     rpi_mailbox_property_t *mp;
@@ -160,16 +173,8 @@ static void init_screen(screen_mode_t *screen) {
     // On the Pi 2/3 the mailbox returns the address with bits 31..30 set, which is wrong
     fb = (unsigned char *)(((unsigned int) fb) & 0x3fffffff);
 
-
-    /* Copy default colour table */
-    sync_palette = 0;
-    init_colour_table(screen);
-    sync_palette = 1;
-
-    /* Update the palette (only in 8-bpp modes) */
-    if (screen->bpp == 8) {
-       update_palette(0, NUM_COLOURS);
-    }
+    // Initialize colour table and palette
+    reset_screen(screen);
 
     /* Clear the screen to the background colour */
     screen->clear(screen, 0);
@@ -258,6 +263,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 2,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -272,6 +278,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 4,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -286,6 +293,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 16,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -300,6 +308,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 2,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -314,6 +323,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 2,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -328,6 +338,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 4,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -342,6 +353,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 2,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -356,6 +368,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 16,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -371,6 +384,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 0x100,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -385,6 +399,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .num_colours   = 0x100,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_8bpp,
@@ -400,6 +415,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 16,
       .num_colours   = 0x10000,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_16bpp,
@@ -414,6 +430,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 16,
       .num_colours   = 0x10000,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_16bpp,
@@ -429,6 +446,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 32,
       .num_colours   = 0x100000,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_32bpp,
@@ -443,6 +461,7 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 32,
       .num_colours   = 0x100000,
       .init          = init_screen,
+      .reset         = reset_screen,
       .clear         = clear_screen,
       .scroll        = scroll_screen,
       .set_colour    = set_colour_32bpp,

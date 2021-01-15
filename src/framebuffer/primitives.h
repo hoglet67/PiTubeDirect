@@ -25,22 +25,20 @@ typedef enum {
    PM_INVERT = 4
 } plotmode_t;
 
-void fb_set_graphics_origin(int16_t x, int16_t y);
-
-void fb_set_graphics_plotmode(uint8_t plotmode);
-
-void fb_setpixel(screen_mode_t *screen, int x, int y, pixel_t colour);
-void fb_draw_line(screen_mode_t *screen, int x,int y,int x2, int y2, pixel_t colour);
-void fb_fill_triangle(screen_mode_t *screen, int x, int y, int x2, int y2, int x3, int y3, pixel_t colour);
-void fb_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
-void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour);
-void fb_fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour);
-void fb_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour);
-void fb_draw_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour);
-void fb_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
-void fb_draw_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
-void fb_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour);
-void fb_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour);
-void fb_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode);
+void fb_set_graphics_origin   (int16_t x, int16_t y);
+void fb_set_graphics_plotmode (uint8_t plotmode);
+void fb_set_pixel             (screen_mode_t *screen, int x, int y, pixel_t colour);
+void fb_draw_line             (screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour);
+void fb_fill_triangle         (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
+void fb_draw_triangle         (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
+void fb_draw_circle           (screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour);
+void fb_fill_circle           (screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour);
+void fb_fill_rectangle        (screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour);
+void fb_draw_rectangle        (screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour);
+void fb_fill_parallelogram    (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
+void fb_draw_parallelogram    (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
+void fb_draw_ellipse          (screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour);
+void fb_fill_ellipse          (screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour);
+void fb_fill_area             (screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode);
 
 #endif

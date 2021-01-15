@@ -19,6 +19,7 @@ typedef struct screen_mode {
    int pitch;       // filled in by init
 
    void           (*init)(struct screen_mode *screen);
+   void          (*reset)(struct screen_mode *screen);
    void          (*clear)(struct screen_mode *screen, int value);
    void         (*scroll)(struct screen_mode *screen, int pixel_rows);
    void     (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);

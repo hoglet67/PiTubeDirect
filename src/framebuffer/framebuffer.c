@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-#include <math.h>
 
 #include "../info.h"
 #include "../rpi-armtimer.h"
@@ -400,10 +399,6 @@ static void fb_draw_character_and_advance(int c) {
    fb_cursor_next();
 }
 
-static int calc_radius(int x1, int y1, int x2, int y2) {
-   return (int)(sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
-}
-
 // ==========================================================================
 // VDU 23 commands
 // ==========================================================================
@@ -695,19 +690,14 @@ void fb_writec(char ch) {
          break;
       case 4:
          b = c;
-         if (p == 255) {
-            // init_colour_table();
-            // update_palette(l, NUM_COLOURS);
-         } else {
-            // See http://beebwiki.mdfs.net/VDU_19
-            if (p < 16) {
-               int i = (p & 8) ? 255 : 127;
-               b = (p & 4) ? i : 0;
-               g = (p & 2) ? i : 0;
-               r = (p & 1) ? i : 0;
-            }
-            screen->set_colour(screen, l, r, g, b);
+         // See http://beebwiki.mdfs.net/VDU_19
+         if (p < 16) {
+            int i = (p & 8) ? 255 : 127;
+            b = (p & 4) ? i : 0;
+            g = (p & 2) ? i : 0;
+            r = (p & 1) ? i : 0;
          }
+         screen->set_colour(screen, l, r, g, b);
          state = NORMAL;
          break;
       }
@@ -798,21 +788,21 @@ void fb_writec(char ch) {
                fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
             } else if (g_mode >= 64 && g_mode < 72) {
                // Plot a single pixel
-               fb_setpixel(screen, g_x_pos, g_y_pos, colour);
+               fb_set_pixel(screen, g_x_pos, g_y_pos, colour);
             } else if (g_mode >= 72 && g_mode < 80) {
-               // Horizontal line fill (left and right) to non background
+               // Horizontal line fill (left and right) to non-background
                fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_NB);
             } else if (g_mode >= 80 && g_mode < 88) {
                // Fill a triangle
                fb_fill_triangle(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
             } else if (g_mode >= 88 && g_mode < 96) {
-               // Horizontal line fill (right only) to background
+               // Horizontal line fill (right only) until background
                fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_RO_BG);
             } else if (g_mode >= 96 && g_mode < 104) {
                // Fill a rectangle
                fb_fill_rectangle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
             } else if (g_mode >= 104 && g_mode < 112) {
-               // Horizontal line fill (left and right) to foreground
+               // Horizontal line fill (left and right) until foreground
                fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_FG);
             } else if (g_mode >= 112 && g_mode < 120) {
                // Fill a parallelogram
@@ -824,16 +814,14 @@ void fb_writec(char ch) {
                // Flood fill to non-background
                fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_NONBG);
             } else if (g_mode >= 136 && g_mode < 144) {
-               // Flood fill to non-foreground
+               // Flood fill until foreground
                fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_TOFGD);
             } else if (g_mode >= 144 && g_mode < 152) {
                // Draw a circle outline
-               int radius = calc_radius(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos);
-               fb_draw_circle(screen, g_x_pos_last1, g_y_pos_last1, radius, colour);
+               fb_draw_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
             } else if (g_mode >= 152 && g_mode < 160) {
                // Fill a circle
-               int radius = calc_radius(g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos);
-               fb_fill_circle(screen, g_x_pos_last1, g_y_pos_last1, radius, colour);
+               fb_fill_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
             } else if (g_mode >= 160 && g_mode < 168) {
                // Draw a rectangle outline
                fb_draw_rectangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, colour);
@@ -962,6 +950,10 @@ void fb_writec(char ch) {
    case 19:
       state = IN_VDU19;
       count = 0;
+      return;
+
+   case 20:
+      screen->reset(screen);
       return;
 
    case 22:
