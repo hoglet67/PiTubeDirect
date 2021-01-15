@@ -357,7 +357,7 @@ int doCmdPiLIFE(const char *params) {
 
    // Randomize interior
    for (int y = 1; y < sy - 1; y++) {
-      uint8_t *p = a + y * sx;
+      uint8_t *p = a + y * sx + 1;
       for (int x = 1; x < sx - 1; x++) {
          *p++ = random() & 1;
       }
@@ -367,19 +367,35 @@ int doCmdPiLIFE(const char *params) {
    OS_WriteC(22);
    OS_WriteC(mode);
 
-   // GCOL 0,15
+   // Set Foreground colour to white (0xCC)
+   // (GCOL 0,63)
    OS_WriteC(18);
    OS_WriteC(0);
-   OS_WriteC(15);
+   OS_WriteC(63);
 
-   // GCOL 0,128
+   // Set Background colour to black (0x00)
+   // (GCOL 0,128)
    OS_WriteC(18);
    OS_WriteC(0);
    OS_WriteC(128);
 
+#if 0
+   // (TINT 2,192)
+   OS_WriteC(23);
+   OS_WriteC(17);
+   OS_WriteC(2);
+   OS_WriteC(192);
+   OS_WriteC(0);
+   OS_WriteC(0);
+   OS_WriteC(0);
+   OS_WriteC(0);
+   OS_WriteC(0);
+   OS_WriteC(0);
+#endif
+
    // Draw Initial Configuration
    for (int y = 1; y < sy - 1; y++) {
-      uint8_t *p = a + y * sx;
+      uint8_t *p = a + y * sx + 1;
       for (int x = 1; x < sx - 1; x++) {
          if (*p++) {
             OS_WriteC(25);
