@@ -10,9 +10,16 @@ static uint8_t g_plotmode;
 static int16_t g_x_origin;
 static int16_t g_y_origin;
 
+#define FLOOD_QUEUE_SIZE 16384
+static int16_t flood_queue_x[FLOOD_QUEUE_SIZE];
+static int16_t flood_queue_y[FLOOD_QUEUE_SIZE];
+static int flood_queue_wr;
+static int flood_queue_rd;
+
 
 // TODO List
 // - clipping to the graphics windown is not implemented
+// - horizontal line fills fill the terminating pixel
 // - the flood fill is broken and needs re-writing using a different algorith
 // - the triangle fill is broken because it uses v3d
 // - the circle drawing/fill overwrites the same point multiple times, which is a problem for xor plotting
@@ -108,7 +115,9 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
    int save_y = y;
    int x_left = x;
    int x_right = x;
-
+#ifdef DEBUG_VDU
+   int max = 0;
+#endif
    static int fill_x_pos_last1;
    static int fill_x_pos_last2;
 
@@ -126,12 +135,14 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       while (get_pixel(screen, x_left, y) == bg_col && x_left >= 0) {
          x_left--;
       }
+      draw_line(screen, x_left, y, x_right, y, colour);
       break;
 
    case HL_RO_BG:
       while (get_pixel(screen, x_right, y) != bg_col && x_right < screen->width) {
          x_right++;
       }
+      draw_line(screen, x_left, y, x_right, y, colour);
       break;
 
    case HL_LR_FG:
@@ -141,31 +152,82 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       while (get_pixel(screen, x_left, y) != fg_col && x_left >= 0) {
          x_left--;
       }
+      draw_line(screen, x_left, y, x_right, y, colour);
       break;
-
 
    case HL_RO_NF:
       while (get_pixel(screen, x_right, y) == fg_col && x_right < screen->width) {
          x_right++;
       }
+      draw_line(screen, x_left, y, x_right, y, colour);
       break;
 
    case AF_NONBG:
-      // going up
-      while (get_pixel(screen, x, y) == bg_col && y < screen->height) {
-         fill_area(screen, x, y, colour, HL_LR_NB);
-         y++;
-         x = (fill_x_pos_last1 + fill_x_pos_last2) / 2;
+      if (colour == bg_col) {
+         return;
       }
-      // going down
-      x = save_x;
-      y = save_y - 1;
-      while (get_pixel(screen, x, y) == bg_col && y >= 0) {
-         fill_area(screen, x, y, colour, HL_LR_NB);
-         y--;
-         x = (fill_x_pos_last1 + fill_x_pos_last2) / 2;
+      if (get_pixel(screen, x, y) != bg_col) {
+         return;
       }
-      return; // prevents any additional line drawing
+      flood_queue_x[0] = x;
+      flood_queue_y[0] = y;
+      flood_queue_rd = 0;
+      flood_queue_wr = 1;
+      while (flood_queue_rd != flood_queue_wr) {
+
+            x = flood_queue_x[flood_queue_rd];
+            y = flood_queue_y[flood_queue_rd];
+            flood_queue_rd ++;
+            flood_queue_rd &= FLOOD_QUEUE_SIZE - 1;
+
+            if (get_pixel(screen, x, y) != bg_col) {
+               continue;
+            }
+
+            int xl = x;
+            int xr = x;
+            while (xl > 0 && get_pixel(screen, xl - 1, y) == bg_col) {
+               xl--;
+            }
+            while (xr < screen->width - 1 && get_pixel(screen, xr + 1, y) == bg_col) {
+               xr++;
+            }
+            for (x = xl; x <= xr; x++) {
+               set_pixel(screen, x, y, colour);
+               if (y > 0 && get_pixel(screen, x, y - 1) == bg_col) {
+                  flood_queue_x[flood_queue_wr] = x;
+                  flood_queue_y[flood_queue_wr] = y - 1;
+                  flood_queue_wr ++;
+                  flood_queue_wr &= FLOOD_QUEUE_SIZE - 1;
+#ifdef DEBUG_VDU
+                  if (flood_queue_wr == flood_queue_rd) {
+                     printf("queue wrapped\r\n");
+                  }
+#endif
+               }
+               if (y < screen->height - 1 && get_pixel(screen, x, y + 1) == bg_col) {
+                  flood_queue_x[flood_queue_wr] = x;
+                  flood_queue_y[flood_queue_wr] = y + 1;
+                  flood_queue_wr ++;
+                  flood_queue_wr &= FLOOD_QUEUE_SIZE - 1;
+#ifdef DEBUG_VDU
+                  if (flood_queue_wr == flood_queue_rd) {
+                     printf("queue wrapped\r\n");
+                  }
+#endif
+               }
+            }
+#ifdef DEBUG_VDU
+            int size = (FLOOD_QUEUE_SIZE + flood_queue_wr - flood_queue_rd) & (FLOOD_QUEUE_SIZE - 1);
+            if (size > max) {
+               max = size;
+            }
+#endif
+         }
+#ifdef DEBUG_VDU
+      printf("Max queue size = %d\r\n", max);
+#endif
+      return;
 
    case AF_TOFGD:
       // going up
@@ -189,7 +251,6 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       break;
    }
 
-   draw_line(screen, x_left, y, x_right, y, colour);
    fill_x_pos_last1 = x_left;
    fill_x_pos_last2 = x_right;
 }
