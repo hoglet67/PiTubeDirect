@@ -33,8 +33,12 @@ static screen_mode_t *screen = NULL;
 static font_t *font = NULL;
 static int16_t font_width;
 static int16_t font_height;
-static int16_t text_width;
-static int16_t text_height;
+static int16_t text_height; // of whole screen
+static int16_t text_width;  // of whole screen
+static int16_t text_x_min;
+static int16_t text_x_max;
+static int16_t text_y_min;
+static int16_t text_y_max;
 
 // Character colour / cursor position
 static int16_t c_bg_col;
@@ -81,33 +85,102 @@ typedef enum {
    IN_VDU19,
    IN_VDU22,
    IN_VDU23,
+   IN_VDU24,
    IN_VDU25,
    IN_VDU27,
+   IN_VDU28,
    IN_VDU29,
    IN_VDU31
 } vdu_state_t;
+
 
 // ==========================================================================
 // Static methods
 // ==========================================================================
 
-static void calc_text_area() {
-   // Calculate the text params
-   if (screen && font) {
-      font_width  = font->width * font->scale_w + font->spacing;
-      font_height = font->height * font->scale_h + font->spacing;
-      text_width  = screen->width / font_width;
-      text_height = screen->height / font_height;
+static void update_font_size();
+static void update_text_area();
+static void init_variables();
+static void reset_areas();
+static void set_text_area(uint8_t left, uint8_t bottom, uint8_t right, uint8_t top);
+static int  text_area_active();
+static void clear_text_area();
+static void scroll_text_area();
+static void invert_cursor(int x_pos, int y_pos, int editing);
+static void show_cursor();
+static void show_edit_cursor();
+static void hide_cursor();
+static void hide_edit_cursor();
+static void enable_edit_cursor();
+static void disable_edit_cursor();
+static void cursor_interrupt();
+static void edit_cursor_up();
+static void edit_cursor_down();
+static void edit_cursor_left();
+static void edit_cursor_right();
+static void scroll();
+static void cursor_left();
+static void cursor_right();
+static void cursor_up();
+static void cursor_down();
+static void cursor_col0();
+static void cursor_home();
+static void cursor_next();
+static void update_g_cursors(int16_t x, int16_t y);
+static void draw_character(int c, int invert);
+static void draw_character_and_advance(int c);
+
+static void update_font_size() {
+   // Calculate the font size, taking account of scale and spacing
+   font_width  = font->width * font->scale_w + font->spacing;
+   font_height = font->height * font->scale_h + font->spacing;
+   // Calc screen text size
+   text_width = screen->width / font_width;
+   text_height = screen->height / font_height;
+}
+
+static void update_text_area() {
+   // Make sure font size hasn't changed
+   update_font_size();
+   // Make sure text area is on the screen
+   if (text_x_max >= text_width) {
+      text_x_max = text_width - 1;
+      if (text_x_min > text_x_max) {
+         text_x_min = text_x_max;
+      }
+   }
+   if (text_y_max >= text_height) {
+      text_y_max = text_height - 1;
+      if (text_y_min > text_y_max) {
+         text_y_min = text_y_max;
+      }
+   }
+   // Make sure cursor is in text area
+   int16_t tmp_x = c_x_pos;
+   int16_t tmp_y = c_y_pos;
+   if (tmp_x < text_x_min) {
+      tmp_x = text_x_min;
+   } else if (tmp_x > text_x_max) {
+      tmp_x = text_x_max;
+   }
+   if (tmp_y < text_y_min) {
+      tmp_y = text_y_min;
+   } else if (tmp_y > text_y_max) {
+      tmp_y = text_y_max;
+   }
+   if (c_x_pos != tmp_x || c_y_pos != tmp_y) {
+      hide_cursor();
+      c_x_pos = tmp_x;
+      c_y_pos = tmp_y;
+      show_cursor();
    }
 }
 
-static void fb_init_variables() {
+static void init_variables() {
 
-    // Character colour / cursor position
+   // Character colour / cursor position
    c_bg_col  = COL_BLACK;
    c_fg_col  = COL_WHITE;
-   c_x_pos   = 0;
-   c_y_pos   = 0;
    c_visible = 0;
 
    // Edit cursor
@@ -119,239 +192,322 @@ static void fb_init_variables() {
    // Graphics colour / cursor position
    g_bg_col      = COL_BLACK;
    g_fg_col      = COL_WHITE;
+
+   // Cursor mode
+   g_cursor      = IN_VDU4;
+
+   // Reset text/grapics areas and home cursors (VDU 26 actions)
+   reset_areas();
+
+}
+
+static void reset_areas() {
+   // Calculate the size of the text area
+   update_font_size();
+   // left, bottom, right, top
+   set_text_area(0, text_height - 1, text_width - 1, 0);
+   // Set the graphics origin to 0,0
+   fb_set_graphics_origin(0, 0);
+   fb_set_graphics_plotmode(0);
+   fb_set_graphics_area(screen, 0, 0, BBC_X_RESOLUTION - 1, BBC_Y_RESOLUTION - 1);
+   // Home the text cursor
+   c_x_pos = text_x_min;
+   c_y_pos = text_y_min;
+   // Home the graphics cursor
    g_x_pos       = 0;
    g_x_pos_last1 = 0;
    g_x_pos_last2 = 0;
    g_y_pos       = 0;
    g_y_pos_last1 = 0;
    g_y_pos_last2 = 0;
-   g_mode        = 0;
-
-   // Cursor mode
-   g_cursor      = IN_VDU4;
-
-   // Calculate the size of the text area
-   calc_text_area();
-
-   // Set the graphics origin to 0,0
-   fb_set_graphics_origin(0, 0);
-   fb_set_graphics_plotmode(0);
 }
 
-static void fb_invert_cursor(int x_pos, int y_pos, int editing) {
+
+// 0,0 is the top left
+static void set_text_area(uint8_t left, uint8_t bottom, uint8_t right, uint8_t top) {
+   if (left > right || right > text_width - 1 || top > bottom || bottom > text_height - 1) {
+      return;
+   }
+   text_x_min = left;
+   text_y_min = top;
+   text_x_max = right;
+   text_y_max = bottom;
+   // Update any dependant variabled
+   update_text_area();
+}
+
+
+static int text_area_active() {
+   if (text_x_min == 0 && text_x_max == text_width - 1 && text_y_min == 0 && text_y_max == text_height - 1) {
+      return 0;
+   } else {
+      return 1;
+   }
+}
+
+static void clear_text_area() {
+   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
+   if (text_area_active()) {
+      // Pixel 0,0 is in the bottom left
+      // Character 0,0 is in the top left
+      // So the Y axis needs flipping
+
+      // Top/Left
+      int x1 = text_x_min * font_width;
+      int y1 = screen->height - 1 - text_y_min * font_height;
+
+      // Bottom/Right
+      int x2 = (text_x_max + 1) * font_width;
+      int y2 = screen->height - 1 - (text_y_max + 1) * font_height;
+
+      // Clear from top to bottom
+      for (int y = y1; y > y2; y--) {
+         for (int x = x1; x < x2; x++) {
+            screen->set_pixel(screen, x, y, bg_col);
+         }
+      }
+   } else {
+      screen->clear(screen, bg_col);
+   }
+   c_x_pos = text_x_min;
+   c_y_pos = text_y_min;
+   c_visible = 0;
+   show_cursor();
+}
+
+static void scroll_text_area() {
+   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
+   if (text_area_active()) {
+      // Top/Left
+      int x1 = text_x_min * font_width;
+      int y1 = screen->height - 1 - text_y_min * font_height;
+
+      // Bottom/Right
+      int x2 = (text_x_max + 1) * font_width;
+      int y2 = screen->height - 1 - text_y_max * font_height;
+
+      // Scroll from top to bottom
+      for (int y = y1; y > y2; y--) {
+         int z = y - font_height;
+         for (int x = x1; x < x2; x++) {
+            screen->set_pixel(screen, x, y, screen->get_pixel(screen, x, z));
+         }
+      }
+      // Blank the bottom line
+      for (int y = y2; y > y2 - font_height; y--) {
+         for (int x = x1; x < x2; x++) {
+            screen->set_pixel(screen, x, y, bg_col);
+         }
+      }
+   } else {
+      screen->scroll(screen, font_height, bg_col);
+   }
+}
+
+
+static void invert_cursor(int x_pos, int y_pos, int editing) {
    int x = x_pos * font_width;
    int y = screen->height - y_pos * font_height - 1;
    int y1 = editing ? font_height - 2 : 0;
    for (int i = y1; i < font_height; i++) {
       for (int j = 0; j < font_width; j++) {
-         int col = screen->get_pixel(screen, x + j, y - i);
+         pixel_t col = screen->get_pixel(screen, x + j, y - i);
          col ^= screen->get_colour(screen, COL_WHITE);
          screen->set_pixel(screen, x + j, y - i, col);
       }
    }
 }
 
-static void fb_show_cursor() {
+static void show_cursor() {
    if (c_visible) {
       return;
    }
-   fb_invert_cursor(c_x_pos, c_y_pos, 0);
+   invert_cursor(c_x_pos, c_y_pos, 0);
    c_visible = 1;
 }
 
-static void fb_show_edit_cursor() {
+static void show_edit_cursor() {
    if (e_visible) {
       return;
    }
-   fb_invert_cursor(e_x_pos, e_y_pos, 1);
+   invert_cursor(e_x_pos, e_y_pos, 1);
    e_visible = 1;
 }
 
-static void fb_hide_cursor() {
+static void hide_cursor() {
    if (!c_visible) {
       return;
    }
-   fb_invert_cursor(c_x_pos, c_y_pos, 0);
+   invert_cursor(c_x_pos, c_y_pos, 0);
    c_visible = 0;
 }
 
-static void fb_hide_edit_cursor() {
+static void hide_edit_cursor() {
    if (!e_visible) {
       return;
    }
-   fb_invert_cursor(e_x_pos, e_y_pos, 1);
+   invert_cursor(e_x_pos, e_y_pos, 1);
    e_visible = 0;
 }
 
-static void fb_enable_edit_cursor() {
+static void enable_edit_cursor() {
    if (!e_enabled) {
       e_enabled = 1;
       e_x_pos = c_x_pos;
       e_y_pos = c_y_pos;
-      fb_show_edit_cursor();
+      show_edit_cursor();
    }
 }
 
-static void fb_disable_edit_cursor() {
+static void disable_edit_cursor() {
    if (e_enabled) {
-      fb_hide_edit_cursor();
+      hide_edit_cursor();
       e_x_pos = 0;
       e_y_pos = 0;
       e_enabled = 0;
    }
 }
 
-static void fb_cursor_interrupt() {
+static void cursor_interrupt() {
    if (e_enabled) {
       if (e_visible) {
-         fb_hide_edit_cursor();
+         hide_edit_cursor();
       } else {
-         fb_show_edit_cursor();
+         show_edit_cursor();
       }
    }
 }
 
-static void fb_edit_cursor_up() {
-   fb_enable_edit_cursor();
-   fb_hide_edit_cursor();
-   if (e_y_pos > 0) {
+static void edit_cursor_up() {
+   enable_edit_cursor();
+   hide_edit_cursor();
+   if (e_y_pos > text_y_min) {
       e_y_pos--;
    } else {
-      e_y_pos = text_height - 1;
+      e_y_pos = text_y_max;
    }
-   fb_show_edit_cursor();
+   show_edit_cursor();
 }
 
-static void fb_edit_cursor_down() {
-   fb_enable_edit_cursor();
-   fb_hide_edit_cursor();
-   if (e_y_pos < text_height - 1) {
+static void edit_cursor_down() {
+   enable_edit_cursor();
+   hide_edit_cursor();
+   if (e_y_pos < text_y_max) {
       e_y_pos++;
    } else {
-      e_y_pos = 0;
+      e_y_pos = text_y_min;
    }
-   fb_show_edit_cursor();
+   show_edit_cursor();
 }
 
-static void fb_edit_cursor_left() {
-   fb_enable_edit_cursor();
-   fb_hide_edit_cursor();
-   if (e_x_pos > 0) {
+static void edit_cursor_left() {
+   enable_edit_cursor();
+   hide_edit_cursor();
+   if (e_x_pos > text_x_min) {
       e_x_pos--;
    } else {
-      e_x_pos = text_width - 1;
-      if (e_y_pos > 0) {
+      e_x_pos = text_x_max;
+      if (e_y_pos > text_y_min) {
          e_y_pos--;
       } else {
-         e_y_pos = text_height - 1;
+         e_y_pos = text_y_max;
       }
    }
-   fb_show_edit_cursor();
+   show_edit_cursor();
 }
 
-static void fb_edit_cursor_right() {
-   fb_enable_edit_cursor();
-   fb_hide_edit_cursor();
-   if (e_x_pos < text_width - 1) {
+static void edit_cursor_right() {
+   enable_edit_cursor();
+   hide_edit_cursor();
+   if (e_x_pos < text_x_max) {
       e_x_pos++;
    } else {
-      e_x_pos = 0;
-      if (e_y_pos < text_height - 1) {
+      e_x_pos = text_x_min;
+      if (e_y_pos < text_y_max) {
          e_y_pos++;
       } else {
-         e_y_pos = 0;
+         e_y_pos = text_y_min;
       }
    }
-   fb_show_edit_cursor();
+   show_edit_cursor();
 }
 
-static void fb_scroll() {
+static void scroll() {
    if (e_enabled) {
-      fb_hide_edit_cursor();
+      hide_edit_cursor();
    }
-   screen->scroll(screen, font_height);
+   scroll_text_area();
    if (e_enabled) {
-      if (e_y_pos > 0) {
+      if (e_y_pos > text_y_min) {
          e_y_pos--;
       }
-      fb_show_edit_cursor();
+      show_edit_cursor();
    }
 }
 
-static void fb_clear() {
-   // initialize the cursor positions, origin, colours, etc.
-   // TODO: clearing all of these may not be strictly correct
-   fb_init_variables();
-   // clear frame buffer
-   screen->clear(screen, screen->get_colour(screen, c_bg_col));
-   // Show the cursor
-   fb_show_cursor();
-}
-
-
-static void fb_cursor_left() {
-   fb_hide_cursor();
-   if (c_x_pos > 0) {
+static void cursor_left() {
+   hide_cursor();
+   if (c_x_pos > text_x_min) {
       c_x_pos--;
    } else {
-      c_x_pos = text_width - 1;
+      c_x_pos = text_x_max;
    }
-   fb_show_cursor();
+   show_cursor();
 }
 
-static void fb_cursor_right() {
-   fb_hide_cursor();
-   if (c_x_pos < text_width - 1) {
+static void cursor_right() {
+   hide_cursor();
+   if (c_x_pos < text_x_max) {
       c_x_pos++;
    } else {
-      c_x_pos = 0;
+      c_x_pos = text_x_min;
    }
-   fb_show_cursor();
+   show_cursor();
 }
 
-static void fb_cursor_up() {
-   fb_hide_cursor();
-   if (c_y_pos > 0) {
+static void cursor_up() {
+   hide_cursor();
+   if (c_y_pos > text_y_min) {
       c_y_pos--;
    } else {
-      c_y_pos = text_height - 1;
+      c_y_pos = text_y_max;
    }
-   fb_show_cursor();
+   show_cursor();
 }
 
-static void fb_cursor_down() {
-   fb_hide_cursor();
-   if (c_y_pos < text_height - 1) {
+static void cursor_down() {
+   hide_cursor();
+   if (c_y_pos < text_y_max) {
       c_y_pos++;
    } else {
-      fb_scroll();
+      scroll();
    }
-   fb_show_cursor();
+   show_cursor();
 }
 
-static void fb_cursor_col0() {
-   fb_disable_edit_cursor();
-   fb_hide_cursor();
-   c_x_pos = 0;
-   fb_show_cursor();
+static void cursor_col0() {
+   disable_edit_cursor();
+   hide_cursor();
+   c_x_pos = text_x_min;
+   show_cursor();
 }
 
-static void fb_cursor_home() {
-   fb_hide_cursor();
-   c_x_pos = 0;
-   c_y_pos = 0;
+static void cursor_home() {
+   hide_cursor();
+   c_x_pos = text_x_min;
+   c_y_pos = text_y_min;
+   show_cursor();
 }
 
-
-static void fb_cursor_next() {
-   fb_hide_cursor();
-   if (c_x_pos < text_width - 1) {
+static void cursor_next() {
+   hide_cursor();
+   if (c_x_pos < text_x_max) {
       c_x_pos++;
    } else {
-      c_x_pos = 0;
-      fb_cursor_down();
+      c_x_pos = text_x_min;
+      cursor_down();
    }
-   fb_show_cursor();
+   show_cursor();
 }
 
 
@@ -368,22 +524,22 @@ static void update_g_cursors(int16_t x, int16_t y) {
 // Drawing Primitives
 // ==========================================================================
 
-static void fb_draw_character(int c, int invert) {
-   int fg_col = screen->get_colour(screen, c_fg_col);
-   int gb_col = screen->get_colour(screen, c_bg_col);
+static void draw_character(int c, int invert) {
+   pixel_t fg_col = screen->get_colour(screen, c_fg_col);
+   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
    int x = c_x_pos * font_width;
    // Pixel 0,0 is in the bottom left
    // Character 0,0 is in the top left
    // So the Y axis needs flipping
    int y = screen->height - c_y_pos * font_height - 1;
    if (invert) {
-      font->draw_character(font, screen, c, x, y, gb_col, fg_col);
+      font->draw_character(font, screen, c, x, y, bg_col, fg_col);
    } else {
-      font->draw_character(font, screen, c, x, y, fg_col, gb_col);
+      font->draw_character(font, screen, c, x, y, fg_col, bg_col);
    }
 }
 
-static void fb_draw_character_and_advance(int c) {
+static void draw_character_and_advance(int c) {
    int invert = 0;
    if (font->num_chars <= 128) {
       invert = c >= 0x80;
@@ -391,12 +547,12 @@ static void fb_draw_character_and_advance(int c) {
    }
 
    // Draw the next character at the cursor position
-   fb_hide_cursor();
-   fb_draw_character(c, invert);
-   fb_show_cursor();
+   hide_cursor();
+   draw_character(c, invert);
+   show_cursor();
 
    // Advance the drawing position
-   fb_cursor_next();
+   cursor_next();
 }
 
 // ==========================================================================
@@ -413,7 +569,10 @@ void vdu23_3(char *buf) {
    } else {
       font = get_font_by_name(buf+1);
    }
-   calc_text_area();
+#ifdef DEBUG_VDU
+   printf("Font set to %s\r\n", font->name);
+#endif
+   update_text_area();
 }
 
 void vdu23_4(char *buf) {
@@ -423,9 +582,10 @@ void vdu23_4(char *buf) {
    font->scale_h = buf[2] > 0 ? buf[2] : 1;
    font->spacing = buf[3];
 #ifdef DEBUG_VDU
-   printf("Font scale set to %d,%d\r\n", font->scale_w, font->scale_h);
+   printf("Font scale   set to %d,%d\r\n", font->scale_w, font->scale_h);
+   printf("Font spacing set to %d,%d\r\n", font->spacing);
 #endif
-   calc_text_area();
+   update_text_area();
 }
 
 void vdu23_5(char *buf) {
@@ -587,7 +747,7 @@ void fb_initialize() {
       printf("Font %s loaded\n\r", font->name);
    }
 
-   fb_init_variables();
+   init_variables();
 
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
@@ -622,7 +782,7 @@ void fb_process_vdu_queue() {
    }
    cursor_count++;
    if (cursor_count == 250) {
-      fb_cursor_interrupt();
+      cursor_interrupt();
       cursor_count = 0;
    }
 }
@@ -632,9 +792,15 @@ void fb_writec(char ch) {
 
    static vdu_state_t state = NORMAL;
    static int count = 0;
+   static int l; // logical colour
    static int16_t x_tmp = 0;
    static int16_t y_tmp = 0;
-   static int l; // logical colour
+   static int16_t x_tmp2 = 0;
+   static int16_t y_tmp2 = 0;
+   static uint8_t left;
+   static uint8_t bottom;
+   static uint8_t right;
+   static uint8_t top;
    static int p; // physical colour
    static int r;
    static int g;
@@ -714,7 +880,12 @@ void fb_writec(char ch) {
                screen = new_screen;
                screen->init(screen);
             }
-            fb_clear();
+            // initialze VDU variable
+            init_variables();
+            // clear frame buffer
+            screen->clear(screen, screen->get_colour(screen, c_bg_col));
+            // Show the cursor
+            show_cursor();
          } else {
             fb_writes("Unsupported screen mode!\r\n");
          }
@@ -731,6 +902,43 @@ void fb_writec(char ch) {
          state = NORMAL;
       } else {
          count++;
+      }
+      return;
+
+   } else if (state == IN_VDU24) {
+
+      switch (count) {
+      case 0:
+         x_tmp = c;
+         break;
+      case 1:
+         x_tmp |= c << 8;
+         break;
+      case 2:
+         y_tmp = c;
+         break;
+      case 3:
+         y_tmp |= c << 8;
+         break;
+      case 4:
+         x_tmp2 = c;
+         break;
+      case 5:
+         x_tmp2 |= c << 8;
+         break;
+      case 6:
+         y_tmp2 = c;
+         break;
+      case 7:
+         y_tmp2 |= c << 8;
+         fb_set_graphics_area(screen, x_tmp, y_tmp, x_tmp2, y_tmp2);
+#ifdef DEBUG_VDU
+         printf("graphics area %d %d %d %d\r\n", x_tmp, y_tmp, x_tmp2, y_tmp2);
+#endif
+      }
+      count++;
+      if (count == 8) {
+         state = NORMAL;
       }
       return;
 
@@ -848,8 +1056,32 @@ void fb_writec(char ch) {
 
    } else if (state == IN_VDU27) {
 
-      fb_draw_character_and_advance(c);
+      draw_character_and_advance(c);
       state = NORMAL;
+      return;
+
+   } else if (state == IN_VDU28) {
+      switch (count) {
+      case 0:
+         left = c;
+         break;
+      case 1:
+         bottom = c;
+         break;
+      case 2:
+         right = c;
+         break;
+      case 3:
+         top = c;
+         set_text_area(left, bottom, right, top);
+#ifdef DEBUG_VDU
+         printf("text area left:%d bottom:%d right:%d top:%d\r\n", left, bottom, right, top);
+#endif
+      }
+      count++;
+      if (count == 4) {
+         state = NORMAL;
+      }
       return;
 
    } else if (state == IN_VDU29) {
@@ -867,7 +1099,7 @@ void fb_writec(char ch) {
          y_tmp |= c << 8;
          fb_set_graphics_origin(x_tmp, y_tmp);
 #ifdef DEBUG_VDU
-         printf("graphics origin %d %d\r\n", g_x_tmp, g_y_tmp);
+         printf("graphics origin %d %d\r\n", x_tmp, y_tmp);
 #endif
       }
       count++;
@@ -883,12 +1115,18 @@ void fb_writec(char ch) {
          break;
       case 1:
          y_tmp = c;
-         c_x_pos = x_tmp;
-         c_y_pos = y_tmp;
-
 #ifdef DEBUG_VDU
          printf("cursor move to %d %d\r\n", x_tmp, y_tmp);
 #endif
+         // Take account of current text window
+         x_tmp += text_x_min;
+         y_tmp += text_y_min;
+         if (x_tmp <= text_x_max && y_tmp <= text_y_max) {
+            hide_cursor();
+            c_x_pos = x_tmp;
+            c_y_pos = y_tmp;
+            show_cursor();
+         }
       }
       count++;
       if (count == 2) {
@@ -910,31 +1148,31 @@ void fb_writec(char ch) {
       break;
 
    case 8:
-      fb_cursor_left();
+      cursor_left();
       break;
 
    case 9:
-      fb_cursor_right();
+      cursor_right();
       break;
 
    case 10:
-      fb_cursor_down();
+      cursor_down();
       break;
 
    case 11:
-      fb_cursor_up();
+      cursor_up();
       break;
 
    case 12:
-      fb_clear();
+      clear_text_area();
       break;
 
    case 13:
-      fb_cursor_col0();
+      cursor_col0();
       break;
 
    case 16:
-      fb_clear();
+      fb_clear_graphics_area(screen, screen->get_colour(screen, g_bg_col));
       break;
 
    case 17:
@@ -966,13 +1204,27 @@ void fb_writec(char ch) {
       count = 0;
       return;
 
+   case 24:
+      state = IN_VDU24;
+      count = 0;
+      return;
+
    case 25:
       state = IN_VDU25;
       count = 0;
       return;
 
+   case 26:
+      reset_areas();
+      return;
+
    case 27:
       state = IN_VDU27;
+      count = 0;
+      return;
+
+   case 28:
+      state = IN_VDU28;
       count = 0;
       return;
 
@@ -982,7 +1234,7 @@ void fb_writec(char ch) {
       return;
 
    case 30:
-      fb_cursor_home();
+      cursor_home();
       break;
 
    case 31:
@@ -991,30 +1243,29 @@ void fb_writec(char ch) {
       return;
 
    case 127:
-      fb_cursor_left();
-      fb_draw_character(32, 1);
+      cursor_left();
+      draw_character(32, 1);
       break;
 
    case 136:
-      fb_edit_cursor_left();
+      edit_cursor_left();
       break;
 
    case 137:
-      fb_edit_cursor_right();
+      edit_cursor_right();
       break;
 
    case 138:
-      fb_edit_cursor_down();
+      edit_cursor_down();
       break;
 
    case 139:
-      fb_edit_cursor_up();
+      edit_cursor_up();
       break;
 
    default:
-
       if (g_cursor == IN_VDU4) {
-         fb_draw_character_and_advance(c);
+         draw_character_and_advance(c);
       } else {
          font->draw_character(font, screen, c, g_x_pos, g_y_pos, g_fg_col, g_bg_col);
          update_g_cursors(g_x_pos + font_width, g_y_pos);

@@ -181,18 +181,15 @@ static void init_screen(screen_mode_t *screen) {
 
 };
 
-
-static void clear_screen(screen_mode_t *screen, int value) {
+static void clear_screen(screen_mode_t *screen, pixel_t colour) {
    // TODO: This needs to take acount of the size and bit depth
-   memset((void *)fb, value, screen->height * screen->pitch);
+   memset((void *)fb, colour, screen->height * screen->pitch);
 }
 
-static void scroll_screen(screen_mode_t *screen, int pixel_rows) {
+static void scroll_screen(screen_mode_t *screen, int pixel_rows, pixel_t colour) {
    _fast_scroll(fb, fb + pixel_rows * screen->pitch, (screen->height - pixel_rows) * screen->pitch);
-   _fast_clear(fb + (screen->height - pixel_rows) * screen->pitch, 0, pixel_rows * screen->pitch);
+   _fast_clear(fb + (screen->height - pixel_rows) * screen->pitch, colour, pixel_rows * screen->pitch);
 }
-
-
 
 static void set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
    colour_table[index] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);

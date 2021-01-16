@@ -110,8 +110,6 @@ static void default_draw_character(font_t *font, screen_mode_t *screen, int c, i
    }
 }
 
-// TODO: Account for font scaling
-
 static int default_read_character(font_t *font, screen_mode_t *screen, int x_pos, int y_pos) {
    int screendata[MAX_FONT_HEIGHT];
    // Read the character from screen memory

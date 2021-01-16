@@ -10,15 +10,19 @@ static uint8_t g_plotmode;
 static int16_t g_x_origin;
 static int16_t g_y_origin;
 
+static int16_t g_x_min;
+static int16_t g_y_min;
+static int16_t g_x_max;
+static int16_t g_y_max;
+
 #define FLOOD_QUEUE_SIZE 16384
+
 static int16_t flood_queue_x[FLOOD_QUEUE_SIZE];
 static int16_t flood_queue_y[FLOOD_QUEUE_SIZE];
 static int flood_queue_wr;
 static int flood_queue_rd;
 
-
 // TODO List
-// - clipping to the graphics windown is not implemented
 // - horizontal line fills fill the terminating pixel
 // - the flood fill is broken and needs re-writing using a different algorith
 // - the triangle fill is broken because it uses v3d
@@ -34,7 +38,7 @@ static int calc_radius(int x1, int y1, int x2, int y2) {
 }
 
 static pixel_t get_pixel(screen_mode_t *screen, int x, int y) {
-   if (x < 0  || x > screen->width - 1 || y < 0 || y > screen->height - 1) {
+   if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
       // Return the graphics background colour if off the screen
       return screen->get_colour(screen, fb_get_g_bg_col());
    } else {
@@ -43,7 +47,7 @@ static pixel_t get_pixel(screen_mode_t *screen, int x, int y) {
 }
 
 static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
-   if (x < 0  || x > screen->width - 1 || y < 0 || y > screen->height - 1) {
+   if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
       return;
    }
    if (g_plotmode != PM_NORMAL) {
@@ -269,12 +273,44 @@ void fb_set_graphics_plotmode(uint8_t plotmode) {
    g_plotmode = plotmode;
 }
 
+void fb_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+   // Transform to screen coordinates
+   x1 = ((x1 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y1 = ((y1 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
+   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   // Reject illegal windows (this is what OS 1.20 does)
+   if (x1 < 0 || x1 >= screen->width || y1 < 0 || y1 >= screen->height) {
+      return;
+   }
+   if (x2 < 0 || x2 >= screen->width || y2 < 0 || y2 >= screen->height) {
+      return;
+   }
+   if (x1 > x2 || y1 > y2) {
+      return;
+   }
+   // Update the window
+   g_x_min = x1;
+   g_y_min = y1;
+   g_x_max = x2;
+   g_y_max = y2;
+}
+
 void fb_set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
    // Transform to screen coordinates
    x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
    y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
    // Set the pixel
    set_pixel(screen, x, y, colour);
+}
+
+void fb_clear_graphics_area(screen_mode_t *screen, pixel_t colour) {
+   // g_x_min/max and g_y_min/max are in screen cordinates
+   for (int y = g_y_min; y <= g_y_max; y++) {
+      for (int x = g_x_min; x <= g_x_max; x++) {
+         set_pixel(screen, x, y, colour);
+      }
+   }
 }
 
 // Implementation of Bresenham's line drawing algorithm from here:
