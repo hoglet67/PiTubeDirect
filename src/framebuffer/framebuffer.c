@@ -14,10 +14,10 @@
 #include "screen_modes.h"
 #include "framebuffer.h"
 #include "primitives.h"
-#include "v3d.h"
 #include "fonts.h"
 #include "mousepointers.h"
 #include "sprites.h"
+
 
 // Default screen mode
 #define DEFAULT_SCREEN_MODE 8
@@ -918,7 +918,6 @@ void fb_initialize() {
    fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
 #endif
    fb_writes("\r\n");
-
 }
 
 void fb_writec_buffered(char ch) {

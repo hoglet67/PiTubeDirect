@@ -3,6 +3,10 @@
 
 #include <inttypes.h>
 
+// Uncomment to use V3D triangle fill in 16bpp and 32bpp modes
+// This is approx 2x-3x faster for random sized triangles
+// #define USE_V3D
+
 typedef uint32_t pixel_t;
 
 typedef unsigned int colour_index_t;

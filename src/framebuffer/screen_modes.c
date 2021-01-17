@@ -6,8 +6,11 @@
 
 #include "screen_modes.h"
 
-unsigned char* fb = NULL;
+#ifdef USE_V3D
+#include "v3d.h"
+#endif
 
+unsigned char* fb = NULL;
 
 // Palette for 8bpp modes
 #define NUM_COLOURS 256
@@ -179,6 +182,11 @@ static void init_screen(screen_mode_t *screen) {
     /* Clear the screen to the background colour */
     screen->clear(screen, 0);
 
+#ifdef USE_V3D
+    if (screen->bpp > 8) {
+       v3d_initialize(NULL);
+    }
+#endif
 };
 
 static void clear_screen(screen_mode_t *screen, pixel_t colour) {

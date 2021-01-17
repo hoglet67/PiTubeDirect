@@ -552,7 +552,6 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
 
 }
 
-
 int v3d_initialize(screen_mode_t *screen) {
 
    rpi_mailbox_property_t *buf;
@@ -579,7 +578,6 @@ int v3d_initialize(screen_mode_t *screen) {
 
    allocate_control_list();
 
-   v3d_test(screen);
    return 0;
 }
 
