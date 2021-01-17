@@ -482,14 +482,15 @@ void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel
    // Transform to screen coordinates
    xc = (xc + g_x_origin) >> screen->xeigfactor;
    yc = (yc + g_y_origin) >> screen->yeigfactor;
-   int width =         r  >> screen->xeigfactor;
-   int height =        r  >> screen->yeigfactor;
    // Draw the circle
-   if (width == height) {
+   if (screen->xeigfactor == screen->yeigfactor) {
       // Square pixels
-      draw_circle(screen, xc, yc, width, colour);
+      r >>= screen->xeigfactor;
+      draw_circle(screen, xc, yc, r, colour);
    } else {
-      // Rectangular pixel
+      int width  = r >> screen->xeigfactor;
+      int height = r >> screen->yeigfactor;
+      // Rectangular pixels
       draw_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
    }
 }
@@ -499,14 +500,15 @@ void fb_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel
    // Transform to screen coordinates
    xc = (xc + g_x_origin) >> screen->xeigfactor;
    yc = (yc + g_y_origin) >> screen->yeigfactor;
-   int width =         r  >> screen->xeigfactor;
-   int height =        r  >> screen->yeigfactor;
    // Fill the circle
-   if (width == height) {
+   if (screen->xeigfactor == screen->yeigfactor) {
       // Square pixels
-      fill_circle(screen, xc, yc, width, colour);
+      r >>= screen->xeigfactor;
+      fill_circle(screen, xc, yc, r, colour);
    } else {
-      // Rectangular pixel
+      int width  = r >> screen->xeigfactor;
+      int height = r >> screen->yeigfactor;
+      // Rectangular pixels
       fill_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
    }
 }
