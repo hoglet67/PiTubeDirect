@@ -27,7 +27,6 @@ static int flood_queue_rd;
 
 // TODO List
 // - horizontal line fills fill the terminating pixel
-// - the ellipse drawing/fill overwrites the same point multiple times, which is a problem for xor plotting
 
 // ==========================================================================
 // Static methods (operate at screen resolution)
@@ -348,7 +347,6 @@ static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t co
    }
 }
 
-
 static void draw_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
    // Draw the ellipse
    int a2 = width * width;
@@ -358,9 +356,11 @@ static void draw_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int
    /* First half */
    for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2 * x <= a2 * y; x++) {
       set_pixel(screen, xc + x, yc + y, colour);
-      set_pixel(screen, xc - x, yc + y, colour);
       set_pixel(screen, xc + x, yc - y, colour);
-      set_pixel(screen, xc - x, yc - y, colour);
+      if (x > 0) {
+         set_pixel(screen, xc - x, yc + y, colour);
+         set_pixel(screen, xc - x, yc - y, colour);
+      }
       if (sigma >= 0) {
          sigma += fa2 * (1 - y);
          y--;
@@ -371,8 +371,10 @@ static void draw_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int
    for (x = width, y = 0, sigma = 2 * a2 + b2 * (1 - 2 * width); a2 * y <= b2 * x; y++) {
       set_pixel(screen, xc + x, yc + y, colour);
       set_pixel(screen, xc - x, yc + y, colour);
-      set_pixel(screen, xc + x, yc - y, colour);
-      set_pixel(screen, xc - x, yc - y, colour);
+      if (y > 0) {
+         set_pixel(screen, xc + x, yc - y, colour);
+         set_pixel(screen, xc - x, yc - y, colour);
+      }
       if (sigma >= 0) {
          sigma += fb2 * (1 - x);
          x--;
@@ -389,9 +391,9 @@ static void fill_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int
    int x, y, sigma;
    /* First half */
    for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2 * x <= a2 * y; x++) {
-      draw_hline(screen, xc + x, xc - x, yc + y, colour);
-      draw_hline(screen, xc + x, xc - x, yc - y, colour);
       if (sigma >= 0) {
+         draw_hline(screen, xc + x, xc - x, yc + y, colour);
+         draw_hline(screen, xc + x, xc - x, yc - y, colour);
          sigma += fa2 * (1 - y);
          y--;
       }
@@ -400,7 +402,9 @@ static void fill_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int
    /* Second half */
    for (x = width, y = 0, sigma = 2 * a2 + b2 * (1 - 2 * width); a2 * y <= b2 * x; y++) {
       draw_hline(screen, xc + x, xc - x, yc + y, colour);
-      draw_hline(screen, xc + x, xc - x, yc - y, colour);
+      if (y > 0) {
+         draw_hline(screen, xc + x, xc - x, yc - y, colour);
+      }
       if (sigma >= 0) {
          sigma += fb2 * (1 - x);
          x--;
