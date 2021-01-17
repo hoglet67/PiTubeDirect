@@ -4,10 +4,6 @@
 #include <inttypes.h>
 #include "screen_modes.h"
 
-// Logical resolution
-#define BBC_X_RESOLUTION 1280
-#define BBC_Y_RESOLUTION 1024
-
 typedef enum {
    HL_LR_NB = 1, // Horizontal line fill (left & right) to non-background
    HL_RO_BG = 2, // Horizontal line fill (right only) to background

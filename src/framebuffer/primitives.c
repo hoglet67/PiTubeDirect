@@ -397,10 +397,10 @@ void fb_set_graphics_plotmode(uint8_t plotmode) {
 
 void fb_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
    // Transform to screen coordinates
-   x1 = ((x1 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y1 = ((y1 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    // Reject illegal windows (this is what OS 1.20 does)
    if (x1 < 0 || x1 >= screen->width || y1 < 0 || y1 >= screen->height) {
       return;
@@ -420,8 +420,8 @@ void fb_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t
 
 void fb_set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
    // Transform to screen coordinates
-   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x = (x + g_x_origin) >> screen->xeigfactor;
+   y = (y + g_y_origin) >> screen->yeigfactor;
    // Set the pixel
    set_pixel(screen, x, y, colour);
 }
@@ -439,22 +439,22 @@ void fb_clear_graphics_area(screen_mode_t *screen, pixel_t colour) {
 // http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
 void fb_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
    // Transform to screen coordinates
-   x1 = ((x1 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y1 = ((y1 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    // Draw the line
    draw_line(screen, x1, y1, x2, y2, colour);
 }
 
 void fb_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
    // Transform to screen coordinates
-   x1 = ((x1 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y1 = ((y1 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x3 = ((x3 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y3 = ((y3 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
+   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
    // Flip y axis
    y1 = screen->height - 1 - y1;
    y2 = screen->height - 1 - y2;
@@ -465,12 +465,12 @@ void fb_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int
 
 void fb_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
    // Transform to screen coordinates
-   x1 = ((x1 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y1 = ((y1 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x3 = ((x3 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y3 = ((y3 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
+   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
    // Draw the triangle
    fb_draw_line(screen, x1, y1, x2, y2, colour);
    fb_draw_line(screen, x2, y2, x3, y3, colour);
@@ -480,10 +480,10 @@ void fb_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int
 void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
    int r = calc_radius(xc, yc, xr, yr);
    // Transform to screen coordinates
-   xc = ((xc + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   yc = ((yc + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   int width = (        r  * screen->width)  / BBC_X_RESOLUTION;
-   int height = (       r  * screen->height) / BBC_Y_RESOLUTION;
+   xc = (xc + g_x_origin) >> screen->xeigfactor;
+   yc = (yc + g_y_origin) >> screen->yeigfactor;
+   int width =         r  >> screen->xeigfactor;
+   int height =        r  >> screen->yeigfactor;
    // Draw the circle
    if (width == height) {
       // Square pixels
@@ -497,10 +497,10 @@ void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel
 void fb_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
    int r = calc_radius(xc, yc, xr, yr);
    // Transform to screen coordinates
-   xc = ((xc + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   yc = ((yc + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   int width = (        r  * screen->width)  / BBC_X_RESOLUTION;
-   int height = (       r  * screen->height) / BBC_Y_RESOLUTION;
+   xc = (xc + g_x_origin) >> screen->xeigfactor;
+   yc = (yc + g_y_origin) >> screen->yeigfactor;
+   int width =         r  >> screen->xeigfactor;
+   int height =        r  >> screen->yeigfactor;
    // Fill the circle
    if (width == height) {
       // Square pixels
@@ -521,10 +521,10 @@ void fb_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel
 
 void fb_draw_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
    // Transform to screen coordinates
-   x1 = ((x1 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y1 = ((y1 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    // Draw the rectangle
    draw_line(screen, x1, y1, x2, y1, colour);
    draw_line(screen, x2, y1, x2, y2, colour);
@@ -534,10 +534,10 @@ void fb_draw_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pi
 
 void fb_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
    // Transform to screen coordinates
-   x1 = ((x1 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y1 = ((y1 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    // Fill the rectangle
    int y;
    for (y = y1; y <= y2; y++) {
@@ -547,12 +547,12 @@ void fb_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pi
 
 void fb_draw_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
    // Transform to screen coordinates
-   x1 = ((x1 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y1 = ((y1 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x3 = ((x3 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y3 = ((y3 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
+   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
    int x4 = x3 - x2 + x1;
    int y4 = y3 - y2 + y1;
    // Draw the parallelogram
@@ -564,12 +564,12 @@ void fb_draw_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2
 
 void fb_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
    // Transform to screen coordinates
-   x1 = ((x1 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y1 = ((y1 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x2 = ((x2 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y2 = ((y2 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   x3 = ((x3 + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y3 = ((y3 + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
+   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
    int x4 = x3 - x2 + x1;
    int y4 = y3 - y2 + y1;
    // Fill the parallelogram
@@ -579,20 +579,20 @@ void fb_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2
 
 void fb_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
    // Transform to screen coordinates
-   xc = ((xc + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   yc = ((yc + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   width = (        width  * screen->width)  / BBC_X_RESOLUTION;
-   height = (      height  * screen->height) / BBC_Y_RESOLUTION;
+   xc = (xc + g_x_origin) >> screen->xeigfactor;
+   yc = (yc + g_y_origin) >> screen->yeigfactor;
+   width =         width  >> screen->xeigfactor;
+   height =       height  >> screen->yeigfactor;
    // Draw the ellipse
    draw_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
 }
 
 void fb_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
    // Transform to screen coordinates
-   xc = ((xc + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   yc = ((yc + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   width = (        width  * screen->width)  / BBC_X_RESOLUTION;
-   height = (      height  * screen->height) / BBC_Y_RESOLUTION;
+   xc = (xc + g_x_origin) >> screen->xeigfactor;
+   yc = (yc + g_y_origin) >> screen->yeigfactor;
+   width =         width  >> screen->xeigfactor;
+   height =       height  >> screen->yeigfactor;
    // Fill the ellipse
    fill_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
 }
@@ -609,8 +609,8 @@ void fb_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int heigh
 
 void fb_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode) {
    // Transform to screen coordinates
-   x = ((x + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   y = ((y + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   x = (x + g_x_origin) >> screen->xeigfactor;
+   y = (y + g_y_origin) >> screen->yeigfactor;
    // Fill the area
    fill_area(screen, x, y, colour, mode);
 }

@@ -207,7 +207,7 @@ static void reset_areas() {
    // Set the graphics origin to 0,0
    fb_set_graphics_origin(0, 0);
    fb_set_graphics_plotmode(0);
-   fb_set_graphics_area(screen, 0, 0, BBC_X_RESOLUTION - 1, BBC_Y_RESOLUTION - 1);
+   fb_set_graphics_area(screen, 0, 0, (screen->width << screen->xeigfactor) - 1, (screen->height << screen->yeigfactor) - 1);
    // Home the text cursor
    c_x_pos = text_x_min;
    c_y_pos = text_y_min;

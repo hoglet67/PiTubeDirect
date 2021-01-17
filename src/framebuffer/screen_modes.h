@@ -12,6 +12,10 @@ typedef struct screen_mode {
 
    int width;       // width in physical pixels
    int height;      // height in physical pixels
+
+   int xeigfactor;  // conversion factor between OS units and pixels
+   int yeigfactor;  // conversion factor between OS units and pixels
+
    int bpp;         // bits per pixel (8,16,32)
 
    int num_colours; // number of colours
