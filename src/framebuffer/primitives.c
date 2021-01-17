@@ -27,10 +27,7 @@ static int flood_queue_rd;
 
 // TODO List
 // - horizontal line fills fill the terminating pixel
-// - the flood fill is broken and needs re-writing using a different algorith
-// - the triangle fill is broken because it uses v3d
-// - the circle drawing/fill overwrites the same point multiple times, which is a problem for xor plotting
-// - same probably true of ellipses
+// - the ellipse drawing/fill overwrites the same point multiple times, which is a problem for xor plotting
 
 // ==========================================================================
 // Static methods (operate at screen resolution)
@@ -293,49 +290,64 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
 }
 
 
-
 static void draw_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
    int x = 0;
    int y = r;
    int p = 3 - (2 * r);
-   set_pixel(screen, xc + x, yc - y, colour);
-   for (x = 0; x <= y; x++) {
-      if (p < 0) {
-         p += 4 * x + 6;
-      } else {
-         y--;
-         p += 4 * (x - y) + 10;
-      }
-      set_pixel(screen, xc + x, yc - y, colour);
-      set_pixel(screen, xc - x, yc - y, colour);
+   while (x < y) {
       set_pixel(screen, xc + x, yc + y, colour);
-      set_pixel(screen, xc - x, yc + y, colour);
-      set_pixel(screen, xc + y, yc - x, colour);
-      set_pixel(screen, xc - y, yc - x, colour);
+      set_pixel(screen, xc + x, yc - y, colour);
       set_pixel(screen, xc + y, yc + x, colour);
       set_pixel(screen, xc - y, yc + x, colour);
+      if (x > 0) {
+         set_pixel(screen, xc - x, yc + y, colour);
+         set_pixel(screen, xc - x, yc - y, colour);
+         set_pixel(screen, xc + y, yc - x, colour);
+         set_pixel(screen, xc - y, yc - x, colour);
+      }
+      if (p < 0) {
+         p += 4 * x + 6;
+         x++;
+      } else {
+         p += 4 * (x - y) + 10;
+         x++;
+         y--;
+      }
+   }
+   if (x == y) {
+      set_pixel(screen, xc + x, yc + y, colour);
+      set_pixel(screen, xc - x, yc + y, colour);
+      set_pixel(screen, xc + x, yc - y, colour);
+      set_pixel(screen, xc - x, yc - y, colour);
    }
 }
-
 
 static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
    int x = 0;
    int y = r;
    int p = 3 - (2 * r);
-   set_pixel(screen, xc + x, yc - y, colour);
-   for (x = 0; x <= y; x++) {
+   while (x < y) {
+      draw_hline(screen, xc + y, xc - y, yc + x, colour);
+      if (x > 0) {
+         draw_hline(screen, xc + y, xc - y, yc - x, colour);
+      }
       if (p < 0) {
          p += 4 * x + 6;
+         x++;
       } else {
-         y--;
+         draw_hline(screen, xc + x, xc - x, yc - y, colour);
+         draw_hline(screen, xc + x, xc - x, yc + y, colour);
          p += 4 * (x - y) + 10;
+         x++;
+         y--;
       }
+   }
+   if (x == y) {
       draw_hline(screen, xc + x, xc - x, yc - y, colour);
       draw_hline(screen, xc + x, xc - x, yc + y, colour);
-      draw_hline(screen, xc + y, xc - y, yc - x, colour);
-      draw_hline(screen, xc + y, xc - y, yc + x, colour);
    }
- }
+}
+
 
 static void draw_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
    // Draw the ellipse
