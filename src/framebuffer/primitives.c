@@ -70,6 +70,17 @@ static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
    screen->set_pixel(screen, x, y, colour);
 }
 
+static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t colour) {
+   if (x1 > x2) {
+      int tmp = x1;
+      x1 = x2;
+      x2 = tmp;
+   }
+   for (int x = x1; x <= x2; x++) {
+      set_pixel(screen, x, y, colour);
+   }
+}
+
 static void draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
    int w = x2 - x1;
    int h = y2 - y1;
@@ -146,7 +157,7 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       while (get_pixel(screen, x_left, y) == bg_col && x_left > g_x_min) {
          x_left--;
       }
-      draw_line(screen, x_left, y, x_right, y, colour);
+      draw_hline(screen, x_left, x_right, y, colour);
       break;
 
    case HL_RO_BG:
@@ -156,7 +167,7 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       while (get_pixel(screen, x_right, y) != bg_col && x_right < g_x_max) {
          x_right++;
       }
-      draw_line(screen, x_left, y, x_right, y, colour);
+      draw_hline(screen, x_left, x_right, y, colour);
       break;
 
    case HL_LR_FG:
@@ -169,7 +180,7 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       while (get_pixel(screen, x_left, y) != fg_col && x_left > g_x_min) {
          x_left--;
       }
-      draw_line(screen, x_left, y, x_right, y, colour);
+      draw_hline(screen, x_left, x_right, y, colour);
       break;
 
    case HL_RO_NF:
@@ -179,7 +190,7 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       while (get_pixel(screen, x_right, y) == fg_col && x_right < g_x_max) {
          x_right++;
       }
-      draw_line(screen, x_left, y, x_right, y, colour);
+      draw_hline(screen, x_left, x_right, y, colour);
       break;
 
    case AF_NONBG:
@@ -316,10 +327,10 @@ static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t co
          y--;
          p += 4 * (x - y) + 10;
       }
-      draw_line(screen, xc + x, yc - y, xc - x, yc - y, colour);
-      draw_line(screen, xc + x, yc + y, xc - x, yc + y, colour);
-      draw_line(screen, xc + y, yc - x, xc - y, yc - x, colour);
-      draw_line(screen, xc + y, yc + x, xc - y, yc + x, colour);
+      draw_hline(screen, xc + x, xc - x, yc - y, colour);
+      draw_hline(screen, xc + x, xc - x, yc + y, colour);
+      draw_hline(screen, xc + y, xc - y, yc - x, colour);
+      draw_hline(screen, xc + y, xc - y, yc + x, colour);
    }
  }
 
@@ -363,8 +374,8 @@ static void fill_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int
    int x, y, sigma;
    /* First half */
    for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2 * x <= a2 * y; x++) {
-      draw_line(screen, xc + x, yc + y, xc - x, yc + y, colour);
-      draw_line(screen, xc + x, yc - y, xc - x, yc - y, colour);
+      draw_hline(screen, xc + x, xc - x, yc + y, colour);
+      draw_hline(screen, xc + x, xc - x, yc - y, colour);
       if (sigma >= 0) {
          sigma += fa2 * (1 - y);
          y--;
@@ -373,8 +384,8 @@ static void fill_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int
    }
    /* Second half */
    for (x = width, y = 0, sigma = 2 * a2 + b2 * (1 - 2 * width); a2 * y <= b2 * x; y++) {
-      draw_line(screen, xc + x, yc + y, xc - x, yc + y, colour);
-      draw_line(screen, xc + x, yc - y, xc - x, yc - y, colour);
+      draw_hline(screen, xc + x, xc - x, yc + y, colour);
+      draw_hline(screen, xc + x, xc - x, yc - y, colour);
       if (sigma >= 0) {
          sigma += fb2 * (1 - x);
          x--;
@@ -382,6 +393,31 @@ static void fill_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int
       sigma += a2 * ((4 * y) + 6);
    }
 }
+
+static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+   float invslope1 = ((float) (x2 - x1)) / ((float) (y1 - y2));
+   float invslope2 = ((float) (x3 - x1)) / ((float) (y1 - y3));
+   float curx1 = x1;
+   float curx2 = x1;
+   for (int scanlineY = y1; scanlineY >= y2; scanlineY--) {
+      draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
+      curx1 += invslope1;
+      curx2 += invslope2;
+   }
+}
+
+static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+   float invslope1 = ((float) (x3 - x1)) / ((float) (y1 - y3));
+   float invslope2 = ((float) (x3 - x2)) / ((float) (y2 - y3));
+   float curx1 = x3;
+   float curx2 = x3;
+   for (int scanlineY = y3; scanlineY < y1; scanlineY++) {
+      draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
+      curx1 -= invslope1;
+      curx2 -= invslope2;
+   }
+}
+
 // ==========================================================================
 // Public methods - run at external resolution
 // ==========================================================================
@@ -448,6 +484,7 @@ void fb_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t
 }
 
 void fb_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+   int tmp;
    // Transform to screen coordinates
    x1 = (x1 + g_x_origin) >> screen->xeigfactor;
    y1 = (y1 + g_y_origin) >> screen->yeigfactor;
@@ -455,12 +492,43 @@ void fb_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int
    y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    x3 = (x3 + g_x_origin) >> screen->xeigfactor;
    y3 = (y3 + g_y_origin) >> screen->yeigfactor;
+   // Use Standard Triangle Fill
+   // http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
+   // sort the three vertices by y-coordinate ascending so v1 is the topmost vertice
+   if (y2 > y1) {
+      tmp = x1; x1 = x2; x2 = tmp;
+      tmp = y1; y1 = y2; y2 = tmp;
+   }
+   if (y3 > y1) {
+      tmp = x1; x1 = x3; x3 = tmp;
+      tmp = y1; y1 = y3; y3 = tmp;
+   }
+   if (y3 > y2) {
+      tmp = x2; x2 = x3; x3 = tmp;
+      tmp = y2; y2 = y3; y3 = tmp;
+   }
+   // here we know that y1 >= y2 >= y3
+   if (y2 == y3) {
+      // trivial case of bottom-flat triangle
+      fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
+   } else if (y1 == y2) {
+      // trivial case of top-flat triangle
+      fill_top_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
+   } else {
+      // general case - split the triangle in a topflat and bottom-flat one
+      int x4 = (int)(x1 + ((float)(y1 - y2) / (float)(y1 - y3)) * (x3 - x1));
+      int y4 = y2;
+      fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x4, y4, colour);
+      fill_top_flat_triangle(screen, x2, y2, x4, y4, x3, y3, colour);
+   }
+#if 0
    // Flip y axis
    y1 = screen->height - 1 - y1;
    y2 = screen->height - 1 - y2;
    y3 = screen->height - 1 - y3;
    // Draw the triangle
    v3d_draw_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
+#endif
 }
 
 void fb_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
@@ -472,9 +540,9 @@ void fb_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int
    x3 = (x3 + g_x_origin) >> screen->xeigfactor;
    y3 = (y3 + g_y_origin) >> screen->yeigfactor;
    // Draw the triangle
-   fb_draw_line(screen, x1, y1, x2, y2, colour);
-   fb_draw_line(screen, x2, y2, x3, y3, colour);
-   fb_draw_line(screen, x3, y3, x1, y1, colour);
+   draw_line(screen, x1, y1, x2, y2, colour);
+   draw_line(screen, x2, y2, x3, y3, colour);
+   draw_line(screen, x3, y3, x1, y1, colour);
 }
 
 void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
@@ -513,14 +581,6 @@ void fb_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel
    }
 }
 
-
-/* Bad rectangle due to triangle bug
-   void fb_fill_rectangle(int x1, int y1, int x2, int y2, pixel_t colour) {
-   fb_fill_triangle(x1, y1, x1, y2, x2, y2, colour);
-   fb_fill_triangle(x1, y1, x2, y1, x2, y2, colour);
-   }
-*/
-
 void fb_draw_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
    // Transform to screen coordinates
    x1 = (x1 + g_x_origin) >> screen->xeigfactor;
@@ -543,7 +603,7 @@ void fb_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pi
    // Fill the rectangle
    int y;
    for (y = y1; y <= y2; y++) {
-      draw_line(screen, x1, y, x2, y, colour);
+      draw_hline(screen, x1, x2, y, colour);
    }
 }
 
