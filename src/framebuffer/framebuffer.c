@@ -813,7 +813,6 @@ void vdu25(uint8_t g_mode, int16_t x, int16_t y) {
          break;
       case 80:
          // Fill a triangle
-         // TODO
          fb_fill_triangle(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
          break;
       case 88:

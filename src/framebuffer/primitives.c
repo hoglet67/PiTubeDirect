@@ -26,7 +26,15 @@ static int flood_queue_wr;
 static int flood_queue_rd;
 
 // TODO List
-// - horizontal line fills fill the terminating pixel
+// - line drawing: support dot patterns
+// - line drawing: support omission of end points
+// - draw circular arcs
+// - fill chord segments
+// - fill sector
+// - move/copy rectangle
+// - fill patterns
+// - non-axis aligned elipses
+// - bug: horizontal line fills overwrite the terminating pixel
 
 // ==========================================================================
 // Static methods (operate at screen resolution)
