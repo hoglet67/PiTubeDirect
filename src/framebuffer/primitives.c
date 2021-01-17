@@ -131,42 +131,49 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
    pixel_t fg_col = screen->get_colour(screen, fb_get_g_fg_col());
    pixel_t bg_col = screen->get_colour(screen, fb_get_g_bg_col());
 
+   if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
+      return;
+   }
+
    switch(mode) {
    case HL_LR_NB:
-      while (get_pixel(screen, x_right, y) == bg_col && x_right < screen->width) {
+      while (get_pixel(screen, x_right, y) == bg_col && x_right < g_x_max) {
          x_right++;
       }
-      while (get_pixel(screen, x_left, y) == bg_col && x_left >= 0) {
+      while (get_pixel(screen, x_left, y) == bg_col && x_left > g_x_min) {
          x_left--;
       }
       draw_line(screen, x_left, y, x_right, y, colour);
       break;
 
    case HL_RO_BG:
-      while (get_pixel(screen, x_right, y) != bg_col && x_right < screen->width) {
+      while (get_pixel(screen, x_right, y) != bg_col && x_right < g_x_max) {
          x_right++;
       }
       draw_line(screen, x_left, y, x_right, y, colour);
       break;
 
    case HL_LR_FG:
-      while (get_pixel(screen, x_right, y) != fg_col && x_right < screen->width) {
+      while (get_pixel(screen, x_right, y) != fg_col && x_right < g_x_max) {
          x_right++;
       }
-      while (get_pixel(screen, x_left, y) != fg_col && x_left >= 0) {
+      while (get_pixel(screen, x_left, y) != fg_col && x_left > g_x_min) {
          x_left--;
       }
       draw_line(screen, x_left, y, x_right, y, colour);
       break;
 
    case HL_RO_NF:
-      while (get_pixel(screen, x_right, y) == fg_col && x_right < screen->width) {
+      while (get_pixel(screen, x_right, y) == fg_col && x_right < g_x_max) {
          x_right++;
       }
       draw_line(screen, x_left, y, x_right, y, colour);
       break;
 
    case AF_NONBG:
+#ifdef DEBUG_VDU
+      printf("Flood fill @ %d,%d in col %"PRIx32"; initial pixel %"PRIx32"\r\n", x, y, colour, get_pixel(screen, x, y));
+#endif
       if (colour == bg_col) {
          return;
       }
@@ -190,15 +197,15 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
 
             int xl = x;
             int xr = x;
-            while (xl > 0 && get_pixel(screen, xl - 1, y) == bg_col) {
+            while (xl > g_x_min && get_pixel(screen, xl - 1, y) == bg_col) {
                xl--;
             }
-            while (xr < screen->width - 1 && get_pixel(screen, xr + 1, y) == bg_col) {
+            while (xr < g_x_max && get_pixel(screen, xr + 1, y) == bg_col) {
                xr++;
             }
             for (x = xl; x <= xr; x++) {
                set_pixel(screen, x, y, colour);
-               if (y > 0 && get_pixel(screen, x, y - 1) == bg_col) {
+               if (y > g_y_min && get_pixel(screen, x, y - 1) == bg_col) {
                   flood_queue_x[flood_queue_wr] = x;
                   flood_queue_y[flood_queue_wr] = y - 1;
                   flood_queue_wr ++;
@@ -209,7 +216,7 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
                   }
 #endif
                }
-               if (y < screen->height - 1 && get_pixel(screen, x, y + 1) == bg_col) {
+               if (y < g_y_max && get_pixel(screen, x, y + 1) == bg_col) {
                   flood_queue_x[flood_queue_wr] = x;
                   flood_queue_y[flood_queue_wr] = y + 1;
                   flood_queue_wr ++;
@@ -235,7 +242,7 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
 
    case AF_TOFGD:
       // going up
-      while (get_pixel(screen, x, y) != fg_col && y < screen->height) {
+      while (get_pixel(screen, x, y) != fg_col && y < g_y_max) {
          fill_area(screen, x, y, colour, HL_LR_FG);
          y++;
          x = (fill_x_pos_last1 + fill_x_pos_last2) / 2;
@@ -286,7 +293,7 @@ void fb_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t
    if (x2 < 0 || x2 >= screen->width || y2 < 0 || y2 >= screen->height) {
       return;
    }
-   if (x1 > x2 || y1 > y2) {
+   if (x1 >= x2 || y1 >= y2) {
       return;
    }
    // Update the window

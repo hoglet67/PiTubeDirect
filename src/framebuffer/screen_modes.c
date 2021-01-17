@@ -89,7 +89,7 @@ static void init_colour_table(screen_mode_t *screen) {
       // Colour 14 = Cyan
       // Colour 15 = White
       for (int i = 0; i < 256; i++) {
-         int intensity = (i & 8) ? 255 : 127;
+         int intensity = (i & 8) ? 127 : 255;
          int b = (i & 4) ? intensity : 0;
          int g = (i & 2) ? intensity : 0;
          int r = (i & 1) ? intensity : 0;

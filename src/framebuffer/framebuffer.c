@@ -41,8 +41,8 @@ static int16_t text_y_min;
 static int16_t text_y_max;
 
 // Character colour / cursor position
-static int16_t c_bg_col;
-static int16_t c_fg_col;
+static uint8_t c_bg_col;
+static uint8_t c_fg_col;
 static int16_t c_x_pos;
 static int16_t c_y_pos;
 
@@ -51,18 +51,18 @@ static int16_t e_x_pos;
 static int16_t e_y_pos;
 
 // Graphics colour / cursor position
-static int16_t g_bg_col;
-static int16_t g_fg_col;
+static uint8_t g_bg_col;
+static uint8_t g_fg_col;
 static int16_t g_x_pos;
 static int16_t g_x_pos_last1;
 static int16_t g_x_pos_last2;
 static int16_t g_y_pos;
 static int16_t g_y_pos_last1;
 static int16_t g_y_pos_last2;
-static int16_t g_mode;
+static uint8_t g_mode;
 
 // Text or graphical cursor for printing characters
-static int8_t g_cursor;
+static int8_t text_at_g_cursor;
 
 static int e_visible; // Current visibility of the edit cursor
 static int c_visible; // Current visibility of the write cursor
@@ -78,8 +78,6 @@ static int vdu23len;
 
 typedef enum {
    NORMAL,
-   IN_VDU4,
-   IN_VDU5,
    IN_VDU17,
    IN_VDU18,
    IN_VDU19,
@@ -190,11 +188,11 @@ static void init_variables() {
    e_enabled = 0;
 
    // Graphics colour / cursor position
-   g_bg_col      = COL_BLACK;
-   g_fg_col      = COL_WHITE;
+   g_bg_col  = COL_BLACK;
+   g_fg_col  = COL_WHITE;
 
    // Cursor mode
-   g_cursor      = IN_VDU4;
+   text_at_g_cursor = 0;
 
    // Reset text/grapics areas and home cursors (VDU 26 actions)
    reset_areas();
@@ -583,7 +581,7 @@ void vdu23_4(char *buf) {
    font->spacing = buf[3];
 #ifdef DEBUG_VDU
    printf("Font scale   set to %d,%d\r\n", font->scale_w, font->scale_h);
-   printf("Font spacing set to %d,%d\r\n", font->spacing);
+   printf("Font spacing set to %d\r\n", font->spacing);
 #endif
    update_text_area();
 }
@@ -687,9 +685,11 @@ void vdu23_17(char *buf) {
    case 1:
       // VDU 23,17,1 - sets tint for text background colour
       c_bg_col = ((c_bg_col) & 0x3f) | (buf[2] & 0xc0);
+      break;
    case 2:
       // VDU 23,17,2 - sets tint for graphics foreground colour
       g_fg_col = ((g_fg_col) & 0x3f) | (buf[2] & 0xc0);
+      break;
    case 3:
       // VDU 23,17,3 - sets tint for graphics background colour
       g_bg_col = ((g_bg_col) & 0x3f) | (buf[2] & 0xc0);
@@ -717,7 +717,7 @@ void vdu23_17(char *buf) {
 
 void vdu23(char *buf) {
 #ifdef DEBUG_VDU
-   for (i=0; i<9; i++) {
+   for (int i = 0; i < 9; i++) {
       printf("%X", buf[i]);
       printf("\n\r");
    }
@@ -731,6 +731,92 @@ void vdu23(char *buf) {
    case  8: vdu23_8(buf); break;
    case  9: vdu23_9(buf); break;
    case 17: vdu23_17(buf); break;
+   }
+}
+
+void vdu25(uint8_t g_mode, int16_t x, int16_t y) {
+   if (g_mode & 4) {
+      // Absolute position X, Y.
+      update_g_cursors(x, y);
+   } else {
+      // Relative to the last point.
+      update_g_cursors(g_x_pos + x, g_y_pos + y);
+   }
+   int col;
+   switch (g_mode & 3) {
+   case 0:
+      col = -1;
+      break;
+   case 1:
+      col = g_fg_col;
+      break;
+   case 2:
+      col = 15 - g_fg_col;
+      break;
+   case 3:
+      col = g_bg_col;
+      break;
+   }
+
+   if (col >= 0) {
+
+      pixel_t colour = screen->get_colour(screen, col);
+
+      if (g_mode < 32) {
+         // Draw a line
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+      } else if (g_mode >= 64 && g_mode < 72) {
+         // Plot a single pixel
+         fb_set_pixel(screen, g_x_pos, g_y_pos, colour);
+      } else if (g_mode >= 72 && g_mode < 80) {
+         // Horizontal line fill (left and right) to non-background
+         fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_NB);
+      } else if (g_mode >= 80 && g_mode < 88) {
+         // Fill a triangle
+         fb_fill_triangle(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+      } else if (g_mode >= 88 && g_mode < 96) {
+         // Horizontal line fill (right only) until background
+         fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_RO_BG);
+      } else if (g_mode >= 96 && g_mode < 104) {
+         // Fill a rectangle
+         fb_fill_rectangle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+      } else if (g_mode >= 104 && g_mode < 112) {
+         // Horizontal line fill (left and right) until foreground
+         fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_FG);
+      } else if (g_mode >= 112 && g_mode < 120) {
+         // Fill a parallelogram
+         fb_fill_parallelogram(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+      } else if (g_mode >= 120 && g_mode < 128) {
+         // Horizontal line fill (right only) to non-foreground
+         fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_RO_NF);
+      } else if (g_mode >= 128 && g_mode < 136) {
+         // Flood fill to non-background
+         fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_NONBG);
+      } else if (g_mode >= 136 && g_mode < 144) {
+         // Flood fill until foreground
+         fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_TOFGD);
+      } else if (g_mode >= 144 && g_mode < 152) {
+         // Draw a circle outline
+         fb_draw_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+      } else if (g_mode >= 152 && g_mode < 160) {
+         // Fill a circle
+         fb_fill_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+      } else if (g_mode >= 160 && g_mode < 168) {
+         // Draw a rectangle outline
+         fb_draw_rectangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, colour);
+      } else if (g_mode >= 168 && g_mode < 176) {
+         // Draw a parallelogram outline
+         fb_draw_parallelogram(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
+      } else if (g_mode >= 176 && g_mode < 184) {
+         // Draw a triangle outline
+         fb_draw_triangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
+      } else if (g_mode >= 192 && g_mode < 200) {
+         // Draw an ellipse
+         fb_draw_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), colour);
+      } else if (g_mode >= 200 && g_mode < 208) {
+         // Fill a n ellipse
+         fb_fill_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), colour);
+      }
    }
 }
 
@@ -806,8 +892,109 @@ void fb_writec(char ch) {
    static int g;
    static int b;
 
-   if (state == IN_VDU17) {
-      state = NORMAL;
+   screen_mode_t *new_screen;
+
+   switch (state) {
+
+   case NORMAL:
+      count = 0;
+      switch(c) {
+      case 4:
+         text_at_g_cursor = 0;
+         break;
+      case 5:
+         text_at_g_cursor = 1;
+         break;
+      case 8:
+         cursor_left();
+         break;
+      case 9:
+         cursor_right();
+         break;
+      case 10:
+         cursor_down();
+         break;
+      case 11:
+         cursor_up();
+         break;
+      case 12:
+         clear_text_area();
+         break;
+      case 13:
+         cursor_col0();
+         break;
+      case 16:
+         fb_clear_graphics_area(screen, screen->get_colour(screen, g_bg_col));
+         break;
+      case 17:
+         state = IN_VDU17;
+         break;
+      case 18:
+         state = IN_VDU18;
+         break;
+      case 19:
+         state = IN_VDU19;
+         break;
+      case 20:
+         screen->reset(screen);
+         break;
+      case 22:
+         state = IN_VDU22;
+         break;
+      case 23:
+         state = IN_VDU23;
+         break;
+      case 24:
+         state = IN_VDU24;
+         break;
+      case 25:
+         state = IN_VDU25;
+         break;
+      case 26:
+         reset_areas();
+         break;
+      case 27:
+         state = IN_VDU27;
+         break;
+      case 28:
+         state = IN_VDU28;
+         break;
+      case 29:
+         state = IN_VDU29;
+         break;
+      case 30:
+         cursor_home();
+         break;
+      case 31:
+         state = IN_VDU31;
+         break;
+      case 127:
+         cursor_left();
+         draw_character(32, 1);
+         break;
+      case 136:
+         edit_cursor_left();
+         break;
+      case 137:
+         edit_cursor_right();
+         break;
+      case 138:
+         edit_cursor_down();
+         break;
+      case 139:
+         edit_cursor_up();
+         break;
+      default:
+         if (text_at_g_cursor) {
+            font->draw_character(font, screen, c, g_x_pos, g_y_pos, g_fg_col, g_bg_col);
+            update_g_cursors(g_x_pos + font_width, g_y_pos);
+         } else {
+            draw_character_and_advance(c);
+         }
+      }
+      break;
+
+   case IN_VDU17:
       if (c & 128) {
          c_bg_col = c & 127;
 #ifdef DEBUG_VDU
@@ -819,28 +1006,24 @@ void fb_writec(char ch) {
          printf("fg = %d\r\n", c_fg_col);
 #endif
       }
-      return;
+      state = NORMAL;
+      break;
 
-   } else if (state == IN_VDU18) {
-      switch (count) {
-      case 0:
+   case IN_VDU18:
+      if (count == 0) {
          fb_set_graphics_plotmode(c);
-         break;
-      case 1:
+      } else {
          if (c & 128) {
             g_bg_col = c & 63;
          } else {
             g_fg_col = c & 63;
          }
-         break;
-      }
-      count++;
-      if (count == 2) {
          state = NORMAL;
       }
-      return;
+      count++;
+      break;
 
-   } else if (state == IN_VDU19) {
+   case IN_VDU19:
       switch (count) {
       case 0:
          l = c;
@@ -868,31 +1051,28 @@ void fb_writec(char ch) {
          break;
       }
       count++;
-      return;
+      break;
 
-   } else if (state == IN_VDU22) {
-      count++;
-      if (count == 1) {
-         state = NORMAL;
-         screen_mode_t *new_screen = get_screen_mode(c);
-         if (new_screen != NULL) {
-            if (new_screen != screen) {
-               screen = new_screen;
-               screen->init(screen);
-            }
-            // initialze VDU variable
-            init_variables();
-            // clear frame buffer
-            screen->clear(screen, screen->get_colour(screen, c_bg_col));
-            // Show the cursor
-            show_cursor();
-         } else {
-            fb_writes("Unsupported screen mode!\r\n");
+   case IN_VDU22:
+      new_screen = get_screen_mode(c);
+      if (new_screen != NULL) {
+         if (new_screen != screen) {
+            screen = new_screen;
+            screen->init(screen);
          }
+         // initialze VDU variable
+         init_variables();
+         // clear frame buffer
+         screen->clear(screen, screen->get_colour(screen, c_bg_col));
+         // Show the cursor
+         show_cursor();
+      } else {
+         fb_writes("Unsupported screen mode!\r\n");
       }
-      return;
+      state = NORMAL;
+      break;
 
-   } else if (state == IN_VDU23) {
+   case IN_VDU23:
       vdu23buf[count] = c;
       if (count == 0) {
          vdu23len = (c == 7) ? 258 : 9;
@@ -903,10 +1083,9 @@ void fb_writec(char ch) {
       } else {
          count++;
       }
-      return;
+      break;
 
-   } else if (state == IN_VDU24) {
-
+   case IN_VDU24:
       switch (count) {
       case 0:
          x_tmp = c;
@@ -935,14 +1114,12 @@ void fb_writec(char ch) {
 #ifdef DEBUG_VDU
          printf("graphics area %d %d %d %d\r\n", x_tmp, y_tmp, x_tmp2, y_tmp2);
 #endif
-      }
-      count++;
-      if (count == 8) {
          state = NORMAL;
       }
-      return;
+      count++;
+      break;
 
-   } else if (state == IN_VDU25) {
+   case IN_VDU25:
       switch (count) {
       case 0:
          g_mode = c;
@@ -961,106 +1138,18 @@ void fb_writec(char ch) {
 #ifdef DEBUG_VDU
          printf("plot %d %d %d\r\n", g_mode, x_tmp, y_tmp);
 #endif
-
-         if (g_mode & 4) {
-            // Absolute position X, Y.
-            update_g_cursors(x_tmp, y_tmp);
-         } else {
-            // Relative to the last point.
-            update_g_cursors(g_x_pos + x_tmp, g_y_pos + y_tmp);
-         }
-
-
-         int col;
-         switch (g_mode & 3) {
-         case 0:
-            col = -1;
-            break;
-         case 1:
-            col = g_fg_col;
-            break;
-         case 2:
-            col = 15 - g_fg_col;
-            break;
-         case 3:
-            col = g_bg_col;
-            break;
-         }
-
-         if (col >= 0) {
-
-            pixel_t colour = screen->get_colour(screen, col);
-
-            if (g_mode < 32) {
-               // Draw a line
-               fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-            } else if (g_mode >= 64 && g_mode < 72) {
-               // Plot a single pixel
-               fb_set_pixel(screen, g_x_pos, g_y_pos, colour);
-            } else if (g_mode >= 72 && g_mode < 80) {
-               // Horizontal line fill (left and right) to non-background
-               fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_NB);
-            } else if (g_mode >= 80 && g_mode < 88) {
-               // Fill a triangle
-               fb_fill_triangle(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-            } else if (g_mode >= 88 && g_mode < 96) {
-               // Horizontal line fill (right only) until background
-               fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_RO_BG);
-            } else if (g_mode >= 96 && g_mode < 104) {
-               // Fill a rectangle
-               fb_fill_rectangle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-            } else if (g_mode >= 104 && g_mode < 112) {
-               // Horizontal line fill (left and right) until foreground
-               fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_FG);
-            } else if (g_mode >= 112 && g_mode < 120) {
-               // Fill a parallelogram
-               fb_fill_parallelogram(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-            } else if (g_mode >= 120 && g_mode < 128) {
-               // Horizontal line fill (right only) to non-foreground
-               fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_RO_NF);
-            } else if (g_mode >= 128 && g_mode < 136) {
-               // Flood fill to non-background
-               fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_NONBG);
-            } else if (g_mode >= 136 && g_mode < 144) {
-               // Flood fill until foreground
-               fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_TOFGD);
-            } else if (g_mode >= 144 && g_mode < 152) {
-               // Draw a circle outline
-               fb_draw_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-            } else if (g_mode >= 152 && g_mode < 160) {
-               // Fill a circle
-               fb_fill_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-            } else if (g_mode >= 160 && g_mode < 168) {
-               // Draw a rectangle outline
-               fb_draw_rectangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, colour);
-            } else if (g_mode >= 168 && g_mode < 176) {
-               // Draw a parallelogram outline
-               fb_draw_parallelogram(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
-            } else if (g_mode >= 176 && g_mode < 184) {
-               // Draw a triangle outline
-               fb_draw_triangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
-            } else if (g_mode >= 192 && g_mode < 200) {
-               // Draw an ellipse
-               fb_draw_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), colour);
-            } else if (g_mode >= 200 && g_mode < 208) {
-               // Fill a n ellipse
-               fb_fill_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), colour);
-            }
-         }
-      }
-      count++;
-      if (count == 5) {
+         vdu25(g_mode, x_tmp, y_tmp);
          state = NORMAL;
       }
-      return;
+      count++;
+      break;
 
-   } else if (state == IN_VDU27) {
-
+   case IN_VDU27:
       draw_character_and_advance(c);
       state = NORMAL;
-      return;
+      break;
 
-   } else if (state == IN_VDU28) {
+   case IN_VDU28:
       switch (count) {
       case 0:
          left = c;
@@ -1077,14 +1166,13 @@ void fb_writec(char ch) {
 #ifdef DEBUG_VDU
          printf("text area left:%d bottom:%d right:%d top:%d\r\n", left, bottom, right, top);
 #endif
+         state = NORMAL;
+         break;
       }
       count++;
-      if (count == 4) {
-         state = NORMAL;
-      }
-      return;
+      break;
 
-   } else if (state == IN_VDU29) {
+   case IN_VDU29:
       switch (count) {
       case 0:
          x_tmp = c;
@@ -1101,14 +1189,13 @@ void fb_writec(char ch) {
 #ifdef DEBUG_VDU
          printf("graphics origin %d %d\r\n", x_tmp, y_tmp);
 #endif
+         state = NORMAL;
+         break;
       }
       count++;
-      if (count == 4) {
-         state = NORMAL;
-      }
-      return;
+      break;
 
-   } else if (state == IN_VDU31) {
+   case IN_VDU31:
       switch (count) {
       case 0:
          x_tmp = c;
@@ -1127,150 +1214,13 @@ void fb_writec(char ch) {
             c_y_pos = y_tmp;
             show_cursor();
          }
+         state = NORMAL;
+         break;
       }
       count++;
-      if (count == 2) {
-         state = NORMAL;
-      }
-      return;
-
+      break;
    }
 
-
-   switch(c) {
-
-   case 4:
-      g_cursor = IN_VDU4;
-      break;
-
-   case 5:
-      g_cursor = IN_VDU5;
-      break;
-
-   case 8:
-      cursor_left();
-      break;
-
-   case 9:
-      cursor_right();
-      break;
-
-   case 10:
-      cursor_down();
-      break;
-
-   case 11:
-      cursor_up();
-      break;
-
-   case 12:
-      clear_text_area();
-      break;
-
-   case 13:
-      cursor_col0();
-      break;
-
-   case 16:
-      fb_clear_graphics_area(screen, screen->get_colour(screen, g_bg_col));
-      break;
-
-   case 17:
-      state = IN_VDU17;
-      count = 0;
-      return;
-
-   case 18:
-      state = IN_VDU18;
-      count = 0;
-      return;
-
-   case 19:
-      state = IN_VDU19;
-      count = 0;
-      return;
-
-   case 20:
-      screen->reset(screen);
-      return;
-
-   case 22:
-      state = IN_VDU22;
-      count = 0;
-      return;
-
-   case 23:
-      state = IN_VDU23;
-      count = 0;
-      return;
-
-   case 24:
-      state = IN_VDU24;
-      count = 0;
-      return;
-
-   case 25:
-      state = IN_VDU25;
-      count = 0;
-      return;
-
-   case 26:
-      reset_areas();
-      return;
-
-   case 27:
-      state = IN_VDU27;
-      count = 0;
-      return;
-
-   case 28:
-      state = IN_VDU28;
-      count = 0;
-      return;
-
-   case 29:
-      state = IN_VDU29;
-      count = 0;
-      return;
-
-   case 30:
-      cursor_home();
-      break;
-
-   case 31:
-      state = IN_VDU31;
-      count = 0;
-      return;
-
-   case 127:
-      cursor_left();
-      draw_character(32, 1);
-      break;
-
-   case 136:
-      edit_cursor_left();
-      break;
-
-   case 137:
-      edit_cursor_right();
-      break;
-
-   case 138:
-      edit_cursor_down();
-      break;
-
-   case 139:
-      edit_cursor_up();
-      break;
-
-   default:
-      if (g_cursor == IN_VDU4) {
-         draw_character_and_advance(c);
-      } else {
-         font->draw_character(font, screen, c, g_x_pos, g_y_pos, g_fg_col, g_bg_col);
-         update_g_cursors(g_x_pos + font_width, g_y_pos);
-      }
-   }
 }
 
 void fb_writes(char *string) {
@@ -1297,10 +1247,10 @@ int fb_get_edit_cursor_char() {
    return font->read_character(font, screen, x, y);
 }
 
-int16_t fb_get_g_bg_col() {
+uint8_t fb_get_g_bg_col() {
    return g_bg_col;
 }
 
-int16_t fb_get_g_fg_col() {
+uint8_t fb_get_g_fg_col() {
    return g_fg_col;
 }
