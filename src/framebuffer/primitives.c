@@ -279,6 +279,109 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
 }
 
 
+
+static void draw_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
+   int x = 0;
+   int y = r;
+   int p = 3 - (2 * r);
+   set_pixel(screen, xc + x, yc - y, colour);
+   for (x = 0; x <= y; x++) {
+      if (p < 0) {
+         p += 4 * x + 6;
+      } else {
+         y--;
+         p += 4 * (x - y) + 10;
+      }
+      set_pixel(screen, xc + x, yc - y, colour);
+      set_pixel(screen, xc - x, yc - y, colour);
+      set_pixel(screen, xc + x, yc + y, colour);
+      set_pixel(screen, xc - x, yc + y, colour);
+      set_pixel(screen, xc + y, yc - x, colour);
+      set_pixel(screen, xc - y, yc - x, colour);
+      set_pixel(screen, xc + y, yc + x, colour);
+      set_pixel(screen, xc - y, yc + x, colour);
+   }
+}
+
+
+static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
+   int x = 0;
+   int y = r;
+   int p = 3 - (2 * r);
+   set_pixel(screen, xc + x, yc - y, colour);
+   for (x = 0; x <= y; x++) {
+      if (p < 0) {
+         p += 4 * x + 6;
+      } else {
+         y--;
+         p += 4 * (x - y) + 10;
+      }
+      draw_line(screen, xc + x, yc - y, xc - x, yc - y, colour);
+      draw_line(screen, xc + x, yc + y, xc - x, yc + y, colour);
+      draw_line(screen, xc + y, yc - x, xc - y, yc - x, colour);
+      draw_line(screen, xc + y, yc + x, xc - y, yc + x, colour);
+   }
+ }
+
+static void draw_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+   // Draw the ellipse
+   int a2 = width * width;
+   int b2 = height * height;
+   int fa2 = 4 * a2, fb2 = 4 * b2;
+   int x, y, sigma;
+   /* First half */
+   for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2 * x <= a2 * y; x++) {
+      set_pixel(screen, xc + x, yc + y, colour);
+      set_pixel(screen, xc - x, yc + y, colour);
+      set_pixel(screen, xc + x, yc - y, colour);
+      set_pixel(screen, xc - x, yc - y, colour);
+      if (sigma >= 0) {
+         sigma += fa2 * (1 - y);
+         y--;
+      }
+      sigma += b2 * ((4 * x) + 6);
+   }
+   /* Second half */
+   for (x = width, y = 0, sigma = 2 * a2 + b2 * (1 - 2 * width); a2 * y <= b2 * x; y++) {
+      set_pixel(screen, xc + x, yc + y, colour);
+      set_pixel(screen, xc - x, yc + y, colour);
+      set_pixel(screen, xc + x, yc - y, colour);
+      set_pixel(screen, xc - x, yc - y, colour);
+      if (sigma >= 0) {
+         sigma += fb2 * (1 - x);
+         x--;
+      }
+      sigma += a2 * ((4 * y) + 6);
+   }
+}
+
+static void fill_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+   int a2 = width * width;
+   // Fill the ellipse
+   int b2 = height * height;
+   int fa2 = 4 * a2, fb2 = 4 * b2;
+   int x, y, sigma;
+   /* First half */
+   for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2 * x <= a2 * y; x++) {
+      draw_line(screen, xc + x, yc + y, xc - x, yc + y, colour);
+      draw_line(screen, xc + x, yc - y, xc - x, yc - y, colour);
+      if (sigma >= 0) {
+         sigma += fa2 * (1 - y);
+         y--;
+      }
+      sigma += b2 * ((4 * x) + 6);
+   }
+   /* Second half */
+   for (x = width, y = 0, sigma = 2 * a2 + b2 * (1 - 2 * width); a2 * y <= b2 * x; y++) {
+      draw_line(screen, xc + x, yc + y, xc - x, yc + y, colour);
+      draw_line(screen, xc + x, yc - y, xc - x, yc - y, colour);
+      if (sigma >= 0) {
+         sigma += fb2 * (1 - x);
+         x--;
+      }
+      sigma += a2 * ((4 * y) + 6);
+   }
+}
 // ==========================================================================
 // Public methods - run at external resolution
 // ==========================================================================
@@ -374,62 +477,41 @@ void fb_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int
    fb_draw_line(screen, x3, y3, x1, y1, colour);
 }
 
-// TODO: This doesn't work with non-square screen pixels
 void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
+   int r = calc_radius(xc, yc, xr, yr);
    // Transform to screen coordinates
    xc = ((xc + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
    yc = ((yc + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   xr = ((xr + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   yr = ((yr + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   int width = (        r  * screen->width)  / BBC_X_RESOLUTION;
+   int height = (       r  * screen->height) / BBC_Y_RESOLUTION;
    // Draw the circle
-   int r = calc_radius(xc, yc, xr, yr);
-   int x = 0;
-   int y = r;
-   int p = 3 - (2 * r);
-   set_pixel(screen, xc + x, yc - y, colour);
-   for (x = 0; x <= y; x++) {
-      if (p < 0) {
-         p += 4 * x + 6;
-      } else {
-         y--;
-         p += 4 * (x - y) + 10;
-      }
-      set_pixel(screen, xc+x,yc-y,colour);
-      set_pixel(screen, xc-x,yc-y,colour);
-      set_pixel(screen, xc+x,yc+y,colour);
-      set_pixel(screen, xc-x,yc+y,colour);
-      set_pixel(screen, xc+y,yc-x,colour);
-      set_pixel(screen, xc-y,yc-x,colour);
-      set_pixel(screen, xc+y,yc+x,colour);
-      set_pixel(screen, xc-y,yc+x,colour);
+   if (width == height) {
+      // Square pixels
+      draw_circle(screen, xc, yc, width, colour);
+   } else {
+      // Rectangular pixel
+      draw_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
    }
 }
 
 void fb_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
+   int r = calc_radius(xc, yc, xr, yr);
    // Transform to screen coordinates
    xc = ((xc + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
    yc = ((yc + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
-   xr = ((xr + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;
-   yr = ((yr + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
+   int width = (        r  * screen->width)  / BBC_X_RESOLUTION;
+   int height = (       r  * screen->height) / BBC_Y_RESOLUTION;
    // Fill the circle
-   int r = calc_radius(xc, yc, xr, yr);
-   int x = 0;
-   int y = r;
-   int p = 3 - (2 * r);
-   set_pixel(screen, xc + x, yc - y, colour);
-   for (x = 0; x <= y; x++) {
-      if (p < 0) {
-         p += 4 * x + 6;
-      } else {
-         y--;
-         p += 4 * (x - y) + 10;
-      }
-      draw_line(screen, xc+x,yc-y,xc-x,yc-y,colour);
-      draw_line(screen, xc+x,yc+y,xc-x,yc+y,colour);
-      draw_line(screen, xc+y,yc-x,xc-y,yc-x,colour);
-      draw_line(screen, xc+y,yc+x,xc-y,yc+x,colour);
+   if (width == height) {
+      // Square pixels
+      fill_circle(screen, xc, yc, width, colour);
+   } else {
+      // Rectangular pixel
+      fill_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
    }
 }
+
+
 /* Bad rectangle due to triangle bug
    void fb_fill_rectangle(int x1, int y1, int x2, int y2, pixel_t colour) {
    fb_fill_triangle(x1, y1, x1, y2, x2, y2, colour);
@@ -502,34 +584,7 @@ void fb_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int heigh
    width = (        width  * screen->width)  / BBC_X_RESOLUTION;
    height = (      height  * screen->height) / BBC_Y_RESOLUTION;
    // Draw the ellipse
-   int a2 = width * width;
-   int b2 = height * height;
-   int fa2 = 4 * a2, fb2 = 4 * b2;
-   int x, y, sigma;
-   /* First half */
-   for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2 * x <= a2 * y; x++) {
-      set_pixel(screen, xc + x, yc + y, colour);
-      set_pixel(screen, xc - x, yc + y, colour);
-      set_pixel(screen, xc + x, yc - y, colour);
-      set_pixel(screen, xc - x, yc - y, colour);
-      if (sigma >= 0) {
-         sigma += fa2 * (1 - y);
-         y--;
-      }
-      sigma += b2 * ((4 * x) + 6);
-   }
-   /* Second half */
-   for (x = width, y = 0, sigma = 2 * a2 + b2 * (1 - 2 * width); a2 * y <= b2 * x; y++) {
-      set_pixel(screen, xc + x, yc + y, colour);
-      set_pixel(screen, xc - x, yc + y, colour);
-      set_pixel(screen, xc + x, yc - y, colour);
-      set_pixel(screen, xc - x, yc - y, colour);
-      if (sigma >= 0) {
-         sigma += fb2 * (1 - x);
-         x--;
-      }
-      sigma += a2 * ((4 * y) + 6);
-   }
+   draw_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
 }
 
 void fb_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
@@ -538,31 +593,8 @@ void fb_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int heigh
    yc = ((yc + g_y_origin) * screen->height) / BBC_Y_RESOLUTION;
    width = (        width  * screen->width)  / BBC_X_RESOLUTION;
    height = (      height  * screen->height) / BBC_Y_RESOLUTION;
-   int a2 = width * width;
    // Fill the ellipse
-   int b2 = height * height;
-   int fa2 = 4 * a2, fb2 = 4 * b2;
-   int x, y, sigma;
-   /* First half */
-   for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2 * x <= a2 * y; x++) {
-      draw_line(screen, xc + x, yc + y, xc - x, yc + y, colour);
-      draw_line(screen, xc + x, yc - y, xc - x, yc - y, colour);
-      if (sigma >= 0) {
-         sigma += fa2 * (1 - y);
-         y--;
-      }
-      sigma += b2 * ((4 * x) + 6);
-   }
-   /* Second half */
-   for (x = width, y = 0, sigma = 2 * a2 + b2 * (1 - 2 * width); a2 * y <= b2 * x; y++) {
-      draw_line(screen, xc + x, yc + y, xc - x, yc + y, colour);
-      draw_line(screen, xc + x, yc - y, xc - x, yc - y, colour);
-      if (sigma >= 0) {
-         sigma += fb2 * (1 - x);
-         x--;
-      }
-      sigma += a2 * ((4 * y) + 6);
-   }
+   fill_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
 }
 
 
