@@ -137,6 +137,9 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
 
    switch(mode) {
    case HL_LR_NB:
+      if (get_pixel(screen, x, y) != bg_col) {
+         return;
+      }
       while (get_pixel(screen, x_right, y) == bg_col && x_right < g_x_max) {
          x_right++;
       }
@@ -147,6 +150,9 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       break;
 
    case HL_RO_BG:
+      if (get_pixel(screen, x, y) == bg_col) {
+         return;
+      }
       while (get_pixel(screen, x_right, y) != bg_col && x_right < g_x_max) {
          x_right++;
       }
@@ -154,6 +160,9 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       break;
 
    case HL_LR_FG:
+      if (get_pixel(screen, x, y) == fg_col) {
+         return;
+      }
       while (get_pixel(screen, x_right, y) != fg_col && x_right < g_x_max) {
          x_right++;
       }
@@ -164,6 +173,9 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       break;
 
    case HL_RO_NF:
+      if (get_pixel(screen, x, y) != fg_col) {
+         return;
+      }
       while (get_pixel(screen, x_right, y) == fg_col && x_right < g_x_max) {
          x_right++;
       }
@@ -362,6 +374,7 @@ void fb_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int
    fb_draw_line(screen, x3, y3, x1, y1, colour);
 }
 
+// TODO: This doesn't work with non-square screen pixels
 void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
    // Transform to screen coordinates
    xc = ((xc + g_x_origin) * screen->width)  / BBC_X_RESOLUTION;

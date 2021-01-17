@@ -762,61 +762,131 @@ void vdu25(uint8_t g_mode, int16_t x, int16_t y) {
 
       pixel_t colour = screen->get_colour(screen, col);
 
-      if (g_mode < 32) {
-         // Draw a line
+      switch (g_mode & 0xF8) {
+
+      case 0:
+         // Plot solid line (both endpoints included)
          fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-      } else if (g_mode >= 64 && g_mode < 72) {
-         // Plot a single pixel
+         break;
+      case 8:
+         // Plot solid line (final endpoint omitted)
+         // TODO
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         break;
+      case 16:
+         // Plot dotted line (both endpoints included)
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         // TODO
+         break;
+      case 24:
+         // Plot dotted line (final endpoint omitted)
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         // TODO
+         break;
+      case 32:
+         // Plot solid line (initial endpoint omitted)
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         // TODO
+         break;
+      case 40:
+         // Plot solid line (final endpoint omitted)
+         // TODO
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         break;
+      case 48:
+         // Plot dotted line (initial endpoint omitted)
+         // TODO
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         break;
+      case 56:
+         // Plot dotted line (final endpoint omitted)
+         // TODO
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         break;
+      case 64:
+         // Plot point
          fb_set_pixel(screen, g_x_pos, g_y_pos, colour);
-      } else if (g_mode >= 72 && g_mode < 80) {
+         break;
+      case 72:
          // Horizontal line fill (left and right) to non-background
          fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_NB);
-      } else if (g_mode >= 80 && g_mode < 88) {
+         break;
+      case 80:
          // Fill a triangle
+         // TODO
          fb_fill_triangle(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-      } else if (g_mode >= 88 && g_mode < 96) {
-         // Horizontal line fill (right only) until background
+         break;
+      case 88:
+         // Horizontal line fill (right only) to background
          fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_RO_BG);
-      } else if (g_mode >= 96 && g_mode < 104) {
+         break;
+      case 96:
          // Fill a rectangle
          fb_fill_rectangle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-      } else if (g_mode >= 104 && g_mode < 112) {
-         // Horizontal line fill (left and right) until foreground
+        break;
+      case 104:
+         // Horizontal line fill (left and right) to foreground
          fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_FG);
-      } else if (g_mode >= 112 && g_mode < 120) {
+         break;
+      case 112:
          // Fill a parallelogram
          fb_fill_parallelogram(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-      } else if (g_mode >= 120 && g_mode < 128) {
+         break;
+      case 120:
          // Horizontal line fill (right only) to non-foreground
          fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_RO_NF);
-      } else if (g_mode >= 128 && g_mode < 136) {
+         break;
+      case 128:
          // Flood fill to non-background
          fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_NONBG);
-      } else if (g_mode >= 136 && g_mode < 144) {
-         // Flood fill until foreground
+         break;
+      case 136:
+         // Flood fill to foreground
          fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_TOFGD);
-      } else if (g_mode >= 144 && g_mode < 152) {
+         break;
+      case 144:
          // Draw a circle outline
          fb_draw_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-      } else if (g_mode >= 152 && g_mode < 160) {
+         break;
+      case 152:
          // Fill a circle
          fb_fill_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-      } else if (g_mode >= 160 && g_mode < 168) {
-         // Draw a rectangle outline
-         fb_draw_rectangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, colour);
-      } else if (g_mode >= 168 && g_mode < 176) {
-         // Draw a parallelogram outline
-         fb_draw_parallelogram(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
-      } else if (g_mode >= 176 && g_mode < 184) {
-         // Draw a triangle outline
-         fb_draw_triangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
-      } else if (g_mode >= 192 && g_mode < 200) {
-         // Draw an ellipse
+         break;
+      case 160:
+         // Plot a circular arc
+         // TODO
+         break;
+      case 168:
+         // Plot a filled chord segment
+         // TODO
+         break;
+      case 176:
+         // Plot a filled sector
+         // TODO
+         break;
+      case 184:
+         // Move/Copy rectangle
+         // TODO
+         break;
+      case 192:
+         // Plot ellipse outline
+         // TODO : can't draw non-axis aligned ellipses
          fb_draw_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), colour);
-      } else if (g_mode >= 200 && g_mode < 208) {
-         // Fill a n ellipse
+         break;
+      case 200:
+         // Plot solid ellipse
+         // TODO : can't draw non-axis aligned ellipses
          fb_fill_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), colour);
+         break;
+      default:
+         printf("Unsuppported plot code: %d\r\n", g_mode);
+         break;
       }
+
+      // Roland also had implemented these outlines
+      // fb_draw_rectangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, colour);
+      // fb_draw_parallelogram(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
+      // fb_draw_triangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
    }
 }
 
