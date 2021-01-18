@@ -132,16 +132,80 @@ static void draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pix
    }
 }
 
-static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode) {
-   int save_x = x;
-   int save_y = y;
-   int x_left = x;
-   int x_right = x;
+static void flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixel_t ref_col, int c) {
 #ifdef DEBUG_VDU
    int max = 0;
+   printf("Flood fill @ %d,%d with col %"PRIx32"; initial pixel %"PRIx32"\r\n", x, y, fill_col, get_pixel(screen, x, y));
 #endif
-   static int fill_x_pos_last1;
-   static int fill_x_pos_last2;
+   if (c && (fill_col == ref_col)) {
+      return;
+   }
+   if (((get_pixel(screen, x, y) == ref_col) ? !c : c)) {
+      return;
+   }
+   flood_queue_x[0] = x;
+   flood_queue_y[0] = y;
+   flood_queue_rd = 0;
+   flood_queue_wr = 1;
+   while (flood_queue_rd != flood_queue_wr) {
+
+      x = flood_queue_x[flood_queue_rd];
+      y = flood_queue_y[flood_queue_rd];
+      flood_queue_rd ++;
+      flood_queue_rd &= FLOOD_QUEUE_SIZE - 1;
+
+      if ((get_pixel(screen, x, y) == ref_col) ? !c : c) {
+         continue;
+      }
+
+      int xl = x;
+      int xr = x;
+      while (xl > g_x_min && ((get_pixel(screen, xl - 1, y) == ref_col) ? c : !c)) {
+         xl--;
+      }
+      while (xr < g_x_max && ((get_pixel(screen, xr + 1, y) == ref_col) ? c : !c)) {
+         xr++;
+      }
+      for (x = xl; x <= xr; x++) {
+         set_pixel(screen, x, y, fill_col);
+         if (y > g_y_min && ((get_pixel(screen, x, y - 1) == ref_col) ? c : !c)) {
+            flood_queue_x[flood_queue_wr] = x;
+            flood_queue_y[flood_queue_wr] = y - 1;
+            flood_queue_wr ++;
+            flood_queue_wr &= FLOOD_QUEUE_SIZE - 1;
+#ifdef DEBUG_VDU
+            if (flood_queue_wr == flood_queue_rd) {
+               printf("queue wrapped\r\n");
+            }
+#endif
+         }
+         if (y < g_y_max && ((get_pixel(screen, x, y + 1) == ref_col) ? c : !c)) {
+            flood_queue_x[flood_queue_wr] = x;
+            flood_queue_y[flood_queue_wr] = y + 1;
+            flood_queue_wr ++;
+            flood_queue_wr &= FLOOD_QUEUE_SIZE - 1;
+#ifdef DEBUG_VDU
+            if (flood_queue_wr == flood_queue_rd) {
+               printf("queue wrapped\r\n");
+            }
+#endif
+         }
+      }
+#ifdef DEBUG_VDU
+      int size = (FLOOD_QUEUE_SIZE + flood_queue_wr - flood_queue_rd) & (FLOOD_QUEUE_SIZE - 1);
+      if (size > max) {
+         max = size;
+      }
+#endif
+   }
+#ifdef DEBUG_VDU
+   printf("Max queue size = %d\r\n", max);
+#endif
+}
+
+static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode) {
+   int x_left = x;
+   int x_right = x;
 
    // printf("Plot (%d,%d), colour %d, mode %d\r\n", x, y, colour, mode);
    // printf("g_bg_col = %d, g_fg_col = %d\n\r", g_bg_col, g_fg_col);
@@ -201,99 +265,17 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       break;
 
    case AF_NONBG:
-#ifdef DEBUG_VDU
-      printf("Flood fill @ %d,%d in col %"PRIx32"; initial pixel %"PRIx32"\r\n", x, y, colour, get_pixel(screen, x, y));
-#endif
-      if (colour == bg_col) {
-         return;
-      }
-      if (get_pixel(screen, x, y) != bg_col) {
-         return;
-      }
-      flood_queue_x[0] = x;
-      flood_queue_y[0] = y;
-      flood_queue_rd = 0;
-      flood_queue_wr = 1;
-      while (flood_queue_rd != flood_queue_wr) {
-
-            x = flood_queue_x[flood_queue_rd];
-            y = flood_queue_y[flood_queue_rd];
-            flood_queue_rd ++;
-            flood_queue_rd &= FLOOD_QUEUE_SIZE - 1;
-
-            if (get_pixel(screen, x, y) != bg_col) {
-               continue;
-            }
-
-            int xl = x;
-            int xr = x;
-            while (xl > g_x_min && get_pixel(screen, xl - 1, y) == bg_col) {
-               xl--;
-            }
-            while (xr < g_x_max && get_pixel(screen, xr + 1, y) == bg_col) {
-               xr++;
-            }
-            for (x = xl; x <= xr; x++) {
-               set_pixel(screen, x, y, colour);
-               if (y > g_y_min && get_pixel(screen, x, y - 1) == bg_col) {
-                  flood_queue_x[flood_queue_wr] = x;
-                  flood_queue_y[flood_queue_wr] = y - 1;
-                  flood_queue_wr ++;
-                  flood_queue_wr &= FLOOD_QUEUE_SIZE - 1;
-#ifdef DEBUG_VDU
-                  if (flood_queue_wr == flood_queue_rd) {
-                     printf("queue wrapped\r\n");
-                  }
-#endif
-               }
-               if (y < g_y_max && get_pixel(screen, x, y + 1) == bg_col) {
-                  flood_queue_x[flood_queue_wr] = x;
-                  flood_queue_y[flood_queue_wr] = y + 1;
-                  flood_queue_wr ++;
-                  flood_queue_wr &= FLOOD_QUEUE_SIZE - 1;
-#ifdef DEBUG_VDU
-                  if (flood_queue_wr == flood_queue_rd) {
-                     printf("queue wrapped\r\n");
-                  }
-#endif
-               }
-            }
-#ifdef DEBUG_VDU
-            int size = (FLOOD_QUEUE_SIZE + flood_queue_wr - flood_queue_rd) & (FLOOD_QUEUE_SIZE - 1);
-            if (size > max) {
-               max = size;
-            }
-#endif
-         }
-#ifdef DEBUG_VDU
-      printf("Max queue size = %d\r\n", max);
-#endif
-      return;
+      flood_fill(screen, x, y, colour, bg_col, 1);
+      break;
 
    case AF_TOFGD:
-      // going up
-      while (get_pixel(screen, x, y) != fg_col && y < g_y_max) {
-         fill_area(screen, x, y, colour, HL_LR_FG);
-         y++;
-         x = (fill_x_pos_last1 + fill_x_pos_last2) / 2;
-      }
-      // going down
-      x = save_x;
-      y = save_y - 1;
-      while (get_pixel(screen, x, y) != fg_col && y >= 0) {
-         fill_area(screen, x, y, colour, HL_LR_FG);
-         y--;
-         x = (fill_x_pos_last1 + fill_x_pos_last2) / 2;
-      }
-      return; // prevents any additional line drawing
+      flood_fill(screen, x, y, colour, fg_col, 0);
+      break;
 
    default:
       printf( "Unknown fill mode %d\r\n", mode);
       break;
    }
-
-   fill_x_pos_last1 = x_left;
-   fill_x_pos_last2 = x_right;
 }
 
 
