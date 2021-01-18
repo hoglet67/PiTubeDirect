@@ -676,6 +676,69 @@ static screen_mode_t screen_modes[] = {
       .bpp           = 8,
       .ncolour       = 15
    },
+   {
+      .mode_num      = 47,
+      .width         = 360,
+      .height        = 480,
+      .xeigfactor    = 2,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 48,
+      .width         = 320,
+      .height        = 480,
+      .xeigfactor    = 2,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 49,
+      .width         = 320,
+      .height        = 480,
+      .xeigfactor    = 2,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 50,
+      .width         = 320,
+      .height        = 240,
+      .xeigfactor    = 2,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 1
+   },
+   {
+      .mode_num      = 51,
+      .width         = 320,
+      .height        = 240,
+      .xeigfactor    = 2,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 52,
+      .width         = 320,
+      .height        = 240,
+      .xeigfactor    = 2,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 53,
+      .width         = 320,
+      .height        = 240,
+      .xeigfactor    = 2,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
    // 8 bpp
    {
       .mode_num      = 64,

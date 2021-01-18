@@ -1125,7 +1125,12 @@ void OS_ScreenMode(unsigned int *reg) {
          fb_writec((ypixels >> 8) & 0xff);
          fb_writec(8);
          fb_writec(8);
-         fb_writec((1 << (1 << log2bpp)) - 1); // maximum logical colour
+         // number of colours:
+         /// log2bpp = 0: bpp = 1: n_colours = 2
+         /// log2bpp = 1: bpp = 2: n_colours = 4
+         /// log2bpp = 2: bpp = 4: n_colours = 16
+         /// log2bpp = 3: bpp = 8: n_colours = 256 (sent as 0x00)
+         fb_writec((1 << (1 << log2bpp)) & 0xff);
          fb_writec(0);
          return;
       }

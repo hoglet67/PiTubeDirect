@@ -717,13 +717,16 @@ void vdu23_22(char *buf) {
    // User Defined Screen Mode
    int16_t x_pixels = buf[1] | (buf[2] << 8);
    int16_t y_pixels = buf[3] | (buf[4] << 8);
-   unsigned int ncolour = buf[7] & 0xff;
+   unsigned int n_colours = buf[7] & 0xff;
+   if (n_colours == 0) {
+      n_colours = 256;
+   }
    screen_mode_t *new_screen = get_screen_mode(CUSTOM_8BPP_SCREEN_MODE);
    new_screen->width = x_pixels;
    new_screen->height = y_pixels;
    new_screen->xeigfactor = 1;
    new_screen->yeigfactor = 1;
-   new_screen->ncolour = ncolour;
+   new_screen->ncolour = n_colours - 1;
    change_mode(new_screen);
 }
 
