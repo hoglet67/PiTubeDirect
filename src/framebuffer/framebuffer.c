@@ -18,13 +18,9 @@
 #include "mousepointers.h"
 #include "sprites.h"
 
-
-// Default screen mode
-#define DEFAULT_SCREEN_MODE 8
-
-// Default colours - TODO this should be dynamic
+// Default colours
 #define COL_BLACK    0
-#define COL_WHITE   63
+#define COL_WHITE   (screen->ncolour)
 
 // Current screen mode
 static screen_mode_t *screen = NULL;
@@ -127,6 +123,7 @@ static void cursor_next();
 static void update_g_cursors(int16_t x, int16_t y);
 static void draw_character(int c, int invert);
 static void draw_character_and_advance(int c);
+static void change_mode(screen_mode_t *new_screen);
 
 static void update_font_size() {
    // Calculate the font size, taking account of scale and spacing
@@ -715,6 +712,21 @@ void vdu23_17(char *buf) {
    }
 }
 
+void vdu23_22(char *buf) {
+   // VDU 23,22,xpixels;ypixels;xchars,ychars,colours,flags
+   // User Defined Screen Mode
+   int16_t x_pixels = buf[1] | (buf[2] << 8);
+   int16_t y_pixels = buf[3] | (buf[4] << 8);
+   unsigned int ncolour = buf[7] & 0xff;
+   screen_mode_t *new_screen = get_screen_mode(CUSTOM_8BPP_SCREEN_MODE);
+   new_screen->width = x_pixels;
+   new_screen->height = y_pixels;
+   new_screen->xeigfactor = 1;
+   new_screen->yeigfactor = 1;
+   new_screen->ncolour = ncolour;
+   change_mode(new_screen);
+}
+
 void vdu23(char *buf) {
 #ifdef DEBUG_VDU
    for (int i = 0; i < 9; i++) {
@@ -731,6 +743,7 @@ void vdu23(char *buf) {
    case  8: vdu23_8(buf); break;
    case  9: vdu23_9(buf); break;
    case 17: vdu23_17(buf); break;
+   case 22: vdu23_22(buf); break;
    }
 }
 
@@ -887,6 +900,19 @@ void vdu25(uint8_t g_mode, int16_t x, int16_t y) {
       // fb_draw_parallelogram(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
       // fb_draw_triangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
    }
+}
+
+static void change_mode(screen_mode_t *new_screen) {
+   if (new_screen && (new_screen != screen || new_screen->mode_num >= CUSTOM_8BPP_SCREEN_MODE)) {
+      screen = new_screen;
+      screen->init(screen);
+   }
+   // initialze VDU variable
+   init_variables();
+   // clear frame buffer
+   screen->clear(screen, screen->get_colour(screen, c_bg_col));
+   // Show the cursor
+   show_cursor();
 }
 
 // ==========================================================================
@@ -1124,16 +1150,7 @@ void fb_writec(char ch) {
    case IN_VDU22:
       new_screen = get_screen_mode(c);
       if (new_screen != NULL) {
-         if (new_screen != screen) {
-            screen = new_screen;
-            screen->init(screen);
-         }
-         // initialze VDU variable
-         init_variables();
-         // clear frame buffer
-         screen->clear(screen, screen->get_colour(screen, c_bg_col));
-         // Show the cursor
-         show_cursor();
+         change_mode(new_screen);
       } else {
          fb_writes("Unsupported screen mode!\r\n");
       }

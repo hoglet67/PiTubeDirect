@@ -3,6 +3,15 @@
 
 #include <inttypes.h>
 
+// Default screen mode
+// 640x512 256 colours (80x64 text)
+#define DEFAULT_SCREEN_MODE 21
+
+// Custom screen modes (used by VDU 23,22)
+#define CUSTOM_8BPP_SCREEN_MODE  96
+#define CUSTOM_16BPP_SCREEN_MODE 97
+#define CUSTOM_32BPP_SCREEN_MODE 98
+
 // Uncomment to use V3D triangle fill in 16bpp and 32bpp modes
 // This is approx 2x-3x faster for random sized triangles
 // #define USE_V3D
@@ -22,7 +31,7 @@ typedef struct screen_mode {
 
    int bpp;         // bits per pixel (8,16,32)
 
-   int num_colours; // number of colours
+   int ncolour;     // maximum logical colour
 
    int pitch;       // filled in by init
 

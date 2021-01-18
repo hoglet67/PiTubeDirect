@@ -37,7 +37,7 @@ static void update_palette(int offset, int num_colours) {
 }
 
 static void init_colour_table(screen_mode_t *screen) {
-   if (screen->num_colours == 2) {
+   if (screen->ncolour == 1) {
       // Default 2-Colour Palette
       // Colour  0 = Black
       // Colour  1 = White
@@ -51,7 +51,7 @@ static void init_colour_table(screen_mode_t *screen) {
             break;
          }
       }
-   } else if (screen->num_colours == 4) {
+   } else if (screen->ncolour == 3) {
       // Default 4-Colour Palette
       // Colour  0 = Black
       // Colour  1 = Red
@@ -73,7 +73,7 @@ static void init_colour_table(screen_mode_t *screen) {
             break;
          }
       }
-   } else if (screen->num_colours == 16) {
+   } else if (screen->ncolour == 15) {
       // Default 16-Colour Palette
       // Colour  0 = Black
       // Colour  1 = Dark Red
@@ -268,15 +268,7 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .num_colours   = 2,
-      .init          = init_screen,
-      .reset         = reset_screen,
-      .clear         = clear_screen,
-      .scroll        = scroll_screen,
-      .set_colour    = set_colour_8bpp,
-      .get_colour    = get_colour_8bpp,
-      .set_pixel     = set_pixel_8bpp,
-      .get_pixel     = get_pixel_8bpp
+      .ncolour       = 1
    },
    {
       .mode_num      = 1,
@@ -285,15 +277,7 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .num_colours   = 4,
-      .init          = init_screen,
-      .reset         = reset_screen,
-      .clear         = clear_screen,
-      .scroll        = scroll_screen,
-      .set_colour    = set_colour_8bpp,
-      .get_colour    = get_colour_8bpp,
-      .set_pixel     = set_pixel_8bpp,
-      .get_pixel     = get_pixel_8bpp
+      .ncolour       = 3
    },
    {
       .mode_num      = 2,
@@ -302,15 +286,7 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 3,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .num_colours   = 16,
-      .init          = init_screen,
-      .reset         = reset_screen,
-      .clear         = clear_screen,
-      .scroll        = scroll_screen,
-      .set_colour    = set_colour_8bpp,
-      .get_colour    = get_colour_8bpp,
-      .set_pixel     = set_pixel_8bpp,
-      .get_pixel     = get_pixel_8bpp
+      .ncolour       = 15
    },
    {
       .mode_num      = 3,
@@ -319,15 +295,7 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .num_colours   = 2,
-      .init          = init_screen,
-      .reset         = reset_screen,
-      .clear         = clear_screen,
-      .scroll        = scroll_screen,
-      .set_colour    = set_colour_8bpp,
-      .get_colour    = get_colour_8bpp,
-      .set_pixel     = set_pixel_8bpp,
-      .get_pixel     = get_pixel_8bpp
+      .ncolour       = 1
    },
    {
       .mode_num      = 4,
@@ -336,15 +304,7 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .num_colours   = 2,
-      .init          = init_screen,
-      .reset         = reset_screen,
-      .clear         = clear_screen,
-      .scroll        = scroll_screen,
-      .set_colour    = set_colour_8bpp,
-      .get_colour    = get_colour_8bpp,
-      .set_pixel     = set_pixel_8bpp,
-      .get_pixel     = get_pixel_8bpp
+      .ncolour       = 1
    },
    {
       .mode_num      = 5,
@@ -353,15 +313,7 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 3,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .num_colours   = 4,
-      .init          = init_screen,
-      .reset         = reset_screen,
-      .clear         = clear_screen,
-      .scroll        = scroll_screen,
-      .set_colour    = set_colour_8bpp,
-      .get_colour    = get_colour_8bpp,
-      .set_pixel     = set_pixel_8bpp,
-      .get_pixel     = get_pixel_8bpp
+      .ncolour       = 3
    },
    {
       .mode_num      = 6,
@@ -370,15 +322,7 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .num_colours   = 2,
-      .init          = init_screen,
-      .reset         = reset_screen,
-      .clear         = clear_screen,
-      .scroll        = scroll_screen,
-      .set_colour    = set_colour_8bpp,
-      .get_colour    = get_colour_8bpp,
-      .set_pixel     = set_pixel_8bpp,
-      .get_pixel     = get_pixel_8bpp
+      .ncolour       = 1
    },
    {
       .mode_num      = 7,
@@ -387,25 +331,360 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .num_colours   = 16,
-      .init          = init_screen,
-      .reset         = reset_screen,
-      .clear         = clear_screen,
-      .scroll        = scroll_screen,
-      .set_colour    = set_colour_8bpp,
-      .get_colour    = get_colour_8bpp,
-      .set_pixel     = set_pixel_8bpp,
-      .get_pixel     = get_pixel_8bpp
+      .ncolour       = 15
    },
-   // 8 bpp
    {
       .mode_num      = 8,
+      .width         = 640,
+      .height        = 256,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 9,
+      .width         = 320,
+      .height        = 25,
+      .xeigfactor    = 2,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 10,
+      .width         = 160,
+      .height        = 256,
+      .xeigfactor    = 3,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 11,
+      .width         = 640,
+      .height        = 250,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 12,
+      .width         = 640,
+      .height        = 256,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 13,
+      .width         = 320,
+      .height        = 256,
+      .xeigfactor    = 2,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 14,
+      .width         = 640,
+      .height        = 250,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 15,
+      .width         = 640,
+      .height        = 256,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 16,
+      .width         = 1056,
+      .height        = 256,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 17,
+      .width         = 1056,
+      .height        = 250,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 18,
       .width         = 640,
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .num_colours   = 0x100,
+      .ncolour       = 1
+   },
+   {
+      .mode_num      = 19,
+      .width         = 640,
+      .height        = 512,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 20,
+      .width         = 640,
+      .height        = 512,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 21,
+      .width         = 640,
+      .height        = 512,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 22,
+      .width         = 768,
+      .height        = 288,
+      .xeigfactor    = 0,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 23,
+      .width         = 1152,
+      .height        = 892,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 1
+   },
+   {
+      .mode_num      = 24,
+      .width         = 1056,
+      .height        = 256,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 25,
+      .width         = 640,
+      .height        = 480,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 1
+   },
+   {
+      .mode_num      = 26,
+      .width         = 640,
+      .height        = 480,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 27,
+      .width         = 640,
+      .height        = 480,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 28,
+      .width         = 640,
+      .height        = 480,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 29,
+      .width         = 800,
+      .height        = 600,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 1
+   },
+   {
+      .mode_num      = 30,
+      .width         = 800,
+      .height        = 600,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 31,
+      .width         = 800,
+      .height        = 600,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   // Mode 32 was never defined
+   {
+      .mode_num      = 33,
+      .width         = 768,
+      .height        = 288,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 1
+   },
+   {
+      .mode_num      = 34,
+      .width         = 768,
+      .height        = 288,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 35,
+      .width         = 768,
+      .height        = 288,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 36,
+      .width         = 768,
+      .height        = 288,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 37,
+      .width         = 896,
+      .height        = 352,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 1
+   },
+   {
+      .mode_num      = 38,
+      .width         = 896,
+      .height        = 352,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 39,
+      .width         = 896,
+      .height        = 352,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 40,
+      .width         = 896,
+      .height        = 352,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 255
+   },
+   {
+      .mode_num      = 41,
+      .width         = 640,
+      .height        = 352,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 1
+   },
+   {
+      .mode_num      = 42,
+      .width         = 640,
+      .height        = 352,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 43,
+      .width         = 640,
+      .height        = 352,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   {
+      .mode_num      = 44,
+      .width         = 640,
+      .height        = 200,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 1
+   },
+   {
+      .mode_num      = 45,
+      .width         = 640,
+      .height        = 200,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 3
+   },
+   {
+      .mode_num      = 46,
+      .width         = 640,
+      .height        = 200,
+      .xeigfactor    = 1,
+      .yeigfactor    = 2,
+      .bpp           = 8,
+      .ncolour       = 15
+   },
+   // 8 bpp
+   {
+      .mode_num      = 64,
+      .width         = 640,
+      .height        = 512,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 0xff ,
       .init          = init_screen,
       .reset         = reset_screen,
       .clear         = clear_screen,
@@ -416,13 +695,13 @@ static screen_mode_t screen_modes[] = {
       .get_pixel     = get_pixel_8bpp
    },
    {
-      .mode_num      = 9,
+      .mode_num      = 65,
       .width         = 1280,
       .height        = 1024,
       .xeigfactor    = 0,
       .yeigfactor    = 0,
       .bpp           = 8,
-      .num_colours   = 0x100,
+      .ncolour       = 0xff,
       .init          = init_screen,
       .reset         = reset_screen,
       .clear         = clear_screen,
@@ -434,13 +713,13 @@ static screen_mode_t screen_modes[] = {
    },
    // 16 bpp
    {
-      .mode_num      = 10,
+      .mode_num      = 66,
       .width         = 640,
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 16,
-      .num_colours   = 0x10000,
+      .ncolour       = 0xffff,
       .init          = init_screen,
       .reset         = reset_screen,
       .clear         = clear_screen,
@@ -451,13 +730,13 @@ static screen_mode_t screen_modes[] = {
       .get_pixel     = get_pixel_16bpp
    },
    {
-      .mode_num      = 11,
+      .mode_num      = 67,
       .width         = 1280,
       .height        = 1024,
       .xeigfactor    = 0,
       .yeigfactor    = 0,
       .bpp           = 16,
-      .num_colours   = 0x10000,
+      .ncolour       = 0xffff,
       .init          = init_screen,
       .reset         = reset_screen,
       .clear         = clear_screen,
@@ -469,13 +748,13 @@ static screen_mode_t screen_modes[] = {
    },
    // 32 bpp
    {
-      .mode_num      = 12,
+      .mode_num      = 68,
       .width         = 640,
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 32,
-      .num_colours   = 0x100000,
+      .ncolour       = 0xffffff,
       .init          = init_screen,
       .reset         = reset_screen,
       .clear         = clear_screen,
@@ -486,13 +765,13 @@ static screen_mode_t screen_modes[] = {
       .get_pixel     = get_pixel_32bpp
    },
    {
-      .mode_num      = 13,
+      .mode_num      = 69,
       .width         = 1280,
       .height        = 1024,
       .xeigfactor    = 0,
       .yeigfactor    = 0,
       .bpp           = 32,
-      .num_colours   = 0x100000,
+      .ncolour       = 0xffffff,
       .init          = init_screen,
       .reset         = reset_screen,
       .clear         = clear_screen,
@@ -501,6 +780,18 @@ static screen_mode_t screen_modes[] = {
       .get_colour    = get_colour_32bpp,
       .set_pixel     = set_pixel_32bpp,
       .get_pixel     = get_pixel_32bpp
+   },
+   {
+      .mode_num     = CUSTOM_8BPP_SCREEN_MODE,
+      .bpp          = 8
+   },
+   {
+      .mode_num     = CUSTOM_16BPP_SCREEN_MODE,
+      .bpp          = 16
+   },
+   {
+      .mode_num     = CUSTOM_32BPP_SCREEN_MODE,
+      .bpp          = 32
    },
    {
       .mode_num     = -1,
@@ -511,6 +802,30 @@ screen_mode_t *get_screen_mode(int mode_num) {
    screen_mode_t *sm = screen_modes;
    while (sm->mode_num >= 0) {
       if (sm->mode_num == mode_num) {
+         sm->init = init_screen;
+         sm->reset = reset_screen;
+         sm->clear = clear_screen;
+         sm->scroll = scroll_screen;
+         switch (sm->bpp) {
+         case 16:
+            sm->set_colour = set_colour_16bpp;
+            sm->get_colour = get_colour_16bpp;
+            sm->set_pixel  = set_pixel_16bpp;
+            sm->get_pixel  = get_pixel_16bpp;
+            break;
+         case 32:
+            sm->set_colour = set_colour_32bpp;
+            sm->get_colour = get_colour_32bpp;
+            sm->set_pixel  = set_pixel_32bpp;
+            sm->get_pixel  = get_pixel_32bpp;
+            break;
+         default:
+            sm->set_colour = set_colour_8bpp;
+            sm->get_colour = get_colour_8bpp;
+            sm->set_pixel  = set_pixel_8bpp;
+            sm->get_pixel  = get_pixel_8bpp;
+            break;
+         }
          return sm;
       }
       sm++;
