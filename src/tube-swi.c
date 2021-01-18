@@ -213,7 +213,7 @@ SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_SWI_Not_Known,         // (&62) -- OS_ClaimSWI
   tube_SWI_Not_Known,         // (&63) -- OS_ReleaseSWI
   tube_SWI_Not_Known,         // (&64) -- OS_Pointer
-  tube_SWI_Not_Known,         // (&65) -- OS_ScreenMode
+  OS_ScreenMode,              // (&65) -- OS_ScreenMode
   tube_SWI_Not_Known,         // (&66) -- OS_DynamicArea
   tube_SWI_Not_Known,         // (&67) -- OS_AbortTrap
   tube_SWI_Not_Known,         // (&68) -- OS_Memory
@@ -1104,9 +1104,37 @@ void tube_WriteN(unsigned int *reg) {
   }
 }
 
-void OS_SynchroniseCodeAreas(unsigned int *reg)
-{
- _invalidate_icache();
+void OS_ScreenMode(unsigned int *reg) {
+   if (reg[0] == 0) {
+      if (reg[1] < 256) {
+         fb_writec(22);
+         fb_writec(reg[1]);
+         return;
+      } else if ((reg[1] & 1) == 0) {
+         unsigned int *selector_block = (unsigned int *)reg[1];
+         unsigned int xpixels = *(selector_block + 1);
+         unsigned int ypixels = *(selector_block + 2);
+         unsigned int log2bpp = *(selector_block + 3);
+         printf("OS_ScreenMode: x=%08x y=%08x log2bpp=%08x\r\n",
+                xpixels, ypixels, log2bpp);
+         fb_writec(23);
+         fb_writec(22);
+         fb_writec(xpixels & 0xff);
+         fb_writec((xpixels >> 8) & 0xff);
+         fb_writec(ypixels & 0xff);
+         fb_writec((ypixels >> 8) & 0xff);
+         fb_writec(8);
+         fb_writec(8);
+         fb_writec((1 << (1 << log2bpp)) - 1); // maximum logical colour
+         fb_writec(0);
+         return;
+      }
+   }
+   printf("OS_ScreenMode: Unsupported operation: r0=%08x r1=%08x\r\n", reg[0], reg[1]);
+}
+
+void OS_SynchroniseCodeAreas(unsigned int *reg) {
+   _invalidate_icache();
 }
 
 // The purpose of this call is to lookup and output (via OS_WriteC) a help message for a given BASIC keyword.

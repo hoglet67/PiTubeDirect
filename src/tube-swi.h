@@ -76,6 +76,7 @@ void tube_BASICTrans_HELP(unsigned int *reg);   // &42C80
 void tube_BASICTrans_Error(unsigned int *reg);  // &42C81
 void tube_BASICTrans_Message(unsigned int *reg);// &42C82
 
+void OS_ScreenMode(unsigned int *reg);          // (&66) -- OS_ScreenMode
 void OS_SynchroniseCodeAreas(unsigned int *reg);// (&6E) -- OS_SynchroniseCodeAreas
 
 #endif
