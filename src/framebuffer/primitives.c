@@ -33,7 +33,6 @@ static int flood_queue_rd;
 // - fill sector
 // - move/copy rectangle
 // - fill patterns
-// - non-axis aligned elipses
 // - bug: horizontal line fills overwrite the terminating pixel
 
 // ==========================================================================
@@ -337,7 +336,7 @@ static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t co
    }
 }
 
-static void draw_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+static void draw_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
    // Draw the ellipse
    int a2 = width * width;
    int b2 = height * height;
@@ -373,7 +372,45 @@ static void draw_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int
    }
 }
 
-static void fill_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+   // Draw the ellipse
+   int a2 = width * width;
+   int b2 = height * height;
+   int fa2 = 4 * a2, fb2 = 4 * b2;
+   int x, y, sigma;
+   /* First half */
+   for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2 * x <= a2 * y; x++) {
+      int s = shear * y / height;
+      set_pixel(screen, xc + x + s, yc + y, colour);
+      set_pixel(screen, xc + x - s, yc - y, colour);
+      if (x > 0) {
+         set_pixel(screen, xc - x + s, yc + y, colour);
+         set_pixel(screen, xc - x - s, yc - y, colour);
+      }
+      if (sigma >= 0) {
+         sigma += fa2 * (1 - y);
+         y--;
+      }
+      sigma += b2 * ((4 * x) + 6);
+   }
+   /* Second half */
+   for (x = width, y = 0, sigma = 2 * a2 + b2 * (1 - 2 * width); a2 * y <= b2 * x; y++) {
+      int s = shear * y / height;
+      set_pixel(screen, xc + x + s, yc + y, colour);
+      set_pixel(screen, xc - x + s, yc + y, colour);
+      if (y > 0) {
+         set_pixel(screen, xc + x - s, yc - y, colour);
+         set_pixel(screen, xc - x - s, yc - y, colour);
+      }
+      if (sigma >= 0) {
+         sigma += fb2 * (1 - x);
+         x--;
+      }
+      sigma += a2 * ((4 * y) + 6);
+   }
+}
+
+static void fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
    int a2 = width * width;
    // Fill the ellipse
    int b2 = height * height;
@@ -394,6 +431,38 @@ static void fill_axis_aligned_ellipse(screen_mode_t *screen, int xc, int yc, int
       draw_hline(screen, xc + x, xc - x, yc + y, colour);
       if (y > 0) {
          draw_hline(screen, xc + x, xc - x, yc - y, colour);
+      }
+      if (sigma >= 0) {
+         sigma += fb2 * (1 - x);
+         x--;
+      }
+      sigma += a2 * ((4 * y) + 6);
+   }
+}
+
+static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+   int a2 = width * width;
+   // Fill the ellipse
+   int b2 = height * height;
+   int fa2 = 4 * a2, fb2 = 4 * b2;
+   int x, y, sigma;
+   /* First half */
+   for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2 * x <= a2 * y; x++) {
+      if (sigma >= 0) {
+         int s = shear * y / height;
+         draw_hline(screen, xc + x + s, xc - x + s, yc + y, colour);
+         draw_hline(screen, xc + x - s, xc - x - s, yc - y, colour);
+         sigma += fa2 * (1 - y);
+         y--;
+      }
+      sigma += b2 * ((4 * x) + 6);
+   }
+   /* Second half */
+   for (x = width, y = 0, sigma = 2 * a2 + b2 * (1 - 2 * width); a2 * y <= b2 * x; y++) {
+      int s = shear * y / height;
+      draw_hline(screen, xc + x + s, xc - x + s, yc + y, colour);
+      if (y > 0) {
+         draw_hline(screen, xc + x - s, xc - x - s, yc - y, colour);
       }
       if (sigma >= 0) {
          sigma += fb2 * (1 - x);
@@ -574,7 +643,7 @@ void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel
       int width  = r >> screen->xeigfactor;
       int height = r >> screen->yeigfactor;
       // Rectangular pixels
-      draw_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
+      draw_normal_ellipse(screen, xc, yc, width, height, colour);
    }
 }
 
@@ -592,7 +661,7 @@ void fb_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel
       int width  = r >> screen->xeigfactor;
       int height = r >> screen->yeigfactor;
       // Rectangular pixels
-      fill_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
+      fill_normal_ellipse(screen, xc, yc, width, height, colour);
    }
 }
 
@@ -654,24 +723,34 @@ void fb_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2
    fb_fill_triangle(screen, x1, y1, x4, y4, x3, y3, colour);
 }
 
-void fb_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+void fb_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
    // Transform to screen coordinates
    xc = (xc + g_x_origin) >> screen->xeigfactor;
    yc = (yc + g_y_origin) >> screen->yeigfactor;
    width =         width  >> screen->xeigfactor;
    height =       height  >> screen->yeigfactor;
    // Draw the ellipse
-   draw_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
+   if (shear) {
+      shear = shear >> screen->xeigfactor;
+      draw_sheared_ellipse(screen, xc, yc, width, height, shear, colour);
+   } else {
+      draw_normal_ellipse(screen, xc, yc, width, height, colour);
+   }
 }
 
-void fb_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+void fb_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
    // Transform to screen coordinates
    xc = (xc + g_x_origin) >> screen->xeigfactor;
    yc = (yc + g_y_origin) >> screen->yeigfactor;
    width =         width  >> screen->xeigfactor;
    height =       height  >> screen->yeigfactor;
    // Fill the ellipse
-   fill_axis_aligned_ellipse(screen, xc, yc, width, height, colour);
+   if (shear) {
+      shear = shear >> screen->xeigfactor;
+      fill_sheared_ellipse(screen, xc, yc, width, height, shear, colour);
+   } else {
+      fill_normal_ellipse(screen, xc, yc, width, height, colour);
+   }
 }
 
 

@@ -751,6 +751,7 @@ void vdu23(char *buf) {
 }
 
 void vdu25(uint8_t g_mode, int16_t x, int16_t y) {
+   int skew;
    if (g_mode & 4) {
       // Absolute position X, Y.
       update_g_cursors(x, y);
@@ -885,13 +886,13 @@ void vdu25(uint8_t g_mode, int16_t x, int16_t y) {
          break;
       case 192:
          // Plot ellipse outline
-         // TODO : can't draw non-axis aligned ellipses
-         fb_draw_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), colour);
+         skew = (g_y_pos > g_y_pos_last2) ? g_x_pos - g_x_pos_last2 : g_x_pos_last2 - g_x_pos;
+         fb_draw_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), skew, colour);
          break;
       case 200:
          // Plot solid ellipse
-         // TODO : can't draw non-axis aligned ellipses
-         fb_fill_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), colour);
+         skew = (g_y_pos > g_y_pos_last2) ? g_x_pos - g_x_pos_last2 : g_x_pos_last2 - g_x_pos;
+         fb_fill_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), skew, colour);
          break;
       default:
          printf("Unsuppported plot code: %d\r\n", g_mode);

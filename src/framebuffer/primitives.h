@@ -35,8 +35,8 @@ void fb_fill_rectangle        (screen_mode_t *screen, int x1, int y1, int x2, in
 void fb_draw_rectangle        (screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour);
 void fb_fill_parallelogram    (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
 void fb_draw_parallelogram    (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
-void fb_draw_ellipse          (screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour);
-void fb_fill_ellipse          (screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour);
+void fb_draw_ellipse          (screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour);
+void fb_fill_ellipse          (screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour);
 void fb_fill_area             (screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode);
 
 #endif
