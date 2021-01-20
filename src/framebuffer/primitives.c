@@ -40,7 +40,7 @@ static int flood_queue_rd;
 // ==========================================================================
 
 static int calc_radius(int x1, int y1, int x2, int y2) {
-   return (int)(sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
+   return (int)(sqrtf((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
 }
 
 static pixel_t get_pixel(screen_mode_t *screen, int x, int y) {
@@ -399,7 +399,7 @@ static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
       int xr_this = 0;
       // Start at -1 to allow the pipeline to fill
       for (int y = -1; y < height; y++) {
-         float x = axis_ratio * sqrt(h_squared - y_squared);
+         float x = axis_ratio * sqrtf(h_squared - y_squared);
          int xl_next = (int) (xshear - x);
          int xr_next = (int) (xshear + x);
          xshear += shear_per_line;
@@ -517,7 +517,7 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
       int y_squared = 0;
       int h_squared = height * height;
       for (int y = 0; y <= height; y++) {
-         float x = axis_ratio * sqrt(h_squared - y_squared);
+         float x = axis_ratio * sqrtf(h_squared - y_squared);
          int xl = (int) (xshear - x);
          int xr = (int) (xshear + x);
          xshear += shear_per_line;
