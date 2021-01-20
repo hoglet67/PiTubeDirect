@@ -372,6 +372,70 @@ static void draw_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width
    }
 }
 
+static inline int max(int a, int b) {
+   return (a > b) ? a : b;
+}
+
+static inline int min(int a, int b) {
+   return (a < b) ? a : b;
+}
+
+static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+   // Draw the ellipse
+   if (height == 0) {
+      draw_hline(screen, xc - width, xc + width, yc, colour);
+   } else {
+      float axis_ratio = (float) width / (float) height;
+      float shear_per_line = (float) (shear) / (float) height;
+      float xshear = 0.0;
+      int odd_sequence = 1;
+      int y_squared = 0;
+      int h_squared = height * height;
+      // Maintain the left/right coordinated of the previous, current, and next slices
+      // to allow lines to be drawn to make sure the pixels are connected
+      int xl_prev = 0;
+      int xr_prev = 0;
+      int xl_this = 0;
+      int xr_this = 0;
+      // Start at -1 to allow the pipeline to fill
+      for (int y = -1; y < height; y++) {
+         float x = axis_ratio * sqrt(h_squared - y_squared);
+         int xl_next = (int) (xshear - x);
+         int xr_next = (int) (xshear + x);
+         xshear += shear_per_line;
+         // It's probably quicker to just use y * y
+         y_squared += odd_sequence;
+         odd_sequence += 2;
+         // Initialize the pipeline for the first slice
+         if (y == 0) {
+            xl_prev = -xr_next;
+            xr_prev = -xl_next;
+         }
+         // Draw the slice as a single horizintal line
+         if (y >= 0) {
+            // Left line runs from xl_this rightwards to max(xl_this, max(xl_prev, xl_next) - 1)
+            int xl = max(xl_this, max(xl_prev, xl_next) - 1);
+            // Right line runs from xr_this leftwards to min(xr_this, min(xr_prev, xr_next) + 1)
+            int xr = min(xr_this, min(xr_prev, xr_next) + 1);
+            draw_hline(screen, xc + xl_this, xc + xl, yc + y, colour);
+            draw_hline(screen, xc + xr_this, xc + xr, yc + y, colour);
+            if (y > 0) {
+               draw_hline(screen, xc - xl_this, xc - xl, yc - y, colour);
+               draw_hline(screen, xc - xr_this, xc - xr, yc - y, colour);
+            }
+         }
+         xl_prev = xl_this;
+         xr_prev = xr_this;
+         xl_this = xl_next;
+         xr_this = xr_next;
+      }
+      // Draw the final slice
+      draw_hline(screen, xc + xl_this, xc + xr_this, yc + height, colour);
+      draw_hline(screen, xc - xl_this, xc - xr_this, yc - height, colour);
+   }
+}
+
+#if 0
 static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
    // Draw the ellipse
    int a2 = width * width;
@@ -409,6 +473,7 @@ static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
       sigma += a2 * ((4 * y) + 6);
    }
 }
+#endif
 
 static void fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
    int a2 = width * width;
@@ -441,6 +506,35 @@ static void fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width
 }
 
 static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+   // Fill the ellipse
+   if (height == 0) {
+      draw_hline(screen, xc - width, xc + width, yc, colour);
+   } else {
+      float axis_ratio = (float) width / (float) height;
+      float shear_per_line = (float) (shear) / (float) height;
+      float xshear = 0.0;
+      int odd_sequence = 1;
+      int y_squared = 0;
+      int h_squared = height * height;
+      for (int y = 0; y <= height; y++) {
+         float x = axis_ratio * sqrt(h_squared - y_squared);
+         int xl = (int) (xshear - x);
+         int xr = (int) (xshear + x);
+         xshear += shear_per_line;
+         // It's probably quicker to just use y * y
+         y_squared += odd_sequence;
+         odd_sequence += 2;
+         // Draw the slice as a single horizintal line
+         draw_hline(screen, xc + xl, xc + xr, yc + y, colour);
+         if (y > 0) {
+            draw_hline(screen, xc - xl, xc - xr, yc - y, colour);
+         }
+      }
+   }
+}
+
+#if 0
+static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
    int a2 = width * width;
    // Fill the ellipse
    int b2 = height * height;
@@ -471,6 +565,7 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
       sigma += a2 * ((4 * y) + 6);
    }
 }
+#endif
 
 static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
    float invslope1 = ((float) (x2 - x1)) / ((float) (y1 - y2));
