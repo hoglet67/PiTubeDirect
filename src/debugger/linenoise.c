@@ -351,9 +351,9 @@ static void freeCompletions(linenoiseCompletions *lc) {
     if (lc->cvec != NULL)
     {
       for (i = 0; i < lc->len; i++)
-        free(lc->cvec[i]);    
+        free(lc->cvec[i]);
       free(lc->cvec);
-    }  
+    }
 }
 
 /* This is an helper function for linenoiseEdit() and is called when the
@@ -831,7 +831,7 @@ static int linenoiseProcessChar(struct linenoiseState *l, char c) {
 
         } else if (esc_state == 2) {
             esc_state = 0;
-                
+
             /* ESC [ sequences. */
             if (seq[0] == '[') {
                 if (seq[1] >= '0' && seq[1] <= '9') {
@@ -937,7 +937,7 @@ static int linenoiseProcessChar(struct linenoiseState *l, char c) {
             break;
         case ESC:    /* escape sequence */
             esc_state = 1;
-            break;        
+            break;
         default:
             if (linenoiseEditInsert(l,c)) return -1;
             break;
@@ -966,7 +966,7 @@ static int linenoiseProcessChar(struct linenoiseState *l, char c) {
             break;
         }
     }
-    
+
    return -2;
 }
 
@@ -978,7 +978,7 @@ static int linenoiseEdit(int stdin_fd, int stdout_fd, char *buf, size_t buflen, 
     if (linenoiseInitLine(&l, stdin_fd, stdout_fd, buf, buflen, prompt) == -1) return -1;
 
     while(1) {
-        char c;
+        signed char c;
         int nread;
         int ret;
 
@@ -995,7 +995,7 @@ static int linenoiseEdit(int stdin_fd, int stdout_fd, char *buf, size_t buflen, 
             /* Read next character when 0 */
             if (c == 0) continue;
         }
-        
+
         ret = linenoiseProcessChar(&l, c);
 
         if (ret != -2) {
@@ -1287,7 +1287,7 @@ char *linenoise_async_rxchar(char c, const char *prompt) {
     }
 
     int ret = linenoiseProcessChar(&l, c);
-   
+
     if (ret == -2) {
         return NULL;
     } else if (ret == -1) {

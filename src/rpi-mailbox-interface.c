@@ -234,7 +234,7 @@ static int RPI_PropertyProcessInternal(int debug)
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
     if (debug) {
-       for (int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
+       for (unsigned int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
         LOG_INFO( "Request: %3d %8.8"PRIX32"\r\n", i, pt[i] );
        }
     }
@@ -243,7 +243,7 @@ static int RPI_PropertyProcessInternal(int debug)
     result = RPI_Mailbox0Read( MB0_TAGS_ARM_TO_VC );
 
     if (debug) {
-       for (int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
+       for (unsigned int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
           LOG_INFO( "Response: %3d %8.8"PRIX32"\r\n", i, pt[i] );
        }
     }
@@ -273,7 +273,7 @@ static void RPI_PropertyProcessNoCheckInternal(int debug)
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
     if (debug) {
-       for (int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
+       for (unsigned int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
           LOG_INFO( "Request: %3d %8.8"PRIX32"\r\n", i, pt[i] );
        }
     }

@@ -25,7 +25,7 @@ typedef struct font {
    int   (*read_character)(struct font *font, screen_mode_t *screen,        int x_pos, int y_pos);
 } font_t;
 
-font_t *get_font_by_number(int num);
+font_t *get_font_by_number(unsigned int num);
 
 font_t *get_font_by_name(char *name);
 

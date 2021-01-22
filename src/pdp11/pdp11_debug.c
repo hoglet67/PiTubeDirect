@@ -422,6 +422,7 @@ static uint16_t disasm(char *buf, uint16_t a) {
       // Consume the operand (if there us one)
       a   += disaslen(s);
       // Fall thrrough to DD
+      __attribute__ ((fallthrough));
    case DD:
       buf += sprintf(buf, " ");
       buf += disasmaddr(buf, d, a);

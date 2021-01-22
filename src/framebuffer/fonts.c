@@ -154,9 +154,9 @@ static void initialize_font(font_t * font) {
    font->read_character = default_read_character;
 }
 
-font_t *get_font_by_number(int num) {
+font_t *get_font_by_number(unsigned int num) {
    font_t *font = &font_catalog[DEFAULT_FONT];
-   if (num >= 0 && num < NUM_FONTS) {
+   if (num < NUM_FONTS) {
       font = &font_catalog[num];
    }
    initialize_font(font);
@@ -165,7 +165,7 @@ font_t *get_font_by_number(int num) {
 
 font_t *get_font_by_name(char *name) {
    font_t *font = &font_catalog[DEFAULT_FONT];
-   for (int num = 0; num < NUM_FONTS; num++) {
+   for (unsigned int num = 0; num < NUM_FONTS; num++) {
       if (!strcasecmp(name, font_catalog[num].name)) {
          font = &font_catalog[num];
          break;
