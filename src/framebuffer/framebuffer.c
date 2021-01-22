@@ -67,9 +67,9 @@ static int c_visible; // Current visibility of the write cursor
 #define VDU_QSIZE 8192
 static volatile int vdu_wp = 0;
 static volatile int vdu_rp = 0;
-static char vdu_queue[VDU_QSIZE];
+static uint8_t vdu_queue[VDU_QSIZE];
 
-static char vdu23buf[300];
+static uint8_t vdu23buf[300];
 static int vdu23len;
 
 typedef enum {
@@ -555,14 +555,14 @@ static void draw_character_and_advance(int c) {
 // ==========================================================================
 
 
-void vdu23_3(char *buf) {
+void vdu23_3(uint8_t *buf) {
    // VDU 23,3: select font by name
    // params: eight bytes font name, trailing zeros if name shorter than 8 chars
    // (selects the default font if the lookup fails)
    if (buf[1] == 0) {
       font = get_font_by_number(buf[2]);
    } else {
-      font = get_font_by_name(buf+1);
+      font = get_font_by_name((char *)buf+1);
    }
 #ifdef DEBUG_VDU
    printf("Font set to %s\r\n", font->name);
@@ -570,7 +570,7 @@ void vdu23_3(char *buf) {
    update_text_area();
 }
 
-void vdu23_4(char *buf) {
+void vdu23_4(uint8_t *buf) {
    // VDU 23,4: set font scale
    // params: hor. scale, vert. scale, char spacing, other 5 bytes are ignored
    font->scale_w = buf[1] > 0 ? buf[1] : 1;
@@ -583,7 +583,7 @@ void vdu23_4(char *buf) {
    update_text_area();
 }
 
-void vdu23_5(char *buf) {
+void vdu23_5(uint8_t *buf) {
    // VDU 23,5: set mouse pointer
    // params:   mouse pointer id ( 0...31)
    //           mouse x ( 0 < x < 256)
@@ -631,7 +631,7 @@ void vdu23_5(char *buf) {
    }
 }
 
-void vdu23_6(char *buf) {
+void vdu23_6(uint8_t *buf) {
    // VDU 23,6: turn off mouse pointer
    // params:   none
    mp_restore(screen);
@@ -640,14 +640,14 @@ void vdu23_6(char *buf) {
 
 }
 
-void vdu23_7(char *buf) {
+void vdu23_7(uint8_t *buf) {
    // VDU 23,7: define sprite
    // params:   sprite number
    //           16x16 pixels (256 bytes)
    memcpy(sprites+buf[1]*256, buf+2, 256);
 }
 
-void vdu23_8(char *buf) {
+void vdu23_8(uint8_t *buf) {
    // vdu 23,8: set sprite
    // params:   sprite number (1 byte)
    //           x position (1 word)
@@ -659,7 +659,7 @@ void vdu23_8(char *buf) {
    sp_set(screen, p, x, y);
 }
 
-void vdu23_9(char *buf) {
+void vdu23_9(uint8_t *buf) {
    // vdu 23,9: unset sprite
    // params:   sprite number (1 byte)
    //           x position (1 word)
@@ -671,7 +671,7 @@ void vdu23_9(char *buf) {
 }
 
 
-void vdu23_17(char *buf) {
+void vdu23_17(uint8_t *buf) {
    int16_t tmp;
    // vdu 23,17: Set subsidary colour effects
    switch (buf[1]) {
@@ -712,7 +712,7 @@ void vdu23_17(char *buf) {
    }
 }
 
-void vdu23_22(char *buf) {
+void vdu23_22(uint8_t *buf) {
    // VDU 23,22,xpixels;ypixels;xchars,ychars,colours,flags
    // User Defined Screen Mode
    int16_t x_pixels = buf[1] | (buf[2] << 8);
@@ -730,7 +730,7 @@ void vdu23_22(char *buf) {
    change_mode(new_screen);
 }
 
-void vdu23(char *buf) {
+void vdu23(uint8_t *buf) {
 #ifdef DEBUG_VDU
    for (int i = 0; i < 9; i++) {
       printf("%X", buf[i]);
@@ -960,7 +960,7 @@ void fb_process_vdu_queue() {
    _data_memory_barrier();
    RPI_GetArmTimer()->IRQClear = 0;
    while (vdu_rp != vdu_wp) {
-      char ch = vdu_queue[vdu_rp];
+      uint8_t ch = vdu_queue[vdu_rp];
       fb_writec(ch);
       vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
    }
@@ -972,7 +972,7 @@ void fb_process_vdu_queue() {
 }
 
 void fb_writec(char ch) {
-   unsigned char c = (unsigned char) ch;
+   uint8_t c = (uint8_t) ch;
 
    static vdu_state_t state = NORMAL;
    static int count = 0;
