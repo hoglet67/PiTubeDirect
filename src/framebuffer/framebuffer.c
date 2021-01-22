@@ -55,7 +55,6 @@ static int16_t g_x_pos_last2;
 static int16_t g_y_pos;
 static int16_t g_y_pos_last1;
 static int16_t g_y_pos_last2;
-static uint8_t g_mode;
 
 // Text or graphical cursor for printing characters
 static int8_t text_at_g_cursor;
@@ -69,24 +68,81 @@ static volatile int vdu_wp = 0;
 static volatile int vdu_rp = 0;
 static uint8_t vdu_queue[VDU_QSIZE];
 
-static uint8_t vdu23buf[300];
-static int vdu23len;
+#define VDU_BUF_LEN 16
 
-typedef enum {
-   NORMAL,
-   IN_VDU17,
-   IN_VDU18,
-   IN_VDU19,
-   IN_VDU22,
-   IN_VDU23,
-   IN_VDU24,
-   IN_VDU25,
-   IN_VDU27,
-   IN_VDU28,
-   IN_VDU29,
-   IN_VDU31
-} vdu_state_t;
+typedef struct {
+   int len;
+   void (*handler)(uint8_t *buf);
+} vdu_operation_t;
 
+static void vdu_4(uint8_t *buf);
+static void vdu_5(uint8_t *buf);
+static void vdu_8(uint8_t *buf);
+static void vdu_9(uint8_t *buf);
+static void vdu_10(uint8_t *buf);
+static void vdu_11(uint8_t *buf);
+static void vdu_12(uint8_t *buf);
+static void vdu_13(uint8_t *buf);
+static void vdu_16(uint8_t *buf);
+static void vdu_17(uint8_t *buf);
+static void vdu_18(uint8_t *buf);
+static void vdu_19(uint8_t *buf);
+static void vdu_20(uint8_t *buf);
+static void vdu_22(uint8_t *buf);
+static void vdu_23(uint8_t *buf);
+static void vdu_24(uint8_t *buf);
+static void vdu_25(uint8_t *buf);
+static void vdu_26(uint8_t *buf);
+static void vdu_27(uint8_t *bu0f);
+static void vdu_28(uint8_t *buf);
+static void vdu_29(uint8_t *buf);
+static void vdu_30(uint8_t *buf);
+static void vdu_31(uint8_t *buf);
+static void vdu_127(uint8_t *buf);
+static void vdu_136(uint8_t *buf);
+static void vdu_137(uint8_t *buf);
+static void vdu_138(uint8_t *buf);
+static void vdu_139(uint8_t *buf);
+
+static void vdu_nop(uint8_t *buf);
+
+static void vdu_default(uint8_t *buf);
+
+static vdu_operation_t vdu_operation_table[256] = {
+   { 0, vdu_nop }, // 0
+   { 0, vdu_nop },
+   { 0, vdu_nop },
+   { 0, vdu_nop },
+   { 0, vdu_4   },
+   { 0, vdu_5   },
+   { 0, vdu_nop },
+   { 0, vdu_nop },
+   { 0, vdu_8   }, // 8
+   { 0, vdu_9   },
+   { 0, vdu_10  },
+   { 0, vdu_11  },
+   { 0, vdu_12  },
+   { 0, vdu_13  },
+   { 0, vdu_nop },
+   { 0, vdu_nop },
+   { 0, vdu_16  }, // 16
+   { 1, vdu_17  },
+   { 2, vdu_18  },
+   { 6, vdu_19  },
+   { 0, vdu_20  },
+   { 0, vdu_nop },
+   { 1, vdu_22  },
+   { 9, vdu_23  },
+   { 8, vdu_24  }, // 24
+   { 5, vdu_25  },
+   { 0, vdu_26  },
+   { 1, vdu_27  },
+   { 4, vdu_28  },
+   { 4, vdu_29  },
+   { 0, vdu_30  },
+   { 2, vdu_31  }
+   // Entries 32 to 255 are filled in by fb_initialize
+};
 
 // ==========================================================================
 // Static methods
@@ -515,6 +571,22 @@ static void update_g_cursors(int16_t x, int16_t y) {
    g_y_pos       = y;
 }
 
+static void change_mode(screen_mode_t *new_screen) {
+   if (new_screen && (new_screen != screen || new_screen->mode_num >= CUSTOM_8BPP_SCREEN_MODE)) {
+      screen = new_screen;
+      screen->init(screen);
+   }
+   // initialze VDU variable
+   init_variables();
+   // clear frame buffer
+   screen->clear(screen, screen->get_colour(screen, c_bg_col));
+   // Show the cursor
+   show_cursor();
+}
+
+
+
+
 // ==========================================================================
 // Drawing Primitives
 // ==========================================================================
@@ -554,8 +626,7 @@ static void draw_character_and_advance(int c) {
 // VDU 23 commands
 // ==========================================================================
 
-
-void vdu23_3(uint8_t *buf) {
+static void vdu23_3(uint8_t *buf) {
    // VDU 23,3: select font by name
    // params: eight bytes font name, trailing zeros if name shorter than 8 chars
    // (selects the default font if the lookup fails)
@@ -570,7 +641,7 @@ void vdu23_3(uint8_t *buf) {
    update_text_area();
 }
 
-void vdu23_4(uint8_t *buf) {
+static void vdu23_4(uint8_t *buf) {
    // VDU 23,4: set font scale
    // params: hor. scale, vert. scale, char spacing, other 5 bytes are ignored
    font->scale_w = buf[1] > 0 ? buf[1] : 1;
@@ -583,7 +654,7 @@ void vdu23_4(uint8_t *buf) {
    update_text_area();
 }
 
-void vdu23_5(uint8_t *buf) {
+static void vdu23_5(uint8_t *buf) {
    // VDU 23,5: set mouse pointer
    // params:   mouse pointer id ( 0...31)
    //           mouse x ( 0 < x < 256)
@@ -631,7 +702,7 @@ void vdu23_5(uint8_t *buf) {
    }
 }
 
-void vdu23_6(uint8_t *buf) {
+static void vdu23_6(uint8_t *buf) {
    // VDU 23,6: turn off mouse pointer
    // params:   none
    mp_restore(screen);
@@ -640,14 +711,14 @@ void vdu23_6(uint8_t *buf) {
 
 }
 
-void vdu23_7(uint8_t *buf) {
+static void vdu23_7(uint8_t *buf) {
    // VDU 23,7: define sprite
    // params:   sprite number
    //           16x16 pixels (256 bytes)
    memcpy(sprites+buf[1]*256, buf+2, 256);
 }
 
-void vdu23_8(uint8_t *buf) {
+static void vdu23_8(uint8_t *buf) {
    // vdu 23,8: set sprite
    // params:   sprite number (1 byte)
    //           x position (1 word)
@@ -659,7 +730,7 @@ void vdu23_8(uint8_t *buf) {
    sp_set(screen, p, x, y);
 }
 
-void vdu23_9(uint8_t *buf) {
+static void vdu23_9(uint8_t *buf) {
    // vdu 23,9: unset sprite
    // params:   sprite number (1 byte)
    //           x position (1 word)
@@ -670,8 +741,7 @@ void vdu23_9(uint8_t *buf) {
    sp_restore(screen, p, x, y);
 }
 
-
-void vdu23_17(uint8_t *buf) {
+static void vdu23_17(uint8_t *buf) {
    int16_t tmp;
    // vdu 23,17: Set subsidary colour effects
    switch (buf[1]) {
@@ -712,7 +782,7 @@ void vdu23_17(uint8_t *buf) {
    }
 }
 
-void vdu23_22(uint8_t *buf) {
+static void vdu23_22(uint8_t *buf) {
    // VDU 23,22,xpixels;ypixels;xchars,ychars,colours,flags
    // User Defined Screen Mode
    int16_t x_pixels = buf[1] | (buf[2] << 8);
@@ -730,13 +800,111 @@ void vdu23_22(uint8_t *buf) {
    change_mode(new_screen);
 }
 
-void vdu23(uint8_t *buf) {
+// ==========================================================================
+// VDU commands
+// ==========================================================================
+
+static void vdu_4(uint8_t *buf) {
+   text_at_g_cursor = 0;
+}
+
+static void vdu_5(uint8_t *buf) {
+   text_at_g_cursor = 1;
+}
+
+static void vdu_8(uint8_t *buf) {
+   cursor_left();
+}
+
+static void vdu_9(uint8_t *buf) {
+   cursor_right();
+}
+
+static void vdu_10(uint8_t *buf) {
+   cursor_down();
+}
+
+static void vdu_11(uint8_t *buf) {
+   cursor_up();
+}
+
+static void vdu_12(uint8_t *buf) {
+   clear_text_area();
+}
+
+static void vdu_13(uint8_t *buf) {
+   cursor_col0();
+}
+
+static void vdu_16(uint8_t *buf) {
+   fb_clear_graphics_area(screen, screen->get_colour(screen, g_bg_col));
+}
+
+static void vdu_17(uint8_t *buf) {
+   uint8_t c = buf[1];
+   if (c & 128) {
+      c_bg_col = c & 127;
 #ifdef DEBUG_VDU
-   for (int i = 0; i < 9; i++) {
+      printf("bg = %d\r\n", c_bg_col);
+#endif
+   } else {
+      c_fg_col = c & 127;
+#ifdef DEBUG_VDU
+      printf("fg = %d\r\n", c_fg_col);
+#endif
+   }
+}
+
+static void vdu_18(uint8_t *buf) {
+   uint8_t mode = buf[1];
+   uint8_t col  = buf[2];
+   fb_set_graphics_plotmode(mode);
+   if (col & 128) {
+      g_bg_col = col & 63;
+   } else {
+      g_fg_col = col & 63;
+   }
+}
+
+static void vdu_19(uint8_t *buf) {
+   uint8_t l = buf[1];
+   uint8_t p = buf[2];
+   uint8_t r = buf[3];
+   uint8_t g = buf[4];
+   uint8_t b = buf[5];
+   // See http://beebwiki.mdfs.net/VDU_19
+   if (p < 16) {
+      int i = (p & 8) ? 255 : 127;
+      b = (p & 4) ? i : 0;
+      g = (p & 2) ? i : 0;
+      r = (p & 1) ? i : 0;
+   }
+   screen->set_colour(screen, l, r, g, b);
+}
+
+static void vdu_20(uint8_t *buf) {
+   screen->reset(screen);
+}
+
+static void vdu_22(uint8_t *buf) {
+   uint8_t mode = buf[1];
+   screen_mode_t *new_screen = get_screen_mode(mode);
+   if (new_screen != NULL) {
+      change_mode(new_screen);
+   } else {
+      fb_writes("Unsupported screen mode!\r\n");
+   }
+}
+
+static void vdu_23(uint8_t *buf) {
+#ifdef DEBUG_VDU
+   for (int i = 0; i < 10; i++) {
       printf("%X", buf[i]);
       printf("\n\r");
    }
 #endif
+   // TODO: we could update the vdu23 sub commands to avoid this
+   buf++;
    switch (buf[0]) {
    case  3: vdu23_3(buf); break;
    case  4: vdu23_4(buf); break;
@@ -750,8 +918,28 @@ void vdu23(uint8_t *buf) {
    }
 }
 
-void vdu25(uint8_t g_mode, int16_t x, int16_t y) {
+static void vdu_24(uint8_t *buf) {
+   int16_t x1 = (int16_t)(buf[1] + (buf[2] << 8));
+   int16_t y1 = (int16_t)(buf[3] + (buf[4] << 8));
+   int16_t x2 = (int16_t)(buf[5] + (buf[6] << 8));
+   int16_t y2 = (int16_t)(buf[7] + (buf[8] << 8));
+   fb_set_graphics_area(screen, x1, y1, x2, y2);
+#ifdef DEBUG_VDU
+   printf("graphics area %d %d %d %d\r\n", x1, y1, x2, y2);
+#endif
+}
+
+static void vdu_25(uint8_t *buf) {
+   int col;
    int skew;
+   uint8_t g_mode = buf[1];
+   int16_t x = (int16_t)(buf[2] + (buf[3] << 8));
+   int16_t y = (int16_t)(buf[4] + (buf[5] << 8));
+
+#ifdef DEBUG_VDU
+   printf("plot %d %d %d\r\n", g_mode, x, y);
+#endif
+
    if (g_mode & 4) {
       // Absolute position X, Y.
       update_g_cursors(x, y);
@@ -759,7 +947,6 @@ void vdu25(uint8_t g_mode, int16_t x, int16_t y) {
       // Relative to the last point.
       update_g_cursors(g_x_pos + x, g_y_pos + y);
    }
-   int col;
    switch (g_mode & 3) {
    case 0:
       col = -1;
@@ -906,24 +1093,107 @@ void vdu25(uint8_t g_mode, int16_t x, int16_t y) {
    }
 }
 
-static void change_mode(screen_mode_t *new_screen) {
-   if (new_screen && (new_screen != screen || new_screen->mode_num >= CUSTOM_8BPP_SCREEN_MODE)) {
-      screen = new_screen;
-      screen->init(screen);
-   }
-   // initialze VDU variable
-   init_variables();
-   // clear frame buffer
-   screen->clear(screen, screen->get_colour(screen, c_bg_col));
-   // Show the cursor
-   show_cursor();
+static void vdu_26(uint8_t *buf) {
+   reset_areas();
 }
+
+static void vdu_27(uint8_t *buf) {
+   uint8_t c = buf[1];
+   draw_character_and_advance(c);
+}
+
+static void vdu_28(uint8_t *buf) {
+   uint8_t left   = buf[1];
+   uint8_t bottom = buf[2];
+   uint8_t right  = buf[3];
+   uint8_t top    = buf[4];
+   set_text_area(left, bottom, right, top);
+#ifdef DEBUG_VDU
+   printf("text area left:%d bottom:%d right:%d top:%d\r\n", left, bottom, right, top);
+#endif
+}
+
+static void vdu_29(uint8_t *buf) {
+   int16_t x = (int16_t)(buf[1] + (buf[2] << 8));
+   int16_t y = (int16_t)(buf[3] + (buf[4] << 8));
+   fb_set_graphics_origin(x, y);
+#ifdef DEBUG_VDU
+   printf("graphics origin %d %d\r\n", x, y);
+#endif
+}
+
+static void vdu_30(uint8_t *buf) {
+   cursor_home();
+}
+
+static void vdu_31(uint8_t *buf) {
+   uint8_t x = buf[1];
+   uint8_t y = buf[2];
+#ifdef DEBUG_VDU
+   printf("cursor move to %d %d\r\n", x, y);
+#endif
+   // Take account of current text window
+   x += text_x_min;
+   y += text_y_min;
+   if (x <= text_x_max && y <= text_y_max) {
+      hide_cursor();
+      c_x_pos = x;
+      c_y_pos = y;
+      show_cursor();
+   }
+}
+
+static void vdu_127(uint8_t *buf) {
+   cursor_left();
+   draw_character(32, 1);
+}
+
+ static void vdu_136(uint8_t *buf) {
+   edit_cursor_left();
+}
+
+static void vdu_137(uint8_t *buf) {
+   edit_cursor_right();
+}
+
+static void vdu_138(uint8_t *buf) {
+   edit_cursor_down();
+}
+
+static void vdu_139(uint8_t *buf) {
+   edit_cursor_up();
+}
+
+static void vdu_nop(uint8_t *buf) {
+}
+
+static void vdu_default(uint8_t *buf) {
+   uint8_t c = buf[0];
+   if (text_at_g_cursor) {
+      font->draw_character(font, screen, c, g_x_pos, g_y_pos, g_fg_col, g_bg_col);
+      update_g_cursors(g_x_pos + font_width, g_y_pos);
+   } else {
+      draw_character_and_advance(c);
+   }
+}
+
 
 // ==========================================================================
 // Public interface
 // ==========================================================================
 
 void fb_initialize() {
+   // Initialize the VDU operation table
+   for (unsigned int i = 32; i < sizeof(vdu_operation_table) / sizeof(vdu_operation_t); i++) {
+      vdu_operation_table[i].len = 0;
+      vdu_operation_table[i].handler = vdu_default;
+   }
+   vdu_operation_table[127].handler = vdu_127;
+   vdu_operation_table[136].handler = vdu_136;
+   vdu_operation_table[137].handler = vdu_137;
+   vdu_operation_table[138].handler = vdu_138;
+   vdu_operation_table[139].handler = vdu_139;
+
    font = get_font_by_number(DEFAULT_FONT);
 
    if (!font) {
@@ -972,344 +1242,28 @@ void fb_process_vdu_queue() {
 }
 
 void fb_writec(char ch) {
+
+   static int vdu_index = 0;
+   static vdu_operation_t *vdu_op = NULL;
+   static uint8_t vdu_buf[VDU_BUF_LEN];
+
    uint8_t c = (uint8_t) ch;
 
-   static vdu_state_t state = NORMAL;
-   static int count = 0;
-   static int l; // logical colour
-   static int16_t x_tmp = 0;
-   static int16_t y_tmp = 0;
-   static int16_t x_tmp2 = 0;
-   static int16_t y_tmp2 = 0;
-   static uint8_t left;
-   static uint8_t bottom;
-   static uint8_t right;
-   static uint8_t top;
-   static int p; // physical colour
-   static int r;
-   static int g;
-   static int b;
+   // Buffer the character
+   vdu_buf[vdu_index] = c;
 
-   screen_mode_t *new_screen;
-
-   switch (state) {
-
-   case NORMAL:
-      count = 0;
-      switch(c) {
-      case 4:
-         text_at_g_cursor = 0;
-         break;
-      case 5:
-         text_at_g_cursor = 1;
-         break;
-      case 8:
-         cursor_left();
-         break;
-      case 9:
-         cursor_right();
-         break;
-      case 10:
-         cursor_down();
-         break;
-      case 11:
-         cursor_up();
-         break;
-      case 12:
-         clear_text_area();
-         break;
-      case 13:
-         cursor_col0();
-         break;
-      case 16:
-         fb_clear_graphics_area(screen, screen->get_colour(screen, g_bg_col));
-         break;
-      case 17:
-         state = IN_VDU17;
-         break;
-      case 18:
-         state = IN_VDU18;
-         break;
-      case 19:
-         state = IN_VDU19;
-         break;
-      case 20:
-         screen->reset(screen);
-         break;
-      case 22:
-         state = IN_VDU22;
-         break;
-      case 23:
-         state = IN_VDU23;
-         break;
-      case 24:
-         state = IN_VDU24;
-         break;
-      case 25:
-         state = IN_VDU25;
-         break;
-      case 26:
-         reset_areas();
-         break;
-      case 27:
-         state = IN_VDU27;
-         break;
-      case 28:
-         state = IN_VDU28;
-         break;
-      case 29:
-         state = IN_VDU29;
-         break;
-      case 30:
-         cursor_home();
-         break;
-      case 31:
-         state = IN_VDU31;
-         break;
-      case 127:
-         cursor_left();
-         draw_character(32, 1);
-         break;
-      case 136:
-         edit_cursor_left();
-         break;
-      case 137:
-         edit_cursor_right();
-         break;
-      case 138:
-         edit_cursor_down();
-         break;
-      case 139:
-         edit_cursor_up();
-         break;
-      default:
-         if (text_at_g_cursor) {
-            font->draw_character(font, screen, c, g_x_pos, g_y_pos, g_fg_col, g_bg_col);
-            update_g_cursors(g_x_pos + font_width, g_y_pos);
-         } else {
-            draw_character_and_advance(c);
-         }
-      }
-      break;
-
-   case IN_VDU17:
-      if (c & 128) {
-         c_bg_col = c & 127;
-#ifdef DEBUG_VDU
-         printf("bg = %d\r\n", c_bg_col);
-#endif
-      } else {
-         c_fg_col = c & 127;
-#ifdef DEBUG_VDU
-         printf("fg = %d\r\n", c_fg_col);
-#endif
-      }
-      state = NORMAL;
-      break;
-
-   case IN_VDU18:
-      if (count == 0) {
-         fb_set_graphics_plotmode(c);
-      } else {
-         if (c & 128) {
-            g_bg_col = c & 63;
-         } else {
-            g_fg_col = c & 63;
-         }
-         state = NORMAL;
-      }
-      count++;
-      break;
-
-   case IN_VDU19:
-      switch (count) {
-      case 0:
-         l = c;
-         break;
-      case 1:
-         p = c;
-         break;
-      case 2:
-         r = c;
-         break;
-      case 3:
-         g = c;
-         break;
-      case 4:
-         b = c;
-         // See http://beebwiki.mdfs.net/VDU_19
-         if (p < 16) {
-            int i = (p & 8) ? 255 : 127;
-            b = (p & 4) ? i : 0;
-            g = (p & 2) ? i : 0;
-            r = (p & 1) ? i : 0;
-         }
-         screen->set_colour(screen, l, r, g, b);
-         state = NORMAL;
-         break;
-      }
-      count++;
-      break;
-
-   case IN_VDU22:
-      new_screen = get_screen_mode(c);
-      if (new_screen != NULL) {
-         change_mode(new_screen);
-      } else {
-         fb_writes("Unsupported screen mode!\r\n");
-      }
-      state = NORMAL;
-      break;
-
-   case IN_VDU23:
-      vdu23buf[count] = c;
-      if (count == 0) {
-         vdu23len = (c == 7) ? 258 : 9;
-      }
-      if (count == vdu23len - 1) {
-         vdu23(vdu23buf);
-         state = NORMAL;
-      } else {
-         count++;
-      }
-      break;
-
-   case IN_VDU24:
-      switch (count) {
-      case 0:
-         x_tmp = c;
-         break;
-      case 1:
-         x_tmp |= c << 8;
-         break;
-      case 2:
-         y_tmp = c;
-         break;
-      case 3:
-         y_tmp |= c << 8;
-         break;
-      case 4:
-         x_tmp2 = c;
-         break;
-      case 5:
-         x_tmp2 |= c << 8;
-         break;
-      case 6:
-         y_tmp2 = c;
-         break;
-      case 7:
-         y_tmp2 |= c << 8;
-         fb_set_graphics_area(screen, x_tmp, y_tmp, x_tmp2, y_tmp2);
-#ifdef DEBUG_VDU
-         printf("graphics area %d %d %d %d\r\n", x_tmp, y_tmp, x_tmp2, y_tmp2);
-#endif
-         state = NORMAL;
-      }
-      count++;
-      break;
-
-   case IN_VDU25:
-      switch (count) {
-      case 0:
-         g_mode = c;
-         break;
-      case 1:
-         x_tmp = c;
-         break;
-      case 2:
-         x_tmp |= c << 8;
-         break;
-      case 3:
-         y_tmp = c;
-         break;
-      case 4:
-         y_tmp |= c << 8;
-#ifdef DEBUG_VDU
-         printf("plot %d %d %d\r\n", g_mode, x_tmp, y_tmp);
-#endif
-         vdu25(g_mode, x_tmp, y_tmp);
-         state = NORMAL;
-      }
-      count++;
-      break;
-
-   case IN_VDU27:
-      draw_character_and_advance(c);
-      state = NORMAL;
-      break;
-
-   case IN_VDU28:
-      switch (count) {
-      case 0:
-         left = c;
-         break;
-      case 1:
-         bottom = c;
-         break;
-      case 2:
-         right = c;
-         break;
-      case 3:
-         top = c;
-         set_text_area(left, bottom, right, top);
-#ifdef DEBUG_VDU
-         printf("text area left:%d bottom:%d right:%d top:%d\r\n", left, bottom, right, top);
-#endif
-         state = NORMAL;
-         break;
-      }
-      count++;
-      break;
-
-   case IN_VDU29:
-      switch (count) {
-      case 0:
-         x_tmp = c;
-         break;
-      case 1:
-         x_tmp |= c << 8;
-         break;
-      case 2:
-         y_tmp = c;
-         break;
-      case 3:
-         y_tmp |= c << 8;
-         fb_set_graphics_origin(x_tmp, y_tmp);
-#ifdef DEBUG_VDU
-         printf("graphics origin %d %d\r\n", x_tmp, y_tmp);
-#endif
-         state = NORMAL;
-         break;
-      }
-      count++;
-      break;
-
-   case IN_VDU31:
-      switch (count) {
-      case 0:
-         x_tmp = c;
-         break;
-      case 1:
-         y_tmp = c;
-#ifdef DEBUG_VDU
-         printf("cursor move to %d %d\r\n", x_tmp, y_tmp);
-#endif
-         // Take account of current text window
-         x_tmp += text_x_min;
-         y_tmp += text_y_min;
-         if (x_tmp <= text_x_max && y_tmp <= text_y_max) {
-            hide_cursor();
-            c_x_pos = x_tmp;
-            c_y_pos = y_tmp;
-            show_cursor();
-         }
-         state = NORMAL;
-         break;
-      }
-      count++;
-      break;
+   // Start of a VDU command
+   if (vdu_index == 0) {
+      vdu_op = vdu_operation_table + c;
    }
 
+   // End of a VDU command
+   if (vdu_index == vdu_op->len) {
+      vdu_op->handler(vdu_buf);
+      vdu_index = 0;
+   } else {
+      vdu_index++;
+   }
 }
 
 void fb_writes(char *string) {
