@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 #include "primitives.h"
 #include "framebuffer.h"
 
@@ -41,10 +42,8 @@ static int16_t arc_end_x;
 static int16_t arc_end_y;
 
 // TODO List
-// - move/copy rectangle
 // - fill patterns
 // - bug: horizontal line fills overwrite the terminating pixel
-
 
 // ==========================================================================
 // Static methods (operate at screen resolution)
@@ -1116,4 +1115,50 @@ void fb_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x
    int yf = y1 + (y3 - y1) / 2;
    // Fill the interior
    flood_fill(screen, xf, yf, colour, colour, 0);
+}
+
+// Rodders: Bit Blit
+// TODO: implement move (the current code only does copy)
+void fb_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move) {
+   uint8_t *src;
+   uint8_t *dst;
+   // Transform to screen coordinates
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
+   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
+   // Make x1, y1 the bottom left, and x2, y2 the top right
+   if (x1 > x2) {
+      int tmp = x1;
+      x1 = x2;
+      x2 = tmp;
+   }
+   if (y1 > y2) {
+      int tmp = y1;
+      y1 = y2;
+      y2 = tmp;
+   }
+   // Calculate the rectangle dimensions
+   int len = (x2 - x1) + 1;
+   int rows = (y2 - y1) + 1;
+   // Handle the case where part of the the destation rectangle is off screen
+   // TODO: there are more cases than this
+   if (x3 + len > screen->width) {
+      len = screen->width - x3;
+   }
+   // Convert row length from pixels to bytes
+   len *= (screen->bpp >> 3);
+   uint8_t *fb = (uint8_t *)fb_get_address();
+   for (int y = 0; y < rows; y++) {
+      if (y3 < y1) {
+         src = fb + (screen->height - (y1 + y) - 1) * screen->pitch + x1;
+         dst = fb + (screen->height - (y3 + y) - 1) * screen->pitch + x3;
+      } else {
+         src = fb + (screen->height - (y2 - y) - 1) * screen->pitch + x1;
+         dst = fb + (screen->height - (y3 + rows - 1 - y) - 1) * screen->pitch + x3;
+      }
+      memmove(dst, src, len);
+   }
 }

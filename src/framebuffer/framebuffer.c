@@ -1060,7 +1060,7 @@ static void vdu_25(uint8_t *buf) {
          break;
       case 184:
          // Move/Copy rectangle
-         // TODO
+         fb_move_copy_rectangle(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, ((g_mode & 2) == 0));
          break;
       case 192:
          // Plot ellipse outline

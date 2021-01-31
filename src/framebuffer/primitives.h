@@ -41,5 +41,6 @@ void fb_fill_area             (screen_mode_t *screen, int x, int y, pixel_t colo
 void fb_draw_arc              (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour);
 void fb_fill_chord            (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour);
 void fb_fill_sector           (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour);
+void fb_move_copy_rectangle   (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move);
 
 #endif
