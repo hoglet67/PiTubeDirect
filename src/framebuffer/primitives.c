@@ -37,12 +37,12 @@ typedef enum {
    Q_ALL
 } quadrant_t;
 
+
 // TODO List
-// - fill chord segments
-// - fill sector
 // - move/copy rectangle
 // - fill patterns
 // - bug: horizontal line fills overwrite the terminating pixel
+
 
 // ==========================================================================
 // Static methods (operate at screen resolution)
@@ -1059,4 +1059,66 @@ void fb_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, 
    y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    // Draw the arc
    draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
+}
+
+void fb_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
+   // Transform to screen coordinates
+   xc = (xc + g_x_origin) >> screen->xeigfactor;
+   yc = (yc + g_y_origin) >> screen->yeigfactor;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   // Draw the arc that bounds the chord
+   draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
+   // The arc drawing sets the graphics cursor to the calculated arc endpoint (in external coordinates)
+   int x3 = fb_get_g_cursor_x();
+   int y3 = fb_get_g_cursor_y();
+   // Convert the arc endpoint to screen coordinates
+   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
+   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
+   // Draw the chord
+   draw_line(screen, x1, y1, x3, y3, colour);
+   // Find the mid point of the chord
+   int xf = x1 + (x3 - x1) / 2;
+   int yf = y1 + (y3 - y1) / 2;
+   // Move one pixel towards the centre
+   if (xf < xc) {
+      xf--;
+   } else if (xf > xc) {
+      xf++;
+   }
+   if (yf < yc) {
+      yf--;
+   } else if (yf > yc) {
+      yf++;
+   }
+   // Fill the interior
+   flood_fill(screen, xf, yf, colour, colour, 0);
+}
+
+void fb_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
+   // Transform to screen coordinates
+   xc = (xc + g_x_origin) >> screen->xeigfactor;
+   yc = (yc + g_y_origin) >> screen->yeigfactor;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   // Draw the arc that bounds the sector
+   draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
+   // The arc drawing sets the graphics cursor to the calculated arc endpoint (in external coordinates)
+   int x3 = fb_get_g_cursor_x();
+   int y3 = fb_get_g_cursor_y();
+   // Convert the arc endpoint to screen coordinates
+   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
+   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
+   // Draw the lines from the arc endpoints back to the center
+   draw_line(screen, xc, yc, x1, y1, colour);
+   draw_line(screen, xc, yc, x3, y3, colour);
+   // Find a point inside the sector
+   int xf = x1 + (x3 - x1) / 2;
+   int yf = y1 + (y3 - y1) / 2;
+   // Fill the interior
+   flood_fill(screen, xf, yf, colour, colour, 0);
 }

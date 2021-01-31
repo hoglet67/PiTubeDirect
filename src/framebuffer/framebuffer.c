@@ -1052,11 +1052,11 @@ static void vdu_25(uint8_t *buf) {
          break;
       case 168:
          // Plot a filled chord segment
-         // TODO
+         fb_fill_chord(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
          break;
       case 176:
          // Plot a filled sector
-         // TODO
+         fb_fill_sector(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
          break;
       case 184:
          // Move/Copy rectangle
@@ -1287,6 +1287,14 @@ uint8_t fb_get_g_bg_col() {
 
 uint8_t fb_get_g_fg_col() {
    return g_fg_col;
+}
+
+int16_t fb_get_g_cursor_x() {
+   return g_x_pos;
+}
+
+int16_t fb_get_g_cursor_y() {
+   return g_y_pos;
 }
 
 void fb_set_g_cursor(int16_t x, int16_t y) {

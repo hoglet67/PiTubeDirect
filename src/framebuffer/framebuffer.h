@@ -25,6 +25,13 @@ uint8_t fb_get_g_bg_col();
 
 uint8_t fb_get_g_fg_col();
 
+// TODO: The graphics cursor probably should live in primitives
+// (in fact, possibly the whole of the vdu25 should live there)
+
+int16_t fb_get_g_cursor_x();
+
+int16_t fb_get_g_cursor_y();
+
 void fb_set_g_cursor(int16_t x, int16_t y);
 
 #endif
