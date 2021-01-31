@@ -25,10 +25,19 @@ static int16_t flood_queue_y[FLOOD_QUEUE_SIZE];
 static int flood_queue_wr;
 static int flood_queue_rd;
 
+#define TRUE 1
+#define FALSE 0
+
+// Rodders: Quadrant definitions for arc rendering
+typedef enum {
+   Q_NONE,
+   Q_START,
+   Q_END,
+   Q_BOTH,
+   Q_ALL
+} quadrant_t;
+
 // TODO List
-// - line drawing: support dot patterns
-// - line drawing: support omission of end points
-// - draw circular arcs
 // - fill chord segments
 // - fill sector
 // - move/copy rectangle
@@ -616,6 +625,154 @@ static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2
    }
 }
 
+// Rodders: Arc drawing routines, used by chord and sector fills
+static int arc_quadrant(int x, int y) {
+   if (x >= 0) {
+      if (y >= 0) {
+         return 0;
+      } else {
+         return 3;
+      }
+   } else {
+      if (y >= 0) {
+         return 1;
+      } else {
+         return 2;
+      }
+   }
+}
+
+static int arc_point(int q, quadrant_t state, int x, int y, int xs, int ys, int xe, int ye) {
+   if (state == Q_ALL) {
+      return TRUE;
+   }
+   if (state == Q_NONE) {
+      return FALSE;
+   }
+   switch (q) {
+   case 0:
+      if ((state == Q_START || state == Q_BOTH) && x <= xs && y >= ys) {
+         return TRUE;
+      }
+      if ((state == Q_END || state == Q_BOTH) && x >= xe && y <= ye) {
+         return TRUE;
+      }
+      break;
+   case 1:
+      if ((state == Q_START || state == Q_BOTH) && x <= xs && y <= ys) {
+         return TRUE;
+      }
+      if ((state == Q_END || state == Q_BOTH) && x >= xe && y >= ye) {
+         return TRUE;
+      }
+      break;
+   case 2:
+      if ((state == Q_START || state == Q_BOTH) && x >= xs && y <= ys) {
+         return TRUE;
+      }
+      if ((state == Q_END || state == Q_BOTH) && x <= xe && y >= ye) {
+         return TRUE;
+      }
+      break;
+   case 3:
+      if ((state == Q_START || state == Q_BOTH) && x >= xs && y >= ys) {
+         return TRUE;
+      }
+      if ((state == Q_END || state == Q_BOTH) && x <= xe && y <= ye) {
+         return TRUE;
+      }
+      break;
+   }
+   return FALSE;
+}
+
+// Rodders: Draw arc using modified Bresenham algorithm
+// Finds start and end quadrants and masks plotting of points
+
+// TODO: Update this to work with non-square pixels
+
+static void draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, unsigned int colour) {
+   int radius = calc_radius(xc, yc, x1, y1);
+   int r2 = calc_radius(xc, yc, x2, y2);
+
+   // Calc end point
+   int x3 = xc + (x2 - xc) * radius / r2;
+   int y3 = yc + (y2 - yc) * radius / r2;
+
+   // Set up quadrants
+   int qstart = arc_quadrant(x1 - xc, y1 - yc);
+   int qend = arc_quadrant(x3 - xc, y3 - yc);
+   quadrant_t q[4] = {Q_NONE, Q_NONE, Q_NONE, Q_NONE};
+   if (qstart == qend) {
+      q[qstart] = Q_BOTH;
+   }  else {
+      q[qstart] = Q_START;
+   }
+   for (int i = qstart + 1; i < qstart + 4; i++) {
+      int j = i % 4;
+      if (j == qend) {
+         q[j] = Q_END;
+         break;
+      } else {
+         q[j] = Q_ALL;
+      }
+   }
+
+   int x = 0;
+   int y = radius;
+   int d = 1 - radius;
+
+   // Do compass points
+   if (arc_point(0, q[0], xc, yc + y, x1, y1, x3, y3))
+      set_pixel(screen, xc, yc + y, colour);
+   if (arc_point(1, q[1], xc - y, yc, x1, y1, x3, y3))
+      set_pixel(screen, xc - y, yc, colour);
+   if (arc_point(2, q[2], xc, yc - y, x1, y1, x3, y3))
+      set_pixel(screen, xc, yc - y, colour);
+   if (arc_point(3, q[3], xc + y, yc, x1, y1, x3, y3))
+      set_pixel(screen, xc + y, yc, colour);
+
+   while(x < y) {
+      if (d < 0) {
+         d = d + 2 * x + 3;
+         x += 1;
+      } else {
+         d = d + 2 * (x-y) + 5;
+         x += 1;
+         y -= 1;
+      }
+      if (arc_point(0, q[0], xc + x, yc + y, x1, y1, x3, y3)) {
+         set_pixel(screen, xc + x, yc + y, colour);
+      }
+      if (arc_point(3, q[3], xc + x, yc - y, x1, y1, x3, y3)) {
+         set_pixel(screen, xc + x, yc - y, colour);
+      }
+      if (arc_point(1, q[1], xc - x, yc + y, x1, y1, x3, y3)) {
+         set_pixel(screen, xc - x, yc + y, colour);
+      }
+      if (arc_point(2, q[2], xc - x, yc - y, x1, y1, x3, y3)) {
+         set_pixel(screen, xc - x, yc - y, colour);
+      }
+      if (arc_point(0, q[0], xc + y, yc + x, x1, y1, x3, y3)) {
+         set_pixel(screen, xc + y, yc + x, colour);
+      }
+      if (arc_point(3, q[3], xc + y, yc - x, x1, y1, x3, y3)) {
+         set_pixel(screen, xc + y, yc - x, colour);
+      }
+      if (arc_point(1, q[1], xc - y, yc + x, x1, y1, x3, y3)) {
+         set_pixel(screen, xc - y, yc + x, colour);
+      }
+      if (arc_point(2, q[2], xc - y, yc - x, x1, y1, x3, y3)) {
+         set_pixel(screen, xc - y, yc - x, colour);
+      }
+   }
+   // Convert end point back to external coordinates
+   x3 = (x3 << screen->xeigfactor) - g_x_origin;
+   y3 = (y3 << screen->yeigfactor) - g_y_origin;
+   // Set the graphics cursor to the calculated arc endpoint
+   fb_set_g_cursor(x3, y3);
+}
+
 // ==========================================================================
 // Public methods - run at external resolution
 // ==========================================================================
@@ -889,4 +1046,17 @@ void fb_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mo
    y = (y + g_y_origin) >> screen->yeigfactor;
    // Fill the area
    fill_area(screen, x, y, colour, mode);
+}
+
+
+void fb_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
+   // Transform to screen coordinates
+   xc = (xc + g_x_origin) >> screen->xeigfactor;
+   yc = (yc + g_y_origin) >> screen->yeigfactor;
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   // Draw the arc
+   draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
 }

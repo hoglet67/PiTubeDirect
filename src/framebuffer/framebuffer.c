@@ -1048,7 +1048,7 @@ static void vdu_25(uint8_t *buf) {
          break;
       case 160:
          // Plot a circular arc
-         // TODO
+         fb_draw_arc(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
          break;
       case 168:
          // Plot a filled chord segment
@@ -1287,4 +1287,9 @@ uint8_t fb_get_g_bg_col() {
 
 uint8_t fb_get_g_fg_col() {
    return g_fg_col;
+}
+
+void fb_set_g_cursor(int16_t x, int16_t y) {
+   g_x_pos = x;
+   g_y_pos = y;
 }

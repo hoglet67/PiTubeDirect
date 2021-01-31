@@ -25,4 +25,6 @@ uint8_t fb_get_g_bg_col();
 
 uint8_t fb_get_g_fg_col();
 
+void fb_set_g_cursor(int16_t x, int16_t y);
+
 #endif
