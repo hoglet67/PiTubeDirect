@@ -42,8 +42,15 @@ static int16_t arc_end_x;
 static int16_t arc_end_y;
 
 // TODO List
-// - fill patterns
+// - implement fill patterns
+// - implement line patterns
 // - bug: horizontal line fills overwrite the terminating pixel
+// - bug: sector fill doesn't fill interior when angle > 180 degrees
+// - bug: chord fill doesn't fill interior reliable
+// - bug: draw arc issue when start and end in same quadrant
+// - bug: draw arc doesn't currently handle screen modes with non-square pixels
+// - bug: block move ignores the move attribute (i.e. it always copies)
+// - bug: block move doesn't clip vertically
 
 // ==========================================================================
 // Static methods (operate at screen resolution)
@@ -1143,7 +1150,7 @@ void fb_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y
    // Calculate the rectangle dimensions
    int len = (x2 - x1) + 1;
    int rows = (y2 - y1) + 1;
-   // Handle the case where part of the the destation rectangle is off screen
+   // Handle the case where part of the destination rectangle is off screen
    // TODO: there are more cases than this
    if (x3 + len > screen->width) {
       len = screen->width - x3;
