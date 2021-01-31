@@ -174,3 +174,10 @@ font_t *get_font_by_name(char *name) {
    initialize_font(font);
    return font;
 }
+
+void define_character(font_t *font, uint8_t c, uint8_t *data) {
+   uint8_t *p = fontbuffer + c * font->bytes_per_char;
+   for (int i = 0; i < 8; i++) {
+      *p++ = *data++;
+   }
+}

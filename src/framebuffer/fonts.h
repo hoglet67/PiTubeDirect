@@ -29,4 +29,6 @@ font_t *get_font_by_number(unsigned int num);
 
 font_t *get_font_by_name(char *name);
 
+void define_character(font_t *font, uint8_t c, uint8_t *data);
+
 #endif

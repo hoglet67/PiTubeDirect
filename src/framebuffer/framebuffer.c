@@ -607,15 +607,9 @@ static void draw_character(int c, int invert) {
 }
 
 static void draw_character_and_advance(int c) {
-   int invert = 0;
-   if (font->num_chars <= 128) {
-      invert = c >= 0x80;
-      c &= 0x7f;
-   }
-
    // Draw the next character at the cursor position
    hide_cursor();
-   draw_character(c, invert);
+   draw_character(c, 0);
    show_cursor();
 
    // Advance the drawing position
@@ -903,8 +897,8 @@ static void vdu_23(uint8_t *buf) {
       printf("\n\r");
    }
 #endif
-   // TODO: we could update the vdu23 sub commands to avoid this
-   buf++;
+   // TODO: we could update the vdu23 sub commands to avoid this increment
+   buf++; // skip the 23
    switch (buf[0]) {
    case  3: vdu23_3(buf); break;
    case  4: vdu23_4(buf); break;
@@ -915,6 +909,10 @@ static void vdu_23(uint8_t *buf) {
    case  9: vdu23_9(buf); break;
    case 17: vdu23_17(buf); break;
    case 22: vdu23_22(buf); break;
+   }
+   // User defined characters
+   if (buf[0] >= 128) {
+      define_character(font, buf[0], buf + 1);
    }
 }
 
