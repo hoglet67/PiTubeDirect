@@ -26,7 +26,7 @@ void fb_set_graphics_plotmode (uint8_t plotmode);
 void fb_set_graphics_area     (screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 void fb_clear_graphics_area   (screen_mode_t *screen, pixel_t colour);
 void fb_set_pixel             (screen_mode_t *screen, int x, int y, pixel_t colour);
-void fb_draw_line             (screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour);
+void fb_draw_line             (screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour, uint8_t g_mode);
 void fb_fill_triangle         (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
 void fb_draw_triangle         (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
 void fb_draw_circle           (screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour);

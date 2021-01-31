@@ -968,42 +968,35 @@ static void vdu_25(uint8_t *buf) {
 
       case 0:
          // Plot solid line (both endpoints included)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
          break;
       case 8:
          // Plot solid line (final endpoint omitted)
-         // TODO
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
          break;
       case 16:
          // Plot dotted line (both endpoints included)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-         // TODO
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
          break;
       case 24:
          // Plot dotted line (final endpoint omitted)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-         // TODO
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
          break;
       case 32:
          // Plot solid line (initial endpoint omitted)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
-         // TODO
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
          break;
       case 40:
          // Plot solid line (final endpoint omitted)
-         // TODO
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
          break;
       case 48:
          // Plot dotted line (initial endpoint omitted)
-         // TODO
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
          break;
       case 56:
          // Plot dotted line (final endpoint omitted)
-         // TODO
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
          break;
       case 64:
          // Plot point

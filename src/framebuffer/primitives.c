@@ -87,9 +87,16 @@ static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t col
    }
 }
 
-static void draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
+// Rodders: Line mode support
+// Implementation of Bresenham's line drawing algorithm from here:
+// http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
+static void draw_line_with_mode(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour, uint8_t g_mode) {
    int w = x2 - x1;
    int h = y2 - y1;
+   int mask = (g_mode & 0x38);
+   int dotted =     (mask == 0x10 || mask == 0x18 || mask == 0x30 || mask == 0x38); // Dotted line
+   int omit_first = (mask == 0x20 || mask == 0x28 || mask == 0x30 || mask == 0x38); // Omit first
+   int omit_last =  (mask == 0x08 || mask == 0x18 || mask == 0x28 || mask == 0x38); // Omit last
    int dx1 = 0, dy1 = 0, dx2 = 0, dy2 = 0;
    if (w < 0) {
       dx1 = -1;
@@ -111,14 +118,28 @@ static void draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pix
    if (!(longest > shortest)) {
       longest = abs(h);
       shortest = abs(w);
-      if (h < 0) dy2 = -1 ; else if (h > 0) dy2 = 1;
+      if (h < 0) {
+         dy2 = -1;
+      } else if (h > 0) {
+         dy2 = 1;
+      }
       dx2 = 0;
    }
    int numerator = longest >> 1 ;
    int x = x1;
    int y = y1;
-   for (int i = 0; i <= longest; i++) {
-      set_pixel(screen, x, y, colour);
+   if (omit_last) {
+      longest--;
+   }
+   int start = 0;
+   if (omit_first) {
+      start++;
+   }
+   for (int i = start; i <= longest; i++) {
+      // TODO: Use Dot Pattern set by VDU 23,6
+      if ((dotted == 0) || (i & 1)) {
+         set_pixel(screen, x, y, colour);
+      }
       numerator += shortest;
       if (!(numerator < longest)) {
          numerator -= longest;
@@ -129,6 +150,10 @@ static void draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pix
          y += dy2;
       }
    }
+}
+
+static void draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
+   draw_line_with_mode(screen, x1, y1, x2, y2, colour, 0);
 }
 
 static void flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixel_t ref_col, int c) {
@@ -646,14 +671,14 @@ void fb_clear_graphics_area(screen_mode_t *screen, pixel_t colour) {
 
 // Implementation of Bresenham's line drawing algorithm from here:
 // http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
-void fb_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
+void fb_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour, uint8_t g_mode) {
    // Transform to screen coordinates
    x1 = (x1 + g_x_origin) >> screen->xeigfactor;
    y1 = (y1 + g_y_origin) >> screen->yeigfactor;
    x2 = (x2 + g_x_origin) >> screen->xeigfactor;
    y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    // Draw the line
-   draw_line(screen, x1, y1, x2, y2, colour);
+   draw_line_with_mode(screen, x1, y1, x2, y2, colour, g_mode);
 }
 
 void fb_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
