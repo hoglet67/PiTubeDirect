@@ -1288,16 +1288,3 @@ uint8_t fb_get_g_bg_col() {
 uint8_t fb_get_g_fg_col() {
    return g_fg_col;
 }
-
-int16_t fb_get_g_cursor_x() {
-   return g_x_pos;
-}
-
-int16_t fb_get_g_cursor_y() {
-   return g_y_pos;
-}
-
-void fb_set_g_cursor(int16_t x, int16_t y) {
-   g_x_pos = x;
-   g_y_pos = y;
-}

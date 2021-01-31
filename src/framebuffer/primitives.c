@@ -37,6 +37,8 @@ typedef enum {
    Q_ALL
 } quadrant_t;
 
+static int16_t arc_end_x;
+static int16_t arc_end_y;
 
 // TODO List
 // - move/copy rectangle
@@ -766,11 +768,10 @@ static void draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
          set_pixel(screen, xc - y, yc - x, colour);
       }
    }
-   // Convert end point back to external coordinates
-   x3 = (x3 << screen->xeigfactor) - g_x_origin;
-   y3 = (y3 << screen->yeigfactor) - g_y_origin;
-   // Set the graphics cursor to the calculated arc endpoint
-   fb_set_g_cursor(x3, y3);
+   // Save the screen coordinates of the arc endpoint, for sector/chord drawing
+   // (but don't reuse the graphics cursor for this purpose)
+   arc_end_x = x3;
+   arc_end_y = y3;
 }
 
 // ==========================================================================
@@ -1071,12 +1072,9 @@ void fb_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    // Draw the arc that bounds the chord
    draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
-   // The arc drawing sets the graphics cursor to the calculated arc endpoint (in external coordinates)
-   int x3 = fb_get_g_cursor_x();
-   int y3 = fb_get_g_cursor_y();
-   // Convert the arc endpoint to screen coordinates
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
+   // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
+   int x3 = arc_end_x;
+   int y3 = arc_end_y;
    // Draw the chord
    draw_line(screen, x1, y1, x3, y3, colour);
    // Find the mid point of the chord
@@ -1107,12 +1105,9 @@ void fb_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x
    y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    // Draw the arc that bounds the sector
    draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
-   // The arc drawing sets the graphics cursor to the calculated arc endpoint (in external coordinates)
-   int x3 = fb_get_g_cursor_x();
-   int y3 = fb_get_g_cursor_y();
-   // Convert the arc endpoint to screen coordinates
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
+   // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
+   int x3 = arc_end_x;
+   int y3 = arc_end_y;
    // Draw the lines from the arc endpoints back to the center
    draw_line(screen, xc, yc, x1, y1, colour);
    draw_line(screen, xc, yc, x3, y3, colour);
