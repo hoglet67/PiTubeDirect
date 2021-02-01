@@ -370,7 +370,7 @@ static void invert_cursor(int x_pos, int y_pos, int editing) {
 }
 
 static void show_cursor() {
-   if (c_visible) {
+   if (c_visible || text_at_g_cursor) {
       return;
    }
    invert_cursor(c_x_pos, c_y_pos, 0);
@@ -386,7 +386,7 @@ static void show_edit_cursor() {
 }
 
 static void hide_cursor() {
-   if (!c_visible) {
+   if (!c_visible || text_at_g_cursor) {
       return;
    }
    invert_cursor(c_x_pos, c_y_pos, 0);
@@ -800,9 +800,11 @@ static void vdu23_22(uint8_t *buf) {
 
 static void vdu_4(uint8_t *buf) {
    text_at_g_cursor = 0;
+   show_cursor();
 }
 
 static void vdu_5(uint8_t *buf) {
+   hide_cursor();
    text_at_g_cursor = 1;
 }
 
