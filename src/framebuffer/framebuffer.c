@@ -1161,8 +1161,13 @@ static void vdu_nop(uint8_t *buf) {
 static void vdu_default(uint8_t *buf) {
    uint8_t c = buf[0];
    if (text_at_g_cursor) {
-      font->draw_character(font, screen, c, g_x_pos, g_y_pos, g_fg_col, g_bg_col);
-      update_g_cursors(g_x_pos + font_width, g_y_pos);
+      pixel_t col = screen->get_colour(screen, g_fg_col);
+      int x = g_x_pos;
+      int y = g_y_pos;
+      // Plot the character, using the current plotting params
+      fb_draw_character(screen, font, c, &x, &y, col);
+      // Update the graphics cursor
+      update_g_cursors(x, y);
    } else {
       draw_character_and_advance(c);
    }

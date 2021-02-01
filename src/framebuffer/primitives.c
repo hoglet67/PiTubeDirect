@@ -1169,3 +1169,42 @@ void fb_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y
       memmove(dst, src, len);
    }
 }
+
+void fb_draw_character(screen_mode_t *screen, font_t *font, int c, int *xp, int *yp, pixel_t colour) {
+   // Transform to screen coordinates
+   int x_pos = ((*xp) + g_x_origin) >> screen->xeigfactor;
+   int y_pos = ((*yp) + g_y_origin) >> screen->yeigfactor;
+   // Draw the character
+   int x = x_pos;
+   int y = y_pos;
+   int p = c * font->bytes_per_char;
+   for (int i = 0; i < font->height; i++) {
+      // TODO: this is using the original font, so won't be overridden bu VDU 23
+      int data = font->data[p++];
+      for (int j = 0; j < font->width; j++) {
+         if (data & 0x80) {
+            for (int sx = 0; sx < font->scale_w; sx++) {
+               for (int sy = 0; sy < font->scale_h; sy++) {
+                  set_pixel(screen, x + sx, y + sy, colour);
+               }
+            }
+         }
+         x += font->scale_w;
+         data <<= 1;
+      }
+      x = x_pos;
+      y -= font->scale_h;
+   }
+   // Determine the next character position
+   x_pos += font->width * font->scale_w + font->spacing;
+   if (x_pos >= screen->width) {
+      x_pos -= screen->width;
+      y_pos -= font->height * font->scale_h + font->spacing;
+      if (y_pos < 0) {
+         y_pos += screen->height;
+      }
+   }
+   // Transform back to external coordinates
+   *xp = (x_pos << screen->xeigfactor) - g_x_origin;
+   *yp = (y_pos << screen->yeigfactor) - g_y_origin;
+}
