@@ -968,9 +968,14 @@ void fb_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pi
    y1 = (y1 + g_y_origin) >> screen->yeigfactor;
    x2 = (x2 + g_x_origin) >> screen->xeigfactor;
    y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   // Ensure y1 < y2
+   if (y1 > y2) {
+      int tmp = y1;
+      y1 = y2;
+      y2 = tmp;
+   }
    // Fill the rectangle
-   int y;
-   for (y = y1; y <= y2; y++) {
+   for (int y = y1; y <= y2; y++) {
       draw_hline(screen, x1, x2, y, colour);
    }
 }
