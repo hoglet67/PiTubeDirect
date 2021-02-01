@@ -998,13 +998,6 @@ void fb_draw_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2
 }
 
 void fb_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
    int x4 = x3 - x2 + x1;
    int y4 = y3 - y2 + y1;
    // Fill the parallelogram
