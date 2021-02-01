@@ -44,7 +44,6 @@ static int16_t arc_end_y;
 // TODO List
 // - implement fill patterns
 // - implement line patterns
-// - bug: horizontal line fills overwrite the terminating pixel
 // - bug: sector fill doesn't fill interior when angle > 180 degrees
 // - bug: chord fill doesn't fill interior reliable
 // - bug: draw arc issue when start and end in same quadrant
@@ -263,10 +262,10 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       if (get_pixel(screen, x, y) != bg_col) {
          return;
       }
-      while (get_pixel(screen, x_right, y) == bg_col && x_right < g_x_max) {
+      while (get_pixel(screen, x_right + 1, y) == bg_col && x_right + 1 < g_x_max) {
          x_right++;
       }
-      while (get_pixel(screen, x_left, y) == bg_col && x_left > g_x_min) {
+      while (get_pixel(screen, x_left - 1, y) == bg_col && x_left - 1 > g_x_min) {
          x_left--;
       }
       draw_hline(screen, x_left, x_right, y, colour);
@@ -276,7 +275,7 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       if (get_pixel(screen, x, y) == bg_col) {
          return;
       }
-      while (get_pixel(screen, x_right, y) != bg_col && x_right < g_x_max) {
+      while (get_pixel(screen, x_right + 1, y) != bg_col && x_right + 1 < g_x_max) {
          x_right++;
       }
       draw_hline(screen, x_left, x_right, y, colour);
@@ -286,10 +285,10 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       if (get_pixel(screen, x, y) == fg_col) {
          return;
       }
-      while (get_pixel(screen, x_right, y) != fg_col && x_right < g_x_max) {
+      while (get_pixel(screen, x_right + 1, y) != fg_col && x_right + 1 < g_x_max) {
          x_right++;
       }
-      while (get_pixel(screen, x_left, y) != fg_col && x_left > g_x_min) {
+      while (get_pixel(screen, x_left - 1, y) != fg_col && x_left - 1 > g_x_min) {
          x_left--;
       }
       draw_hline(screen, x_left, x_right, y, colour);
@@ -299,7 +298,7 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       if (get_pixel(screen, x, y) != fg_col) {
          return;
       }
-      while (get_pixel(screen, x_right, y) == fg_col && x_right < g_x_max) {
+      while (get_pixel(screen, x_right + 1, y) == fg_col && x_right + 1 < g_x_max) {
          x_right++;
       }
       draw_hline(screen, x_left, x_right, y, colour);
