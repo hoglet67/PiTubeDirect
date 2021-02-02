@@ -100,6 +100,9 @@ file( GLOB copro_65tube_files
     copro-65tube.h
     copro-65tube.c
     copro-65tubeasm.S
+    copro-65tubejit.h
+    copro-65tubejit.c
+    jit.S
 )
 
 # 6502 Co Processor using 65tube Implementation
