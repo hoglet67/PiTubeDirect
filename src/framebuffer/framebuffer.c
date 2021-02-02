@@ -97,13 +97,7 @@ static void vdu_26(uint8_t *buf);
 static void vdu_27(uint8_t *bu0f);
 static void vdu_28(uint8_t *buf);
 static void vdu_29(uint8_t *buf);
-static void vdu_136(uint8_t *buf);
-static void vdu_137(uint8_t *buf);
-static void vdu_138(uint8_t *buf);
-static void vdu_139(uint8_t *buf);
-
 static void vdu_nop(uint8_t *buf);
-
 static void vdu_default(uint8_t *buf);
 
 static vdu_operation_t vdu_operation_table[256] = {
@@ -1210,7 +1204,23 @@ static void vdu_26(uint8_t *buf) {
 }
 
 static void vdu_27(uint8_t *buf) {
-   vdu_default(buf + 1);
+   uint8_t c = buf[1];
+   switch (c) {
+   case 136:
+      edit_cursor_left();
+      break;
+   case 137:
+      edit_cursor_right();
+      break;
+   case 138:
+      edit_cursor_down();
+      break;
+   case 139:
+      edit_cursor_up();
+      break;
+   default:
+      vdu_default(&c);
+   }
 }
 
 static void vdu_28(uint8_t *buf) {
@@ -1232,21 +1242,6 @@ static void vdu_29(uint8_t *buf) {
 #endif
 }
 
-static void vdu_136(uint8_t *buf) {
-   edit_cursor_left();
-}
-
-static void vdu_137(uint8_t *buf) {
-   edit_cursor_right();
-}
-
-static void vdu_138(uint8_t *buf) {
-   edit_cursor_down();
-}
-
-static void vdu_139(uint8_t *buf) {
-   edit_cursor_up();
-}
 
 static void vdu_nop(uint8_t *buf) {
 }
@@ -1290,10 +1285,6 @@ void fb_initialize() {
       vdu_operation_table[i].len = 0;
       vdu_operation_table[i].handler = vdu_default;
    }
-   vdu_operation_table[136].handler = vdu_136;
-   vdu_operation_table[137].handler = vdu_137;
-   vdu_operation_table[138].handler = vdu_138;
-   vdu_operation_table[139].handler = vdu_139;
 
    font = get_font_by_number(DEFAULT_FONT);
 
@@ -1388,7 +1379,11 @@ int fb_get_edit_cursor_y() {
 int fb_get_edit_cursor_char() {
    int x = e_x_pos * font_width;
    int y = screen->height - e_y_pos * font_height - 1;
-   return font->read_character(font, screen, x, y);
+   if (e_enabled) {
+      return font->read_character(font, screen, x, y);
+   } else {
+      return 0;
+   }
 }
 
 uint8_t fb_get_g_bg_col() {
