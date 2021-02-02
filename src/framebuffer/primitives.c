@@ -52,20 +52,16 @@ static int16_t arc_end_y;
 // Static methods (operate at screen resolution)
 // ==========================================================================
 
-static int calc_radius(int x1, int y1, int x2, int y2) {
-   return (int)(sqrtf((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
+static inline int max(int a, int b) {
+   return (a > b) ? a : b;
 }
 
+static inline int min(int a, int b) {
+   return (a < b) ? a : b;
+}
 
-static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t colour) {
-   if (x1 > x2) {
-      int tmp = x1;
-      x1 = x2;
-      x2 = tmp;
-   }
-   for (int x = x1; x <= x2; x++) {
-      prim_set_pixel(screen, x, y, colour);
-   }
+static int calc_radius(int x1, int y1, int x2, int y2) {
+   return (int)(sqrtf((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
 }
 
 static pixel_t get_pixel(screen_mode_t *screen, int x, int y) {
@@ -101,12 +97,15 @@ static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
    screen->set_pixel(screen, x, y, colour);
 }
 
-static inline int max(int a, int b) {
-   return (a > b) ? a : b;
-}
-
-static inline int min(int a, int b) {
-   return (a < b) ? a : b;
+static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t colour) {
+   if (x1 > x2) {
+      int tmp = x1;
+      x1 = x2;
+      x2 = tmp;
+   }
+   for (int x = x1; x <= x2; x++) {
+      set_pixel(screen, x, y, colour);
+   }
 }
 
 static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
@@ -1000,5 +999,29 @@ void prim_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int hei
       fill_sheared_ellipse(screen, xc, yc, width, height, shear, colour);
    } else {
       fill_normal_ellipse(screen, xc, yc, width, height, colour);
+   }
+}
+
+void prim_draw_character(screen_mode_t *screen, font_t *font, int c, int x_pos, int y_pos, pixel_t colour) {
+   // Draw the character
+   int x = x_pos;
+   int y = y_pos;
+   int p = c * font->bytes_per_char;
+   for (int i = 0; i < font->height; i++) {
+      // TODO: this is using the original font, so won't be overridden bu VDU 23
+      int data = font->data[p++];
+      for (int j = 0; j < font->width; j++) {
+         if (data & 0x80) {
+            for (int sx = 0; sx < font->scale_w; sx++) {
+               for (int sy = 0; sy < font->scale_h; sy++) {
+                  set_pixel(screen, x + sx, y + sy, colour);
+               }
+            }
+         }
+         x += font->scale_w;
+         data <<= 1;
+      }
+      x = x_pos;
+      y -= font->scale_h;
    }
 }

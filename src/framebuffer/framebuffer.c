@@ -58,6 +58,10 @@ static int16_t g_y_pos_last1;
 static int16_t g_y_pos_last2;
 static int16_t g_x_origin;
 static int16_t g_y_origin;
+static int16_t g_x_min;
+static int16_t g_x_max;
+static int16_t g_y_min;
+static int16_t g_y_max;
 
 // Text or graphical cursor for printing characters
 static int8_t text_at_g_cursor;
@@ -80,12 +84,6 @@ typedef struct {
 
 static void vdu_4(uint8_t *buf);
 static void vdu_5(uint8_t *buf);
-static void vdu_8(uint8_t *buf);
-static void vdu_9(uint8_t *buf);
-static void vdu_10(uint8_t *buf);
-static void vdu_11(uint8_t *buf);
-static void vdu_12(uint8_t *buf);
-static void vdu_13(uint8_t *buf);
 static void vdu_16(uint8_t *buf);
 static void vdu_17(uint8_t *buf);
 static void vdu_18(uint8_t *buf);
@@ -99,9 +97,6 @@ static void vdu_26(uint8_t *buf);
 static void vdu_27(uint8_t *bu0f);
 static void vdu_28(uint8_t *buf);
 static void vdu_29(uint8_t *buf);
-static void vdu_30(uint8_t *buf);
-static void vdu_31(uint8_t *buf);
-static void vdu_127(uint8_t *buf);
 static void vdu_136(uint8_t *buf);
 static void vdu_137(uint8_t *buf);
 static void vdu_138(uint8_t *buf);
@@ -120,12 +115,12 @@ static vdu_operation_t vdu_operation_table[256] = {
    { 0, vdu_5   },
    { 0, vdu_nop },
    { 0, vdu_nop },
-   { 0, vdu_8   }, // 8
-   { 0, vdu_9   },
-   { 0, vdu_10  },
-   { 0, vdu_11  },
-   { 0, vdu_12  },
-   { 0, vdu_13  },
+   { 0, vdu_nop }, // 8
+   { 0, vdu_nop },
+   { 0, vdu_nop },
+   { 0, vdu_nop },
+   { 0, vdu_nop },
+   { 0, vdu_nop },
    { 0, vdu_nop },
    { 0, vdu_nop },
    { 0, vdu_16  }, // 16
@@ -142,8 +137,8 @@ static vdu_operation_t vdu_operation_table[256] = {
    { 1, vdu_27  },
    { 4, vdu_28  },
    { 4, vdu_29  },
-   { 0, vdu_30  },
-   { 2, vdu_31  }
+   { 0, vdu_nop },
+   { 2, vdu_nop }
    // Entries 32 to 255 are filled in by fb_initialize
 };
 
@@ -157,7 +152,6 @@ static void init_variables();
 static void reset_areas();
 static void set_text_area(uint8_t left, uint8_t bottom, uint8_t right, uint8_t top);
 static int  text_area_active();
-static void clear_text_area();
 static void scroll_text_area();
 static void invert_cursor(int x_pos, int y_pos, int editing);
 static void show_cursor();
@@ -172,17 +166,31 @@ static void edit_cursor_down();
 static void edit_cursor_left();
 static void edit_cursor_right();
 static void scroll();
-static void cursor_left();
-static void cursor_right();
-static void cursor_up();
-static void cursor_down();
-static void cursor_col0();
-static void cursor_home();
 static void update_g_cursors(int16_t x, int16_t y);
-static void draw_character(int c, int invert);
-static void draw_character_and_advance(int c);
 static void change_mode(screen_mode_t *new_screen);
+static void set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
+// These are used in VDU 4 mode
+static void text_cursor_left();
+static void text_cursor_right();
+static void text_cursor_up();
+static void text_cursor_down();
+static void text_cursor_col0();
+static void text_cursor_home();
+static void text_cursor_tab();
+static void text_area_clear();
+static void text_delete();
+
+// These are used in VDU 5 mode
+static void graphics_cursor_left();
+static void graphics_cursor_right();
+static void graphics_cursor_up();
+static void graphics_cursor_down();
+static void graphics_cursor_col0();
+static void graphics_cursor_home();
+static void graphics_cursor_tab();
+static void graphics_area_clear();
+static void graphics_delete();
 
 static void update_font_size() {
    // Calculate the font size, taking account of scale and spacing
@@ -223,10 +231,14 @@ static void update_text_area() {
       tmp_y = text_y_max;
    }
    if (c_x_pos != tmp_x || c_y_pos != tmp_y) {
-      hide_cursor();
+      if (!text_at_g_cursor) {
+         hide_cursor();
+      }
       c_x_pos = tmp_x;
       c_y_pos = tmp_y;
-      show_cursor();
+      if (!text_at_g_cursor) {
+         show_cursor();
+      }
    }
 }
 
@@ -248,7 +260,7 @@ static void init_variables() {
    g_fg_col  = COL_WHITE;
 
    // Cursor mode
-   text_at_g_cursor = 0;
+   vdu_4(NULL);
 
    // Reset text/grapics areas and home cursors (VDU 26 actions)
    reset_areas();
@@ -263,9 +275,10 @@ static void reset_areas() {
    // Set the graphics origin to 0,0
    g_x_origin = 0;
    g_y_origin = 0;
-   // Initialize the graphics area and default plot mode
+   // Initialize the graphics area to the full screen
+   set_graphics_area(screen, 0, 0, (screen->width << screen->xeigfactor) - 1, (screen->height << screen->yeigfactor) - 1);
+   // Initialize the default plot mode to normal plotting
    prim_set_graphics_plotmode(0);
-   prim_set_graphics_area(screen, 0, 0, screen->width - 1, screen->height - 1);
    // Home the text cursor
    c_x_pos = text_x_min;
    c_y_pos = text_y_min;
@@ -299,36 +312,6 @@ static int text_area_active() {
    } else {
       return 1;
    }
-}
-
-static void clear_text_area() {
-   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-   if (text_area_active()) {
-      // Pixel 0,0 is in the bottom left
-      // Character 0,0 is in the top left
-      // So the Y axis needs flipping
-
-      // Top/Left
-      int x1 = text_x_min * font_width;
-      int y1 = screen->height - 1 - text_y_min * font_height;
-
-      // Bottom/Right
-      int x2 = (text_x_max + 1) * font_width;
-      int y2 = screen->height - 1 - (text_y_max + 1) * font_height;
-
-      // Clear from top to bottom
-      for (int y = y1; y > y2; y--) {
-         for (int x = x1; x < x2; x++) {
-            screen->set_pixel(screen, x, y, bg_col);
-         }
-      }
-   } else {
-      screen->clear(screen, bg_col);
-   }
-   c_x_pos = text_x_min;
-   c_y_pos = text_y_min;
-   c_visible = 0;
-   show_cursor();
 }
 
 static void scroll_text_area() {
@@ -375,7 +358,7 @@ static void invert_cursor(int x_pos, int y_pos, int editing) {
 }
 
 static void show_cursor() {
-   if (c_visible || text_at_g_cursor) {
+   if (c_visible) {
       return;
    }
    invert_cursor(c_x_pos, c_y_pos, 0);
@@ -391,7 +374,7 @@ static void show_edit_cursor() {
 }
 
 static void hide_cursor() {
-   if (!c_visible || text_at_g_cursor) {
+   if (!c_visible) {
       return;
    }
    invert_cursor(c_x_pos, c_y_pos, 0);
@@ -501,60 +484,6 @@ static void scroll() {
    }
 }
 
-static void cursor_left() {
-   hide_cursor();
-   if (c_x_pos > text_x_min) {
-      c_x_pos--;
-   } else {
-      c_x_pos = text_x_max;
-   }
-   show_cursor();
-}
-
-static void cursor_right() {
-   hide_cursor();
-   if (c_x_pos < text_x_max) {
-      c_x_pos++;
-   } else {
-      c_x_pos = text_x_min;
-      cursor_down();
-   }
-   show_cursor();
-}
-
-static void cursor_up() {
-   hide_cursor();
-   if (c_y_pos > text_y_min) {
-      c_y_pos--;
-   } else {
-      c_y_pos = text_y_max;
-   }
-   show_cursor();
-}
-
-static void cursor_down() {
-   hide_cursor();
-   if (c_y_pos < text_y_max) {
-      c_y_pos++;
-   } else {
-      scroll();
-   }
-   show_cursor();
-}
-
-static void cursor_col0() {
-   disable_edit_cursor();
-   hide_cursor();
-   c_x_pos = text_x_min;
-   show_cursor();
-}
-
-static void cursor_home() {
-   hide_cursor();
-   c_x_pos = text_x_min;
-   c_y_pos = text_y_min;
-   show_cursor();
-}
 
 static void update_g_cursors(int16_t x, int16_t y) {
    g_x_pos_last2 = g_x_pos_last1;
@@ -575,75 +504,230 @@ static void change_mode(screen_mode_t *new_screen) {
    // clear frame buffer
    screen->clear(screen, screen->get_colour(screen, c_bg_col));
    // Show the cursor
+   c_visible = 0;
    show_cursor();
 }
 
-// ==========================================================================
-// Drawing Primitives
-// ==========================================================================
-
-static void fb_draw_character(screen_mode_t *screen, font_t *font, int c, int *xp, int *yp, pixel_t colour) {
+static void set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+   // Sanity check illegal windowss
+   if (x1 < 0 || x1 >= screen->width << screen->xeigfactor || y1 < 0 || y1 >= screen->height << screen->yeigfactor) {
+      return;
+   }
+   if (x2 < 0 || x2 >= screen->width << screen->xeigfactor || y2 < 0 || y2 >= screen->height << screen->yeigfactor) {
+      return;
+   }
+   if (x1 >= x2 || y1 >= y2) {
+      return;
+   }
+   // Accept the window
+   g_x_min = x1;
+   g_x_max = x2;
+   g_y_min = y1;
+   g_y_max = y2;
    // Transform to screen coordinates
-   int x_pos = (*xp) >> screen->xeigfactor;
-   int y_pos = (*yp) >> screen->yeigfactor;
-   // Draw the character
-   int x = x_pos;
-   int y = y_pos;
-   int p = c * font->bytes_per_char;
-   for (int i = 0; i < font->height; i++) {
-      // TODO: this is using the original font, so won't be overridden bu VDU 23
-      int data = font->data[p++];
-      for (int j = 0; j < font->width; j++) {
-         if (data & 0x80) {
-            for (int sx = 0; sx < font->scale_w; sx++) {
-               for (int sy = 0; sy < font->scale_h; sy++) {
-                  prim_set_pixel(screen, x + sx, y + sy, colour);
-               }
-            }
-         }
-         x += font->scale_w;
-         data <<= 1;
-      }
-      x = x_pos;
-      y -= font->scale_h;
-   }
-   // Determine the next character position
-   x_pos += font->width * font->scale_w + font->spacing;
-   if (x_pos >= screen->width) {
-      x_pos -= screen->width;
-      y_pos -= font->height * font->scale_h + font->spacing;
-      if (y_pos < 0) {
-         y_pos += screen->height;
-      }
-   }
-   // Transform back to external coordinates
-   *xp = x_pos << screen->xeigfactor;
-   *yp = y_pos << screen->yeigfactor;
+   x1 >>= screen->xeigfactor;
+   y1 >>= screen->yeigfactor;
+   x2 >>= screen->xeigfactor;
+   y2 >>= screen->yeigfactor;
+   // Set the clipping window
+   prim_set_graphics_area(screen, x1, y1, x2, y2);
 }
 
-static void draw_character(int c, int invert) {
-   pixel_t fg_col = screen->get_colour(screen, c_fg_col);
-   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-   int x = c_x_pos * font_width;
-   // Pixel 0,0 is in the bottom left
-   // Character 0,0 is in the top left
-   // So the Y axis needs flipping
-   int y = screen->height - c_y_pos * font_height - 1;
-   if (invert) {
-      font->draw_character(font, screen, c, x, y, bg_col, fg_col);
-   } else {
-      font->draw_character(font, screen, c, x, y, fg_col, bg_col);
-   }
-}
+// ==========================================================================
+// VDU 4 mode: cursor commands operate on text cursor
+// ==========================================================================
 
-static void draw_character_and_advance(int c) {
-   // Draw the next character at the cursor position
+static void text_cursor_left() {
    hide_cursor();
-   draw_character(c, 0);
+   if (c_x_pos > text_x_min) {
+      c_x_pos--;
+   } else {
+      c_x_pos = text_x_max;
+      text_cursor_up();
+   }
    show_cursor();
+}
 
-   // Advance the drawing position
-   cursor_right();
+static void text_cursor_right() {
+   hide_cursor();
+   if (c_x_pos < text_x_max) {
+      c_x_pos++;
+   } else {
+      c_x_pos = text_x_min;
+      text_cursor_down();
+   }
+   show_cursor();
+}
+
+static void text_cursor_up() {
+   hide_cursor();
+   if (c_y_pos > text_y_min) {
+      c_y_pos--;
+   } else {
+      c_y_pos = text_y_max;
+   }
+   show_cursor();
+}
+
+static void text_cursor_down() {
+   hide_cursor();
+   if (c_y_pos < text_y_max) {
+      c_y_pos++;
+   } else {
+      scroll();
+   }
+   show_cursor();
+}
+
+static void text_cursor_col0() {
+   disable_edit_cursor();
+   hide_cursor();
+   c_x_pos = text_x_min;
+   show_cursor();
+}
+
+static void text_cursor_home() {
+   hide_cursor();
+   c_x_pos = text_x_min;
+   c_y_pos = text_y_min;
+   show_cursor();
+}
+
+static void text_cursor_tab(uint8_t *buf) {
+   uint8_t x = buf[1];
+   uint8_t y = buf[2];
+#ifdef DEBUG_VDU
+   printf("cursor move to %d %d\r\n", x, y);
+#endif
+   // Take account of current text window
+   x += text_x_min;
+   y += text_y_min;
+   if (x <= text_x_max && y <= text_y_max) {
+      hide_cursor();
+      c_x_pos = x;
+      c_y_pos = y;
+      show_cursor();
+   }
+}
+
+static void text_area_clear() {
+   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
+   if (text_area_active()) {
+      // Pixel 0,0 is in the bottom left
+      // Character 0,0 is in the top left
+      // So the Y axis needs flipping
+
+      // Top/Left
+      int x1 = text_x_min * font_width;
+      int y1 = screen->height - 1 - text_y_min * font_height;
+
+      // Bottom/Right
+      int x2 = (text_x_max + 1) * font_width;
+      int y2 = screen->height - 1 - (text_y_max + 1) * font_height;
+
+      // Clear from top to bottom
+      for (int y = y1; y > y2; y--) {
+         for (int x = x1; x < x2; x++) {
+            screen->set_pixel(screen, x, y, bg_col);
+         }
+      }
+   } else {
+      screen->clear(screen, bg_col);
+   }
+   c_x_pos = text_x_min;
+   c_y_pos = text_y_min;
+   c_visible = 0;
+   show_cursor();
+}
+
+static void text_delete() {
+   text_cursor_left();
+   hide_cursor();
+   int x = c_x_pos * font_width;
+   int y = screen->height - c_y_pos * font_height - 1;
+   pixel_t col = screen->get_colour(screen, c_bg_col);
+   prim_fill_rectangle(screen, x, y, x + (font_width - 1), y - (font_height - 1), col);
+   show_cursor();
+}
+
+// ==========================================================================
+// VDU 5 mode: cursor commands operate on graphics cursor
+// ==========================================================================
+
+// Notes:
+//    g_x_pos/g_y_pos are in absolute external coordinates
+//    g_x_min/max are also in absolute external coordinates
+//    font_width/height are in screen pixels
+
+static void graphics_cursor_left() {
+   g_x_pos -= font_width << screen->xeigfactor;
+   if (g_x_pos < g_x_min) {
+      g_x_pos = g_x_max + 1 - (font_width << screen->xeigfactor);
+      graphics_cursor_up();
+   }
+}
+
+static void graphics_cursor_right() {
+   g_x_pos += font_width << screen->xeigfactor;
+   if (g_x_pos > g_x_max) {
+      g_x_pos = g_x_min;
+      graphics_cursor_down();
+   }
+}
+
+static void graphics_cursor_up() {
+   g_y_pos += font_height << screen->yeigfactor;
+   if (g_y_pos > g_y_max) {
+      g_y_pos = g_y_min - 1 + (font_height << screen->yeigfactor);
+   }
+}
+
+static void graphics_cursor_down() {
+   g_y_pos -= font_height << screen->yeigfactor;
+   if (g_y_pos < g_y_min) {
+      g_y_pos = g_y_max;
+   }
+}
+
+static void graphics_cursor_col0() {
+   g_x_pos = g_x_min;
+}
+
+static void graphics_cursor_home() {
+   g_x_pos = g_x_min;
+   g_y_pos = g_y_max;
+}
+
+static void graphics_cursor_tab(uint8_t *buf) {
+   uint8_t x = buf[1];
+   uint8_t y = buf[2];
+#ifdef DEBUG_VDU
+   printf("cursor move to %d %d\r\n", x, y);
+#endif
+   // Scale to absolute external coordinates
+   x *= font_width << screen->xeigfactor;
+   y *= font_height << screen->yeigfactor;
+   // Take account of current text window
+   x += g_x_min;
+   y += g_y_min;
+   // Deliberately don't range check here
+   g_x_pos = g_x_min + x;
+   g_y_pos = g_y_min + y;
+}
+
+static void graphics_area_clear() {
+   g_x_pos = g_x_min;
+   g_y_pos = g_y_max;
+   pixel_t col = screen->get_colour(screen, g_bg_col);
+   prim_clear_graphics_area(screen, col);
+}
+
+static void graphics_delete() {
+   graphics_cursor_left();
+   int x = g_x_pos >> screen->xeigfactor;
+   int y = g_y_pos >> screen->yeigfactor;
+   pixel_t col = screen->get_colour(screen, g_bg_col);
+   prim_fill_rectangle(screen, x, y, x + (font_width - 1), y - (font_height - 1), col);
 }
 
 // ==========================================================================
@@ -830,37 +914,32 @@ static void vdu23_22(uint8_t *buf) {
 
 static void vdu_4(uint8_t *buf) {
    text_at_g_cursor = 0;
+   vdu_operation_table[  8].handler = text_cursor_left;
+   vdu_operation_table[  9].handler = text_cursor_right;
+   vdu_operation_table[ 10].handler = text_cursor_down;
+   vdu_operation_table[ 11].handler = text_cursor_up;
+   vdu_operation_table[ 12].handler = text_area_clear;
+   vdu_operation_table[ 13].handler = text_cursor_col0;
+   vdu_operation_table[ 30].handler = text_cursor_home;
+   vdu_operation_table[ 31].handler = text_cursor_tab;
+   vdu_operation_table[127].handler = text_delete;
    show_cursor();
 }
 
 static void vdu_5(uint8_t *buf) {
    hide_cursor();
    text_at_g_cursor = 1;
+   vdu_operation_table[  8].handler = graphics_cursor_left;
+   vdu_operation_table[  9].handler = graphics_cursor_right;
+   vdu_operation_table[ 10].handler = graphics_cursor_down;
+   vdu_operation_table[ 11].handler = graphics_cursor_up;
+   vdu_operation_table[ 12].handler = graphics_area_clear;
+   vdu_operation_table[ 13].handler = graphics_cursor_col0;
+   vdu_operation_table[ 30].handler = graphics_cursor_home;
+   vdu_operation_table[ 31].handler = graphics_cursor_tab;
+   vdu_operation_table[127].handler = graphics_delete;
 }
 
-static void vdu_8(uint8_t *buf) {
-   cursor_left();
-}
-
-static void vdu_9(uint8_t *buf) {
-   cursor_right();
-}
-
-static void vdu_10(uint8_t *buf) {
-   cursor_down();
-}
-
-static void vdu_11(uint8_t *buf) {
-   cursor_up();
-}
-
-static void vdu_12(uint8_t *buf) {
-   clear_text_area();
-}
-
-static void vdu_13(uint8_t *buf) {
-   cursor_col0();
-}
 
 static void vdu_16(uint8_t *buf) {
    prim_clear_graphics_area(screen, screen->get_colour(screen, g_bg_col));
@@ -956,14 +1035,15 @@ static void vdu_24(uint8_t *buf) {
 #ifdef DEBUG_VDU
    printf("graphics area %d %d %d %d\r\n", x1, y1, x2, y2);
 #endif
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Set the clipping window
-   prim_set_graphics_area(screen, x1, y1, x2, y2);
+   // Transform to absolute external coordinates
+   x1 += g_x_origin;
+   y1 += g_y_origin;
+   x2 += g_x_origin;
+   y2 += g_y_origin;
+   // Set the window
+   set_graphics_area(screen, x1, y1, x2, y2);
 }
+
 
 static void vdu_25(uint8_t *buf) {
    int col;
@@ -1130,8 +1210,7 @@ static void vdu_26(uint8_t *buf) {
 }
 
 static void vdu_27(uint8_t *buf) {
-   uint8_t c = buf[1];
-   draw_character_and_advance(c);
+   vdu_default(buf + 1);
 }
 
 static void vdu_28(uint8_t *buf) {
@@ -1153,33 +1232,7 @@ static void vdu_29(uint8_t *buf) {
 #endif
 }
 
-static void vdu_30(uint8_t *buf) {
-   cursor_home();
-}
-
-static void vdu_31(uint8_t *buf) {
-   uint8_t x = buf[1];
-   uint8_t y = buf[2];
-#ifdef DEBUG_VDU
-   printf("cursor move to %d %d\r\n", x, y);
-#endif
-   // Take account of current text window
-   x += text_x_min;
-   y += text_y_min;
-   if (x <= text_x_max && y <= text_y_max) {
-      hide_cursor();
-      c_x_pos = x;
-      c_y_pos = y;
-      show_cursor();
-   }
-}
-
-static void vdu_127(uint8_t *buf) {
-   cursor_left();
-   draw_character(32, 1);
-}
-
- static void vdu_136(uint8_t *buf) {
+static void vdu_136(uint8_t *buf) {
    edit_cursor_left();
 }
 
@@ -1201,18 +1254,31 @@ static void vdu_nop(uint8_t *buf) {
 static void vdu_default(uint8_t *buf) {
    uint8_t c = buf[0];
    if (text_at_g_cursor) {
+      // Draw the character at the graphics cursor (VDU 5 mode)
+      int x = g_x_pos >> screen->xeigfactor;
+      int y = g_y_pos >> screen->yeigfactor;
+      // Only draw the foreground pixels
       pixel_t col = screen->get_colour(screen, g_fg_col);
-      int x = g_x_pos;
-      int y = g_y_pos;
-      // Plot the character, using the current plotting params
-      fb_draw_character(screen, font, c, &x, &y, col);
-      // Update the graphics cursor
-      update_g_cursors(x, y);
+      prim_draw_character(screen, font, c, x, y, col);
+      // Advance the drawing position
+      graphics_cursor_right();
    } else {
-      draw_character_and_advance(c);
+      // Draw the character at the text cursor (VDU 4 mode)
+      // - Pixel 0,0 is in the bottom left
+      // - Character 0,0 is in the top left
+      // - So the Y axis needs flipping
+      hide_cursor();
+      int x = c_x_pos * font_width;
+      int y = screen->height - c_y_pos * font_height - 1;
+      // Draw the foreground and background pixels
+      pixel_t fg_col = screen->get_colour(screen, c_fg_col);
+      pixel_t bg_col = screen->get_colour(screen, c_bg_col);
+      font->draw_character(font, screen, c, x, y, fg_col, bg_col);
+      show_cursor();
+      // Advance the drawing position
+      text_cursor_right();
    }
 }
-
 
 // ==========================================================================
 // Public interface
@@ -1224,7 +1290,6 @@ void fb_initialize() {
       vdu_operation_table[i].len = 0;
       vdu_operation_table[i].handler = vdu_default;
    }
-   vdu_operation_table[127].handler = vdu_127;
    vdu_operation_table[136].handler = vdu_136;
    vdu_operation_table[137].handler = vdu_137;
    vdu_operation_table[138].handler = vdu_138;
