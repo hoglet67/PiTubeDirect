@@ -165,13 +165,19 @@ org &F700
     BCS store
 
 ;; Handle cursor editing by sending &88-&8B to VDU
-    BCC cloop1
+    PHA
+    LDA #&1B
+    JSR oswrch     ; edit controls prefixed by escape
+    PLA
+    BNE cloop1
 
 ;; Handle Copy Key (&87)
 .copy
     LDA char_at_cursor ; read character at edit cursor from frame buffer
     BEQ cloop2     ; invalid char, loop back
     PHA
+    LDA #&1B
+    JSR oswrch     ; edit controls prefixed by escape
     LDA #&89
     JSR oswrch     ; move the eding cursor to the right
     PLA
