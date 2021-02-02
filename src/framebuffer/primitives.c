@@ -632,6 +632,52 @@ static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2
    }
 }
 
+static void fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+   int tmp;
+#ifdef USE_V3D
+   if (screen->bpp > 8) {
+      // Flip y axis
+      y1 = screen->height - 1 - y1;
+      y2 = screen->height - 1 - y2;
+      y3 = screen->height - 1 - y3;
+      // Draw the triangle
+      v3d_draw_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
+   } else {
+#endif
+      // Use Standard Triangle Fill
+      // http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
+      // sort the three vertices by y-coordinate ascending so v1 is the topmost vertice
+      if (y2 > y1) {
+         tmp = x1; x1 = x2; x2 = tmp;
+         tmp = y1; y1 = y2; y2 = tmp;
+      }
+      if (y3 > y1) {
+         tmp = x1; x1 = x3; x3 = tmp;
+         tmp = y1; y1 = y3; y3 = tmp;
+      }
+      if (y3 > y2) {
+         tmp = x2; x2 = x3; x3 = tmp;
+         tmp = y2; y2 = y3; y3 = tmp;
+      }
+      // here we know that y1 >= y2 >= y3
+      if (y2 == y3) {
+         // trivial case of bottom-flat triangle
+         fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
+      } else if (y1 == y2) {
+         // trivial case of top-flat triangle
+         fill_top_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
+      } else {
+         // general case - split the triangle in a topflat and bottom-flat one
+         int x4 = (int)(x1 + ((float)(y1 - y2) / (float)(y1 - y3)) * (x3 - x1));
+         int y4 = y2;
+         fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x4, y4, colour);
+         fill_top_flat_triangle(screen, x2, y2, x4, y4, x3, y3, colour);
+      }
+#ifdef USE_V3D
+   }
+#endif
+}
+
 // Rodders: Arc drawing routines, used by chord and sector fills
 static int arc_quadrant(int x, int y) {
    if (x >= 0) {
@@ -779,6 +825,45 @@ static void draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
    arc_end_y = y3;
 }
 
+// Rodders: Bit Blit
+// TODO: implement move (the current code only does copy)
+void move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move) {
+   uint8_t *src;
+   uint8_t *dst;
+   // Make x1, y1 the bottom left, and x2, y2 the top right
+   if (x1 > x2) {
+      int tmp = x1;
+      x1 = x2;
+      x2 = tmp;
+   }
+   if (y1 > y2) {
+      int tmp = y1;
+      y1 = y2;
+      y2 = tmp;
+   }
+   // Calculate the rectangle dimensions
+   int len = (x2 - x1) + 1;
+   int rows = (y2 - y1) + 1;
+   // Handle the case where part of the destination rectangle is off screen
+   // TODO: there are more cases than this
+   if (x3 + len > screen->width) {
+      len = screen->width - x3;
+   }
+   // Convert row length from pixels to bytes
+   len *= (screen->bpp >> 3);
+   uint8_t *fb = (uint8_t *)fb_get_address();
+   for (int y = 0; y < rows; y++) {
+      if (y3 < y1) {
+         src = fb + (screen->height - (y1 + y) - 1) * screen->pitch + x1;
+         dst = fb + (screen->height - (y3 + y) - 1) * screen->pitch + x3;
+      } else {
+         src = fb + (screen->height - (y2 - y) - 1) * screen->pitch + x1;
+         dst = fb + (screen->height - (y3 + rows - 1 - y) - 1) * screen->pitch + x3;
+      }
+      memmove(dst, src, len);
+   }
+}
+
 // ==========================================================================
 // Public methods - run at external resolution
 // ==========================================================================
@@ -845,7 +930,6 @@ void fb_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t
 }
 
 void fb_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   int tmp;
    // Transform to screen coordinates
    x1 = (x1 + g_x_origin) >> screen->xeigfactor;
    y1 = (y1 + g_y_origin) >> screen->yeigfactor;
@@ -853,49 +937,8 @@ void fb_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int
    y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    x3 = (x3 + g_x_origin) >> screen->xeigfactor;
    y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-
-#ifdef USE_V3D
-   if (screen->bpp > 8) {
-      // Flip y axis
-      y1 = screen->height - 1 - y1;
-      y2 = screen->height - 1 - y2;
-      y3 = screen->height - 1 - y3;
-      // Draw the triangle
-      v3d_draw_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-   } else {
-#endif
-      // Use Standard Triangle Fill
-      // http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
-      // sort the three vertices by y-coordinate ascending so v1 is the topmost vertice
-      if (y2 > y1) {
-         tmp = x1; x1 = x2; x2 = tmp;
-         tmp = y1; y1 = y2; y2 = tmp;
-      }
-      if (y3 > y1) {
-         tmp = x1; x1 = x3; x3 = tmp;
-         tmp = y1; y1 = y3; y3 = tmp;
-      }
-      if (y3 > y2) {
-         tmp = x2; x2 = x3; x3 = tmp;
-         tmp = y2; y2 = y3; y3 = tmp;
-      }
-      // here we know that y1 >= y2 >= y3
-      if (y2 == y3) {
-         // trivial case of bottom-flat triangle
-         fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-      } else if (y1 == y2) {
-         // trivial case of top-flat triangle
-         fill_top_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-      } else {
-         // general case - split the triangle in a topflat and bottom-flat one
-         int x4 = (int)(x1 + ((float)(y1 - y2) / (float)(y1 - y3)) * (x3 - x1));
-         int y4 = y2;
-         fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x4, y4, colour);
-         fill_top_flat_triangle(screen, x2, y2, x4, y4, x3, y3, colour);
-      }
-#ifdef USE_V3D
-   }
-#endif
+   // Fill the triangle
+   fill_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
 }
 
 void fb_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
@@ -997,11 +1040,18 @@ void fb_draw_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2
 }
 
 void fb_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+   // Transform to screen coordinates
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
+   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
    int x4 = x3 - x2 + x1;
    int y4 = y3 - y2 + y1;
    // Fill the parallelogram
-   fb_fill_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-   fb_fill_triangle(screen, x1, y1, x4, y4, x3, y3, colour);
+   fill_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
+   fill_triangle(screen, x1, y1, x4, y4, x3, y3, colour);
 }
 
 void fb_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
@@ -1121,11 +1171,7 @@ void fb_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x
    flood_fill(screen, xf, yf, colour, colour, 0);
 }
 
-// Rodders: Bit Blit
-// TODO: implement move (the current code only does copy)
 void fb_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move) {
-   uint8_t *src;
-   uint8_t *dst;
    // Transform to screen coordinates
    x1 = (x1 + g_x_origin) >> screen->xeigfactor;
    y1 = (y1 + g_y_origin) >> screen->yeigfactor;
@@ -1133,38 +1179,8 @@ void fb_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y
    y2 = (y2 + g_y_origin) >> screen->yeigfactor;
    x3 = (x3 + g_x_origin) >> screen->xeigfactor;
    y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-   // Make x1, y1 the bottom left, and x2, y2 the top right
-   if (x1 > x2) {
-      int tmp = x1;
-      x1 = x2;
-      x2 = tmp;
-   }
-   if (y1 > y2) {
-      int tmp = y1;
-      y1 = y2;
-      y2 = tmp;
-   }
-   // Calculate the rectangle dimensions
-   int len = (x2 - x1) + 1;
-   int rows = (y2 - y1) + 1;
-   // Handle the case where part of the destination rectangle is off screen
-   // TODO: there are more cases than this
-   if (x3 + len > screen->width) {
-      len = screen->width - x3;
-   }
-   // Convert row length from pixels to bytes
-   len *= (screen->bpp >> 3);
-   uint8_t *fb = (uint8_t *)fb_get_address();
-   for (int y = 0; y < rows; y++) {
-      if (y3 < y1) {
-         src = fb + (screen->height - (y1 + y) - 1) * screen->pitch + x1;
-         dst = fb + (screen->height - (y3 + y) - 1) * screen->pitch + x3;
-      } else {
-         src = fb + (screen->height - (y2 - y) - 1) * screen->pitch + x1;
-         dst = fb + (screen->height - (y3 + rows - 1 - y) - 1) * screen->pitch + x3;
-      }
-      memmove(dst, src, len);
-   }
+   // Move/Copy the rectangle
+   move_copy_rectangle(screen, x1, y1, x2, y2, x3, y3, move);
 }
 
 void fb_draw_character(screen_mode_t *screen, font_t *font, int c, int *xp, int *yp, pixel_t colour) {
