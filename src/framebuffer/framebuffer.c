@@ -184,27 +184,6 @@ static void draw_character_and_advance(int c);
 static void change_mode(screen_mode_t *new_screen);
 
 
-static void fb_set_graphics_plotmode (uint8_t plotmode);
-static void fb_set_graphics_origin   (int16_t x, int16_t y);
-static void fb_set_graphics_area     (screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
-static void fb_clear_graphics_area   (screen_mode_t *screen, pixel_t colour);
-static void fb_set_pixel             (screen_mode_t *screen, int x, int y, pixel_t colour);
-static void fb_draw_line             (screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour, uint8_t g_mode);
-static void fb_fill_triangle         (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
-static void fb_draw_circle           (screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour);
-static void fb_fill_circle           (screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour);
-static void fb_fill_rectangle        (screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour);
-static void fb_fill_parallelogram    (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
-static void fb_draw_ellipse          (screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour);
-static void fb_fill_ellipse          (screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour);
-static void fb_fill_area             (screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode);
-static void fb_draw_arc              (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour);
-static void fb_fill_chord            (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour);
-static void fb_fill_sector           (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour);
-static void fb_move_copy_rectangle   (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move);
-static void fb_draw_character        (screen_mode_t *screen, font_t *font, int c, int *xp, int *yp, pixel_t colour);
-
-
 static void update_font_size() {
    // Calculate the font size, taking account of scale and spacing
    font_width  = font->width * font->scale_w + font->spacing;
@@ -282,9 +261,11 @@ static void reset_areas() {
    // left, bottom, right, top
    set_text_area(0, text_height - 1, text_width - 1, 0);
    // Set the graphics origin to 0,0
-   fb_set_graphics_origin(0, 0);
-   fb_set_graphics_plotmode(0);
-   fb_set_graphics_area(screen, 0, 0, (screen->width << screen->xeigfactor) - 1, (screen->height << screen->yeigfactor) - 1);
+   g_x_origin = 0;
+   g_y_origin = 0;
+   // Initialize the graphics area and default plot mode
+   prim_set_graphics_plotmode(0);
+   prim_set_graphics_area(screen, 0, 0, screen->width - 1, screen->height - 1);
    // Home the text cursor
    c_x_pos = text_x_min;
    c_y_pos = text_y_min;
@@ -601,227 +582,10 @@ static void change_mode(screen_mode_t *new_screen) {
 // Drawing Primitives
 // ==========================================================================
 
-static int calc_radius(int x1, int y1, int x2, int y2) {
-   return (int)(sqrtf((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
-}
-
-static void fb_set_graphics_origin(int16_t x, int16_t y) {
-   g_x_origin = x;
-   g_y_origin = y;
-}
-
-static void fb_set_graphics_plotmode (plotmode_t plotmode) {
-   prim_set_graphics_plotmode(plotmode);
-}
-
-static void fb_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Set the graphics area in screen pixels
-   prim_set_graphics_area(screen, x1, y1, x2, y2);
-}
-
-static void fb_set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
-   // Transform to screen coordinates
-   x = (x + g_x_origin) >> screen->xeigfactor;
-   y = (y + g_y_origin) >> screen->yeigfactor;
-   // Set the pixel
-   prim_set_pixel(screen, x, y, colour);
-}
-
-static void fb_clear_graphics_area(screen_mode_t *screen, pixel_t colour) {
-   prim_clear_graphics_area(screen, colour);
-}
-
-// Implementation of Bresenham's line drawing algorithm from here:
-// http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
-static void fb_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour, uint8_t g_mode) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Draw the line
-   prim_draw_line(screen, x1, y1, x2, y2, colour, g_mode);
-}
-
-static void fb_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-   // Fill the triangle
-   prim_fill_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-}
-
-static void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
-   int r = calc_radius(xc, yc, xr, yr);
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   // Draw the circle
-   if (screen->xeigfactor == screen->yeigfactor) {
-      // Square pixels
-      r >>= screen->xeigfactor;
-      prim_draw_circle(screen, xc, yc, r, colour);
-   } else {
-      int width  = r >> screen->xeigfactor;
-      int height = r >> screen->yeigfactor;
-      // Rectangular pixels
-      prim_draw_normal_ellipse(screen, xc, yc, width, height, colour);
-   }
-}
-
-static void fb_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
-   int r = calc_radius(xc, yc, xr, yr);
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   // Fill the circle
-   if (screen->xeigfactor == screen->yeigfactor) {
-      // Square pixels
-      r >>= screen->xeigfactor;
-      prim_fill_circle(screen, xc, yc, r, colour);
-   } else {
-      int width  = r >> screen->xeigfactor;
-      int height = r >> screen->yeigfactor;
-      // Rectangular pixels
-      prim_fill_normal_ellipse(screen, xc, yc, width, height, colour);
-   }
-}
-
-static void fb_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Fill the rectangle
-   prim_fill_rectangle(screen, x1, y1, x2, y2, colour);
-}
-
-static void fb_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-   int x4 = x3 - x2 + x1;
-   int y4 = y3 - y2 + y1;
-   // Fill the parallelogram
-   prim_fill_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-   prim_fill_triangle(screen, x1, y1, x4, y4, x3, y3, colour);
-}
-
-static void fb_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   width =         width  >> screen->xeigfactor;
-   height =       height  >> screen->yeigfactor;
-   // Draw the ellipse
-   if (shear) {
-      shear = shear >> screen->xeigfactor;
-      prim_draw_sheared_ellipse(screen, xc, yc, width, height, shear, colour);
-   } else {
-      prim_draw_normal_ellipse(screen, xc, yc, width, height, colour);
-   }
-}
-
-static void fb_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   width =         width  >> screen->xeigfactor;
-   height =       height  >> screen->yeigfactor;
-   // Fill the ellipse
-   if (shear) {
-      shear = shear >> screen->xeigfactor;
-      prim_fill_sheared_ellipse(screen, xc, yc, width, height, shear, colour);
-   } else {
-      prim_fill_normal_ellipse(screen, xc, yc, width, height, colour);
-   }
-}
-
-
-/*   Modes:
- * HL_LR_NB: horizontal line fill (left & right) to non-background - done
- * HL_RO_BG: Horizontal line fill (right only) to background - done
- * HL_LR_FG: Horizontal line fill (left & right) to foreground
- * HL_RO_NF: Horizontal line fill (right only) to non-foreground - done
- * AF_NONBG: Flood (area fill) to non-background
- * AF_TOFGD: Flood (area fill) to foreground
- */
-
-static void fb_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode) {
-   // Transform to screen coordinates
-   x = (x + g_x_origin) >> screen->xeigfactor;
-   y = (y + g_y_origin) >> screen->yeigfactor;
-   // Fill the area
-   prim_fill_area(screen, x, y, colour, mode);
-}
-
-
-static void fb_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Draw the arc
-   prim_draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
-}
-
-static void fb_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Fill the chord
-   prim_fill_chord(screen, xc, yc, x1, y1, x2, y2, colour);
-}
-
-static void fb_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Fill the sector
-   prim_fill_sector(screen, xc, yc, x1, y1, x2, y2, colour);
-}
-
-static void fb_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-   // Move/Copy the rectangle
-   prim_move_copy_rectangle(screen, x1, y1, x2, y2, x3, y3, move);
-}
-
 static void fb_draw_character(screen_mode_t *screen, font_t *font, int c, int *xp, int *yp, pixel_t colour) {
    // Transform to screen coordinates
-   int x_pos = ((*xp) + g_x_origin) >> screen->xeigfactor;
-   int y_pos = ((*yp) + g_y_origin) >> screen->yeigfactor;
+   int x_pos = (*xp) >> screen->xeigfactor;
+   int y_pos = (*yp) >> screen->yeigfactor;
    // Draw the character
    int x = x_pos;
    int y = y_pos;
@@ -853,8 +617,8 @@ static void fb_draw_character(screen_mode_t *screen, font_t *font, int c, int *x
       }
    }
    // Transform back to external coordinates
-   *xp = (x_pos << screen->xeigfactor) - g_x_origin;
-   *yp = (y_pos << screen->yeigfactor) - g_y_origin;
+   *xp = x_pos << screen->xeigfactor;
+   *yp = y_pos << screen->yeigfactor;
 }
 
 static void draw_character(int c, int invert) {
@@ -1099,7 +863,7 @@ static void vdu_13(uint8_t *buf) {
 }
 
 static void vdu_16(uint8_t *buf) {
-   fb_clear_graphics_area(screen, screen->get_colour(screen, g_bg_col));
+   prim_clear_graphics_area(screen, screen->get_colour(screen, g_bg_col));
 }
 
 static void vdu_17(uint8_t *buf) {
@@ -1120,7 +884,7 @@ static void vdu_17(uint8_t *buf) {
 static void vdu_18(uint8_t *buf) {
    uint8_t mode = buf[1];
    uint8_t col  = buf[2];
-   fb_set_graphics_plotmode(mode);
+   prim_set_graphics_plotmode(mode);
    if (col & 128) {
       g_bg_col = col & 63;
    } else {
@@ -1189,10 +953,16 @@ static void vdu_24(uint8_t *buf) {
    int16_t y1 = (int16_t)(buf[3] + (buf[4] << 8));
    int16_t x2 = (int16_t)(buf[5] + (buf[6] << 8));
    int16_t y2 = (int16_t)(buf[7] + (buf[8] << 8));
-   fb_set_graphics_area(screen, x1, y1, x2, y2);
 #ifdef DEBUG_VDU
    printf("graphics area %d %d %d %d\r\n", x1, y1, x2, y2);
 #endif
+   // Transform to screen coordinates
+   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
+   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
+   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
+   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+   // Set the clipping window
+   prim_set_graphics_area(screen, x1, y1, x2, y2);
 }
 
 static void vdu_25(uint8_t *buf) {
@@ -1207,8 +977,8 @@ static void vdu_25(uint8_t *buf) {
 #endif
 
    if (g_mode & 4) {
-      // Absolute position X, Y.
-      update_g_cursors(x, y);
+      // Relative to the graphics origin
+      update_g_cursors(g_x_origin + x, g_y_origin + y);
    } else {
       // Relative to the last point.
       update_g_cursors(g_x_pos + x, g_y_pos + y);
@@ -1228,6 +998,14 @@ static void vdu_25(uint8_t *buf) {
       break;
    }
 
+   // Transform plotting coordinates to screen coordinates
+   int x_pos       = g_x_pos       >> screen->xeigfactor;
+   int y_pos       = g_y_pos       >> screen->yeigfactor;
+   int x_pos_last1 = g_x_pos_last1 >> screen->xeigfactor;
+   int y_pos_last1 = g_y_pos_last1 >> screen->yeigfactor;
+   int x_pos_last2 = g_x_pos_last2 >> screen->xeigfactor;
+   int y_pos_last2 = g_y_pos_last2 >> screen->yeigfactor;
+
    if (col >= 0) {
 
       pixel_t colour = screen->get_colour(screen, col);
@@ -1236,119 +1014,114 @@ static void vdu_25(uint8_t *buf) {
 
       case 0:
          // Plot solid line (both endpoints included)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
+         prim_draw_line(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour, g_mode);
          break;
       case 8:
          // Plot solid line (final endpoint omitted)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
+         prim_draw_line(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour, g_mode);
          break;
       case 16:
          // Plot dotted line (both endpoints included)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
+         prim_draw_line(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour, g_mode);
          break;
       case 24:
          // Plot dotted line (final endpoint omitted)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
+         prim_draw_line(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour, g_mode);
          break;
       case 32:
          // Plot solid line (initial endpoint omitted)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
+         prim_draw_line(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour, g_mode);
          break;
       case 40:
          // Plot solid line (final endpoint omitted)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
+         prim_draw_line(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour, g_mode);
          break;
       case 48:
          // Plot dotted line (initial endpoint omitted)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
+         prim_draw_line(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour, g_mode);
          break;
       case 56:
          // Plot dotted line (final endpoint omitted)
-         fb_draw_line(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour, g_mode);
+         prim_draw_line(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour, g_mode);
          break;
       case 64:
          // Plot point
-         fb_set_pixel(screen, g_x_pos, g_y_pos, colour);
+         prim_set_pixel(screen, x_pos, y_pos, colour);
          break;
       case 72:
          // Horizontal line fill (left and right) to non-background
-         fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_NB);
+         prim_fill_area(screen, x_pos, y_pos, colour, HL_LR_NB);
          break;
       case 80:
          // Fill a triangle
-         fb_fill_triangle(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         prim_fill_triangle(screen, x_pos_last2, y_pos_last2, x_pos_last1, y_pos_last1, x_pos, y_pos, colour);
          break;
       case 88:
          // Horizontal line fill (right only) to background
-         fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_RO_BG);
+         prim_fill_area(screen, x_pos, y_pos, colour, HL_RO_BG);
          break;
       case 96:
          // Fill a rectangle
-         fb_fill_rectangle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         prim_fill_rectangle(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour);
         break;
       case 104:
          // Horizontal line fill (left and right) to foreground
-         fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_LR_FG);
+         prim_fill_area(screen, x_pos, y_pos, colour, HL_LR_FG);
          break;
       case 112:
          // Fill a parallelogram
-         fb_fill_parallelogram(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         prim_fill_parallelogram(screen, x_pos_last2, y_pos_last2, x_pos_last1, y_pos_last1, x_pos, y_pos, colour);
          break;
       case 120:
          // Horizontal line fill (right only) to non-foreground
-         fb_fill_area(screen, g_x_pos, g_y_pos, colour, HL_RO_NF);
+         prim_fill_area(screen, x_pos, y_pos, colour, HL_RO_NF);
          break;
       case 128:
          // Flood fill to non-background
-         fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_NONBG);
+         prim_fill_area(screen, x_pos, y_pos, colour, AF_NONBG);
          break;
       case 136:
          // Flood fill to foreground
-         fb_fill_area(screen, g_x_pos, g_y_pos, colour, AF_TOFGD);
+         prim_fill_area(screen, x_pos, y_pos, colour, AF_TOFGD);
          break;
       case 144:
          // Draw a circle outline
-         fb_draw_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         prim_draw_circle(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour);
          break;
       case 152:
          // Fill a circle
-         fb_fill_circle(screen, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         prim_fill_circle(screen, x_pos_last1, y_pos_last1, x_pos, y_pos, colour);
          break;
       case 160:
          // Plot a circular arc
-         fb_draw_arc(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         prim_draw_arc(screen, x_pos_last2, y_pos_last2, x_pos_last1, y_pos_last1, x_pos, y_pos, colour);
          break;
       case 168:
          // Plot a filled chord segment
-         fb_fill_chord(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         prim_fill_chord(screen, x_pos_last2, y_pos_last2, x_pos_last1, y_pos_last1, x_pos, y_pos, colour);
          break;
       case 176:
          // Plot a filled sector
-         fb_fill_sector(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, colour);
+         prim_fill_sector(screen, x_pos_last2, y_pos_last2, x_pos_last1, y_pos_last1, x_pos, y_pos, colour);
          break;
       case 184:
          // Move/Copy rectangle
-         fb_move_copy_rectangle(screen, g_x_pos_last2, g_y_pos_last2, g_x_pos_last1, g_y_pos_last1, g_x_pos, g_y_pos, ((g_mode & 2) == 0));
+         prim_move_copy_rectangle(screen, x_pos_last2, y_pos_last2, x_pos_last1, y_pos_last1, x_pos, y_pos, ((g_mode & 2) == 0));
          break;
       case 192:
          // Plot ellipse outline
-         skew = (g_y_pos > g_y_pos_last2) ? g_x_pos - g_x_pos_last2 : g_x_pos_last2 - g_x_pos;
-         fb_draw_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), skew, colour);
+         skew = (y_pos > y_pos_last2) ? x_pos - x_pos_last2 : x_pos_last2 - x_pos;
+         prim_draw_ellipse(screen, x_pos_last2, y_pos_last2, abs(x_pos_last1 - x_pos_last2), abs(y_pos - y_pos_last2), skew, colour);
          break;
       case 200:
          // Plot solid ellipse
-         skew = (g_y_pos > g_y_pos_last2) ? g_x_pos - g_x_pos_last2 : g_x_pos_last2 - g_x_pos;
-         fb_fill_ellipse(screen, g_x_pos_last2, g_y_pos_last2, abs(g_x_pos_last1 - g_x_pos_last2), abs(g_y_pos - g_y_pos_last2), skew, colour);
+         skew = (y_pos > y_pos_last2) ? x_pos - x_pos_last2 : x_pos_last2 - x_pos;
+         prim_fill_ellipse(screen, x_pos_last2, y_pos_last2, abs(x_pos_last1 - x_pos_last2), abs(y_pos - y_pos_last2), skew, colour);
          break;
       default:
          printf("Unsuppported plot code: %d\r\n", g_mode);
          break;
       }
-
-      // Roland also had implemented these outlines
-      // fb_draw_rectangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, colour);
-      // fb_draw_parallelogram(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
-      // fb_draw_triangle(screen, g_x_pos, g_y_pos, g_x_pos_last1, g_y_pos_last1, g_x_pos_last2, g_y_pos_last2, colour);
    }
 }
 
@@ -1373,9 +1146,8 @@ static void vdu_28(uint8_t *buf) {
 }
 
 static void vdu_29(uint8_t *buf) {
-   int16_t x = (int16_t)(buf[1] + (buf[2] << 8));
-   int16_t y = (int16_t)(buf[3] + (buf[4] << 8));
-   fb_set_graphics_origin(x, y);
+   g_x_origin = (int16_t)(buf[1] + (buf[2] << 8));
+   g_y_origin = (int16_t)(buf[3] + (buf[4] << 8));
 #ifdef DEBUG_VDU
    printf("graphics origin %d %d\r\n", x, y);
 #endif
