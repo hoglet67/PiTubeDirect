@@ -11,9 +11,6 @@
 
 static uint8_t g_plotmode;
 
-static int16_t g_x_origin;
-static int16_t g_y_origin;
-
 static int16_t g_x_min;
 static int16_t g_y_min;
 static int16_t g_x_max;
@@ -59,6 +56,18 @@ static int calc_radius(int x1, int y1, int x2, int y2) {
    return (int)(sqrtf((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
 }
 
+
+static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t colour) {
+   if (x1 > x2) {
+      int tmp = x1;
+      x1 = x2;
+      x2 = tmp;
+   }
+   for (int x = x1; x <= x2; x++) {
+      prim_set_pixel(screen, x, y, colour);
+   }
+}
+
 static pixel_t get_pixel(screen_mode_t *screen, int x, int y) {
    if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
       // Return the graphics background colour if off the screen
@@ -92,24 +101,140 @@ static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
    screen->set_pixel(screen, x, y, colour);
 }
 
-static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t colour) {
-   if (x1 > x2) {
-      int tmp = x1;
-      x1 = x2;
-      x2 = tmp;
+static inline int max(int a, int b) {
+   return (a > b) ? a : b;
+}
+
+static inline int min(int a, int b) {
+   return (a < b) ? a : b;
+}
+
+static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+   float invslope1 = ((float) (x2 - x1)) / ((float) (y1 - y2));
+   float invslope2 = ((float) (x3 - x1)) / ((float) (y1 - y3));
+   float curx1 = x1;
+   float curx2 = x1;
+   for (int scanlineY = y1; scanlineY >= y2; scanlineY--) {
+      draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
+      curx1 += invslope1;
+      curx2 += invslope2;
    }
-   for (int x = x1; x <= x2; x++) {
-      set_pixel(screen, x, y, colour);
+}
+
+static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+   float invslope1 = ((float) (x3 - x1)) / ((float) (y1 - y3));
+   float invslope2 = ((float) (x3 - x2)) / ((float) (y2 - y3));
+   float curx1 = x3;
+   float curx2 = x3;
+   for (int scanlineY = y3; scanlineY < y1; scanlineY++) {
+      draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
+      curx1 -= invslope1;
+      curx2 -= invslope2;
    }
+}
+
+// Rodders: Arc drawing routines, used by chord and sector fills
+static int arc_quadrant(int x, int y) {
+   if (x >= 0) {
+      if (y >= 0) {
+         return 0;
+      } else {
+         return 3;
+      }
+   } else {
+      if (y >= 0) {
+         return 1;
+      } else {
+         return 2;
+      }
+   }
+}
+
+static int arc_point(int q, quadrant_t state, int x, int y, int xs, int ys, int xe, int ye) {
+   if (state == Q_ALL) {
+      return TRUE;
+   }
+   if (state == Q_NONE) {
+      return FALSE;
+   }
+   switch (q) {
+   case 0:
+      if ((state == Q_START || state == Q_BOTH) && x <= xs && y >= ys) {
+         return TRUE;
+      }
+      if ((state == Q_END || state == Q_BOTH) && x >= xe && y <= ye) {
+         return TRUE;
+      }
+      break;
+   case 1:
+      if ((state == Q_START || state == Q_BOTH) && x <= xs && y <= ys) {
+         return TRUE;
+      }
+      if ((state == Q_END || state == Q_BOTH) && x >= xe && y >= ye) {
+         return TRUE;
+      }
+      break;
+   case 2:
+      if ((state == Q_START || state == Q_BOTH) && x >= xs && y <= ys) {
+         return TRUE;
+      }
+      if ((state == Q_END || state == Q_BOTH) && x <= xe && y >= ye) {
+         return TRUE;
+      }
+      break;
+   case 3:
+      if ((state == Q_START || state == Q_BOTH) && x >= xs && y >= ys) {
+         return TRUE;
+      }
+      if ((state == Q_END || state == Q_BOTH) && x <= xe && y <= ye) {
+         return TRUE;
+      }
+      break;
+   }
+   return FALSE;
+}
+
+// ==========================================================================
+// Public methods
+// ==========================================================================
+
+void prim_set_graphics_plotmode(uint8_t plotmode) {
+   g_plotmode = plotmode;
+}
+
+void prim_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+   // Reject illegal windows (this is what OS 1.20 does)
+   if (x1 < 0 || x1 >= screen->width || y1 < 0 || y1 >= screen->height) {
+      return;
+   }
+   if (x2 < 0 || x2 >= screen->width || y2 < 0 || y2 >= screen->height) {
+      return;
+   }
+   if (x1 >= x2 || y1 >= y2) {
+      return;
+   }
+   // Update the window
+   g_x_min = x1;
+   g_y_min = y1;
+   g_x_max = x2;
+   g_y_max = y2;
+}
+
+void prim_clear_graphics_area(screen_mode_t *screen, pixel_t colour) {
+   prim_fill_rectangle(screen, g_x_min, g_y_min, g_x_max, g_y_max, colour);
+}
+
+void prim_set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
+   set_pixel(screen, x, y, colour);
 }
 
 // Rodders: Line mode support
 // Implementation of Bresenham's line drawing algorithm from here:
 // http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
-static void draw_line_with_mode(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour, uint8_t g_mode) {
+void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour, uint8_t linemode) {
    int w = x2 - x1;
    int h = y2 - y1;
-   int mask = (g_mode & 0x38);
+   int mask = (linemode & 0x38);
    int dotted =     (mask == 0x10 || mask == 0x18 || mask == 0x30 || mask == 0x38); // Dotted line
    int omit_first = (mask == 0x20 || mask == 0x28 || mask == 0x30 || mask == 0x38); // Omit first
    int omit_last =  (mask == 0x08 || mask == 0x18 || mask == 0x28 || mask == 0x38); // Omit last
@@ -168,11 +293,7 @@ static void draw_line_with_mode(screen_mode_t *screen, int x1, int y1, int x2, i
    }
 }
 
-static void draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
-   draw_line_with_mode(screen, x1, y1, x2, y2, colour, 0);
-}
-
-static void flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixel_t ref_col, int c) {
+void prim_flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixel_t ref_col, int c) {
 #ifdef DEBUG_VDU
    int max = 0;
    printf("Flood fill @ %d,%d with col %"PRIx32"; initial pixel %"PRIx32"\r\n", x, y, fill_col, get_pixel(screen, x, y));
@@ -243,7 +364,7 @@ static void flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pi
 #endif
 }
 
-static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode) {
+void prim_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode) {
    int x_left = x;
    int x_right = x;
 
@@ -305,11 +426,11 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
       break;
 
    case AF_NONBG:
-      flood_fill(screen, x, y, colour, bg_col, 1);
+      prim_flood_fill(screen, x, y, colour, bg_col, 1);
       break;
 
    case AF_TOFGD:
-      flood_fill(screen, x, y, colour, fg_col, 0);
+      prim_flood_fill(screen, x, y, colour, fg_col, 0);
       break;
 
    default:
@@ -319,7 +440,7 @@ static void fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_
 }
 
 
-static void draw_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
+void prim_draw_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
    int x = 0;
    int y = r;
    int p = 3 - (2 * r);
@@ -351,7 +472,7 @@ static void draw_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t co
    }
 }
 
-static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
+void prim_fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
    int x = 0;
    int y = r;
    int p = 3 - (2 * r);
@@ -377,7 +498,7 @@ static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t co
    }
 }
 
-static void draw_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+void prim_draw_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
    // Draw the ellipse
    int a2 = width * width;
    int b2 = height * height;
@@ -413,15 +534,7 @@ static void draw_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width
    }
 }
 
-static inline int max(int a, int b) {
-   return (a > b) ? a : b;
-}
-
-static inline int min(int a, int b) {
-   return (a < b) ? a : b;
-}
-
-static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+void prim_draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
    // Draw the ellipse
    if (height == 0) {
       draw_hline(screen, xc - width, xc + width, yc, colour);
@@ -477,7 +590,7 @@ static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 }
 
 #if 0
-static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+void prim_draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
    // Draw the ellipse
    int a2 = width * width;
    int b2 = height * height;
@@ -516,7 +629,7 @@ static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 }
 #endif
 
-static void fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+void prim_fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
    int a2 = width * width;
    // Fill the ellipse
    int b2 = height * height;
@@ -546,7 +659,7 @@ static void fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width
    }
 }
 
-static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+void prim_fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
    // Fill the ellipse
    if (height == 0) {
       draw_hline(screen, xc - width, xc + width, yc, colour);
@@ -575,7 +688,7 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 }
 
 #if 0
-static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+void prim_fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
    int a2 = width * width;
    // Fill the ellipse
    int b2 = height * height;
@@ -608,31 +721,7 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 }
 #endif
 
-static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   float invslope1 = ((float) (x2 - x1)) / ((float) (y1 - y2));
-   float invslope2 = ((float) (x3 - x1)) / ((float) (y1 - y3));
-   float curx1 = x1;
-   float curx2 = x1;
-   for (int scanlineY = y1; scanlineY >= y2; scanlineY--) {
-      draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
-      curx1 += invslope1;
-      curx2 += invslope2;
-   }
-}
-
-static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   float invslope1 = ((float) (x3 - x1)) / ((float) (y1 - y3));
-   float invslope2 = ((float) (x3 - x2)) / ((float) (y2 - y3));
-   float curx1 = x3;
-   float curx2 = x3;
-   for (int scanlineY = y3; scanlineY < y1; scanlineY++) {
-      draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
-      curx1 -= invslope1;
-      curx2 -= invslope2;
-   }
-}
-
-static void fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
    int tmp;
 #ifdef USE_V3D
    if (screen->bpp > 8) {
@@ -678,73 +767,12 @@ static void fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2,
 #endif
 }
 
-// Rodders: Arc drawing routines, used by chord and sector fills
-static int arc_quadrant(int x, int y) {
-   if (x >= 0) {
-      if (y >= 0) {
-         return 0;
-      } else {
-         return 3;
-      }
-   } else {
-      if (y >= 0) {
-         return 1;
-      } else {
-         return 2;
-      }
-   }
-}
-
-static int arc_point(int q, quadrant_t state, int x, int y, int xs, int ys, int xe, int ye) {
-   if (state == Q_ALL) {
-      return TRUE;
-   }
-   if (state == Q_NONE) {
-      return FALSE;
-   }
-   switch (q) {
-   case 0:
-      if ((state == Q_START || state == Q_BOTH) && x <= xs && y >= ys) {
-         return TRUE;
-      }
-      if ((state == Q_END || state == Q_BOTH) && x >= xe && y <= ye) {
-         return TRUE;
-      }
-      break;
-   case 1:
-      if ((state == Q_START || state == Q_BOTH) && x <= xs && y <= ys) {
-         return TRUE;
-      }
-      if ((state == Q_END || state == Q_BOTH) && x >= xe && y >= ye) {
-         return TRUE;
-      }
-      break;
-   case 2:
-      if ((state == Q_START || state == Q_BOTH) && x >= xs && y <= ys) {
-         return TRUE;
-      }
-      if ((state == Q_END || state == Q_BOTH) && x <= xe && y >= ye) {
-         return TRUE;
-      }
-      break;
-   case 3:
-      if ((state == Q_START || state == Q_BOTH) && x >= xs && y >= ys) {
-         return TRUE;
-      }
-      if ((state == Q_END || state == Q_BOTH) && x <= xe && y <= ye) {
-         return TRUE;
-      }
-      break;
-   }
-   return FALSE;
-}
-
 // Rodders: Draw arc using modified Bresenham algorithm
 // Finds start and end quadrants and masks plotting of points
 
 // TODO: Update this to work with non-square pixels
 
-static void draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, unsigned int colour) {
+void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, unsigned int colour) {
    int radius = calc_radius(xc, yc, x1, y1);
    int r2 = calc_radius(xc, yc, x2, y2);
 
@@ -825,9 +853,51 @@ static void draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
    arc_end_y = y3;
 }
 
+void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
+   // Draw the arc that bounds the chord
+   prim_draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
+   // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
+   int x3 = arc_end_x;
+   int y3 = arc_end_y;
+   // Draw the chord
+   prim_draw_line(screen, x1, y1, x3, y3, colour, 0);
+   // Find the mid point of the chord
+   int xf = x1 + (x3 - x1) / 2;
+   int yf = y1 + (y3 - y1) / 2;
+   // Move one pixel towards the centre
+   if (xf < xc) {
+      xf--;
+   } else if (xf > xc) {
+      xf++;
+   }
+   if (yf < yc) {
+      yf--;
+   } else if (yf > yc) {
+      yf++;
+   }
+   // Fill the interior
+   prim_flood_fill(screen, xf, yf, colour, colour, 0);
+}
+
+void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
+   // Draw the arc that bounds the sector
+   prim_draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
+   // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
+   int x3 = arc_end_x;
+   int y3 = arc_end_y;
+   // Draw the lines from the arc endpoints back to the center
+   prim_draw_line(screen, xc, yc, x1, y1, colour, 0);
+   prim_draw_line(screen, xc, yc, x3, y3, colour, 0);
+   // Find a point inside the sector
+   int xf = x1 + (x3 - x1) / 2;
+   int yf = y1 + (y3 - y1) / 2;
+   // Fill the interior
+   prim_flood_fill(screen, xf, yf, colour, colour, 0);
+}
+
 // Rodders: Bit Blit
 // TODO: implement move (the current code only does copy)
-void move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move) {
+void prim_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move) {
    uint8_t *src;
    uint8_t *dst;
    // Make x1, y1 the bottom left, and x2, y2 the top right
@@ -864,360 +934,14 @@ void move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, 
    }
 }
 
-// ==========================================================================
-// Public methods - run at external resolution
-// ==========================================================================
-
-void fb_set_graphics_origin(int16_t x, int16_t y) {
-   g_x_origin = x;
-   g_y_origin = y;
-}
-
-void fb_set_graphics_plotmode(uint8_t plotmode) {
-   g_plotmode = plotmode;
-}
-
-void fb_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Reject illegal windows (this is what OS 1.20 does)
-   if (x1 < 0 || x1 >= screen->width || y1 < 0 || y1 >= screen->height) {
-      return;
-   }
-   if (x2 < 0 || x2 >= screen->width || y2 < 0 || y2 >= screen->height) {
-      return;
-   }
-   if (x1 >= x2 || y1 >= y2) {
-      return;
-   }
-   // Update the window
-   g_x_min = x1;
-   g_y_min = y1;
-   g_x_max = x2;
-   g_y_max = y2;
-}
-
-void fb_set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
-   // Transform to screen coordinates
-   x = (x + g_x_origin) >> screen->xeigfactor;
-   y = (y + g_y_origin) >> screen->yeigfactor;
-   // Set the pixel
-   set_pixel(screen, x, y, colour);
-}
-
-void fb_clear_graphics_area(screen_mode_t *screen, pixel_t colour) {
-   // g_x_min/max and g_y_min/max are in screen cordinates
-   for (int y = g_y_min; y <= g_y_max; y++) {
-      for (int x = g_x_min; x <= g_x_max; x++) {
-         set_pixel(screen, x, y, colour);
-      }
-   }
-}
-
-// Implementation of Bresenham's line drawing algorithm from here:
-// http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
-void fb_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour, uint8_t g_mode) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Draw the line
-   draw_line_with_mode(screen, x1, y1, x2, y2, colour, g_mode);
-}
-
-void fb_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-   // Fill the triangle
-   fill_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-}
-
-void fb_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-   // Draw the triangle
-   draw_line(screen, x1, y1, x2, y2, colour);
-   draw_line(screen, x2, y2, x3, y3, colour);
-   draw_line(screen, x3, y3, x1, y1, colour);
-}
-
-void fb_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
-   int r = calc_radius(xc, yc, xr, yr);
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   // Draw the circle
-   if (screen->xeigfactor == screen->yeigfactor) {
-      // Square pixels
-      r >>= screen->xeigfactor;
-      draw_circle(screen, xc, yc, r, colour);
-   } else {
-      int width  = r >> screen->xeigfactor;
-      int height = r >> screen->yeigfactor;
-      // Rectangular pixels
-      draw_normal_ellipse(screen, xc, yc, width, height, colour);
-   }
-}
-
-void fb_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
-   int r = calc_radius(xc, yc, xr, yr);
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   // Fill the circle
-   if (screen->xeigfactor == screen->yeigfactor) {
-      // Square pixels
-      r >>= screen->xeigfactor;
-      fill_circle(screen, xc, yc, r, colour);
-   } else {
-      int width  = r >> screen->xeigfactor;
-      int height = r >> screen->yeigfactor;
-      // Rectangular pixels
-      fill_normal_ellipse(screen, xc, yc, width, height, colour);
-   }
-}
-
-void fb_draw_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Draw the rectangle
-   draw_line(screen, x1, y1, x2, y1, colour);
-   draw_line(screen, x2, y1, x2, y2, colour);
-   draw_line(screen, x2, y2, x1, y2, colour);
-   draw_line(screen, x1, y2, x1, y1, colour);
-}
-
-void fb_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
+void prim_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
    // Ensure y1 < y2
    if (y1 > y2) {
       int tmp = y1;
       y1 = y2;
       y2 = tmp;
    }
-   // Fill the rectangle
    for (int y = y1; y <= y2; y++) {
       draw_hline(screen, x1, x2, y, colour);
    }
-}
-
-void fb_draw_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-   int x4 = x3 - x2 + x1;
-   int y4 = y3 - y2 + y1;
-   // Draw the parallelogram
-   draw_line(screen, x1, y1, x2, y2, colour);
-   draw_line(screen, x2, y2, x3, y3, colour);
-   draw_line(screen, x3, y3, x4, y4, colour);
-   draw_line(screen, x4, y4, x1, y1, colour);
-}
-
-void fb_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-   int x4 = x3 - x2 + x1;
-   int y4 = y3 - y2 + y1;
-   // Fill the parallelogram
-   fill_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-   fill_triangle(screen, x1, y1, x4, y4, x3, y3, colour);
-}
-
-void fb_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   width =         width  >> screen->xeigfactor;
-   height =       height  >> screen->yeigfactor;
-   // Draw the ellipse
-   if (shear) {
-      shear = shear >> screen->xeigfactor;
-      draw_sheared_ellipse(screen, xc, yc, width, height, shear, colour);
-   } else {
-      draw_normal_ellipse(screen, xc, yc, width, height, colour);
-   }
-}
-
-void fb_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   width =         width  >> screen->xeigfactor;
-   height =       height  >> screen->yeigfactor;
-   // Fill the ellipse
-   if (shear) {
-      shear = shear >> screen->xeigfactor;
-      fill_sheared_ellipse(screen, xc, yc, width, height, shear, colour);
-   } else {
-      fill_normal_ellipse(screen, xc, yc, width, height, colour);
-   }
-}
-
-
-/*   Modes:
- * HL_LR_NB: horizontal line fill (left & right) to non-background - done
- * HL_RO_BG: Horizontal line fill (right only) to background - done
- * HL_LR_FG: Horizontal line fill (left & right) to foreground
- * HL_RO_NF: Horizontal line fill (right only) to non-foreground - done
- * AF_NONBG: Flood (area fill) to non-background
- * AF_TOFGD: Flood (area fill) to foreground
- */
-
-void fb_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode) {
-   // Transform to screen coordinates
-   x = (x + g_x_origin) >> screen->xeigfactor;
-   y = (y + g_y_origin) >> screen->yeigfactor;
-   // Fill the area
-   fill_area(screen, x, y, colour, mode);
-}
-
-
-void fb_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Draw the arc
-   draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
-}
-
-void fb_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Draw the arc that bounds the chord
-   draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
-   // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
-   int x3 = arc_end_x;
-   int y3 = arc_end_y;
-   // Draw the chord
-   draw_line(screen, x1, y1, x3, y3, colour);
-   // Find the mid point of the chord
-   int xf = x1 + (x3 - x1) / 2;
-   int yf = y1 + (y3 - y1) / 2;
-   // Move one pixel towards the centre
-   if (xf < xc) {
-      xf--;
-   } else if (xf > xc) {
-      xf++;
-   }
-   if (yf < yc) {
-      yf--;
-   } else if (yf > yc) {
-      yf++;
-   }
-   // Fill the interior
-   flood_fill(screen, xf, yf, colour, colour, 0);
-}
-
-void fb_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
-   // Transform to screen coordinates
-   xc = (xc + g_x_origin) >> screen->xeigfactor;
-   yc = (yc + g_y_origin) >> screen->yeigfactor;
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   // Draw the arc that bounds the sector
-   draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
-   // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
-   int x3 = arc_end_x;
-   int y3 = arc_end_y;
-   // Draw the lines from the arc endpoints back to the center
-   draw_line(screen, xc, yc, x1, y1, colour);
-   draw_line(screen, xc, yc, x3, y3, colour);
-   // Find a point inside the sector
-   int xf = x1 + (x3 - x1) / 2;
-   int yf = y1 + (y3 - y1) / 2;
-   // Fill the interior
-   flood_fill(screen, xf, yf, colour, colour, 0);
-}
-
-void fb_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move) {
-   // Transform to screen coordinates
-   x1 = (x1 + g_x_origin) >> screen->xeigfactor;
-   y1 = (y1 + g_y_origin) >> screen->yeigfactor;
-   x2 = (x2 + g_x_origin) >> screen->xeigfactor;
-   y2 = (y2 + g_y_origin) >> screen->yeigfactor;
-   x3 = (x3 + g_x_origin) >> screen->xeigfactor;
-   y3 = (y3 + g_y_origin) >> screen->yeigfactor;
-   // Move/Copy the rectangle
-   move_copy_rectangle(screen, x1, y1, x2, y2, x3, y3, move);
-}
-
-void fb_draw_character(screen_mode_t *screen, font_t *font, int c, int *xp, int *yp, pixel_t colour) {
-   // Transform to screen coordinates
-   int x_pos = ((*xp) + g_x_origin) >> screen->xeigfactor;
-   int y_pos = ((*yp) + g_y_origin) >> screen->yeigfactor;
-   // Draw the character
-   int x = x_pos;
-   int y = y_pos;
-   int p = c * font->bytes_per_char;
-   for (int i = 0; i < font->height; i++) {
-      // TODO: this is using the original font, so won't be overridden bu VDU 23
-      int data = font->data[p++];
-      for (int j = 0; j < font->width; j++) {
-         if (data & 0x80) {
-            for (int sx = 0; sx < font->scale_w; sx++) {
-               for (int sy = 0; sy < font->scale_h; sy++) {
-                  set_pixel(screen, x + sx, y + sy, colour);
-               }
-            }
-         }
-         x += font->scale_w;
-         data <<= 1;
-      }
-      x = x_pos;
-      y -= font->scale_h;
-   }
-   // Determine the next character position
-   x_pos += font->width * font->scale_w + font->spacing;
-   if (x_pos >= screen->width) {
-      x_pos -= screen->width;
-      y_pos -= font->height * font->scale_h + font->spacing;
-      if (y_pos < 0) {
-         y_pos += screen->height;
-      }
-   }
-   // Transform back to external coordinates
-   *xp = (x_pos << screen->xeigfactor) - g_x_origin;
-   *yp = (y_pos << screen->yeigfactor) - g_y_origin;
 }
