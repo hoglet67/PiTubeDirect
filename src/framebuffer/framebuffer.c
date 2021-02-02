@@ -175,7 +175,6 @@ static void cursor_up();
 static void cursor_down();
 static void cursor_col0();
 static void cursor_home();
-static void cursor_next();
 static void update_g_cursors(int16_t x, int16_t y);
 static void draw_character(int c, int invert);
 static void draw_character_and_advance(int c);
@@ -512,6 +511,7 @@ static void cursor_right() {
       c_x_pos++;
    } else {
       c_x_pos = text_x_min;
+      cursor_down();
    }
    show_cursor();
 }
@@ -549,18 +549,6 @@ static void cursor_home() {
    c_y_pos = text_y_min;
    show_cursor();
 }
-
-static void cursor_next() {
-   hide_cursor();
-   if (c_x_pos < text_x_max) {
-      c_x_pos++;
-   } else {
-      c_x_pos = text_x_min;
-      cursor_down();
-   }
-   show_cursor();
-}
-
 
 static void update_g_cursors(int16_t x, int16_t y) {
    g_x_pos_last2 = g_x_pos_last1;
@@ -613,7 +601,7 @@ static void draw_character_and_advance(int c) {
    show_cursor();
 
    // Advance the drawing position
-   cursor_next();
+   cursor_right();
 }
 
 // ==========================================================================
