@@ -91,8 +91,8 @@ typedef enum {
     TAG_GET_PALETTE = 0x4000B,
     TAG_TEST_PALETTE = 0x4400B,
     TAG_SET_PALETTE = 0x4800B,
-    TAG_SET_CURSOR_INFO = 0x8011,
-    TAG_SET_CURSOR_STATE = 0x8010
+    TAG_SET_CURSOR_INFO = 0x8010,
+    TAG_SET_CURSOR_STATE = 0x8011
 
     } rpi_mailbox_tag_t;
 

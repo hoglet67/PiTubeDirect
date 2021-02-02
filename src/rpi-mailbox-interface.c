@@ -208,6 +208,26 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             }
             break;
 
+        case TAG_SET_CURSOR_INFO:
+            pt[pt_index++] = 24;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = va_arg( vl, int ); /* Width */
+            pt[pt_index++] = va_arg( vl, int ); /* Height */
+            pt[pt_index++] = va_arg( vl, int ); /* Unused */
+            pt[pt_index++] = va_arg( vl, int ); /* Pointer to pixels */
+            pt[pt_index++] = va_arg( vl, int ); /* hotspot X */
+            pt[pt_index++] = va_arg( vl, int ); /* hotspot Y */
+            break;
+
+        case TAG_SET_CURSOR_STATE:
+            pt[pt_index++] = 16;
+            pt[pt_index++] = 0; /* Request */
+            pt[pt_index++] = va_arg( vl, int ); /* Enable */
+            pt[pt_index++] = va_arg( vl, int ); /* X */
+            pt[pt_index++] = va_arg( vl, int ); /* Y */
+            pt[pt_index++] = va_arg( vl, int ); /* Flags */
+            break;
+
         default:
             /* Unsupported tags, just remove the tag from the list */
             pt_index--;
