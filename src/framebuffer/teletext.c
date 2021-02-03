@@ -76,14 +76,36 @@ screen_mode_t *tt_get_screen_mode() {
 
 // This is called on initialization, and VDU 20 to set the default palette
 
+// Set up MODE 7
 static void tt_reset(screen_mode_t *screen) {
-   // Set up MODE 7
-   tt.size_w = tt.char_w * 5 / 2;
-   tt.size_h = tt.char_h * 2;
-   int width = tt.columns * tt.size_w;
-   int height = tt.rows * tt.size_h;
-   tt.scale_w = screen->width / width;
-   tt.scale_h = screen->height / height;
+   // TODO: Fix hardcoded scale factors
+   //
+   // The below code works as follows:
+   //
+   // - The SAA5050 font is 6x10
+   //
+   // - tt_put_block renders each font pixel as a 2 x 2 block of cells, with the following sizes:
+   //   - TL cell = 2 px x tt.scale_h px
+   //   - TR cell = 3 px x tt.scale_h px
+   //   - BL cell = 2 px x tt.scale_h px
+   //   - BR cell = 3 px x tt.scale_h px
+   //   - (i.e. a total of 5 pixels horizontally and 2 * h_scale pixels vertically)
+   //
+   // - So he display ends up at:
+   //   - 40 *  6 * (5          ) = 1200
+   //   - 25 * 10 * (2 * h_scale) = 1000
+   //
+   // - And each character ends up 30 * 40 px
+   //
+   // It would be nice to allow the frame buffer to be 480x500, and then rely on the Pi to
+   // scale this up to the physical display, as it has a choice of several scaling kernels.
+   //
+   tt.size_w = tt.char_w * 5 / 2;        // 15
+   tt.size_h = tt.char_h * 2;            // 20
+   int width = tt.columns * tt.size_w;   // 600
+   int height = tt.rows * tt.size_h;     // 500
+   tt.scale_w = screen->width / width;   // 2
+   tt.scale_h = screen->height / height; // 2
    tt.xstart = 0;
    tt.ystart = screen->height - 1;
    //fb_set_char_metrics(tt.size_w, tt.size_h, tt.scale_w, tt.scale_h);
@@ -284,8 +306,10 @@ static inline void tt_put_block(screen_mode_t *screen, int x, int y, tt_block_t 
          for (int x2 = 0; x2 < 2; x2++) {
             int code = (x2 + 1) * (y2 * 3 + 1);
             unsigned int colour = (map & code) ? tt.fgd_colour : tt.bgd_colour;
+            // TODO: Fix hardcoded scale factors
             int xscale = (x2 == 0) ? 2 : 3;
             for (int xs = 0; xs < xscale; xs++) {
+               // TODO: Fix hardcoded scale factors
                screen->set_pixel(screen, x + x2 * 2 + xs, y - y2 * yscale - ys, colour);
             }
          }
@@ -298,7 +322,6 @@ static inline int tt_pixel_set(int p, int x, int y) {
    return ((teletext_screen_mode.font->buffer[p + y] >> (tt.char_w - x - 1)) & 1);
 }
 
-// TODO: Font is ignored for now; the teletext font is hard coded
 static void tt_draw_character(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
    if (col == 0) {
       tt_reset_line_state();
@@ -349,6 +372,7 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
       }
       for (int py = py_from; py < py_to; py++, y -= yinc) {
          int x = xoffset;
+         // TODO: Fix hardcoded scale factors
          for (int px = 0; px < tt.char_w; px++, x += (tt.scale_w * 5 / 2)) {
             int map = TT_BLOCK_NONE;
             if (tt_pixel_set(p, px, py))
