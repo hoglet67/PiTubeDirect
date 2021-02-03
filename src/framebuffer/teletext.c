@@ -16,8 +16,8 @@ static void tt_draw_character(screen_mode_t *screen, int c, int col, int row, pi
 
 static screen_mode_t teletext_screen_mode = {
    .mode_num       = 7,
-   .width          = 480, // 40 * 12
-   .height         = 500, // 25 * 16
+   .width          = 1280,
+   .height         = 1024,
    .xeigfactor     = 1,
    .yeigfactor     = 1,
    .bpp            = 8,
@@ -382,8 +382,8 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
 screen_mode_t *tt_get_screen_mode() {
    // This screen mode always uses the SAA5050 font
    teletext_screen_mode.font = get_font_by_name("SAA5050");
-   // The font is 6x10 but is displayed at 12x20 dues to character rounding
-   teletext_screen_mode.font->scale_w = 2;
-   teletext_screen_mode.font->scale_h = 2;
+   // Note: these metrics give a 42 x 25 display
+   teletext_screen_mode.font->scale_w = 5;
+   teletext_screen_mode.font->scale_h = 4;
    return &teletext_screen_mode;
 }
