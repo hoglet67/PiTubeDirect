@@ -3,6 +3,7 @@
 
 #include "../startup.h"
 #include "../rpi-mailbox-interface.h"
+#include "../rpi-base.h"
 
 #include "screen_modes.h"
 #include "teletext.h"
@@ -10,6 +11,10 @@
 #ifdef USE_V3D
 #include "v3d.h"
 #endif
+
+// Registers to read the physical screen size
+#define PIXELVALVE2_HORZB (volatile uint32_t *)(PERIPHERAL_BASE + 0x807010)
+#define PIXELVALVE2_VERTB (volatile uint32_t *)(PERIPHERAL_BASE + 0x807018)
 
 unsigned char* fb = NULL;
 
@@ -133,9 +138,33 @@ static void reset_screen(screen_mode_t *screen) {
     }
 }
 
+
+static int get_hdisplay() {
+    return (*PIXELVALVE2_HORZB) & 0xFFFF;
+}
+
+static int get_vdisplay() {
+    return (*PIXELVALVE2_VERTB) & 0xFFFF;
+}
+
 static void init_screen(screen_mode_t *screen) {
 
     rpi_mailbox_property_t *mp;
+
+    // Calculate optimal overscan
+    int h_display = get_hdisplay();
+    int v_display = get_vdisplay();
+    // TODO: this can be greatly improved!
+    // It assumes you want to fill (or nearly fill) a 1280x1024 window on your physical display
+    // It will work really badly with an 800x600 screen mode, say on a 1600x1200 monitor
+    int h_scale = 1280 / screen->width;
+    int v_scale = 1024 / screen->height;
+    int h_overscan = (h_display - h_scale * screen->width) / 2;
+    int v_overscan = (v_display - v_scale * screen->height) / 2;
+
+    printf(" display: %d x %d\r\n", h_display, v_display);
+    printf("   scale: %d x %d\r\n", h_scale, v_scale);
+    printf("overscan: %d x %d\r\n", h_overscan, v_overscan);
 
     /* Initialise a framebuffer... */
     RPI_PropertyInit();
@@ -146,6 +175,7 @@ static void init_screen(screen_mode_t *screen) {
     RPI_PropertyAddTag(TAG_GET_PITCH );
     RPI_PropertyAddTag(TAG_GET_PHYSICAL_SIZE );
     RPI_PropertyAddTag(TAG_GET_DEPTH );
+    RPI_PropertyAddTag(TAG_SET_OVERSCAN, v_overscan, v_overscan, h_overscan, h_overscan);
     RPI_PropertyProcess();
 
     if( ( mp = RPI_PropertyGet( TAG_GET_PHYSICAL_SIZE ) ) )
@@ -406,7 +436,7 @@ static screen_mode_t screen_modes[] = {
    {
       .mode_num      = 9,
       .width         = 320,
-      .height        = 25,
+      .height        = 256,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,

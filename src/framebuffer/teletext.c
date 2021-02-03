@@ -9,24 +9,6 @@
 #include "teletext.h"
 #include "screen_modes.h"
 
-// Screen Mode definition
-static void tt_reset(screen_mode_t *screen);
-static void tt_flash(screen_mode_t *screen);
-static void tt_draw_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
-
-static screen_mode_t teletext_screen_mode = {
-   .mode_num       = 7,
-   .width          = 1280,
-   .height         = 1024,
-   .xeigfactor     = 1,
-   .yeigfactor     = 1,
-   .bpp            = 8,
-   .ncolour        = 255,
-   .reset          = tt_reset,
-   .flash          = tt_flash,
-   .draw_character = tt_draw_character
-};
-
 // Main structure holding Teletext state
 struct {
    tt_colour_t fgd_colour;
@@ -65,6 +47,32 @@ struct{
 } tt_flash_region [TT_MAX_FLASH_REGION];
 int tt_no_flash_region = 0;
 
+// Screen Mode definition
+static void tt_reset(screen_mode_t *screen);
+static void tt_flash(screen_mode_t *screen);
+static void tt_draw_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
+
+static screen_mode_t teletext_screen_mode = {
+   .mode_num       = 7,
+   .width          = 1200,
+   .height         = 1000,
+   .xeigfactor     = 1,
+   .yeigfactor     = 1,
+   .bpp            = 8,
+   .ncolour        = 255,
+   .reset          = tt_reset,
+   .flash          = tt_flash,
+   .draw_character = tt_draw_character
+};
+
+screen_mode_t *tt_get_screen_mode() {
+   // This screen mode always uses the SAA5050 font
+   teletext_screen_mode.font = get_font_by_name("SAA5050");
+   // Note: these metrics give a 40 x 25 display
+   teletext_screen_mode.font->scale_w = 5;
+   teletext_screen_mode.font->scale_h = 4;
+   return &teletext_screen_mode;
+}
 
 // This is called on initialization, and VDU 20 to set the default palette
 
@@ -377,13 +385,4 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
       }
    }
    tt_process_controls_after(c, col, row);
-}
-
-screen_mode_t *tt_get_screen_mode() {
-   // This screen mode always uses the SAA5050 font
-   teletext_screen_mode.font = get_font_by_name("SAA5050");
-   // Note: these metrics give a 42 x 25 display
-   teletext_screen_mode.font->scale_w = 5;
-   teletext_screen_mode.font->scale_h = 4;
-   return &teletext_screen_mode;
 }

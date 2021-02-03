@@ -14,12 +14,6 @@ framebuffer_aspect=-1
 # Disable default overscan values
 disable_overscan=1
 
-# Assuming 1920x1080, these give a display window of 1280x1024
-overscan_top=28
-overscan_bottom=28
-overscan_left=320
-overscan_right=320
-
 #hdmi_blanking=2
 #hdmi_ignore_edid=0xa5000080
 #hdmi_ignore_hotplug=1
