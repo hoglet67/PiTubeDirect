@@ -12,6 +12,8 @@
 #define CUSTOM_16BPP_SCREEN_MODE 97
 #define CUSTOM_32BPP_SCREEN_MODE 98
 
+#include "fonts.h"
+
 // Uncomment to use V3D triangle fill in 16bpp and 32bpp modes
 // This is approx 2x-3x faster for random sized triangles
 // #define USE_V3D
@@ -39,10 +41,13 @@ typedef struct screen_mode {
    void          (*reset)(struct screen_mode *screen);
    void          (*clear)(struct screen_mode *screen, pixel_t colour);
    void         (*scroll)(struct screen_mode *screen, int pixel_rows, pixel_t colour);
+   void          (*flash)(struct screen_mode *screen);
    void     (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
    pixel_t  (*get_colour)(struct screen_mode *screen, colour_index_t index);
    void      (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
    pixel_t   (*get_pixel)(struct screen_mode *screen, int x, int y);
+   void (*draw_character)(struct screen_mode *screen, font_t *font, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
+   int  (*read_character)(struct screen_mode *screen, font_t *font,        int col, int row);
 
 } screen_mode_t;
 

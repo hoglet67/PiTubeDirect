@@ -3,6 +3,9 @@
 
 // #define DEBUG_VDU
 
+#define FALSE 0
+#define TRUE  1
+
 void fb_initialize();
 
 void fb_writec_buffered(char c);

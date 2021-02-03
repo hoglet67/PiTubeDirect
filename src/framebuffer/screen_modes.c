@@ -5,6 +5,7 @@
 #include "../rpi-mailbox-interface.h"
 
 #include "screen_modes.h"
+#include "teletext.h"
 
 #ifdef USE_V3D
 #include "v3d.h"
@@ -177,7 +178,7 @@ static void init_screen(screen_mode_t *screen) {
     fb = (unsigned char *)(((unsigned int) fb) & 0x3fffffff);
 
     // Initialize colour table and palette
-    reset_screen(screen);
+    screen->reset(screen);
 
     /* Clear the screen to the background colour */
     screen->clear(screen, 0);
@@ -258,6 +259,64 @@ static pixel_t get_pixel_16bpp(screen_mode_t *screen, int x, int y) {
 static pixel_t get_pixel_32bpp(screen_mode_t *screen, int x, int y) {
    uint32_t *fbptr = (uint32_t *)(fb + (screen->height - y - 1) * screen->pitch + x * 4);
    return *fbptr;
+}
+
+
+static void default_draw_character(screen_mode_t *screen, font_t *font, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
+   int p = c * font->bytes_per_char;
+   // Convert Row/Col to screen coordinates
+   int x_pos = col * (font->width * font->scale_w + font->spacing);
+   int y_pos = screen->height - row * (font->height * font->scale_h + font->spacing) - 1;
+   int x = x_pos;
+   int y = y_pos;
+   for (int i = 0; i < font->height; i++) {
+      int data = font->buffer[p++];
+      for (int j = 0; j < font->width; j++) {
+         int col = (data & 0x80) ? fg_col : bg_col;
+         for (int sx = 0; sx < font->scale_w; sx++) {
+            for (int sy = 0; sy < font->scale_h; sy++) {
+               screen->set_pixel(screen, x + sx, y + sy, col);
+            }
+         }
+         x += font->scale_w;
+         data <<= 1;
+      }
+      x = x_pos;
+      y -= font->scale_h;
+   }
+}
+
+static int default_read_character(screen_mode_t *screen, font_t *font, int col, int row) {
+   int screendata[MAX_FONT_HEIGHT];
+   // Read the character from screen memory
+   // Convert Row/Col to screen coordinates
+   int x = col * (font->width * font->scale_w + font->spacing);
+   int y = screen->height - row * (font->height * font->scale_h + font->spacing) - 1;
+   int *dp = screendata;
+   for (int i = 0; i < font->height * font->scale_h; i += font->scale_h) {
+      int row = 0;
+      for (int j = 0; j < font->width * font->scale_w; j += font->scale_w) {
+         row <<= 1;
+         if (screen->get_pixel(screen, x + j, y - i)) {
+            row |= 1;
+         }
+      }
+      *dp++ = row;
+   }
+   // Match against font
+   for (int c = 0x20; c < font->num_chars; c++) {
+       for (y = 0; y < font->height; y++) {
+         int xor = font->buffer[c * font->bytes_per_char + y] ^ screendata[y];
+         if (xor != 0x00 && xor != 0xff) {
+            break;
+         }
+      }
+      if (y == font->height) {
+         return c;
+      }
+   }
+   return 0;
+
 }
 
 static screen_mode_t screen_modes[] = {
@@ -862,36 +921,61 @@ static screen_mode_t screen_modes[] = {
 };
 
 screen_mode_t *get_screen_mode(int mode_num) {
-   screen_mode_t *sm = screen_modes;
-   while (sm->mode_num >= 0) {
-      if (sm->mode_num == mode_num) {
-         sm->init = init_screen;
-         sm->reset = reset_screen;
-         sm->clear = clear_screen;
-         sm->scroll = scroll_screen;
-         switch (sm->bpp) {
-         case 16:
-            sm->set_colour = set_colour_16bpp;
-            sm->get_colour = get_colour_16bpp;
-            sm->set_pixel  = set_pixel_16bpp;
-            sm->get_pixel  = get_pixel_16bpp;
-            break;
-         case 32:
-            sm->set_colour = set_colour_32bpp;
-            sm->get_colour = get_colour_32bpp;
-            sm->set_pixel  = set_pixel_32bpp;
-            sm->get_pixel  = get_pixel_32bpp;
-            break;
-         default:
-            sm->set_colour = set_colour_8bpp;
-            sm->get_colour = get_colour_8bpp;
-            sm->set_pixel  = set_pixel_8bpp;
-            sm->get_pixel  = get_pixel_8bpp;
+   screen_mode_t *sm = NULL;
+   if (mode_num == 7) {
+      // Special case the teletext mode
+      sm = tt_get_screen_mode();
+   } else {
+      // Otherwise just search the screen mode table
+      screen_mode_t *tmp = screen_modes;
+      while (tmp->mode_num >= 0) {
+         if (tmp->mode_num == mode_num) {
+            sm = tmp;
             break;
          }
-         return sm;
+         tmp++;
       }
-      sm++;
    }
-   return NULL;
+   // Fill in any default functions
+   if (sm) {
+      if (!sm->init) {
+         sm->init = init_screen;
+      }
+      if (!sm->reset) {
+         sm->reset = reset_screen;
+      }
+      if (!sm->clear) {
+         sm->clear = clear_screen;
+      }
+      if (!sm->scroll) {
+         sm->scroll = scroll_screen;
+      }
+      if (!sm->draw_character) {
+         sm->draw_character = default_draw_character;
+      }
+      if (!sm->read_character) {
+         sm->read_character = default_read_character;
+      }
+      switch (sm->bpp) {
+      case 16:
+         sm->set_colour = set_colour_16bpp;
+         sm->get_colour = get_colour_16bpp;
+         sm->set_pixel  = set_pixel_16bpp;
+         sm->get_pixel  = get_pixel_16bpp;
+         break;
+      case 32:
+         sm->set_colour = set_colour_32bpp;
+         sm->get_colour = get_colour_32bpp;
+         sm->set_pixel  = set_pixel_32bpp;
+         sm->get_pixel  = get_pixel_32bpp;
+         break;
+      default:
+         sm->set_colour = set_colour_8bpp;
+         sm->get_colour = get_colour_8bpp;
+         sm->set_pixel  = set_pixel_8bpp;
+         sm->get_pixel  = get_pixel_8bpp;
+         break;
+      }
+   }
+   return sm;
 }

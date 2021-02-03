@@ -1,8 +1,6 @@
 #ifndef _FONTS_H
 #define _FONTS_H
 
-#include "screen_modes.h"
-
 #define DEFAULT_FONT 0
 
 #define MAX_FONT_HEIGHT 32
@@ -20,9 +18,8 @@ typedef struct font {
    int spacing;
    int scale_w;
    int scale_h;
-   // Functions
-   void  (*draw_character)(struct font *font, screen_mode_t *screen, int c, int x_pos, int y_pos, pixel_t fg_col, pixel_t bg_col);
-   int   (*read_character)(struct font *font, screen_mode_t *screen,        int x_pos, int y_pos);
+   // The working copy of the font data
+   uint8_t *buffer;
 } font_t;
 
 font_t *get_font_by_number(unsigned int num);

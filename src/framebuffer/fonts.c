@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 
@@ -41,8 +42,7 @@
 #include "fonts/thin.fnt.h"
 #include "fonts/thnserif.fnt.h"
 
-
-static uint8_t fontbuffer[4096];
+#include "fonts/saa5050.fnt.h"
 
 // Font Catalog
 
@@ -79,79 +79,22 @@ static font_t font_catalog[] = {
    {"THIN",     font29,   16, 256, 0, 8, 14, 1},
    {"THIN8X8",  font30,   16, 256, 0, 8,  8, 0},
    {"THNSERIF", font31,   16, 256, 0, 8, 14, 0},
+   {"SAA5050",  saa5050,  12, 256, 0, 6, 10, 0},
    {"6847",     font6847, 12, 128, 0, 8, 12, 0}
 };
 
 #define NUM_FONTS (sizeof(font_catalog) / sizeof(font_t))
 
-// The coordinate system is suitable for use with VDU 5
-//
-// i.e. x_pos, y_pos are the top left hand corner of the character
-// and 0,0 is the bottom left of the screen
-
-static void default_draw_character(font_t *font, screen_mode_t *screen, int c, int x_pos, int y_pos, pixel_t fg_col, pixel_t bg_col) {
-   int p = c * font->bytes_per_char;
-   int x = x_pos;
-   int y = y_pos;
-   for (int i = 0; i < font->height; i++) {
-      int data = fontbuffer[p++];
-      for (int j = 0; j < font->width; j++) {
-         int col = (data & 0x80) ? fg_col : bg_col;
-         for (int sx = 0; sx < font->scale_w; sx++) {
-            for (int sy = 0; sy < font->scale_h; sy++) {
-               screen->set_pixel(screen, x + sx, y + sy, col);
-            }
-         }
-         x += font->scale_w;
-         data <<= 1;
-      }
-      x = x_pos;
-      y -= font->scale_h;
-   }
-}
-
-static int default_read_character(font_t *font, screen_mode_t *screen, int x_pos, int y_pos) {
-   int screendata[MAX_FONT_HEIGHT];
-   // Read the character from screen memory
-   int x = x_pos;
-   int y = y_pos;
-   int *dp = screendata;
-   for (int i = 0; i < font->height * font->scale_h; i += font->scale_h) {
-      int row = 0;
-      for (int j = 0; j < font->width * font->scale_w; j += font->scale_w) {
-         row <<= 1;
-         if (screen->get_pixel(screen, x + j, y - i)) {
-            row |= 1;
-         }
-      }
-      *dp++ = row;
-   }
-   // Match against font
-   for (int c = 0x20; c < font->num_chars; c++) {
-      int y;
-      for (y = 0; y < font->height; y++) {
-         int xor = fontbuffer[c * font->bytes_per_char + y] ^ screendata[y];
-         if (xor != 0x00 && xor != 0xff) {
-            break;
-         }
-      }
-      if (y == font->height) {
-         return c;
-      }
-   }
-   return 0;
-
-}
-
 static void initialize_font(font_t * font) {
+   size_t size = font->bytes_per_char * font->num_chars;
+   if (font->buffer == NULL) {
+      font->buffer = (uint8_t *)malloc(size);
+   }
    // Copy the font into a local font buffer, so VDU 23 can update it
-   memcpy(fontbuffer, font->data, font->num_chars * font->bytes_per_char);
+   memcpy(font->buffer, font->data, size);
    // Set the default scale
    font->scale_w = 1;
    font->scale_h = 1;
-   // Set the defauls handlers
-   font->draw_character = default_draw_character;
-   font->read_character = default_read_character;
 }
 
 font_t *get_font_by_number(unsigned int num) {
@@ -176,7 +119,7 @@ font_t *get_font_by_name(char *name) {
 }
 
 void define_character(font_t *font, uint8_t c, uint8_t *data) {
-   uint8_t *p = fontbuffer + c * font->bytes_per_char;
+   uint8_t *p = font->buffer + c * font->bytes_per_char;
    for (int i = 0; i < 8; i++) {
       *p++ = *data++;
    }

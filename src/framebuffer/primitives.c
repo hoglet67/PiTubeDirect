@@ -23,9 +23,6 @@ static int16_t flood_queue_y[FLOOD_QUEUE_SIZE];
 static int flood_queue_wr;
 static int flood_queue_rd;
 
-#define TRUE 1
-#define FALSE 0
-
 // Rodders: Quadrant definitions for arc rendering
 typedef enum {
    Q_NONE,
@@ -1008,8 +1005,7 @@ void prim_draw_character(screen_mode_t *screen, font_t *font, int c, int x_pos, 
    int y = y_pos;
    int p = c * font->bytes_per_char;
    for (int i = 0; i < font->height; i++) {
-      // TODO: this is using the original font, so won't be overridden bu VDU 23
-      int data = font->data[p++];
+      int data = font->buffer[p++];
       for (int j = 0; j < font->width; j++) {
          if (data & 0x80) {
             for (int sx = 0; sx < font->scale_w; sx++) {

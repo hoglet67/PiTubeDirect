@@ -1264,12 +1264,10 @@ static void vdu_default(uint8_t *buf) {
       // - Character 0,0 is in the top left
       // - So the Y axis needs flipping
       hide_cursor();
-      int x = c_x_pos * font_width;
-      int y = screen->height - c_y_pos * font_height - 1;
       // Draw the foreground and background pixels
       pixel_t fg_col = screen->get_colour(screen, c_fg_col);
       pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-      font->draw_character(font, screen, c, x, y, fg_col, bg_col);
+      screen->draw_character(screen, font, c, c_x_pos, c_y_pos, fg_col, bg_col);
       show_cursor();
       // Advance the drawing position
       text_cursor_right();
@@ -1378,10 +1376,8 @@ int fb_get_edit_cursor_y() {
 }
 
 int fb_get_edit_cursor_char() {
-   int x = e_x_pos * font_width;
-   int y = screen->height - e_y_pos * font_height - 1;
    if (e_enabled) {
-      return font->read_character(font, screen, x, y);
+      return screen->read_character(screen, font, e_x_pos, e_y_pos);
    } else {
       return 0;
    }
