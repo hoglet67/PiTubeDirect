@@ -101,39 +101,40 @@ static void vdu_nop(uint8_t *buf);
 static void vdu_default(uint8_t *buf);
 
 static vdu_operation_t vdu_operation_table[256] = {
-   { 0, vdu_nop }, // 0
-   { 0, vdu_nop },
-   { 0, vdu_nop },
-   { 0, vdu_nop },
-   { 0, vdu_4   },
-   { 0, vdu_5   },
-   { 0, vdu_nop },
-   { 0, vdu_nop },
-   { 0, vdu_nop }, // 8
-   { 0, vdu_nop },
-   { 0, vdu_nop },
-   { 0, vdu_nop },
-   { 0, vdu_nop },
-   { 0, vdu_nop },
-   { 0, vdu_nop },
-   { 0, vdu_nop },
-   { 0, vdu_16  }, // 16
-   { 1, vdu_17  },
-   { 2, vdu_18  },
-   { 6, vdu_19  },
-   { 0, vdu_20  },
-   { 0, vdu_nop },
-   { 1, vdu_22  },
-   { 9, vdu_23  },
-   { 8, vdu_24  }, // 24
-   { 5, vdu_25  },
-   { 0, vdu_26  },
-   { 1, vdu_27  },
-   { 4, vdu_28  },
-   { 4, vdu_29  },
-   { 0, vdu_nop },
-   { 2, vdu_nop }
-   // Entries 32 to 255 are filled in by fb_initialize
+   // Entries 8-13,30,31,127 are filled in by VDU 4/5
+   // remaining entries >=32 are filled in by fb_initialize
+   { 0, vdu_nop }, // 0 -  Does nothing
+   { 0, vdu_nop }, // 1 -  Send next character to printer only (do nothing)
+   { 0, vdu_nop }, // 2 -  Enable printer (do nothing)
+   { 0, vdu_nop }, // 3 -  Disable printer (do nothing)
+   { 0, vdu_4   }, // 4 -  Write text at text cursor
+   { 0, vdu_5   }, // 5 -  Write text at graphics cursor
+   { 0, vdu_nop }, // 6 -  TODO: Enable VDU drivers
+   { 0, vdu_nop }, // 7 -  Make a short beep (do nothing)
+   { 0, vdu_nop }, // 8 -  Backspace cursor one character
+   { 0, vdu_nop }, // 9 -  Forward space cursor one character
+   { 0, vdu_nop }, // 10 - Move cursor down one line
+   { 0, vdu_nop }, // 11 - Move cursor up one line
+   { 0, vdu_nop }, // 12 - Clear text area
+   { 0, vdu_nop }, // 13 - Move cursor to start of current line
+   { 0, vdu_nop }, // 14 - Page mode on (do nothing)
+   { 0, vdu_nop }, // 15 - Page mode off (do nothing)
+   { 0, vdu_16  }, // 16 - Clear graphics area
+   { 1, vdu_17  }, // 17 - Define text colour
+   { 2, vdu_18  }, // 18 - Define graphics colour
+   { 6, vdu_19  }, // 19 - Define logical colour
+   { 0, vdu_20  }, // 20 - Reset logical colours to defaults
+   { 0, vdu_nop }, // 21 - TODO: Disable VDU drivers or delete current line
+   { 1, vdu_22  }, // 22 - Select screen mode
+   { 9, vdu_23  }, // 23 - Re-program display character (+many other things)
+   { 8, vdu_24  }, // 24 - Define graphics window
+   { 5, vdu_25  }, // 25 - PLOT mode,x,y
+   { 0, vdu_26  }, // 26 - Restore default windows
+   { 1, vdu_27  }, // 27 - Escape next character
+   { 4, vdu_28  }, // 28 - Define text window
+   { 4, vdu_29  }, // 29 - Define graphics origin
+   { 0, vdu_nop }, // 30 - Home text cursor to top left
+   { 2, vdu_nop }  // 31 - Move text cursor to x,y
 };
 
 // ==========================================================================
