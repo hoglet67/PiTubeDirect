@@ -52,10 +52,17 @@ static void tt_reset(screen_mode_t *screen);
 static void tt_flash(screen_mode_t *screen);
 static void tt_draw_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
 
+#define LORES
+
 static screen_mode_t teletext_screen_mode = {
    .mode_num       = 7,
+#ifdef LORES
+   .width          = 480,
+   .height         = 500,
+#else
    .width          = 1200,
    .height         = 1000,
+#endif
    .xeigfactor     = 1,
    .yeigfactor     = 1,
    .bpp            = 8,
@@ -69,8 +76,13 @@ screen_mode_t *tt_get_screen_mode() {
    // This screen mode always uses the SAA5050 font
    teletext_screen_mode.font = get_font_by_name("SAA5050");
    // Note: these metrics give a 40 x 25 display
+#ifdef LORES
+   teletext_screen_mode.font->scale_w = 2;
+   teletext_screen_mode.font->scale_h = 2;
+#else
    teletext_screen_mode.font->scale_w = 5;
    teletext_screen_mode.font->scale_h = 4;
+#endif
    return &teletext_screen_mode;
 }
 
@@ -100,12 +112,16 @@ static void tt_reset(screen_mode_t *screen) {
    // It would be nice to allow the frame buffer to be 480x500, and then rely on the Pi to
    // scale this up to the physical display, as it has a choice of several scaling kernels.
    //
+#ifdef LORES
+   tt.size_w = tt.char_w * 4 / 2;        //        12
+#else
    tt.size_w = tt.char_w * 5 / 2;        // 15
+#endif
    tt.size_h = tt.char_h * 2;            // 20
-   int width = tt.columns * tt.size_w;   // 600
-   int height = tt.rows * tt.size_h;     // 500
-   tt.scale_w = screen->width / width;   // 2
-   tt.scale_h = screen->height / height; // 2
+   int width = tt.columns * tt.size_w;   // 600 / 480
+   int height = tt.rows * tt.size_h;     // 500 / 500
+   tt.scale_w = screen->width / width;   // 2   /   1
+   tt.scale_h = screen->height / height; // 2   /   1
    tt.xstart = 0;
    tt.ystart = screen->height - 1;
    //fb_set_char_metrics(tt.size_w, tt.size_h, tt.scale_w, tt.scale_h);
@@ -307,11 +323,14 @@ static inline void tt_put_block(screen_mode_t *screen, int x, int y, tt_block_t 
             int code = (x2 + 1) * (y2 * 3 + 1);
             unsigned int colour = (map & code) ? tt.fgd_colour : tt.bgd_colour;
             // TODO: Fix hardcoded scale factors
+#ifdef LORES
+            screen->set_pixel(screen, x + x2, y - y2 * yscale - ys, colour);
+#else
             int xscale = (x2 == 0) ? 2 : 3;
             for (int xs = 0; xs < xscale; xs++) {
-               // TODO: Fix hardcoded scale factors
                screen->set_pixel(screen, x + x2 * 2 + xs, y - y2 * yscale - ys, colour);
             }
+#endif
          }
       }
    }
@@ -373,7 +392,11 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
       for (int py = py_from; py < py_to; py++, y -= yinc) {
          int x = xoffset;
          // TODO: Fix hardcoded scale factors
+#ifdef LORES
+         for (int px = 0; px < tt.char_w; px++, x += (tt.scale_w * 2)) {
+#else
          for (int px = 0; px < tt.char_w; px++, x += (tt.scale_w * 5 / 2)) {
+#endif
             int map = TT_BLOCK_NONE;
             if (tt_pixel_set(p, px, py))
                map = TT_BLOCK_ALL;
