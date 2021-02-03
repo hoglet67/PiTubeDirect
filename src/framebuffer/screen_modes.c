@@ -157,10 +157,10 @@ static void init_screen(screen_mode_t *screen) {
     // TODO: this can be greatly improved!
     // It assumes you want to fill (or nearly fill) a 1280x1024 window on your physical display
     // It will work really badly with an 800x600 screen mode, say on a 1600x1200 monitor
-    int h_scale = 1280 / screen->width;
-    int v_scale = 1024 / screen->height;
-    int h_overscan = (h_display - h_scale * screen->width) / 2;
-    int v_overscan = (v_display - v_scale * screen->height) / 2;
+    int h_scale = 2 * 1280 / screen->width;
+    int v_scale = 2 * 1024 / screen->height;
+    int h_overscan = (h_display - h_scale * screen->width  / 2) / 2;
+    int v_overscan = (v_display - v_scale * screen->height / 2) / 2;
 
     printf(" display: %d x %d\r\n", h_display, v_display);
     printf("   scale: %d x %d\r\n", h_scale, v_scale);
