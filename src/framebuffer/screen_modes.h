@@ -37,6 +37,8 @@ typedef struct screen_mode {
 
    int pitch;       // filled in by init
 
+   font_t *font;    // the current font for this screen mode
+
    void           (*init)(struct screen_mode *screen);
    void          (*reset)(struct screen_mode *screen);
    void          (*clear)(struct screen_mode *screen, pixel_t colour);
@@ -46,8 +48,8 @@ typedef struct screen_mode {
    pixel_t  (*get_colour)(struct screen_mode *screen, colour_index_t index);
    void      (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
    pixel_t   (*get_pixel)(struct screen_mode *screen, int x, int y);
-   void (*draw_character)(struct screen_mode *screen, font_t *font, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
-   int  (*read_character)(struct screen_mode *screen, font_t *font,        int col, int row);
+   void (*draw_character)(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
+   int  (*read_character)(struct screen_mode *screen,        int col, int row);
 
 } screen_mode_t;
 

@@ -3,7 +3,6 @@
 
 #include <inttypes.h>
 #include "screen_modes.h"
-#include "fonts.h"
 
 typedef enum {
    HL_LR_NB = 1, // Horizontal line fill (left & right) to non-background
@@ -40,6 +39,6 @@ void prim_fill_sector          (screen_mode_t *screen, int xc, int yc, int x1, i
 void prim_move_copy_rectangle  (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move);
 void prim_fill_rectangle       (screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour);
 void prim_fill_parallelogram   (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
-void prim_draw_character       (screen_mode_t *screen, font_t *font, int c, int x_pos, int y_pos, pixel_t colour);
+void prim_draw_character       (screen_mode_t *screen, int c, int x_pos, int y_pos, pixel_t colour);
 
 #endif

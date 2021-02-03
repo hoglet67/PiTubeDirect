@@ -999,8 +999,9 @@ void prim_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int hei
    }
 }
 
-void prim_draw_character(screen_mode_t *screen, font_t *font, int c, int x_pos, int y_pos, pixel_t colour) {
+void prim_draw_character(screen_mode_t *screen, int c, int x_pos, int y_pos, pixel_t colour) {
    // Draw the character
+   font_t *font = screen->font;
    int x = x_pos;
    int y = y_pos;
    int p = c * font->bytes_per_char;

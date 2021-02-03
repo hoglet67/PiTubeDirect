@@ -9,6 +9,24 @@
 #include "teletext.h"
 #include "screen_modes.h"
 
+// Screen Mode definition
+static void tt_reset(screen_mode_t *screen);
+static void tt_flash(screen_mode_t *screen);
+static void tt_draw_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
+
+static screen_mode_t teletext_screen_mode = {
+   .mode_num       = 7,
+   .width          = 480, // 40 * 12
+   .height         = 500, // 25 * 16
+   .xeigfactor     = 1,
+   .yeigfactor     = 1,
+   .bpp            = 8,
+   .ncolour        = 255,
+   .reset          = tt_reset,
+   .flash          = tt_flash,
+   .draw_character = tt_draw_character
+};
+
 // Main structure holding Teletext state
 struct {
    tt_colour_t fgd_colour;
@@ -32,7 +50,6 @@ struct {
    int size_h;
    int scale_w;
    int scale_h;
-   font_t *font;
 } tt = {TT_WHITE, TT_BLACK, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, 32, 40, 25, 0, 0, 6, 10, 15, 20, 1, 1};
 
 // Arbitrary limit on the number of flash regions
@@ -64,7 +81,6 @@ static void tt_reset(screen_mode_t *screen) {
    //fb_set_char_metrics(tt.size_w, tt.size_h, tt.scale_w, tt.scale_h);
    //fb_reset_areas();
    tt_no_flash_region = 0;
-   tt.font = get_font_by_name("SAA5050");
    screen->set_colour(screen, TT_BLACK,     0x00, 0x00, 0x00);
    screen->set_colour(screen, TT_RED,       0xff, 0x00, 0x00);
    screen->set_colour(screen, TT_GREEN,     0x00, 0xff, 0x00);
@@ -110,7 +126,7 @@ static void tt_flash(screen_mode_t *screen) {
                tt.fgd_colour = tt_flash_region[f].fgd_colour;
                tt.bgd_colour = tt_flash_region[f].bgd_colour;
             }
-            screen->draw_character(screen, tt.font, c, col, row, tt.fgd_colour, tt.bgd_colour);
+            screen->draw_character(screen, c, col, row, tt.fgd_colour, tt.bgd_colour);
          }
       }
       tt.fgd_colour = fgd;
@@ -271,11 +287,11 @@ static inline void tt_put_block(screen_mode_t *screen, int x, int y, tt_block_t 
 
 static inline int tt_pixel_set(int p, int x, int y) {
    // Tests whether the given pixel is set to foreground colour
-   return ((tt.font->buffer[p + y] >> (tt.char_w - x - 1)) & 1);
+   return ((teletext_screen_mode.font->buffer[p + y] >> (tt.char_w - x - 1)) & 1);
 }
 
 // TODO: Font is ignored for now; the teletext font is hard coded
-static void tt_draw_character(struct screen_mode *screen, font_t *font, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
+static void tt_draw_character(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
    if (col == 0) {
       tt_reset_line_state();
    }
@@ -285,8 +301,11 @@ static void tt_draw_character(struct screen_mode *screen, font_t *font, int c, i
    int yoffset = tt.ystart - row * tt.size_h * tt.scale_h;
    if (tt.graphics && ((ch > 0x9f && ch < 0xc0) || (ch > 0xdf && ch <= 0xff))) {
       // Draws the graphics characters based on the 2x6 matrix
-      if (ch & 64) ch |= 0x20; // Set bit 6 if the 6th block is set
-      else ch &= 0x1f;
+      if (ch & 64) {
+         ch |= 0x20; // Set bit 6 if the 6th block is set
+      } else {
+         ch &= 0x1f;
+      }
       int y = yoffset;
       for (int yb = 0; yb < 3; yb++) { // y blocks
          int ysize = (yb == 1) ? 16 : 12;
@@ -360,19 +379,11 @@ static void tt_draw_character(struct screen_mode *screen, font_t *font, int c, i
    tt_process_controls_after(c, col, row);
 }
 
-static screen_mode_t teletext_screen_mode = {
-   .mode_num       = 7,
-   .width          = 480, // 40 * 12
-   .height         = 500, // 25 * 16
-   .xeigfactor     = 1,
-   .yeigfactor     = 1,
-   .bpp            = 8,
-   .ncolour        = 255,
-   .reset          = tt_reset,
-   .flash          = tt_flash,
-   .draw_character = tt_draw_character
-};
-
 screen_mode_t *tt_get_screen_mode() {
+   // This screen mode always uses the SAA5050 font
+   teletext_screen_mode.font = get_font_by_name("SAA5050");
+   // The font is 6x10 but is displayed at 12x20 dues to character rounding
+   teletext_screen_mode.font->scale_w = 2;
+   teletext_screen_mode.font->scale_h = 2;
    return &teletext_screen_mode;
 }

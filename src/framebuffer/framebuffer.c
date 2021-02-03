@@ -27,7 +27,6 @@
 static screen_mode_t *screen = NULL;
 
 // Current font
-static font_t *font = NULL;
 static int16_t font_width;
 static int16_t font_height;
 static int16_t text_height; // of whole screen
@@ -188,6 +187,8 @@ static void graphics_area_clear();
 static void graphics_delete();
 
 static void update_font_size() {
+   // get the current font from the screen
+   font_t *font = screen->font;
    // Calculate the font size, taking account of scale and spacing
    font_width  = font->width * font->scale_w + font->spacing;
    font_height = font->height * font->scale_h + font->spacing;
@@ -733,13 +734,14 @@ static void vdu23_3(uint8_t *buf) {
    // VDU 23,3: select font by name
    // params: eight bytes font name, trailing zeros if name shorter than 8 chars
    // (selects the default font if the lookup fails)
+   // get the current font from the screen
    if (buf[1] == 0) {
-      font = get_font_by_number(buf[2]);
+      screen->font = get_font_by_number(buf[2]);
    } else {
-      font = get_font_by_name((char *)buf+1);
+      screen->font = get_font_by_name((char *)buf+1);
    }
 #ifdef DEBUG_VDU
-   printf("Font set to %s\r\n", font->name);
+   printf("Font set to %s\r\n", screen->font->name);
 #endif
    update_text_area();
 }
@@ -747,6 +749,8 @@ static void vdu23_3(uint8_t *buf) {
 static void vdu23_4(uint8_t *buf) {
    // VDU 23,4: set font scale
    // params: hor. scale, vert. scale, char spacing, other 5 bytes are ignored
+   // get the current font from the screen
+   font_t *font = screen->font;
    font->scale_w = buf[1] > 0 ? buf[1] : 1;
    font->scale_h = buf[2] > 0 ? buf[2] : 1;
    font->spacing = buf[3];
@@ -1018,7 +1022,7 @@ static void vdu_23(uint8_t *buf) {
    }
    // User defined characters
    if (buf[0] >= 128) {
-      define_character(font, buf[0], buf + 1);
+      define_character(screen->font, buf[0], buf + 1);
    }
 }
 
@@ -1255,7 +1259,7 @@ static void vdu_default(uint8_t *buf) {
       int y = g_y_pos >> screen->yeigfactor;
       // Only draw the foreground pixels
       pixel_t col = screen->get_colour(screen, g_fg_col);
-      prim_draw_character(screen, font, c, x, y, col);
+      prim_draw_character(screen, c, x, y, col);
       // Advance the drawing position
       graphics_cursor_right();
    } else {
@@ -1267,7 +1271,7 @@ static void vdu_default(uint8_t *buf) {
       // Draw the foreground and background pixels
       pixel_t fg_col = screen->get_colour(screen, c_fg_col);
       pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-      screen->draw_character(screen, font, c, c_x_pos, c_y_pos, fg_col, bg_col);
+      screen->draw_character(screen, c, c_x_pos, c_y_pos, fg_col, bg_col);
       show_cursor();
       // Advance the drawing position
       text_cursor_right();
@@ -1284,16 +1288,6 @@ void fb_initialize() {
       vdu_operation_table[i].len = 0;
       vdu_operation_table[i].handler = vdu_default;
    }
-
-   font = get_font_by_number(DEFAULT_FONT);
-
-   if (!font) {
-      printf("No font loaded\n\r");
-   } else {
-      printf("Font %s loaded\n\r", font->name);
-   }
-
-   init_variables();
 
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
@@ -1377,7 +1371,7 @@ int fb_get_edit_cursor_y() {
 
 int fb_get_edit_cursor_char() {
    if (e_enabled) {
-      return screen->read_character(screen, font, e_x_pos, e_y_pos);
+      return screen->read_character(screen, e_x_pos, e_y_pos);
    } else {
       return 0;
    }

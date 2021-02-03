@@ -262,7 +262,8 @@ static pixel_t get_pixel_32bpp(screen_mode_t *screen, int x, int y) {
 }
 
 
-static void default_draw_character(screen_mode_t *screen, font_t *font, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
+static void default_draw_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
+   font_t *font = screen->font;
    int p = c * font->bytes_per_char;
    // Convert Row/Col to screen coordinates
    int x_pos = col * (font->width * font->scale_w + font->spacing);
@@ -286,7 +287,8 @@ static void default_draw_character(screen_mode_t *screen, font_t *font, int c, i
    }
 }
 
-static int default_read_character(screen_mode_t *screen, font_t *font, int col, int row) {
+static int default_read_character(screen_mode_t *screen, int col, int row) {
+   font_t *font = screen->font;
    int screendata[MAX_FONT_HEIGHT];
    // Read the character from screen memory
    // Convert Row/Col to screen coordinates
@@ -975,6 +977,9 @@ screen_mode_t *get_screen_mode(int mode_num) {
          sm->set_pixel  = set_pixel_8bpp;
          sm->get_pixel  = get_pixel_8bpp;
          break;
+      }
+      if (!sm->font) {
+         sm->font = get_font_by_number(DEFAULT_FONT);
       }
    }
    return sm;
