@@ -3,11 +3,18 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <inttypes.h>
 
 #include "framebuffer.h"
 #include "teletext.h"
 #include "screen_modes.h"
+
+#define COLUMNS 40
+#define ROWS    25
+
+// A local copy of the screen
+uint8_t mode7screen[ROWS][COLUMNS];
 
 // Main structure holding Teletext state
 struct {
@@ -32,7 +39,7 @@ struct {
    int size_h;
    int scale_w;
    int scale_h;
-} tt = {TT_WHITE, TT_BLACK, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, 32, 40, 25, 0, 0, 6, 10, 15, 20, 1, 1};
+} tt = {TT_WHITE, TT_BLACK, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, 32, COLUMNS, ROWS, 0, 0, 6, 10, 15, 20, 1, 1};
 
 // Arbitrary limit on the number of flash regions
 #define TT_MAX_FLASH_REGION 25
@@ -43,14 +50,17 @@ struct{
    int row;
    int column;
    int length;
-   int chars[40];
+   int chars[COLUMNS];
 } tt_flash_region [TT_MAX_FLASH_REGION];
 int tt_no_flash_region = 0;
 
 // Screen Mode definition
-static void tt_reset(screen_mode_t *screen);
-static void tt_flash(screen_mode_t *screen);
+static void tt_reset         (screen_mode_t *screen);
+static void tt_clear         (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
+static void tt_scroll        (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
+static void tt_flash         (screen_mode_t *screen);
 static void tt_draw_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
+static int  tt_read_character(screen_mode_t *screen, int col, int row);
 
 #define LORES
 
@@ -68,8 +78,11 @@ static screen_mode_t teletext_screen_mode = {
    .bpp            = 8,
    .ncolour        = 255,
    .reset          = tt_reset,
+   .clear          = tt_clear,
+   .scroll         = tt_scroll,
    .flash          = tt_flash,
-   .draw_character = tt_draw_character
+   .draw_character = tt_draw_character,
+   .read_character = tt_read_character
 };
 
 screen_mode_t *tt_get_screen_mode() {
@@ -85,6 +98,7 @@ screen_mode_t *tt_get_screen_mode() {
 #endif
    return &teletext_screen_mode;
 }
+
 
 // This is called on initialization, and VDU 20 to set the default palette
 
@@ -135,6 +149,41 @@ static void tt_reset(screen_mode_t *screen) {
    screen->set_colour(screen, TT_MAGENTA,   0xff, 0x00, 0xff);
    screen->set_colour(screen, TT_CYAN,      0x00, 0xff, 0xff);
    screen->set_colour(screen, TT_WHITE,     0xff, 0xff, 0xff);
+}
+
+
+static void tt_clear(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
+   // Call the default implementation to clear the framebuffer
+   clear_screen(screen, text_window, bg_col);
+   // Clear the backing store
+   if (text_window == NULL) {
+      memset(mode7screen, 32, sizeof(mode7screen));
+   } else {
+      for (int row = text_window->top; row <= text_window->bottom; row++) {
+         for (int col = text_window->left; col <= text_window->right; col++) {
+            mode7screen[row][col] = 32;
+         }
+      }
+   }
+}
+
+static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
+   // Call the default implementation to scroll the framebuffer
+   scroll_screen(screen, text_window, bg_col);
+   // Scroll the backing store
+   for (int row = text_window->top; row < text_window->bottom; row++) {
+      for (int col = text_window->left; col <= text_window->right; col++) {
+         mode7screen[row][col] = mode7screen[row + 1][col];
+      }
+   }
+   for (int col = text_window->left; col <= text_window->right; col++) {
+      mode7screen[text_window->bottom][col] = 32;
+   }
+}
+
+
+static int tt_read_character(screen_mode_t *screen, int col, int row) {
+   return mode7screen[row][col];
 }
 
 static void tt_reset_line_state() {
@@ -436,4 +485,6 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
       }
    }
    tt_process_controls_after(c, col, row);
+   // Update the backing store
+   mode7screen[row][col] = c;
 }
