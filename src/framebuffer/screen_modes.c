@@ -23,6 +23,13 @@ unsigned char* fb = NULL;
 static pixel_t colour_table[NUM_COLOURS];
 static int sync_palette;
 
+typedef struct {
+   int x1;
+   int y1;
+   int x2;
+   int y2;
+} rectangle_t;
+
 static void update_palette(int offset, int num_colours) {
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_SET_PALETTE, offset, num_colours, colour_table);
@@ -147,87 +154,25 @@ static int get_vdisplay() {
     return (*PIXELVALVE2_VERTB) & 0xFFFF;
 }
 
-static void init_screen(screen_mode_t *screen) {
-
-    rpi_mailbox_property_t *mp;
-
-    // Calculate optimal overscan
-    int h_display = get_hdisplay();
-    int v_display = get_vdisplay();
-    // TODO: this can be greatly improved!
-    // It assumes you want to fill (or nearly fill) a 1280x1024 window on your physical display
-    // It will work really badly with an 800x600 screen mode, say on a 1600x1200 monitor
-    int h_scale = 2 * 1280 / screen->width;
-    int v_scale = 2 * 1024 / screen->height;
-    int h_overscan = (h_display - h_scale * screen->width  / 2) / 2;
-    int v_overscan = (v_display - v_scale * screen->height / 2) / 2;
-
-    printf(" display: %d x %d\r\n", h_display, v_display);
-    printf("   scale: %d x %d\r\n", h_scale, v_scale);
-    printf("overscan: %d x %d\r\n", h_overscan, v_overscan);
-
-    /* Initialise a framebuffer... */
-    RPI_PropertyInit();
-    RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER);
-    RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, screen->width, screen->height );
-    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height * 2 ); // TODO: FIX ME (remove the * 2)
-    RPI_PropertyAddTag(TAG_SET_DEPTH,         screen->bpp );
-    RPI_PropertyAddTag(TAG_GET_PITCH );
-    RPI_PropertyAddTag(TAG_GET_PHYSICAL_SIZE );
-    RPI_PropertyAddTag(TAG_GET_DEPTH );
-    RPI_PropertyAddTag(TAG_SET_OVERSCAN, v_overscan, v_overscan, h_overscan, h_overscan);
-    RPI_PropertyProcess();
-
-    if( ( mp = RPI_PropertyGet( TAG_GET_PHYSICAL_SIZE ) ) )
-    {
-        int width = mp->data.buffer_32[0];
-        int height = mp->data.buffer_32[1];
-
-        printf( "Initialised Framebuffer: %dx%d ", width, height );
-    }
-
-    if( ( mp = RPI_PropertyGet( TAG_GET_DEPTH ) ) )
-    {
-        int bpp = mp->data.buffer_32[0];
-        printf( "%dbpp\r\n", bpp );
-    }
-
-    if( ( mp = RPI_PropertyGet( TAG_GET_PITCH ) ) )
-    {
-        screen->pitch = mp->data.buffer_32[0];
-        printf( "Pitch: %d bytes\r\n", screen->pitch );
-    }
-
-    if( ( mp = RPI_PropertyGet( TAG_ALLOCATE_BUFFER ) ) )
-    {
-        fb = (unsigned char*)mp->data.buffer_32[0];
-        printf( "Framebuffer address: %8.8X\r\n", (unsigned int)fb );
-    }
-
-    // On the Pi 2/3 the mailbox returns the address with bits 31..30 set, which is wrong
-    fb = (unsigned char *)(((unsigned int) fb) & 0x3fffffff);
-
-    // Initialize colour table and palette
-    screen->reset(screen);
-
-    /* Clear the screen to the background colour */
-    screen->clear(screen, 0);
-
-#ifdef USE_V3D
-    if (screen->bpp > 8) {
-       v3d_initialize(NULL);
-    }
-#endif
-};
-
-static void clear_screen(screen_mode_t *screen, pixel_t colour) {
-   // TODO: This needs to take acount of the size and bit depth
-   memset((void *)fb, colour, screen->height * screen->pitch);
+static void to_rectangle(screen_mode_t *screen, t_clip_window_t *text_window, rectangle_t *r) {
+   if (text_window == NULL) {
+      r->x1 = 0;
+      r->y1 = 0;
+      r->x2 = screen->width - 1;
+      r->y2 = screen->height - 1;;
+   } else {
+      font_t *font = screen->font;
+      int font_width  = font->width  * font->scale_w + font->spacing;
+      int font_height = font->height * font->scale_h + font->spacing;
+      r->x1 = text_window->left * font_width;
+      r->y1 = screen->height - 1 - (text_window->bottom * font_height + font_height - 1);
+      r->x2 = (text_window->right + 1) * font_width - 1;
+      r->y2 = screen->height - 1 - text_window->top * font_height;
+   }
 }
 
-static void scroll_screen(screen_mode_t *screen, int pixel_rows, pixel_t colour) {
-   _fast_scroll(fb, fb + pixel_rows * screen->pitch, (screen->height - pixel_rows) * screen->pitch);
-   _fast_clear(fb + (screen->height - pixel_rows) * screen->pitch, colour, pixel_rows * screen->pitch);
+static int is_full_screen(screen_mode_t *screen, rectangle_t *r) {
+   return (r->x1 == 0 && r->y1 == 0 && r->x2 == screen->width - 1 && r->y2 == screen->height - 1);
 }
 
 static void set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
@@ -350,6 +295,122 @@ static int default_read_character(screen_mode_t *screen, int col, int row) {
    return 0;
 
 }
+
+
+// This is non static so it can be called by custom modes
+void clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
+   rectangle_t r;
+   // Convert text window to screen graphics coordinates (0,0 = bottom left)
+   to_rectangle(screen, text_window, &r);
+   // Clear to the background colour
+   for (int y = r.y1; y <= r.y2; y++) {
+      for (int x = r.x1; x <= r.x2; x++) {
+         screen->set_pixel(screen, x, y, bg_col);
+      }
+   }
+}
+
+// This is non static so it can be called by custom modes
+void scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
+   rectangle_t r;
+   font_t *font = screen->font;
+   int font_height = font->height * font->scale_h + font->spacing;
+   // Convert text window to screen graphics coordinates (0,0 = bottom left)
+   to_rectangle(screen, text_window, &r);
+   // Scroll the screen upwards one row, and clear the bottom text line to the background colour
+   if (is_full_screen(screen, &r)) {
+      _fast_scroll(fb, fb + font_height * screen->pitch, (screen->height - font_height) * screen->pitch);
+      _fast_clear(fb + (screen->height - font_height) * screen->pitch, bg_col, font_height * screen->pitch);
+   } else {
+      // Scroll from top to bottom
+      int y = r.y2;
+      for ( ; y >= r.y1 + font_height; y--) {
+         int z = y - font_height;
+         for (int x = r.x1; x <= r.x2; x++) {
+            screen->set_pixel(screen, x, y, screen->get_pixel(screen, x, z));
+         }
+      }
+      // Blank the bottom line
+      for ( ; y >= r.y1; y--) {
+         for (int x = r.x1; x <= r.x2; x++) {
+            screen->set_pixel(screen, x, y, bg_col);
+         }
+      }
+   }
+}
+
+void init_screen(screen_mode_t *screen) {
+
+    rpi_mailbox_property_t *mp;
+
+    // Calculate optimal overscan
+    int h_display = get_hdisplay();
+    int v_display = get_vdisplay();
+    // TODO: this can be greatly improved!
+    // It assumes you want to fill (or nearly fill) a 1280x1024 window on your physical display
+    // It will work really badly with an 800x600 screen mode, say on a 1600x1200 monitor
+    int h_scale = 2 * 1280 / screen->width;
+    int v_scale = 2 * 1024 / screen->height;
+    int h_overscan = (h_display - h_scale * screen->width  / 2) / 2;
+    int v_overscan = (v_display - v_scale * screen->height / 2) / 2;
+
+    printf(" display: %d x %d\r\n", h_display, v_display);
+    printf("   scale: %d x %d\r\n", h_scale, v_scale);
+    printf("overscan: %d x %d\r\n", h_overscan, v_overscan);
+
+    /* Initialise a framebuffer... */
+    RPI_PropertyInit();
+    RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER);
+    RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, screen->width, screen->height );
+    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height * 2 ); // TODO: FIX ME (remove the * 2)
+    RPI_PropertyAddTag(TAG_SET_DEPTH,         screen->bpp );
+    RPI_PropertyAddTag(TAG_GET_PITCH );
+    RPI_PropertyAddTag(TAG_GET_PHYSICAL_SIZE );
+    RPI_PropertyAddTag(TAG_GET_DEPTH );
+    RPI_PropertyAddTag(TAG_SET_OVERSCAN, v_overscan, v_overscan, h_overscan, h_overscan);
+    RPI_PropertyProcess();
+
+    if( ( mp = RPI_PropertyGet( TAG_GET_PHYSICAL_SIZE ) ) )
+    {
+        int width = mp->data.buffer_32[0];
+        int height = mp->data.buffer_32[1];
+
+        printf( "Initialised Framebuffer: %dx%d ", width, height );
+    }
+
+    if( ( mp = RPI_PropertyGet( TAG_GET_DEPTH ) ) )
+    {
+        int bpp = mp->data.buffer_32[0];
+        printf( "%dbpp\r\n", bpp );
+    }
+
+    if( ( mp = RPI_PropertyGet( TAG_GET_PITCH ) ) )
+    {
+        screen->pitch = mp->data.buffer_32[0];
+        printf( "Pitch: %d bytes\r\n", screen->pitch );
+    }
+
+    if( ( mp = RPI_PropertyGet( TAG_ALLOCATE_BUFFER ) ) )
+    {
+        fb = (unsigned char*)mp->data.buffer_32[0];
+        printf( "Framebuffer address: %8.8X\r\n", (unsigned int)fb );
+    }
+
+    // On the Pi 2/3 the mailbox returns the address with bits 31..30 set, which is wrong
+    fb = (unsigned char *)(((unsigned int) fb) & 0x3fffffff);
+
+    // Initialize colour table and palette
+    screen->reset(screen);
+
+    /* Clear the screen to the background colour */
+    screen->clear(screen, NULL, 0);
+
+#ifdef USE_V3D
+    if (screen->bpp > 8) {
+       v3d_initialize(NULL);
+    }
+#endif
+};
 
 static screen_mode_t screen_modes[] = {
    {

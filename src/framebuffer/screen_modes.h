@@ -22,6 +22,20 @@ typedef uint32_t pixel_t;
 
 typedef unsigned int colour_index_t;
 
+typedef struct {
+   int16_t left;
+   int16_t bottom;
+   int16_t right;
+   int16_t top;
+} g_clip_window_t;
+
+typedef struct {
+   uint8_t left;
+   uint8_t bottom;
+   uint8_t right;
+   uint8_t top;
+} t_clip_window_t;
+
 typedef struct screen_mode {
    int mode_num;    // Mode number, used by VDU 22,N
 
@@ -41,8 +55,8 @@ typedef struct screen_mode {
 
    void           (*init)(struct screen_mode *screen);
    void          (*reset)(struct screen_mode *screen);
-   void          (*clear)(struct screen_mode *screen, pixel_t colour);
-   void         (*scroll)(struct screen_mode *screen, int pixel_rows, pixel_t colour);
+   void          (*clear)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
+   void         (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
    void          (*flash)(struct screen_mode *screen);
    void     (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
    pixel_t  (*get_colour)(struct screen_mode *screen, colour_index_t index);
@@ -55,6 +69,9 @@ typedef struct screen_mode {
 
 
 screen_mode_t *get_screen_mode(int mode_num);
+
+void clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
+void scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
 
 // TODO: get rid of this
 // It's only needed for fb_get_address which is only used by v3d

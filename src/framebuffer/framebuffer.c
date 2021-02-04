@@ -31,10 +31,9 @@ static int16_t font_width;
 static int16_t font_height;
 static int16_t text_height; // of whole screen
 static int16_t text_width;  // of whole screen
-static int16_t text_x_min;
-static int16_t text_x_max;
-static int16_t text_y_min;
-static int16_t text_y_max;
+
+// Text area clip window
+static t_clip_window_t t_window;
 
 // Character colour / cursor position
 static uint8_t c_bg_col;
@@ -57,10 +56,9 @@ static int16_t g_y_pos_last1;
 static int16_t g_y_pos_last2;
 static int16_t g_x_origin;
 static int16_t g_y_origin;
-static int16_t g_x_min;
-static int16_t g_x_max;
-static int16_t g_y_min;
-static int16_t g_y_max;
+
+// Graphics area clip window
+static g_clip_window_t g_window;
 
 // Text or graphical cursor for printing characters
 static int8_t text_at_g_cursor;
@@ -144,9 +142,7 @@ static void update_font_size();
 static void update_text_area();
 static void init_variables();
 static void reset_areas();
-static void set_text_area(uint8_t left, uint8_t bottom, uint8_t right, uint8_t top);
-static int  text_area_active();
-static void scroll_text_area();
+static void set_text_area(t_clip_window_t *window);
 static void invert_cursor(int x_pos, int y_pos, int editing);
 static void show_cursor();
 static void show_edit_cursor();
@@ -159,10 +155,10 @@ static void edit_cursor_up();
 static void edit_cursor_down();
 static void edit_cursor_left();
 static void edit_cursor_right();
-static void scroll();
+static void text_area_scroll();
 static void update_g_cursors(int16_t x, int16_t y);
 static void change_mode(screen_mode_t *new_screen);
-static void set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
+static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window);
 
 // These are used in VDU 4 mode
 static void text_cursor_left();
@@ -201,30 +197,30 @@ static void update_text_area() {
    // Make sure font size hasn't changed
    update_font_size();
    // Make sure text area is on the screen
-   if (text_x_max >= text_width) {
-      text_x_max = text_width - 1;
-      if (text_x_min > text_x_max) {
-         text_x_min = text_x_max;
+   if (t_window.right >= text_width) {
+      t_window.right = text_width - 1;
+      if (t_window.left > t_window.right) {
+         t_window.left = t_window.right;
       }
    }
-   if (text_y_max >= text_height) {
-      text_y_max = text_height - 1;
-      if (text_y_min > text_y_max) {
-         text_y_min = text_y_max;
+   if (t_window.bottom >= text_height) {
+      t_window.bottom = text_height - 1;
+      if (t_window.top > t_window.bottom) {
+         t_window.top = t_window.bottom;
       }
    }
    // Make sure cursor is in text area
    int16_t tmp_x = c_x_pos;
    int16_t tmp_y = c_y_pos;
-   if (tmp_x < text_x_min) {
-      tmp_x = text_x_min;
-   } else if (tmp_x > text_x_max) {
-      tmp_x = text_x_max;
+   if (tmp_x < t_window.left) {
+      tmp_x = t_window.left;
+   } else if (tmp_x > t_window.right) {
+      tmp_x = t_window.right;
    }
-   if (tmp_y < text_y_min) {
-      tmp_y = text_y_min;
-   } else if (tmp_y > text_y_max) {
-      tmp_y = text_y_max;
+   if (tmp_y < t_window.top) {
+      tmp_y = t_window.top;
+   } else if (tmp_y > t_window.bottom) {
+      tmp_y = t_window.bottom;
    }
    if (c_x_pos != tmp_x || c_y_pos != tmp_y) {
       if (!text_at_g_cursor) {
@@ -266,18 +262,22 @@ static void init_variables() {
 static void reset_areas() {
    // Calculate the size of the text area
    update_font_size();
-   // left, bottom, right, top
-   set_text_area(0, text_height - 1, text_width - 1, 0);
+   // Initialize the text area to the full screen
+   // (left, bottom, right, top)
+   t_clip_window_t default_t_window = {0, text_height - 1, text_width - 1, 0};
+   set_text_area(&default_t_window);
    // Set the graphics origin to 0,0
    g_x_origin = 0;
    g_y_origin = 0;
    // Initialize the graphics area to the full screen
-   set_graphics_area(screen, 0, 0, (screen->width << screen->xeigfactor) - 1, (screen->height << screen->yeigfactor) - 1);
+   // (left, bottom, right, top)
+   g_clip_window_t default_graphics_window = {0, 0, (screen->width << screen->xeigfactor) - 1, (screen->height << screen->yeigfactor) - 1};
+   set_graphics_area(screen, &default_graphics_window);
    // Initialize the default plot mode to normal plotting
    prim_set_graphics_plotmode(0);
    // Home the text cursor
-   c_x_pos = text_x_min;
-   c_y_pos = text_y_min;
+   c_x_pos = t_window.left;
+   c_y_pos = t_window.top;
    // Home the graphics cursor
    g_x_pos       = 0;
    g_x_pos_last1 = 0;
@@ -287,58 +287,16 @@ static void reset_areas() {
    g_y_pos_last2 = 0;
 }
 
-
 // 0,0 is the top left
-static void set_text_area(uint8_t left, uint8_t bottom, uint8_t right, uint8_t top) {
-   if (left > right || right > text_width - 1 || top > bottom || bottom > text_height - 1) {
+static void set_text_area(t_clip_window_t *window) {
+   if (window->left > window->right || window->right > text_width - 1 || window->top > window->bottom || window->bottom > text_height - 1) {
       return;
    }
-   text_x_min = left;
-   text_y_min = top;
-   text_x_max = right;
-   text_y_max = bottom;
+   // Shallow copy of the struct
+   t_window = *window;
    // Update any dependant variabled
    update_text_area();
 }
-
-
-static int text_area_active() {
-   if (text_x_min == 0 && text_x_max == text_width - 1 && text_y_min == 0 && text_y_max == text_height - 1) {
-      return 0;
-   } else {
-      return 1;
-   }
-}
-
-static void scroll_text_area() {
-   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-   if (text_area_active()) {
-      // Top/Left
-      int x1 = text_x_min * font_width;
-      int y1 = screen->height - 1 - text_y_min * font_height;
-
-      // Bottom/Right
-      int x2 = (text_x_max + 1) * font_width;
-      int y2 = screen->height - 1 - text_y_max * font_height;
-
-      // Scroll from top to bottom
-      for (int y = y1; y > y2; y--) {
-         int z = y - font_height;
-         for (int x = x1; x < x2; x++) {
-            screen->set_pixel(screen, x, y, screen->get_pixel(screen, x, z));
-         }
-      }
-      // Blank the bottom line
-      for (int y = y2; y > y2 - font_height; y--) {
-         for (int x = x1; x < x2; x++) {
-            screen->set_pixel(screen, x, y, bg_col);
-         }
-      }
-   } else {
-      screen->scroll(screen, font_height, bg_col);
-   }
-}
-
 
 static void invert_cursor(int x_pos, int y_pos, int editing) {
    int x = x_pos * font_width;
@@ -416,10 +374,10 @@ static void cursor_interrupt() {
 static void edit_cursor_up() {
    enable_edit_cursor();
    hide_edit_cursor();
-   if (e_y_pos > text_y_min) {
+   if (e_y_pos > t_window.top) {
       e_y_pos--;
    } else {
-      e_y_pos = text_y_max;
+      e_y_pos = t_window.bottom;
    }
    show_edit_cursor();
 }
@@ -427,10 +385,10 @@ static void edit_cursor_up() {
 static void edit_cursor_down() {
    enable_edit_cursor();
    hide_edit_cursor();
-   if (e_y_pos < text_y_max) {
+   if (e_y_pos < t_window.bottom) {
       e_y_pos++;
    } else {
-      e_y_pos = text_y_min;
+      e_y_pos = t_window.top;
    }
    show_edit_cursor();
 }
@@ -438,14 +396,14 @@ static void edit_cursor_down() {
 static void edit_cursor_left() {
    enable_edit_cursor();
    hide_edit_cursor();
-   if (e_x_pos > text_x_min) {
+   if (e_x_pos > t_window.left) {
       e_x_pos--;
    } else {
-      e_x_pos = text_x_max;
-      if (e_y_pos > text_y_min) {
+      e_x_pos = t_window.right;
+      if (e_y_pos > t_window.top) {
          e_y_pos--;
       } else {
-         e_y_pos = text_y_max;
+         e_y_pos = t_window.bottom;
       }
    }
    show_edit_cursor();
@@ -454,26 +412,27 @@ static void edit_cursor_left() {
 static void edit_cursor_right() {
    enable_edit_cursor();
    hide_edit_cursor();
-   if (e_x_pos < text_x_max) {
+   if (e_x_pos < t_window.right) {
       e_x_pos++;
    } else {
-      e_x_pos = text_x_min;
-      if (e_y_pos < text_y_max) {
+      e_x_pos = t_window.left;
+      if (e_y_pos < t_window.bottom) {
          e_y_pos++;
       } else {
-         e_y_pos = text_y_min;
+         e_y_pos = t_window.top;
       }
    }
    show_edit_cursor();
 }
 
-static void scroll() {
+static void text_area_scroll() {
+   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
    if (e_enabled) {
       hide_edit_cursor();
    }
-   scroll_text_area();
+   screen->scroll(screen, &t_window, bg_col);
    if (e_enabled) {
-      if (e_y_pos > text_y_min) {
+      if (e_y_pos > t_window.top) {
          e_y_pos--;
       }
       show_edit_cursor();
@@ -498,33 +457,32 @@ static void change_mode(screen_mode_t *new_screen) {
    // initialze VDU variable
    init_variables();
    // clear frame buffer
-   screen->clear(screen, screen->get_colour(screen, c_bg_col));
+   screen->clear(screen, NULL, screen->get_colour(screen, c_bg_col));
    // Show the cursor
    c_visible = 0;
    show_cursor();
 }
 
-static void set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window) {
    // Sanity check illegal windowss
-   if (x1 < 0 || x1 >= screen->width << screen->xeigfactor || y1 < 0 || y1 >= screen->height << screen->yeigfactor) {
+   if (window->left   < 0 || window->left   >= screen->width  << screen->xeigfactor ||
+       window->bottom < 0 || window->bottom >= screen->height << screen->yeigfactor) {
       return;
    }
-   if (x2 < 0 || x2 >= screen->width << screen->xeigfactor || y2 < 0 || y2 >= screen->height << screen->yeigfactor) {
+   if (window->right  < 0 || window->right  >= screen->width  << screen->xeigfactor ||
+       window->top    < 0 || window->top    >= screen->height << screen->yeigfactor) {
       return;
    }
-   if (x1 >= x2 || y1 >= y2) {
+   if (window->left >= window->right || window->bottom >= window->top) {
       return;
    }
    // Accept the window
-   g_x_min = x1;
-   g_x_max = x2;
-   g_y_min = y1;
-   g_y_max = y2;
+   g_window = *window;
    // Transform to screen coordinates
-   x1 >>= screen->xeigfactor;
-   y1 >>= screen->yeigfactor;
-   x2 >>= screen->xeigfactor;
-   y2 >>= screen->yeigfactor;
+   int16_t x1 = window->left   >> screen->xeigfactor;
+   int16_t y1 = window->bottom >> screen->yeigfactor;
+   int16_t x2 = window->right  >> screen->xeigfactor;
+   int16_t y2 = window->top    >> screen->yeigfactor;
    // Set the clipping window
    prim_set_graphics_area(screen, x1, y1, x2, y2);
 }
@@ -535,10 +493,10 @@ static void set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int
 
 static void text_cursor_left() {
    hide_cursor();
-   if (c_x_pos > text_x_min) {
+   if (c_x_pos > t_window.left) {
       c_x_pos--;
    } else {
-      c_x_pos = text_x_max;
+      c_x_pos = t_window.right;
       text_cursor_up();
    }
    show_cursor();
@@ -546,10 +504,10 @@ static void text_cursor_left() {
 
 static void text_cursor_right() {
    hide_cursor();
-   if (c_x_pos < text_x_max) {
+   if (c_x_pos < t_window.right) {
       c_x_pos++;
    } else {
-      c_x_pos = text_x_min;
+      c_x_pos = t_window.left;
       text_cursor_down();
    }
    show_cursor();
@@ -557,20 +515,20 @@ static void text_cursor_right() {
 
 static void text_cursor_up() {
    hide_cursor();
-   if (c_y_pos > text_y_min) {
+   if (c_y_pos > t_window.top) {
       c_y_pos--;
    } else {
-      c_y_pos = text_y_max;
+      c_y_pos = t_window.bottom;
    }
    show_cursor();
 }
 
 static void text_cursor_down() {
    hide_cursor();
-   if (c_y_pos < text_y_max) {
+   if (c_y_pos < t_window.bottom) {
       c_y_pos++;
    } else {
-      scroll();
+      text_area_scroll();
    }
    show_cursor();
 }
@@ -578,14 +536,14 @@ static void text_cursor_down() {
 static void text_cursor_col0() {
    disable_edit_cursor();
    hide_cursor();
-   c_x_pos = text_x_min;
+   c_x_pos = t_window.left;
    show_cursor();
 }
 
 static void text_cursor_home() {
    hide_cursor();
-   c_x_pos = text_x_min;
-   c_y_pos = text_y_min;
+   c_x_pos = t_window.left;
+   c_y_pos = t_window.top;
    show_cursor();
 }
 
@@ -596,9 +554,9 @@ static void text_cursor_tab(uint8_t *buf) {
    printf("cursor move to %d %d\r\n", x, y);
 #endif
    // Take account of current text window
-   x += text_x_min;
-   y += text_y_min;
-   if (x <= text_x_max && y <= text_y_max) {
+   x += t_window.left;
+   y += t_window.top;
+   if (x <= t_window.right && y <= t_window.bottom) {
       hide_cursor();
       c_x_pos = x;
       c_y_pos = y;
@@ -608,30 +566,9 @@ static void text_cursor_tab(uint8_t *buf) {
 
 static void text_area_clear() {
    pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-   if (text_area_active()) {
-      // Pixel 0,0 is in the bottom left
-      // Character 0,0 is in the top left
-      // So the Y axis needs flipping
-
-      // Top/Left
-      int x1 = text_x_min * font_width;
-      int y1 = screen->height - 1 - text_y_min * font_height;
-
-      // Bottom/Right
-      int x2 = (text_x_max + 1) * font_width;
-      int y2 = screen->height - 1 - (text_y_max + 1) * font_height;
-
-      // Clear from top to bottom
-      for (int y = y1; y > y2; y--) {
-         for (int x = x1; x < x2; x++) {
-            screen->set_pixel(screen, x, y, bg_col);
-         }
-      }
-   } else {
-      screen->clear(screen, bg_col);
-   }
-   c_x_pos = text_x_min;
-   c_y_pos = text_y_min;
+   screen->clear(screen, &t_window, bg_col);
+   c_x_pos = t_window.left;
+   c_y_pos = t_window.top;
    c_visible = 0;
    show_cursor();
 }
@@ -652,46 +589,46 @@ static void text_delete() {
 
 // Notes:
 //    g_x_pos/g_y_pos are in absolute external coordinates
-//    g_x_min/max are also in absolute external coordinates
+//    g_window.left/max are also in absolute external coordinates
 //    font_width/height are in screen pixels
 
 static void graphics_cursor_left() {
    g_x_pos -= font_width << screen->xeigfactor;
-   if (g_x_pos < g_x_min) {
-      g_x_pos = g_x_max + 1 - (font_width << screen->xeigfactor);
+   if (g_x_pos < g_window.left) {
+      g_x_pos = g_window.right + 1 - (font_width << screen->xeigfactor);
       graphics_cursor_up();
    }
 }
 
 static void graphics_cursor_right() {
    g_x_pos += font_width << screen->xeigfactor;
-   if (g_x_pos > g_x_max) {
-      g_x_pos = g_x_min;
+   if (g_x_pos > g_window.right) {
+      g_x_pos = g_window.left;
       graphics_cursor_down();
    }
 }
 
 static void graphics_cursor_up() {
    g_y_pos += font_height << screen->yeigfactor;
-   if (g_y_pos > g_y_max) {
-      g_y_pos = g_y_min - 1 + (font_height << screen->yeigfactor);
+   if (g_y_pos > g_window.top) {
+      g_y_pos = g_window.bottom - 1 + (font_height << screen->yeigfactor);
    }
 }
 
 static void graphics_cursor_down() {
    g_y_pos -= font_height << screen->yeigfactor;
-   if (g_y_pos < g_y_min) {
-      g_y_pos = g_y_max;
+   if (g_y_pos < g_window.bottom) {
+      g_y_pos = g_window.top;
    }
 }
 
 static void graphics_cursor_col0() {
-   g_x_pos = g_x_min;
+   g_x_pos = g_window.left;
 }
 
 static void graphics_cursor_home() {
-   g_x_pos = g_x_min;
-   g_y_pos = g_y_max;
+   g_x_pos = g_window.left;
+   g_y_pos = g_window.top;
 }
 
 static void graphics_cursor_tab(uint8_t *buf) {
@@ -704,16 +641,16 @@ static void graphics_cursor_tab(uint8_t *buf) {
    x *= font_width << screen->xeigfactor;
    y *= font_height << screen->yeigfactor;
    // Take account of current text window
-   x += g_x_min;
-   y += g_y_min;
+   x += g_window.left;
+   y += g_window.bottom;
    // Deliberately don't range check here
-   g_x_pos = g_x_min + x;
-   g_y_pos = g_y_min + y;
+   g_x_pos = g_window.left + x;
+   g_y_pos = g_window.bottom + y;
 }
 
 static void graphics_area_clear() {
-   g_x_pos = g_x_min;
-   g_y_pos = g_y_max;
+   g_x_pos = g_window.left;
+   g_y_pos = g_window.top;
    pixel_t col = screen->get_colour(screen, g_bg_col);
    prim_clear_graphics_area(screen, col);
 }
@@ -1027,20 +964,22 @@ static void vdu_23(uint8_t *buf) {
 }
 
 static void vdu_24(uint8_t *buf) {
-   int16_t x1 = (int16_t)(buf[1] + (buf[2] << 8));
-   int16_t y1 = (int16_t)(buf[3] + (buf[4] << 8));
-   int16_t x2 = (int16_t)(buf[5] + (buf[6] << 8));
-   int16_t y2 = (int16_t)(buf[7] + (buf[8] << 8));
+   g_clip_window_t window;
+   window.left   = (int16_t)(buf[1] + (buf[2] << 8));
+   window.bottom = (int16_t)(buf[3] + (buf[4] << 8));
+   window.right  = (int16_t)(buf[5] + (buf[6] << 8));
+   window.top    = (int16_t)(buf[7] + (buf[8] << 8));
 #ifdef DEBUG_VDU
-   printf("graphics area %d %d %d %d\r\n", x1, y1, x2, y2);
+   printf("graphics area left:%d bottom:%d right:%d top:%d\r\n",
+          window.left, window.bottom, window.right, window.top);
 #endif
    // Transform to absolute external coordinates
-   x1 += g_x_origin;
-   y1 += g_y_origin;
-   x2 += g_x_origin;
-   y2 += g_y_origin;
+   window.left   += g_x_origin;
+   window.bottom += g_y_origin;
+   window.right  += g_x_origin;
+   window.top    += g_y_origin;
    // Set the window
-   set_graphics_area(screen, x1, y1, x2, y2);
+   set_graphics_area(screen, &window);
 }
 
 
@@ -1229,13 +1168,12 @@ static void vdu_27(uint8_t *buf) {
 }
 
 static void vdu_28(uint8_t *buf) {
-   uint8_t left   = buf[1];
-   uint8_t bottom = buf[2];
-   uint8_t right  = buf[3];
-   uint8_t top    = buf[4];
-   set_text_area(left, bottom, right, top);
+   // left, bottom, right, top
+   t_clip_window_t window = {buf[1], buf[2], buf[3], buf[4]};
+   set_text_area(&window);
 #ifdef DEBUG_VDU
-   printf("text area left:%d bottom:%d right:%d top:%d\r\n", left, bottom, right, top);
+   printf("text area left:%d bottom:%d right:%d top:%d\r\n",
+          window.left, window.bottom, window.right, window.top);
 #endif
 }
 
@@ -1243,7 +1181,7 @@ static void vdu_29(uint8_t *buf) {
    g_x_origin = (int16_t)(buf[1] + (buf[2] << 8));
    g_y_origin = (int16_t)(buf[3] + (buf[4] << 8));
 #ifdef DEBUG_VDU
-   printf("graphics origin %d %d\r\n", x, y);
+   printf("graphics origin %d %d\r\n", g_x_origin, g_y_origin);
 #endif
 }
 
