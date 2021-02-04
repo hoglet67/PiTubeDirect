@@ -349,7 +349,7 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
    int colour[2];
    int xoffset = tt.xstart + col * tt.size_w * tt.scale_w;
    int yoffset = tt.ystart - row * tt.size_h * tt.scale_h;
-   if (tt.graphics && ((ch > 0x9f && ch < 0xc0) || (ch > 0xdf && ch <= 0xff))) {
+   if (tt.graphics && (ch & 0x3f) >= 0x20) {
       // Draws the graphics characters based on the 2x6 matrix
       if (ch & 64) {
          ch |= 0x20; // Set bit 6 if the 6th block is set
@@ -358,13 +358,17 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
       }
       int y = yoffset;
       for (int yb = 0; yb < 3; yb++) { // y blocks
+#ifdef LORES
+         int ysize = (yb == 1) ? 8 : 6;
+#else
          int ysize = (yb == 1) ? 16 : 12;
+#endif
          for (int y2 = 0; y2 < ysize; y2++, y--) {
             int x = xoffset;
             colour[0] = ((ch >> (2 * yb)) & 1) ? fg_col : bg_col;
             colour[1] = ((ch >> (2 * yb + 1)) & 1) ? fg_col : bg_col;
             for (int xb = 0; xb < 2; xb ++) { // x blocks
-               for (int x2 = 0; x2 < tt.size_w; x2++, x++) {
+               for (int x2 = 0; x2 < tt.scale_w * tt.size_w / 2; x2++, x++) {
                   if (tt.separated && ((x2 < 5) || (y2 >= ysize - 4))) {
                      screen->set_pixel(screen, x, y, bg_col);
                   } else {
