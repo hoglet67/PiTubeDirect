@@ -899,22 +899,31 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    int xf = (x1 + x3) / 2;
    int yf = (y1 + y3) / 2;
 
+   // Make xf,yf relative to the centre
+   xf -= xc;
+   yf -= yc;
+
    // If chord passes through origin use alternative centre
    if (abs(xf) < 5 && abs(yf) < 5) {
-      xf = -y1 / 2;
-      yf = x1 / 2;
+      xf = -(y1 - yc) / 2;
+      yf =  (x1 - xc) / 2;
    }
-   int qf = arc_quadrant(xf - xc, yf - yc);
-   int rf = calc_radius(xc, yc, xf, yf);
+   int qf = arc_quadrant(xf, yf);
+   int rf = calc_radius(0, 0, xf, yf);
    if (rf < 5) rf = radius / 2;
    xf = (xf + xf * radius / rf) / 2;
    yf = (yf + yf * radius / rf) / 2;
 
    // Invert if the point would not be displayed
-   if (!arc_point(qf, q[qf], xf, yf, x1, y1, x3, y3)) {
-      xf = -xf;
-      yf = -yf;
+   if (!arc_point(qf, q[qf], xc + xf, yc + yf, x1, y1, x3, y3)) {
+      xf = - xf;
+      yf = - yf;
    }
+
+   // Make xf,yf absolute again
+   xf += xc;
+   yf += yc;
+
    arc_fill_x = xf;
    arc_fill_y = yf;
 }
