@@ -830,7 +830,7 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    int qend = arc_quadrant(x3 - xc, y3 - yc);
    quadrant_t q[4] = {Q_NONE, Q_NONE, Q_NONE, Q_NONE};
    q[qstart] = (qstart == qend) ? Q_BOTH : Q_START;
-   if (qstart != qend || (y1 >= 0 && x1 < x3) || (y1 < 0 && x1 > x3)) {
+   if (qstart != qend || (y1 >= yc && x1 < x3) || (y1 < yc && x1 > x3)) {
       for (int i = qstart + 1; i < qstart + 4; i++) {
          int j = i % 4;
          if (j == qend) {
