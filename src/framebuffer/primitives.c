@@ -34,6 +34,8 @@ typedef enum {
 
 static int16_t arc_end_x;
 static int16_t arc_end_y;
+static int16_t arc_fill_x;
+static int16_t arc_fill_y;
 
 // TODO List
 // - implement fill patterns
@@ -155,35 +157,79 @@ static int arc_point(int q, quadrant_t state, int x, int y, int xs, int ys, int 
    }
    switch (q) {
    case 0:
-      if ((state == Q_START || state == Q_BOTH) && x <= xs && y >= ys) {
+      if (state == Q_START && x <= xs && y >= ys) {
          return TRUE;
       }
-      if ((state == Q_END || state == Q_BOTH) && x >= xe && y <= ye) {
+      if (state == Q_END   && x >= xe && y <= ye) {
          return TRUE;
+      }
+      if (state == Q_BOTH) {
+         if (xs > xe) {
+            if ((x <= xs && y >= ys) && (x >= xe && y <= ye)) {
+               return TRUE;
+            }
+         } else {
+            if ((x <= xs && y >= ys) || (x >= xe && y <= ye)) {
+               return TRUE;
+            }
+         }
       }
       break;
    case 1:
-      if ((state == Q_START || state == Q_BOTH) && x <= xs && y <= ys) {
+      if (state == Q_START && x <= xs && y <= ys) {
          return TRUE;
       }
-      if ((state == Q_END || state == Q_BOTH) && x >= xe && y >= ye) {
+      if (state == Q_END   && x >= xe && y >= ye) {
          return TRUE;
+      }
+      if (state == Q_BOTH) {
+         if (xs > xe) {
+            if ((x <= xs && y <= ys) && (x >= xe && y >= ye)) {
+               return TRUE;
+            }
+         } else {
+            if ((x <= xs && y <= ys) || (x >= xe && y >= ye)) {
+               return TRUE;
+            }
+         }
       }
       break;
    case 2:
-      if ((state == Q_START || state == Q_BOTH) && x >= xs && y <= ys) {
+      if (state == Q_START && x >= xs && y <= ys) {
          return TRUE;
       }
-      if ((state == Q_END || state == Q_BOTH) && x <= xe && y >= ye) {
+      if (state == Q_END   && x <= xe && y >= ye) {
          return TRUE;
+      }
+      if (state == Q_BOTH) {
+         if (xs < xe) {
+            if ((x >= xs && y <= ys) && (x <= xe && y >= ye)) {
+               return TRUE;
+            }
+         } else {
+            if ((x >= xs && y <= ys) || (x <= xe && y >= ye)) {
+               return TRUE;
+            }
+         }
       }
       break;
    case 3:
-      if ((state == Q_START || state == Q_BOTH) && x >= xs && y >= ys) {
+      if (state == Q_START && x >= xs && y >= ys) {
          return TRUE;
       }
-      if ((state == Q_END || state == Q_BOTH) && x <= xe && y <= ye) {
+      if (state == Q_END   && x <= xe && y <= ye) {
          return TRUE;
+      }
+      if (state == Q_BOTH) {
+         if (xs < xe) {
+            if ((x >= xs && y >= ys) && (x <= xe && y <= ye)) {
+               return TRUE;
+            }
+         } else {
+            if ((x >= xs && y >= ys) || (x <= xe && y <= ye)) {
+               return TRUE;
+            }
+         }
       }
       break;
    }
@@ -768,9 +814,12 @@ void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, i
 
 // TODO: Update this to work with non-square pixels
 
-void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, unsigned int colour) {
+void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
+   // Draw arc using modified Bresenham algorithm
+   // Finds start and end quadrants and masks plotting of points
    int radius = calc_radius(xc, yc, x1, y1);
-   int r2 = calc_radius(xc, yc, x2, y2);
+   // Don't use calc_radius for r2 as this rounds up and can lead to gaps and leakage
+   int r2 = sqrt((x2-xc)*(x2-xc) + (y2-yc)*(y2-yc));
 
    // Calc end point
    int x3 = xc + (x2 - xc) * radius / r2;
@@ -780,18 +829,16 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    int qstart = arc_quadrant(x1 - xc, y1 - yc);
    int qend = arc_quadrant(x3 - xc, y3 - yc);
    quadrant_t q[4] = {Q_NONE, Q_NONE, Q_NONE, Q_NONE};
-   if (qstart == qend) {
-      q[qstart] = Q_BOTH;
-   }  else {
-      q[qstart] = Q_START;
-   }
-   for (int i = qstart + 1; i < qstart + 4; i++) {
-      int j = i % 4;
-      if (j == qend) {
-         q[j] = Q_END;
-         break;
-      } else {
-         q[j] = Q_ALL;
+   q[qstart] = (qstart == qend) ? Q_BOTH : Q_START;
+   if (qstart != qend || (y1 >= 0 && x1 < x3) || (y1 < 0 && x1 > x3)) {
+      for (int i = qstart + 1; i < qstart + 4; i++) {
+         int j = i % 4;
+         if (j == qend) {
+            q[j] = Q_END;
+            break;
+         } else {
+            q[j] = Q_ALL;
+         }
       }
    }
 
@@ -814,7 +861,7 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
          d = d + 2 * x + 3;
          x += 1;
       } else {
-         d = d + 2 * (x-y) + 5;
+         d = d + 2 * (x - y) + 5;
          x += 1;
          y -= 1;
       }
@@ -847,48 +894,49 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    // (but don't reuse the graphics cursor for this purpose)
    arc_end_x = x3;
    arc_end_y = y3;
+
+   // Find chord centre for flood fill
+   int xf = (x1 + x3) / 2;
+   int yf = (y1 + y3) / 2;
+
+   // If chord passes through origin use alternative centre
+   if (abs(xf) < 5 && abs(yf) < 5) {
+      xf = -y1 / 2;
+      yf = x1 / 2;
+   }
+   int qf = arc_quadrant(xf - xc, yf - yc);
+   int rf = calc_radius(xc, yc, xf, yf);
+   if (rf < 5) rf = radius / 2;
+   xf = (xf + xf * radius / rf) / 2;
+   yf = (yf + yf * radius / rf) / 2;
+
+   // Invert if the point would not be displayed
+   if (!arc_point(qf, q[qf], xf, yf, x1, y1, x3, y3)) {
+      xf = -xf;
+      yf = -yf;
+   }
+   arc_fill_x = xf;
+   arc_fill_y = yf;
 }
+
 
 void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
    // Draw the arc that bounds the chord
    prim_draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
    // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
-   int x3 = arc_end_x;
-   int y3 = arc_end_y;
-   // Draw the chord
-   prim_draw_line(screen, x1, y1, x3, y3, colour, 0);
-   // Find the mid point of the chord
-   int xf = x1 + (x3 - x1) / 2;
-   int yf = y1 + (y3 - y1) / 2;
-   // Move one pixel towards the centre
-   if (xf < xc) {
-      xf--;
-   } else if (xf > xc) {
-      xf++;
-   }
-   if (yf < yc) {
-      yf--;
-   } else if (yf > yc) {
-      yf++;
-   }
+   prim_draw_line(screen, x1, y1, arc_end_x, arc_end_y, colour, 0);
    // Fill the interior
-   prim_flood_fill(screen, xf, yf, colour, colour, 0);
+   prim_flood_fill(screen, arc_fill_x, arc_fill_y, colour, colour, 0);
 }
 
 void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
    // Draw the arc that bounds the sector
    prim_draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
    // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
-   int x3 = arc_end_x;
-   int y3 = arc_end_y;
-   // Draw the lines from the arc endpoints back to the center
+   prim_draw_line(screen, arc_end_x, arc_end_y, xc, yc, colour, 0);
    prim_draw_line(screen, xc, yc, x1, y1, colour, 0);
-   prim_draw_line(screen, xc, yc, x3, y3, colour, 0);
-   // Find a point inside the sector
-   int xf = x1 + (x3 - x1) / 2;
-   int yf = y1 + (y3 - y1) / 2;
    // Fill the interior
-   prim_flood_fill(screen, xf, yf, colour, colour, 0);
+   prim_flood_fill(screen, arc_fill_x, arc_fill_y, colour, colour, 0);
 }
 
 // Rodders: Bit Blit

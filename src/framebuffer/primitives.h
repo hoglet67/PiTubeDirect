@@ -33,7 +33,7 @@ void prim_fill_circle          (screen_mode_t *screen, int xc, int yc, int xr, i
 void prim_draw_ellipse         (screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour);
 void prim_fill_ellipse         (screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour);
 void prim_fill_triangle        (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
-void prim_draw_arc             (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, unsigned int colour);
+void prim_draw_arc             (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour);
 void prim_fill_chord           (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour);
 void prim_fill_sector          (screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour);
 void prim_move_copy_rectangle  (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move);
