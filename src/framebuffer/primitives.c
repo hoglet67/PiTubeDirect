@@ -40,9 +40,6 @@ static int16_t arc_fill_y;
 // TODO List
 // - implement fill patterns
 // - implement line patterns
-// - bug: sector fill doesn't fill interior when angle > 180 degrees
-// - bug: chord fill doesn't fill interior reliable
-// - bug: draw arc issue when start and end in same quadrant
 // - bug: draw arc doesn't currently handle screen modes with non-square pixels
 // - bug: block move ignores the move attribute (i.e. it always copies)
 // - bug: block move doesn't clip vertically
