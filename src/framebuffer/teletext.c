@@ -390,11 +390,9 @@ static inline int tt_pixel_set(int p, int x, int y) {
    return ((teletext_screen_mode.font->buffer[p + y] >> (tt.char_w - x - 1)) & 1);
 }
 
-static void tt_write_character(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
-   if (col == 0) {
-      tt_reset_line_state();
-   }
-   int ch = tt_process_controls(c, col, row);
+
+// Redraw character c at col, row using the current line state
+static void tt_draw_character(struct screen_mode *screen, int ch, int col, int row) {
    int colour[2];
    int xoffset = tt.xstart + col * tt.size_w * tt.scale_w;
    int yoffset = tt.ystart - row * tt.size_h * tt.scale_h;
@@ -414,12 +412,12 @@ static void tt_write_character(struct screen_mode *screen, int c, int col, int r
 #endif
          for (int y2 = 0; y2 < ysize; y2++, y--) {
             int x = xoffset;
-            colour[0] = ((ch >> (2 * yb)) & 1) ? fg_col : bg_col;
-            colour[1] = ((ch >> (2 * yb + 1)) & 1) ? fg_col : bg_col;
+            colour[0] = ((ch >> (2 * yb)) & 1) ? tt.fgd_colour : tt.bgd_colour;
+            colour[1] = ((ch >> (2 * yb + 1)) & 1) ? tt.fgd_colour : tt.bgd_colour;
             for (int xb = 0; xb < 2; xb ++) { // x blocks
-               for (int x2 = 0; x2 < tt.scale_w * tt.size_w / 2; x2++, x++) {
+               for (int x2 = 0; x2 < tt.size_w; x2++, x++) {
                   if (tt.separated && ((x2 < 5) || (y2 >= ysize - 4))) {
-                     screen->set_pixel(screen, x, y, bg_col);
+                     screen->set_pixel(screen, x, y, tt.bgd_colour);
                   } else {
                      screen->set_pixel(screen, x, y, colour[xb]);
                   }
@@ -484,6 +482,16 @@ static void tt_write_character(struct screen_mode *screen, int c, int col, int r
          }
       }
    }
+}
+
+static void tt_write_character(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
+   // Note: fg_col/bg_col (from COLOUR n) are ignored in teletext mode
+   // because colour control characters are used insread
+   if (col == 0) {
+      tt_reset_line_state();
+   }
+   int ch = tt_process_controls(c, col, row);
+   tt_draw_character(screen, ch, col, row);
    tt_process_controls_after(c, col, row);
    // Update the backing store
    mode7screen[row][col] = c;
