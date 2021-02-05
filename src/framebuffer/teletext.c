@@ -24,7 +24,7 @@ struct {
    int separated;
    int doubled;
    int has_double;
-   int double_top; // Set for the top line of doubled text, clear for the bottom line
+   int double_bottom; // Set for the bottom line of doubled text, clear for the top line
    int flashing;
    int concealed;
    int held;
@@ -189,9 +189,11 @@ static int tt_read_character(screen_mode_t *screen, int col, int row) {
 
 static void tt_reset_line_state() {
    // Reset the state at the beginning of each line
-   if (tt.has_double) {
-      tt.double_top = !tt.double_top;
-   }
+   // The bottom row of double height is only selected if the previous row used the top row
+   // (i.e. it doesn't just toggle on alternate lines). This attribute also causes normal
+   // height stuff on the bottom row of double height to be supressed (i.e. displayed as
+   // spaces in the current background colour).
+   tt.double_bottom = (tt.has_double && !tt.double_bottom);
    tt.fgd_colour = TT_WHITE;
    tt.bgd_colour = TT_BLACK;
    tt.graphics = FALSE;
@@ -390,6 +392,11 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
    int colour[2];
    int xoffset = tt.xstart + col * tt.size_w * tt.scale_w;
    int yoffset = tt.ystart - row * tt.size_h * tt.scale_h;
+   // Anything normal height on the bottom row of double height should be drawn as a space in the background colour
+   if (tt.double_bottom && !tt.doubled) {
+      // Force to space
+      ch = 0x20;
+   }
    if (tt.graphics && (ch & 0x3f) >= 0x20) {
       // Draws the graphics characters based on the 2x6 matrix
       if (ch & 64) {
@@ -430,10 +437,10 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
       int yinc = (tt.scale_h * 2);
       if (tt.doubled) {
          yinc *= 2;
-         if (tt.double_top) {
-            py_to = py_to / 2;
-         } else {
+         if (tt.double_bottom) {
             py_from = tt.char_h / 2;
+         } else {
+            py_to = py_to / 2;
          }
       }
       for (int py = py_from; py < py_to; py++, y -= yinc) {
