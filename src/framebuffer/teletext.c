@@ -393,7 +393,7 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
    int xoffset = tt.xstart + col * tt.size_w * tt.scale_w;
    int yoffset = tt.ystart - row * tt.size_h * tt.scale_h;
    // Anything normal height on the bottom row of double height should be drawn as a space in the background colour
-   if (tt.double_bottom && !tt.doubled) {
+   if (tt.concealed || (tt.double_bottom && !tt.doubled)) {
       // Force to space
       ch = 0x20;
    }
