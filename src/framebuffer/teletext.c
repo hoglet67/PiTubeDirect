@@ -204,7 +204,7 @@ static void tt_reset_line_state() {
    tt.concealed = FALSE;
    tt.held = FALSE;
    tt.held_char = 32;
-   tt.held_separated = tt.separated;
+   tt.held_separated = FALSE;
 }
 
 static void tt_flash(screen_mode_t *screen) {
@@ -261,16 +261,6 @@ static int tt_process_controls(int c, int col, int row) {
    // Process control characters, when graphics hold is in force some settings
    // are deferred until after the held character is printed e.g. colour changes
    // see tt_process_controls_after
-   if (c & 0x20) {
-      tt.held_char = c;
-      tt.held_separated = tt.separated;
-   }
-   int rc = 32;
-   if (c < 128 || c > 159 ) {
-      rc = c;
-   } else if (tt.held) {
-      rc = tt.held_char;
-   }
    if (tt.flashing) {
       tt_add_flash_char(c);
    }
@@ -280,6 +270,7 @@ static int tt_process_controls(int c, int col, int row) {
          tt.graphics = FALSE;
          tt.concealed = FALSE;
          tt.fgd_colour = c - 128;
+         tt.held_char = 32;
       }
       break;
    case TT_FLASH:
@@ -290,11 +281,19 @@ static int tt_process_controls(int c, int col, int row) {
       tt.flashing = FALSE;
       break;
    case TT_NORMAL:
+      if (tt.doubled) {
+         // The held graphics character is cleared by a change of height
+         tt.held_char = 32;
+      }
       if (!tt.held) {
          tt.doubled = FALSE;
       }
       break;
    case TT_DOUBLE:
+      if (!tt.doubled) {
+         // The held graphics character is cleared by a change of height
+         tt.held_char = 32;
+      }
       if (!tt.held) {
          tt.doubled = TRUE;
          tt.has_double = TRUE;
@@ -305,6 +304,7 @@ static int tt_process_controls(int c, int col, int row) {
          tt.graphics = TRUE;
          tt.concealed = FALSE;
          tt.fgd_colour = c - 144;
+         tt.held_char = 32;
       }
       break;
    case TT_CONCEAL:
@@ -326,7 +326,32 @@ static int tt_process_controls(int c, int col, int row) {
       tt.held = TRUE;
       break;
    }
-   return rc;
+
+   // The held character is the last character seen with bit 5 set
+   if (c & 0x20) {
+      tt.held_char = c;
+      tt.held_separated = tt.separated;
+   }
+
+   // return the character that will actually be rendered with draw_character
+
+   // HOLD, CONCEAL, DOUBLED are "Set At" so this decision has to be made after the above case statement
+
+   if (tt.concealed || (tt.double_bottom && !tt.doubled)) {
+      // Anything normal height on the bottom row of double height should be displayed as a space
+      return 0x20;
+   } else if (c >= 0x80 && c <= 0x9F) {
+      if (tt.held) {
+         // Display control codes as the held character
+         return tt.held_char;
+      } else {
+         // Display control codes as space (the default behaviour)
+         return 0x20;
+      }
+   } else {
+      // Display the character passed in
+      return c;
+   }
 }
 
 static void tt_process_controls_after(int c, int col, int row) {
@@ -392,11 +417,6 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
    int colour[2];
    int xoffset = tt.xstart + col * tt.size_w * tt.scale_w;
    int yoffset = tt.ystart - row * tt.size_h * tt.scale_h;
-   // Anything normal height on the bottom row of double height should be drawn as a space in the background colour
-   if (tt.concealed || (tt.double_bottom && !tt.doubled)) {
-      // Force to space
-      ch = 0x20;
-   }
    if (tt.graphics && (ch & 0x3f) >= 0x20) {
       // Draws the graphics characters based on the 2x6 matrix
       if (ch & 64) {
