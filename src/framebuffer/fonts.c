@@ -47,7 +47,7 @@
 // Font Catalog
 
 static font_t font_catalog[] = {
-   {"BBC",      fontbbc,   8, 128, 0, 8,  8, 0},
+   {"BBC",      fontbbc,   8, 256, 0, 8,  8, 0},
    {"8X10",     font01,   16, 256, 0, 8, 10, 0},
    {"8X11SNSF", font02,   16, 256, 0, 8, 11, 0},
    {"8X14",     font03,   16, 256, 0, 8, 14, 0},
