@@ -55,34 +55,34 @@ struct{
 int tt_no_flash_region = 0;
 
 // Screen Mode definition
-static void tt_reset         (screen_mode_t *screen);
-static void tt_clear         (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
-static void tt_scroll        (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
-static void tt_flash         (screen_mode_t *screen);
-static void tt_draw_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
-static int  tt_read_character(screen_mode_t *screen, int col, int row);
+static void tt_reset          (screen_mode_t *screen);
+static void tt_clear          (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
+static void tt_scroll         (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
+static void tt_flash          (screen_mode_t *screen);
+static void tt_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
+static int  tt_read_character (screen_mode_t *screen, int col, int row);
 
 #define LORES
 
 static screen_mode_t teletext_screen_mode = {
-   .mode_num       = 7,
+   .mode_num        = 7,
 #ifdef LORES
-   .width          = 480,
-   .height         = 500,
+   .width           = 480,
+   .height          = 500,
 #else
-   .width          = 1200,
-   .height         = 1000,
+   .width           = 1200,
+   .height          = 1000,
 #endif
-   .xeigfactor     = 1,
-   .yeigfactor     = 1,
-   .bpp            = 8,
-   .ncolour        = 255,
-   .reset          = tt_reset,
-   .clear          = tt_clear,
-   .scroll         = tt_scroll,
-   .flash          = tt_flash,
-   .draw_character = tt_draw_character,
-   .read_character = tt_read_character
+   .xeigfactor      = 1,
+   .yeigfactor      = 1,
+   .bpp             = 8,
+   .ncolour         = 255,
+   .reset           = tt_reset,
+   .clear           = tt_clear,
+   .scroll          = tt_scroll,
+   .flash           = tt_flash,
+   .write_character = tt_write_character,
+   .read_character  = tt_read_character
 };
 
 screen_mode_t *tt_get_screen_mode() {
@@ -154,7 +154,7 @@ static void tt_reset(screen_mode_t *screen) {
 
 static void tt_clear(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
    // Call the default implementation to clear the framebuffer
-   clear_screen(screen, text_window, bg_col);
+   default_clear_screen(screen, text_window, bg_col);
    // Clear the backing store
    if (text_window == NULL) {
       memset(mode7screen, 32, sizeof(mode7screen));
@@ -169,7 +169,7 @@ static void tt_clear(screen_mode_t *screen, t_clip_window_t *text_window, pixel_
 
 static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
    // Call the default implementation to scroll the framebuffer
-   scroll_screen(screen, text_window, bg_col);
+   default_scroll_screen(screen, text_window, bg_col);
    // Scroll the backing store
    for (int row = text_window->top; row < text_window->bottom; row++) {
       for (int col = text_window->left; col <= text_window->right; col++) {
@@ -221,7 +221,7 @@ static void tt_flash(screen_mode_t *screen) {
                tt.fgd_colour = tt_flash_region[f].fgd_colour;
                tt.bgd_colour = tt_flash_region[f].bgd_colour;
             }
-            screen->draw_character(screen, c, col, row, tt.fgd_colour, tt.bgd_colour);
+            screen->write_character(screen, c, col, row, tt.fgd_colour, tt.bgd_colour);
          }
       }
       tt.fgd_colour = fgd;
@@ -390,7 +390,7 @@ static inline int tt_pixel_set(int p, int x, int y) {
    return ((teletext_screen_mode.font->buffer[p + y] >> (tt.char_w - x - 1)) & 1);
 }
 
-static void tt_draw_character(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
+static void tt_write_character(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
    if (col == 0) {
       tt_reset_line_state();
    }

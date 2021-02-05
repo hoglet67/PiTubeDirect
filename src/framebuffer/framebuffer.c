@@ -1209,7 +1209,7 @@ static void vdu_default(uint8_t *buf) {
       // Draw the foreground and background pixels
       pixel_t fg_col = screen->get_colour(screen, c_fg_col);
       pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-      screen->draw_character(screen, c, c_x_pos, c_y_pos, fg_col, bg_col);
+      screen->write_character(screen, c, c_x_pos, c_y_pos, fg_col, bg_col);
       show_cursor();
       // Advance the drawing position
       text_cursor_right();
@@ -1293,10 +1293,6 @@ void fb_writes(char *string) {
    while (*string) {
       fb_writec(*string++);
    }
-}
-
-uint32_t fb_get_address() {
-   return (uint32_t) fb;
 }
 
 int fb_get_edit_cursor_x() {

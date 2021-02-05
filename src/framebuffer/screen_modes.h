@@ -53,28 +53,51 @@ typedef struct screen_mode {
 
    font_t *font;    // the current font for this screen mode
 
-   void           (*init)(struct screen_mode *screen);
-   void          (*reset)(struct screen_mode *screen);
-   void          (*clear)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
-   void         (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
-   void          (*flash)(struct screen_mode *screen);
-   void     (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
-   pixel_t  (*get_colour)(struct screen_mode *screen, colour_index_t index);
-   void      (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
-   pixel_t   (*get_pixel)(struct screen_mode *screen, int x, int y);
-   void (*draw_character)(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
-   int  (*read_character)(struct screen_mode *screen,        int col, int row);
-
+   void            (*init)(struct screen_mode *screen);
+   void           (*reset)(struct screen_mode *screen);
+   void           (*clear)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
+   void          (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
+   void           (*flash)(struct screen_mode *screen);
+   void      (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
+   pixel_t   (*get_colour)(struct screen_mode *screen, colour_index_t index);
+   void       (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
+   pixel_t    (*get_pixel)(struct screen_mode *screen, int x, int y);
+   void (*write_character)(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
+   int   (*read_character)(struct screen_mode *screen,        int col, int row);
 } screen_mode_t;
 
 
+// ==========================================================================
+// Default handlers
+// ==========================================================================
+
+// These are non static so it can be called by custom modes
+
+void         default_init_screen(screen_mode_t *screen);
+void        default_reset_screen(screen_mode_t *screen);
+void        default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
+void       default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
+void     default_set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b);
+void    default_set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b);
+void    default_set_colour_32bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b);
+pixel_t  default_get_colour_8bpp(screen_mode_t *screen, colour_index_t index);
+pixel_t default_get_colour_16bpp(screen_mode_t *screen, colour_index_t index);
+pixel_t default_get_colour_32bpp(screen_mode_t *screen, colour_index_t index);
+void      default_set_pixel_8bpp(screen_mode_t *screen, int x, int y, pixel_t value);
+void     default_set_pixel_16bpp(screen_mode_t *screen, int x, int y, pixel_t value);
+void     default_set_pixel_32bpp(screen_mode_t *screen, int x, int y, pixel_t value);
+pixel_t   default_get_pixel_8bpp(screen_mode_t *screen, int x, int y);
+pixel_t  default_get_pixel_16bpp(screen_mode_t *screen, int x, int y);
+pixel_t  default_get_pixel_32bpp(screen_mode_t *screen, int x, int y);
+void     default_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
+int       default_read_character(screen_mode_t *screen, int col, int row);
+
+// ==========================================================================
+// Public methods
+// ==========================================================================
+
 screen_mode_t *get_screen_mode(int mode_num);
 
-void clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
-void scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
-
-// TODO: get rid of this
-// It's only needed for fb_get_address which is only used by v3d
-extern unsigned char* fb;
+uint32_t get_fb_address();
 
 #endif

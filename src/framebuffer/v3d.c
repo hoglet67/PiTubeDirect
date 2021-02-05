@@ -451,7 +451,7 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
 
   // Tile Rendering Mode Configuration
   addbyte(&p, 113);
-  addword(&p, fb_get_address()); // framebuffer addresss
+  addword(&p, get_fb_address()); // framebuffer addresss
   addshort(&p, w); // width
   addshort(&p, h); // height
   if (screen->bpp == 32) {
@@ -477,7 +477,7 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
       } else {
          addbyte(&p, 0x02); // Pixel colour format = bgr565 TODO: This is wrong!
       }
-      addword(&p, fb_get_address());
+      addword(&p, get_fb_address());
 
       // Tile Coordinates
       addbyte(&p, 115);

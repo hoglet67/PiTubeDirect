@@ -974,7 +974,7 @@ void prim_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int
    }
    // Convert row length from pixels to bytes
    len *= (screen->bpp >> 3);
-   uint8_t *fb = (uint8_t *)fb_get_address();
+   uint8_t *fb = (uint8_t *)get_fb_address();
    for (int y = 0; y < rows; y++) {
       if (y3 < y1) {
          src = fb + (screen->height - (y1 + y) - 1) * screen->pitch + x1;
