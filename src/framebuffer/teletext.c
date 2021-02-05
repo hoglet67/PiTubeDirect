@@ -29,6 +29,7 @@ struct {
    int concealed;
    int held;
    int held_char;
+   int held_separated;
    int columns;
    int rows;
    int xstart;
@@ -39,7 +40,7 @@ struct {
    int size_h;
    int scale_w;
    int scale_h;
-} tt = {TT_WHITE, TT_BLACK, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, 32, COLUMNS, ROWS, 0, 0, 6, 10, 15, 20, 1, 1};
+} tt = {TT_WHITE, TT_BLACK, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, 32, FALSE, COLUMNS, ROWS, 0, 0, 6, 10, 15, 20, 1, 1};
 
 // Arbitrary limit on the number of flash regions
 #define TT_MAX_FLASH_REGION 25
@@ -62,7 +63,7 @@ static void tt_flash          (screen_mode_t *screen);
 static void tt_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
 static int  tt_read_character (screen_mode_t *screen, int col, int row);
 
-#define LORES
+// #define LORES
 
 static screen_mode_t teletext_screen_mode = {
    .mode_num        = 7,
@@ -200,6 +201,8 @@ static void tt_reset_line_state() {
    tt.flashing = FALSE;
    tt.concealed = FALSE;
    tt.held = FALSE;
+   tt.held_char = 32;
+   tt.held_separated = tt.separated;
 }
 
 static void tt_flash(screen_mode_t *screen) {
@@ -256,12 +259,13 @@ static int tt_process_controls(int c, int col, int row) {
    // Process control characters, when graphics hold is in force some settings
    // are deferred until after the held character is printed e.g. colour changes
    // see tt_process_controls_after
+   if (c & 0x20) {
+      tt.held_char = c;
+      tt.held_separated = tt.separated;
+   }
    int rc = 32;
    if (c < 128 || c > 159 ) {
       rc = c;
-      if (tt.held) {
-         tt.held_char = c;
-      }
    } else if (tt.held) {
       rc = tt.held_char;
    }
@@ -305,10 +309,10 @@ static int tt_process_controls(int c, int col, int row) {
       tt.concealed = TRUE;
       break;
    case TT_CONTIGUOUS:
-      if (!tt.held) tt.separated = FALSE;
+      tt.separated = FALSE;
       break;
    case TT_SEPARATED:
-      if (!tt.held) tt.separated = TRUE;
+      tt.separated = TRUE;
       break;
    case TT_BLACK_BGD:
       tt.bgd_colour = TT_BLACK;
@@ -318,7 +322,6 @@ static int tt_process_controls(int c, int col, int row) {
       break;
    case TT_HOLD:
       tt.held = TRUE;
-      tt.held_char = 32;
       break;
    }
    return rc;
@@ -346,17 +349,8 @@ static void tt_process_controls_after(int c, int col, int row) {
       tt.concealed = FALSE;
       tt.fgd_colour = c - 144;
       break;
-   case TT_CONTIGUOUS:
-      tt.separated = FALSE;
-      if (tt.held_char != 32) tt.held = FALSE;
-      break;
-   case TT_SEPARATED:
-      tt.separated = TRUE;
-      if (tt.held_char != 32) tt.held = FALSE;
-      break;
    case TT_RELEASE:
       tt.held = FALSE;
-      tt.held_char = 32;
       break;
    }
 }
@@ -403,6 +397,8 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
       } else {
          ch &= 0x1f;
       }
+      // Use the held value of separated during hold mode
+      int separated = tt.held ? tt.held_separated : tt.separated;
       int y = yoffset;
       for (int yb = 0; yb < 3; yb++) { // y blocks
 #ifdef LORES
@@ -416,7 +412,7 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
             colour[1] = ((ch >> (2 * yb + 1)) & 1) ? tt.fgd_colour : tt.bgd_colour;
             for (int xb = 0; xb < 2; xb ++) { // x blocks
                for (int x2 = 0; x2 < tt.size_w; x2++, x++) {
-                  if (tt.separated && ((x2 < 5) || (y2 >= ysize - 4))) {
+                  if (separated && ((x2 < 5) || (y2 >= ysize - 4))) {
                      screen->set_pixel(screen, x, y, tt.bgd_colour);
                   } else {
                      screen->set_pixel(screen, x, y, colour[xb]);
