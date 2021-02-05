@@ -517,7 +517,7 @@ static inline uint32_t indirectxE(void)
 
 static inline uint32_t jindirectx(void)
 {
-    /* JSR (,x) uses PBR instead of DBR, and 2 byte address insted of 1 + dp */
+    /* JSR (,x) uses PBR instead of DBR, and 2 byte address instead of 1 + dp */
     uint32_t temp = (readmem(pbr | pc) + (readmem((pbr | pc) + 1) << 8) + x.w) + pbr;
     pc += 2;
     return temp;

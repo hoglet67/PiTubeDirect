@@ -883,7 +883,7 @@ static void doCmdMem(const char *params) {
    int n_chars = 1 << width;
    // Address step of each item
    int stride  = 0x01 << (width - cpu->mem_width);
-   // Default end to enought data for 16 rows
+   // Default end to enough data for 16 rows
    if (endAddr == 0) {
       endAddr = memAddr + 16 * n_cols * stride;
    }
@@ -1074,7 +1074,7 @@ int genericClear(uint32_t addr, char *type, breakpoint_t *list) {
          return 0;
       }
    }
-   
+
    printf("Removed %s breakpoint at %s\r\n", type, format_addr(list[i].addr));
    do {
       copyBreakpoint(list + i, list + i + 1);

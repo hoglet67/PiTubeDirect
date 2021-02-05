@@ -425,7 +425,7 @@ void arm2_execute_run(int tube_cycles)
 
     //arm2_check_irq_state();
 
-    tubeUseCycles(1); 
+    tubeUseCycles(1);
     } while (tubeContinueRunning());
   //while( m_icount > 0 );
   //while (number--);
@@ -436,7 +436,7 @@ void arm2_check_irq_state()
   UINT32 pc = R15+4; /* save old pc (already incremented in pipeline) */;
 
   /* Exception priorities (from ARM6, not specifically ARM2/3):
-   
+
    Reset
    Data abort
    FIRQ
@@ -593,8 +593,8 @@ void HandleMemSingle(UINT32 insn)
            when writing to R15 in this way, however World Cup Volleyball 95 has
            an example of an unaligned jump (bottom bits = 2) where execution
            should definitely continue from the rounded up address.
-           
-           In other cases, 4 is subracted from R15 here to account for pipelining.
+
+           In other cases, 4 is subtracted from R15 here to account for pipelining.
            */
           if (m_copro_type == ARM_COPRO_TYPE_VL86C020 || (cpu_read32(rnv)&3)==0)
           R15 -= 4;
@@ -976,7 +976,7 @@ int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
       else
         SetRegister( i, cpu_read32(rbv -=4) );
       result++;
-    } 
+    }
   }
   return result;
 }

@@ -58,7 +58,7 @@ void f100_irq(int id);
 #define TRUNC16(m)        ((m) & 0xFFFF)
 
 #ifdef F200
-// For F200 operation don't trucate the 15th bit of addresses
+// For F200 operation don't truncate the 15th bit of addresses
 #define TRUNC15(m)        ((m) & 0xFFFF)
 #else
 #define TRUNC15(m)        ((m) & 0x7FFF)

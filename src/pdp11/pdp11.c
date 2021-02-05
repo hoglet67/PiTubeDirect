@@ -505,8 +505,8 @@ static void ASH(uint16_t instr) {
          } else {
             // calculate the bits that have been shifted out of the top
             uint16_t sovf1 = val1 >> (16 - val2);
-            // if sval is negative, all the shifted bits should have been one, otherise overflow occurred
-            // if sval is positive, all the shifted bits should have been zero, otherise overflow occurred
+            // if sval is negative, all the shifted bits should have been one, otherwise overflow occurred
+            // if sval is positive, all the shifted bits should have been zero, otherwise overflow occurred
             uint16_t sovf2 = (sval & 0x8000) ? (1 << val2) - 1 : 0;
             if (sovf1 != sovf2) {
                cpu.PS |= FLAGV;
@@ -560,8 +560,8 @@ static void ASHC(uint16_t instr) {
          }
          // calculate the bits that have been shifted out of the top
          uint32_t sovf1 = val1 >> (32 - val2);
-         // if sval is negative, all the shifted bits should have been one, otherise overflow occurred
-         // if sval is positive, all the shifted bits should have been zero, otherise overflow occurred
+         // if sval is negative, all the shifted bits should have been one, otherwise overflow occurred
+         // if sval is positive, all the shifted bits should have been zero, otherwise overflow occurred
          uint32_t sovf2 = (sval & 0x80000000) ? (1 << val2) - 1 : 0;
          if (sovf1 != sovf2) {
             cpu.PS |= FLAGV;

@@ -9,7 +9,7 @@
 
 // if DORMANN_6502 is defined, the Dormann 6502 tests are included at #3400
 // if DORMANN_65C02 is defined, the Dormann 6502 tests are included at #3400
-// (if both, then the 6502 take precidence)
+// (if both, then the 6502 take precedence)
 
 //#define DORMANN_6502
  #define DORMANN_65C02

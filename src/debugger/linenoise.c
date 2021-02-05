@@ -351,9 +351,9 @@ static void freeCompletions(linenoiseCompletions *lc) {
     if (lc->cvec != NULL)
     {
       for (i = 0; i < lc->len; i++)
-        free(lc->cvec[i]);    
+        free(lc->cvec[i]);
       free(lc->cvec);
-    }  
+    }
 }
 
 /* This is an helper function for linenoiseEdit() and is called when the
@@ -561,7 +561,7 @@ static void refreshMultiLine(struct linenoiseState *l) {
     int rows = (plen+l->len+l->cols-1)/l->cols; /* rows used by current buf. */
     int rpos = (plen+l->oldpos+l->cols)/l->cols; /* cursor relative row. */
     int rpos2; /* rpos after refresh. */
-    int col; /* colum position, zero-based. */
+    int col; /* column position, zero-based. */
     int old_rows = l->maxrows;
     int fd = l->ofd, j;
     struct abuf ab;
@@ -615,7 +615,7 @@ static void refreshMultiLine(struct linenoiseState *l) {
     rpos2 = (plen+l->pos+l->cols)/l->cols; /* current cursor relative row. */
     lndebug("rpos2 %d", rpos2);
 
-    /* Go up till we reach the expected positon. */
+    /* Go up till we reach the expected position. */
     if (rows-rpos2 > 0) {
         lndebug("go-up %d", rows-rpos2);
         snprintf(seq,64,"\x1b[%dA", rows-rpos2);
@@ -756,7 +756,7 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
     }
 }
 
-/* Delete the previosu word, maintaining the cursor at the start of the
+/* Delete the previous word, maintaining the cursor at the start of the
  * current word. */
 void linenoiseEditDeletePrevWord(struct linenoiseState *l) {
     size_t old_pos = l->pos;
@@ -831,7 +831,7 @@ static int linenoiseProcessChar(struct linenoiseState *l, char c) {
 
         } else if (esc_state == 2) {
             esc_state = 0;
-                
+
             /* ESC [ sequences. */
             if (seq[0] == '[') {
                 if (seq[1] >= '0' && seq[1] <= '9') {
@@ -937,7 +937,7 @@ static int linenoiseProcessChar(struct linenoiseState *l, char c) {
             break;
         case ESC:    /* escape sequence */
             esc_state = 1;
-            break;        
+            break;
         default:
             if (linenoiseEditInsert(l,c)) return -1;
             break;
@@ -966,7 +966,7 @@ static int linenoiseProcessChar(struct linenoiseState *l, char c) {
             break;
         }
     }
-    
+
    return -2;
 }
 
@@ -995,7 +995,7 @@ static int linenoiseEdit(int stdin_fd, int stdout_fd, char *buf, size_t buflen, 
             /* Read next character when 0 */
             if (c == 0) continue;
         }
-        
+
         ret = linenoiseProcessChar(&l, c);
 
         if (ret != -2) {
@@ -1287,7 +1287,7 @@ char *linenoise_async_rxchar(char c, const char *prompt) {
     }
 
     int ret = linenoiseProcessChar(&l, c);
-   
+
     if (ret == -2) {
         return NULL;
     } else if (ret == -1) {

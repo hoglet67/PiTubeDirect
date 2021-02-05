@@ -3,7 +3,7 @@
 #ifndef CACHE_H
 #define CACHE_H
 
-// All memory upto 232MB is now cached
+// All memory up to 232MB is now cached
 #define L2_CACHED_MEM_BASE 0x0E800000
 #define UNCACHED_MEM_BASE  0x0E800000
 

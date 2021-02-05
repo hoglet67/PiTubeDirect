@@ -129,7 +129,7 @@ This test has contains 307 (octal) test cases.
 
 It doesn't rely on console interrupts, like VKAB does.
 
-There were lots of failures, but the fixes for VKAB als fixed this test:
+There were lots of failures, but the fixes for VKAB also fixed this test:
 
 END PASS��
 END PASS��

@@ -44,8 +44,8 @@
 .equ    R18             R0+18
 .equ    R19             R0+19
                                 ;  Reserve some registers for constant values which can turn repeated operations
-                                ; in tight loops from 2 word instructions to 1 word instructions        
-.equ    K0              R19+1   ; constant 0        
+                                ; in tight loops from 2 word instructions to 1 word instructions
+.equ    K0              R19+1   ; constant 0
 .equ    K1              K0+1    ; constant 1
 .equ    K10             K1+1    ; constant 10
 
@@ -119,7 +119,7 @@ ResetHandler:
         STO     K1
         LDA     ,10
         STO     K10
-        
+
 .equ    START   0-(2*NUM_VECTORS-1) ; need to write JMP <vector> to each addr = 2 words
         LDA     ,START
         STO     R0
@@ -196,7 +196,7 @@ ErrorHandler:
     ADD     ,1                          ; Skip over error num
     CAL     .print_string               ; Print error string
     CAL     .newline
-    ;; Make sure interrupts are reenabled after an error
+    ;; Make sure interrupts are re-enabled after an error
     CLR     INTLOCKOUT CR
     JMP     .CmdPrompt                  ; Jump to command prompt
 
@@ -446,13 +446,13 @@ cmdLoop1:
         LDA     ,1
         SUB     R1
         STO     R3                      ; initialize user command pointer (to char before)
-cmdLoop2:        
-        LDA     /R3+                    ; read next char from user command 
+cmdLoop2:
+        LDA     /R3+                    ; read next char from user command
         AND     ,0xDF                   ; convert to upper case
         STO     R5
         LDA     /R2+                    ; read next character from command table
-        STO     R4                      ; save address in R4 for cmdExec        
-        JBS     SIGN CR cmdCheck        ; if an address, then we are done matching                
+        STO     R4                      ; save address in R4 for cmdExec
+        JBS     SIGN CR cmdCheck        ; if an address, then we are done matching
         CMP     R5                      ; compare the characters
         JBS     ZERO CR cmdLoop2        ; if a match, loop back for more
         LDA     /R2-
@@ -460,9 +460,9 @@ cmdLoop3:                               ; skip to the end of the command in the 
         LDA     /R2+
         JBC     SIGN CR cmdLoop3
         LDA     ,0x2E
-        CMP     R5                      ; was the mis-match a '.'
+        CMP     R5                      ; was the mismatch a '.'
         JBC     ZERO CR cmdLoop1        ; no, then start again with next command
-        LDA     /R3+                    ; increment user command pointer past the '.' 
+        LDA     /R3+                    ; increment user command pointer past the '.'
 cmdExec:
         LDA     R3                      ; r1 = the command pointer to the params
         STO     R1
@@ -514,7 +514,7 @@ cmdE:
         LDA     K0                      ; Command handled successfully
         STO     R1
         RTN
-;  --------------------------------------------------------------        
+;  --------------------------------------------------------------
 cmdEnd:
         LDA     ,1
         STO     R1
@@ -795,7 +795,7 @@ word_in_len:
         .WORD 4    ;  9  =POINT()
         .WORD 1    ; 10  =CHR$()
         .WORD 1    ; 11  =Palette
-        .WORD 5    ; 12  Pallette=
+        .WORD 5    ; 12  Palette=
         .WORD 0    ; 13  =Coords
         .WORD 8    ; 14  =RTC
         .WORD 25   ; 15  RTC=
@@ -1500,7 +1500,7 @@ L5B:    LDA     K0
         CAL     .OSWRDIG
         ICZ     R2 L5B
 
-L6:     LDA     R8              ; If this isnt the first digit then print the existing pre-digit
+L6:     LDA     R8              ; If this isn't the first digit then print the existing pre-digit
         CMP     ,-PIDIGITS
         JBS     ZERO CR L7
         LDA     R9
@@ -1579,7 +1579,7 @@ EINNER:
         LDA     /R1            	; get remainder[i]
         STO     R10            	; save it
         SLL     3 A            	; multiply by 8
-        ADD     R10            	; add the orignal number twice
+        ADD     R10            	; add the original number twice
         ADD     R10            	; .. to end up with remainder[i]*10
         ADD     R2             	; add Q
         STO     R14            	; move to N= numerator for div call

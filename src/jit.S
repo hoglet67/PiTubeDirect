@@ -1,13 +1,15 @@
 // Co pro JIT 65C02
 
+// Copyright Dominic Plunkett 2021
+
 // Memory map
 // 0x00000000 - 0x00FFFF 64K 65C02 RAM
-// 0x00010000 - 0x010FFF 4K ram doublely mapped by the mmu
+// 0x00010000 - 0x010FFF 4K ram doubly mapped by the mmu
 // 0x00010000 - 0x0FFFFF 1MByte for extra RAM we won't support code in this area
 
 // we use the ram at 0x0D000000 for code as that
 // is within jump range of the kernel
-// we have upto 0x0DC00000 to use
+// we have up to 0x0DC00000 to use
 // 0x0D000000 - 0x0D07FFFF 256K 8 bytes for JIT code for each 65c02 byte
 
 #define JITLET 0x0D000000
@@ -25,9 +27,9 @@
 
 /* Interrupts
 
-If an interrupt occurs try putting the current ARM PC and registers on to another stack and put fake address ( e.g. 0xFFFF) and stutus onto 65C02 stack jump off to vectors
+If an interrupt occurs try putting the current ARM PC and registers on to another stack and put fake address ( e.g. 0xFFFF) and status onto 65C02 stack jump off to vectors
 Intercept the RTI instruction we could check for 0xFFFF on stack , restore status.
-then return to our secret stack This relies on intructions being re entrant , but this should be fine
+then return to our secret stack This relies on instructions being re entrant , but this should be fine
 */
 
 // Instructions that get used in smaller chunks to save a jump ( overlapping )
@@ -220,7 +222,7 @@ then return to our secret stack This relies on intructions being re entrant , bu
    orr     regSP, #0x0100
 .endm
 
-// Macro for poping a byte from the stack, whilst correctly handing wrapping
+// Macro for popping a byte from the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 256 Byte aligned
 .macro SPOP reg sign
    mov     \reg,#1
@@ -2554,7 +2556,7 @@ arm_fiq_handler_jit:
    mrs r2, CPSR                // preserve the 6502 flags
    push {r0-r2}
 
-// reenable IRQS
+// re-enable IRQS
    CPSIE   if                     // Re-enable ARM FIQ and IRQ interrupts
 
 // process events

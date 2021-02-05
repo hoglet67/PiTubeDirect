@@ -35,7 +35,7 @@
 //
 // tube_irq bit definitions
 //
-// bit 7 Selects if R7 is used to inform the copro of an interupt event used for fast 6502
+// bit 7 Selects if R7 is used to inform the copro of an interrupt event used for fast 6502
 // bit 6 Selects if direct native arm irq are used
 // bit 5 native arm irq lock
 // bit 3 tube_enable

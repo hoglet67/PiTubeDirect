@@ -194,7 +194,7 @@ _reset_continue:
     // processor modes see ARM Section A2.2 (Processor Modes)
 
 
-    // move the vector pointer to the begining of the code
+    // move the vector pointer to the beginning of the code
     ldr     r4, =_start
     mcr     p15, 0, r4, c12, c0, 0
 
