@@ -2519,17 +2519,24 @@ CACHELINE_ALIGN = 5
 
 // ARM FIQ handler (in FIQ mode)
 arm_fiq_handler_jit:
-
-   ldr      r12, =MBOX0_READ        // Read the GPU mailbox
-   push     {r0-r3,r14}
-   ldr      r10,=tube_irq
-   ldr      r0, [r12]               // Get Mailbox data
-
-   BL       tube_io_handler
-   ldr      r12,[r10]
-   pop      {r0-r3,r14}
-   tst      r12,#RESET_BIT+NMI_BIT+IRQ_BIT
-   subeqs    pc, lr, #4
+#ifdef USE_DOORBELL
+   ldr r12,=DOORBELL
+   ldr r10,=tube_irq
+   ldr r11,=DOORBELLDATA
+   push {r0-r3,r14}
+   ldr r0, [r12]               // read doorbell
+   ldr r0, [r11]               // Get doorbell data
+#else
+   ldr r12, =MBOX0_READ        // Read the GPU mailbox
+   push {r0-r3,r14}
+   ldr r10,=tube_irq
+   ldr  r0, [r12]               // Get Mailbox data
+#endif
+   BL   tube_io_handler
+   ldr  r12,[r10]
+   pop  {r0-r3,r14}
+   tst   r12,#RESET_BIT+NMI_BIT+IRQ_BIT
+   subeqs pc, lr, #4
 
 // save lr to ram address
    str  lr,fiq_lr_temp
