@@ -265,48 +265,6 @@ static int tt_process_controls(int c, int col, int row) {
       tt_add_flash_char(c);
    }
    switch (c) {
-   case TT_A_RED ... TT_A_WHITE:
-      if (!tt.held) {
-         tt.graphics = FALSE;
-         tt.concealed = FALSE;
-         tt.fgd_colour = c - 128;
-         tt.held_char = 32;
-      }
-      break;
-   case TT_FLASH:
-      tt.flashing = TRUE;
-      tt_start_flash_area(col + 1, row);
-      break;
-   case TT_STEADY:
-      tt.flashing = FALSE;
-      break;
-   case TT_NORMAL:
-      if (tt.doubled) {
-         // The held graphics character is cleared by a change of height
-         tt.held_char = 32;
-      }
-      if (!tt.held) {
-         tt.doubled = FALSE;
-      }
-      break;
-   case TT_DOUBLE:
-      if (!tt.doubled) {
-         // The held graphics character is cleared by a change of height
-         tt.held_char = 32;
-      }
-      if (!tt.held) {
-         tt.doubled = TRUE;
-         tt.has_double = TRUE;
-      }
-      break;
-   case TT_G_RED ... TT_G_WHITE:
-      if (!tt.held) {
-         tt.graphics = TRUE;
-         tt.concealed = FALSE;
-         tt.fgd_colour = c - 144;
-         tt.held_char = 32;
-      }
-      break;
    case TT_CONCEAL:
       tt.concealed = TRUE;
       break;
@@ -327,10 +285,16 @@ static int tt_process_controls(int c, int col, int row) {
       break;
    }
 
-   // The held character is the last character seen with bit 5 set
-   if (c & 0x20) {
+   if (tt.graphics && (c & 0x20)) {
+      // The held graphics character is the last character seen with bit 5 set in graphics mode
       tt.held_char = c;
       tt.held_separated = tt.separated;
+   } else if (c >= 0x80 && c <= 0x9F && !tt.held) {
+      // Control codes when hold inactive will reset the held graphics character
+      tt.held_char = 32;
+   } else if ((c == TT_NORMAL && tt.doubled) || (c == TT_DOUBLE && !tt.doubled)) {
+      // A change of height will reset the held graphics character, even if hold active
+      tt.held_char = 32;
    }
 
    // return the character that will actually be rendered with draw_character
@@ -339,14 +303,14 @@ static int tt_process_controls(int c, int col, int row) {
 
    if (tt.concealed || (tt.double_bottom && !tt.doubled)) {
       // Anything normal height on the bottom row of double height should be displayed as a space
-      return 0x20;
-   } else if (c >= 0x80 && c <= 0x9F) {
+      return 32;
+   } else if (c  >= 128 && c <= 159) {
       if (tt.held) {
          // Display control codes as the held character
          return tt.held_char;
       } else {
          // Display control codes as space (the default behaviour)
-         return 0x20;
+         return 32;
       }
    } else {
       // Display the character passed in
@@ -360,24 +324,33 @@ static void tt_process_controls_after(int c, int col, int row) {
       tt.graphics = FALSE;
       tt.concealed = FALSE;
       tt.fgd_colour = c - 128;
-      tt.held = FALSE;
-      break;
-   case TT_NORMAL:
-      tt.doubled = FALSE;
-      tt.held = FALSE;
-      break;
-   case TT_DOUBLE:
-      tt.doubled = TRUE;
-      tt.has_double = TRUE;
-      tt.held = FALSE;
+      // A change from graphics back to text, even when held, will reset the held character
+      tt.held_char = 32;
       break;
    case TT_G_RED ... TT_G_WHITE:
       tt.graphics = TRUE;
       tt.concealed = FALSE;
       tt.fgd_colour = c - 144;
       break;
+   case TT_FLASH:
+      tt.flashing = TRUE;
+      tt_start_flash_area(col + 1, row);
+      break;
+   case TT_STEADY:
+      tt.flashing = FALSE;
+      break;
+   case TT_NORMAL:
+      tt.doubled = FALSE;
+      break;
+   case TT_DOUBLE:
+      tt.doubled = TRUE;
+      tt.has_double = TRUE;
+      break;
    case TT_RELEASE:
+      // Release (and start of line) are the only things that cleat the hold flag
       tt.held = FALSE;
+      // Release also resets the held mosiac to back to space
+      tt.held_char = 32;
       break;
    }
 }
