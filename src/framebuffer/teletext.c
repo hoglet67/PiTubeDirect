@@ -18,6 +18,8 @@ uint8_t mode7screen[ROWS][COLUMNS];
 
 // Main structure holding Teletext state
 struct {
+
+   // Current line state
    tt_colour_t fgd_colour;
    tt_colour_t bgd_colour;
    int graphics;
@@ -30,6 +32,8 @@ struct {
    int held;
    int held_char;
    int held_separated;
+
+   // Display parameters
    int columns;
    int rows;
    int xstart;
@@ -40,7 +44,35 @@ struct {
    int size_h;
    int scale_w;
    int scale_h;
-} tt = {TT_WHITE, TT_BLACK, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, 32, FALSE, COLUMNS, ROWS, 0, 0, 6, 10, 15, 20, 1, 1};
+
+} tt = {
+
+   // Current line state
+   .fgd_colour     = TT_WHITE,
+   .bgd_colour     = TT_BLACK,
+   .graphics       = FALSE,
+   .separated      = FALSE,
+   .doubled        = FALSE,
+   .has_double     = FALSE,
+   .double_bottom  = TRUE,
+   .flashing       = FALSE,
+   .concealed      = FALSE,
+   .held           = FALSE,
+   .held_char      = 32,
+   .held_separated = FALSE,
+
+   // Display parameters
+   .columns        = COLUMNS,
+   .rows           = ROWS,
+   .xstart         = 0,
+   .ystart         = 0,
+   .char_w         = 6,
+   .char_h         = 10,
+   .size_w         = 15,
+   .size_h         = 20,
+   .scale_w        = 1,
+   .scale_h        = 1
+};
 
 // Arbitrary limit on the number of flash regions
 #define TT_MAX_FLASH_REGION 25
