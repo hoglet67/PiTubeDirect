@@ -486,6 +486,21 @@ static void tt_write_character(struct screen_mode *screen, int c, int col, int r
    if (col == 0) {
       tt_reset_line_state();
    }
+   // Remap some codes to accomodate differences between the
+   // Beeb's character set and the SAA5050 Character ROM
+   // (this is also done by Beeb OS VDU driver)
+   //
+   //     Beeb   SAA5050
+   // 35: #      £
+   // 95: _      #
+   // 96: £      _
+   if (c == 35) {
+      c = 95;
+   } else if (c == 95) {
+      c = 96;
+   } else if (c == 96) {
+      c = 35;
+   }
    int ch = tt_process_controls(c, col, row);
    tt_draw_character(screen, ch, col, row);
    tt_process_controls_after(c, col, row);
