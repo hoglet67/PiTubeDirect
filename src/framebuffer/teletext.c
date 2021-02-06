@@ -25,7 +25,6 @@ struct {
    int graphics;
    int separated;
    int doubled;
-   int has_double;
    int double_bottom; // Set for the bottom line of doubled text, clear for the top line
    int flashing;
    int concealed;
@@ -53,7 +52,6 @@ struct {
    .graphics       = FALSE,
    .separated      = FALSE,
    .doubled        = FALSE,
-   .has_double     = FALSE,
    .double_bottom  = TRUE,
    .flashing       = FALSE,
    .concealed      = FALSE,
@@ -219,24 +217,36 @@ static int tt_read_character(screen_mode_t *screen, int col, int row) {
    return mode7screen[row][col];
 }
 
-static void tt_reset_line_state() {
+// Determine if a row has any double height characters
+static int has_double(int row) {
+   for (int col = 0; col < tt.columns; col++) {
+      if (mode7screen[row][col] == TT_DOUBLE) {
+         return TRUE;
+      }
+   }
+   return FALSE;
+}
+
+static void tt_reset_line_state(int row) {
    // Reset the state at the beginning of each line
-   // The bottom row of double height is only selected if the previous row used the top row
-   // (i.e. it doesn't just toggle on alternate lines). This attribute also causes normal
-   // height stuff on the bottom row of double height to be supressed (i.e. displayed as
-   // spaces in the current background colour).
-   tt.double_bottom = (tt.has_double && !tt.double_bottom);
    tt.fgd_colour = TT_WHITE;
    tt.bgd_colour = TT_BLACK;
    tt.graphics = FALSE;
    tt.separated = FALSE;
    tt.doubled = FALSE;
-   tt.has_double = FALSE;
    tt.flashing = FALSE;
    tt.concealed = FALSE;
    tt.held = FALSE;
    tt.held_char = 32;
    tt.held_separated = FALSE;
+   // The bottom row of double height is only selected if the number of consecutive
+   // preceeding rows that contain the double height control codes is odd
+   // This attribute also causes normal height stuff on the bottom row of double height
+   // to be supressed (i.e. displayed as spaces in the current background colour).
+   tt.double_bottom = FALSE;
+   for (int r = row - 1; r >= 0 && has_double(r); r--) {
+      tt.double_bottom = !tt.double_bottom;
+   }
 }
 
 static void tt_flash(screen_mode_t *screen) {
@@ -321,7 +331,7 @@ static int tt_process_controls(int c, int col, int row) {
       // The held graphics character is the last character seen with bit 5 set in graphics mode
       tt.held_char = c;
       tt.held_separated = tt.separated;
-   } else if (c >= 0x80 && c <= 0x9F && !tt.held) {
+   } else if (c >= 128 && c <= 159 && !tt.held) {
       // Control codes when hold inactive will reset the held graphics character
       tt.held_char = 32;
    } else if ((c == TT_NORMAL && tt.doubled) || (c == TT_DOUBLE && !tt.doubled)) {
@@ -376,7 +386,6 @@ static void tt_process_controls_after(int c, int col, int row) {
       break;
    case TT_DOUBLE:
       tt.doubled = TRUE;
-      tt.has_double = TRUE;
       break;
    case TT_RELEASE:
       // Release (and start of line) are the only things that cleat the hold flag
@@ -438,6 +447,7 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
 #else
          int ysize = (yb == 1) ? 16 : 12;
 #endif
+         // TODO: Render double height graphics
          for (int y2 = 0; y2 < ysize; y2++, y--) {
             int x = xoffset;
             colour[0] = ((ch >> (2 * yb)) & 1) ? tt.fgd_colour : tt.bgd_colour;
@@ -513,11 +523,13 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
 }
 
 static void tt_write_character(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
+
    // Note: fg_col/bg_col (from COLOUR n) are ignored in teletext mode
    // because colour control characters are used insread
-   if (col == 0) {
-      tt_reset_line_state();
-   }
+
+   static int last_row = -1;
+   static int last_col = -1;
+
    // Remap some codes to accomodate differences between the
    // Beeb's character set and the SAA5050 Character ROM
    // (this is also done by Beeb OS VDU driver)
@@ -533,9 +545,49 @@ static void tt_write_character(struct screen_mode *screen, int c, int col, int r
    } else if (c == 96) {
       c = 35;
    }
-   int ch = tt_process_controls(c, col, row);
-   tt_draw_character(screen, ch, col, row);
-   tt_process_controls_after(c, col, row);
+
+   // Detect non-linear accesses, and reconstruct the line state
+   if (row != last_row || col != last_col + 1) {
+      tt_reset_line_state(row);
+      for (int i = 0; i < col; i++) {
+         uint8_t tmpc = mode7screen[row][i];
+         tt_process_controls(tmpc, i, row);
+         tt_process_controls_after(tmpc, i, row);
+      }
+   }
+
+   // Render the current character
+   {
+      uint8_t renderc = tt_process_controls(c, col, row);
+      tt_draw_character(screen, renderc, col, row);
+      tt_process_controls_after(c, col, row);
+   }
+
    // Update the backing store
+   int oldc = mode7screen[row][col];
    mode7screen[row][col] = c;
+
+   // Test if the old/new characters is a control character
+   int is_cc1 = (oldc & 0xE0) == 0x80; // true if the old character at row,col was a control code
+   int is_cc2 = (c    & 0xE0) == 0x80; // true if the new character at row,col was a control code
+
+   // If either is a control character, then be conservative and re-render the rest of the line
+   if ((c != oldc) && (is_cc1 || is_cc2)) {
+      for (int i = col + 1; i < tt.columns; i++) {
+         uint8_t tmpc = mode7screen[row][i];
+         uint8_t renderc = tt_process_controls(tmpc, i, row);
+         tt_draw_character(screen, renderc, i, row);
+         tt_process_controls_after(tmpc, i, row);
+      }
+      // Invalidate the current line state
+      last_row = -1;
+      last_col = -1;
+   } else {
+      // Remember the current row,col
+      last_row = row;
+      last_col = col;
+   }
+
+   // TODO: There is a case for re-rendering multiple successive rows
+   // if the has_double() status of the current row changes.
 }
