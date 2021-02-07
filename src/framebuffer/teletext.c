@@ -531,7 +531,16 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
    }
 }
 
-static void tt_write_character(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
+static void re_render_row(screen_mode_t *screen, int col, int row) {
+   for (; col < tt.columns; col++) {
+      uint8_t tmpc = tt.mode7screen[row][col];
+      uint8_t renderc = tt_process_controls(tmpc, col, row);
+      tt_draw_character(screen, renderc, col, row);
+      tt_process_controls_after(tmpc, col, row);
+   }
+}
+
+static void tt_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
 
    // Note: fg_col/bg_col (from COLOUR n) are ignored in teletext mode
    // because colour control characters are used insread
@@ -566,45 +575,53 @@ static void tt_write_character(struct screen_mode *screen, int c, int col, int r
    }
 
    // Render the current character
-   {
-      uint8_t renderc = tt_process_controls(c, col, row);
-      tt_draw_character(screen, renderc, col, row);
-      tt_process_controls_after(c, col, row);
-   }
+   uint8_t renderc = tt_process_controls(c, col, row);
+   tt_draw_character(screen, renderc, col, row);
+   tt_process_controls_after(c, col, row);
 
    // Update the backing store
    int oldc = tt.mode7screen[row][col];
    tt.mode7screen[row][col] = c;
 
-   // Update the double height counts
-   if (c == TT_DOUBLE) {
-      tt.dh_count[row]++;
-   }
-   if (oldc == TT_DOUBLE) {
-      tt.dh_count[row]--;
-   }
-
    // Test if the old/new characters is a control character
    int is_cc1 = (oldc & 0xE0) == 0x80; // true if the old character at row,col was a control code
    int is_cc2 = (c    & 0xE0) == 0x80; // true if the new character at row,col was a control code
 
-   // If either is a control character, then be conservative and re-render the rest of the line
+   // If either is a control character, then it gets more involved
    if ((c != oldc) && (is_cc1 || is_cc2)) {
-      for (int i = col + 1; i < tt.columns; i++) {
-         uint8_t tmpc = tt.mode7screen[row][i];
-         uint8_t renderc = tt_process_controls(tmpc, i, row);
-         tt_draw_character(screen, renderc, i, row);
-         tt_process_controls_after(tmpc, i, row);
+
+      // Update the double height counts
+      int old_dh_state = tt.dh_count[row] ? TRUE : FALSE;
+      if (c == TT_DOUBLE) {
+         tt.dh_count[row]++;
       }
+      if (oldc == TT_DOUBLE) {
+         tt.dh_count[row]--;
+      }
+      int new_dh_state = tt.dh_count[row] ? TRUE : FALSE;
+
+      // Re-render the rest of the current row
+      re_render_row(screen, col + 1, row);
+
+      // If the double height state has changed then re-render additional row
+      // only stopping when we re-render one without any double height codes,
+      // or when we run out of rows
+      if (new_dh_state != old_dh_state) {
+         while (++row < tt.rows) {
+            tt_reset_line_state(row);
+            re_render_row(screen, 0, row);
+            if (tt.dh_count[row] == 0) {
+               break;
+            }
+         }
+      }
+
       // Invalidate the current line state
-      last_row = -1;
-      last_col = -1;
-   } else {
-      // Remember the current row,col
-      last_row = row;
-      last_col = col;
+      row = -1;
+      col = -1;
    }
 
-   // TODO: There is a case for re-rendering multiple successive rows
-   // if the has_double() status of the current row changes.
+   // Remember the current row, col
+   last_row = row;
+   last_col = col;
 }
