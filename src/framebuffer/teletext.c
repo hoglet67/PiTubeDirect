@@ -440,32 +440,62 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
    int colour[2];
    int xoffset = tt.xstart + col * tt.size_w * tt.scale_w;
    int yoffset = tt.ystart - row * tt.size_h * tt.scale_h;
+
    if (tt.graphics && (ch & 0x3f) >= 0x20) {
+
       // Draws the graphics characters based on the 2x6 matrix
+
       if (ch & 64) {
-         ch |= 0x20; // Set bit 6 if the 6th block is set
+         ch |= 0x20; // Set bit 5 if the 6th block is set
       } else {
          ch &= 0x1f;
       }
+
       // Use the held value of separated during hold mode
       int separated = tt.held ? tt.held_separated : tt.separated;
+
+      // Which of the three vertical blocks to start and end with
+      int ybstart = (tt.doubled &&  tt.double_bottom) ? 1 : 0;
+      int ybend   = (tt.doubled && !tt.double_bottom) ? 1 : 2;
+
+      // The width of a block is half a character (in pixels)
+      int xbsize  = tt.scale_w * tt.size_w / 2;
+
+      // The width of the graphics seperator, if needed
+      int xbsep   =  xbsize / 3;
+
+      // The height of a top/bottom block is one third of a character (rounded down)
+      int ybsize0 = tt.scale_h * (tt.size_h / 3) * (tt.doubled ? 2 : 1);
+
+      // The height of a middle block is whatever is remaining (in pixels)
+      int ybsize1 = tt.size_h * tt.scale_h - (tt.doubled ? 1 : 2) * ybsize0;
+
+      // The height of horizontal the graphics seperator, if needed
+      int ybsep   =  ybsize0 / 3;
+
+      // Iterate over the Y blocks
       int y = yoffset;
-      for (int yb = 0; yb < 3; yb++) { // y blocks
-#ifdef LORES
-         int ysize = (yb == 1) ? 8 : 6;
-#else
-         int ysize = (yb == 1) ? 16 : 12;
-#endif
-         // TODO: Render double height graphics
-         for (int y2 = 0; y2 < ysize; y2++, y--) {
+      for (int yb = ybstart; yb <= ybend; yb++) {
+         // If the top cell of double hight and block 1, remove the seperator
+         if (tt.doubled && !tt.double_bottom && yb == 1) {
+            ybsep = 0;
+         }
+         // Deterine the colour of the block the next two horizontal blocks
+         colour[0] = ((ch >> (2 * yb    )) & 1) ? tt.fgd_colour : tt.bgd_colour;
+         colour[1] = ((ch >> (2 * yb + 1)) & 1) ? tt.fgd_colour : tt.bgd_colour;
+         // Iterate over the Y pixels in a block
+         int ybsize = (yb == 1) ? ybsize1 : ybsize0;
+         for (int y2 = 0; y2 < ybsize ; y2++, y--) {
+            // Iterate over the X blocks
             int x = xoffset;
-            colour[0] = ((ch >> (2 * yb)) & 1) ? tt.fgd_colour : tt.bgd_colour;
-            colour[1] = ((ch >> (2 * yb + 1)) & 1) ? tt.fgd_colour : tt.bgd_colour;
-            for (int xb = 0; xb < 2; xb ++) { // x blocks
-               for (int x2 = 0; x2 < tt.size_w; x2++, x++) {
-                  if (separated && ((x2 < 5) || (y2 >= ysize - 4))) {
+            for (int xb = 0; xb < 2; xb++) {
+               // Iterate over the X pixels in a block
+               for (int x2 = 0; x2 < xbsize; x2++, x++) {
+                  if (separated && (x2 < xbsep || y2 >= ybsize - ybsep)) {
+                     // Seperated graphics
                      screen->set_pixel(screen, x, y, tt.bgd_colour);
                   } else {
+                     // Normal graphics
                      screen->set_pixel(screen, x, y, colour[xb]);
                   }
                }
@@ -473,7 +503,9 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
          }
       }
    } else {
+
       // Draw character
+
       int p = ch * tt.char_h;
       int y = yoffset;
       int py_from = 0;
