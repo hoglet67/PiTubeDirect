@@ -45,6 +45,9 @@ struct {
    // A local copy of the screen
    uint8_t mode7screen[ROWS][COLUMNS];
 
+   // Counts of the number of double-height control codes in each
+   unsigned int dh_count[ROWS];
+
 } tt = {
 
    // Current line state
@@ -183,7 +186,18 @@ static void tt_reset(screen_mode_t *screen) {
    screen->set_colour(screen, TT_WHITE,     0xff, 0xff, 0xff);
 }
 
-
+static void update_double_height_counts() {
+   unsigned int *count = tt.dh_count;
+   for (int row = 0; row < tt.rows; row++) {
+      *count = 0;
+      for (int col = 0; col < tt.columns; col++) {
+         if (tt.mode7screen[row][col] == TT_DOUBLE) {
+            (*count)++;
+         }
+      }
+      count++;
+   }
+}
 static void tt_clear(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
    // Call the default implementation to clear the framebuffer
    default_clear_screen(screen, text_window, bg_col);
@@ -197,6 +211,8 @@ static void tt_clear(screen_mode_t *screen, t_clip_window_t *text_window, pixel_
          }
       }
    }
+   // Recalculate the double height counts
+   update_double_height_counts();
 }
 
 static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
@@ -211,21 +227,13 @@ static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel
    for (int col = text_window->left; col <= text_window->right; col++) {
       tt.mode7screen[text_window->bottom][col] = 32;
    }
+   // Recalculate the double height counts
+   update_double_height_counts();
 }
 
 
 static int tt_read_character(screen_mode_t *screen, int col, int row) {
    return tt.mode7screen[row][col];
-}
-
-// Determine if a row has any double height characters
-static int has_double(int row) {
-   for (int col = 0; col < tt.columns; col++) {
-      if (tt.mode7screen[row][col] == TT_DOUBLE) {
-         return TRUE;
-      }
-   }
-   return FALSE;
 }
 
 static void tt_reset_line_state(int row) {
@@ -245,7 +253,7 @@ static void tt_reset_line_state(int row) {
    // This attribute also causes normal height stuff on the bottom row of double height
    // to be supressed (i.e. displayed as spaces in the current background colour).
    tt.double_bottom = FALSE;
-   for (int r = row - 1; r >= 0 && has_double(r); r--) {
+   for (int r = row - 1; r >= 0 && tt.dh_count[r] > 0; r--) {
       tt.double_bottom = !tt.double_bottom;
    }
 }
@@ -567,6 +575,14 @@ static void tt_write_character(struct screen_mode *screen, int c, int col, int r
    // Update the backing store
    int oldc = tt.mode7screen[row][col];
    tt.mode7screen[row][col] = c;
+
+   // Update the double height counts
+   if (c == TT_DOUBLE) {
+      tt.dh_count[row]++;
+   }
+   if (oldc == TT_DOUBLE) {
+      tt.dh_count[row]--;
+   }
 
    // Test if the old/new characters is a control character
    int is_cc1 = (oldc & 0xE0) == 0x80; // true if the old character at row,col was a control code
