@@ -21,7 +21,6 @@ unsigned char* fb = NULL;
 // Palette for 8bpp modes
 #define NUM_COLOURS 256
 static pixel_t colour_table[NUM_COLOURS];
-static int sync_palette;
 
 typedef struct {
    int x1;
@@ -591,7 +590,7 @@ static screen_mode_t screen_modes[] = {
 // Static methods
 // ==========================================================================
 
-static void update_palette(int offset, int num_colours) {
+static void update_palette(screen_mode_t *screen, colour_index_t offset, unsigned int num_colours) {
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_SET_PALETTE, offset, num_colours, colour_table);
 #ifdef USE_DOORBELL
@@ -723,6 +722,9 @@ static int is_full_screen(screen_mode_t *screen, rectangle_t *r) {
    return (r->x1 == 0 && r->y1 == 0 && r->x2 == screen->width - 1 && r->y2 == screen->height - 1);
 }
 
+static void null_handler() {
+}
+
 // ==========================================================================
 // Default handlers
 // ==========================================================================
@@ -805,13 +807,11 @@ void default_init_screen(screen_mode_t *screen) {
 
 void default_reset_screen(screen_mode_t *screen) {
     /* Copy default colour table */
-    sync_palette = 0;
     init_colour_table(screen);
-    sync_palette = 1;
 
     /* Update the palette (only in 8-bpp modes) */
     if (screen->bpp == 8) {
-       update_palette(0, NUM_COLOURS);
+       update_palette(screen, 0, NUM_COLOURS);
     }
 }
 
@@ -857,9 +857,6 @@ void default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, 
 
 void default_set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
    colour_table[index] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
-   if (sync_palette) {
-      update_palette(index, 1);
-   }
 }
 
 void default_set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
@@ -1014,22 +1011,25 @@ screen_mode_t *get_screen_mode(int mode_num) {
       }
       switch (sm->bpp) {
       case 16:
-         sm->set_colour = default_set_colour_16bpp;
-         sm->get_colour = default_get_colour_16bpp;
-         sm->set_pixel  = default_set_pixel_16bpp;
-         sm->get_pixel  = default_get_pixel_16bpp;
+         sm->set_colour     = default_set_colour_16bpp;
+         sm->get_colour     = default_get_colour_16bpp;
+         sm->update_palette = null_handler;
+         sm->set_pixel      = default_set_pixel_16bpp;
+         sm->get_pixel      = default_get_pixel_16bpp;
          break;
       case 32:
-         sm->set_colour = default_set_colour_32bpp;
-         sm->get_colour = default_get_colour_32bpp;
-         sm->set_pixel  = default_set_pixel_32bpp;
-         sm->get_pixel  = default_get_pixel_32bpp;
+         sm->set_colour     = default_set_colour_32bpp;
+         sm->get_colour     = default_get_colour_32bpp;
+         sm->update_palette = null_handler;
+         sm->set_pixel      = default_set_pixel_32bpp;
+         sm->get_pixel      = default_get_pixel_32bpp;
          break;
       default:
-         sm->set_colour = default_set_colour_8bpp;
-         sm->get_colour = default_get_colour_8bpp;
-         sm->set_pixel  = default_set_pixel_8bpp;
-         sm->get_pixel  = default_get_pixel_8bpp;
+         sm->set_colour     = default_set_colour_8bpp;
+         sm->get_colour     = default_get_colour_8bpp;
+         sm->update_palette = update_palette;
+         sm->set_pixel      = default_set_pixel_8bpp;
+         sm->get_pixel      = default_get_pixel_8bpp;
          break;
       }
       if (!sm->font) {

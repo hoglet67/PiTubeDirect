@@ -921,6 +921,7 @@ static void vdu_19(uint8_t *buf) {
       r = (p & 1) ? i : 0;
    }
    screen->set_colour(screen, l, r, g, b);
+   screen->update_palette(screen, l, l);
 }
 
 static void vdu_20(uint8_t *buf) {
@@ -1249,6 +1250,7 @@ void fb_writec_buffered(char ch) {
 }
 
 void fb_process_vdu_queue() {
+   static int flash_count = 0;
    static int cursor_count = 0;
    _data_memory_barrier();
    RPI_GetArmTimer()->IRQClear = 0;
@@ -1261,6 +1263,13 @@ void fb_process_vdu_queue() {
    if (cursor_count == 250) {
       cursor_interrupt();
       cursor_count = 0;
+   }
+   flash_count++;
+   if (flash_count == 320) {
+      if (screen->flash) {
+         screen->flash(screen);
+      }
+      flash_count = 0;
    }
 }
 

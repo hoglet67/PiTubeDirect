@@ -18,8 +18,8 @@
 struct {
 
    // Current line state
-   tt_colour_t fgd_colour;
-   tt_colour_t bgd_colour;
+   pixel_t fgd_colour;
+   pixel_t bgd_colour;
    int graphics;
    int separated;
    int doubled;
@@ -51,8 +51,8 @@ struct {
 } tt = {
 
    // Current line state
-   .fgd_colour     = TT_WHITE,
-   .bgd_colour     = TT_BLACK,
+   .fgd_colour     = TT_WHITE | (TT_WHITE << 3),
+   .bgd_colour     = TT_BLACK | (TT_BLACK << 3),
    .graphics       = FALSE,
    .separated      = FALSE,
    .doubled        = FALSE,
@@ -75,19 +75,6 @@ struct {
    .scale_w        = 1,
    .scale_h        = 1
 };
-
-// Arbitrary limit on the number of flash regions
-#define TT_MAX_FLASH_REGION 25
-
-struct{
-   int fgd_colour;
-   int bgd_colour;
-   int row;
-   int column;
-   int length;
-   int chars[COLUMNS];
-} tt_flash_region [TT_MAX_FLASH_REGION];
-int tt_no_flash_region = 0;
 
 // Screen Mode definition
 static void tt_reset          (screen_mode_t *screen);
@@ -134,8 +121,53 @@ screen_mode_t *tt_get_screen_mode() {
    return &teletext_screen_mode;
 }
 
-
 // This is called on initialization, and VDU 20 to set the default palette
+
+static void set_palette(screen_mode_t *screen, int mark) {
+   // Setup colour palatte
+   // Bits 5..3 control the space colour
+   // Bits 2..0 control the mark colour
+   //
+   // Examples:
+   // - solid blue would be 100100
+   // - red/green flashing would be 001010
+   //
+   for (int i = 0; i < 0x40; i++) {
+      // Depending on whether mark is true
+      int colour = (mark ? i : (i >> 3)) & 0x07;
+      int red   = (colour & 1) ? 0xff : 0x00;
+      int green = (colour & 2) ? 0xff : 0x00;
+      int blue  = (colour & 4) ? 0xff : 0x00;
+      screen->set_colour(screen, i, red, green, blue);
+   }
+   screen->update_palette(screen, 0, 0x40);
+}
+
+static void set_foreground(tt_colour_t colour) {
+   colour &= 0x07;
+   if (tt.flashing) {
+      tt.fgd_colour = (tt.bgd_colour & 0x38) | colour;
+   } else {
+      tt.fgd_colour = (colour << 3) | colour;
+   }
+}
+
+static void set_background(tt_colour_t colour) {
+   colour &= 0x07;
+   tt.bgd_colour = (colour << 3) | colour;
+   if (tt.flashing) {
+      tt.fgd_colour = (colour << 3) | (tt.fgd_colour & 0x07);
+   }
+}
+
+static void set_flashing(int on) {
+   if (on) {
+      tt.fgd_colour = (tt.bgd_colour & 0x38) | (tt.fgd_colour & 0x07);
+   } else {
+      tt.fgd_colour = ((tt.fgd_colour & 0x07) << 3) | (tt.fgd_colour & 0x07);
+   }
+   tt.flashing = on;
+}
 
 // Set up MODE 7
 static void tt_reset(screen_mode_t *screen) {
@@ -173,17 +205,8 @@ static void tt_reset(screen_mode_t *screen) {
    tt.scale_h = screen->height / height; // 2   /   1
    tt.xstart = 0;
    tt.ystart = screen->height - 1;
-   //fb_set_char_metrics(tt.size_w, tt.size_h, tt.scale_w, tt.scale_h);
-   //fb_reset_areas();
-   tt_no_flash_region = 0;
-   screen->set_colour(screen, TT_BLACK,     0x00, 0x00, 0x00);
-   screen->set_colour(screen, TT_RED,       0xff, 0x00, 0x00);
-   screen->set_colour(screen, TT_GREEN,     0x00, 0xff, 0x00);
-   screen->set_colour(screen, TT_YELLOW,    0xff, 0xff, 0x00);
-   screen->set_colour(screen, TT_BLUE,      0x00, 0x00, 0xff);
-   screen->set_colour(screen, TT_MAGENTA,   0xff, 0x00, 0xff);
-   screen->set_colour(screen, TT_CYAN,      0x00, 0xff, 0xff);
-   screen->set_colour(screen, TT_WHITE,     0xff, 0xff, 0xff);
+   // Configure the default palette
+   set_palette(screen, FALSE);
 }
 
 static void update_double_height_counts() {
@@ -238,12 +261,12 @@ static int tt_read_character(screen_mode_t *screen, int col, int row) {
 
 static void tt_reset_line_state(int row) {
    // Reset the state at the beginning of each line
-   tt.fgd_colour = TT_WHITE;
-   tt.bgd_colour = TT_BLACK;
+   set_foreground(TT_WHITE);
+   set_background(TT_BLACK);
    tt.graphics = FALSE;
    tt.separated = FALSE;
    tt.doubled = FALSE;
-   tt.flashing = FALSE;
+   set_flashing(FALSE);
    tt.concealed = FALSE;
    tt.held = FALSE;
    tt.held_char = 32;
@@ -258,63 +281,18 @@ static void tt_reset_line_state(int row) {
    }
 }
 
+// Make the flash regions flash with a 3:1 mark:space ratio
+// This is called at 3.125Hz, so the flash rate is 0.78125Hz
 static void tt_flash(screen_mode_t *screen) {
-   // Make the flash regions flash
-   // Note the flash is asymmetric with the text shown twice as long as its hidden
-   static int count = 2;
+   static int count = 0;
    if (count < 2) {
-      int fgd = tt.fgd_colour;
-      int bgd = tt.bgd_colour;
-      int c = 32;
-      for (int f = 0; f < tt_no_flash_region; f++) {
-         for (int i = 0; i < tt_flash_region[f].length; i++) {
-            int row = tt_flash_region[f].row;
-            int col = tt_flash_region[f].column + i;
-            if (count == 1) {
-               tt.bgd_colour = TT_BLACK;
-            } else {
-               c = tt_flash_region[f].chars[i];
-               tt.fgd_colour = tt_flash_region[f].fgd_colour;
-               tt.bgd_colour = tt_flash_region[f].bgd_colour;
-            }
-            screen->write_character(screen, c, col, row, tt.fgd_colour, tt.bgd_colour);
-         }
-      }
-      tt.fgd_colour = fgd;
-      tt.bgd_colour = bgd;
+      set_palette(screen, count & 1);
    }
-   if (count == 0) count = 2;
-   else count--;
+   count = (count + 1) & 3;
 }
 
-static void tt_add_flash_char(int c) {
-   // Add a character position to the current flash region
-   int i = tt_no_flash_region - 1;
-   if (i >= 0 && i < TT_MAX_FLASH_REGION) {
-      tt_flash_region[i].chars[tt_flash_region[i].length++] = c;
-   }
-}
-
-static void tt_start_flash_area(int col, int row) {
-   // Create a new flash region
-   int i = tt_no_flash_region;
-   if (i < TT_MAX_FLASH_REGION) {
-      tt_flash_region[i].fgd_colour = tt.fgd_colour;
-      tt_flash_region[i].bgd_colour = tt.bgd_colour;
-      tt_flash_region[i].column = col;
-      tt_flash_region[i].row = row;
-      tt_flash_region[i].length = 0;
-      tt_no_flash_region++;
-   }
-}
-
+// Process control characters that are "Set At"
 static int tt_process_controls(int c, int col, int row) {
-   // Process control characters, when graphics hold is in force some settings
-   // are deferred until after the held character is printed e.g. colour changes
-   // see tt_process_controls_after
-   if (tt.flashing) {
-      tt_add_flash_char(c);
-   }
    switch (c) {
    case TT_CONCEAL:
       tt.concealed = TRUE;
@@ -326,10 +304,10 @@ static int tt_process_controls(int c, int col, int row) {
       tt.separated = TRUE;
       break;
    case TT_BLACK_BGD:
-      tt.bgd_colour = TT_BLACK;
+      set_background(TT_BLACK);
       break;
    case TT_NEW_BGD:
-      tt.bgd_colour = tt.fgd_colour;
+      set_background(tt.fgd_colour);
       break;
    case TT_HOLD:
       tt.held = TRUE;
@@ -369,26 +347,26 @@ static int tt_process_controls(int c, int col, int row) {
    }
 }
 
+// Process control characters that are "Set After"
 static void tt_process_controls_after(int c, int col, int row) {
    switch(c) {
    case TT_A_RED ... TT_A_WHITE:
       tt.graphics = FALSE;
       tt.concealed = FALSE;
-      tt.fgd_colour = c - 128;
+      set_foreground(c - 128);
       // A change from graphics back to text, even when held, will reset the held character
       tt.held_char = 32;
       break;
    case TT_G_RED ... TT_G_WHITE:
       tt.graphics = TRUE;
       tt.concealed = FALSE;
-      tt.fgd_colour = c - 144;
+      set_foreground(c - 144);
       break;
    case TT_FLASH:
-      tt.flashing = TRUE;
-      tt_start_flash_area(col + 1, row);
+      set_flashing(TRUE);
       break;
    case TT_STEADY:
-      tt.flashing = FALSE;
+      set_flashing(FALSE);
       break;
    case TT_NORMAL:
       tt.doubled = FALSE;
@@ -470,7 +448,7 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
       // The height of a middle block is whatever is remaining (in pixels)
       int ybsize1 = tt.size_h * tt.scale_h - (tt.doubled ? 1 : 2) * ybsize0;
 
-      // The height of horizontal the graphics seperator, if needed
+      // The height of the graphics seperator, if needed
       int ybsep   =  ybsize0 / 3;
 
       // Iterate over the Y blocks
@@ -480,7 +458,7 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
          if (tt.doubled && !tt.double_bottom && yb == 1) {
             ybsep = 0;
          }
-         // Deterine the colour of the block the next two horizontal blocks
+         // Determine the colour of the block the next two horizontal blocks
          colour[0] = ((ch >> (2 * yb    )) & 1) ? tt.fgd_colour : tt.bgd_colour;
          colour[1] = ((ch >> (2 * yb + 1)) & 1) ? tt.fgd_colour : tt.bgd_colour;
          // Iterate over the Y pixels in a block
