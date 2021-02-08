@@ -160,6 +160,14 @@ static inline int is_graphics(int c) {
    return (c & 0x20);
 }
 
+static inline int is_double(int c) {
+   return (c & 0x7f) == TT_DOUBLE;
+}
+
+static inline int is_normal(int c) {
+   return (c & 0x7f) == TT_NORMAL;
+}
+
 static void set_palette(screen_mode_t *screen, int mark) {
    // Setup colour palatte
    // Bits 5..3 control the space colour
@@ -256,7 +264,7 @@ static void update_double_height_counts() {
    for (int row = 0; row < tt.rows; row++) {
       *count = 0;
       for (int col = 0; col < tt.columns; col++) {
-         if (tt.mode7screen[row][col] == TT_DOUBLE) {
+         if (is_double(tt.mode7screen[row][col])) {
             (*count)++;
          }
       }
@@ -335,7 +343,7 @@ static void tt_flash(screen_mode_t *screen) {
 
 // Process control characters that are "Set At"
 static int tt_process_controls(int c, int col, int row) {
-   switch (c) {
+   switch (c & 0x7F) {
    case TT_CONCEAL:
       tt.concealed = TRUE;
       break;
@@ -363,7 +371,7 @@ static int tt_process_controls(int c, int col, int row) {
    } else if (is_control(c) && !tt.held) {
       // Control codes when hold inactive will reset the held graphics character
       tt.held_char = TT_SPACE;
-   } else if ((c == TT_NORMAL && tt.doubled) || (c == TT_DOUBLE && !tt.doubled)) {
+   } else if ((is_normal(c) && tt.doubled) || (is_double(c) && !tt.doubled)) {
       // A change of height will reset the held graphics character, even if hold active
       tt.held_char = TT_SPACE;
    }
@@ -391,7 +399,7 @@ static int tt_process_controls(int c, int col, int row) {
 
 // Process control characters that are "Set After"
 static void tt_process_controls_after(int c, int col, int row) {
-   switch(c) {
+   switch(c & 0x7f) {
    case TT_A_RED ... TT_A_WHITE:
       tt.graphics = FALSE;
       tt.concealed = FALSE;
@@ -613,9 +621,6 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
       c = 35;
    }
 
-   // The SAA5050 only uses bits 0..6, so ignore bit 7
-   c &= 0x7F;
-
    // Detect non-linear accesses, and reconstruct the line state
    if (row != tt.last_row || col != tt.last_col + 1) {
       tt_reset_line_state(row);
@@ -640,10 +645,10 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
 
       // Update the double height counts
       int old_dh_state = tt.dh_count[row] ? TRUE : FALSE;
-      if (c == TT_DOUBLE) {
+      if (is_double(c)) {
          tt.dh_count[row]++;
       }
-      if (oldc == TT_DOUBLE) {
+      if (is_double(oldc)) {
          tt.dh_count[row]--;
       }
       int new_dh_state = tt.dh_count[row] ? TRUE : FALSE;
