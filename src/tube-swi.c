@@ -873,14 +873,18 @@ void tube_ReadLine(unsigned int *reg) {
           continue;
         }
         // move the editing cursor to the right
+        writeVDU(0x15);
         writeVDU(0x1B);
         writeVDU(0x89);
+        writeVDU(0x06);
       }
 
       // Handle cursor keys just by echoing them, but not storing them
       if (c >= 0x88 && c <= 0x8b) {
+        writeVDU(0x15);
         writeVDU(0x1B);
         writeVDU(c);
+        writeVDU(0x06);
         continue;
       }
 
