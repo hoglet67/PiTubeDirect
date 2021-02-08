@@ -969,6 +969,10 @@ int default_read_character(screen_mode_t *screen, int col, int row) {
    return 0;
 }
 
+void default_unknown_vdu(screen_mode_t *screen, uint8_t *buf) {
+}
+
+
 // ==========================================================================
 // Public methods
 // ==========================================================================
@@ -1008,6 +1012,9 @@ screen_mode_t *get_screen_mode(int mode_num) {
       }
       if (!sm->read_character) {
          sm->read_character = default_read_character;
+      }
+      if (!sm->unknown_vdu) {
+         sm->unknown_vdu = default_unknown_vdu;
       }
       switch (sm->bpp) {
       case 16:

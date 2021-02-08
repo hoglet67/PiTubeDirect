@@ -30,6 +30,13 @@ struct {
    int held_char;
    int held_separated;
 
+   // Working state
+   int last_row;
+   int last_col;
+
+   // Teletext options
+   int reveal; // reveal concealed text
+
    // Display parameters
    int columns;
    int rows;
@@ -63,6 +70,13 @@ struct {
    .held_char      = TT_SPACE,
    .held_separated = FALSE,
 
+   // Working state
+   .last_row       = -1,
+   .last_col       = -1,
+
+   // Teletext options
+   .reveal         = FALSE,
+
    // Display parameters
    .columns        = COLUMNS,
    .rows           = ROWS,
@@ -83,6 +97,7 @@ static void tt_scroll         (screen_mode_t *screen, t_clip_window_t *text_wind
 static void tt_flash          (screen_mode_t *screen);
 static void tt_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
 static int  tt_read_character (screen_mode_t *screen, int col, int row);
+static void tt_unknown_vdu    (screen_mode_t *screen, uint8_t *buf);
 
 // #define LORES
 
@@ -104,7 +119,8 @@ static screen_mode_t teletext_screen_mode = {
    .scroll          = tt_scroll,
    .flash           = tt_flash,
    .write_character = tt_write_character,
-   .read_character  = tt_read_character
+   .read_character  = tt_read_character,
+   .unknown_vdu     = tt_unknown_vdu
 };
 
 screen_mode_t *tt_get_screen_mode() {
@@ -212,6 +228,10 @@ static void tt_reset(screen_mode_t *screen) {
    tt.scale_h = screen->height / height; // 2   /   1
    tt.xstart = 0;
    tt.ystart = screen->height - 1;
+   // Reset the rendering params to sensible defaults
+   tt.last_row = -1;
+   tt.last_col = -1;
+   tt.reveal = 0;
    // Configure the default palette
    set_palette(screen, FALSE);
 }
@@ -337,7 +357,7 @@ static int tt_process_controls(int c, int col, int row) {
 
    // HOLD, CONCEAL, DOUBLED are "Set At" so this decision has to be made after the above case statement
 
-   if (tt.concealed || (tt.double_bottom && !tt.doubled)) {
+   if ((tt.concealed && !tt.reveal) || (tt.double_bottom && !tt.doubled)) {
       // Anything normal height on the bottom row of double height should be displayed as a space
       return TT_SPACE;
    } else if (is_control(c)) {
@@ -508,10 +528,11 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
          int x = xoffset;
          // TODO: Fix hardcoded scale factors
 #ifdef LORES
-         for (int px = 0; px < tt.char_w; px++, x += (tt.scale_w * 2)) {
+         int xinc = tt.scale_w * 2;
 #else
-         for (int px = 0; px < tt.char_w; px++, x += (tt.scale_w * 5 / 2)) {
+         int xinc = tt.scale_w * 5 / 2;
 #endif
+         for (int px = 0; px < tt.char_w; px++, x += xinc) {
             int map = TT_BLOCK_NONE;
             if (tt_pixel_set(p, px, py))
                map = TT_BLOCK_ALL;
@@ -562,9 +583,6 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
    // Note: fg_col/bg_col (from COLOUR n) are ignored in teletext mode
    // because colour control characters are used insread
 
-   static int last_row = -1;
-   static int last_col = -1;
-
    // Remap some codes to accomodate differences between the
    // Beeb's character set and the SAA5050 Character ROM
    // (this is also done by Beeb OS VDU driver)
@@ -585,7 +603,7 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
    c &= 0x7F;
 
    // Detect non-linear accesses, and reconstruct the line state
-   if (row != last_row || col != last_col + 1) {
+   if (row != tt.last_row || col != tt.last_col + 1) {
       tt_reset_line_state(row);
       for (int i = 0; i < col; i++) {
          uint8_t tmpc = tt.mode7screen[row][i];
@@ -638,6 +656,32 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
    }
 
    // Remember the current row, col
-   last_row = row;
-   last_col = col;
+   tt.last_row = row;
+   tt.last_col = col;
+}
+
+static void set_reveal(screen_mode_t *screen, int mode, int mask) {
+   int reveal = ((tt.reveal & mask) ^ mode) & 1;
+   if (reveal != tt.reveal) {
+      // Update the reveal flag
+      tt.reveal = reveal;
+      // Re-render the screen
+      for (int row = 0; row < tt.rows; row++) {
+         tt_reset_line_state(row);
+         re_render_row(screen, 0, row);
+      }
+      // Invalidate the current line state
+      tt.last_row = -1;
+      tt.last_col = -1;
+   }
+}
+
+static void tt_unknown_vdu(screen_mode_t *screen, uint8_t *buf) {
+   if (buf[0] == 23 && buf[1] == 18) {
+      switch (buf[2]) {
+      case 2:
+         set_reveal(screen, buf[3], buf[4]);
+         break;
+      }
+   }
 }

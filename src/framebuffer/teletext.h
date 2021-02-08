@@ -64,4 +64,6 @@ enum {
 
 screen_mode_t *tt_get_screen_mode();
 
+void tt_vdu_23_18(uint8_t *params);
+
 #endif

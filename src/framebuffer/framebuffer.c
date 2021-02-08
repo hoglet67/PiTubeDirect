@@ -456,7 +456,9 @@ static void change_mode(screen_mode_t *new_screen) {
    }
    // initialze VDU variable
    init_variables();
-   // clear frame buffer
+   // reset the screen to it's default state
+   screen->reset(screen);
+   // clear screen
    screen->clear(screen, NULL, screen->get_colour(screen, c_bg_col));
    // Show the cursor
    c_visible = 0;
@@ -945,22 +947,22 @@ static void vdu_23(uint8_t *buf) {
       printf("\n\r");
    }
 #endif
-   // TODO: we could update the vdu23 sub commands to avoid this increment
-   buf++; // skip the 23
-   switch (buf[0]) {
-   case  3: vdu23_3(buf); break;
-   case  4: vdu23_4(buf); break;
-   case  5: vdu23_5(buf); break;
-   case  6: vdu23_6(buf); break;
-   case  7: vdu23_7(buf); break;
-   case  8: vdu23_8(buf); break;
-   case  9: vdu23_9(buf); break;
-   case 17: vdu23_17(buf); break;
-   case 22: vdu23_22(buf); break;
-   }
    // User defined characters
-   if (buf[0] >= 128) {
+   if (buf[0] >= 32) {
       define_character(screen->font, buf[0], buf + 1);
+   } else {
+      switch (buf[0]) {
+      case  3:vdu23_3 (buf + 1); break;
+      case  4: vdu23_4 (buf + 1); break;
+      case  5: vdu23_5 (buf + 1); break;
+      case  6: vdu23_6 (buf + 1); break;
+      case  7: vdu23_7 (buf + 1); break;
+      case  8: vdu23_8 (buf + 1); break;
+      case  9: vdu23_9 (buf + 1); break;
+      case 17: vdu23_17(buf + 1); break;
+      case 22: vdu23_22(buf + 1); break;
+      default: screen->unknown_vdu(screen, buf);
+      }
    }
 }
 
