@@ -35,15 +35,29 @@ static int16_t text_width;  // of whole screen
 // Text area clip window
 static t_clip_window_t t_window;
 
-// Character colour / cursor position
+// Character colour
 static uint8_t c_bg_col;
 static uint8_t c_fg_col;
+
+// Character cursor status and position
+static int16_t c_enabled;  // controlled by VDU 23,1
 static int16_t c_x_pos;
 static int16_t c_y_pos;
 
-static int16_t e_enabled = 0;
+// Edit cursor status and position
+static int16_t e_enabled;  // controlled by use of the cursor keys
 static int16_t e_x_pos;
 static int16_t e_y_pos;
+
+// Block cursor position and current visibility
+static int16_t b_x_pos;
+static int16_t b_y_pos;
+static int16_t b_visible;
+
+// Flashing cursor position and current visibility
+static int16_t f_x_pos;
+static int16_t f_y_pos;
+static int16_t f_visible;
 
 // Graphics colour / cursor position
 static uint8_t g_bg_col;
@@ -62,9 +76,6 @@ static g_clip_window_t g_window;
 
 // Text or graphical cursor for printing characters
 static int8_t text_at_g_cursor;
-
-static int e_visible; // Current visibility of the edit cursor
-static int c_visible; // Current visibility of the write cursor
 
 // VDU Queue
 #define VDU_QSIZE 8192
@@ -144,12 +155,9 @@ static void init_variables();
 static void reset_areas();
 static void set_text_area(t_clip_window_t *window);
 static void invert_cursor(int x_pos, int y_pos, int editing);
-static void show_cursor();
-static void show_edit_cursor();
-static void hide_cursor();
-static void hide_edit_cursor();
 static void enable_edit_cursor();
 static void disable_edit_cursor();
+static void update_cursors();
 static void cursor_interrupt();
 static void edit_cursor_up();
 static void edit_cursor_down();
@@ -223,13 +231,10 @@ static void update_text_area() {
       tmp_y = t_window.bottom;
    }
    if (c_x_pos != tmp_x || c_y_pos != tmp_y) {
-      if (!text_at_g_cursor) {
-         hide_cursor();
-      }
       c_x_pos = tmp_x;
       c_y_pos = tmp_y;
       if (!text_at_g_cursor) {
-         show_cursor();
+         update_cursors();
       }
    }
 }
@@ -239,12 +244,11 @@ static void init_variables() {
    // Character colour / cursor position
    c_bg_col  = COL_BLACK;
    c_fg_col  = COL_WHITE;
-   c_visible = 0;
+   c_enabled = 1;
 
    // Edit cursor
    e_x_pos   = 0;
    e_y_pos   = 0;
-   e_visible = 0;
    e_enabled = 0;
 
    // Graphics colour / cursor position
@@ -298,11 +302,10 @@ static void set_text_area(t_clip_window_t *window) {
    update_text_area();
 }
 
-static void invert_cursor(int x_pos, int y_pos, int editing) {
+static void invert_cursor(int x_pos, int y_pos, int rows) {
    int x = x_pos * font_width;
    int y = screen->height - y_pos * font_height - 1;
-   int y1 = editing ? font_height - 2 : 0;
-   for (int i = y1; i < font_height; i++) {
+   for (int i = font_height - rows; i < font_height; i++) {
       for (int j = 0; j < font_width; j++) {
          pixel_t col = screen->get_pixel(screen, x + j, y - i);
          col ^= screen->get_colour(screen, COL_WHITE);
@@ -311,91 +314,99 @@ static void invert_cursor(int x_pos, int y_pos, int editing) {
    }
 }
 
-static void show_cursor() {
-   if (c_visible) {
-      return;
+static void update_cursors() {
+   // Update the flashing cursor
+   if (f_visible) {
+      invert_cursor(f_x_pos, f_y_pos, 2);
+      f_visible = 0;
    }
-   invert_cursor(c_x_pos, c_y_pos, 0);
-   c_visible = 1;
+   if (e_enabled || c_enabled) {
+      f_x_pos = e_enabled ? e_x_pos : c_x_pos;
+      f_y_pos = e_enabled ? e_y_pos : c_y_pos;
+      invert_cursor(f_x_pos, f_y_pos, 2);
+      f_visible = 1;
+   }
+   // Update the block cursor
+   if (b_visible) {
+      invert_cursor(b_x_pos, b_y_pos, font_height);
+      b_visible = 0;
+   }
+   if (e_enabled) {
+      b_x_pos = c_x_pos;
+      b_y_pos = c_y_pos;
+      invert_cursor(b_x_pos, b_y_pos, font_height);
+      b_visible = 1;
+   }
 }
 
-static void show_edit_cursor() {
-   if (e_visible) {
-      return;
-   }
-   invert_cursor(e_x_pos, e_y_pos, 1);
-   e_visible = 1;
+static void enable_cursors() {
+   c_enabled = 1;
 }
 
-static void hide_cursor() {
-   if (!c_visible) {
-      return;
+static int disable_cursors() {
+   if (c_enabled) {
+      c_enabled = 0;
+      if (f_visible) {
+         invert_cursor(f_x_pos, f_y_pos, 2);
+      }
+      f_visible = 0;
+      if (b_visible) {
+         invert_cursor(b_x_pos, b_y_pos, font_height);
+      }
+      b_visible = 0;
+      return 1;
+   } else {
+      return 0;
    }
-   invert_cursor(c_x_pos, c_y_pos, 0);
-   c_visible = 0;
 }
 
-static void hide_edit_cursor() {
-   if (!e_visible) {
-      return;
+static void cursor_interrupt() {
+   if (c_enabled || e_enabled) {
+      f_visible = !f_visible;
+      invert_cursor(f_x_pos, f_y_pos, 2);
    }
-   invert_cursor(e_x_pos, e_y_pos, 1);
-   e_visible = 0;
 }
 
 static void enable_edit_cursor() {
-   if (!e_enabled) {
+   if (!e_enabled && !text_at_g_cursor) {
       e_enabled = 1;
       e_x_pos = c_x_pos;
       e_y_pos = c_y_pos;
-      show_edit_cursor();
+      update_cursors();
    }
 }
 
 static void disable_edit_cursor() {
    if (e_enabled) {
-      hide_edit_cursor();
+      e_enabled = 0;
       e_x_pos = 0;
       e_y_pos = 0;
-      e_enabled = 0;
-   }
-}
-
-static void cursor_interrupt() {
-   if (e_enabled) {
-      if (e_visible) {
-         hide_edit_cursor();
-      } else {
-         show_edit_cursor();
-      }
+      update_cursors();
    }
 }
 
 static void edit_cursor_up() {
    enable_edit_cursor();
-   hide_edit_cursor();
    if (e_y_pos > t_window.top) {
       e_y_pos--;
    } else {
       e_y_pos = t_window.bottom;
    }
-   show_edit_cursor();
+   update_cursors();
 }
 
 static void edit_cursor_down() {
    enable_edit_cursor();
-   hide_edit_cursor();
    if (e_y_pos < t_window.bottom) {
       e_y_pos++;
    } else {
       e_y_pos = t_window.top;
    }
-   show_edit_cursor();
+   update_cursors();
 }
 
 static void edit_cursor_left() {
    enable_edit_cursor();
-   hide_edit_cursor();
    if (e_x_pos > t_window.left) {
       e_x_pos--;
    } else {
@@ -406,12 +417,11 @@ static void edit_cursor_left() {
          e_y_pos = t_window.bottom;
       }
    }
-   show_edit_cursor();
+   update_cursors();
 }
 
 static void edit_cursor_right() {
    enable_edit_cursor();
-   hide_edit_cursor();
    if (e_x_pos < t_window.right) {
       e_x_pos++;
    } else {
@@ -422,21 +432,22 @@ static void edit_cursor_right() {
          e_y_pos = t_window.top;
       }
    }
-   show_edit_cursor();
+   update_cursors();
 }
 
 static void text_area_scroll() {
    pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-   if (e_enabled) {
-      hide_edit_cursor();
-   }
+   int tmp = disable_cursors();
    screen->scroll(screen, &t_window, bg_col);
+   if (tmp) {
+      enable_cursors();
+   }
    if (e_enabled) {
       if (e_y_pos > t_window.top) {
          e_y_pos--;
       }
-      show_edit_cursor();
    }
+   update_cursors();
 }
 
 
@@ -450,6 +461,9 @@ static void update_g_cursors(int16_t x, int16_t y) {
 }
 
 static void change_mode(screen_mode_t *new_screen) {
+   // This stops the cursor interrupt having any effect
+   disable_cursors();
+   // Possibly re-initialize the screen
    if (new_screen && (new_screen != screen || new_screen->mode_num >= CUSTOM_8BPP_SCREEN_MODE)) {
       screen = new_screen;
       screen->init(screen);
@@ -459,10 +473,7 @@ static void change_mode(screen_mode_t *new_screen) {
    // reset the screen to it's default state
    screen->reset(screen);
    // clear screen
-   screen->clear(screen, NULL, screen->get_colour(screen, c_bg_col));
-   // Show the cursor
-   c_visible = 0;
-   show_cursor();
+   text_area_clear();
 }
 
 static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window) {
@@ -494,59 +505,53 @@ static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window) {
 // ==========================================================================
 
 static void text_cursor_left() {
-   hide_cursor();
    if (c_x_pos > t_window.left) {
       c_x_pos--;
    } else {
       c_x_pos = t_window.right;
       text_cursor_up();
    }
-   show_cursor();
+   update_cursors();
 }
 
 static void text_cursor_right() {
-   hide_cursor();
    if (c_x_pos < t_window.right) {
       c_x_pos++;
    } else {
       c_x_pos = t_window.left;
       text_cursor_down();
    }
-   show_cursor();
+   update_cursors();
 }
 
 static void text_cursor_up() {
-   hide_cursor();
    if (c_y_pos > t_window.top) {
       c_y_pos--;
    } else {
       c_y_pos = t_window.bottom;
    }
-   show_cursor();
+   update_cursors();
 }
 
 static void text_cursor_down() {
-   hide_cursor();
    if (c_y_pos < t_window.bottom) {
       c_y_pos++;
    } else {
       text_area_scroll();
    }
-   show_cursor();
+   update_cursors();
 }
 
 static void text_cursor_col0() {
    disable_edit_cursor();
-   hide_cursor();
    c_x_pos = t_window.left;
-   show_cursor();
+   update_cursors();
 }
 
 static void text_cursor_home() {
-   hide_cursor();
    c_x_pos = t_window.left;
    c_y_pos = t_window.top;
-   show_cursor();
+   update_cursors();
 }
 
 static void text_cursor_tab(uint8_t *buf) {
@@ -559,30 +564,37 @@ static void text_cursor_tab(uint8_t *buf) {
    x += t_window.left;
    y += t_window.top;
    if (x <= t_window.right && y <= t_window.bottom) {
-      hide_cursor();
       c_x_pos = x;
       c_y_pos = y;
-      show_cursor();
+      update_cursors();
    }
 }
 
 static void text_area_clear() {
    pixel_t bg_col = screen->get_colour(screen, c_bg_col);
+   int tmp = disable_cursors();
    screen->clear(screen, &t_window, bg_col);
+   if (tmp) {
+      enable_cursors();
+   }
    c_x_pos = t_window.left;
    c_y_pos = t_window.top;
-   c_visible = 0;
-   show_cursor();
+   update_cursors();
 }
 
 static void text_delete() {
    text_cursor_left();
-   hide_cursor();
    int x = c_x_pos * font_width;
    int y = screen->height - c_y_pos * font_height - 1;
    pixel_t col = screen->get_colour(screen, c_bg_col);
    prim_fill_rectangle(screen, x, y, x + (font_width - 1), y - (font_height - 1), col);
-   show_cursor();
+   // TODO: a cursor interrupt here would be bad!
+   if (e_enabled) {
+      b_visible = 0;
+   } else {
+      f_visible = 0;
+   }
+   update_cursors();
 }
 
 // ==========================================================================
@@ -668,6 +680,16 @@ static void graphics_delete() {
 // ==========================================================================
 // VDU 23 commands
 // ==========================================================================
+
+static void vdu23_1(uint8_t *buf) {
+   // VDU 23,1: Enable/Disable cursor
+   if (buf[1] & 1) {
+      enable_cursors();
+   } else {
+      disable_cursors();
+   }
+   update_cursors();
+}
 
 static void vdu23_3(uint8_t *buf) {
    // VDU 23,3: select font by name
@@ -861,11 +883,11 @@ static void vdu_4(uint8_t *buf) {
    vdu_operation_table[ 30].handler = text_cursor_home;
    vdu_operation_table[ 31].handler = text_cursor_tab;
    vdu_operation_table[127].handler = text_delete;
-   show_cursor();
+   enable_cursors();
 }
 
 static void vdu_5(uint8_t *buf) {
-   hide_cursor();
+   disable_cursors();
    text_at_g_cursor = 1;
    vdu_operation_table[  8].handler = graphics_cursor_left;
    vdu_operation_table[  9].handler = graphics_cursor_right;
@@ -951,8 +973,9 @@ static void vdu_23(uint8_t *buf) {
    if (buf[0] >= 32) {
       define_character(screen->font, buf[0], buf + 1);
    } else {
-      switch (buf[0]) {
-      case  3:vdu23_3 (buf + 1); break;
+      switch (buf[1]) {
+      case  1: vdu23_1 (buf + 1); break;
+      case  3: vdu23_3 (buf + 1); break;
       case  4: vdu23_4 (buf + 1); break;
       case  5: vdu23_5 (buf + 1); break;
       case  6: vdu23_6 (buf + 1); break;
@@ -1208,12 +1231,16 @@ static void vdu_default(uint8_t *buf) {
       // - Pixel 0,0 is in the bottom left
       // - Character 0,0 is in the top left
       // - So the Y axis needs flipping
-      hide_cursor();
       // Draw the foreground and background pixels
       pixel_t fg_col = screen->get_colour(screen, c_fg_col);
       pixel_t bg_col = screen->get_colour(screen, c_bg_col);
       screen->write_character(screen, c, c_x_pos, c_y_pos, fg_col, bg_col);
-      show_cursor();
+      // TODO: a cursor interrupt here would be bad!
+      if (e_enabled) {
+         b_visible = 0;
+      } else {
+         f_visible = 0;
+      }
       // Advance the drawing position
       text_cursor_right();
    }
@@ -1262,12 +1289,12 @@ void fb_process_vdu_queue() {
       vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
    }
    cursor_count++;
-   if (cursor_count == 250) {
+   if (cursor_count >= (e_enabled ? 160 : 320)) {
       cursor_interrupt();
       cursor_count = 0;
    }
    flash_count++;
-   if (flash_count == 320) {
+   if (flash_count >= 320) {
       if (screen->flash) {
          screen->flash(screen);
       }
