@@ -60,7 +60,7 @@ struct {
    .flashing       = FALSE,
    .concealed      = FALSE,
    .held           = FALSE,
-   .held_char      = 32,
+   .held_char      = TT_SPACE,
    .held_separated = FALSE,
 
    // Display parameters
@@ -121,7 +121,13 @@ screen_mode_t *tt_get_screen_mode() {
    return &teletext_screen_mode;
 }
 
-// This is called on initialization, and VDU 20 to set the default palette
+static inline int is_control(int c) {
+   return !(c & 0x60);
+}
+
+static inline int is_graphics(int c) {
+   return (c & 0x20);
+}
 
 static void set_palette(screen_mode_t *screen, int mark) {
    // Setup colour palatte
@@ -169,7 +175,8 @@ static void set_flashing(int on) {
    tt.flashing = on;
 }
 
-// Set up MODE 7
+// This is called on initialization, and VDU 20 to set the default palette
+
 static void tt_reset(screen_mode_t *screen) {
    // TODO: Fix hardcoded scale factors
    //
@@ -226,11 +233,11 @@ static void tt_clear(screen_mode_t *screen, t_clip_window_t *text_window, pixel_
    default_clear_screen(screen, text_window, bg_col);
    // Clear the backing store
    if (text_window == NULL) {
-      memset(tt.mode7screen, 32, sizeof(tt.mode7screen));
+      memset(tt.mode7screen, TT_SPACE, sizeof(tt.mode7screen));
    } else {
       for (int row = text_window->top; row <= text_window->bottom; row++) {
          for (int col = text_window->left; col <= text_window->right; col++) {
-            tt.mode7screen[row][col] = 32;
+            tt.mode7screen[row][col] = TT_SPACE;
          }
       }
    }
@@ -248,7 +255,7 @@ static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel
       }
    }
    for (int col = text_window->left; col <= text_window->right; col++) {
-      tt.mode7screen[text_window->bottom][col] = 32;
+      tt.mode7screen[text_window->bottom][col] = TT_SPACE;
    }
    // Recalculate the double height counts
    update_double_height_counts();
@@ -269,7 +276,7 @@ static void tt_reset_line_state(int row) {
    set_flashing(FALSE);
    tt.concealed = FALSE;
    tt.held = FALSE;
-   tt.held_char = 32;
+   tt.held_char = TT_SPACE;
    tt.held_separated = FALSE;
    // The bottom row of double height is only selected if the number of consecutive
    // preceeding rows that contain the double height control codes is odd
@@ -314,16 +321,16 @@ static int tt_process_controls(int c, int col, int row) {
       break;
    }
 
-   if (tt.graphics && (c & 0x20)) {
+   if (is_graphics(c) && tt.graphics) {
       // The held graphics character is the last character seen with bit 5 set in graphics mode
       tt.held_char = c;
       tt.held_separated = tt.separated;
-   } else if (c >= 128 && c <= 159 && !tt.held) {
+   } else if (is_control(c) && !tt.held) {
       // Control codes when hold inactive will reset the held graphics character
-      tt.held_char = 32;
+      tt.held_char = TT_SPACE;
    } else if ((c == TT_NORMAL && tt.doubled) || (c == TT_DOUBLE && !tt.doubled)) {
       // A change of height will reset the held graphics character, even if hold active
-      tt.held_char = 32;
+      tt.held_char = TT_SPACE;
    }
 
    // return the character that will actually be rendered with draw_character
@@ -332,14 +339,14 @@ static int tt_process_controls(int c, int col, int row) {
 
    if (tt.concealed || (tt.double_bottom && !tt.doubled)) {
       // Anything normal height on the bottom row of double height should be displayed as a space
-      return 32;
-   } else if (c  >= 128 && c <= 159) {
+      return TT_SPACE;
+   } else if (is_control(c)) {
       if (tt.held) {
          // Display control codes as the held character
          return tt.held_char;
       } else {
          // Display control codes as space (the default behaviour)
-         return 32;
+         return TT_SPACE;
       }
    } else {
       // Display the character passed in
@@ -353,14 +360,14 @@ static void tt_process_controls_after(int c, int col, int row) {
    case TT_A_RED ... TT_A_WHITE:
       tt.graphics = FALSE;
       tt.concealed = FALSE;
-      set_foreground(c - 128);
+      set_foreground(c - TT_A_BLACK);
       // A change from graphics back to text, even when held, will reset the held character
-      tt.held_char = 32;
+      tt.held_char = TT_SPACE;
       break;
    case TT_G_RED ... TT_G_WHITE:
       tt.graphics = TRUE;
       tt.concealed = FALSE;
-      set_foreground(c - 144);
+      set_foreground(c - TT_G_BLACK);
       break;
    case TT_FLASH:
       set_flashing(TRUE);
@@ -378,7 +385,7 @@ static void tt_process_controls_after(int c, int col, int row) {
       // Release (and start of line) are the only things that cleat the hold flag
       tt.held = FALSE;
       // Release also resets the held mosiac to back to space
-      tt.held_char = 32;
+      tt.held_char = TT_SPACE;
       break;
    }
 }
@@ -414,19 +421,19 @@ static inline int tt_pixel_set(int p, int x, int y) {
 
 
 // Redraw character c at col, row using the current line state
-static void tt_draw_character(struct screen_mode *screen, int ch, int col, int row) {
+static void tt_draw_character(struct screen_mode *screen, int c, int col, int row) {
    int colour[2];
    int xoffset = tt.xstart + col * tt.size_w * tt.scale_w;
    int yoffset = tt.ystart - row * tt.size_h * tt.scale_h;
 
-   if (tt.graphics && (ch & 0x3f) >= 0x20) {
+   if (tt.graphics && is_graphics(c)) {
 
       // Draws the graphics characters based on the 2x6 matrix
 
-      if (ch & 64) {
-         ch |= 0x20; // Set bit 5 if the 6th block is set
+      if (c & 0x40) {
+         c |= 0x20; // Set bit 5 if the 6th block is set
       } else {
-         ch &= 0x1f;
+         c &= 0x1f;
       }
 
       // Use the held value of separated during hold mode
@@ -459,8 +466,8 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
             ybsep = 0;
          }
          // Determine the colour of the block the next two horizontal blocks
-         colour[0] = ((ch >> (2 * yb    )) & 1) ? tt.fgd_colour : tt.bgd_colour;
-         colour[1] = ((ch >> (2 * yb + 1)) & 1) ? tt.fgd_colour : tt.bgd_colour;
+         colour[0] = ((c >> (2 * yb    )) & 1) ? tt.fgd_colour : tt.bgd_colour;
+         colour[1] = ((c >> (2 * yb + 1)) & 1) ? tt.fgd_colour : tt.bgd_colour;
          // Iterate over the Y pixels in a block
          int ybsize = (yb == 1) ? ybsize1 : ybsize0;
          for (int y2 = 0; y2 < ybsize ; y2++, y--) {
@@ -484,7 +491,7 @@ static void tt_draw_character(struct screen_mode *screen, int ch, int col, int r
 
       // Draw character
 
-      int p = ch * tt.char_h;
+      int p = c * tt.char_h;
       int y = yoffset;
       int py_from = 0;
       int py_to = tt.char_h;
@@ -574,6 +581,9 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
       c = 35;
    }
 
+   // The SAA5050 only uses bits 0..6, so ignore bit 7
+   c &= 0x7F;
+
    // Detect non-linear accesses, and reconstruct the line state
    if (row != last_row || col != last_col + 1) {
       tt_reset_line_state(row);
@@ -593,12 +603,8 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
    int oldc = tt.mode7screen[row][col];
    tt.mode7screen[row][col] = c;
 
-   // Test if the old/new characters is a control character
-   int is_cc1 = (oldc & 0xE0) == 0x80; // true if the old character at row,col was a control code
-   int is_cc2 = (c    & 0xE0) == 0x80; // true if the new character at row,col was a control code
-
-   // If either is a control character, then it gets more involved
-   if ((c != oldc) && (is_cc1 || is_cc2)) {
+   // If the either the old or new character is a control character, then it gets more involved
+   if ((c != oldc) && (is_control(c) || is_control(oldc))) {
 
       // Update the double height counts
       int old_dh_state = tt.dh_count[row] ? TRUE : FALSE;
