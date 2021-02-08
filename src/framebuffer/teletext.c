@@ -1,5 +1,18 @@
 // Teletext support for MODE 7
-// Rod Thomas January 2021
+// Original version by Rod Thomas January 2021
+
+// Significant additions by Hoglet February 2021
+// - Fix errors in SAA5050 font
+// - Allow rendering to a 480x500 frame buffer
+// - Correctly implement Set At/Set After semantics for all control codes
+// - Fix graphics hold issues
+// - Replicate SAA5050 graphics hold bug
+// - Characters 35,95 and 96 swapped (as is done by the OS's VDU handler)
+// - Support copy-based editing
+// - Support out-of-order character writes (with selective re-rendering)
+// - Correct rendering of double height graphics
+// - Flashing regions re-implemented using Palette changes only
+// - Conceal/Reveal control via VDU 23,18,2
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,6 +22,9 @@
 #include "framebuffer.h"
 #include "teletext.h"
 #include "screen_modes.h"
+
+// Uncomment to use a 480x500 frame buffer (rather than 1200x1000)
+// #define LORES
 
 // TODO: These should somehow be passed into the screen mode constructor
 #define COLUMNS 40
@@ -90,7 +106,7 @@ struct {
    .scale_h        = 1
 };
 
-// Screen Mode definition
+// Screen Mode Handlers
 static void tt_reset          (screen_mode_t *screen);
 static void tt_clear          (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
 static void tt_scroll         (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
@@ -99,8 +115,7 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
 static int  tt_read_character (screen_mode_t *screen, int col, int row);
 static void tt_unknown_vdu    (screen_mode_t *screen, uint8_t *buf);
 
-// #define LORES
-
+// Screen Mode Definition
 static screen_mode_t teletext_screen_mode = {
    .mode_num        = 7,
 #ifdef LORES
@@ -191,8 +206,8 @@ static void set_flashing(int on) {
    tt.flashing = on;
 }
 
-// This is called on initialization, and VDU 20 to set the default palette
-
+// This is called on initialization, on mode change, and VDU 20
+// It sets the default palette, and resets the default display options
 static void tt_reset(screen_mode_t *screen) {
    // TODO: Fix hardcoded scale factors
    //
@@ -438,7 +453,6 @@ static inline int tt_pixel_set(int p, int x, int y) {
    // Tests whether the given pixel is set to foreground colour
    return ((teletext_screen_mode.font->buffer[p + y] >> (tt.char_w - x - 1)) & 1);
 }
-
 
 // Redraw character c at col, row using the current line state
 static void tt_draw_character(struct screen_mode *screen, int c, int col, int row) {
