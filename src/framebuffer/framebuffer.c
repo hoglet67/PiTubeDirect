@@ -353,7 +353,7 @@ static int disable_cursors() {
    if (c_enabled) {
       c_enabled = 0;
       if (f_visible) {
-         invert_cursor(f_x_pos, f_y_pos, 2);
+         invert_cursor(f_x_pos, f_y_pos, cursor_height);
       }
       f_visible = 0;
       if (b_visible) {
@@ -593,9 +593,11 @@ static void text_delete() {
    int x = c_x_pos * font_width;
    int y = screen->height - c_y_pos * font_height - 1;
    pixel_t col = screen->get_colour(screen, c_bg_col);
-   disable_cursors();
+   int tmp = disable_cursors();
    prim_fill_rectangle(screen, x, y, x + (font_width - 1), y - (font_height - 1), col);
-   enable_cursors();
+   if (tmp) {
+      enable_cursors();
+   }
    update_cursors();
 }
 
@@ -890,7 +892,6 @@ static void vdu_4(uint8_t *buf) {
 
 static void vdu_5(uint8_t *buf) {
    disable_cursors();
-   text_at_g_cursor = 1;
    vdu_operation_table[  8].handler = graphics_cursor_left;
    vdu_operation_table[  9].handler = graphics_cursor_right;
    vdu_operation_table[ 10].handler = graphics_cursor_down;
@@ -900,6 +901,7 @@ static void vdu_5(uint8_t *buf) {
    vdu_operation_table[ 30].handler = graphics_cursor_home;
    vdu_operation_table[ 31].handler = graphics_cursor_tab;
    vdu_operation_table[127].handler = graphics_delete;
+   text_at_g_cursor = 1;
 }
 
 
@@ -1236,9 +1238,11 @@ static void vdu_default(uint8_t *buf) {
       // Draw the foreground and background pixels
       pixel_t fg_col = screen->get_colour(screen, c_fg_col);
       pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-      disable_cursors();
+      int tmp = disable_cursors();
       screen->write_character(screen, c, c_x_pos, c_y_pos, fg_col, bg_col);
-      enable_cursors();
+      if (tmp) {
+         enable_cursors();
+      }
       // Advance the drawing position
       text_cursor_right();
    }
