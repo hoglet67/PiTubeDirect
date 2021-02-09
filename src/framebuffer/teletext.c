@@ -138,17 +138,23 @@ static screen_mode_t teletext_screen_mode = {
    .unknown_vdu     = tt_unknown_vdu
 };
 
-screen_mode_t *tt_get_screen_mode() {
+static void set_font(screen_mode_t *screen, int font) {
    // This screen mode always uses the SAA5050 font
-   teletext_screen_mode.font = get_font_by_name("SAA5050");
+   char name[] = "SAA5050";
+   name[6] += (font & 7);
+   screen->font = get_font_by_name(name);
    // Note: these metrics give a 40 x 25 display
 #ifdef LORES
-   teletext_screen_mode.font->scale_w = 2;
-   teletext_screen_mode.font->scale_h = 2;
+   screen->font->scale_w = 2;
+   screen->font->scale_h = 2;
 #else
-   teletext_screen_mode.font->scale_w = 5;
-   teletext_screen_mode.font->scale_h = 4;
+   screen->font->scale_w = 5;
+   screen->font->scale_h = 4;
 #endif
+}
+
+screen_mode_t *tt_get_screen_mode() {
+   set_font(&teletext_screen_mode, 0);
    return &teletext_screen_mode;
 }
 
@@ -533,7 +539,7 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
 
       // Draw character
 
-      int p = c * tt.char_h;
+      int p = (c & 0x7f) * tt.char_h;
       int y = yoffset;
       int py_from = 0;
       int py_to = tt.char_h;
@@ -700,6 +706,9 @@ static void tt_unknown_vdu(screen_mode_t *screen, uint8_t *buf) {
       switch (buf[2]) {
       case 2:
          set_reveal(screen, buf[3], buf[4]);
+         break;
+      case 4:
+         set_font(screen, buf[3]);
          break;
       }
    }

@@ -43,6 +43,13 @@
 #include "fonts/thnserif.fnt.h"
 
 #include "fonts/saa5050.fnt.h"
+#include "fonts/saa5051.fnt.h"
+#include "fonts/saa5052.fnt.h"
+#include "fonts/saa5053.fnt.h"
+#include "fonts/saa5054.fnt.h"
+#include "fonts/saa5055.fnt.h"
+#include "fonts/saa5056.fnt.h"
+#include "fonts/saa5057.fnt.h"
 
 // Font Catalog
 
@@ -79,7 +86,14 @@ static font_t font_catalog[] = {
    {"THIN",     font29,   16, 256, 0, 8, 14, 1},
    {"THIN8X8",  font30,   16, 256, 0, 8,  8, 0},
    {"THNSERIF", font31,   16, 256, 0, 8, 14, 0},
-   {"SAA5050",  saa5050,  12, 256, 0, 6, 10, 0},
+   {"SAA5050",  saa5050,  12, 128, 0, 6, 10, 0},
+   {"SAA5051",  saa5051,  12, 128, 0, 6, 10, 0},
+   {"SAA5052",  saa5052,  12, 128, 0, 6, 10, 0},
+   {"SAA5053",  saa5053,  12, 128, 0, 6, 10, 0},
+   {"SAA5054",  saa5054,  12, 128, 0, 6, 10, 0},
+   {"SAA5055",  saa5055,  12, 128, 0, 6, 10, 0},
+   {"SAA5056",  saa5056,  12, 128, 0, 6, 10, 0},
+   {"SAA5057",  saa5057,  12, 128, 0, 6, 10, 0},
    {"6847",     font6847, 12, 128, 0, 8, 12, 0}
 };
 
