@@ -587,13 +587,9 @@ static void text_delete() {
    int x = c_x_pos * font_width;
    int y = screen->height - c_y_pos * font_height - 1;
    pixel_t col = screen->get_colour(screen, c_bg_col);
+   disable_cursors();
    prim_fill_rectangle(screen, x, y, x + (font_width - 1), y - (font_height - 1), col);
-   // TODO: a cursor interrupt here would be bad!
-   if (e_enabled) {
-      b_visible = 0;
-   } else {
-      f_visible = 0;
-   }
+   enable_cursors();
    update_cursors();
 }
 
@@ -1234,13 +1230,9 @@ static void vdu_default(uint8_t *buf) {
       // Draw the foreground and background pixels
       pixel_t fg_col = screen->get_colour(screen, c_fg_col);
       pixel_t bg_col = screen->get_colour(screen, c_bg_col);
+      disable_cursors();
       screen->write_character(screen, c, c_x_pos, c_y_pos, fg_col, bg_col);
-      // TODO: a cursor interrupt here would be bad!
-      if (e_enabled) {
-         b_visible = 0;
-      } else {
-         f_visible = 0;
-      }
+      enable_cursors();
       // Advance the drawing position
       text_cursor_right();
    }
