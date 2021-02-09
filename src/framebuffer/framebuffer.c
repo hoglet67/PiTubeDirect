@@ -31,6 +31,7 @@ static int16_t font_width;
 static int16_t font_height;
 static int16_t text_height; // of whole screen
 static int16_t text_width;  // of whole screen
+static int16_t cursor_height;
 
 // Text area clip window
 static t_clip_window_t t_window;
@@ -196,6 +197,11 @@ static void update_font_size() {
    // Calculate the font size, taking account of scale and spacing
    font_width  = font->width * font->scale_w + font->spacing;
    font_height = font->height * font->scale_h + font->spacing;
+   // Calculate the height of the flashing cursor
+   cursor_height = font_height >> 3;
+   if (cursor_height < 1) {
+      cursor_height = 1;
+   }
    // Calc screen text size
    text_width = screen->width / font_width;
    text_height = screen->height / font_height;
@@ -317,13 +323,13 @@ static void invert_cursor(int x_pos, int y_pos, int rows) {
 static void update_cursors() {
    // Update the flashing cursor
    if (f_visible) {
-      invert_cursor(f_x_pos, f_y_pos, 2);
+      invert_cursor(f_x_pos, f_y_pos, cursor_height);
       f_visible = 0;
    }
    if (e_enabled || c_enabled) {
       f_x_pos = e_enabled ? e_x_pos : c_x_pos;
       f_y_pos = e_enabled ? e_y_pos : c_y_pos;
-      invert_cursor(f_x_pos, f_y_pos, 2);
+      invert_cursor(f_x_pos, f_y_pos, cursor_height);
       f_visible = 1;
    }
    // Update the block cursor
@@ -363,7 +369,7 @@ static int disable_cursors() {
 static void cursor_interrupt() {
    if (c_enabled || e_enabled) {
       f_visible = !f_visible;
-      invert_cursor(f_x_pos, f_y_pos, 2);
+      invert_cursor(f_x_pos, f_y_pos, cursor_height);
    }
 }
 
