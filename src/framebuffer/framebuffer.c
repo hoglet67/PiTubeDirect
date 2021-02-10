@@ -1320,8 +1320,8 @@ void fb_writec(char ch) {
 
    // End of a VDU command
    if (vdu_index == vdu_op->len) {
-      vdu_op->handler(vdu_buf);
       vdu_index = 0;
+      vdu_op->handler(vdu_buf);
    } else {
       vdu_index++;
    }

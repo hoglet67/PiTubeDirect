@@ -985,6 +985,7 @@ screen_mode_t *get_screen_mode(int mode_num) {
    } else {
       // Otherwise just search the screen mode table
       screen_mode_t *tmp = screen_modes;
+      printf("searching for mod %d\r\n", mode_num);
       while (tmp->mode_num >= 0) {
          if (tmp->mode_num == mode_num) {
             sm = tmp;
@@ -992,6 +993,7 @@ screen_mode_t *get_screen_mode(int mode_num) {
          }
          tmp++;
       }
+      printf("result = %p\r\n", sm);
    }
    // Fill in any default functions
    if (sm) {
