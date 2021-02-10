@@ -343,7 +343,11 @@ int user_exec_fn(FunctionPtr_Type f, int param ) {
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x", (unsigned int)f, _get_cpsr());
     if (param) {
-       printf(" param = %s", (unsigned char *)param);
+       char *p = (char *)param;
+       printf(" param = ");
+       while (*p != 0 && *p != 10 && *p != 13) {
+          putchar(*p++);
+       }
     }
     printf("\r\n");
   }
