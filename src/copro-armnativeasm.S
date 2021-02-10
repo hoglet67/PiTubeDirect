@@ -184,8 +184,9 @@ _user_exec:
     mcr      p15, 0, r0, c7, c5, 0   // Invalidate entire instruction cache
     mcr      p15, 0, r0, c7, c5, 4   // Flush the prefetch buffer
  #endif
-    CPS      #CPSR_MODE_USER         // Change to user mode
 
+    // Re-enable ARM FIQ and IRQ interrupts, and move to user mode
+    CPSIE    if, #CPSR_MODE_USER
 
     tst      r4, #1               // Bit 0 of the address is used to indicate the carry flag value
     mrs      r0, CPSR
