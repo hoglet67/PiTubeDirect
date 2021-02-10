@@ -312,7 +312,18 @@ static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel
 
 
 static int tt_read_character(screen_mode_t *screen, int col, int row) {
-   return tt.mode7screen[row][col];
+   int c = tt.mode7screen[row][col];
+
+   // Reverse the mapping done in tt_write_character
+   if (c == 35) {
+      c = 96;
+   } else if (c == 95) {
+      c = 35;
+   } else if (c == 96) {
+      c = 95;
+   }
+
+   return c;
 }
 
 static void tt_reset_line_state(int row) {
