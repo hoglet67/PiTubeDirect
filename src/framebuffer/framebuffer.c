@@ -350,20 +350,18 @@ static void enable_cursors() {
 }
 
 static int disable_cursors() {
-   if (c_enabled) {
-      c_enabled = 0;
-      if (f_visible) {
-         invert_cursor(f_x_pos, f_y_pos, cursor_height);
-      }
-      f_visible = 0;
-      if (b_visible) {
-         invert_cursor(b_x_pos, b_y_pos, font_height);
-      }
-      b_visible = 0;
-      return 1;
-   } else {
-      return 0;
+   int ret = c_enabled;
+   c_enabled = 0;
+   if (f_visible) {
+      invert_cursor(f_x_pos, f_y_pos, cursor_height);
    }
+   f_visible = 0;
+   if (b_visible) {
+      invert_cursor(b_x_pos, b_y_pos, font_height);
+   }
+   b_visible = 0;
+   return ret;
+
 }
 
 static void cursor_interrupt() {
