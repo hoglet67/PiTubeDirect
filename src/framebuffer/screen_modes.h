@@ -49,6 +49,8 @@ typedef struct screen_mode {
 
    int ncolour;     // maximum logical colour
 
+   float par;       // ideal pixel aspect ratio
+
    int pitch;       // filled in by init
 
    font_t *font;    // the current font for this screen mode

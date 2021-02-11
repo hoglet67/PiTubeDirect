@@ -62,7 +62,7 @@ enum {
    TT_SPACE         = 0x20
 };
 
-screen_mode_t *tt_get_screen_mode();
+screen_mode_t *tt_get_screen_mode(int mode_num);
 
 void tt_vdu_23_18(uint8_t *params);
 

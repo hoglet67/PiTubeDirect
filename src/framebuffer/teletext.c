@@ -24,11 +24,17 @@
 #include "screen_modes.h"
 
 // Uncomment to use a 480x500 frame buffer (rather than 1200x1000)
-// #define LORES
+#define LORES
 
-// TODO: These should somehow be passed into the screen mode constructor
-#define COLUMNS 40
-#define ROWS    25
+#ifdef LORES
+#define SCALE 1
+#else
+#define SCALE 2
+#endif
+
+// These are the maxium size of screen mode that we support
+#define MAX_COLUMNS 80
+#define MAX_ROWS    32
 
 // Main structure holding Teletext state
 struct {
@@ -66,10 +72,10 @@ struct {
    int scale_h;
 
    // A local copy of the screen
-   uint8_t mode7screen[ROWS][COLUMNS];
+   uint8_t mode7screen[MAX_ROWS][MAX_COLUMNS];
 
    // Counts of the number of double-height control codes in each
-   unsigned int dh_count[ROWS];
+   unsigned int dh_count[MAX_ROWS];
 
 } tt = {
 
@@ -94,8 +100,8 @@ struct {
    .reveal         = FALSE,
 
    // Display parameters
-   .columns        = COLUMNS,
-   .rows           = ROWS,
+   .columns        = 0,
+   .rows           = 0,
    .xstart         = 0,
    .ystart         = 0,
    .char_w         = 6,
@@ -116,34 +122,82 @@ static int  tt_read_character (screen_mode_t *screen, int col, int row);
 static void tt_unknown_vdu    (screen_mode_t *screen, uint8_t *buf);
 
 // Screen Mode Definition
-static screen_mode_t teletext_screen_mode = {
-   .mode_num        = 7,
+static screen_mode_t teletext_screen_modes[] = {
+   // Standard 40x25 teletext display
+   {
+      .mode_num        = 7,
 #ifdef LORES
-   .width           = 480,
-   .height          = 500,
+      .width           = 480,
+      .height          = 500,
 #else
-   .width           = 1200,
-   .height          = 1000,
+      .width           = 1200,
+      .height          = 1000,
 #endif
-   .xeigfactor      = 1,
-   .yeigfactor      = 1,
-   .bpp             = 8,
-   .ncolour         = 255,
-   .reset           = tt_reset,
-   .clear           = tt_clear,
-   .scroll          = tt_scroll,
-   .flash           = tt_flash,
-   .write_character = tt_write_character,
-   .read_character  = tt_read_character,
-   .unknown_vdu     = tt_unknown_vdu
+      .xeigfactor      = 1,
+      .yeigfactor      = 1,
+      .bpp             = 8,
+      .ncolour         = 255,
+#ifdef LORES
+      .par             = 1.25f, // 5:4
+#else
+      .par             = 1.00f, // 1:1
+#endif
+      .reset           = tt_reset,
+      .clear           = tt_clear,
+      .scroll          = tt_scroll,
+      .flash           = tt_flash,
+      .write_character = tt_write_character,
+      .read_character  = tt_read_character,
+      .unknown_vdu     = tt_unknown_vdu
+   },
+#ifdef LORES
+   // Wide 60x25 teletext display
+   {
+      .mode_num        = 70,
+      .width           = 720,
+      .height          = 500,
+      .xeigfactor      = 1,
+      .yeigfactor      = 1,
+      .bpp             = 8,
+      .ncolour         = 255,
+      .par             = 1.25f, // 5:4
+      .reset           = tt_reset,
+      .clear           = tt_clear,
+      .scroll          = tt_scroll,
+      .flash           = tt_flash,
+      .write_character = tt_write_character,
+      .read_character  = tt_read_character,
+      .unknown_vdu     = tt_unknown_vdu
+   },
+   // Wide 80x25 teletext display
+   {
+      .mode_num        = 71,
+      .width           = 960,
+      .height          = 500,
+      .xeigfactor      = 1,
+      .yeigfactor      = 1,
+      .bpp             = 8,
+      .ncolour         = 255,
+      .par             = 1.00f, // 1:1
+      .reset           = tt_reset,
+      .clear           = tt_clear,
+      .scroll          = tt_scroll,
+      .flash           = tt_flash,
+      .write_character = tt_write_character,
+      .read_character  = tt_read_character,
+      .unknown_vdu     = tt_unknown_vdu
+   },
+#endif
+   {
+      .mode_num        = -1
+   }
 };
 
 static void set_font(screen_mode_t *screen, int font) {
-   // This screen mode always uses the SAA5050 font
+   // This screen mode always uses the SAA505x family of fonts
    char name[] = "SAA5050";
    name[6] += (font & 7);
    screen->font = get_font_by_name(name);
-   // Note: these metrics give a 40 x 25 display
 #ifdef LORES
    screen->font->scale_w = 2;
    screen->font->scale_h = 2;
@@ -153,9 +207,20 @@ static void set_font(screen_mode_t *screen, int font) {
 #endif
 }
 
-screen_mode_t *tt_get_screen_mode() {
-   set_font(&teletext_screen_mode, 0);
-   return &teletext_screen_mode;
+screen_mode_t *tt_get_screen_mode(int mode_num) {
+   screen_mode_t *sm = NULL;
+   screen_mode_t *tmp = teletext_screen_modes;
+   while (tmp->mode_num >= 0) {
+      if (tmp->mode_num == mode_num) {
+         sm = tmp;
+         break;
+      }
+      tmp++;
+   }
+   if (sm != NULL) {
+      set_font(sm, 0);
+   }
+   return sm;
 }
 
 static inline int is_control(int c) {
@@ -246,15 +311,15 @@ static void tt_reset(screen_mode_t *screen) {
    // scale this up to the physical display, as it has a choice of several scaling kernels.
    //
 #ifdef LORES
-   tt.size_w = tt.char_w * 4 / 2;        //        12
+   tt.size_w = tt.char_w * 2;            // 12
 #else
    tt.size_w = tt.char_w * 5 / 2;        // 15
 #endif
    tt.size_h = tt.char_h * 2;            // 20
-   int width = tt.columns * tt.size_w;   // 600 / 480
-   int height = tt.rows * tt.size_h;     // 500 / 500
-   tt.scale_w = screen->width / width;   // 2   /   1
-   tt.scale_h = screen->height / height; // 2   /   1
+   tt.scale_w = SCALE;
+   tt.scale_h = SCALE;
+   tt.columns = screen->width / SCALE / tt.size_h;
+   tt.rows = screen->height / SCALE / tt.size_w;
    tt.xstart = 0;
    tt.ystart = screen->height - 1;
    // Reset the rendering params to sensible defaults
@@ -474,13 +539,13 @@ static inline void tt_put_block(screen_mode_t *screen, int x, int y, tt_block_t 
    }
 }
 
-static inline int tt_pixel_set(int p, int x, int y) {
+static inline int tt_pixel_set(screen_mode_t *screen, int p, int x, int y) {
    // Tests whether the given pixel is set to foreground colour
-   return ((teletext_screen_mode.font->buffer[p + y] >> (tt.char_w - x - 1)) & 1);
+   return ((screen->font->buffer[p + y] >> (tt.char_w - x - 1)) & 1);
 }
 
 // Redraw character c at col, row using the current line state
-static void tt_draw_character(struct screen_mode *screen, int c, int col, int row) {
+static void tt_draw_character(screen_mode_t *screen, int c, int col, int row) {
    int colour[2];
    int xoffset = tt.xstart + col * tt.size_w * tt.scale_w;
    int yoffset = tt.ystart - row * tt.size_h * tt.scale_h;
@@ -573,33 +638,33 @@ static void tt_draw_character(struct screen_mode *screen, int c, int col, int ro
 #endif
          for (int px = 0; px < tt.char_w; px++, x += xinc) {
             int map = TT_BLOCK_NONE;
-            if (tt_pixel_set(p, px, py))
+            if (tt_pixel_set(screen, p, px, py))
                map = TT_BLOCK_ALL;
             else {
                // Test surrounding pixels to determine rounding
                if (px > 0
                    && py > 0
-                   && tt_pixel_set(p, px, py - 1)
-                   && tt_pixel_set(p, px - 1, py)
-                   && !tt_pixel_set(p, px - 1, py - 1))
+                   && tt_pixel_set(screen, p, px, py - 1)
+                   && tt_pixel_set(screen, p, px - 1, py)
+                   && !tt_pixel_set(screen, p, px - 1, py - 1))
                   map |= TT_BLOCK_TL;
                if (px < tt.char_w - 1
                    && py > 0
-                   && tt_pixel_set(p, px, py - 1)
-                   && tt_pixel_set(p, px + 1, py)
-                   && !tt_pixel_set(p, px + 1, py - 1))
+                   && tt_pixel_set(screen, p, px, py - 1)
+                   && tt_pixel_set(screen, p, px + 1, py)
+                   && !tt_pixel_set(screen, p, px + 1, py - 1))
                   map |=  TT_BLOCK_TR;
                if (px > 0
                    && py < tt.char_h - 1
-                   && tt_pixel_set(p, px - 1, py)
-                   && tt_pixel_set(p, px, py + 1)
-                   && !tt_pixel_set(p, px - 1, py + 1))
+                   && tt_pixel_set(screen, p, px - 1, py)
+                   && tt_pixel_set(screen, p, px, py + 1)
+                   && !tt_pixel_set(screen, p, px - 1, py + 1))
                   map |= TT_BLOCK_BL;
                if (px < tt.char_w - 1
                    && py < tt.char_h - 1
-                   && tt_pixel_set(p, px + 1, py)
-                   && tt_pixel_set(p, px, py + 1)
-                   && !tt_pixel_set(p, px + 1, py + 1))
+                   && tt_pixel_set(screen, p, px + 1, py)
+                   && tt_pixel_set(screen, p, px, py + 1)
+                   && !tt_pixel_set(screen, p, px + 1, py + 1))
                   map |= TT_BLOCK_BR;
             }
             tt_put_block(screen, x, y, map);

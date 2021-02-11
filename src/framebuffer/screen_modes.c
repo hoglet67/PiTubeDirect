@@ -41,7 +41,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 1,
@@ -50,7 +51,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 2,
@@ -59,7 +61,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 3,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 3,
@@ -68,7 +71,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 4,
@@ -77,7 +81,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 5,
@@ -86,7 +91,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 3,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 6,
@@ -95,7 +101,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 7,
@@ -104,7 +111,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 8,
@@ -113,7 +121,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 9,
@@ -122,7 +131,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 10,
@@ -131,7 +141,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 3,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 11,
@@ -140,7 +151,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 12,
@@ -149,7 +161,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 13,
@@ -158,7 +171,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 14,
@@ -167,7 +181,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 15,
@@ -176,7 +191,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 16,
@@ -185,7 +201,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 17,
@@ -194,7 +211,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 18,
@@ -203,7 +221,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 19,
@@ -212,7 +231,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 20,
@@ -221,7 +241,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 21,
@@ -230,7 +251,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 22,
@@ -239,7 +261,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 0,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 23,
@@ -248,7 +271,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 24,
@@ -257,7 +281,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 25,
@@ -266,7 +291,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 26,
@@ -275,7 +301,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 27,
@@ -284,7 +311,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 28,
@@ -293,7 +321,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 29,
@@ -302,7 +331,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 30,
@@ -311,7 +341,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 31,
@@ -320,7 +351,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    // Mode 32 was never defined
    {
@@ -330,7 +362,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 34,
@@ -339,7 +372,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 35,
@@ -348,7 +382,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 36,
@@ -357,7 +392,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 37,
@@ -366,7 +402,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 38,
@@ -375,7 +412,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 39,
@@ -384,7 +422,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 40,
@@ -393,7 +432,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 41,
@@ -402,7 +442,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 42,
@@ -411,7 +452,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 43,
@@ -420,7 +462,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 44,
@@ -429,7 +472,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 45,
@@ -438,7 +482,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 46,
@@ -447,7 +492,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 47,
@@ -456,7 +502,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 48,
@@ -465,7 +512,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 49,
@@ -474,7 +522,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    {
       .mode_num      = 50,
@@ -483,7 +532,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 1
+      .ncolour       = 1,
+      .par           = 0.0f
    },
    {
       .mode_num      = 51,
@@ -492,7 +542,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 3
+      .ncolour       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = 52,
@@ -501,7 +552,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 15
+      .ncolour       = 15,
+      .par           = 0.0f
    },
    {
       .mode_num      = 53,
@@ -510,7 +562,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .bpp           = 8,
-      .ncolour       = 255
+      .ncolour       = 255,
+      .par           = 0.0f
    },
    // 8 bpp
    {
@@ -520,7 +573,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 8,
-      .ncolour       = 0xff
+      .ncolour       = 0xff,
+      .par           = 0.0f
    },
    {
       .mode_num      = 65,
@@ -529,7 +583,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 0,
       .yeigfactor    = 0,
       .bpp           = 8,
-      .ncolour       = 0xff
+      .ncolour       = 0xff,
+      .par           = 0.0f
    },
    // 16 bpp
    {
@@ -539,7 +594,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 16,
-      .ncolour       = 0xffff
+      .ncolour       = 0xffff,
+      .par           = 0.0f
    },
    {
       .mode_num      = 67,
@@ -548,7 +604,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 0,
       .yeigfactor    = 0,
       .bpp           = 16,
-      .ncolour       = 0xffff
+      .ncolour       = 0xffff,
+      .par           = 0.0f
    },
    // 32 bpp
    {
@@ -558,7 +615,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 1,
       .yeigfactor    = 1,
       .bpp           = 32,
-      .ncolour       = 0xffffff
+      .ncolour       = 0xffffff,
+      .par           = 0.0f
    },
    {
       .mode_num      = 69,
@@ -567,7 +625,8 @@ static screen_mode_t screen_modes[] = {
       .xeigfactor    = 0,
       .yeigfactor    = 0,
       .bpp           = 32,
-      .ncolour       = 0xffffff
+      .ncolour       = 0xffffff,
+      .par           = 0.0f
    },
    {
       .mode_num     = CUSTOM_8BPP_SCREEN_MODE,
@@ -742,14 +801,41 @@ void default_init_screen(screen_mode_t *screen) {
     // TODO: this can be greatly improved!
     // It assumes you want to fill (or nearly fill) a 1280x1024 window on your physical display
     // It will work really badly with an 800x600 screen mode, say on a 1600x1200 monitor
-    int h_scale = 2 * 1280 / screen->width;
-    int v_scale = 2 * 1024 / screen->height;
-    int h_overscan = (h_display - h_scale * screen->width  / 2) / 2;
-    int v_overscan = (v_display - v_scale * screen->height / 2) / 2;
 
-    printf(" display: %d x %d\r\n", h_display, v_display);
-    printf("   scale: %d x %d\r\n", h_scale, v_scale);
-    printf("overscan: %d x %d\r\n", h_overscan, v_overscan);
+    int h_corrected;
+    int v_corrected;
+
+    if (screen->par == 1.0f) {
+       // Square pixels
+       h_corrected = screen->width;
+       v_corrected = screen->height;
+    } else if (screen->par > 1.0f) {
+       // Wide pixels
+       h_corrected = (int) (((float)screen->width) * screen->par);
+       v_corrected = screen->height;
+    } else {
+       // Narrow pixels
+       h_corrected = screen->width;
+       v_corrected = (int) (((float)screen->height) / screen->par);
+    }
+
+    int h_scale = 2 * h_display / h_corrected;
+    int v_scale = 2 * v_display / v_corrected;
+
+    int scale = (h_scale < v_scale) ? h_scale : v_scale;
+
+    int h_window = scale * h_corrected / 2;
+    int v_window = scale * v_corrected / 2;
+
+    int h_overscan = (h_display - h_window) / 2;
+    int v_overscan = (v_display - v_window) / 2;
+
+    printf("         display: %d x %d\r\n", h_display, v_display);
+    printf("     framebuffer: %d x %d\r\n", screen->width, screen->height);
+    printf("aspect corrected: %d x %d\r\n", h_corrected, v_corrected);
+    printf("         scaling: %1.1f x %1.1f\r\n", ((float) h_window) / ((float) screen->width), ((float) v_window) / ((float) screen->height));
+    printf("  display window: %d x %d\r\n", h_window, v_window);
+    printf("display overscan: %d x %d\r\n", h_overscan, v_overscan);
 
     /* Initialise a framebuffer... */
     RPI_PropertyInit();
@@ -978,14 +1064,12 @@ void default_unknown_vdu(screen_mode_t *screen, uint8_t *buf) {
 // ==========================================================================
 
 screen_mode_t *get_screen_mode(int mode_num) {
-   screen_mode_t *sm = NULL;
-   if (mode_num == 7) {
-      // Special case the teletext mode
-      sm = tt_get_screen_mode();
-   } else {
-      // Otherwise just search the screen mode table
+   // Ask the teletext mode to resolve the screen first
+   screen_mode_t *sm = tt_get_screen_mode(mode_num);
+
+   // Then search the the screen mode table in this file
+   if (sm == NULL) {
       screen_mode_t *tmp = screen_modes;
-      printf("searching for mod %d\r\n", mode_num);
       while (tmp->mode_num >= 0) {
          if (tmp->mode_num == mode_num) {
             sm = tmp;
@@ -993,7 +1077,6 @@ screen_mode_t *get_screen_mode(int mode_num) {
          }
          tmp++;
       }
-      printf("result = %p\r\n", sm);
    }
    // Fill in any default functions
    if (sm) {
@@ -1043,6 +1126,9 @@ screen_mode_t *get_screen_mode(int mode_num) {
       }
       if (!sm->font) {
          sm->font = get_font_by_number(DEFAULT_FONT);
+      }
+      if (sm->par == 0.0) {
+         sm->par = ((float) (1 << sm->xeigfactor)) / ((float) (1 << sm->yeigfactor));
       }
    }
    return sm;
