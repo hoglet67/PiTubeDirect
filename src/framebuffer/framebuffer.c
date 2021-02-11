@@ -131,7 +131,7 @@ static vdu_operation_t vdu_operation_table[256] = {
    { 0, vdu_16  }, // 16 - Clear graphics area
    { 1, vdu_17  }, // 17 - Define text colour
    { 2, vdu_18  }, // 18 - Define graphics colour
-   { 6, vdu_19  }, // 19 - Define logical colour
+   { 5, vdu_19  }, // 19 - Define logical colour
    { 0, vdu_20  }, // 20 - Reset logical colours to defaults
    { 0, vdu_nop }, // 21 - TODO: Disable VDU drivers or delete current line
    { 1, vdu_22  }, // 22 - Select screen mode
@@ -941,13 +941,13 @@ static void vdu_19(uint8_t *buf) {
    uint8_t b = buf[5];
    // See http://beebwiki.mdfs.net/VDU_19
    if (p < 16) {
-      int i = (p & 8) ? 255 : 127;
+      int i = (p & 8) ? 127 : 255;
       b = (p & 4) ? i : 0;
       g = (p & 2) ? i : 0;
       r = (p & 1) ? i : 0;
    }
    screen->set_colour(screen, l, r, g, b);
-   screen->update_palette(screen, l, l);
+   screen->update_palette(screen, l, 1);
 }
 
 static void vdu_20(uint8_t *buf) {
