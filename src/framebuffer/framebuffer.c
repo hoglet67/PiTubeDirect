@@ -704,7 +704,7 @@ static void vdu23_3(uint8_t *buf) {
       screen->font = get_font_by_name((char *)buf+1);
    }
 #ifdef DEBUG_VDU
-   printf("Font set to %s\r\n", screen->font->get_name(font));
+   printf("Font set to %s\r\n", screen->font->get_name(screen->font));
 #endif
    update_text_area();
 }
