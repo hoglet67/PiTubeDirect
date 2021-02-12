@@ -6,6 +6,7 @@
 #include "../rpi-base.h"
 
 #include "screen_modes.h"
+#include "fonts.h"
 #include "teletext.h"
 
 #ifdef USE_V3D
@@ -768,8 +769,8 @@ static void to_rectangle(screen_mode_t *screen, t_clip_window_t *text_window, re
       r->y2 = screen->height - 1;;
    } else {
       font_t *font = screen->font;
-      int font_width  = font->width  * font->scale_w + font->spacing;
-      int font_height = font->height * font->scale_h + font->spacing;
+      int font_width  = font->get_overall_w(font);
+      int font_height = font->get_overall_h(font);
       r->x1 = text_window->left * font_width;
       r->y1 = screen->height - 1 - (text_window->bottom * font_height + font_height - 1);
       r->x2 = (text_window->right + 1) * font_width - 1;
@@ -916,7 +917,7 @@ void default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, p
 void default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
    rectangle_t r;
    font_t *font = screen->font;
-   int font_height = font->height * font->scale_h + font->spacing;
+   int font_height = font->get_overall_h(font);
    // Convert text window to screen graphics coordinates (0,0 = bottom left)
    to_rectangle(screen, text_window, &r);
    // Scroll the screen upwards one row, and clear the bottom text line to the background colour
@@ -999,60 +1000,20 @@ pixel_t default_get_pixel_32bpp(screen_mode_t *screen, int x, int y) {
 
 void default_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
    font_t *font = screen->font;
-   int p = c * font->bytes_per_char;
    // Convert Row/Col to screen coordinates
-   int x_pos = col * (font->width * font->scale_w + font->spacing);
-   int y_pos = screen->height - row * (font->height * font->scale_h + font->spacing) - 1;
-   int x = x_pos;
-   int y = y_pos;
-   for (int i = 0; i < font->height; i++) {
-      int data = font->buffer[p++];
-      for (int j = 0; j < font->width; j++) {
-         int col = (data & 0x80) ? fg_col : bg_col;
-         for (int sx = 0; sx < font->scale_w; sx++) {
-            for (int sy = 0; sy < font->scale_h; sy++) {
-               screen->set_pixel(screen, x + sx, y + sy, col);
-            }
-         }
-         x += font->scale_w;
-         data <<= 1;
-      }
-      x = x_pos;
-      y -= font->scale_h;
-   }
+   int x = col * font->get_overall_w(font);
+   int y = screen->height - row * font->get_overall_h(font) - 1;
+   // Pass down to font to do the drawing
+   font->write_char(font, screen, c, x, y, fg_col, bg_col);
 }
 
 int default_read_character(screen_mode_t *screen, int col, int row) {
    font_t *font = screen->font;
-   int screendata[MAX_FONT_HEIGHT];
-   // Read the character from screen memory
    // Convert Row/Col to screen coordinates
-   int x = col * (font->width * font->scale_w + font->spacing);
-   int y = screen->height - row * (font->height * font->scale_h + font->spacing) - 1;
-   int *dp = screendata;
-   for (int i = 0; i < font->height * font->scale_h; i += font->scale_h) {
-      int row = 0;
-      for (int j = 0; j < font->width * font->scale_w; j += font->scale_w) {
-         row <<= 1;
-         if (screen->get_pixel(screen, x + j, y - i)) {
-            row |= 1;
-         }
-      }
-      *dp++ = row;
-   }
-   // Match against font
-   for (int c = 0x20; c < font->num_chars; c++) {
-       for (y = 0; y < font->height; y++) {
-         int xor = font->buffer[c * font->bytes_per_char + y] ^ screendata[y];
-         if (xor != 0x00 && xor != 0xff) {
-            break;
-         }
-      }
-      if (y == font->height) {
-         return c;
-      }
-   }
-   return 0;
+   int x = col * font->get_overall_w(font);
+   int y = screen->height - row * font->get_overall_h(font) - 1;
+   // Pass down to font to do the reading
+   return font->read_char(font, screen, x, y);
 }
 
 void default_unknown_vdu(screen_mode_t *screen, uint8_t *buf) {

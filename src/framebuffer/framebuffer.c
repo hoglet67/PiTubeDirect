@@ -195,8 +195,8 @@ static void update_font_size() {
    // get the current font from the screen
    font_t *font = screen->font;
    // Calculate the font size, taking account of scale and spacing
-   font_width  = font->width * font->scale_w + font->spacing;
-   font_height = font->height * font->scale_h + font->spacing;
+   font_width  = font->get_overall_w(font);
+   font_height = font->get_overall_h(font);
    // Calculate the height of the flashing cursor
    cursor_height = font_height >> 3;
    if (cursor_height < 1) {
@@ -704,7 +704,7 @@ static void vdu23_3(uint8_t *buf) {
       screen->font = get_font_by_name((char *)buf+1);
    }
 #ifdef DEBUG_VDU
-   printf("Font set to %s\r\n", screen->font->name);
+   printf("Font set to %s\r\n", screen->font->get_name(font));
 #endif
    update_text_area();
 }
@@ -714,12 +714,13 @@ static void vdu23_4(uint8_t *buf) {
    // params: hor. scale, vert. scale, char spacing, other 5 bytes are ignored
    // get the current font from the screen
    font_t *font = screen->font;
-   font->scale_w = buf[1] > 0 ? buf[1] : 1;
-   font->scale_h = buf[2] > 0 ? buf[2] : 1;
-   font->spacing = buf[3];
+   font->set_scale_w(font, buf[1] > 0 ? buf[1] : 1);
+   font->set_scale_h(font, buf[2] > 0 ? buf[2] : 1);
+   font->set_spacing_w(font, buf[3]);
+   font->set_spacing_h(font, buf[3]);
 #ifdef DEBUG_VDU
-   printf("Font scale   set to %d,%d\r\n", font->scale_w, font->scale_h);
-   printf("Font spacing set to %d\r\n", font->spacing);
+   printf("Font scale   set to %d,%d\r\n", font->get_scale_w(font), font->get_scale_h(font));
+   printf("Font spacing set to %d,%d\r\n", font->get_spacing_w(font), font->get_spacing_h(font));
 #endif
    update_text_area();
 }

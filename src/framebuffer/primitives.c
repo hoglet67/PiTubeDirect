@@ -4,6 +4,7 @@
 #include <string.h>
 #include "primitives.h"
 #include "framebuffer.h"
+#include "fonts.h"
 
 #ifdef USE_V3D
 #include "v3d.h"
@@ -1053,26 +1054,30 @@ void prim_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int hei
    }
 }
 
+// TODO: fix this to deal with font's > 8 bits wide and/or move to font.c
+
 void prim_draw_character(screen_mode_t *screen, int c, int x_pos, int y_pos, pixel_t colour) {
    // Draw the character
    font_t *font = screen->font;
    int x = x_pos;
    int y = y_pos;
    int p = c * font->bytes_per_char;
+   int scale_w = font->get_scale_w(font);
+   int scale_h = font->get_scale_h(font);
    for (int i = 0; i < font->height; i++) {
       int data = font->buffer[p++];
       for (int j = 0; j < font->width; j++) {
          if (data & 0x80) {
-            for (int sx = 0; sx < font->scale_w; sx++) {
-               for (int sy = 0; sy < font->scale_h; sy++) {
+            for (int sx = 0; sx < scale_w; sx++) {
+               for (int sy = 0; sy < scale_h; sy++) {
                   set_pixel(screen, x + sx, y + sy, colour);
                }
             }
          }
-         x += font->scale_w;
+         x += scale_w;
          data <<= 1;
       }
       x = x_pos;
-      y -= font->scale_h;
+      y -= scale_h;
    }
 }

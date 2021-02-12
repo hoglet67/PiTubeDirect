@@ -51,7 +51,9 @@
 #include "fonts/saa5056.fnt.h"
 #include "fonts/saa5057.fnt.h"
 
-// Font Catalog
+// ==========================================================================
+// Font Definitions
+// ==========================================================================
 
 static font_t font_catalog[] = {
    {"BBC",      fontbbc,   8, 256, 0, 8,  8, 0},
@@ -99,6 +101,116 @@ static font_t font_catalog[] = {
 
 #define NUM_FONTS (sizeof(font_catalog) / sizeof(font_t))
 
+// ==========================================================================
+// Public Methods
+// ==========================================================================
+
+static void default_set_spacing_w(font_t *font, int spacing_w) {
+   font->spacing_w = spacing_w;
+}
+
+static void default_set_spacing_h(font_t *font, int spacing_h) {
+   font->spacing_h = spacing_h;
+}
+
+static void default_set_scale_w(font_t *font, int scale_w) {
+   font->scale_w = scale_w;
+}
+
+static void default_set_scale_h(font_t *font, int scale_h) {
+   font->scale_h = scale_h;
+}
+
+static void default_set_rounding(font_t *font, int rounding) {
+   font->rounding = rounding;
+}
+
+static char *default_get_name(font_t *font) {
+   return font->name;
+}
+
+static int default_get_spacing_w(font_t *font) {
+   return font->spacing_w;
+}
+
+static int default_get_spacing_h(font_t *font) {
+   return font->spacing_w;
+}
+
+static int default_get_scale_w(font_t *font) {
+   return font->scale_w;
+}
+
+static int default_get_scale_h(font_t *font) {
+   return font->scale_h;
+}
+
+static int default_get_rounding(font_t *font) {
+   return font->rounding;
+}
+
+static int default_get_overall_w(font_t *font) {
+   return font->width * font->scale_w + font->spacing_w;
+
+}
+
+static int default_get_overall_h(font_t *font) {
+   return font->height * font->scale_h + font->spacing_h;
+}
+
+static void default_write_char(font_t *font, screen_mode_t *screen, int c, int x, int y, pixel_t fg_col, pixel_t bg_col) {
+   int p = c * font->bytes_per_char;
+   int x_pos = x;
+   for (int i = 0; i < font->height; i++) {
+      int data = font->buffer[p++];
+      for (int j = 0; j < font->width; j++) {
+         int col = (data & 0x80) ? fg_col : bg_col;
+         for (int sx = 0; sx < font->scale_w; sx++) {
+            for (int sy = 0; sy < font->scale_h; sy++) {
+               screen->set_pixel(screen, x + sx, y + sy, col);
+            }
+         }
+         x += font->scale_w;
+         data <<= 1;
+      }
+      x = x_pos;
+      y -= font->scale_h;
+   }
+}
+
+static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y) {
+   int screendata[MAX_FONT_HEIGHT];
+   // Read the character from screen memory
+   int *dp = screendata;
+   for (int i = 0; i < font->height * font->scale_h; i += font->scale_h) {
+      int row = 0;
+      for (int j = 0; j < font->width * font->scale_w; j += font->scale_w) {
+         row <<= 1;
+         if (screen->get_pixel(screen, x + j, y - i)) {
+            row |= 1;
+         }
+      }
+      *dp++ = row;
+   }
+   // Match against font
+   for (int c = 0x20; c < font->num_chars; c++) {
+       for (y = 0; y < font->height; y++) {
+         int xor = font->buffer[c * font->bytes_per_char + y] ^ screendata[y];
+         if (xor != 0x00 && xor != 0xff) {
+            break;
+         }
+      }
+      if (y == font->height) {
+         return c;
+      }
+   }
+   return 0;
+}
+
+// ==========================================================================
+// Public Constructors
+// ==========================================================================
+
 static void initialize_font(font_t * font) {
    size_t size = font->bytes_per_char * font->num_chars;
    if (font->buffer == NULL) {
@@ -109,6 +221,27 @@ static void initialize_font(font_t * font) {
    // Set the default scale
    font->scale_w = 1;
    font->scale_h = 1;
+
+   // Default implementation of setters
+   font->set_spacing_w = default_set_spacing_w;
+   font->set_spacing_h = default_set_spacing_h;
+   font->set_scale_w   = default_set_scale_w;
+   font->set_scale_h   = default_set_scale_h;
+   font->set_rounding  = default_set_rounding;
+
+   // Default implementation of getters
+   font->get_name      = default_get_name;
+   font->get_spacing_w = default_get_spacing_w;
+   font->get_spacing_h = default_get_spacing_h;
+   font->get_scale_w   = default_get_scale_w;
+   font->get_scale_h   = default_get_scale_h;
+   font->get_rounding  = default_get_rounding;
+   font->get_overall_w = default_get_overall_w;
+   font->get_overall_h = default_get_overall_h;
+
+   // Default implementation of read/write
+   font->read_char     = default_read_char;
+   font->write_char    = default_write_char;
 }
 
 font_t *get_font_by_number(unsigned int num) {

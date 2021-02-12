@@ -22,6 +22,7 @@
 #include "framebuffer.h"
 #include "teletext.h"
 #include "screen_modes.h"
+#include "fonts.h"
 
 // These are the maxium size of screen mode that we support
 #define MAX_COLUMNS 80
@@ -169,13 +170,14 @@ static screen_mode_t teletext_screen_modes[] = {
    }
 };
 
-static void set_font(screen_mode_t *screen, int font) {
+static void set_font(screen_mode_t *screen, int num) {
    // This screen mode always uses the SAA505x family of fonts
    char name[] = "SAA5050";
-   name[6] += (font & 7);
-   screen->font = get_font_by_name(name);
-   screen->font->scale_w = 2;
-   screen->font->scale_h = 2;
+   name[6] += (num & 7);
+   font_t *font = get_font_by_name(name);
+   font->set_scale_w(font, 2);
+   font->set_scale_h(font, 2);
+   screen->font = font;
 }
 
 screen_mode_t *tt_get_screen_mode(int mode_num) {

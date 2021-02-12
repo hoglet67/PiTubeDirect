@@ -12,7 +12,8 @@
 #define CUSTOM_16BPP_SCREEN_MODE 97
 #define CUSTOM_32BPP_SCREEN_MODE 98
 
-#include "fonts.h"
+// Forward reference to the font structure defined in font.h
+struct font;
 
 // Uncomment to use V3D triangle fill in 16bpp and 32bpp modes
 // This is approx 2x-3x faster for random sized triangles
@@ -53,7 +54,7 @@ typedef struct screen_mode {
 
    int pitch;       // filled in by init
 
-   font_t *font;    // the current font for this screen mode
+   struct font *font; // the current font for this screen mode
 
    void            (*init)(struct screen_mode *screen);
    void           (*reset)(struct screen_mode *screen);
