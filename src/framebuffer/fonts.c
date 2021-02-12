@@ -88,21 +88,31 @@ static font_t font_catalog[] = {
    {"THIN",     font29,   16, 256, 0, 8, 14, 1},
    {"THIN8X8",  font30,   16, 256, 0, 8,  8, 0},
    {"THNSERIF", font31,   16, 256, 0, 8, 14, 0},
-   {"SAA5050",  saa5050,  10, 128, 0, 6, 10, 0},
-   {"SAA5051",  saa5051,  10, 128, 0, 6, 10, 0},
-   {"SAA5052",  saa5052,  10, 128, 0, 6, 10, 0},
-   {"SAA5053",  saa5053,  10, 128, 0, 6, 10, 0},
-   {"SAA5054",  saa5054,  10, 128, 0, 6, 10, 0},
-   {"SAA5055",  saa5055,  10, 128, 0, 6, 10, 0},
-   {"SAA5056",  saa5056,  10, 128, 0, 6, 10, 0},
-   {"SAA5057",  saa5057,  10, 128, 0, 6, 10, 0},
+   {"SAA5050",  saa5050,  10, 256, 0, 6, 10, 0},
+   {"SAA5051",  saa5051,  10, 256, 0, 6, 10, 0},
+   {"SAA5052",  saa5052,  10, 256, 0, 6, 10, 0},
+   {"SAA5053",  saa5053,  10, 256, 0, 6, 10, 0},
+   {"SAA5054",  saa5054,  10, 256, 0, 6, 10, 0},
+   {"SAA5055",  saa5055,  10, 256, 0, 6, 10, 0},
+   {"SAA5056",  saa5056,  10, 256, 0, 6, 10, 0},
+   {"SAA5057",  saa5057,  10, 256, 0, 6, 10, 0},
    {"6847",     font6847, 12, 128, 0, 8, 12, 0}
 };
 
 #define NUM_FONTS (sizeof(font_catalog) / sizeof(font_t))
 
 // ==========================================================================
-// Public Methods
+// Static Methods
+// ==========================================================================
+
+// a is the 12 pixel row we wish to apply rounding to
+// b is the 12 pixel row we are using as a reference (either one above or one below)
+static inline uint16_t combine_rows(uint16_t a, uint16_t b) {
+    return a | ((a >> 1) & b & ~(b >> 1)) | ((a << 1) & b & ~(b << 1));
+}
+
+// ==========================================================================
+// Default handlers
 // ==========================================================================
 
 static void default_set_spacing_w(font_t *font, int spacing_w) {
@@ -119,13 +129,6 @@ static void default_set_scale_w(font_t *font, int scale_w) {
 
 static void default_set_scale_h(font_t *font, int scale_h) {
    font->scale_h = scale_h;
-}
-
-
-// a is the 12 pixel row we wish to apply rounding to
-// b is the 12 pixel row we are using as a reference (either one above or one below)
-static inline uint16_t combine_rows(uint16_t a, uint16_t b) {
-    return a | ((a >> 1) & b & ~(b >> 1)) | ((a << 1) & b & ~(b << 1));
 }
 
 static void default_set_rounding(font_t *font, int rounding) {
@@ -155,7 +158,9 @@ static void default_set_rounding(font_t *font, int rounding) {
       }
       // Stage 2: perform rounding
       dst = font->buffer;
-      for (int i = 0; i < font->num_chars; i++) {
+      // Special case the SAA fonts to avoid rounding the graphics
+      int num = strncmp(font->name, "SAA505", 6) ? font->num_chars : 128;
+      for (int i = 0; i < num; i++) {
          for (int j = 0; j < font->height - 1; j++) {
             uint16_t o_row = dst[j * 2 + 1];
             uint16_t e_row = dst[j * 2 + 2];
@@ -266,7 +271,7 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y) 
 }
 
 // ==========================================================================
-// Public Constructors
+// More Static Methods
 // ==========================================================================
 
 static void initialize_font(font_t * font) {
@@ -309,6 +314,10 @@ static void initialize_font(font_t * font) {
    // and so that character rounding can be applied if necessary
    font->set_rounding(font, 0);
 }
+
+// ==========================================================================
+// Public Methods
+// ==========================================================================
 
 font_t *get_font_by_number(unsigned int num) {
    font_t *font = &font_catalog[DEFAULT_FONT];

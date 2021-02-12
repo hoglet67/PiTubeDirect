@@ -3,7 +3,7 @@
 
 // Significant additions by Hoglet February 2021
 // - Fix errors in SAA5050 font
-// - Allow rendering to a 480x500 frame buffer
+// - Render to a 480x500 frame buffer and use GPU for scaling
 // - Correctly implement Set At/Set After semantics for all control codes
 // - Fix graphics hold issues
 // - Replicate SAA5050 graphics hold bug
@@ -13,6 +13,9 @@
 // - Correct rendering of double height graphics
 // - Flashing regions re-implemented using Palette changes only
 // - Conceal/Reveal control via VDU 23,18,2
+// - Added modes 70 (60x25) and 71 (80x25)
+// - Move character rounding to the font code, so it could be used in other modes
+// - Added graphics characters to the SAA fonts to simplify things
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -51,15 +54,9 @@ struct {
    // Teletext options
    int reveal; // reveal concealed text
 
-   // Display parameters
+   // Number of rows and columns of text on the screen
    int columns;
    int rows;
-   int xstart;
-   int ystart;
-   int char_w;
-   int char_h;
-   int size_w;
-   int size_h;
 
    // A local copy of the screen
    uint8_t mode7screen[MAX_ROWS][MAX_COLUMNS];
@@ -67,38 +64,7 @@ struct {
    // Counts of the number of double-height control codes in each
    unsigned int dh_count[MAX_ROWS];
 
-} tt = {
-
-   // Current line state
-   .fgd_colour     = TT_WHITE | (TT_WHITE << 3),
-   .bgd_colour     = TT_BLACK | (TT_BLACK << 3),
-   .graphics       = FALSE,
-   .separated      = FALSE,
-   .doubled        = FALSE,
-   .double_bottom  = TRUE,
-   .flashing       = FALSE,
-   .concealed      = FALSE,
-   .held           = FALSE,
-   .held_char      = TT_SPACE,
-   .held_separated = FALSE,
-
-   // Working state
-   .last_row       = -1,
-   .last_col       = -1,
-
-   // Teletext options
-   .reveal         = FALSE,
-
-   // Display parameters
-   .columns        = 0,
-   .rows           = 0,
-   .xstart         = 0,
-   .ystart         = 0,
-   .char_w         = 6,
-   .char_h         = 10,
-   .size_w         = 15,
-   .size_h         = 20
-};
+} tt;
 
 // Screen Mode Handlers
 static void tt_reset          (screen_mode_t *screen);
@@ -260,12 +226,10 @@ static void set_flashing(int on) {
 // This is called on initialization, on mode change, and VDU 20
 // It sets the default palette, and resets the default display options
 static void tt_reset(screen_mode_t *screen) {
-   tt.size_w = tt.char_w * 2;  // 12
-   tt.size_h = tt.char_h * 2;  // 20
-   tt.columns = screen->width / tt.size_h;
-   tt.rows = screen->height / tt.size_w;
-   tt.xstart = 0;
-   tt.ystart = screen->height - 1;
+   font_t *font = screen->font;
+   // Set the rows/columns based on the the font
+   tt.columns = screen->width / font->get_overall_w(font);
+   tt.rows = screen->height / font->get_overall_h(font);
    // Reset the rendering params to sensible defaults
    tt.last_row = -1;
    tt.last_col = -1;
@@ -337,8 +301,8 @@ static int tt_read_character(screen_mode_t *screen, int col, int row) {
 
 static void tt_reset_line_state(int row) {
    // Reset the state at the beginning of each line
-   set_foreground(TT_WHITE);
    set_background(TT_BLACK);
+   set_foreground(TT_WHITE);
    tt.graphics = FALSE;
    tt.separated = FALSE;
    tt.doubled = FALSE;
@@ -459,159 +423,55 @@ static void tt_process_controls_after(int c, int col, int row) {
    }
 }
 
-static inline void tt_put_block(screen_mode_t *screen, int x, int y, tt_block_t map) {
-   // For each character pixel puts a 2x2 block with character rounding according to the map
-   // Scaling is carried out to each element of the block to achieve a full screen
-   int yscale = (tt.doubled) ? 2 : 1;
-   for (int y2 = 0; y2 < 2; y2 ++) {
-      for (int ys = 0; ys < yscale; ys++) {
-         for (int x2 = 0; x2 < 2; x2++) {
-            int code = (x2 + 1) * (y2 * 3 + 1);
-            unsigned int colour = (map & code) ? tt.fgd_colour : tt.bgd_colour;
-            screen->set_pixel(screen, x + x2, y - y2 * yscale - ys, colour);
-         }
-      }
-   }
-}
-
-static inline int tt_pixel_set(screen_mode_t *screen, int p, int x, int y) {
-   // Tests whether the given pixel is set to foreground colour
-   return ((screen->font->buffer[p + y] >> (tt.char_w - x - 1)) & 1);
-}
-
 // Redraw character c at col, row using the current line state
 static void tt_draw_character(screen_mode_t *screen, int c, int col, int row) {
-   int colour[2];
-   int xoffset = tt.xstart + col * tt.size_w;
-   int yoffset = tt.ystart - row * tt.size_h;
+   font_t *font = screen->font;
+
+   int xoffset = col * font->get_overall_w(font);
+   int yoffset = screen->height - row * font->get_overall_h(font) - 1;
 
    if (tt.graphics && is_graphics(c)) {
-
-      // Draws the graphics characters based on the 2x6 matrix
-
-      if (c & 0x40) {
-         c |= 0x20; // Set bit 5 if the 6th block is set
-      } else {
-         c &= 0x1f;
-      }
-
       // Use the held value of separated during hold mode
       int separated = tt.held ? tt.held_separated : tt.separated;
+      // Copy bit 6 to bit 5 so the graphic block bits are in bits 5..0
+      if (c & 0x40) {
+         c |= 0x20;
+      } else {
+         c &= 0x1F;
+      }
+      // Copy seperated flag to bit 6
+      if (separated) {
+         c |= 0x40;
+      } else {
+         c &= 0x3F;
+      }
+      // Set bit 7 to select the graphics character from the character ROM
+      c |= 0x80;
 
-      // Which of the three vertical blocks to start and end with
-      int ybstart = (tt.doubled &&  tt.double_bottom) ? 1 : 0;
-      int ybend   = (tt.doubled && !tt.double_bottom) ? 1 : 2;
+   } else {
+      // Clear bit 7 to select the text characters from the character ROM
+      c &= 0x7f;
+   }
 
-      // The width of a block is half a character (in pixels)
-      int xbsize  = tt.size_w / 2;
-
-      // The width of the graphics seperator, if needed
-      int xbsep   =  xbsize / 3;
-
-      // The height of a top/bottom block is one third of a character (rounded down)
-      int ybsize0 = (tt.size_h / 3) * (tt.doubled ? 2 : 1);
-
-      // The height of a middle block is whatever is remaining (in pixels)
-      int ybsize1 = tt.size_h - (tt.doubled ? 1 : 2) * ybsize0;
-
-      // The height of the graphics seperator, if needed
-      int ybsep   =  ybsize0 / 3;
-
-      // Iterate over the Y blocks
-      int y = yoffset;
-      for (int yb = ybstart; yb <= ybend; yb++) {
-         // If the top cell of double hight and block 1, remove the seperator
-         if (tt.doubled && !tt.double_bottom && yb == 1) {
-            ybsep = 0;
+   if (tt.doubled) {
+      // Use a custom font renderer to render double height
+      int width  = font->width << font->get_rounding(font);
+      int height = font->height << font->get_rounding(font);
+      uint16_t *rowp = font->buffer + c * height + (tt.double_bottom ? (height >> 1) : 0);
+      for (int y = 0; y < height; y++) {
+         uint16_t row = *rowp;
+         int mask = 1 << (width - 1);
+         for (int x = 0; x < width; x++) {
+            screen->set_pixel(screen, xoffset + x, yoffset - y, (row & mask) ? tt.fgd_colour : tt.bgd_colour);
+            mask >>= 1;
          }
-         // Determine the colour of the block the next two horizontal blocks
-         colour[0] = ((c >> (2 * yb    )) & 1) ? tt.fgd_colour : tt.bgd_colour;
-         colour[1] = ((c >> (2 * yb + 1)) & 1) ? tt.fgd_colour : tt.bgd_colour;
-         // Iterate over the Y pixels in a block
-         int ybsize = (yb == 1) ? ybsize1 : ybsize0;
-         for (int y2 = 0; y2 < ybsize ; y2++, y--) {
-            // Iterate over the X blocks
-            int x = xoffset;
-            for (int xb = 0; xb < 2; xb++) {
-               // Iterate over the X pixels in a block
-               for (int x2 = 0; x2 < xbsize; x2++, x++) {
-                  if (separated && (x2 < xbsep || y2 >= ybsize - ybsep)) {
-                     // Seperated graphics
-                     screen->set_pixel(screen, x, y, tt.bgd_colour);
-                  } else {
-                     // Normal graphics
-                     screen->set_pixel(screen, x, y, colour[xb]);
-                  }
-               }
-            }
+         if (y & 1) {
+            rowp++;
          }
       }
    } else {
-
-      font_t *font = screen->font;
-
-      // Draw character
-      if (tt.doubled) {
-
-
-      } else {
-
-         font->write_char(font, screen, (c & 0x7f), xoffset, yoffset, tt.fgd_colour, tt.bgd_colour);
-      }
-
-#if 0
-
-      int p = (c & 0x7f) * tt.char_h;
-      int y = yoffset;
-      int py_from = 0;
-      int py_to = tt.char_h;
-      int yinc = 2;
-      if (tt.doubled) {
-         yinc *= 2;
-         if (tt.double_bottom) {
-            py_from = tt.char_h / 2;
-         } else {
-            py_to = py_to / 2;
-         }
-      }
-      for (int py = py_from; py < py_to; py++, y -= yinc) {
-         int x = xoffset;
-         int xinc = 2;
-         for (int px = 0; px < tt.char_w; px++, x += xinc) {
-            int map = TT_BLOCK_NONE;
-            if (tt_pixel_set(screen, p, px, py))
-               map = TT_BLOCK_ALL;
-            else {
-               // Test surrounding pixels to determine rounding
-               if (px > 0
-                   && py > 0
-                   && tt_pixel_set(screen, p, px, py - 1)
-                   && tt_pixel_set(screen, p, px - 1, py)
-                   && !tt_pixel_set(screen, p, px - 1, py - 1))
-                  map |= TT_BLOCK_TL;
-               if (px < tt.char_w - 1
-                   && py > 0
-                   && tt_pixel_set(screen, p, px, py - 1)
-                   && tt_pixel_set(screen, p, px + 1, py)
-                   && !tt_pixel_set(screen, p, px + 1, py - 1))
-                  map |=  TT_BLOCK_TR;
-               if (px > 0
-                   && py < tt.char_h - 1
-                   && tt_pixel_set(screen, p, px - 1, py)
-                   && tt_pixel_set(screen, p, px, py + 1)
-                   && !tt_pixel_set(screen, p, px - 1, py + 1))
-                  map |= TT_BLOCK_BL;
-               if (px < tt.char_w - 1
-                   && py < tt.char_h - 1
-                   && tt_pixel_set(screen, p, px + 1, py)
-                   && tt_pixel_set(screen, p, px, py + 1)
-                   && !tt_pixel_set(screen, p, px + 1, py + 1))
-                  map |= TT_BLOCK_BR;
-            }
-            tt_put_block(screen, x, y, map);
-         }
-      }
-      #endif
+      // Use the standard font renderer to render normal height
+      font->write_char(font, screen, c, xoffset, yoffset, tt.fgd_colour, tt.bgd_colour);
    }
 }
 
