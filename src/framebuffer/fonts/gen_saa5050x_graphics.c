@@ -2,9 +2,6 @@
 
 void main() {
 
-   printf("#ifndef SAA505X_GRAPHICS_FNT_H\n");
-   printf("#define SAA505X_GRAPHICS_FNT_H\n\n");
-
    for (int sep = 0; sep < 2; sep++) {
 
       printf("// %s Graphics\n\n", sep ? "Separated" : "Contiguous");
@@ -56,7 +53,5 @@ void main() {
       }
       printf("\n");
    }
-
-   printf("#endif\n");
 
 }
