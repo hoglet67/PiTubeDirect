@@ -1061,13 +1061,16 @@ void prim_draw_character(screen_mode_t *screen, int c, int x_pos, int y_pos, pix
    font_t *font = screen->font;
    int x = x_pos;
    int y = y_pos;
-   int p = c * font->bytes_per_char;
    int scale_w = font->get_scale_w(font);
    int scale_h = font->get_scale_h(font);
-   for (int i = 0; i < font->height; i++) {
+   int width   = font->width << font->get_rounding(font);
+   int height  = font->height << font->get_rounding(font);
+   int p       = c * height;
+   int mask    = 1 << (width - 1);
+   for (int i = 0; i < height; i++) {
       int data = font->buffer[p++];
-      for (int j = 0; j < font->width; j++) {
-         if (data & 0x80) {
+      for (int j = 0; j < width; j++) {
+         if (data & mask) {
             for (int sx = 0; sx < scale_w; sx++) {
                for (int sy = 0; sy < scale_h; sy++) {
                   set_pixel(screen, x + sx, y + sy, colour);

@@ -88,14 +88,14 @@ static font_t font_catalog[] = {
    {"THIN",     font29,   16, 256, 0, 8, 14, 1},
    {"THIN8X8",  font30,   16, 256, 0, 8,  8, 0},
    {"THNSERIF", font31,   16, 256, 0, 8, 14, 0},
-   {"SAA5050",  saa5050,  12, 128, 0, 6, 10, 0},
-   {"SAA5051",  saa5051,  12, 128, 0, 6, 10, 0},
-   {"SAA5052",  saa5052,  12, 128, 0, 6, 10, 0},
-   {"SAA5053",  saa5053,  12, 128, 0, 6, 10, 0},
-   {"SAA5054",  saa5054,  12, 128, 0, 6, 10, 0},
-   {"SAA5055",  saa5055,  12, 128, 0, 6, 10, 0},
-   {"SAA5056",  saa5056,  12, 128, 0, 6, 10, 0},
-   {"SAA5057",  saa5057,  12, 128, 0, 6, 10, 0},
+   {"SAA5050",  saa5050,  10, 128, 0, 6, 10, 0},
+   {"SAA5051",  saa5051,  10, 128, 0, 6, 10, 0},
+   {"SAA5052",  saa5052,  10, 128, 0, 6, 10, 0},
+   {"SAA5053",  saa5053,  10, 128, 0, 6, 10, 0},
+   {"SAA5054",  saa5054,  10, 128, 0, 6, 10, 0},
+   {"SAA5055",  saa5055,  10, 128, 0, 6, 10, 0},
+   {"SAA5056",  saa5056,  10, 128, 0, 6, 10, 0},
+   {"SAA5057",  saa5057,  10, 128, 0, 6, 10, 0},
    {"6847",     font6847, 12, 128, 0, 8, 12, 0}
 };
 
@@ -121,8 +121,59 @@ static void default_set_scale_h(font_t *font, int scale_h) {
    font->scale_h = scale_h;
 }
 
+
+// a is the 12 pixel row we wish to apply rounding to
+// b is the 12 pixel row we are using as a reference (either one above or one below)
+static inline uint16_t combine_rows(uint16_t a, uint16_t b) {
+    return a | ((a >> 1) & b & ~(b >> 1)) | ((a << 1) & b & ~(b << 1));
+}
+
 static void default_set_rounding(font_t *font, int rounding) {
-   font->rounding = rounding;
+   font->rounding = rounding & 1;
+   uint8_t  *src = font->data;
+   uint16_t *dst = font->buffer;
+   if (rounding) {
+      // Stage 1: expand each pixel to 2x2 pixels
+      for (int i = 0; i < font->num_chars; i++) {
+         // Copy the defined part of the font
+         for (int j = 0; j < font->height; j++) {
+            uint8_t data = *src++;
+            uint16_t expanded = 0;
+            for (int k = 0; k < 8; k++) {
+               expanded <<= 2;
+               if (data & 0x80) {
+                  expanded |= 3;
+               }
+               data <<= 1;
+            }
+            // Insert two copies of the expanded row
+            *dst++ = expanded;
+            *dst++ = expanded;
+         }
+         // Skip any padding between characters
+         src += font->bytes_per_char - font->height;
+      }
+      // Stage 2: perform rounding
+      dst = font->buffer;
+      for (int i = 0; i < font->num_chars; i++) {
+         for (int j = 0; j < font->height - 1; j++) {
+            uint16_t o_row = dst[j * 2 + 1];
+            uint16_t e_row = dst[j * 2 + 2];
+            dst[j * 2 + 1] = combine_rows(o_row, e_row);
+            dst[j * 2 + 2] = combine_rows(e_row, o_row);
+         }
+         dst += font->height * 2;
+      }
+   } else {
+      for (int i = 0; i < font->num_chars; i++) {
+         // Copy the defined part of the font
+         for (int j = 0; j < font->height; j++) {
+            *dst++ = *src++;
+         }
+         // Skip any padding between character
+         src += font->bytes_per_char - font->height;
+      }
+   }
 }
 
 static char *default_get_name(font_t *font) {
@@ -150,21 +201,24 @@ static int default_get_rounding(font_t *font) {
 }
 
 static int default_get_overall_w(font_t *font) {
-   return font->width * font->scale_w + font->spacing_w;
+   return (font->width << font->rounding) * font->scale_w + font->spacing_w;
 
 }
 
 static int default_get_overall_h(font_t *font) {
-   return font->height * font->scale_h + font->spacing_h;
+   return (font->height << font->rounding) * font->scale_h + font->spacing_h;
 }
 
 static void default_write_char(font_t *font, screen_mode_t *screen, int c, int x, int y, pixel_t fg_col, pixel_t bg_col) {
-   int p = c * font->bytes_per_char;
    int x_pos = x;
-   for (int i = 0; i < font->height; i++) {
+   int width  = font->width  << font->rounding;
+   int height = font->height << font->rounding;
+   int p      = c * height;
+   int mask = 1 << (width - 1);
+   for (int i = 0; i < height; i++) {
       int data = font->buffer[p++];
-      for (int j = 0; j < font->width; j++) {
-         int col = (data & 0x80) ? fg_col : bg_col;
+      for (int j = 0; j < width; j++) {
+         int col = (data & mask) ? fg_col : bg_col;
          for (int sx = 0; sx < font->scale_w; sx++) {
             for (int sy = 0; sy < font->scale_h; sy++) {
                screen->set_pixel(screen, x + sx, y + sy, col);
@@ -182,9 +236,11 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y) 
    int screendata[MAX_FONT_HEIGHT];
    // Read the character from screen memory
    int *dp = screendata;
-   for (int i = 0; i < font->height * font->scale_h; i += font->scale_h) {
+   int width  = font->width  << font->rounding;
+   int height = font->height << font->rounding;
+   for (int i = 0; i < height * font->scale_h; i += font->scale_h) {
       int row = 0;
-      for (int j = 0; j < font->width * font->scale_w; j += font->scale_w) {
+      for (int j = 0; j < width * font->scale_w; j += font->scale_w) {
          row <<= 1;
          if (screen->get_pixel(screen, x + j, y - i)) {
             row |= 1;
@@ -193,14 +249,16 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y) 
       *dp++ = row;
    }
    // Match against font
+   int all_zeros = 0;
+   int all_ones  = (1 << width) - 1;
    for (int c = 0x20; c < font->num_chars; c++) {
-       for (y = 0; y < font->height; y++) {
-         int xor = font->buffer[c * font->bytes_per_char + y] ^ screendata[y];
-         if (xor != 0x00 && xor != 0xff) {
+      for (y = 0; y < height; y++) {
+         int xor = font->buffer[c * height + y] ^ screendata[y];
+         if (xor != all_zeros && xor != all_ones) {
             break;
          }
       }
-      if (y == font->height) {
+      if (y == height) {
          return c;
       }
    }
@@ -212,15 +270,19 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y) 
 // ==========================================================================
 
 static void initialize_font(font_t * font) {
-   size_t size = font->bytes_per_char * font->num_chars;
+
+   // The factor of 4 allows for character rounding to be enabled
+   size_t size = font->height * font->num_chars * 4;
    if (font->buffer == NULL) {
-      font->buffer = (uint8_t *)malloc(size);
+      font->buffer = (uint16_t *)malloc(size);
    }
-   // Copy the font into a local font buffer, so VDU 23 can update it
-   memcpy(font->buffer, font->data, size);
-   // Set the default scale
-   font->scale_w = 1;
-   font->scale_h = 1;
+
+   // Set the default metrics
+   font->scale_w   = 1;
+   font->scale_h   = 1;
+   font->spacing_w = 0;
+   font->spacing_h = 0;
+   font->rounding  = 0;
 
    // Default implementation of setters
    font->set_spacing_w = default_set_spacing_w;
@@ -242,6 +304,10 @@ static void initialize_font(font_t * font) {
    // Default implementation of read/write
    font->read_char     = default_read_char;
    font->write_char    = default_write_char;
+
+   // Copy the font into a local font buffer, so VDU 23 can update it
+   // and so that character rounding can be applied if necessary
+   font->set_rounding(font, 0);
 }
 
 font_t *get_font_by_number(unsigned int num) {
@@ -265,8 +331,9 @@ font_t *get_font_by_name(char *name) {
    return font;
 }
 
+// TODO: handle rounding being on
 void define_character(font_t *font, uint8_t c, uint8_t *data) {
-   uint8_t *p = font->buffer + c * font->bytes_per_char;
+   uint16_t *p = font->buffer + c * font->height;
    for (int i = 0; i < 8; i++) {
       *p++ = *data++;
    }

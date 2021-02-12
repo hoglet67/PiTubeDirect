@@ -25,7 +25,7 @@ typedef struct font {
    int rounding;
 
    // The working copy of the font data
-   uint8_t *buffer;
+   uint16_t *buffer;
 
    void  (*set_spacing_w)(struct font *font, int spacing_w);
    void  (*set_spacing_h)(struct font *font, int spacing_h);

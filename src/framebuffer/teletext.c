@@ -175,8 +175,7 @@ static void set_font(screen_mode_t *screen, int num) {
    char name[] = "SAA5050";
    name[6] += (num & 7);
    font_t *font = get_font_by_name(name);
-   font->set_scale_w(font, 2);
-   font->set_scale_h(font, 2);
+   font->set_rounding(font, TRUE);
    screen->font = font;
 }
 
@@ -549,7 +548,18 @@ static void tt_draw_character(screen_mode_t *screen, int c, int col, int row) {
       }
    } else {
 
+      font_t *font = screen->font;
+
       // Draw character
+      if (tt.doubled) {
+
+
+      } else {
+
+         font->write_char(font, screen, (c & 0x7f), xoffset, yoffset, tt.fgd_colour, tt.bgd_colour);
+      }
+
+#if 0
 
       int p = (c & 0x7f) * tt.char_h;
       int y = yoffset;
@@ -601,6 +611,7 @@ static void tt_draw_character(screen_mode_t *screen, int c, int col, int row) {
             tt_put_block(screen, x, y, map);
          }
       }
+      #endif
    }
 }
 

@@ -711,16 +711,18 @@ static void vdu23_3(uint8_t *buf) {
 
 static void vdu23_4(uint8_t *buf) {
    // VDU 23,4: set font scale
-   // params: hor. scale, vert. scale, char spacing, other 5 bytes are ignored
+   // params: H scale, V scale, H spacing, V spacing, Roundinf
    // get the current font from the screen
    font_t *font = screen->font;
    font->set_scale_w(font, buf[1] > 0 ? buf[1] : 1);
    font->set_scale_h(font, buf[2] > 0 ? buf[2] : 1);
    font->set_spacing_w(font, buf[3]);
-   font->set_spacing_h(font, buf[3]);
+   font->set_spacing_h(font, buf[4]);
+   font->set_rounding(font, buf[5]);
 #ifdef DEBUG_VDU
-   printf("Font scale   set to %d,%d\r\n", font->get_scale_w(font), font->get_scale_h(font));
-   printf("Font spacing set to %d,%d\r\n", font->get_spacing_w(font), font->get_spacing_h(font));
+   printf("Font scale    set to %d,%d\r\n", font->get_scale_w(font), font->get_scale_h(font));
+   printf("Font spacing  set to %d,%d\r\n", font->get_spacing_w(font), font->get_spacing_h(font));
+   printf("Font rounding set to %d\r\n",    font->get_rounding(font));
 #endif
    update_text_area();
 }
