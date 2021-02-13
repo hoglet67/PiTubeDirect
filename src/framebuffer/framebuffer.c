@@ -16,7 +16,6 @@
 #include "framebuffer.h"
 #include "primitives.h"
 #include "fonts.h"
-#include "sprites.h"
 
 // Default colours
 #define COL_BLACK    0
@@ -692,36 +691,6 @@ static void vdu23_1(uint8_t *buf) {
    update_cursors();
 }
 
-static void vdu23_7(uint8_t *buf) {
-   // VDU 23,7: define sprite
-   // params:   sprite number
-   //           16x16 pixels (256 bytes)
-   memcpy(sprites+buf[1]*256, buf+2, 256);
-}
-
-static void vdu23_8(uint8_t *buf) {
-   // vdu 23,8: set sprite
-   // params:   sprite number (1 byte)
-   //           x position (1 word)
-   //           y position (1 word)
-   int x = buf[2] + buf[3]*256;
-   int y = buf[4] + buf[5]*256;
-   int p = buf[1];
-   sp_save(screen, p, x, y);
-   sp_set(screen, p, x, y);
-}
-
-static void vdu23_9(uint8_t *buf) {
-   // vdu 23,9: unset sprite
-   // params:   sprite number (1 byte)
-   //           x position (1 word)
-   //           y position (1 word)
-   int x = buf[2] + buf[3]*256;
-   int y = buf[4] + buf[5]*256;
-   int p = buf[1];
-   sp_restore(screen, p, x, y);
-}
-
 static void vdu23_17(uint8_t *buf) {
    int16_t tmp;
    // vdu 23,17: Set subsidary colour effects
@@ -979,9 +948,6 @@ static void vdu_23(uint8_t *buf) {
    } else {
       switch (buf[1]) {
       case  1: vdu23_1 (buf + 1); break;
-      case  7: vdu23_7 (buf + 1); break;
-      case  8: vdu23_8 (buf + 1); break;
-      case  9: vdu23_9 (buf + 1); break;
       case 17: vdu23_17(buf + 1); break;
       case 19: vdu23_19(buf + 1); break;
       case 22: vdu23_22(buf + 1); break;

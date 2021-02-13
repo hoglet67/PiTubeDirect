@@ -102,8 +102,6 @@ file( GLOB core_files
     framebuffer/primitives.h
     framebuffer/fonts.c
     framebuffer/fonts.h
-    framebuffer/sprites.c
-    framebuffer/sprites.h
     framebuffer/teletext.c
     framebuffer/teletext.h
     framebuffer/v3d.c
