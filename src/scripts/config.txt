@@ -5,6 +5,9 @@
 # Pi VDU Settings
 #
 
+# Enable VSYNC interrputs
+fake_vsync_isr=1
+
 # Use Nearest Neighbour scaling
 scaling_kernel=8
 

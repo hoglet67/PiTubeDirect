@@ -622,12 +622,24 @@ void tube_Byte(unsigned int *reg) {
   unsigned char x = reg[1] & 0xff;
   unsigned char y = reg[2] & 0xff;
   if (a < 128) {
-    // OSBYTELO R2: &04 X A                           X
-    sendByte(R2_ID, 0x04);
-    sendByte(R2_ID, x);
-    sendByte(R2_ID, a);
-    x = receiveByte(R2_ID);
-    reg[1] = x;
+
+    if (a == 19 && vdu_device & VDU_PI) {
+
+       // Enable interrupts
+       _enable_interrupts();
+
+       // Handle wait for vsync locally
+       fb_wait_for_vsync();
+
+    } else {
+
+       // OSBYTELO R2: &04 X A                           X
+       sendByte(R2_ID, 0x04);
+       sendByte(R2_ID, x);
+       sendByte(R2_ID, a);
+       x = receiveByte(R2_ID);
+       reg[1] = x;
+    }
 
   } else {
     // OSBYTEHI R2: &06 X Y A                         Cy Y X

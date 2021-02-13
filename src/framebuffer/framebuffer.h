@@ -28,4 +28,6 @@ uint8_t fb_get_g_bg_col();
 
 uint8_t fb_get_g_fg_col();
 
+void fb_wait_for_vsync();
+
 #endif

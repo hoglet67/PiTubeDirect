@@ -79,6 +79,9 @@ static g_clip_window_t g_window;
 // Text or graphical cursor for printing characters
 static int8_t text_at_g_cursor;
 
+// Vsync flag
+static volatile int vsync_flag = 0;
+
 // VDU Queue
 #define VDU_QSIZE 8192
 static volatile int vdu_wp = 0;
@@ -1263,6 +1266,11 @@ void fb_initialize() {
    fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
 #endif
    fb_writes("\r\n");
+
+   // Make vsync visible
+   // Enable smi_int which is IRQ 48
+   // https://github.com/raspberrypi/firmware/issues/67
+   RPI_GetIrqController()->Enable_IRQs_2 = RPI_VSYNC_IRQ;
 }
 
 void fb_writec_buffered(char ch) {
@@ -1276,6 +1284,15 @@ void fb_process_vdu_queue() {
    static int cursor_count = 0;
    _data_memory_barrier();
    RPI_GetArmTimer()->IRQClear = 0;
+
+   _data_memory_barrier();
+   if (RPI_GetIrqController()->IRQ_pending_2 & RPI_VSYNC_IRQ) {
+      // Note the vsync interrupt
+      vsync_flag = 1;
+      // Clear the vsync interrupt
+      *((volatile uint32_t *)SMICTRL) = 0;
+   }
+
    while (vdu_rp != vdu_wp) {
       uint8_t ch = vdu_queue[vdu_rp];
       fb_writec(ch);
@@ -1348,4 +1365,13 @@ uint8_t fb_get_g_bg_col() {
 
 uint8_t fb_get_g_fg_col() {
    return g_fg_col;
+}
+
+void fb_wait_for_vsync() {
+
+   // Wait for the VSYNC flag to be set by the IRQ handler
+   while (!vsync_flag);
+
+   // Clear the VSYNC flag
+   vsync_flag = 0;
 }

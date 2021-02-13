@@ -52,6 +52,11 @@
 #define RPI_BASIC_ACCESS_ERROR_1_IRQ    (1 << 6)
 #define RPI_BASIC_ACCESS_ERROR_0_IRQ    (1 << 7)
 
+
+#define RPI_VSYNC_IRQ                  (1 << 16)
+
+#define SMICTRL     (PERIPHERAL_BASE + 0x600000)
+
 #if defined(RPI4)
 /** @brief The interrupt controller memory mapped register set */
 typedef struct {
