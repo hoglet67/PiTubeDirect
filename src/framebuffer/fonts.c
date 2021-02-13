@@ -51,55 +51,71 @@
 #include "fonts/saa5056.fnt.h"
 #include "fonts/saa5057.fnt.h"
 
+
+static font_t current_font;
+
 // ==========================================================================
 // Font Definitions
 // ==========================================================================
 
 static font_t font_catalog[] = {
-   {"BBC",      fontbbc,   8, 256, 0, 8,  8, 0},
-   {"8X10",     font01,   16, 256, 0, 8, 10, 0},
-   {"8X11SNSF", font02,   16, 256, 0, 8, 11, 0},
-   {"8X14",     font03,   16, 256, 0, 8, 14, 0},
-   {"8X8",      font04,   16, 256, 0, 8, 10, 0},
-   {"8X8ITAL",  font05,   16, 256, 0, 8, 10, 0},
-   {"9X16",     font06,   16, 256, 0, 8, 14, 1},
-   {"BIGSERIF", font07,   16, 256, 0, 8, 14, 1},
-   {"BLCKSNSF", font08,   16, 256, 0, 8, 10, 0},
-   {"BLOCK",    font09,   16, 256, 0, 8, 14, 1},
-   {"BOLD",     font10,   16, 256, 0, 8, 14, 1},
-   {"BROADWAY", font11,   16, 256, 0, 8, 14, 1},
-   {"COMPUTER", font12,   16, 256, 0, 8, 14, 1},
-   {"COURIER",  font13,   16, 256, 0, 8, 14, 1},
-   {"FUTURE",   font14,   16, 256, 0, 8, 14, 1},
-   {"GREEK",    font15,   16, 256, 0, 8, 14, 1},
-   {"HOLLOW",   font16,   16, 256, 0, 8, 14, 1},
-   {"ITALICS",  font17,   16, 256, 0, 8, 14, 1},
-   {"LCD",      font18,   16, 256, 0, 8, 14, 1},
-   {"MEDIEVAL", font19,   16, 256, 0, 8, 14, 1},
-   {"NORWAY",   font20,   16, 256, 0, 8, 14, 1},
-   {"SANSERIF", font21,   16, 256, 0, 8, 14, 1},
-   {"SCRIPT",   font22,   16, 256, 0, 8, 14, 1},
-   {"SLANT",    font23,   16, 256, 0, 8, 14, 0},
-   {"SMALL",    font24,   16, 256, 0, 6,  8, 0},
-   {"STANDARD", font25,   16, 256, 0, 8, 14, 1},
-   {"STRETCH",  font26,   16, 256, 0, 8, 14, 1},
-   {"SUB",      font27,   16, 256, 0, 8, 14, 0},
-   {"SUPER",    font28,   16, 256, 0, 8, 14, 0},
-   {"THIN",     font29,   16, 256, 0, 8, 14, 1},
-   {"THIN8X8",  font30,   16, 256, 0, 8,  8, 0},
-   {"THNSERIF", font31,   16, 256, 0, 8, 14, 0},
-   {"SAA5050",  saa5050,  10, 256, 0, 6, 10, 0},
-   {"SAA5051",  saa5051,  10, 256, 0, 6, 10, 0},
-   {"SAA5052",  saa5052,  10, 256, 0, 6, 10, 0},
-   {"SAA5053",  saa5053,  10, 256, 0, 6, 10, 0},
-   {"SAA5054",  saa5054,  10, 256, 0, 6, 10, 0},
-   {"SAA5055",  saa5055,  10, 256, 0, 6, 10, 0},
-   {"SAA5056",  saa5056,  10, 256, 0, 6, 10, 0},
-   {"SAA5057",  saa5057,  10, 256, 0, 6, 10, 0},
-   {"6847",     font6847, 12, 128, 0, 8, 12, 0}
+   //                                              scale_h
+   //                                           scale_w  |
+   //                                      spacing_h  |  |
+   //                                    spacing_w |  |  |
+   //                                   height  |  |  |  |
+   //                                width   |  |  |  |  |
+   //                             shift  |   |  |  |  |  |
+   //                         offset  |  |   |  |  |  |  |
+   //                   num_chars  |  |  |   |  |  |  |  |
+   //         bytes_per_char    |  |  |  |   |  |  |  |  |
+   // Name      data       |    |  |  |  |   |  |  |  |  |
+   {"BBC",      fontbbc,   8, 256, 0, 0, 8,  8, 0, 0, 1, 1},
+   {"8X10",     font01,   16, 256, 0, 0, 8, 10, 0, 0, 1, 1},
+   {"8X11SNSF", font02,   16, 256, 0, 0, 8, 11, 0, 0, 1, 1},
+   {"8X14",     font03,   16, 256, 0, 0, 8, 14, 0, 0, 1, 1},
+   {"8X8",      font04,   16, 256, 0, 0, 8, 10, 0, 0, 1, 1},
+   {"8X8ITAL",  font05,   16, 256, 0, 0, 8, 10, 0, 0, 1, 1},
+   {"9X16",     font06,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"BIGSERIF", font07,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"BLCKSNSF", font08,   16, 256, 0, 0, 8, 10, 0, 0, 1, 1},
+   {"BLOCK",    font09,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"BOLD",     font10,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"BROADWAY", font11,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"COMPUTER", font12,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"COURIER",  font13,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"FUTURE",   font14,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"GREEK",    font15,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"HOLLOW",   font16,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"ITALICS",  font17,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"LCD",      font18,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"MEDIEVAL", font19,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"NORWAY",   font20,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"SANSERIF", font21,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"SCRIPT",   font22,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"SLANT",    font23,   16, 256, 0, 0, 8, 14, 0, 0, 1, 1},
+   {"SMALL",    font24,   16, 256, 0, 2, 6,  8, 0, 0, 1, 1},
+   {"STANDARD", font25,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"STRETCH",  font26,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"SUB",      font27,   16, 256, 0, 0, 8, 14, 0, 0, 1, 1},
+   {"SUPER",    font28,   16, 256, 0, 0, 8, 14, 0, 0, 1, 1},
+   {"THIN",     font29,   16, 256, 0, 0, 8, 14, 1, 0, 1, 1},
+   {"THIN8X8",  font30,   16, 256, 0, 0, 8,  8, 0, 0, 1, 1},
+   {"THNSERIF", font31,   16, 256, 0, 0, 8, 14, 0, 0, 1, 1},
+   {"SAA5050",  saa5050,  10, 256, 0, 0, 6, 10, 0, 0, 1, 1},
+   {"SAA5051",  saa5051,  10, 256, 0, 0, 6, 10, 0, 0, 1, 1},
+   {"SAA5052",  saa5052,  10, 256, 0, 0, 6, 10, 0, 0, 1, 1},
+   {"SAA5053",  saa5053,  10, 256, 0, 0, 6, 10, 0, 0, 1, 1},
+   {"SAA5054",  saa5054,  10, 256, 0, 0, 6, 10, 0, 0, 1, 1},
+   {"SAA5055",  saa5055,  10, 256, 0, 0, 6, 10, 0, 0, 1, 1},
+   {"SAA5056",  saa5056,  10, 256, 0, 0, 6, 10, 0, 0, 1, 1},
+   {"SAA5057",  saa5057,  10, 256, 0, 0, 6, 10, 0, 0, 1, 1},
+   {"6847",     font6847, 12, 128, 0, 0, 8, 12, 0, 0, 1, 1}
 };
 
 #define NUM_FONTS (sizeof(font_catalog) / sizeof(font_t))
+
+#define MAX_CHARACTERS 256
 
 // ==========================================================================
 // Static Methods
@@ -116,11 +132,13 @@ static void copy_font_character(font_t *font, uint8_t *src, int c, int is_graphi
       return;
    }
    uint16_t *dst = font->buffer + c * (font->height << font->rounding);
+   // Skip any padding bytes
+   src += font->offset;
    if (font->rounding) {
       // Stage 1: expand each pixel to 2x2 pixels
       // Copy the defined part of the font
       for (int i = 0; i < font->height; i++) {
-         uint8_t data = *src++;
+         uint8_t data = (*src++) >> font->shift;
          uint16_t expanded = 0;
          for (int j = 0; j < 8; j++) {
             expanded <<= 2;
@@ -146,7 +164,7 @@ static void copy_font_character(font_t *font, uint8_t *src, int c, int is_graphi
    } else {
       // Copy the defined part of the font
       for (int j = 0; j < font->height; j++) {
-         *dst++ = *src++;
+         *dst++ = (*src++) >> font->shift;
       }
    }
 }
@@ -188,12 +206,16 @@ static char *default_get_name(font_t *font) {
    return font->name;
 }
 
+static int default_get_number(font_t *font) {
+   return font->number;
+}
+
 static int default_get_spacing_w(font_t *font) {
    return font->spacing_w;
 }
 
 static int default_get_spacing_h(font_t *font) {
-   return font->spacing_w;
+   return font->spacing_h;
 }
 
 static int default_get_scale_w(font_t *font) {
@@ -209,12 +231,11 @@ static int default_get_rounding(font_t *font) {
 }
 
 static int default_get_overall_w(font_t *font) {
-   return (font->width << font->rounding) * font->scale_w + font->spacing_w;
-
+   return ((font->width + font->spacing_w) << font->rounding) * font->scale_w;
 }
 
 static int default_get_overall_h(font_t *font) {
-   return (font->height << font->rounding) * font->scale_h + font->spacing_h;
+   return ((font->height + font->spacing_h) << font->rounding) * font->scale_h;
 }
 
 static void default_write_char(font_t *font, screen_mode_t *screen, int c, int x, int y, pixel_t fg_col, pixel_t bg_col) {
@@ -277,20 +298,25 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y) 
 // More Static Methods
 // ==========================================================================
 
-static void initialize_font(font_t * font) {
+static font_t *initialize_font(font_t * catalog, int num) {
 
-   // The factor of 4 allows for character rounding to be enabled
-   size_t size = font->height * font->num_chars * 4;
+   // Always return a copy, rather than the entry in the catalog
+   //
+   // TODO: Probably better to have the caller pass a font structure
+   // in, as that would allow each mode to have it's own metrics
+   // but for now let's go with this...
+
+   font_t *font = &current_font;
+
+   // Copy the default metrics etc from the catalog
+   memcpy(font, catalog, sizeof(font_t));
+
+   // The factor of 2 allows for character rounding to be enabled
+   size_t size = font->height * MAX_CHARACTERS * 2 * sizeof(uint16_t);
    if (font->buffer == NULL) {
       font->buffer = (uint16_t *)malloc(size);
+      memset(font->buffer, 0, size);
    }
-
-   // Set the default metrics
-   font->scale_w   = 1;
-   font->scale_h   = 1;
-   font->spacing_w = 0;
-   font->spacing_h = 0;
-   font->rounding  = 0;
 
    // Default implementation of setters
    font->set_spacing_w = default_set_spacing_w;
@@ -301,6 +327,7 @@ static void initialize_font(font_t * font) {
 
    // Default implementation of getters
    font->get_name      = default_get_name;
+   font->get_number    = default_get_number;
    font->get_spacing_w = default_get_spacing_w;
    font->get_spacing_h = default_get_spacing_h;
    font->get_scale_w   = default_get_scale_w;
@@ -316,31 +343,44 @@ static void initialize_font(font_t * font) {
    // Copy the font into a local font buffer, so VDU 23 can update it
    // and so that character rounding can be applied if necessary
    font->set_rounding(font, 0);
+
+   // Record the font number
+   font->number = num;
+
+   return font;
 }
+
 
 // ==========================================================================
 // Public Methods
 // ==========================================================================
+
+char * get_font_name(unsigned int num) {
+   font_t *font = &font_catalog[DEFAULT_FONT];
+   if (num < NUM_FONTS) {
+      font = &font_catalog[num];
+   }
+   return font->name;
+}
 
 font_t *get_font_by_number(unsigned int num) {
    font_t *font = &font_catalog[DEFAULT_FONT];
    if (num < NUM_FONTS) {
       font = &font_catalog[num];
    }
-   initialize_font(font);
-   return font;
+   return initialize_font(font, num);
 }
 
 font_t *get_font_by_name(char *name) {
-   font_t *font = &font_catalog[DEFAULT_FONT];
-   for (unsigned int num = 0; num < NUM_FONTS; num++) {
-      if (!strcasecmp(name, font_catalog[num].name)) {
-         font = &font_catalog[num];
+   int num = DEFAULT_FONT;
+   for (unsigned int i = 0; i < NUM_FONTS; i++) {
+      if (!strcasecmp(name, font_catalog[i].name)) {
+         num = i;
          break;
       }
    }
-   initialize_font(font);
-   return font;
+   font_t *font = font_catalog + num;
+   return initialize_font(font, num);
 }
 
 void define_character(font_t *font, uint8_t c, uint8_t *data) {

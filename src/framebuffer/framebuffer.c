@@ -472,10 +472,10 @@ static void change_mode(screen_mode_t *new_screen) {
       screen = new_screen;
       screen->init(screen);
    }
-   // initialze VDU variable
-   init_variables();
    // reset the screen to it's default state
    screen->reset(screen);
+   // initialze VDU variable
+   init_variables();
    // clear screen
    text_area_clear();
 }
@@ -693,40 +693,6 @@ static void vdu23_1(uint8_t *buf) {
    update_cursors();
 }
 
-static void vdu23_3(uint8_t *buf) {
-   // VDU 23,3: select font by name
-   // params: eight bytes font name, trailing zeros if name shorter than 8 chars
-   // (selects the default font if the lookup fails)
-   // get the current font from the screen
-   if (buf[1] == 0) {
-      screen->font = get_font_by_number(buf[2]);
-   } else {
-      screen->font = get_font_by_name((char *)buf+1);
-   }
-#ifdef DEBUG_VDU
-   printf("Font set to %s\r\n", screen->font->get_name(screen->font));
-#endif
-   update_text_area();
-}
-
-static void vdu23_4(uint8_t *buf) {
-   // VDU 23,4: set font metrics
-   // params: H scale, V scale, H spacing, V spacing, Rounding
-   // get the current font from the screen
-   font_t *font = screen->font;
-   font->set_scale_w(font, buf[1] > 0 ? buf[1] : 1);
-   font->set_scale_h(font, buf[2] > 0 ? buf[2] : 1);
-   font->set_spacing_w(font, buf[3]);
-   font->set_spacing_h(font, buf[4]);
-   font->set_rounding(font, buf[5]);
-#ifdef DEBUG_VDU
-   printf("Font scale    set to %d,%d\r\n", font->get_scale_w(font), font->get_scale_h(font));
-   printf("Font spacing  set to %d,%d\r\n", font->get_spacing_w(font), font->get_spacing_h(font));
-   printf("Font rounding set to %d\r\n",    font->get_rounding(font));
-#endif
-   update_text_area();
-}
-
 static void vdu23_5(uint8_t *buf) {
    // VDU 23,5: set mouse pointer
    // params:   mouse pointer id ( 0...31)
@@ -855,6 +821,97 @@ static void vdu23_17(uint8_t *buf) {
    }
 }
 
+static void vdu23_19(uint8_t *buf) {
+   // Select Custom Font and/or Custom Font Metrics
+   // VDU 23,19,0,<font number>,0,0,0,0,0,0
+   // VDU 23,19,0,<font number>,<h scale>,<v_scale>,<h_spacing>,<v_spacing>,<rounding>,0
+   // VDU 23,19,1,<h scale>,<v scale>,0,0,0,0,0
+   // VDU 23,19,2,<h spacing>,<v spacing>,0,0,0,0,0
+   // VDU 23,19,3,<rounding>
+   // VDU 23,19,"FONTNAME" (max of 8 characters, with 0 terminator if less than 8)
+   // VDU 23,19,128,<num>,0,0,0,0,0,0 (print the name of the font with number n)
+   //
+   // Notes:
+   // - Any metric of value &FF is ignored
+   // - A scale of value &00 is also ignored
+
+   // On enter, buf points to 19, so increment
+   buf++;
+
+   font_t *font = screen->font;
+
+   if (buf[0] >= 'A' && buf[0] <= 'Z') {
+      // Select the font by name (upto 8 upper case characters)
+      buf[8] = 0;
+      font = get_font_by_name((char *)buf);
+      if (font != NULL) {
+         screen->font = font;
+      }
+   } else {
+      switch (buf[0]) {
+      case 0:
+         // Select the font by number
+         font = get_font_by_number(buf[1]);
+         if (font != NULL) {
+            if (buf[2] != 0 && buf[3] != 0) {
+               // Parse the extended form
+               if (buf[2] != 0xff) {
+                  font->set_scale_w(font, buf[2]);
+               }
+               if (buf[3] != 0xff) {
+                  font->set_scale_h(font, buf[3]);
+               }
+               if (buf[4] != 0xff) {
+                  font->set_spacing_w(font, buf[4]);
+               }
+               if (buf[5] != 0xff) {
+                  font->set_spacing_h(font, buf[5]);
+               }
+               if (buf[6] <= 2) {
+                  font->set_rounding(font, buf[6]);
+               }
+            }
+            screen->font = font;
+         }
+         break;
+      case 1:
+         if (buf[1] != 0x00 && buf[1] != 0xff) {
+            font->set_scale_w(font, buf[1]);
+         }
+         if (buf[2] != 0x00 && buf[2] != 0xff) {
+            font->set_scale_h(font, buf[2]);
+         }
+         break;
+      case 2:
+         if (buf[1] != 0xff) {
+            font->set_spacing_w(font, buf[1]);
+         }
+         if (buf[2] != 0xff) {
+            font->set_spacing_h(font, buf[2]);
+         }
+         break;
+      case 3:
+         if (buf[1] <= 2) {
+            font->set_rounding(font, buf[1]);
+         }
+         break;
+      case 128:
+         fb_writes(get_font_name(buf[1]));
+         break;
+      }
+   }
+#ifdef DEBUG_VDU
+   printf("    Font name: %s\r\n",    font->get_name(font));
+   printf("  Font number: %d\r\n",    font->get_number(font));
+   printf("   Font scale: %d,%d\r\n", font->get_scale_w(font),   font->get_scale_h(font));
+   printf(" Font spacing: %d,%d\r\n", font->get_spacing_w(font), font->get_spacing_h(font));
+   printf("Font rounding: %d\r\n",    font->get_rounding(font));
+#endif
+   // As the font metrics have changed, update text area
+   update_text_area();
+}
+
+
 static void vdu23_22(uint8_t *buf) {
    // VDU 23,22,xpixels;ypixels;xchars,ychars,colours,flags
    // User Defined Screen Mode
@@ -980,14 +1037,13 @@ static void vdu_23(uint8_t *buf) {
    } else {
       switch (buf[1]) {
       case  1: vdu23_1 (buf + 1); break;
-      case  3: vdu23_3 (buf + 1); break;
-      case  4: vdu23_4 (buf + 1); break;
       case  5: vdu23_5 (buf + 1); break;
       case  6: vdu23_6 (buf + 1); break;
       case  7: vdu23_7 (buf + 1); break;
       case  8: vdu23_8 (buf + 1); break;
       case  9: vdu23_9 (buf + 1); break;
       case 17: vdu23_17(buf + 1); break;
+      case 19: vdu23_19(buf + 1); break;
       case 22: vdu23_22(buf + 1); break;
       default: screen->unknown_vdu(screen, buf);
       }

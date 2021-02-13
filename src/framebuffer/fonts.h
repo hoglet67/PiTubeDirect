@@ -9,13 +9,14 @@
 
 typedef struct font {
    // The raw font data itself
-   char *name;
-   uint8_t *data;
-   int bytes_per_char;
-   int num_chars;
-   int offset;
-   int width;
-   int height;
+   char *name;         // (max) 8 character ASCII name of the font
+   uint8_t *data;      // pointer to the raw font data
+   int bytes_per_char; // Number of bytes of raw data per character
+   int num_chars;      // Number of characters in the character set
+   int offset;         // Offset (in bytes) to the first row of the character
+   int shift;          // Offset (in bits) to the first column of the character
+   int width;          // Width (in pixels) of the character
+   int height;         // Height(in pixels) of the character
 
    // These control the way the font is rendered
    int spacing_w;
@@ -23,6 +24,9 @@ typedef struct font {
    int scale_w;
    int scale_h;
    int rounding;
+
+   // The font number
+   int number;
 
    // The working copy of the font data
    uint16_t *buffer;
@@ -34,6 +38,7 @@ typedef struct font {
    void   (*set_rounding)(struct font *font, int rounding);
 
    char *     (*get_name)(struct font *font);
+   int      (*get_number)(struct font *font);
    int   (*get_spacing_w)(struct font *font);
    int   (*get_spacing_h)(struct font *font);
    int     (*get_scale_w)(struct font *font);
@@ -46,6 +51,8 @@ typedef struct font {
    int      ( *read_char)(struct font *font, screen_mode_t *screen, int x, int y);
 
 } font_t;
+
+char * get_font_name(unsigned int num);
 
 font_t *get_font_by_number(unsigned int num);
 

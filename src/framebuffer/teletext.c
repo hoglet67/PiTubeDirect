@@ -236,6 +236,8 @@ static void tt_reset(screen_mode_t *screen) {
    tt.reveal = 0;
    // Configure the default palette
    set_palette(screen, FALSE);
+   // Initialize the font
+   set_font(screen, 0);
 }
 
 static void update_double_height_counts() {

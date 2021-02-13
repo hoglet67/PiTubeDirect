@@ -900,6 +900,9 @@ void default_reset_screen(screen_mode_t *screen) {
     if (screen->bpp == 8) {
        update_palette(screen, 0, NUM_COLOURS);
     }
+
+    /* Initialize the font */
+    screen->font = get_font_by_number(DEFAULT_FONT);
 }
 
 void default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
@@ -1084,9 +1087,6 @@ screen_mode_t *get_screen_mode(int mode_num) {
          sm->set_pixel      = default_set_pixel_8bpp;
          sm->get_pixel      = default_get_pixel_8bpp;
          break;
-      }
-      if (!sm->font) {
-         sm->font = get_font_by_number(DEFAULT_FONT);
       }
       if (sm->par == 0.0) {
          sm->par = ((float) (1 << sm->xeigfactor)) / ((float) (1 << sm->yeigfactor));
