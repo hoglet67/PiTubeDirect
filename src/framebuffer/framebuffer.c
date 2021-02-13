@@ -70,6 +70,9 @@ static int16_t g_y_pos_last2;
 static int16_t g_x_origin;
 static int16_t g_y_origin;
 
+// Sprites
+static uint8_t current_sprite;
+
 // Graphics area clip window
 static g_clip_window_t g_window;
 
@@ -258,6 +261,9 @@ static void init_variables() {
    // Graphics colour / cursor position
    g_bg_col  = COL_BLACK;
    g_fg_col  = COL_WHITE;
+
+   // Sprites
+   current_sprite = 0;
 
    // Cursor mode
    vdu_4(NULL);
@@ -476,6 +482,8 @@ static void change_mode(screen_mode_t *new_screen) {
    init_variables();
    // clear screen
    text_area_clear();
+   // reset all sprite definitions
+   prim_reset_sprites(screen);
 }
 
 static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window) {
@@ -841,6 +849,21 @@ static void vdu23_22(uint8_t *buf) {
    change_mode(new_screen);
 }
 
+static void vdu23_27(uint8_t *buf) {
+   // VDU 23,27,0,N,0,0,0,0,0,0 - select sprite to be plotted
+   // VDU 23,27,1,N,0,0,0,0,0,0 - define sprite
+   if (buf[1] == 0) {
+      // Select sprite to be plotted
+      current_sprite = buf[2];
+   } else if (buf[1] == 1) {
+      // Define sprite
+      int x_pos       = g_x_pos       >> screen->xeigfactor;
+      int y_pos       = g_y_pos       >> screen->yeigfactor;
+      int x_pos_last1 = g_x_pos_last1 >> screen->xeigfactor;
+      int y_pos_last1 = g_y_pos_last1 >> screen->yeigfactor;
+      prim_define_sprite(screen, buf[2], x_pos, y_pos, x_pos_last1, y_pos_last1);
+   }
+}
 // ==========================================================================
 // VDU commands
 // ==========================================================================
@@ -951,6 +974,7 @@ static void vdu_23(uint8_t *buf) {
       case 17: vdu23_17(buf + 1); break;
       case 19: vdu23_19(buf + 1); break;
       case 22: vdu23_22(buf + 1); break;
+      case 27: vdu23_27(buf + 1); break;
       default: screen->unknown_vdu(screen, buf);
       }
    }
@@ -1128,6 +1152,10 @@ static void vdu_25(uint8_t *buf) {
          // Plot solid ellipse
          skew = (y_pos > y_pos_last2) ? x_pos - x_pos_last2 : x_pos_last2 - x_pos;
          prim_fill_ellipse(screen, x_pos_last2, y_pos_last2, abs(x_pos_last1 - x_pos_last2), abs(y_pos - y_pos_last2), skew, colour);
+         break;
+      case 232:
+         // Draw Sprite
+         prim_draw_sprite(screen, current_sprite, x_pos, y_pos);
          break;
       default:
          printf("Unsuppported plot code: %d\r\n", g_mode);

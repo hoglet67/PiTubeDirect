@@ -41,4 +41,8 @@ void prim_fill_rectangle       (screen_mode_t *screen, int x1, int y1, int x2, i
 void prim_fill_parallelogram   (screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour);
 void prim_draw_character       (screen_mode_t *screen, int c, int x_pos, int y_pos, pixel_t colour);
 
+void prim_reset_sprites        (screen_mode_t *screen);
+void prim_define_sprite        (screen_mode_t *screen, int n, int x1, int y1, int x2, int y2);
+void prim_draw_sprite          (screen_mode_t *screen, int n, int x, int y);
+
 #endif

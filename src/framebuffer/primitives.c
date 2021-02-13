@@ -38,12 +38,16 @@ static int16_t arc_end_y;
 static int16_t arc_fill_x;
 static int16_t arc_fill_y;
 
-// TODO List
-// - implement fill patterns
-// - implement line patterns
-// - bug: draw arc doesn't currently handle screen modes with non-square pixels
-// - bug: block move ignores the move attribute (i.e. it always copies)
-// - bug: block move doesn't clip vertically
+#define NUM_SPRITES 256
+
+typedef struct {
+   int width;
+   int height;
+   void *data;
+   size_t data_size;
+} sprite_t;
+
+static sprite_t sprites[NUM_SPRITES];
 
 // ==========================================================================
 // Static methods (operate at screen resolution)
@@ -1054,8 +1058,6 @@ void prim_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int hei
    }
 }
 
-// TODO: fix this to deal with font's > 8 bits wide and/or move to font.c
-
 void prim_draw_character(screen_mode_t *screen, int c, int x_pos, int y_pos, pixel_t colour) {
    // Draw the character
    font_t *font = screen->font;
@@ -1082,5 +1084,124 @@ void prim_draw_character(screen_mode_t *screen, int c, int x_pos, int y_pos, pix
       }
       x = x_pos;
       y -= scale_h;
+   }
+}
+
+void prim_reset_sprites(screen_mode_t *screen) {
+   for (int i = 0; i < NUM_SPRITES; i++) {
+      sprites[i].width = 0;
+      sprites[i].height = 0;
+      if (sprites[i].data) {
+         free(sprites[i].data);
+      }
+      sprites[i].data = 0;
+      sprites[i].data_size = 0;
+   }
+}
+
+void prim_define_sprite(screen_mode_t *screen, int n, int x1, int y1, int x2, int y2) {
+   if (n >= NUM_SPRITES) {
+      return;
+   }
+   sprite_t *sprite = sprites + n;
+
+   // Make x1, y1 the bottom left, and x2, y2 the top right
+   if (x1 > x2) {
+      int tmp = x1;
+      x1 = x2;
+      x2 = tmp;
+   }
+   if (y1 > y2) {
+      int tmp = y1;
+      y1 = y2;
+      y2 = tmp;
+   }
+
+   printf("defining sprite %d (%d,%d to %d,%d)\r\n", n, x1, y1, x2, y2);
+
+   // Memory allocation
+   sprite->width = x2 - x1 + 1;
+   sprite->height = y2 - y1 + 1;
+   size_t size = sprite->width * sprite->height * (screen->bpp >> 3);
+   if (sprite->data == NULL || sprite->data_size < size) {
+      if (sprite->data != NULL) {
+         free(sprite->data);
+      }
+      sprite->data = malloc(size);
+      sprite->data_size = size;
+   }
+
+   // Read the sprite
+   if (screen->bpp == 16) {
+      uint16_t *data = sprite->data;
+      for (int yp = 0; yp < sprite->height; yp++) {
+         for (int xp = 0; xp < sprite->width; xp++) {
+            *data++ = get_pixel(screen, x1 + xp, y1 + xp);
+         }
+      }
+   } else if (screen->bpp == 32)  {
+      uint32_t *data = sprite->data;
+      for (int yp = 0; yp < sprite->height; yp++) {
+         for (int xp = 0; xp < sprite->width; xp++) {
+            *data++ = get_pixel(screen, x1 + xp, y1 + yp);
+         }
+      }
+   } else {
+      uint8_t *data = sprite->data;
+      for (int yp = 0; yp < sprite->height; yp++) {
+         for (int xp = 0; xp < sprite->width; xp++) {
+            *data++ = get_pixel(screen, x1 + xp, y1 + yp);
+         }
+      }
+   }
+}
+
+void prim_draw_sprite(screen_mode_t *screen, int n, int x, int y) {
+   if (n >= NUM_SPRITES) {
+      return;
+   }
+   sprite_t *sprite = sprites + n;
+   // Return if sprite is not properly defined
+   if (sprite->width == 0) {
+      printf("prim_draw_sprite: %d: width zero\n", n);
+      return;
+   }
+   if (sprite->height == 0) {
+      printf("prim_draw_sprite: %d: height zero\n", n);
+      return;
+   }
+   if (sprite->data == NULL) {
+      printf("prim_draw_sprite: %d: data null\n", n);
+      return;
+   }
+   if (sprite->data_size == 0) {
+      printf("prim_draw_sprite: %d: data_size zero\n", n);
+      return;
+   }
+
+   printf("drawing sprite %d at %d,%d\r\n", n, x, y);
+
+   // Write the sprite, allowing clipping to take care of off-screen pixels
+   if (screen->bpp == 16) {
+      uint16_t *data = sprite->data;
+      for (int yp = 0; yp < sprite->height; yp++) {
+         for (int xp = 0; xp < sprite->width; xp++) {
+            set_pixel(screen, x + xp, y + yp, *data++);
+         }
+      }
+   } else if (screen->bpp == 32)  {
+      uint32_t *data = sprite->data;
+      for (int yp = 0; yp < sprite->height; yp++) {
+         for (int xp = 0; xp < sprite->width; xp++) {
+            set_pixel(screen, x + xp, y + yp, *data++);
+         }
+      }
+   } else {
+      uint8_t *data   = sprite->data;
+      for (int yp = 0; yp < sprite->height; yp++) {
+         for (int xp = 0; xp < sprite->width; xp++) {
+            set_pixel(screen, x + xp, y + yp, *data++);
+         }
+      }
    }
 }
