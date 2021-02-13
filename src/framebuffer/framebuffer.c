@@ -16,7 +16,6 @@
 #include "framebuffer.h"
 #include "primitives.h"
 #include "fonts.h"
-#include "mousepointers.h"
 #include "sprites.h"
 
 // Default colours
@@ -693,63 +692,6 @@ static void vdu23_1(uint8_t *buf) {
    update_cursors();
 }
 
-static void vdu23_5(uint8_t *buf) {
-   // VDU 23,5: set mouse pointer
-   // params:   mouse pointer id ( 0...31)
-   //           mouse x ( 0 < x < 256)
-   //           reserved: should be 0
-   //           mouse y ( 64 < y < 256)
-   //           reserved: should be 0
-   //           mouse colour red (0 < r < 31)
-   //           mouse colour green (0 < g < 63)
-   //           mouse colour blue (0 < b < 31)
-   int x = buf[2] * 5;
-   int y = (buf[4]-64) * 5.3333;
-   if (mp_save_x != 65535) {
-      mp_restore(screen);
-   }
-   mp_save_x = x;
-   mp_save_y = y;
-   mp_save(screen);
-   int col = ((buf[6]&0x1F) << 11) + ((buf[7]&0x3F) << 5) + (buf[8]&0x1F);
-   // Draw black mask in actuale background colour
-   int mp = buf[1];
-
-   // Read the current graphics background colour, and translate to a pixel value
-   pixel_t g_bg_col = screen->get_colour(screen, fb_get_g_bg_col());
-   for (int i=0; i<8; i++) {
-      int p = mpblack[mp * 8 + i];
-      for (int b=0; b<8; b++) {
-         if (p&0x80) {
-            // mask pixel set, set to bg colour
-            screen->set_pixel(screen, x + b * 2, y - i * 2, g_bg_col);
-         }
-         p <<= 1;
-      }
-   }
-
-   // Draw white mask in given foreground colour
-   for (int i=0; i<8; i++) {
-      int p = mpwhite[mp * 8 + i];
-      for (int b=0; b<8; b++) {
-         if (p&0x80) {
-            // mask pixel set, set to foreground colour
-            screen->set_pixel(screen, x + b * 2, y - i * 2, col);
-         }
-         p <<= 1;
-      }
-   }
-}
-
-static void vdu23_6(uint8_t *buf) {
-   // VDU 23,6: turn off mouse pointer
-   // params:   none
-   mp_restore(screen);
-   mp_save_x = 0xFFFF;
-   mp_save_y = 0xFFFF;
-
-}
-
 static void vdu23_7(uint8_t *buf) {
    // VDU 23,7: define sprite
    // params:   sprite number
@@ -1037,8 +979,6 @@ static void vdu_23(uint8_t *buf) {
    } else {
       switch (buf[1]) {
       case  1: vdu23_1 (buf + 1); break;
-      case  5: vdu23_5 (buf + 1); break;
-      case  6: vdu23_6 (buf + 1); break;
       case  7: vdu23_7 (buf + 1); break;
       case  8: vdu23_8 (buf + 1); break;
       case  9: vdu23_9 (buf + 1); break;
