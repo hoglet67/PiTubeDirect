@@ -111,6 +111,46 @@ static inline uint16_t combine_rows(uint16_t a, uint16_t b) {
     return a | ((a >> 1) & b & ~(b >> 1)) | ((a << 1) & b & ~(b << 1));
 }
 
+static void copy_font_character(font_t *font, uint8_t *src, int c, int is_graphics) {
+   if (c > font->num_chars) {
+      return;
+   }
+   uint16_t *dst = font->buffer + c * (font->height << font->rounding);
+   if (font->rounding) {
+      // Stage 1: expand each pixel to 2x2 pixels
+      // Copy the defined part of the font
+      for (int i = 0; i < font->height; i++) {
+         uint8_t data = *src++;
+         uint16_t expanded = 0;
+         for (int j = 0; j < 8; j++) {
+            expanded <<= 2;
+            if (data & 0x80) {
+               expanded |= 3;
+            }
+            data <<= 1;
+         }
+         // Insert two copies of the expanded row
+         *dst++ = expanded;
+         *dst++ = expanded;
+      }
+      // Stage 2: perform rounding
+      if (!is_graphics) {
+         dst -= font->height * 2;
+         for (int i = 0; i < font->height - 1; i++) {
+            uint16_t o_row = dst[i * 2 + 1];
+            uint16_t e_row = dst[i * 2 + 2];
+            dst[i * 2 + 1] = combine_rows(o_row, e_row);
+            dst[i * 2 + 2] = combine_rows(e_row, o_row);
+         }
+      }
+   } else {
+      // Copy the defined part of the font
+      for (int j = 0; j < font->height; j++) {
+         *dst++ = *src++;
+      }
+   }
+}
+
 // ==========================================================================
 // Default handlers
 // ==========================================================================
@@ -133,51 +173,14 @@ static void default_set_scale_h(font_t *font, int scale_h) {
 
 static void default_set_rounding(font_t *font, int rounding) {
    font->rounding = rounding & 1;
-   uint8_t  *src = font->data;
-   uint16_t *dst = font->buffer;
-   if (rounding) {
-      // Stage 1: expand each pixel to 2x2 pixels
-      for (int i = 0; i < font->num_chars; i++) {
-         // Copy the defined part of the font
-         for (int j = 0; j < font->height; j++) {
-            uint8_t data = *src++;
-            uint16_t expanded = 0;
-            for (int k = 0; k < 8; k++) {
-               expanded <<= 2;
-               if (data & 0x80) {
-                  expanded |= 3;
-               }
-               data <<= 1;
-            }
-            // Insert two copies of the expanded row
-            *dst++ = expanded;
-            *dst++ = expanded;
-         }
-         // Skip any padding between characters
-         src += font->bytes_per_char - font->height;
-      }
-      // Stage 2: perform rounding
-      dst = font->buffer;
-      // Special case the SAA fonts to avoid rounding the graphics
-      int num = strncmp(font->name, "SAA505", 6) ? font->num_chars : 128;
-      for (int i = 0; i < num; i++) {
-         for (int j = 0; j < font->height - 1; j++) {
-            uint16_t o_row = dst[j * 2 + 1];
-            uint16_t e_row = dst[j * 2 + 2];
-            dst[j * 2 + 1] = combine_rows(o_row, e_row);
-            dst[j * 2 + 2] = combine_rows(e_row, o_row);
-         }
-         dst += font->height * 2;
-      }
-   } else {
-      for (int i = 0; i < font->num_chars; i++) {
-         // Copy the defined part of the font
-         for (int j = 0; j < font->height; j++) {
-            *dst++ = *src++;
-         }
-         // Skip any padding between character
-         src += font->bytes_per_char - font->height;
-      }
+   uint8_t *src = font->data;
+   // Special case the SAA fonts to avoid rounding the graphics
+   int num = strncmp(font->name, "SAA505", 6) ? font->num_chars : 128;
+   for (int c = 0; c < font->num_chars; c++) {
+      // Copy the font into the local buffer, expanding as necessary if rounding is on
+      copy_font_character(font, src, c, c >= num);
+      // Skip any padding between characters
+      src += font->bytes_per_char;
    }
 }
 
@@ -340,10 +343,6 @@ font_t *get_font_by_name(char *name) {
    return font;
 }
 
-// TODO: handle rounding being on
 void define_character(font_t *font, uint8_t c, uint8_t *data) {
-   uint16_t *p = font->buffer + c * font->height;
-   for (int i = 0; i < 8; i++) {
-      *p++ = *data++;
-   }
+   copy_font_character(font, data, c, 0);
 }

@@ -710,8 +710,8 @@ static void vdu23_3(uint8_t *buf) {
 }
 
 static void vdu23_4(uint8_t *buf) {
-   // VDU 23,4: set font scale
-   // params: H scale, V scale, H spacing, V spacing, Roundinf
+   // VDU 23,4: set font metrics
+   // params: H scale, V scale, H spacing, V spacing, Rounding
    // get the current font from the screen
    font_t *font = screen->font;
    font->set_scale_w(font, buf[1] > 0 ? buf[1] : 1);
@@ -975,8 +975,8 @@ static void vdu_23(uint8_t *buf) {
    }
 #endif
    // User defined characters
-   if (buf[0] >= 32) {
-      define_character(screen->font, buf[0], buf + 1);
+   if (buf[1] >= 32) {
+      define_character(screen->font, buf[1], buf + 2);
    } else {
       switch (buf[1]) {
       case  1: vdu23_1 (buf + 1); break;
