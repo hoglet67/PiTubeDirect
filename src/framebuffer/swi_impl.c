@@ -130,20 +130,26 @@ static void OS_Byte_impl(unsigned int *reg) {
         // Wait for VSYNC
         _enable_interrupts(); // re-enable interrupts or we'll hang fr ever
         fb_wait_for_vsync();  // wait for the vsync flag to be set by the ISR
-        break;
+        return;
+
+     case 134:
+        // Read text cursor position
+        reg[1] = fb_get_text_cursor_x();
+        reg[2] = fb_get_text_cursor_y();
+        return;
+
      case 135:
-        // return character at the cursor, and the current screen mode
-        reg[1] = fb_get_edit_cursor_char();
+        // Read character at text cursor position
+        reg[1] = fb_get_text_cursor_char();
+        // Also returns current screen mode
         reg[2] = fb_get_current_screen_mode();
-        break;
+        return;
      }
-
-  } else {
-
-     // Otherise pass call to the old handler
-     base_handler[SWI_OS_Byte](reg);
-
   }
+
+  // Otherise pass call to the old handler
+  base_handler[SWI_OS_Byte](reg);
+
 }
 
 // ==========================================================================

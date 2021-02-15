@@ -31,6 +31,12 @@ int fb_get_edit_cursor_y();
 
 int fb_get_edit_cursor_char();
 
+int fb_get_text_cursor_x();
+
+int fb_get_text_cursor_y();
+
+int fb_get_text_cursor_char();
+
 uint8_t fb_get_g_bg_col();
 
 uint8_t fb_get_g_fg_col();

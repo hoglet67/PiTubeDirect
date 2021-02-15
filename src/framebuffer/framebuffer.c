@@ -1362,6 +1362,18 @@ int fb_get_edit_cursor_char() {
    }
 }
 
+int fb_get_text_cursor_x() {
+   return c_x_pos;
+}
+
+int fb_get_text_cursor_y() {
+   return c_y_pos;
+}
+
+int fb_get_text_cursor_char() {
+   return screen->read_character(screen, c_x_pos, c_y_pos);
+}
+
 uint8_t fb_get_g_bg_col() {
    return g_bg_col;
 }
