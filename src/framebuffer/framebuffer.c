@@ -1285,33 +1285,45 @@ void fb_writec_buffered(char ch) {
 void fb_process_vdu_queue() {
    static int flash_count = 0;
    static int cursor_count = 0;
-   _data_memory_barrier();
-   RPI_GetArmTimer()->IRQClear = 0;
 
-   _data_memory_barrier();
    if (RPI_GetIrqController()->IRQ_pending_2 & RPI_VSYNC_IRQ) {
+      // Clear the vsync interrupt
+      _data_memory_barrier();
+      *((volatile uint32_t *)SMICTRL) = 0;
+      _data_memory_barrier();
       // Note the vsync interrupt
       vsync_flag = 1;
-      // Clear the vsync interrupt
-      *((volatile uint32_t *)SMICTRL) = 0;
    }
 
-   while (vdu_rp != vdu_wp) {
-      uint8_t ch = vdu_queue[vdu_rp];
-      fb_writec(ch);
-      vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
-   }
-   cursor_count++;
-   if (cursor_count >= (e_enabled ? 160 : 320)) {
-      cursor_interrupt();
-      cursor_count = 0;
-   }
-   flash_count++;
-   if (flash_count >= 320) {
-      if (screen->flash) {
-         screen->flash(screen);
+   if (RPI_GetIrqController()->IRQ_basic_pending & RPI_BASIC_ARM_TIMER_IRQ) {
+
+      // Clear the ARM Timer interrupt
+      _data_memory_barrier();
+      RPI_GetArmTimer()->IRQClear = 0;
+      _data_memory_barrier();
+
+      // Service the VDI Queue
+      while (vdu_rp != vdu_wp) {
+         uint8_t ch = vdu_queue[vdu_rp];
+         fb_writec(ch);
+         vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
       }
-      flash_count = 0;
+
+      // Handle the flashing cursor
+      cursor_count++;
+      if (cursor_count >= (e_enabled ? 160 : 320)) {
+         cursor_interrupt();
+         cursor_count = 0;
+      }
+
+      // Handle the flashing colours
+      flash_count++;
+      if (flash_count >= 320) {
+         if (screen->flash) {
+            screen->flash(screen);
+         }
+         flash_count = 0;
+      }
    }
 }
 
