@@ -8,6 +8,11 @@
 #define FALSE 0
 #define TRUE  1
 
+typedef enum {
+   VDU_BEEB = (1 << 0),
+   VDU_PI   = (1 << 1)
+} vdu_device_t;
+
 void fb_initialize();
 
 void fb_writec_buffered(char c);
@@ -33,5 +38,9 @@ uint8_t fb_get_g_fg_col();
 void fb_wait_for_vsync();
 
 int fb_get_current_screen_mode();
+
+void fb_set_vdu_device(vdu_device_t device);
+
+void fb_add_swi_handlers();
 
 #endif

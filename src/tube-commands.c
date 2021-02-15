@@ -15,6 +15,11 @@
 // Include ARM Basic
 #include "armbasic.h"
 
+// For fb_set_vdu_device (used by *PIVDU)
+#include "framebuffer/framebuffer.h"
+
+// Include the framebuffer for fb_set_vdu_device
+
 const char *help = "Native ARM Tube Client ("RELEASENAME"/"GITVERSION")\r\n";
 
 const char *help_key = "ARM";
@@ -321,7 +326,7 @@ int doCmdPiVDU(const char *params) {
       // *FX 4,0 to enable cursor editing
       OS_Byte(4, 0, 0, NULL, NULL);
    }
-   setVDUDevice(device);
+   fb_set_vdu_device(device);
    // TODO: Need to add a host oswrch redirector (for output of OSCLI commands)
    return 0;
 }

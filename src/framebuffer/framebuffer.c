@@ -12,7 +12,6 @@
 #include "../startup.h"
 #include "../tube-defs.h"
 
-#include "swi_impl.h"
 #include "screen_modes.h"
 #include "framebuffer.h"
 #include "primitives.h"

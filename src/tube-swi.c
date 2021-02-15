@@ -34,9 +34,7 @@
 #include "tube-env.h"
 #include "tube-swi.h"
 #include "tube-isr.h"
-#include "framebuffer/framebuffer.h"
-
-#define NUM_SWI_HANDLERS 0x80
+#include "swi.h"
 
 const int osword_in_len[] = {
   0,   // OSWORD 0x00
@@ -315,7 +313,7 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
     SWIHandler_Table[num](reg);
   } else if ((num & 0xFFFFFF00) == 0x0100) {      // JGH
     // SWIs 0x100 - 0x1FF are OS_WriteI
-    tube_WriteC(&num);
+    SWIHandler_Table[SWI_OS_WriteC](&num);
   } else if (num == 0x42c80) {
     tube_BASICTrans_HELP(reg);
   } else if (num == 0x42c81) {
@@ -434,30 +432,11 @@ void user_exec_raw(volatile unsigned char *address) {
   }
 }
 
-static int vdu_device = 1;
-
-void setVDUDevice(int device) {
-   vdu_device = device;
-}
-
-int getVDUDevice() {
-   return vdu_device;
-}
-
-void writeVDU(unsigned char c) {
-   if (vdu_device & VDU_BEEB) {
-      sendByte(R1_ID, c);
-   }
-   if (vdu_device & VDU_PI) {
-      fb_writec((char) c);
-   }
-}
-
-char *write_string(char *ptr) {
+static char *write_string(char *ptr) {
   unsigned char c;
   // Output characters pointed to by R0, until a terminating zero
   while ((c = *ptr++) != 0) {
-    writeVDU(c);
+    sendByte(R1_ID, c);
   }
   return ptr;
 }
@@ -479,7 +458,7 @@ char *write_string(char *ptr) {
 // OSGBPB   R2: &16 block A                       block Cy A
 
 void tube_WriteC(unsigned int *reg) {
-  writeVDU((unsigned char)((reg[0]) & 0xff));
+  sendByte(R1_ID, (unsigned char)((reg[0]) & 0xff));
 }
 
 void tube_WriteS(unsigned int *reg) {
@@ -496,8 +475,8 @@ void tube_Write0(unsigned int *reg) {
 }
 
 void tube_NewLine(unsigned int *reg) {
-  writeVDU(0x0A);
-  writeVDU(0x0D);
+  sendByte(R1_ID, 0x0A);
+  sendByte(R1_ID, 0x0D);
 }
 
 void tube_ReadC(unsigned int *reg) {
@@ -830,118 +809,20 @@ void tube_Find(unsigned int *reg) {
 }
 
 void tube_ReadLine(unsigned int *reg) {
-
-  if (vdu_device & VDU_PI) {
-    int ptr = 0;
-    unsigned char c;
-    unsigned char esc;
-
-    int buf_size  = reg[1];
-    int min_ascii = reg[2] & 0xff;
-    int max_ascii = reg[3] & 0xff;
-
-    while (1) {
-
-      // OSRDCH R2: &00 Cy A
-      sendByte(R2_ID, 0x00);
-      esc = receiveByte(R2_ID) & 0x80;
-      c = receiveByte(R2_ID);
-
-      // Handle escape
-      if (esc) {
-        break;
-      }
-
-      // Handle delete
-      if (c == 127) {
-        if (ptr > 0) {
-          writeVDU(127);
-          ptr--;
-        }
-        continue;
-      }
-
-      // Handle delete line
-      if (c == 0x15) {
-        while (ptr > 0) {
-          writeVDU(127);
-          ptr--;
-        }
-        continue;
-      }
-
-      // Handle copy
-      if (c == 0x87) {
-        c = fb_get_edit_cursor_char();
-        // Invalid?
-        if (c == 0) {
-          continue;
-        }
-        // move the editing cursor to the right
-        writeVDU(0x15);
-        writeVDU(0x1B);
-        writeVDU(0x89);
-        writeVDU(0x06);
-      }
-
-      // Handle cursor keys just by echoing them, but not storing them
-      if (c >= 0x88 && c <= 0x8b) {
-        writeVDU(0x15);
-        writeVDU(0x1B);
-        writeVDU(c);
-        writeVDU(0x06);
-        continue;
-      }
-
-      // Store the character in the buffer
-      *(((char *)reg[0]) + ptr) = c;
-
-      // Handle return
-      if (c == 13) {
-        writeVDU(10);
-        writeVDU(13);
-        break;
-      }
-
-      // Handle the buffer being full
-      if (ptr >= buf_size) {
-        writeVDU(7);
-        continue;
-      }
-
-      // Echo the character
-      writeVDU(c);
-
-      // Handle invalid characters
-      if (c < min_ascii || c > max_ascii) {
-        continue;
-      }
-
-      // Move to next location in the buffer
-      ptr++;
-    }
-
-    // Exit with reg[1] to the length (excluding the terminator)
-    // and with the carry indicatingthe escape condition
-    reg[1] = ptr;
-    updateCarry(esc, reg);
-
-  } else {
-    unsigned char resp;
-    // OSWORD0  R2: &0A block                         &FF or &7F string &0D
-    sendByte(R2_ID, 0x0A);
-    sendByte(R2_ID, reg[3]);      // max ascii value
-    sendByte(R2_ID, reg[2]);      // min ascii value
-    sendByte(R2_ID, reg[1]);      // max line length
-    sendByte(R2_ID, 0x07);        // Buffer MSB - set as per Tube Ap Note 004
-    sendByte(R2_ID, 0x00);        // Buffer LSB - set as per Tube Ap Note 004
-    resp = receiveByte(R2_ID);    // 0x7F or 0xFF
-    updateCarry(resp & 0x80, reg);
-    // Was it valid?
-    if ((resp & 0x80) == 0x00) {
+   unsigned char resp;
+   // OSWORD0  R2: &0A block                         &FF or &7F string &0D
+   sendByte(R2_ID, 0x0A);
+   sendByte(R2_ID, reg[3]);      // max ascii value
+   sendByte(R2_ID, reg[2]);      // min ascii value
+   sendByte(R2_ID, reg[1]);      // max line length
+   sendByte(R2_ID, 0x07);        // Buffer MSB - set as per Tube Ap Note 004
+   sendByte(R2_ID, 0x00);        // Buffer LSB - set as per Tube Ap Note 004
+   resp = receiveByte(R2_ID);    // 0x7F or 0xFF
+   updateCarry(resp & 0x80, reg);
+   // Was it valid?
+   if ((resp & 0x80) == 0x00) {
       reg[1] = receiveString(R2_ID, '\r', (char *)reg[0]);
-    }
-  }
+   }
 }
 
 void tube_GetEnv(unsigned int *reg) {
@@ -1099,19 +980,19 @@ void tube_ChangeEnvironment(unsigned int *reg) {
 }
 
 void tube_Plot(unsigned int *reg) {
-    writeVDU(25);
-    writeVDU(reg[0]);
-    writeVDU(reg[1]);
-    writeVDU(reg[1] >> 8);
-    writeVDU(reg[2]);
-    writeVDU(reg[2] >> 8);
+    sendByte(R1_ID, 25);
+    sendByte(R1_ID, reg[0]);
+    sendByte(R1_ID, reg[1]);
+    sendByte(R1_ID, reg[1] >> 8);
+    sendByte(R1_ID, reg[2]);
+    sendByte(R1_ID, reg[2] >> 8);
 }
 
 void tube_WriteN(unsigned int *reg) {
   unsigned char *ptr = (unsigned char *)reg[0];
   int len = reg[1];
   while (len-- > 0) {
-    writeVDU(*ptr++);
+    sendByte(R1_ID, *ptr++);
   }
 }
 

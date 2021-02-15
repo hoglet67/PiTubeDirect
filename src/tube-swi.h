@@ -32,6 +32,8 @@
 // Type definition for a SWI handler
 typedef void (*SWIHandler_Type) (unsigned int *reg);
 
+#define NUM_SWI_HANDLERS 0x80
+
 // SWI handler table
 extern SWIHandler_Type SWIHandler_Table[];
 
@@ -44,13 +46,6 @@ void user_exec_raw(volatile unsigned char *address);
 void handler_not_defined(unsigned int num);
 void handler_not_implemented(char *type);
 void tube_SWI_Not_Known(unsigned int *reg);
-
-#define VDU_BEEB 1
-#define VDU_PI   2
-
-// VDU control
-void setVDUDevice(int device);
-int  getVDUDevice();
 
 // SWI handler prototypes
 void tube_WriteC(unsigned int *reg);            // &00
