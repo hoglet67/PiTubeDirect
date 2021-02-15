@@ -1,6 +1,8 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 
+#include <inttypes.h>
+
 // #define DEBUG_VDU
 
 #define FALSE 0
@@ -29,5 +31,7 @@ uint8_t fb_get_g_bg_col();
 uint8_t fb_get_g_fg_col();
 
 void fb_wait_for_vsync();
+
+int fb_get_current_screen_mode();
 
 #endif

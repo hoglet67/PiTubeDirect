@@ -37,7 +37,7 @@ __attribute__ ((noinline)) int OS_ReadC(unsigned int *flags) {
      "mrs     r2, cpsr         \r\n"
      "ldr     r1, %[flags]     \r\n"
      "teq     r1, #0           \r\n" // Skip updating flags if it's zero
-     "strne   r2, [r1]         \r\n"    
+     "strne   r2, [r1]         \r\n"
      :   // outputs
      :   // inputs
          [swinum]  "I" (SWI_OS_ReadC),
@@ -68,10 +68,10 @@ __attribute__ ((noinline)) void OS_Byte(unsigned int a, unsigned int x, unsigned
      "pop     {r4,lr}          \r\n"
      "ldr     r0, %[retx]      \r\n"
      "teq     r0, #0           \r\n" // Skip updating retx if it's zero
-     "strne   r1, [r0]         \r\n"    
+     "strne   r1, [r0]         \r\n"
      "ldr     r0, %[rety]      \r\n"
      "teq     r0, #0           \r\n" // Skip updating rety if it's zero
-     "strne   r2, [r1]         \r\n"    
+     "strne   r2, [r0]         \r\n"
      :   // outputs
      :   // inputs
          [swinum]  "I" (SWI_OS_Byte),
@@ -90,11 +90,11 @@ __attribute__ ((noinline)) void OS_ReadLine(const char *buffer, int buflen, int 
      "pop     {r4,lr}          \r\n"
      "ldr     r0, %[length]    \r\n"
      "teq     r0, #0           \r\n" // Skip updating length if it's zero
-     "strne   r1, [r0]         \r\n"    
+     "strne   r1, [r0]         \r\n"
      "mrs     r1, cpsr         \r\n"
      "ldr     r0, %[flags]     \r\n"
      "teq     r0, #0           \r\n" // Skip updating flags if it's zero
-     "strne   r1, [r0]         \r\n"    
+     "strne   r1, [r0]         \r\n"
      :   // outputs
      :   // inputs
          [swinum]  "I" (SWI_OS_ReadLine),
@@ -127,6 +127,20 @@ __attribute__ ((noinline)) void OS_GenerateError(const ErrorBlock_type *eblk) {
      :   // outputs
      :   // inputs
          [swinum]  "I" (SWI_OS_GenerateError)
+     :   // clobber
+     );
+}
+
+__attribute__ ((noinline)) int OS_ReadModeVariable(int mode, int variable) {
+  asm volatile
+    (
+     "push    {r4,lr}          \r\n"
+     "svc     %[swinum]        \r\n"
+     "pop     {r4,lr}          \r\n"
+     "mov     r0, r2           \r\n"
+     :   // outputs
+     :   // inputs
+         [swinum]  "I" (SWI_OS_ReadModeVariable)
      :   // clobber
      );
 }

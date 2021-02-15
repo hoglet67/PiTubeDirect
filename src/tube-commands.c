@@ -327,26 +327,30 @@ int doCmdPiVDU(const char *params) {
 }
 
 int doCmdPiLIFE(const char *params) {
-   int resolution = 0;
-   int generations = 0;
-   int mode = 0;
+   unsigned int mode = 1;
 
-   int nargs = sscanf(params, "%d %d %d", &resolution, &generations, &mode);
+   int generations = 0;
+   int sx          = 0;
+   int sy          = 0;
+
+   int nargs = sscanf(params, "%d %d %d", &generations, &sx, &sy);
 
    if (nargs < 1) {
-      resolution = 256;
-   }
-   if (nargs < 2) {
       generations = 1000;
    }
+   if (nargs < 2) {
+      sx = 256;
+   }
    if (nargs < 3) {
-      mode = 0;
+      sy = 256;
    }
 
-   int shift = (mode < 8) ? 2 : (mode & 1) ? 0 : 1;
+   // Read the current screen mode
+   OS_Byte(135, 0, 0, NULL, &mode);
 
-   int sx = resolution;
-   int sy = resolution;
+   // Read the s/y eigfactors
+   int xeigfactor = OS_ReadModeVariable(mode, 4);
+   int yeigfactor = OS_ReadModeVariable(mode, 5);
 
    uint8_t *a = malloc(sx * sy);
    uint8_t *b = malloc(sx * sy);
@@ -362,10 +366,6 @@ int doCmdPiLIFE(const char *params) {
          *p++ = random() & 1;
       }
    }
-
-   // MODE n
-   OS_WriteC(22);
-   OS_WriteC(mode);
 
    // Set Foreground colour to white (0xCC)
    // (GCOL 0,63)
@@ -400,10 +400,10 @@ int doCmdPiLIFE(const char *params) {
          if (*p++) {
             OS_WriteC(25);
             OS_WriteC(69);
-            OS_WriteC((x << shift) & 255);
-            OS_WriteC((x >> (8 - shift)) & 255);
-            OS_WriteC((y << shift) & 255);
-            OS_WriteC((y >> (8 - shift)) & 255);
+            OS_WriteC((x << xeigfactor) & 255);
+            OS_WriteC((x >> (8 - xeigfactor)) & 255);
+            OS_WriteC((y << yeigfactor) & 255);
+            OS_WriteC((y >> (8 - yeigfactor)) & 255);
          }
       }
    }
@@ -430,10 +430,10 @@ int doCmdPiLIFE(const char *params) {
             if (n != o) {
                OS_WriteC(25);
                OS_WriteC(n ? 69 : 71);
-               OS_WriteC((x << shift) & 255);
-               OS_WriteC((x >> (8 - shift)) & 255);
-               OS_WriteC((y << shift) & 255);
-               OS_WriteC((y >> (8 - shift)) & 255);
+               OS_WriteC((x << xeigfactor) & 255);
+               OS_WriteC((x >> (8 - xeigfactor)) & 255);
+               OS_WriteC((y << yeigfactor) & 255);
+               OS_WriteC((y >> (8 - yeigfactor)) & 255);
             }
          }
       }

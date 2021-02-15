@@ -96,6 +96,8 @@ file( GLOB core_files
     utils.h
     framebuffer/framebuffer.c
     framebuffer/framebuffer.h
+    framebuffer/swi_impl.c
+    framebuffer/swi_impl.h
     framebuffer/screen_modes.c
     framebuffer/screen_modes.h
     framebuffer/primitives.c

@@ -155,9 +155,6 @@ screen_mode_t *tt_get_screen_mode(int mode_num) {
       }
       tmp++;
    }
-   if (sm != NULL) {
-      set_font(sm, 0);
-   }
    return sm;
 }
 
@@ -226,6 +223,8 @@ static void set_flashing(int on) {
 // This is called on initialization, on mode change, and VDU 20
 // It sets the default palette, and resets the default display options
 static void tt_reset(screen_mode_t *screen) {
+   // Initialize the font
+   set_font(screen, 0);
    font_t *font = screen->font;
    // Set the rows/columns based on the the font
    tt.columns = screen->width / font->get_overall_w(font);
@@ -236,8 +235,6 @@ static void tt_reset(screen_mode_t *screen) {
    tt.reveal = 0;
    // Configure the default palette
    set_palette(screen, FALSE);
-   // Initialize the font
-   set_font(screen, 0);
 }
 
 static void update_double_height_counts() {

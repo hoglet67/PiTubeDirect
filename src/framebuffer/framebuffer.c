@@ -12,6 +12,7 @@
 #include "../startup.h"
 #include "../tube-defs.h"
 
+#include "swi_impl.h"
 #include "screen_modes.h"
 #include "framebuffer.h"
 #include "primitives.h"
@@ -1253,6 +1254,9 @@ void fb_initialize() {
       vdu_operation_table[i].handler = vdu_default;
    }
 
+   // Add the frame buffer specific SW calls to the SWI handler table
+   fb_add_swi_handlers();
+
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
 
@@ -1374,4 +1378,8 @@ void fb_wait_for_vsync() {
 
    // Clear the VSYNC flag
    vsync_flag = 0;
+}
+
+int fb_get_current_screen_mode() {
+   return screen->mode_num;
 }

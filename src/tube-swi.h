@@ -32,6 +32,9 @@
 // Type definition for a SWI handler
 typedef void (*SWIHandler_Type) (unsigned int *reg);
 
+// SWI handler table
+extern SWIHandler_Type SWIHandler_Table[];
+
 // Type definition for a generic function pointer
 typedef int (*FunctionPtr_Type) ();
 
@@ -42,8 +45,12 @@ void handler_not_defined(unsigned int num);
 void handler_not_implemented(char *type);
 void tube_SWI_Not_Known(unsigned int *reg);
 
+#define VDU_BEEB 1
+#define VDU_PI   2
+
 // VDU control
 void setVDUDevice(int device);
+int  getVDUDevice();
 
 // SWI handler prototypes
 void tube_WriteC(unsigned int *reg);            // &00
@@ -75,8 +82,11 @@ void tube_WriteN(unsigned int *reg);            // &46
 void tube_BASICTrans_HELP(unsigned int *reg);   // &42C80
 void tube_BASICTrans_Error(unsigned int *reg);  // &42C81
 void tube_BASICTrans_Message(unsigned int *reg);// &42C82
+void tube_SynchroniseCodeAreas(unsigned int *reg);// (&6E) -- OS_SynchroniseCodeAreas
 
-void OS_ScreenMode(unsigned int *reg);          // (&66) -- OS_ScreenMode
-void OS_SynchroniseCodeAreas(unsigned int *reg);// (&6E) -- OS_SynchroniseCodeAreas
+// Methods that might be useful to external SWI implementations
+// (e.g. in framebuffer/swi_impl.c)
+
+void updateCarry(unsigned char cyf, unsigned int *reg);
 
 #endif

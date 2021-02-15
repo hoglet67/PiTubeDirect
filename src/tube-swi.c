@@ -38,9 +38,6 @@
 
 #define NUM_SWI_HANDLERS 0x80
 
-#define VDU_BEEB 1
-#define VDU_PI   2
-
 const int osword_in_len[] = {
   0,   // OSWORD 0x00
   0,   //  1  =TIME
@@ -213,7 +210,7 @@ SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_SWI_Not_Known,         // (&62) -- OS_ClaimSWI
   tube_SWI_Not_Known,         // (&63) -- OS_ReleaseSWI
   tube_SWI_Not_Known,         // (&64) -- OS_Pointer
-  OS_ScreenMode,              // (&65) -- OS_ScreenMode
+  tube_SWI_Not_Known,         // (&65) -- OS_ScreenMode
   tube_SWI_Not_Known,         // (&66) -- OS_DynamicArea
   tube_SWI_Not_Known,         // (&67) -- OS_AbortTrap
   tube_SWI_Not_Known,         // (&68) -- OS_Memory
@@ -222,7 +219,7 @@ SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_SWI_Not_Known,         // (&6B) -- OS_MMUControl
   tube_SWI_Not_Known,         // (&6C) -- OS_ResyncTime
   tube_SWI_Not_Known,         // (&6D) -- OS_PlatformFeatures
-  OS_SynchroniseCodeAreas,    // (&6E) -- OS_SynchroniseCodeAreas
+  tube_SynchroniseCodeAreas,  // (&6E) -- OS_SynchroniseCodeAreas
   tube_SWI_Not_Known,         // (&6F) -- OS_CallASWI
   tube_SWI_Not_Known,         // (&70) -- OS_AMBControl
   tube_SWI_Not_Known,         // (&71) -- OS_CallASWIR12
@@ -443,6 +440,10 @@ void setVDUDevice(int device) {
    vdu_device = device;
 }
 
+int getVDUDevice() {
+   return vdu_device;
+}
+
 void writeVDU(unsigned char c) {
    if (vdu_device & VDU_BEEB) {
       sendByte(R1_ID, c);
@@ -622,24 +623,12 @@ void tube_Byte(unsigned int *reg) {
   unsigned char x = reg[1] & 0xff;
   unsigned char y = reg[2] & 0xff;
   if (a < 128) {
-
-    if (a == 19 && vdu_device & VDU_PI) {
-
-       // Enable interrupts
-       _enable_interrupts();
-
-       // Handle wait for vsync locally
-       fb_wait_for_vsync();
-
-    } else {
-
-       // OSBYTELO R2: &04 X A                           X
-       sendByte(R2_ID, 0x04);
-       sendByte(R2_ID, x);
-       sendByte(R2_ID, a);
-       x = receiveByte(R2_ID);
-       reg[1] = x;
-    }
+     // OSBYTELO R2: &04 X A                           X
+     sendByte(R2_ID, 0x04);
+     sendByte(R2_ID, x);
+     sendByte(R2_ID, a);
+     x = receiveByte(R2_ID);
+     reg[1] = x;
 
   } else {
     // OSBYTEHI R2: &06 X Y A                         Cy Y X
@@ -1126,41 +1115,7 @@ void tube_WriteN(unsigned int *reg) {
   }
 }
 
-void OS_ScreenMode(unsigned int *reg) {
-   if (reg[0] == 0) {
-      if (reg[1] < 256) {
-         fb_writec(22);
-         fb_writec(reg[1]);
-         return;
-      } else if ((reg[1] & 1) == 0) {
-         unsigned int *selector_block = (unsigned int *)reg[1];
-         unsigned int xpixels = *(selector_block + 1);
-         unsigned int ypixels = *(selector_block + 2);
-         unsigned int log2bpp = *(selector_block + 3);
-         printf("OS_ScreenMode: x=%08x y=%08x log2bpp=%08x\r\n",
-                xpixels, ypixels, log2bpp);
-         fb_writec(23);
-         fb_writec(22);
-         fb_writec(xpixels & 0xff);
-         fb_writec((xpixels >> 8) & 0xff);
-         fb_writec(ypixels & 0xff);
-         fb_writec((ypixels >> 8) & 0xff);
-         fb_writec(8);
-         fb_writec(8);
-         // number of colours:
-         /// log2bpp = 0: bpp = 1: n_colours = 2
-         /// log2bpp = 1: bpp = 2: n_colours = 4
-         /// log2bpp = 2: bpp = 4: n_colours = 16
-         /// log2bpp = 3: bpp = 8: n_colours = 256 (sent as 0x00)
-         fb_writec((1 << (1 << log2bpp)) & 0xff);
-         fb_writec(0);
-         return;
-      }
-   }
-   printf("OS_ScreenMode: Unsupported operation: r0=%08x r1=%08x\r\n", reg[0], reg[1]);
-}
-
-void OS_SynchroniseCodeAreas(unsigned int *reg) {
+void tube_SynchroniseCodeAreas(unsigned int *reg) {
    _invalidate_icache();
 }
 
