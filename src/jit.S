@@ -17,6 +17,8 @@
 // 0x0D100000 - 0x0D03FFFF 256K 4 bytes for each byte
 //                                to signal if byte has been jitted
 //                      either mov pc,r14 or B dejit16bit 1,21,22,31,32,33
+// This table also needs to wrap at 256K to cope with 65535 wrapping 
+// This is done with the MMU just like the RAM 
 
 #define JITTEDTABLE16 0x0d100000
 

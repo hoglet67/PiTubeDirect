@@ -24,7 +24,6 @@
 // used for the debug output
 #include "lib6502.h"
 #include "../darm/darm.h"
-#define JITLET 0x0d000000
 #define ADDRESS_MASK    ((unsigned int) 0xFFfffffFu)
 
 static unsigned char *copro_65tube_poweron_reset(void) {
@@ -58,6 +57,9 @@ void copro_65tubejit_emulator(int type) {
    // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
    map_4k_page(16, 0);
 
+   // Make the JITTEDTABLE16 table wrap as well.
+   map_4k_page((JITTEDTABLE16+(4*65536))/4096, JITTEDTABLE16/4096);
+
    while (copro == last_copro) {
       tube_reset_performance_counters();
       exec_65tubejit(mpu_memory,0 );
@@ -70,6 +72,8 @@ void copro_65tubejit_emulator(int type) {
 
    for ( unsigned int i= 0 ; i<=16; i++ )
      map_4k_page(i, i);
+
+   map_4k_page((JITTEDTABLE16+(4*65536))/4096, (JITTEDTABLE16+(4*65536))/4096);
 }
 
 void dis6502( int addr)
