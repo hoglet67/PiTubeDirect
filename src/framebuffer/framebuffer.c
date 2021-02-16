@@ -18,8 +18,8 @@
 #include "fonts.h"
 
 // Default colours
-#define COL_BLACK    0
-#define COL_WHITE   (screen->ncolour)
+#define COL_BLACK   (screen->black)
+#define COL_WHITE   (screen->white)
 
 // Current screen mode
 static screen_mode_t *screen = NULL;
@@ -84,6 +84,9 @@ static int8_t text_at_g_cursor;
 
 // Vsync flag
 static volatile int vsync_flag = 0;
+
+// Colour Flash Rate
+static int flash_rate = 500;
 
 // VDU Queue
 #define VDU_QSIZE 8192
@@ -485,6 +488,8 @@ static void change_mode(screen_mode_t *new_screen) {
    }
    // reset the screen to it's default state
    screen->reset(screen);
+   // update the colour flash rate
+   flash_rate = (screen->mode_flags & F_TELETEXT) ? 320 : 500;
    // initialze VDU variable
    init_variables();
    // clear screen
@@ -943,13 +948,29 @@ static void vdu_19(uint8_t *buf) {
    uint8_t b = buf[5];
    // See http://beebwiki.mdfs.net/VDU_19
    if (p < 16) {
-      int i = (p & 8) ? 127 : 255;
-      b = (p & 4) ? i : 0;
-      g = (p & 2) ? i : 0;
-      r = (p & 1) ? i : 0;
+      // Set to Physical Colour
+      b = (p & 4) ? 0xff : 0;
+      g = (p & 2) ? 0xff : 0;
+      r = (p & 1) ? 0xff : 0;
+      screen->set_colour(screen, l, r, g, b);
+      if (p & 8) {
+         screen->set_colour(screen, l + 0x100, 0xff - r, 0xff - g, 0xff - b);
+      } else {
+         screen->set_colour(screen, l + 0x100, r, g, b);
+      }
+   } else {
+      // Set to RGB Colour
+      if (p == 16 || p == 17) {
+         // First flashing physical colour
+         screen->set_colour(screen, l, r, g, b);
+      }
+      if (p == 16 || p == 18) {
+         // Second flasing physical colour
+         screen->set_colour(screen, l + 0x100, r, g, b);
+      }
    }
-   screen->set_colour(screen, l, r, g, b);
    screen->update_palette(screen, l, 1);
+   screen->update_palette(screen, l + 0x100, 1);
 }
 
 static void vdu_20(uint8_t *buf) {
@@ -1314,7 +1335,7 @@ void fb_process_vdu_queue() {
          vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
       }
 
-      // Handle the flashing cursor
+      // Handle the flashing cursor (toggles every 160ms / 320ms)
       cursor_count++;
       if (cursor_count >= (e_enabled ? 160 : 320)) {
          cursor_interrupt();
@@ -1322,8 +1343,10 @@ void fb_process_vdu_queue() {
       }
 
       // Handle the flashing colours
+      // - non-teletext mode, toggles every 500ms
+      // - teletext mode, 320ms on 960ms off
       flash_count++;
-      if (flash_count >= 320) {
+      if (flash_count >= flash_rate) {
          if (screen->flash) {
             screen->flash(screen);
          }

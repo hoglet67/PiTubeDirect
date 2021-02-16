@@ -87,6 +87,9 @@ typedef struct screen_mode {
 
    int pitch;       // filled in by init
 
+   int black;       // the colour value for black
+   int white;       // the colour value for white
+
    struct font *font; // the current font for this screen mode
 
    void            (*init)(struct screen_mode *screen);

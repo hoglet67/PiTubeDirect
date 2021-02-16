@@ -10,7 +10,7 @@
 // Otherwise, it is implemented as code that may block
 #define TUBE_ISR_STATE_MACHINE
 
-#define DEBUG_ARM 1
+#define DEBUG_ARM 0
 
 #define DEBUG_TRANSFER 0
 
