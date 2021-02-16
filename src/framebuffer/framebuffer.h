@@ -106,4 +106,12 @@ void fb_add_swi_handlers();
 
 int32_t fb_read_vdu_variable(vdu_variable_t v);
 
+void fb_set_flash_mark_time(uint8_t time);
+
+void fb_set_flash_space_time(uint8_t time);
+
+uint8_t fb_get_flash_mark_time();
+
+uint8_t fb_get_flash_space_time();
+
 #endif

@@ -85,8 +85,9 @@ static int8_t text_at_g_cursor;
 // Vsync flag
 static volatile int vsync_flag = 0;
 
-// Colour Flash Rate
-static int flash_rate = 500;
+// Colour Flash Rate (in 20ms fields)
+static volatile uint8_t flash_mark_time  = 25;
+static volatile uint8_t flash_space_time = 25;
 
 // VDU Queue
 #define VDU_QSIZE 8192
@@ -489,7 +490,13 @@ static void change_mode(screen_mode_t *new_screen) {
    // reset the screen to it's default state
    screen->reset(screen);
    // update the colour flash rate
-   flash_rate = (screen->mode_flags & F_TELETEXT) ? 320 : 500;
+   if (screen->mode_flags & F_TELETEXT) {
+      flash_mark_time  = 16;
+      flash_space_time = 48;
+   } else {
+      flash_mark_time  = 25;
+      flash_space_time = 25;
+   }
    // initialze VDU variable
    init_variables();
    // clear screen
@@ -709,6 +716,16 @@ static void vdu23_1(uint8_t *buf) {
       disable_cursors();
    }
    update_cursors();
+}
+
+static void vdu23_9(uint8_t *buf) {
+   // VDU 23,9: Set flash mark (on) time
+   flash_mark_time = buf[1];
+}
+
+static void vdu23_10(uint8_t *buf) {
+   // VDU 23,10: Set flash space (off) time
+   flash_space_time = buf[1];
 }
 
 static void vdu23_17(uint8_t *buf) {
@@ -1000,6 +1017,8 @@ static void vdu_23(uint8_t *buf) {
    } else {
       switch (buf[1]) {
       case  1: vdu23_1 (buf + 1); break;
+      case  9: vdu23_9 (buf + 1); break;
+      case 10: vdu23_10(buf + 1); break;
       case 17: vdu23_17(buf + 1); break;
       case 19: vdu23_19(buf + 1); break;
       case 22: vdu23_22(buf + 1); break;
@@ -1309,8 +1328,9 @@ void fb_writec_buffered(char ch) {
 }
 
 void fb_process_vdu_queue() {
-   static int flash_count = 0;
-   static int cursor_count = 0;
+   static uint8_t flash_count = 0;
+   static uint8_t flash_state = 0;
+   static uint8_t cursor_count = 0;
 
    if (RPI_GetIrqController()->IRQ_pending_2 & RPI_VSYNC_IRQ) {
       // Clear the vsync interrupt
@@ -1319,6 +1339,35 @@ void fb_process_vdu_queue() {
       _data_memory_barrier();
       // Note the vsync interrupt
       vsync_flag = 1;
+      // Handle the flashing cursor (toggles every 160ms / 320ms)
+      cursor_count++;
+      if (cursor_count >= (e_enabled ? 8 : 16)) {
+         cursor_interrupt();
+         cursor_count = 0;
+      }
+
+      // Handle the flashing colours
+      // - non-teletext mode, 500ms on, 500ms off
+      // - teletext mode, 320ms on 960ms off
+      // -
+      if (screen->flash) {
+         if (flash_mark_time == 0 || flash_space_time == 0) {
+            // An on/off time of zero is infinite and flashing stops
+            int tmp = (flash_mark_time == 0) ? 1 : 0;
+            if (tmp != flash_state) {
+               flash_state = tmp;
+               screen->flash(screen, tmp);
+               flash_count = 0;
+            }
+         } else {
+            flash_count++;
+            if (flash_count >= (flash_state ? flash_mark_time : flash_space_time)) {
+               flash_state = !flash_state;
+               screen->flash(screen, flash_state);
+               flash_count = 0;
+            }
+         }
+      }
    }
 
    if (RPI_GetIrqController()->IRQ_basic_pending & RPI_BASIC_ARM_TIMER_IRQ) {
@@ -1333,24 +1382,6 @@ void fb_process_vdu_queue() {
          uint8_t ch = vdu_queue[vdu_rp];
          fb_writec(ch);
          vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
-      }
-
-      // Handle the flashing cursor (toggles every 160ms / 320ms)
-      cursor_count++;
-      if (cursor_count >= (e_enabled ? 160 : 320)) {
-         cursor_interrupt();
-         cursor_count = 0;
-      }
-
-      // Handle the flashing colours
-      // - non-teletext mode, toggles every 500ms
-      // - teletext mode, 320ms on 960ms off
-      flash_count++;
-      if (flash_count >= flash_rate) {
-         if (screen->flash) {
-            screen->flash(screen);
-         }
-         flash_count = 0;
       }
    }
 }
@@ -1601,4 +1632,20 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
       return text_height;
    }
    return 0;
+}
+
+void fb_set_flash_mark_time(uint8_t time) {
+   flash_mark_time = time;
+}
+
+void fb_set_flash_space_time(uint8_t time) {
+   flash_space_time = time;
+}
+
+uint8_t fb_get_flash_mark_time() {
+   return flash_mark_time;
+}
+
+uint8_t fb_get_flash_space_time() {
+   return flash_space_time;
 }

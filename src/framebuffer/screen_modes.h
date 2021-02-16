@@ -96,7 +96,7 @@ typedef struct screen_mode {
    void           (*reset)(struct screen_mode *screen);
    void           (*clear)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
    void          (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
-   void           (*flash)(struct screen_mode *screen);
+   void           (*flash)(struct screen_mode *screen, int mark);
    void      (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
    pixel_t   (*get_colour)(struct screen_mode *screen, colour_index_t index);
    void  (*update_palette)(struct screen_mode *screen, colour_index_t offset, unsigned int num_colours);

@@ -117,6 +117,18 @@ static void OS_Byte_impl(unsigned int *reg) {
      // Handle VDU Specific OSBYTEs if the Pi VDU is enabled
 
      switch (reg[0] & 0xff) {
+     case 9:
+        // Set the flash mark time
+        reg[2] = fb_get_flash_mark_time();
+        fb_set_flash_mark_time(reg[1] & 0xff);
+        break; // pass through to host
+
+     case 10:
+        // Set the flash mark time
+        reg[2] = fb_get_flash_space_time();
+        fb_set_flash_space_time(reg[1] & 0xff);
+        break; // pass through to host
+
      case 19:
         // Wait for VSYNC
         _enable_interrupts(); // re-enable interrupts or we'll hang fr ever

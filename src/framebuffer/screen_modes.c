@@ -1103,11 +1103,8 @@ int default_read_character(screen_mode_t *screen, int col, int row) {
 void default_unknown_vdu(screen_mode_t *screen, uint8_t *buf) {
 }
 
-// switch palettes every ~500ms
-void default_flash(screen_mode_t *screen) {
-   static int flag = 0;
-   update_palette(screen, flag ? NUM_COLOURS : 0, screen->ncolour + 1);
-   flag = !flag;
+void default_flash(screen_mode_t *screen, int mark) {
+   update_palette(screen, mark ? 0 : NUM_COLOURS, screen->ncolour + 1);
 }
 
 // ==========================================================================
