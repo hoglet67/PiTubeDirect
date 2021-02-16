@@ -281,11 +281,11 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
      c1_r = c2_g = c3_b = 1.0;
      c1_g = c2_b = c3_r = 0.0;
      c1_b = c2_r = c3_g = 0.0;
-  } else if (screen->bpp == 32) {
+  } else if (screen->log2bpp == 5) {
      c1_r = c2_r = c3_r = (float) ((colour >> 16) & 0xff) / 255.0f;
      c1_g = c2_g = c3_g = (float) ((colour >>  8) & 0xff) / 255.0f;
      c1_b = c2_b = c3_b = (float) ((colour      ) & 0xff) / 255.0f;
-  } else if (screen->bpp == 16) {
+  } else if (screen->log2bpp == 4) {
      c1_r = c2_r = c3_r = (float) ((colour >> 11) & 0x1f) / 31.0f;
      c1_g = c2_g = c3_g = (float) ((colour >>  5) & 0x3f) / 63.0f;
      c1_b = c2_b = c3_b = (float) ((colour      ) & 0x1f) / 31.0f;
@@ -454,9 +454,9 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
   addword(&p, get_fb_address()); // framebuffer addresss
   addshort(&p, w); // width
   addshort(&p, h); // height
-  if (screen->bpp == 32) {
+  if (screen->log2bpp == 5) {
      addbyte(&p, 0x04); // framebuffer mode (linear rgba8888)
-  } else if (screen->bpp == 16) {
+  } else if (screen->log2bpp == 4) {
      addbyte(&p, 0x08); // framebuffer mode (linear bgr565)
   } else {
      addbyte(&p, 0x08); // framebuffer mode (linear bgr565) TODO: This is wrong!
@@ -470,9 +470,9 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
       // Load tile buffer general
       addbyte(&p, 29);
       addbyte(&p, 0x01); // format = raster format; buffer to load = colour
-      if (screen->bpp == 32) {
+      if (screen->log2bpp == 5) {
          addbyte(&p, 0x00); // Pixel colour format = rgba8888
-      } else if (screen->bpp == 16) {
+      } else if (screen->log2bpp == 4) {
          addbyte(&p, 0x02); // Pixel colour format = bgr565
       } else {
          addbyte(&p, 0x02); // Pixel colour format = bgr565 TODO: This is wrong!

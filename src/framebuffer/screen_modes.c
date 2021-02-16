@@ -41,7 +41,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 256,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -51,7 +52,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 256,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -61,17 +63,20 @@ static screen_mode_t screen_modes[] = {
       .height        = 256,
       .xeigfactor    = 3,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 4,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 3,
+      .mode_flags    = F_NON_GRAPHICS | F_BBC_GAP,
       .width         = 640,
       .height        = 256,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -81,7 +86,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 256,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -91,37 +97,32 @@ static screen_mode_t screen_modes[] = {
       .height        = 256,
       .xeigfactor    = 3,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 4,
       .ncolour       = 3,
       .par           = 0.0f
    },
    {
       .mode_num      = 6,
+      .mode_flags    = F_NON_GRAPHICS | F_BBC_GAP,
       .width         = 320,
       .height        = 256,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
-   {
-      .mode_num      = 7,
-      .width         = 320,
-      .height        = 256,
-      .xeigfactor    = 2,
-      .yeigfactor    = 2,
-      .bpp           = 8,
-      .ncolour       = 15,
-      .par           = 0.0f
-   },
+   // mode 7 is implemented in teletext.c
    {
       .mode_num      = 8,
       .width         = 640,
       .height        = 256,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -131,27 +132,32 @@ static screen_mode_t screen_modes[] = {
       .height        = 256,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 10,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 160,
       .height        = 256,
       .xeigfactor    = 3,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 4,
       .ncolour       = 255,
       .par           = 0.0f
    },
    {
       .mode_num      = 11,
+      .mode_flags    = F_GAP,
       .width         = 640,
       .height        = 250,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -161,37 +167,44 @@ static screen_mode_t screen_modes[] = {
       .height        = 256,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 13,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 320,
       .height        = 256,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
    {
       .mode_num      = 14,
+      .mode_flags    = F_GAP,
       .width         = 640,
       .height        = 250,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 15,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 640,
       .height        = 256,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
@@ -201,17 +214,20 @@ static screen_mode_t screen_modes[] = {
       .height        = 256,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 17,
+      .mode_flags    = F_GAP,
       .width         = 1056,
       .height        = 250,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
@@ -221,7 +237,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -231,7 +248,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -241,17 +259,20 @@ static screen_mode_t screen_modes[] = {
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 21,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 640,
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
@@ -261,27 +282,32 @@ static screen_mode_t screen_modes[] = {
       .height        = 288,
       .xeigfactor    = 0,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 23,
+      .mode_flags    = F_HIRES_MONO | F_DOUBLE_HEIGHT_VDU_CHARS,
       .width         = 1152,
       .height        = 892,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
    {
       .mode_num      = 24,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 1056,
       .height        = 256,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
@@ -291,7 +317,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 480,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -301,7 +328,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 480,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -311,17 +339,20 @@ static screen_mode_t screen_modes[] = {
       .height        = 480,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 28,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 640,
       .height        = 480,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
@@ -331,7 +362,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 600,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -341,7 +373,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 600,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -351,17 +384,20 @@ static screen_mode_t screen_modes[] = {
       .height        = 600,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 32,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 800,
       .height        = 600,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
@@ -371,7 +407,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 288,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -381,7 +418,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 288,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -391,17 +429,20 @@ static screen_mode_t screen_modes[] = {
       .height        = 288,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 36,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 768,
       .height        = 288,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
@@ -411,7 +452,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 352,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -421,7 +463,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 352,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -431,17 +474,20 @@ static screen_mode_t screen_modes[] = {
       .height        = 352,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 40,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 896,
       .height        = 352,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
@@ -451,7 +497,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 352,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -461,7 +508,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 352,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -471,7 +519,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 352,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
@@ -481,7 +530,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 200,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -491,7 +541,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 200,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -501,17 +552,20 @@ static screen_mode_t screen_modes[] = {
       .height        = 200,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 47,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 360,
       .height        = 480,
       .xeigfactor    = 2,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
@@ -521,17 +575,20 @@ static screen_mode_t screen_modes[] = {
       .height        = 480,
       .xeigfactor    = 2,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 49,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 320,
       .height        = 480,
       .xeigfactor    = 2,
       .yeigfactor    = 1,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
@@ -541,7 +598,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 240,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 1,
       .par           = 0.0f
    },
@@ -551,7 +609,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 240,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 3,
       .par           = 0.0f
    },
@@ -561,39 +620,46 @@ static screen_mode_t screen_modes[] = {
       .height        = 240,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 15,
       .par           = 0.0f
    },
    {
       .mode_num      = 53,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 320,
       .height        = 240,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
-      .bpp           = 8,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
       .ncolour       = 255,
       .par           = 0.0f
    },
    // 8 bpp
    {
       .mode_num      = 64,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 640,
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 8,
-      .ncolour       = 0xff,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
+      .ncolour       = 255,
       .par           = 0.0f
    },
    {
       .mode_num      = 65,
+      .mode_flags    = F_FULL_PALETTE,
       .width         = 1280,
       .height        = 1024,
       .xeigfactor    = 0,
       .yeigfactor    = 0,
-      .bpp           = 8,
-      .ncolour       = 0xff,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
+      .ncolour       = 255,
       .par           = 0.0f
    },
    // 16 bpp
@@ -603,7 +669,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 16,
+      .log2bpp       = 4,
+      .log2bpc       = 4,
       .ncolour       = 0xffff,
       .par           = 0.0f
    },
@@ -613,7 +680,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 1024,
       .xeigfactor    = 0,
       .yeigfactor    = 0,
-      .bpp           = 16,
+      .log2bpp       = 4,
+      .log2bpc       = 4,
       .ncolour       = 0xffff,
       .par           = 0.0f
    },
@@ -624,7 +692,8 @@ static screen_mode_t screen_modes[] = {
       .height        = 512,
       .xeigfactor    = 1,
       .yeigfactor    = 1,
-      .bpp           = 32,
+      .log2bpp       = 5,
+      .log2bpc       = 5,
       .ncolour       = 0xffffff,
       .par           = 0.0f
    },
@@ -634,24 +703,29 @@ static screen_mode_t screen_modes[] = {
       .height        = 1024,
       .xeigfactor    = 0,
       .yeigfactor    = 0,
-      .bpp           = 32,
+      .log2bpp       = 5,
+      .log2bpc       = 5,
       .ncolour       = 0xffffff,
       .par           = 0.0f
    },
    {
-      .mode_num     = CUSTOM_8BPP_SCREEN_MODE,
-      .bpp          = 8
+      .mode_num      = CUSTOM_8BPP_SCREEN_MODE,
+      .mode_flags    = F_FULL_PALETTE,
+      .log2bpp       = 3,
+      .log2bpc       = 3,
    },
    {
-      .mode_num     = CUSTOM_16BPP_SCREEN_MODE,
-      .bpp          = 16
+      .mode_num      = CUSTOM_16BPP_SCREEN_MODE,
+      .log2bpp       = 4,
+      .log2bpc       = 4,
    },
    {
-      .mode_num     = CUSTOM_32BPP_SCREEN_MODE,
-      .bpp          = 32
+      .mode_num      = CUSTOM_32BPP_SCREEN_MODE,
+      .log2bpp       = 5,
+      .log2bpc       = 5,
    },
    {
-      .mode_num     = -1,
+      .mode_num      = -1,
    }
 };
 
@@ -852,7 +926,7 @@ void default_init_screen(screen_mode_t *screen) {
     RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER);
     RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, screen->width, screen->height );
     RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height * 2 ); // TODO: FIX ME (remove the * 2)
-    RPI_PropertyAddTag(TAG_SET_DEPTH,         screen->bpp );
+    RPI_PropertyAddTag(TAG_SET_DEPTH, (1 << screen->log2bpp));
     RPI_PropertyAddTag(TAG_GET_PITCH );
     RPI_PropertyAddTag(TAG_GET_PHYSICAL_SIZE );
     RPI_PropertyAddTag(TAG_GET_DEPTH );
@@ -906,7 +980,7 @@ void default_reset_screen(screen_mode_t *screen) {
     init_colour_table(screen);
 
     /* Update the palette (only in 8-bpp modes) */
-    if (screen->bpp == 8) {
+    if (screen->log2bpp == 3) {
        update_palette(screen, 0, NUM_COLOURS);
     }
 
@@ -1074,15 +1148,15 @@ screen_mode_t *get_screen_mode(int mode_num) {
       if (!sm->unknown_vdu) {
          sm->unknown_vdu = default_unknown_vdu;
       }
-      switch (sm->bpp) {
-      case 16:
+      switch (sm->log2bpp) {
+      case 4:
          sm->set_colour     = default_set_colour_16bpp;
          sm->get_colour     = default_get_colour_16bpp;
          sm->update_palette = null_handler;
          sm->set_pixel      = default_set_pixel_16bpp;
          sm->get_pixel      = default_get_pixel_16bpp;
          break;
-      case 32:
+      case 5:
          sm->set_colour     = default_set_colour_32bpp;
          sm->get_colour     = default_get_colour_32bpp;
          sm->update_palette = null_handler;
@@ -1106,4 +1180,51 @@ screen_mode_t *get_screen_mode(int mode_num) {
 
 uint32_t get_fb_address() {
    return (uint32_t) fb;
+}
+
+int32_t fb_read_mode_variable(mode_variable_t v, screen_mode_t *screen) {
+   switch (v) {
+   case M_MODEFLAGS:
+      // Assorted flags
+      return screen->mode_flags;
+   case M_SCRRCOL:
+      // Number of text columns -1, assumes system font is 8x8
+      return (screen->width >> 3) - 1;
+   case M_SCRBROW:
+      // Number of text rows -1, assumes system font is 8x8
+      return (screen->height >> 3) - 1;
+   case M_NCOLOUR:
+      // Maximum logical colour
+      return screen->ncolour;
+   case M_XEIGFACTOR:
+      // Conversion factor between OS units and pixels
+      return screen->xeigfactor;
+   case M_YEIGFACTOR:
+      // Conversion factor between OS units and pixels
+      return screen->yeigfactor;
+   case M_LINELENGTH:
+      // Number of bytes per pixel row
+      return screen->width * (1 << (screen->log2bpp - 3));
+   case M_SCREENSIZE:
+      // Number of bytes for entire screen display
+      return screen->height * screen->width * (1 << (screen->log2bpp - 3));
+   case M_YSHIFTSIZE:
+      // Deprecated. Do not use
+      return 0;
+   case M_LOG2BPP:
+      // Log base 2 of bits per pixel
+      return screen->log2bpp;
+   case M_LOG2BPC:
+      // Log base 2 of bytes per character
+      return screen->log2bpc;
+   case M_XWINDLIMIT:
+      // Number of x pixels on screen -1
+      return screen->width - 1;
+   case M_YWINDLIMIT:
+      // Number of y pixels on screen -1
+      return screen->height - 1;
+   default:
+      return 0;
+   }
+   return 0;
 }

@@ -34,6 +34,9 @@ static int16_t cursor_height;
 // Text area clip window
 static t_clip_window_t t_window;
 
+#define COLOUR_MASK 0x3f
+#define TINT_MASK   0xc0
+
 // Character colour
 static uint8_t c_bg_col;
 static uint8_t c_fg_col;
@@ -291,7 +294,8 @@ static void reset_areas() {
    g_clip_window_t default_graphics_window = {0, 0, (screen->width << screen->xeigfactor) - 1, (screen->height << screen->yeigfactor) - 1};
    set_graphics_area(screen, &default_graphics_window);
    // Initialize the default plot mode to normal plotting
-   prim_set_graphics_plotmode(0);
+   prim_set_fg_plotmode(0);
+   prim_set_bg_plotmode(0);
    // Home the text cursor
    c_x_pos = t_window.left;
    c_y_pos = t_window.top;
@@ -708,19 +712,19 @@ static void vdu23_17(uint8_t *buf) {
    switch (buf[1]) {
    case 0:
       // VDU 23,17,0 - sets tint for text foreground colour
-      c_fg_col = ((c_fg_col) & 0x3f) | (buf[2] & 0xc0);
+      c_fg_col = ((c_fg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK);
       break;
    case 1:
       // VDU 23,17,1 - sets tint for text background colour
-      c_bg_col = ((c_bg_col) & 0x3f) | (buf[2] & 0xc0);
+      c_bg_col = ((c_bg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK);
       break;
    case 2:
       // VDU 23,17,2 - sets tint for graphics foreground colour
-      g_fg_col = ((g_fg_col) & 0x3f) | (buf[2] & 0xc0);
+      g_fg_col = ((g_fg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK);
       break;
    case 3:
       // VDU 23,17,3 - sets tint for graphics background colour
-      g_bg_col = ((g_bg_col) & 0x3f) | (buf[2] & 0xc0);
+      g_bg_col = ((g_bg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK);
       break;
    case 4:
       // TODO: VDU 23,17,4 - Select colour patterns
@@ -922,11 +926,12 @@ static void vdu_17(uint8_t *buf) {
 static void vdu_18(uint8_t *buf) {
    uint8_t mode = buf[1];
    uint8_t col  = buf[2];
-   prim_set_graphics_plotmode(mode);
    if (col & 128) {
       g_bg_col = col & 63;
+      prim_set_bg_plotmode(mode);
    } else {
       g_fg_col = col & 63;
+      prim_set_fg_plotmode(mode);
    }
 }
 
@@ -1405,4 +1410,172 @@ void fb_wait_for_vsync() {
 
 int fb_get_current_screen_mode() {
    return screen->mode_num;
+}
+
+int32_t fb_read_vdu_variable(vdu_variable_t v) {
+   if (v < 0x80) {
+      return fb_read_mode_variable(v, screen);
+   }
+
+   font_t *font = screen->font;
+   // Anything in internal coordinates has 0,0 at the top left
+   int ysize = (screen->height << screen->yeigfactor) - 1;
+   switch (v) {
+   case V_GWLCOL:
+      // Graphics Window – Lefthand Column (ic)
+      return g_window.left;
+   case V_GWBROW:
+      // Graphics Window – Bottom Row  (ic)
+      return ysize - g_window.bottom;
+   case V_GWRCOL:
+      // Graphics Window – Righthand Column  (ic)
+      return g_window.right;
+   case V_GWTROW:
+      // Graphics Window – Top Row (ic)
+      return ysize - g_window.top;
+   case V_TWLCOL:
+      // Text Window – Lefthand Column
+      return t_window.left;
+   case V_TWBROW:
+      // Text Window – Bottom Row
+      return t_window.bottom;
+   case V_TWRCOL:
+      // Text Window – Righthand Column
+      return t_window.right;
+   case V_TWTROW:
+      // Text Window – Top Row
+      return t_window.top;
+   case V_ORGX:
+      // X coord of graphics Origin  (ec)
+      return g_x_origin;
+   case V_ORGY:
+      // Y coord of graphics Origin  (ec)
+      return g_y_origin;
+   case V_GCSX:
+      // Graphics Cursor X coord (ec)
+      return g_x_pos - g_x_origin;
+   case V_GCSY:
+      // Graphics Cursor Y coord (ec)
+      return g_y_pos - g_y_origin;
+   case V_OLDERCSX:
+      // Oldest gr. Cursor X coord (ic)
+      return g_x_pos_last2;
+   case V_OLDERCSY:
+      // Oldest gr. Cursor Y coord (ic)
+      return ysize - g_y_pos_last2;
+   case V_OLDCSX:
+      // Previous gr. Cursor X coord (ic)
+      return g_x_pos_last1;
+   case V_OLDCSY:
+      // Previous gr. Cursor Y coord (ic)
+      return ysize - g_y_pos_last1;
+   case V_GCSIX:
+      // Graphics Cursor X coord (ic)
+      return g_x_pos;
+   case V_GCSIY:
+      // Graphics Cursor Y coord (ic)
+      return ysize - g_y_pos;
+   case V_NEWPTX:
+      // New point X coord (ic) - TODO: no idea what this is
+      return 0;
+   case V_NEWPTY:
+      // New point Y coord (ic) - TODO: no idea what this is
+      return 0;
+   case V_SCREENSTART:
+      // As used by VDU drivers
+      return (int)(get_fb_address());
+   case V_DISPLAYSTART:
+      // As used by display hardware
+      return (int)(get_fb_address());
+   case V_TOTALSCREENSIZE:
+      return screen->height * screen->pitch;
+   case V_GPLFMD:
+      // GCOL action for foreground col
+      return prim_get_fg_plotmode();
+   case V_GPLBMD:
+      // GCOL action for background col
+      return prim_get_bg_plotmode();
+   case V_GFCOL:
+      // Graphics foreground col
+      return g_fg_col & COLOUR_MASK;
+   case V_GBCOL:
+      // Graphics background col
+      return g_bg_col & COLOUR_MASK;
+   case V_TFORECOL:
+      // Text foreground col
+      return c_fg_col & COLOUR_MASK;
+   case V_TBACKCOL:
+      // Text background col
+      return c_bg_col & COLOUR_MASK;
+   case V_GFTINT:
+      // Graphics foreground tint
+      return g_fg_col & TINT_MASK;
+   case V_GBTINT:
+      // Graphics background tint
+      return g_bg_col & TINT_MASK;
+   case V_TFTINT:
+      // Text foreground tint
+      return c_fg_col & TINT_MASK;
+   case V_TBTINT:
+      // Text background tint
+      return c_bg_col & TINT_MASK;
+   case V_MAXMODE:
+      // Highest built-in numbered mode known to kernel - TODO
+      return 95;
+   case V_GCHARSIZEX:
+      // X size of VDU5 chars (pixels)
+      return font->get_overall_w(font);
+   case V_GCHARSIZEY:
+      // Y size of VDU5 chars (pixels)
+      return font->get_overall_h(font);
+   case V_GCHARSPACEX:
+      // X spacing of VDU5 chars (pixels)
+      return 0;
+   case V_GCHARSPACEY:
+      // Y spacing of VDU5 chars (pixels)
+      return 0;
+   case V_HLINEADDR:
+      // Address of horizontal line-draw routine - NOT IMPLEMENTED
+      return 0;
+   case V_TCHARSIZEX:
+      // X size of VDU4 chars (pixels)
+      return font->get_overall_w(font);
+   case V_TCHARSIZEY:
+      // Y size of VDU4 chars (pixels)
+      return font->get_overall_h(font);
+   case V_TCHARSPACEX:
+      // X spacing of VDU4 chars (pixels)
+      return 0;
+   case V_TCHARSPACEY:
+      // Y spacing of VDU4 chars (pixels)
+      return 0;
+   case V_GCOLORAEORADDR:
+      // Addr of colour blocks for current GCOLs - NOT IMPLEMENTED
+      return 0;
+   case V_VIDCCLOCKSPEED:
+      // VIDC clock speed in kHz3 - NOT IMPLEMENTED
+      return 0;
+   case V_LEFT:
+      // border size
+      return 0;
+   case V_BOTTOM:
+      // border size
+      return 0;
+   case V_RIGHT:
+      // border size
+      return 0;
+   case V_TOP:
+      // border size
+      return 0;
+   case V_CURRENT:
+      // GraphicsV driver number - NOT IMPLEMENTED
+      return 0;
+   case V_WINDOWWIDTH:
+      //  Width of text window in chars
+      return text_width;
+   case V_WINDOWHEIGHT:
+      //  Height of text window in chars
+      return text_height;
+   }
+   return 0;
 }

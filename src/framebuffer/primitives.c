@@ -10,7 +10,8 @@
 #include "v3d.h"
 #endif
 
-static uint8_t g_plotmode;
+static plotmode_t g_fg_plotmode;
+static plotmode_t g_bg_plotmode;
 
 static int16_t g_x_min;
 static int16_t g_y_min;
@@ -78,9 +79,9 @@ static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
    if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
       return;
    }
-   if (g_plotmode != PM_NORMAL) {
+   if (g_fg_plotmode != PM_NORMAL) {
       pixel_t existing = screen->get_pixel(screen, x, y);
-      switch (g_plotmode) {
+      switch (g_fg_plotmode) {
       case PM_OR:
          colour |= existing;
          break;
@@ -92,6 +93,8 @@ static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
          break;
       case PM_INVERT:
          colour = existing ^ 0xFF;
+         break;
+      default:
          break;
       }
    }
@@ -523,8 +526,20 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 // Public methods
 // ==========================================================================
 
-void prim_set_graphics_plotmode(uint8_t plotmode) {
-   g_plotmode = plotmode;
+void prim_set_fg_plotmode(plotmode_t plotmode) {
+   g_fg_plotmode = plotmode;
+}
+
+plotmode_t prim_get_fg_plotmode() {
+   return g_fg_plotmode;
+}
+
+void prim_set_bg_plotmode(plotmode_t plotmode) {
+   g_bg_plotmode = plotmode;
+}
+
+plotmode_t prim_get_bg_plotmode() {
+   return g_bg_plotmode;
 }
 
 void prim_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
@@ -768,7 +783,7 @@ void prim_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t 
 void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
    int tmp;
 #ifdef USE_V3D
-   if (screen->bpp > 8) {
+   if (screen->log2bpp > 3) {
       // Flip y axis
       y1 = screen->height - 1 - y1;
       y2 = screen->height - 1 - y2;
@@ -975,7 +990,7 @@ void prim_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int
       len = screen->width - x3;
    }
    // Convert row length from pixels to bytes
-   len *= (screen->bpp >> 3);
+   len *= (1 << (screen->log2bpp - 3));
    uint8_t *fb = (uint8_t *)get_fb_address();
    for (int y = 0; y < rows; y++) {
       if (y3 < y1) {
@@ -1122,7 +1137,7 @@ void prim_define_sprite(screen_mode_t *screen, int n, int x1, int y1, int x2, in
    // Memory allocation
    sprite->width = x2 - x1 + 1;
    sprite->height = y2 - y1 + 1;
-   size_t size = sprite->width * sprite->height * (screen->bpp >> 3);
+   size_t size = sprite->width * sprite->height * (1 << (screen->log2bpp - 3));
    if (sprite->data == NULL || sprite->data_size < size) {
       if (sprite->data != NULL) {
          free(sprite->data);
@@ -1132,14 +1147,14 @@ void prim_define_sprite(screen_mode_t *screen, int n, int x1, int y1, int x2, in
    }
 
    // Read the sprite
-   if (screen->bpp == 16) {
+   if (screen->log2bpp == 4) {
       uint16_t *data = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
          for (int xp = 0; xp < sprite->width; xp++) {
             *data++ = get_pixel(screen, x1 + xp, y1 + xp);
          }
       }
-   } else if (screen->bpp == 32)  {
+   } else if (screen->log2bpp == 5)  {
       uint32_t *data = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
          for (int xp = 0; xp < sprite->width; xp++) {
@@ -1182,14 +1197,14 @@ void prim_draw_sprite(screen_mode_t *screen, int n, int x, int y) {
    printf("drawing sprite %d at %d,%d\r\n", n, x, y);
 
    // Write the sprite, allowing clipping to take care of off-screen pixels
-   if (screen->bpp == 16) {
+   if (screen->log2bpp == 4) {
       uint16_t *data = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
          for (int xp = 0; xp < sprite->width; xp++) {
             set_pixel(screen, x + xp, y + yp, *data++);
          }
       }
-   } else if (screen->bpp == 32)  {
+   } else if (screen->log2bpp == 5)  {
       uint32_t *data = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
          for (int xp = 0; xp < sprite->width; xp++) {

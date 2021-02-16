@@ -80,11 +80,13 @@ static screen_mode_t teletext_screen_modes[] = {
    // Standard 40x25 teletext display
    {
       .mode_num        = 7,
+      .mode_flags      = F_NON_GRAPHICS | F_TELETEXT,
       .width           = 480,
       .height          = 500,
       .xeigfactor      = 1,
       .yeigfactor      = 1,
-      .bpp             = 8,
+      .log2bpp         = 3,
+      .log2bpc         = 3,
       .ncolour         = 255,
       .par             = 1.25f, // 5:4
       .reset           = tt_reset,
@@ -98,11 +100,13 @@ static screen_mode_t teletext_screen_modes[] = {
    // Wide 60x25 teletext display
    {
       .mode_num        = 70,
+      .mode_flags      = F_NON_GRAPHICS | F_TELETEXT,
       .width           = 720,
       .height          = 500,
       .xeigfactor      = 1,
       .yeigfactor      = 1,
-      .bpp             = 8,
+      .log2bpp         = 3,
+      .log2bpc         = 3,
       .ncolour         = 255,
       .par             = 1.25f, // 5:4
       .reset           = tt_reset,
@@ -116,11 +120,13 @@ static screen_mode_t teletext_screen_modes[] = {
    // Wide 80x25 teletext display
    {
       .mode_num        = 71,
+      .mode_flags      = F_NON_GRAPHICS | F_TELETEXT,
       .width           = 960,
       .height          = 500,
       .xeigfactor      = 1,
       .yeigfactor      = 1,
-      .bpp             = 8,
+      .log2bpp         = 3,
+      .log2bpc         = 3,
       .ncolour         = 255,
       .par             = 1.00f, // 1:1
       .reset           = tt_reset,

@@ -17,15 +17,6 @@ static vdu_device_t vdu_device = 1;
 // Static methods
 // ==========================================================================
 
-static int logbase2(int i) {
-   int log2 = 0;
-   while (i > 1) {
-      i >>= 1;
-      log2++;
-   }
-   return log2;
-}
-
 static void write_string(char *ptr) {
   char c;
   while ((c = *ptr++) != 0) {
@@ -322,67 +313,31 @@ static void OS_ScreenMode_impl(unsigned int *reg) {
 
 static void OS_ReadModeVariable_impl(unsigned int *reg) {
    screen_mode_t *screen = get_screen_mode(reg[0]);
-
-   // Return carry set if the screen mode could not be found
-   if (screen == NULL) {
+   // Return carry set if the screen mode could not be found, or unkonw VDU variable
+   if (screen == NULL || reg[1] >= NUM_MODE_VARS) {
       updateCarry(1, reg);
-      return;
+   } else {
+      reg[2] = fb_read_mode_variable(reg[1], screen);
    }
+}
 
-   switch (reg[1]) {
-   case 0:
-      // ModeFlags: Assorted flags
-      break;
-   case 1:
-      // ScrRCol: Number of text columns -1
-      reg[2] = screen->width >> 3; // assumes system font is 8x8
-      break;
-   case 2:
-      // ScrBRow: Number of text rows -1
-      reg[2] = screen->height >> 3; // assumes system font is 8x8
-      break;
-   case 3:
-      // NColour: Maximum logical colour
-      reg[2] = screen->ncolour;
-      break;
-   case 4:
-      // XEigFactor: Conversion factor between OS units and pixels
-      reg[2] = screen->xeigfactor;
-      break;
-   case 5:
-      // YEigFactor: Conversion factor between OS units and pixels
-      reg[2] = screen->yeigfactor;
-      break;
-   case 6:
-      // LineLength: Number of bytes per pixel row
-      reg[2] = screen->width * (screen->bpp >> 3);
-      break;
-   case 7:
-      // ScreenSize: Number of bytes for entire screen display
-      reg[2] = screen->height * screen->width * (screen->bpp >> 3);
-      break;
-   case 8:
-      // YShiftSize: Deprecated. Do not use
-      break;
-   case 9:
-      // Log2BPP: Log base 2 of bits per pixel
-      reg[2] = logbase2(screen->bpp);
-      break;
-   case 10:
-      // Log2BPC: Log base 2 of bytes per character
-      reg[2] = logbase2(screen->bpp); // number of bytes wide for a screen character
-      break;
-   case 11:
-      // XWindLimit: Number of x pixels on screen -1
-      reg[2] = screen->width;
-      break;
-   case 12:
-      // YWindLimit: Number of y pixels on screen -1
-      reg[2] = screen->height;
-      break;
-   default:
-      // Return carry set if unknown VDU variable
-      updateCarry(1, reg);
+
+// ==========================================================================
+// Implementation of OS_ReadVduVariables SWI
+// ==========================================================================
+
+// Entry
+//   R0 Pointer to input block
+//   R1 Pointer to output block (can be the same as R0)
+// Exit
+//   R0 Preserved
+//   R1 Preserved
+
+static void OS_ReadVduVariables_impl(unsigned int *reg) {
+   int32_t *iblock = (int32_t *)reg[0];
+   int32_t *oblock = (int32_t *)reg[1];
+   while (*iblock != -1) {
+      *oblock++ = fb_read_vdu_variable(*iblock++);
    }
 }
 
@@ -415,5 +370,6 @@ void fb_add_swi_handlers() {
    SWIHandler_Table[SWI_OS_ReadLine]         = OS_ReadLine_impl;
    SWIHandler_Table[SWI_OS_ScreenMode]       = OS_ScreenMode_impl;
    SWIHandler_Table[SWI_OS_ReadModeVariable] = OS_ReadModeVariable_impl;
+   SWIHandler_Table[SWI_OS_ReadVduVariables] = OS_ReadVduVariables_impl;
 
 }

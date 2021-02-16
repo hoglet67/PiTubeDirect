@@ -37,8 +37,40 @@ typedef struct {
    uint8_t top;
 } t_clip_window_t;
 
+typedef enum {
+   F_NON_GRAPHICS            = (1 << 0),
+   F_TELETEXT                = (1 << 1),
+   F_GAP                     = (1 << 2),
+   F_BBC_GAP                 = (1 << 3),
+   F_HIRES_MONO              = (1 << 4),
+   F_DOUBLE_HEIGHT_VDU_CHARS = (1 << 5),
+   F_HARDWARE_SCROLL_DISABLE = (1 << 6),
+   F_FULL_PALETTE            = (1 << 7),
+   F_FULL_RES_INTERLACED     = (1 << 8),
+   F_GREYSCALE_PALETTE       = (1 << 9)
+} mode_flag_t;
+
+typedef enum {
+   M_MODEFLAGS       = 0,   // &00 Assorted flags
+   M_SCRRCOL         = 1,   // &01 Number of text columns -1
+   M_SCRBROW         = 2,   // &02 Number of text rows -1
+   M_NCOLOUR         = 3,   // &03 Maximum logical colour
+   M_XEIGFACTOR      = 4,   // &04 Conversion factor between OS units and pixels
+   M_YEIGFACTOR      = 5,   // &05 Conversion factor between OS units and pixels
+   M_LINELENGTH      = 6,   // &06 Number of bytes per pixel row
+   M_SCREENSIZE      = 7,   // &07 Number of bytes for entire screen display
+   M_YSHIFTSIZE      = 8,   // &08 Deprecated. Do not use
+   M_LOG2BPP         = 9,   // &09 Log base 2 of bits per pixel
+   M_LOG2BPC         = 10,  // &0A Log base 2 of bytes per character
+   M_XWINDLIMIT      = 11,  // &0B Number of x pixels on screen -1
+   M_YWINDLIMIT      = 12,  // &0C Number of y pixels on screen -1
+   NUM_MODE_VARS     = 13
+} mode_variable_t;
+
 typedef struct screen_mode {
    int mode_num;    // Mode number, used by VDU 22,N
+
+   int mode_flags;  // mode flags describing mode
 
    int width;       // width in physical pixels
    int height;      // height in physical pixels
@@ -46,7 +78,8 @@ typedef struct screen_mode {
    int xeigfactor;  // conversion factor between OS units and pixels
    int yeigfactor;  // conversion factor between OS units and pixels
 
-   int bpp;         // bits per pixel (8,16,32)
+   int log2bpp;     // log2 of the number bits per pixel (8->3,16->4,32->5)
+   int log2bpc;     // log2 of the number bytes per text character (normally same as log2pbb, except in double pixel modes)
 
    int ncolour;     // maximum logical colour
 
@@ -106,5 +139,7 @@ void         default_unknown_vdu(screen_mode_t *screen, uint8_t *buf);
 screen_mode_t *get_screen_mode(int mode_num);
 
 uint32_t get_fb_address();
+
+int32_t fb_read_mode_variable(mode_variable_t v, screen_mode_t *screen);
 
 #endif
