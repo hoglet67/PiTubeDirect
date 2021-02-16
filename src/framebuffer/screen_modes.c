@@ -1006,6 +1006,11 @@ void default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, 
    to_rectangle(screen, text_window, &r);
    // Scroll the screen upwards one row, and clear the bottom text line to the background colour
    if (is_full_screen(screen, &r)) {
+      if (screen->log2bpp == 3) {
+         bg_col = bg_col | (bg_col << 8) | (bg_col << 16) | (bg_col << 24);
+      } else if (screen->log2bpp == 4) {
+         bg_col = bg_col | (bg_col << 16);
+      }
       _fast_scroll(fb, fb + font_height * screen->pitch, (screen->height - font_height) * screen->pitch);
       _fast_clear(fb + (screen->height - font_height) * screen->pitch, bg_col, font_height * screen->pitch);
    } else {
