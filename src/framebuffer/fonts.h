@@ -48,7 +48,7 @@ typedef struct font {
    int   (*get_overall_h)(struct font *font);
 
    void     (*write_char)(struct font *font, screen_mode_t *screen, int c, int x, int y, pixel_t fg_col, pixel_t bg_col);
-   int      ( *read_char)(struct font *font, screen_mode_t *screen, int x, int y);
+   int      ( *read_char)(struct font *font, screen_mode_t *screen, int x, int y,                        pixel_t bg_col);
 
 } font_t;
 

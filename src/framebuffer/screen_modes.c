@@ -1091,13 +1091,13 @@ void default_write_character(screen_mode_t *screen, int c, int col, int row, pix
    font->write_char(font, screen, c, x, y, fg_col, bg_col);
 }
 
-int default_read_character(screen_mode_t *screen, int col, int row) {
+int default_read_character(screen_mode_t *screen, int col, int row, pixel_t bg_col) {
    font_t *font = screen->font;
    // Convert Row/Col to screen coordinates
    int x = col * font->get_overall_w(font);
    int y = screen->height - row * font->get_overall_h(font) - 1;
    // Pass down to font to do the reading
-   return font->read_char(font, screen, x, y);
+   return font->read_char(font, screen, x, y, bg_col);
 }
 
 void default_unknown_vdu(screen_mode_t *screen, uint8_t *buf) {

@@ -179,6 +179,7 @@ static void text_area_scroll();
 static void update_g_cursors(int16_t x, int16_t y);
 static void change_mode(screen_mode_t *new_screen);
 static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window);
+static int read_character(int x_pos, int y_pos);
 
 // These are used in VDU 4 mode
 static void text_cursor_left();
@@ -527,6 +528,16 @@ static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window) {
    int16_t y2 = window->top    >> screen->yeigfactor;
    // Set the clipping window
    prim_set_graphics_area(screen, x1, y1, x2, y2);
+}
+
+static int read_character(int x_pos, int y_pos) {
+   int tmp = disable_cursors();
+   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
+   int c = screen->read_character(screen, x_pos, y_pos, bg_col);
+   if (tmp) {
+      enable_cursors();
+   }
+   return c;
 }
 
 // ==========================================================================
@@ -1427,7 +1438,7 @@ int fb_get_edit_cursor_y() {
 
 int fb_get_edit_cursor_char() {
    if (e_enabled) {
-      return screen->read_character(screen, e_x_pos, e_y_pos);
+      return read_character(e_x_pos, e_y_pos);
    } else {
       return 0;
    }
@@ -1442,7 +1453,7 @@ int fb_get_text_cursor_y() {
 }
 
 int fb_get_text_cursor_char() {
-   return screen->read_character(screen, c_x_pos, c_y_pos);
+   return read_character(c_x_pos, c_y_pos);
 }
 
 uint8_t fb_get_g_bg_col() {

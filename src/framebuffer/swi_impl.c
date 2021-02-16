@@ -214,15 +214,17 @@ static void OS_ReadLine_impl(unsigned int *reg) {
             if (c == 0) {
                continue;
             }
+            // Delete? replace with square block
+            if (c == 0x7f) {
+               c = 0xff;
+            }
             // move the editing cursor to the right
             writeVDU(0x15);
             writeVDU(0x1B);
             writeVDU(0x89);
             writeVDU(0x06);
-         }
-
-         // Handle cursor keys just by echoing them, but not storing them
-         if (c >= 0x88 && c <= 0x8b) {
+         } else if (c >= 0x88 && c <= 0x8b) {
+            // Handle cursor keys just by echoing them, but not storing them
             writeVDU(0x15);
             writeVDU(0x1B);
             writeVDU(c);

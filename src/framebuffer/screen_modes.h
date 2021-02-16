@@ -103,7 +103,7 @@ typedef struct screen_mode {
    void       (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
    pixel_t    (*get_pixel)(struct screen_mode *screen, int x, int y);
    void (*write_character)(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
-   int   (*read_character)(struct screen_mode *screen,        int col, int row);
+   int   (*read_character)(struct screen_mode *screen,        int col, int row,                 pixel_t bg_col);
    void     (*unknown_vdu)(struct screen_mode *screen, uint8_t *buf);
 
 } screen_mode_t;
@@ -132,7 +132,7 @@ pixel_t   default_get_pixel_8bpp(screen_mode_t *screen, int x, int y);
 pixel_t  default_get_pixel_16bpp(screen_mode_t *screen, int x, int y);
 pixel_t  default_get_pixel_32bpp(screen_mode_t *screen, int x, int y);
 void     default_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
-int       default_read_character(screen_mode_t *screen, int col, int row);
+int       default_read_character(screen_mode_t *screen, int col, int row,                        pixel_t bg_col);
 void         default_unknown_vdu(screen_mode_t *screen, uint8_t *buf);
 
 // ==========================================================================

@@ -261,7 +261,7 @@ static void default_write_char(font_t *font, screen_mode_t *screen, int c, int x
    }
 }
 
-static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y) {
+static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y, pixel_t bg_col) {
    int screendata[MAX_FONT_HEIGHT];
    // Read the character from screen memory
    int *dp = screendata;
@@ -271,19 +271,16 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y) 
       int row = 0;
       for (int j = 0; j < width * font->scale_w; j += font->scale_w) {
          row <<= 1;
-         if (screen->get_pixel(screen, x + j, y - i)) {
+         if (screen->get_pixel(screen, x + j, y - i) != bg_col) {
             row |= 1;
          }
       }
       *dp++ = row;
    }
    // Match against font
-   int all_zeros = 0;
-   int all_ones  = (1 << width) - 1;
    for (int c = 0x20; c < font->num_chars; c++) {
       for (y = 0; y < height; y++) {
-         int xor = font->buffer[c * height + y] ^ screendata[y];
-         if (xor != all_zeros && xor != all_ones) {
+         if (font->buffer[c * height + y] != screendata[y]) {
             break;
          }
       }
