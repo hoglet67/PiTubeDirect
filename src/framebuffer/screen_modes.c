@@ -355,7 +355,16 @@ static screen_mode_t screen_modes[] = {
       .ncolour       = 15,
       .par           = 0.0f
    },
-   // Mode 32 was never defined
+   {
+      .mode_num      = 32,
+      .width         = 800,
+      .height        = 600,
+      .xeigfactor    = 1,
+      .yeigfactor    = 1,
+      .bpp           = 8,
+      .ncolour       = 255,
+      .par           = 0.0f
+   },
    {
       .mode_num      = 33,
       .width         = 768,
