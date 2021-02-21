@@ -17,8 +17,8 @@
 // 0x0D100000 - 0x0D03FFFF 256K 4 bytes for each byte
 //                                to signal if byte has been jitted
 //                      either mov pc,r14 or B dejit16bit 1,21,22,31,32,33
-// This table also needs to wrap at 256K to cope with 65535 wrapping 
-// This is done with the MMU just like the RAM 
+// This table also needs to wrap at 256K to cope with 65535 wrapping
+// This is done with the MMU just like the RAM
 
 #define JITTEDTABLE16 0x0d100000
 
@@ -759,6 +759,13 @@ then return to our secret stack This relies on instructions being re entrant , b
    bic     flags, flags, #D_FLAG6502 // Clear the D bit in the 6502 status register
    mov temp0,temp0,LSL#JITLETSHIFT
    add temp0,temp0,#JITLET
+// In the case of a "fake" interrupt, we need to exlicitely re-enable FIQ
+// interrupts, because the FIQ handler is not going to exit until the 6502
+// RTI is executed. We leave IRQ masked at this point to avoid the possibility
+// of a re-entrant IRQ, which IRQ handler should not have to deal with.
+.ifc \fake, FAKE
+   CPSIE   f  // enable ARM FIQ interrupts only
+.endif
    bx temp0
 .endm
 
@@ -2479,7 +2486,7 @@ reset_handler:
    pop {r0-r2}
    str  r0,fiq_spsr_temp
    str  r1,fiq_lr_temp
-   msr  CPSR,r2
+   msr  CPSR_flg,r2
    pop {r0-r12,r14}
 // Return to FIQ mode
    //msr     CPSR_c, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT)
@@ -2558,9 +2565,6 @@ arm_fiq_handler_jit:
    mrs r2, CPSR                // preserve the 6502 flags
    push {r0-r2}
 
-// re-enable IRQS
-   CPSIE   if                     // Re-enable ARM FIQ and IRQ interrupts
-
 // process events
    ldr      r1,=tube_irq
    ldr      r0, [r1]               // Get Mailbox data
@@ -2574,13 +2578,11 @@ arm_fiq_handler_jit:
    bne     handle_irq_fake         // Take the IRQ interrupt
 
 noirq:
-// disable IRQS
-   CPSID   if                     // Disable ARM FIQ and IRQ interrupts
 // unstack
    pop {r0-r2}
    str  r0,fiq_spsr_temp
    str  r1,fiq_lr_temp
-   msr  CPSR,r2
+   msr  CPSR_flg,r2
    pop {r0-r12,r14}
 // Return to FIQ mode
    msr     CPSR_c, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT)
@@ -2604,20 +2606,18 @@ CHECK_IRQ:
    bx    temp1
 
 handle_irq:
-   msr  CPSR, temp     // Restore the 6502 flags and re-enable ARM interrupts
+   msr  CPSR_flg, temp     // Restore the 6502 flags
    INTR -2, 0
 
 handle_irq_fake:
-   msr     CPSR, temp2   // Restore the 6502 flags and re-enable ARM interrupts
+   msr     CPSR_flg, temp2   // Restore the 6502 flags
    INTR    -2, 0, FAKE
 
 handle_nmi:
-   CPSID   if        // Disable ARM FIQ and IRQ interrupts
-
    ldr     r0,[r1]   // load tube_irq again as it might have changed
    BIC     r0,r0,#2  // clear NMI flag
    str     r0,[r1]   // Store it back again
-   msr     CPSR_cf, r2   // Restore the 6502 flags and re-enable ARM interrupts
+   msr     CPSR_flg, r2   // Restore the 6502 flags
    INTR    -6, 0, FAKE
 .ltorg
 
@@ -2751,9 +2751,9 @@ dejit16bit33: // temp1 , temp1-4, temp1 - 8
 // **** jit up to a branch or jsr rts rti
 dojit:
 // r14 has address of instruction
+   mrs r4, CPSR                   // Save interrupt state (restored by dojitexit)
    CPSID   if                     // Disable ARM FIQ and IRQ interrupts
    sub r14,r14,#4
-   mrs r4, CPSR
    push {r0-r12,r14}
 
    mov temp3,R14 // return address
@@ -2914,8 +2914,7 @@ cacheflushloop:
 #endif
 
    pop {r0-r12,r14}
-   msr CPSR_flg, r4              // Restore the 6502 flags
-   CPSIE   if                     // enable ARM FIQ and IRQ interrupts
+   msr CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
 
    bx r14
 
@@ -3002,23 +3001,23 @@ fixuptype2access:
    mov pc,r14
 
 ioload:
-   CPSID   if
+   CPSID   f
    push    {regSP, r12,lr}
    mrs     regSP, CPSR               // Save 6502 flags
    bl      tube_parasite_read
    msr     CPSR_flg, regSP
    pop     {regSP,r12,lr}
-   CPSIE   if
+   CPSIE   f
    mov      pc,lr
 
 iostore:
-   CPSID   if
+   CPSID   f
    push    {regSP, r12,lr}
    mrs     regSP, CPSR               // Save 6502 flags
    bl      tube_parasite_write_banksel
    msr     CPSR_flg, regSP
    pop     {regSP,r12,lr}
-   CPSIE   if
+   CPSIE   f
    mov      pc,lr
 
 // Jits overflow
@@ -3057,7 +3056,7 @@ rti:
 
 handle_irqrti:
 
-   msr  CPSR, temp     // Restore the 6502 flags and re-enable ARM interrupts
+   msr  CPSR_flg, temp     // Restore the 6502 flags
    INTR -2, 0
 
 
@@ -3083,7 +3082,7 @@ handle_irqplp:
    sub temp1,r14,#JITLET
    mov temp1,temp1,LSR#JITLETSHIFT
 
-   msr  CPSR, temp     // Restore the 6502 flags and re-enable ARM interrupts
+   msr  CPSR_flg, temp     // Restore the 6502 flags
    INTR -2, 0
 
 putcharopcode:
@@ -3407,4 +3406,3 @@ bitabstable:
    B bitadjustr14
    .set imm,imm+1
 .endr
-
