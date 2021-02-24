@@ -3012,23 +3012,21 @@ fixuptype2access:
    mov pc,r14
 
 ioload:
-   CPSID   f
    push    {regSP, r12,lr}
    mrs     regSP, CPSR               // Save 6502 flags
+   CPSID   if
    bl      tube_parasite_read
-   msr     CPSR_flg, regSP
+   msr     CPSR, regSP               // Restore 6502 flags and interrupts
    pop     {regSP,r12,lr}
-   CPSIE   f
    mov      pc,lr
 
 iostore:
-   CPSID   f
    push    {regSP, r12,lr}
    mrs     regSP, CPSR               // Save 6502 flags
+   CPSID   if
    bl      tube_parasite_write_banksel
-   msr     CPSR_flg, regSP
+   msr     CPSR, regSP               // Restore 6502 flags and interrupts
    pop     {regSP,r12,lr}
-   CPSIE   f
    mov      pc,lr
 
 // Jits overflow
