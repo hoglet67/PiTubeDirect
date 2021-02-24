@@ -77,6 +77,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define ARMBLCC 0x3B000000
 #define ARMBLCS 0x2B000000
 
+#define FIQSTACK 0x000201FF
+
 .equ    N_FLAG,                 0x80000000
 .equ    Z_FLAG,                 0x40000000
 .equ    C_FLAG,                 0x20000000
@@ -2356,6 +2358,9 @@ exec_65tubejit:
    mov   ram6502,r0  // this is assumed to be zero
    mov   regSP, #0x1F0
 
+   ldr   temp,=FIQSTACK
+   str   temp,fiq_stack
+
 // install our interrupt handler
 
    ldr   temp,=_fast_interrupt_vector_h
@@ -2516,6 +2521,8 @@ stackptr:
    .word 0
 cacheline:
    .word 0
+fiq_stack:
+   .word 0
 
 .ltorg
 
@@ -2563,7 +2570,9 @@ arm_fiq_handler_jit:
    ldr r0,fiq_spsr_temp
    ldr r1,fiq_lr_temp
    mrs r2, CPSR                // preserve the 6502 flags
-   push {r0-r2}
+   push {r0-r2, regSP}
+
+   ldr regSP, fiq_stack
 
 // process events
    ldr      r1,=tube_irq
@@ -2579,7 +2588,9 @@ arm_fiq_handler_jit:
 
 noirq:
 // unstack
-   pop {r0-r2}
+   str regSP, fiq_stack
+
+   pop {r0-r2, regSP}
    str  r0,fiq_spsr_temp
    str  r1,fiq_lr_temp
    msr  CPSR_flg,r2
