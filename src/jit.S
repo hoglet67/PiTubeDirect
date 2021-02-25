@@ -77,7 +77,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define ARMBLCC 0x3B000000
 #define ARMBLCS 0x2B000000
 
-#define FIQSTACK 0x000201FF
+#define FIQSTACK 0x00020000
 
 .equ    N_FLAG,                 0x80000000
 .equ    Z_FLAG,                 0x40000000
@@ -736,6 +736,11 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro INTR vector setbrk  fake     // vector is -2 for IRQ/BRK or -6 for NMI
                                 // setbrk should be 1 for BRK, 0 for IRQ/NMI
+.if \setbrk
+   // Hack to reset outer context - fixes BRK in 6502 IRQ handler crash
+   mov   ram6502,#0       // Incase r6 has been clobbered by an IRQ
+   bic   regSP,#FIQSTACK  // Switch from private FIQ 6502 stack back to normal 6502 stack
+.endif
    sub     regSP, regSP, #2
    mov     temp, #0x10000
 .ifc \fake, FAKE
@@ -767,6 +772,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 // of a re-entrant IRQ, which IRQ handler should not have to deal with.
 .ifc \fake, FAKE
    CPSIE   f  // enable ARM FIQ interrupts only
+.endif
+.if \setbrk
+   CPSIE   if  // enable both ARM IRQ and FIQ interrupts
 .endif
    bx temp0
 .endm
@@ -2358,7 +2366,7 @@ exec_65tubejit:
    mov   ram6502,r0  // this is assumed to be zero
    mov   regSP, #0x1F0
 
-   ldr   temp,=FIQSTACK
+   ldr   temp,=(FIQSTACK+0x1FF)
    str   temp,fiq_stack
 
 // install our interrupt handler
