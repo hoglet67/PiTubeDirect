@@ -1338,6 +1338,31 @@ void fb_writec_buffered(char ch) {
    vdu_wp = (vdu_wp + 1) & (VDU_QSIZE - 1);
 }
 
+static void writec(char ch) {
+
+   static int vdu_index = 0;
+   static vdu_operation_t *vdu_op = NULL;
+   static uint8_t vdu_buf[VDU_BUF_LEN];
+
+   uint8_t c = (uint8_t) ch;
+
+   // Buffer the character
+   vdu_buf[vdu_index] = c;
+
+   // Start of a VDU command
+   if (vdu_index == 0) {
+      vdu_op = vdu_operation_table + c;
+   }
+
+   // End of a VDU command
+   if (vdu_index == vdu_op->len) {
+      vdu_index = 0;
+      vdu_op->handler(vdu_buf);
+   } else {
+      vdu_index++;
+   }
+}
+
 void fb_process_vdu_queue() {
    static uint8_t flash_count = 0;
    static uint8_t flash_state = 0;
@@ -1388,37 +1413,22 @@ void fb_process_vdu_queue() {
       RPI_GetArmTimer()->IRQClear = 0;
       _data_memory_barrier();
 
-      // Service the VDI Queue
+      // Service the VDU Queue
       while (vdu_rp != vdu_wp) {
          uint8_t ch = vdu_queue[vdu_rp];
-         fb_writec(ch);
+         writec(ch);
          vdu_rp = (vdu_rp + 1) & (VDU_QSIZE - 1);
       }
    }
 }
-
 void fb_writec(char ch) {
-
-   static int vdu_index = 0;
-   static vdu_operation_t *vdu_op = NULL;
-   static uint8_t vdu_buf[VDU_BUF_LEN];
-
-   uint8_t c = (uint8_t) ch;
-
-   // Buffer the character
-   vdu_buf[vdu_index] = c;
-
-   // Start of a VDU command
-   if (vdu_index == 0) {
-      vdu_op = vdu_operation_table + c;
-   }
-
-   // End of a VDU command
-   if (vdu_index == vdu_op->len) {
-      vdu_index = 0;
-      vdu_op->handler(vdu_buf);
+   // Avoid re-ordering parasite and host charcters
+   if (vdu_rp != vdu_wp) {
+      // Some characters are already queued, so append to the end of the queue
+      fb_writec_buffered(ch);
    } else {
-      vdu_index++;
+      // Otherwise, it's safe to print directly
+      writec(ch);
    }
 }
 
