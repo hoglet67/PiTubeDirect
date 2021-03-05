@@ -70,7 +70,6 @@ struct {
 static void tt_reset          (screen_mode_t *screen);
 static void tt_clear          (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
 static void tt_scroll         (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
-static void tt_flash          (screen_mode_t *screen, int mark);
 static void tt_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
 static int  tt_read_character (screen_mode_t *screen, int col, int row, pixel_t bg_col);
 static void tt_unknown_vdu    (screen_mode_t *screen, uint8_t *buf);
@@ -92,7 +91,6 @@ static screen_mode_t teletext_screen_modes[] = {
       .reset           = tt_reset,
       .clear           = tt_clear,
       .scroll          = tt_scroll,
-      .flash           = tt_flash,
       .write_character = tt_write_character,
       .read_character  = tt_read_character,
       .unknown_vdu     = tt_unknown_vdu
@@ -112,7 +110,6 @@ static screen_mode_t teletext_screen_modes[] = {
       .reset           = tt_reset,
       .clear           = tt_clear,
       .scroll          = tt_scroll,
-      .flash           = tt_flash,
       .write_character = tt_write_character,
       .read_character  = tt_read_character,
       .unknown_vdu     = tt_unknown_vdu
@@ -132,7 +129,6 @@ static screen_mode_t teletext_screen_modes[] = {
       .reset           = tt_reset,
       .clear           = tt_clear,
       .scroll          = tt_scroll,
-      .flash           = tt_flash,
       .write_character = tt_write_character,
       .read_character  = tt_read_character,
       .unknown_vdu     = tt_unknown_vdu
@@ -180,7 +176,7 @@ static inline int is_normal(int c) {
    return (c & 0x7f) == TT_NORMAL;
 }
 
-static void set_palette(screen_mode_t *screen, int mark) {
+static void initialize_palette(screen_mode_t *screen) {
    // Setup colour palatte
    // Bits 5..3 control the space colour
    // Bits 2..0 control the mark colour
@@ -189,15 +185,17 @@ static void set_palette(screen_mode_t *screen, int mark) {
    // - solid blue would be 100100
    // - red/green flashing would be 001010
    //
-   for (int i = 0; i < 0x40; i++) {
-      // Depending on whether mark is true
-      int colour = (mark ? i : (i >> 3)) & 0x07;
-      int red   = (colour & 1) ? 0xff : 0x00;
-      int green = (colour & 2) ? 0xff : 0x00;
-      int blue  = (colour & 4) ? 0xff : 0x00;
-      screen->set_colour(screen, i, red, green, blue);
+   for (int mark = 0; mark <= 1; mark++) {
+      for (int i = 0; i < 0x40; i++) {
+         // Depending on whether mark is true
+         int colour = (mark ? i : (i >> 3)) & 0x07;
+         int red   = (colour & 1) ? 0xff : 0x00;
+         int green = (colour & 2) ? 0xff : 0x00;
+         int blue  = (colour & 4) ? 0xff : 0x00;
+         screen->set_colour(screen, i + (mark << 8), red, green, blue);
+      }
    }
-   screen->update_palette(screen, 0, 0x40);
+   screen->update_palette(screen, 0);
 }
 
 static void set_foreground(tt_colour_t colour) {
@@ -240,7 +238,7 @@ static void tt_reset(screen_mode_t *screen) {
    tt.last_col = -1;
    tt.reveal = 0;
    // Configure the default palette
-   set_palette(screen, FALSE);
+   initialize_palette(screen);
 }
 
 static void update_double_height_counts() {
@@ -324,12 +322,6 @@ static void tt_reset_line_state(int row) {
    for (int r = row - 1; r >= 0 && tt.dh_count[r] > 0; r--) {
       tt.double_bottom = !tt.double_bottom;
    }
-}
-
-// Make the flash regions flash with a 3:1 mark:space ratio
-// This is called at 3.125Hz, so the flash rate is 0.78125Hz
-static void tt_flash(screen_mode_t *screen, int mark) {
-   set_palette(screen, mark);
 }
 
 // Process control characters that are "Set At"

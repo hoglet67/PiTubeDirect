@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "../startup.h"
+#include "../rpi-mailbox.h"
 #include "../rpi-mailbox-interface.h"
 #include "../rpi-base.h"
 
@@ -19,11 +20,11 @@
 
 unsigned char* fb = NULL;
 
-// Palette for 8bpp modes
+// Maximum number of logical colours
 #define NUM_COLOURS 256
 
-// Maintain two colour tables, one for the "mark" phase, the other for the "space" phase
-static pixel_t colour_table[NUM_COLOURS * 2];
+// The colour_table is used in 16bpp and 32bpp modes to map logical to physical colour
+static pixel_t colour_table[NUM_COLOURS];
 
 typedef struct {
    int x1;
@@ -31,6 +32,10 @@ typedef struct {
    int x2;
    int y2;
 } rectangle_t;
+
+// Colour palette request blocks
+__attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t palette0_base[PROP_BUFFER_SIZE];
+__attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t palette1_base[PROP_BUFFER_SIZE];
 
 // ==========================================================================
 // Screen Mode Definitions
@@ -735,23 +740,19 @@ static screen_mode_t screen_modes[] = {
 // Static methods
 // ==========================================================================
 
-static void update_palette(screen_mode_t *screen, colour_index_t offset, unsigned int num_colours) {
-   RPI_PropertyInit();
-   RPI_PropertyAddTag(TAG_SET_PALETTE, offset & (NUM_COLOURS - 1), num_colours, colour_table + (offset & NUM_COLOURS));
-#ifdef USE_DOORBELL
-   // Call the Check version as doorbell and mailboxes are seperate
-   //LOG_INFO("Calling TAG_SET_PALETTE\r\n");
-   RPI_PropertyProcess();
-   //rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_SET_PALETTE);
-   //if (buf) {
-   //   LOG_INFO("TAG_SET_PALETTE returned %08x\r\n", buf->data.buffer_32[0]);
-   //} else {
-   //   LOG_INFO("TAG_SET_PALETTE returned ?\r\n");
-   //}
-#else
-   // Call the NoCheck version as our mailbox FIQ handler swallows the response
-   RPI_PropertyProcessNoCheck();
-#endif
+static void update_palette(screen_mode_t *screen, int mark) {
+   static int last_mark = 0;
+   if (mark < 0) {
+      mark = last_mark;
+   }
+   uint32_t *pt = mark ? palette0_base : palette1_base;
+   // These are overwritten by the previous reponse
+   pt[1] = 0;
+   pt[4] = 0;
+   // Don't block waiting for the response
+   RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
+   // Remeber the currently selected palette
+   last_mark = mark;
 }
 
 static void init_colour_table(screen_mode_t *screen) {
@@ -830,6 +831,21 @@ static void init_colour_table(screen_mode_t *screen) {
          int g = ((i >> 2) & 0x03) * 0x44 + tint;
          int b = ((i >> 4) & 0x03) * 0x44 + tint;
          screen->set_colour(screen, i, r, g, b);
+      }
+   }
+   // Prepare the palette request messages, to make flashing efficient
+   if (screen->log2bpp == 3) {
+      int n = NUM_COLOURS;
+      for (int i = 0; i < 2; i++) {
+         uint32_t *p = i ? palette1_base : palette0_base;
+         p[0]     = (n + 8) * 4;         // 0: property buffer: length (bytes)
+         p[1]     = 0;                   // 1: property byffer: 0=request
+         p[2]     = TAG_SET_PALETTE;     // 2: tag header: tag
+         p[3]     = (n + 2) * 4;         // 3: tag header: length of body (bytes)
+         p[4]     = 0;                   // 4: tag header: 0=request
+         p[5]     = 0;                   // 5: tag body: offset
+         p[6]     = n;                   // 6: tag body: number of colours
+         p[7 + n] = 0;                   // 7: property buffer: terminator
       }
    }
 }
@@ -977,10 +993,8 @@ void default_reset_screen(screen_mode_t *screen) {
     /* Copy default colour table */
     init_colour_table(screen);
 
-    /* Update the palette (only in 8-bpp modes) */
-    if (screen->log2bpp == 3) {
-       update_palette(screen, 0, NUM_COLOURS);
-    }
+    /* Update the palette (this is a no-op in 8-bpp modes) */
+    screen->update_palette(screen, 0);
 
     /* Initialize the font */
     screen->font = get_font_by_number(DEFAULT_FONT);
@@ -1032,17 +1046,18 @@ void default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, 
 }
 
 void default_set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
-   colour_table[index] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
+   pixel_t *colour_table = ((index & 0x100) ? palette1_base : palette0_base) + 7;
+   colour_table[index & 0xff] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
 }
 
 void default_set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
    // 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
    // R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
-   colour_table[index] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
+   colour_table[index & 0xff] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
 }
 
 void default_set_colour_32bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
-   colour_table[index] = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+   colour_table[index & 0xff] = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
 }
 
 pixel_t default_get_colour_8bpp(screen_mode_t *screen, colour_index_t index) {
@@ -1050,11 +1065,11 @@ pixel_t default_get_colour_8bpp(screen_mode_t *screen, colour_index_t index) {
 }
 
 pixel_t default_get_colour_16bpp(screen_mode_t *screen, colour_index_t index) {
-   return colour_table[index];
+   return colour_table[index & 0xff];
 }
 
 pixel_t default_get_colour_32bpp(screen_mode_t *screen, colour_index_t index) {
-   return colour_table[index];
+   return colour_table[index & 0xff];
 }
 
 void default_set_pixel_8bpp(screen_mode_t *screen, int x, int y, pixel_t value) {
@@ -1109,7 +1124,7 @@ void default_unknown_vdu(screen_mode_t *screen, uint8_t *buf) {
 }
 
 void default_flash(screen_mode_t *screen, int mark) {
-   update_palette(screen, mark ? 0 : NUM_COLOURS, screen->ncolour + 1);
+   update_palette(screen, mark);
 }
 
 // ==========================================================================
