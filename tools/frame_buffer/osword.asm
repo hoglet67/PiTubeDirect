@@ -47,6 +47,12 @@ org &F700
     LDA #page
     JSR osword6
 
+;; Revector Parasite OSWRCH
+    LDA #LO(parasite_oswrch)
+    STA wrcvec
+    LDA #HI(parasite_oswrch)
+    STA wrcvec+1
+
 ;; Revector Parasite OSWORD to intercept OSWORD0
     LDA wordvec
     STA oldosword
@@ -80,6 +86,10 @@ org &F700
     STA &FEE2
     RTS
 .host_oswrch_end
+
+.parasite_oswrch
+    STA &FEF8
+    RTS
 
 .oldosword
     NOP
