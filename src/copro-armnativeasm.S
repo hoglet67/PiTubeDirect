@@ -211,14 +211,17 @@ _user_exec:
     ldmfd    sp!, {r0-r5, pc}     // Restore registers and return.
 
 
-    // Called with the error buffer ppointer in R0 and the error handler address in R1
+    // Called with the error buffer pointer in R0, the last known value of R12 in R1 and the error handler address in R2
 _error_handler_wrapper:
 
     // Re-enable ARM FIQ and IRQ interrupts, and move to user mode
-    CPSIE   if, #CPSR_MODE_USER
+    CPSIE    if, #CPSR_MODE_USER
+
+    // Restore the original R12 value (saved by the SWI handler)
+    mov      r12, r1
 
     // Continue execution of the error handler
-    mov      pc, r1
+    mov      pc, r2
 
     // Called with the escape flag value in R0 and the escape handler address in R1
 _escape_handler_wrapper:

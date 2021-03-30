@@ -172,9 +172,8 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           r4_state = ERROR_R2_STRING;
         } else {
           r4_state = IDLE_R4;
-          // SWI OS_GenerateError need the error block in R0
-          OS_GenerateError(eblk);
-          // OS_GenerateError() probably never returns
+          generate_error(0, eblk->errorNum, eblk->errorMsg);
+          // generate_error() never returns
         }
       }
       break;
