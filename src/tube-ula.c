@@ -182,30 +182,32 @@ void tube_ack_nmi(void)
 
 void copro_command_excute(unsigned char copro_command,unsigned char val)
 {
-    switch (copro_command)
-    {
-      case 0 :
-          if (val == 0)
-             copro_speed = 0;
-          else
-             copro_speed = (arm_speed/(1000000/256) / val);
-          LOG_DEBUG("New Copro speed= %u, %u\r\n", val, copro_speed);
-          return;
-      case 1 : // *fx 151,226,1 followed by *fx 151,228,val
-               // Select memory size
-               if (val & 128 )
-                  copro_memory_size = (val & 127 ) * 8 * 1024 * 1024;
-               else
-                  copro_memory_size = (val & 127 ) * 64 * 1024 ;
-               if (copro_memory_size > 16 *1024 * 1024)
-                  copro_memory_size = 0;
-               LOG_DEBUG("New Copro memory size = %u, %u\r\n", val, copro_memory_size);
-               copro = copro | 128 ;  // Set bit 7 to signal full reset of core
-               return;
-      default :
-          break;
-    }
-
+   switch (copro_command) {
+   case 0:
+      if (val == 0) {
+         copro_speed = 0;
+      }  else {
+         copro_speed = (arm_speed/(1000000/256) / val);
+      }
+      LOG_DEBUG("New Copro speed= %u, %u\r\n", val, copro_speed);
+      return;
+   case 1:
+      // *fx 151,226,1 followed by *fx 151,228,val
+      // Select memory size
+      if (val & 128 ) {
+         copro_memory_size = (val & 127 ) * 8 * 1024 * 1024;
+      } else {
+         copro_memory_size = (val & 127 ) * 64 * 1024 ;
+      }
+      if (copro_memory_size > 16 *1024 * 1024) {
+         copro_memory_size = 0;
+      }
+      LOG_DEBUG("New Copro memory size = %u, %u\r\n", val, copro_memory_size);
+      copro = copro | 128 ;  // Set bit 7 to signal full reset of core
+      return;
+   default:
+      break;
+   }
 }
 
 static void tube_reset()
