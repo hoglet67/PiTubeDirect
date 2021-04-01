@@ -53,7 +53,7 @@
 #include "rpi-base.h"
 
 #define DOORBELL        (PERIPHERAL_BASE + 0x00B844) // Doorbell 1
-#define DOORBELLDATA    (PERIPHERAL_BASE + 0x001028)
+#define DOORBELLDATA    (PERIPHERAL_BASE + 0x20C014) // Hijack PWM_DAT1 for Doorbell1 Data
 #define MBOX0_READ      (PERIPHERAL_BASE + 0x00B880)
 #define MBOX0_STATUS    (PERIPHERAL_BASE + 0x00B898)
 #define MBOX0_CONFIG    (PERIPHERAL_BASE + 0x00B89C)
