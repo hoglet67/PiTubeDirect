@@ -18,15 +18,18 @@ char_at_cursor = &FEF3
 
 cpu 1
 
-org &F700
+osword6_param   = &80
+osword6_addr_lo = osword6_param + 0
+osword6_addr_hi = osword6_param + 1
+osword6_data    = osword6_param + 4
+
+org &0300
 
 .start
 
 .init
 
 ;; Copy minimal OSWRCH to host at 0900
-;; 0900 STA &FEE2
-;; 0903 RTS
     LDA #page
     STA osword6_addr_hi
     LDY #host_oswrch_end - host_oswrch_start - 1
@@ -83,7 +86,11 @@ org &F700
     RTS
 
 .host_oswrch_start
+    PHA
+    LDA #&03
     STA &FEE2
+    PLA
+    STA &FEE4
     RTS
 .host_oswrch_end
 
@@ -213,17 +220,6 @@ org &F700
     ROL A          ; put bit 7 into carry
     LDA #&00       ; Preserve A
     RTS            ; and exit routine
-
-.osword6_param
-.osword6_addr_lo
-   EQUB &00
-.osword6_addr_hi
-   EQUB &00
-   EQUB &FF        ; ignored
-   EQUB &FF        ; ignored
-.osword6_data
-   EQUB 00
-
 .end
 
 SAVE "osword", start, end
