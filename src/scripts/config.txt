@@ -62,8 +62,6 @@ kernel=kernel8-32.img
 force_turbo=1
 
 boot_delay=0
-start_file=start.elf
-fixup_file=fixup.dat
 
 # Memory map to stay compatible with 256MB Pi Models
 #
