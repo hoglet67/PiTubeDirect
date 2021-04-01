@@ -1,1 +1,1 @@
-copro=0 copro1_speed=3 copro3_speed=4 tube_delay=0 elk_mode=0
+copro=0 copro1_speed=3 copro3_speed=4 tube_delay=0 elk_mode=0 vdu=1

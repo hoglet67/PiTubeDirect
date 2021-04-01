@@ -70,6 +70,8 @@ typedef enum {
 
 void fb_initialize();
 
+void fb_destroy();
+
 void fb_writec_buffered(char c);
 
 void fb_process_vdu_queue();
@@ -103,6 +105,8 @@ int fb_get_current_screen_mode();
 void fb_set_vdu_device(vdu_device_t device);
 
 void fb_add_swi_handlers();
+
+void fb_remove_swi_handlers();
 
 int32_t fb_read_vdu_variable(vdu_variable_t v);
 

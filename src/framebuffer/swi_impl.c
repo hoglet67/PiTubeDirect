@@ -363,10 +363,12 @@ void fb_set_vdu_device(vdu_device_t device) {
    vdu_device = device;
 }
 
+
+static int initialized = 0;
+
 void fb_add_swi_handlers() {
 
-   static int initialized = 0;
-
+   // Only need to setup the base handlers once
    if (!initialized) {
       for (int i = 0; i < NUM_SWI_HANDLERS; i++) {
          base_handler[i] = SWIHandler_Table[i];
@@ -386,4 +388,12 @@ void fb_add_swi_handlers() {
    SWIHandler_Table[SWI_OS_ReadModeVariable] = OS_ReadModeVariable_impl;
    SWIHandler_Table[SWI_OS_ReadVduVariables] = OS_ReadVduVariables_impl;
 
+}
+
+void fb_remove_swi_handlers() {
+   if (initialized) {
+      for (int i = 0; i < NUM_SWI_HANDLERS; i++) {
+         SWIHandler_Table[i] = base_handler[i];
+      }
+   }
 }

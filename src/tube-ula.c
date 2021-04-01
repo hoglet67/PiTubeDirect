@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include "tube-defs.h"
 #include "tube.h"
@@ -74,6 +75,8 @@ uint8_t ph3pos,hp3pos;
 uint8_t ph1rdpos,ph1wrpos,ph1len;
 volatile int tube_irq;
 
+// Default value of the VDU property is 0 (off)
+static int vdu_enabled = 0;
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
@@ -190,7 +193,7 @@ void copro_command_excute(unsigned char copro_command,unsigned char val)
          copro_speed = (arm_speed/(1000000/256) / val);
       }
       LOG_DEBUG("New Copro speed= %u, %u\r\n", val, copro_speed);
-      return;
+      break;
    case 1:
       // *fx 151,226,1 followed by *fx 151,228,val
       // Select memory size
@@ -204,7 +207,12 @@ void copro_command_excute(unsigned char copro_command,unsigned char val)
       }
       LOG_DEBUG("New Copro memory size = %u, %u\r\n", val, copro_memory_size);
       copro = copro | 128 ;  // Set bit 7 to signal full reset of core
-      return;
+      break;
+   case 3:
+      if (vdu_enabled) {
+         fb_writec_buffered(val);
+      }
+      break;
    default:
       break;
    }
@@ -361,7 +369,22 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       break;
    case 2:
       copro_command = val;
-      fb_writec_buffered(val);
+      // TODO:
+      //   *FX 226, 2 disables the VDU
+      //   *FX 226, 3 enables the VDU
+      //
+      // This currently doesn't work, because it's executing
+      // in FIQ context and likely takes too long
+      //
+      //if ((val & 0xfe) == 0x02) {
+      //   val &= 1;
+      //   if (!vdu_enabled && val) {
+      //      fb_initialize();
+      //   } else if (vdu_enabled && !val) {
+      //      fb_destroy();
+      //   }
+      //   vdu_enabled = val;
+      //}
       break;
    case 3: /*Register 2*/
       //if (!tube_enabled)
@@ -435,7 +458,7 @@ uint8_t tube_parasite_read(uint32_t addr)
    // Squeeze in read-only framebuffer registers at FEF1, FEF2, FEF3
    // note: only the 6502 Co Pros pass a full 16-bit address in
    // note: avoid FEF0 as this is Reg0 in the Turbo Co Pro
-   if ((addr & 0xFFF8) == 0xFEF0) {
+   if (vdu_enabled && (addr & 0xFFF8) == 0xFEF0) {
       switch (addr & 7) {
       case 1:
          temp = fb_get_edit_cursor_x();
@@ -626,7 +649,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
    if ((cpsr & 0xc0) != 0xc0) {
       _set_interrupts(cpsr);
    }
-   if ((addr & 7) == 0) {
+   if (vdu_enabled && (addr & 7) == 0) {
       // Write to &FEF8
       fb_writec(val);
    }
@@ -864,7 +887,14 @@ void tube_init_hardware()
    dump_useful_info();
 #endif
 
-   fb_initialize();
+   // Read the VDU property, and initialize the frame
+   char *vdu_prop = get_cmdline_prop("vdu");
+   if (vdu_prop) {
+      vdu_enabled = atoi(vdu_prop) & 1;
+   }
+   if (vdu_enabled) {
+      fb_initialize();
+   }
 
    // This is broken in 8-BPP mode
    // v3d_initialize();

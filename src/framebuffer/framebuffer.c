@@ -1315,8 +1315,7 @@ void fb_initialize() {
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
 
-   // TODO: This should be elsewhere
-   // Initialize Timer Interrupts
+   // Enable the timer interrupts (flashing colours, cursor, etc)
    RPI_ArmTimerInit();
    RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
 
@@ -1330,6 +1329,23 @@ void fb_initialize() {
    // Enable smi_int which is IRQ 48
    // https://github.com/raspberrypi/firmware/issues/67
    RPI_GetIrqController()->Enable_IRQs_2 = RPI_VSYNC_IRQ;
+}
+
+void fb_destroy() {
+
+   // Disable the VSync Interrupt
+   RPI_GetIrqController()->Disable_IRQs_2 = RPI_VSYNC_IRQ;
+
+   // Disable the timer interrupts (flashing colours, cursor, etc)
+   RPI_GetIrqController()->Disable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
+
+   // Remove the frame buffer specific SW calls from the SWI handler table
+   fb_remove_swi_handlers();
+
+   // Disable the frame buffer
+   RPI_PropertyInit();
+   RPI_PropertyAddTag(TAG_RELEASE_BUFFER);
+   RPI_PropertyProcess();
 }
 
 void fb_writec_buffered(char ch) {
