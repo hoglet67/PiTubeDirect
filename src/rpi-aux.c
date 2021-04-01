@@ -180,7 +180,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
     _data_memory_barrier();
     auxillary->MU_IER |= AUX_MUIER_RX_INT;
   }
-#endif // USE_IRQ
+#endif
 
   _data_memory_barrier();
 
@@ -226,7 +226,7 @@ void RPI_AuxMiniUartWrite(char c)
   }
   /* Write the character to the FIFO for transmission */
   auxillary->MU_IO = c;
-#endif // USE_IRQ
+#endif
 }
 
 extern void RPI_EnableUart(const char* pMessage)
