@@ -10,15 +10,13 @@ static mailbox_t* rpiMailbox1 = (mailbox_t*)RPI_MAILBOX1_BASE;
 
 void RPI_Mailbox0Write( mailbox0_channel_t channel, uint32_t *ptr )
 {
-   volatile int value;
-
     _clean_cache_area(ptr, ptr[0]);
     /* For information about accessing mailboxes, see:
        https://github.com/raspberrypi/firmware/wiki/Accessing-mailboxes */
 
     // Flush any old requests
     while (!(rpiMailbox0->Status & ARM_MS_EMPTY)) {
-        value = rpiMailbox0->Data;
+       (void) rpiMailbox0->Data;
     }
 
     /* Wait until the mailbox becomes available and then write to the mailbox
