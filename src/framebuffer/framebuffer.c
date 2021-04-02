@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <math.h>
 
+#include "gitversion.h"
 #include "../info.h"
 #include "../rpi-armtimer.h"
 #include "../rpi-aux.h"
@@ -1302,7 +1303,142 @@ static void vdu_default(uint8_t *buf) {
 // Public interface
 // ==========================================================================
 
+static void select_font(int n, int sh, int sv, int r) {
+   fb_writec(23);
+   fb_writec(19);
+   fb_writec(0);
+   fb_writec(n);
+   fb_writec(sh);
+   fb_writec(sv);
+   fb_writec(0xff);
+   fb_writec(0xff);
+   fb_writec(r);
+   fb_writec(0);
+}
+
+static void cursor(int n) {
+   fb_writec(23);
+   fb_writec(1);
+   fb_writec(n);
+   fb_writec(0);
+   fb_writec(0);
+   fb_writec(0);
+   fb_writec(0);
+   fb_writec(0);
+   fb_writec(0);
+   fb_writec(0);
+}
+
+static void plot(int n, int x, int y) {
+   fb_writec(25);
+   fb_writec(n);
+   fb_writec(x & 0xff);
+   fb_writec((x >> 8) & 0xff);
+   fb_writec(y & 0xff);
+   fb_writec((y >> 8) & 0xff);
+}
+
+static void owl(int x0, int y0, int r, int col) {
+   const int data[] = {
+      0, 2, 4, 6, 8, 10, 12, 14, 16, -1,
+      1, 7, 9, 15, -1,
+      0, 4, 8, 12, 16, -1,
+      3, 5, 11, 13, -1,
+      0, 4, 8, 12, 16, -1,
+      1, 7, 9, 15, -1,
+      0, 2, 8, 14, 16, -1,
+      1, 3, 13, -1,
+      0, 2, 4, 6, 8, 10, 12, 16, -1,
+      1, 3, 5, 7, -1,
+      0, 2, 4, 6, 8, 16, -1,
+      1, 3, 5, 7, -1,
+      2, 4, 6, 8, 16, -1,
+      3, 5, 7, 9, -1,
+      4, 6, 8, 10, 16, -1,
+      5, 7, 9, 11, -1,
+      6, 8, 10, 12, 16, -1,
+      7, 11, 13, -1,
+      6, 10, 14, 16, -1,
+      1, 3, 5, 7, 9, 11, 15, -1,
+      16
+   };
+   int y = 0;
+
+
+   // Default 256-colour mode palette
+   // Bits 1..0 = R    (0x00, 0x44, 0x88, 0xCC)
+   // Bits 3..2 = G    (0x00, 0x44, 0x88, 0xCC)
+   // Bits 5..4 = B    (0x00, 0x44, 0x88, 0xCC)
+   // Bits 7..6 = Tint (0x00, 0x11, 0x22, 0x33) added
+
+   int cols[] = {
+      0xC3,  // Red
+      0xC7,  // Orange
+      0xCF,  // Yellow
+      0x08,  // Green
+      0xF0,  // Blue
+      0x21,  // Indigo
+      0xA6   // Violet
+   };
+
+   for (unsigned int i = 0; i < sizeof(data) / sizeof(int); i++) {
+      int x = data[i];
+      if (x >= 0) {
+         int xc = x0 + x * r;
+         int yc = y0 - y * r;
+         int d = y / 3;
+         g_fg_col = cols[d];
+         plot(  4, xc, yc);
+         plot(157, xc, yc + r * 5 / 7);
+      } else {
+         y++;
+      }
+   }
+}
+
+static void help_message() {
+   char buffer[256];
+
+   // Turn of the cursor (as there are some bugs when changing fonts)
+   cursor(0);
+   select_font(12, 2, 2, 0); // Computer Font
+   fb_writes("PiTubeDirect VDU Driver");
+
+   // Draw a green owl
+   owl(944, 1008, 20, 12);
+
+   select_font(32, 1, 1, 1); // SAA5050
+   fb_writec(26);
+   fb_writec(31);
+   fb_writec(0);
+   fb_writec(3);
+   fb_writes("  Release: "RELEASENAME"\r\n");
+   fb_writes(" Pi Model: ");
+   fb_writes(get_info_string());
+   fb_writes("\r\n");
+   fb_writes("Commit ID: "GITVERSION"\r\n\n");
+   fb_writes("On the 6502 Co Processor:\r\n");
+   fb_writes("  CALL &300 to install OSWRCH redirector\r\n\n");
+   fb_writes("On the Native ARM Co Processor:\r\n");
+   fb_writes("  *PIVDU 2 to install OSWRCH redirector\r\n");
+   fb_writes("  *ARMBASIC to run built-in ARM BASIC\r\n");
+   fb_writes("  See also *HELP ARM\r\n\n");
+
+   sprintf(buffer, "This is mode %d: %dx%d with %d colours",
+           screen->mode_num, screen->width, screen->height, screen->ncolour + 1);
+   fb_writes(buffer);
+
+   select_font(0, 1, 1, 0); // Default
+   fb_writec(26);
+   fb_writec(31);
+   fb_writec(0);
+   fb_writec(47);
+
+   cursor(1);
+}
+
 void fb_initialize() {
+
    // Initialize the VDU operation table
    for (unsigned int i = 32; i < sizeof(vdu_operation_table) / sizeof(vdu_operation_t); i++) {
       vdu_operation_table[i].len = 0;
@@ -1312,6 +1448,7 @@ void fb_initialize() {
    // Add the frame buffer specific SW calls to the SWI handler table
    fb_add_swi_handlers();
 
+   // Select the default screen mode
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
 
@@ -1319,16 +1456,18 @@ void fb_initialize() {
    RPI_ArmTimerInit();
    RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
 
-   fb_writes("\r\nPiTubeDirect VDU Driver\r\n");
 #ifdef DEBUG_VDU
-   fb_writes("Kernel debugging is enabled, execution might be slow!\r\n");
+   fb_writes("DEBUG_VDU is enabled, execution might be slow!\r\n\r\n");
 #endif
-   fb_writes("\r\n");
+
+   // Show a help message
+   help_message();
 
    // Make vsync visible
    // Enable smi_int which is IRQ 48
    // https://github.com/raspberrypi/firmware/issues/67
    RPI_GetIrqController()->Enable_IRQs_2 = RPI_VSYNC_IRQ;
+
 }
 
 void fb_destroy() {
