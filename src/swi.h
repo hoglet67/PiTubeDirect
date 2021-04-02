@@ -139,6 +139,7 @@ void OS_WriteC(const char c);
 int  OS_Write0(const char *cptr);
 int  OS_ReadC(unsigned int *flags);
 void OS_CLI(const char *cptr);
+void OS_Word(unsigned int a, unsigned int *block);
 void OS_Byte(unsigned int a, unsigned int x, unsigned int y, unsigned int *retx, unsigned int *rety);
 void OS_ReadLine(const char *buffer, int buflen, int minAscii, int maxAscii, unsigned int *flags, int *length);
 void OS_Exit();

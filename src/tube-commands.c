@@ -28,6 +28,10 @@ const char *copro_key = "COPROS";
 
 char line[256];
 
+static const int WRCVEC = 0x020E;
+
+static const int WRCHANDLER = 0x0900;
+
 /***********************************************************
  * Build in Commands
  ***********************************************************/
@@ -305,21 +309,42 @@ int doCmdArmBasic(const char *params) {
   return 0;
 }
 
+static uint8_t read_host_byte(uint16_t address) {
+   unsigned int block[2] = {address, 0};
+   OS_Word(5, block);
+   return block[1] & 0xff;
+}
+
+static int read_host_word(uint16_t address) {
+   return (read_host_byte(address + 1) << 8) | read_host_byte(address);
+}
+
+static void write_host_byte(uint16_t address, uint8_t data) {
+   unsigned int block[2] = {address, data};
+   OS_Word(6, block);
+}
+
+static void write_host_word(uint16_t address, uint16_t data) {
+   write_host_byte(address + 0,  data       & 0xff);
+   write_host_byte(address + 1, (data >> 8) & 0xff);
+}
+
+
 int doCmdPiVDU(const char *params) {
    int device = atoi(params);
    OS_Write0("Beeb VDU:");
-   if (device & 1) {
+   if (device & VDU_BEEB) {
       OS_Write0("enabled\r\n");
    } else {
       OS_Write0("disabled\r\n");
    }
    OS_Write0("  Pi VDU:");
-   if (device & 2) {
+   if (device & VDU_PI) {
       OS_Write0("enabled\r\n");
    } else {
       OS_Write0("disabled\r\n");
    }
-   if (device & 2) {
+   if (device & VDU_PI) {
       // *FX 4,1 to disable cursor editing
       OS_Byte(4, 1, 0, NULL, NULL);
    } else {
@@ -327,7 +352,26 @@ int doCmdPiVDU(const char *params) {
       OS_Byte(4, 0, 0, NULL, NULL);
    }
    fb_set_vdu_device(device);
-   // TODO: Need to add a host oswrch redirector (for output of OSCLI commands)
+
+   if (device & VDU_BEEB) {
+      // Restore the original host OSWRCH
+      uint16_t default_vector_table = read_host_word(0xffb7);
+      uint16_t default_oswrch = read_host_word(default_vector_table + (WRCVEC & 0xff));
+      write_host_word(WRCVEC, default_oswrch);
+   } else {
+      // Install a host oswrch redirector (for output of OSCLI commands)
+      // PHA        48
+      // LDA #&03   A9 03
+      // STA &FEE2  8D E2 FE
+      // PLA        68
+      // STA &FEE4  8D E4 FE
+      // RTS        60
+      uint8_t data[] = { 0x48, 0xa9, 0x03, 0x8d, 0xe2, 0xfe, 0x68, 0x8d, 0xe4, 0xfe, 0x60} ;
+      for (unsigned int i = 0; i < sizeof(data); i++) {
+         write_host_byte(WRCHANDLER + i, data[i]);
+      }
+      write_host_word(WRCVEC, WRCHANDLER);
+   }
    return 0;
 }
 

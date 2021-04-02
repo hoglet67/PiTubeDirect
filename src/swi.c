@@ -60,6 +60,19 @@ __attribute__ ((noinline)) void OS_CLI(const char *cptr) {
      );
 }
 
+__attribute__ ((noinline)) void OS_Word(unsigned int a, unsigned int *block) {
+  asm volatile
+    (
+     "push    {r4,lr}          \r\n"
+     "svc     %[swinum]        \r\n"
+     "pop     {r4,lr}          \r\n"
+     :   // outputs
+     :   // inputs
+         [swinum]  "I" (SWI_OS_Word)
+     :   // clobber
+     );
+}
+
 __attribute__ ((noinline)) void OS_Byte(unsigned int a, unsigned int x, unsigned int y, unsigned int *retx, unsigned int *rety) {
   asm volatile
     (
