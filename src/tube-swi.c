@@ -36,6 +36,8 @@
 #include "tube-isr.h"
 #include "swi.h"
 
+static unsigned int last_r12 = 0;
+
 const int osword_in_len[] = {
   0,   // OSWORD 0x00
   0,   //  1  =TIME
@@ -249,7 +251,7 @@ void generate_error(void * address, unsigned int errorNum, char *errorMsg) {
   strcpy(ebuf->errorBlock.errorMsg, errorMsg);
   // The wrapper drops back to user mode and calls the handler
   unsigned int r0 = env->handler[ERROR_HANDLER].r12;
-  _error_handler_wrapper(r0, env->handler[ERROR_HANDLER].handler);
+  _error_handler_wrapper(r0, last_r12, env->handler[ERROR_HANDLER].handler);
 }
 
 void updateOverflow(unsigned char ovf, unsigned int *reg) {
@@ -302,6 +304,9 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
   if (DEBUG_ARM) {
     printf("SWI %08x called from %08x cpsr=%08x\r\n", number, reg[13] - 4, _get_cpsr());
   }
+  // Save r12 so it can be restored by the error handler wrapper
+  // (ARM Basic makes the bad assumption that r12 is preserved)
+  last_r12 = reg[12];
   // TODO - We need to switch to a local error handler
   // for the error bit to work as intended.
   if (num & ERROR_BIT) {

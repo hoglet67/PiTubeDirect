@@ -46,6 +46,7 @@ void user_exec_raw(volatile unsigned char *address);
 void handler_not_defined(unsigned int num);
 void handler_not_implemented(char *type);
 void tube_SWI_Not_Known(unsigned int *reg);
+void generate_error(void * address, unsigned int errorNum, char *errorMsg);
 
 // SWI handler prototypes
 void tube_WriteC(unsigned int *reg);            // &00

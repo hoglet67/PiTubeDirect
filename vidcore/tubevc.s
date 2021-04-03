@@ -64,7 +64,7 @@
 
 .equ GPU_ARM_MBOX, 0x7E00B880
 .equ GPU_ARM_DBELL, 0x7E00B844       # Doorbell1
-.equ GPU_ARM_DBELLDATA, 0x7E001028   # CCP2TX_TSPARE
+.equ GPU_ARM_DBELLDATA, 0x7E20C014   # Hijack PWM_DAT1 for Doorbell1 Data
 
 #.equ IC0_MASK,     0x7e002010
 #.equ IC1_MASK,     0x7e002810
