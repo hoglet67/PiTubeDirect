@@ -127,7 +127,7 @@
 // once we are in the event handler we do
 // disable arm IRQs // this prevents us missing events
 // bic instt,instt,#256<<I_ALIGN
-// reenable IRQs // now if another event happens we will service it at the next instruction boundary
+// re-enable IRQs // now if another event happens we will service it at the next instruction boundary
 // sub regPC,regPC,#1 // set instruction pointer ready to be stacked
 // check for reset ( if we have a reset we are happy to drop any other outstanding events
 // Check for NMI ( if there is also an IRQ present is will get checked for at the RTI)
@@ -318,7 +318,7 @@
         orr     regSP, #0x0100
 .endm
 
-// Macro for poping a byte from the stack, whilst correctly handing wrapping
+// Macro for popping a byte from the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 1024 Byte aligned
 .macro SPOP_FETCH_STAGE_0_I reg fetch=FETCH
         mov     \reg,#1
@@ -3234,7 +3234,7 @@ copro_speed6502:
 //
 // 3. We added a time wasting loop
 //     added 4 lines or so
-//     we (redundantly) re-enable interupts first because we don't want to slow down FIQ response
+//     we (redundantly) re-enable interrupts first because we don't want to slow down FIQ response
 //
 // 4. Replaced postamble of FETCH_NEXT_STAGE_012
 //     we added one line

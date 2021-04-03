@@ -13,7 +13,7 @@ void reboot_now(void)
   const int PM_RSTC_WRCFG_FULL_RESET = 0x00000020;
   unsigned int *PM_WDOG = (unsigned int *) (PERIPHERAL_BASE + 0x00100024);
   unsigned int *PM_RSTC = (unsigned int *) (PERIPHERAL_BASE + 0x0010001c);
-  
+
   // timeout = 1/16th of a second? (whatever)
   *PM_WDOG = PM_PASSWORD | 1;
   *PM_RSTC = PM_PASSWORD | PM_RSTC_WRCFG_FULL_RESET;
@@ -32,7 +32,7 @@ void dump_digit(unsigned int c) {
 
 void dump_hex(unsigned int value) {
   int i;
-  for (i = 0; i < 8; i++) {   
+  for (i = 0; i < 8; i++) {
     int c = value >> 28;
     if (c < 10) {
       c = '0' + c;
@@ -46,7 +46,7 @@ void dump_hex(unsigned int value) {
 
 void dump_binary(unsigned int value) {
   int i;
-  for (i = 0; i < 32; i++) {   
+  for (i = 0; i < 32; i++) {
     int c = '0' + (value >> 31);
     RPI_AuxMiniUartWrite(c);
     value <<= 1;
@@ -57,7 +57,7 @@ void dump_string(char *string) {
   char c;
   while ((c = *string++) != 0) {
     RPI_AuxMiniUartWrite(c);
-  } 
+  }
 }
 
 // For some reason printf generally doesn't work here
@@ -73,20 +73,20 @@ void dump_info(unsigned int *context, int offset, char *type) {
   reg = context + 1;
   dump_string(type);
   dump_string(" at ");
-  // The stacked LR points one or two words afer the exception address
+  // The stacked LR points one or two words after the exception address
   addr = (unsigned int *)((reg[13] & ~3) - offset);
   dump_hex((unsigned int)addr);
 #ifdef HAS_MULTICORE
   dump_string(" on core ");
   dump_digit(_get_core());
-#endif  
+#endif
   dump_string("\r\n");
   dump_string("Registers:\r\n");
   for (i = 0; i <= 13; i++) {
     j = (i < 13) ? i : 14; // slot 13 actually holds the link register
     dump_string("  r[");
-    RPI_AuxMiniUartWrite('0' + (j / 10));  
-    RPI_AuxMiniUartWrite('0' + (j % 10));  
+    RPI_AuxMiniUartWrite('0' + (j / 10));
+    RPI_AuxMiniUartWrite('0' + (j % 10));
     dump_string("]=");
     dump_hex(reg[i]);
     dump_string("\r\n");
@@ -138,7 +138,7 @@ void dump_info(unsigned int *context, int offset, char *type) {
   dump_string(" Mode)\r\n");
 
   dump_string("Halted waiting for reset\r\n");
-  
+
   // look for reset being low
   while( !tube_is_rst_active() );
   // then reset on the next rising edge

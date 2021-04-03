@@ -86,7 +86,7 @@ copro_armnative_fiq_handler:
 
         CPSID   if                     // Disable ARM FIQ and IRQ interrupts
 
-        pop     {r1, lr}               // Restore LR and stack aligment offset
+        pop     {r1, lr}               // Restore LR and stack alignment offset
         add     sp, sp, r1             // Undo stack alignment (if any)
         pop     {r0-r3}                // Restore non-callee saved registers and LR
 

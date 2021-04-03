@@ -20,6 +20,7 @@
 #include "copro-65816.h"
 #include "copro-pdp11.h"
 #include "copro-armnative.h"
+#include "copro-65tubejit.h"
 
 #endif
 
@@ -197,12 +198,13 @@ copro_def_t copro_defs[] = {
       TYPE_HIDDEN,
       NO_DEBUGGER
    },
-   {
-      "Null",                   // 24
-      copro_null_emulator,
-      TYPE_HIDDEN,
+      {
+      "65C02 (JIT)",            // 24
+      copro_65tubejit_emulator,
+      TYPE_65TUBE_0,
       NO_DEBUGGER
    },
+
    {
       "Null",                   // 25
       copro_null_emulator,

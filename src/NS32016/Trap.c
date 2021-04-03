@@ -24,7 +24,7 @@ const char TrapText[TrapCount][40] =
    "Illegal SpecialReading",
    "Illegal SpecialWriting",
    "Illegal Writing Immediate",
-   "Flag Instuction",
+   "Flag Instruction",
    "Privileged Instruction"
 };
 

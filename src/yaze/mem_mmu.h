@@ -75,7 +75,7 @@ extern BYTE ram[MEMSIZE*1024];	/* RAM which is present */
  #ifndef YAZEPAGESIZE
   #define YAZEPAGESIZE 4		/* Pagesize 4 KByte */
  #endif			     /* if you want to modify then it is also	*/
-			     /* nessasary to modify the section		*/
+			     /* necessary to modify the section		*/
 			     /* "central definitions for memory access"	*/
 
  #define RAMPAGES MEMSIZE/YAZEPAGESIZE		/* No. of pages of RAM  */

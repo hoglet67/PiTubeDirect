@@ -473,7 +473,7 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
             case CMPS:
             case SKPS:
             {
-               return;                                            // This is just another iteration of an interruptable instructions
+               return;                                            // This is just another iteration of an interruptible instructions
             }
             // No break due to return
          }

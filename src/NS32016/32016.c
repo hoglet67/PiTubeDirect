@@ -50,13 +50,13 @@ const uint32_t IndexLKUP[8] = { 0x0, 0x1, 0x4, 0x5, 0x8, 0x9, 0xC, 0xD };       
 /* A custom warning logger for n32016 that logs the PC */
 
 void n32016_warn(char *fmt, ...)
-{   
+{
    char buf[1024];
    int len = snprintf(buf, sizeof(buf), "[pc=%"PRIX32"] ", pc);
    va_list ap;
    va_start(ap, fmt);
    vsnprintf(buf + len, sizeof(buf) - len, fmt, ap);
-   va_end(ap);   
+   va_end(ap);
    log_warn("%s", buf);
 }
 
@@ -1011,7 +1011,7 @@ void n32016_exec()
       TakeInterrupt(intbase);
    }
 
-   
+
    do {
       tubeUseCycles(8);
       CLEAR_TRAP();
@@ -1381,7 +1381,7 @@ void n32016_exec()
          {
             temp2 = read_x32(mod + 4) + ((int32_t) temp) * 4;
 
-            temp = read_x32(temp2);   // Matching Tail with CXPD, complier do your stuff
+            temp = read_x32(temp2);   // Matching Tail with CXPD, compiler do your stuff
             pushd((CXP_UNUSED_WORD << 16) | mod);
             pushd(pc);
             mod = temp & 0xFFFF;
@@ -1679,7 +1679,7 @@ void n32016_exec()
          {
             temp2 = ReadAddress(0);
 
-            temp = read_x32(temp2);   // Matching Tail with CXPD, complier do your stuff
+            temp = read_x32(temp2);   // Matching Tail with CXPD, compiler do your stuff
             pushd((CXP_UNUSED_WORD << 16) | mod);
             pushd(pc);
             mod = temp & 0xFFFF;
@@ -1896,7 +1896,7 @@ void n32016_exec()
             write_Arbitary(r[2], &temp, OpSize.Op[0]);
 
             StringRegisterUpdate(opcode);
-            pc = startpc; // Not finsihed so come back again!
+            pc = startpc; // Not finished so come back again!
             continue;
          }
          // No break due to continue
@@ -1929,7 +1929,7 @@ void n32016_exec()
             }
 
             StringRegisterUpdate(opcode);
-            pc = startpc;                                               // Not finsihed so come back again!
+            pc = startpc;                                               // Not finished so come back again!
             continue;
          }
          // No break due to continue
@@ -1968,7 +1968,7 @@ void n32016_exec()
             }
 
             StringRegisterUpdate(opcode);
-            pc = startpc; // Not finsihed so come back again!
+            pc = startpc; // Not finished so come back again!
             continue;
          }
          // No break due to continue
@@ -2290,7 +2290,7 @@ void n32016_exec()
             temp3 = READ_PC_BYTE();
             temp = ReadGen(0); // src operand
 
-            // The field can be upto 32 bits, and is independent of the opcode i bits
+            // The field can be up to 32 bits, and is independent of the opcode i bits
             OpSize.Op[1] = sz32;
             temp2 = ReadGen(1); // base operand
             for (c = 0; c <= (temp3 & 0x1F); c++)
@@ -2614,7 +2614,7 @@ void n32016_exec()
                StartBit = ((uint32_t) Offset) & 7;
             }
 
-            // The field can be upto 32 bits, and is independent of the opcode i bits
+            // The field can be up to 32 bits, and is independent of the opcode i bits
             OpSize.Op[1] = sz32;
             temp = ReadGen(1);
             for (c = 0; (c < Length) && (c + StartBit < 32); c++)

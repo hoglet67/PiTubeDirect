@@ -49,7 +49,7 @@ const int osword_in_len[] = {
   4,   //  9  =POINT()
   1,   // 10  =CHR$()
   1,   // 11  =Palette
-  5,   // 12  Pallette=
+  5,   // 12  Palette=
   0,   // 13  =Coords
   8,   // 14  =RTC
   25,  // 15  RTC=
@@ -552,7 +552,7 @@ void tube_CLI(unsigned int *reg) {
     }
   }
 
-  if (run) {                       // Skip any spaces preceeding filename
+  if (run) {                       // Skip any spaces proceeding filename
     while (*lptr == ' ') {
       lptr++;
     }
@@ -942,7 +942,7 @@ void tube_ChangeEnvironment(unsigned int *reg) {
 
   if (n < NUM_HANDLERS) {
 
-    // Grab the approriate handler state block from the environment
+    // Grab the appropriate handler state block from the environment
     HandlerState_type *hs = &env->handler[n];
 
     // Update the handler function from reg1

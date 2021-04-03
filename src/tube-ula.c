@@ -484,7 +484,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       {
          PSTAT1 &= ~0x80;
          HSTAT1 |=  HBIT_6;
-         //tube_updateints_IRQ(); // clear irq if required reg 4 isnt irqing
+         //tube_updateints_IRQ(); // clear irq if required reg 4 isn't irqing
          if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT;
       }
       break;
@@ -532,7 +532,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       {
          PSTAT4 &= ~0x80;
          HSTAT4 |=  HBIT_6;
-         //tube_updateints_IRQ(); // clear irq if  reg 1 isnt irqing
+         //tube_updateints_IRQ(); // clear irq if  reg 1 isn't irqing
          if (!(PSTAT1 & 128)) tube_irq &= ~IRQ_BIT;
       }
       break;
@@ -623,7 +623,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
             HSTAT3 |=  HBIT_7;
             PSTAT3 &= ~0xC0;
          }
-         //NMI if other case isn't seting it
+         //NMI if other case isn't setting it
          if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
       }
       else
@@ -632,7 +632,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          ph3pos = 1;
          HSTAT3 |=  HBIT_7;
          PSTAT3 &= ~0xC0;
-         //NMI if other case isn't seting it
+         //NMI if other case isn't setting it
          if (!(hp3pos > 0) ) tube_irq &= ~NMI_BIT;
       }
       //tube_updateints_NMI();
@@ -725,7 +725,7 @@ int tube_io_handler(uint32_t mail)
       // Not reset: sync to the last received sequence number
       exp_seq_num = act_seq_num;
    } else {
-      // Reset: Force a resync as mailbox overlow is very likely here
+      // Reset: Force a resync as mailbox overflow is very likely here
       exp_seq_num = -1;
    }
 #else

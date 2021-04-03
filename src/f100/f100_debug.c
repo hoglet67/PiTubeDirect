@@ -193,7 +193,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
          oplen++;
       }
 
-      // Output address in hex and a seperator
+      // Output address in hex and a separator
       len = snprintf(buf, bufsize, "%04"PRIx32" : ", addr);
       buf += len;
       bufsize -= len;
@@ -210,7 +210,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
          bufsize -= len;
       }
 
-      // Output a seperator
+      // Output a separator
       len = snprintf(buf, bufsize, ": ");
       buf += len;
       bufsize -= len;

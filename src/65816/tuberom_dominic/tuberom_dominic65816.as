@@ -5,7 +5,7 @@
 
 
 		; 65816 tube host code (c) 2015 Dominic Beesley
-		; Taken from JGH Dissasembly
+		; Taken from JGH Disassembly
 		; REM Code copyright Acorn Computer
 		; Commentary copyright J.G.Harston
 
@@ -395,7 +395,7 @@ MonCOPHandler:
 
 RESET:
 		; ------------------------------------------------------------
-		; 65816 tube client adapted from JGH dissambly 2015
+		; 65816 tube client adapted from JGH disassembly 2015
 		; ------------------------------------------------------------
 		; switch to Native mode
 		clc
@@ -428,7 +428,7 @@ RESET:
 		lda		#$20 - 1
 		ldx		#NAT_VECT
 		ldy		#$FFE0
-		; CA65 vesion 2.19 uses <src>,<dst>
+		; CA65 version 2.19 uses <src>,<dst>
 		mvn		#0, #1
 
 		; copy top page (OS and CPU vectors from ROM to RAM)
@@ -505,7 +505,7 @@ bootoff:
 		cli
 		; Check Tube R1 status to page ROM out
 rstBannerOrLoop:
-		jmp		PrBanner                ; Jump to initilise I/O with banner
+		jmp		PrBanner                ; Jump to initialise I/O with banner
 							; or straight to cmd loop - this gets replaced in next
 							; part of code
 
@@ -1950,7 +1950,7 @@ PrText:		; =====================
 
 ;TODO JGH PrString here!
 
-NMI_Ack:	sta		TubeR3			; Store to TubeR3 to acknowlege NMI
+NMI_Ack:	sta		TubeR3			; Store to TubeR3 to acknowledge NMI
 		rti
 
 COPHandler:	jmp		(IND1V)

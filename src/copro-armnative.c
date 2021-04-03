@@ -90,7 +90,7 @@ static void defaultErrorHandler(unsigned int r0) {
 }
 
 // Entered with R11 bit 6 as escape status
-// R12 contains 0/-1 if not in/in the kernal presently
+// R12 contains 0/-1 if not in/in the kernel presently
 // R11 and R12 may be altered. Return with MOV PC,R14
 // If R12 contains 1 on return then the Callback will be used
 
@@ -105,7 +105,7 @@ static void defaultEscapeHandler(unsigned int flag, unsigned int workspace) {
 
 // Entered with R0, R1 and R2 containing the A, X and Y parameters. R0,
 // R1, R2, R11 and R12 may be altered. Return with MOV PC, R14
-// R12 contains 0/-1 if not in/in the kernal presently
+// R12 contains 0/-1 if not in/in the kernel presently
 // R13 contains the IRQ handling routine stack. When you return to the
 // system LDMFD R13!, (R0,R1,R2,R11,R12,PC}^ will be executed. If R12
 // contains 1 on return then the Callback will be used.
@@ -220,7 +220,7 @@ static void tube_Reset() {
   if (DEBUG_ARM) {
     printf( "Banner sent, awaiting response\r\n" );
   }
-  // Wait for the reponse in R2
+  // Wait for the response in R2
   receiveByte(R2_ID);
   if (DEBUG_ARM) {
     printf( "Received response\r\n" );
@@ -302,7 +302,7 @@ void copro_armnative_emulator() {
   setjmp(reboot);
 
   if (copro != last_copro) {
-    // Deactive the mailbox
+    // Deactivate the mailbox
     copro_armnative_disable_mailbox();
     // Allow another copro to be selected
     return;

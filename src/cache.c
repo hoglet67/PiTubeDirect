@@ -139,7 +139,7 @@ void map_4k_page(int logical, int physical) {
   // Invalidate the data TLB before changing mapping
   _invalidate_dtlb_mva((void *)(logical << 12));
   // Setup the 4K page table entry
-  // Second level descriptors use extended small page format so inner/outer cacheing can be controlled
+  // Second level descriptors use extended small page format so inner/outer caching can be controlled
   // Pi 0/1:
   //   XP (bit 23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
   // Pi 2/3:
@@ -174,8 +174,8 @@ void enable_MMU_and_IDCaches(void)
   // 9      P     -               - set to 0
   // 8..5   Domain- access domain - set to 0000 as nor using access ctrl
   // 4      XN    - eXecute Never - set to 1 for I/O devices
-  // 3      C     - cacheable     - set to 1 for cachable RAM i
-  // 2      B     - bufferable    - set to 1 for cachable RAM
+  // 3      C     - cacheable     - set to 1 for cacheable RAM i
+  // 2      B     - bufferable    - set to 1 for cacheable RAM
   // 1      1                     - TEX, C, B used together, see below
   // 0      0                     - TEX, C, B used together, see below
 
@@ -263,7 +263,7 @@ void enable_MMU_and_IDCaches(void)
   // set TTBR0 - page table walk memory cacheability/shareable
   // [Bit 0, Bit 6] indicates inner cachability: 01 = normal memory, inner write-back write-allocate cacheable
   // [Bit 4, Bit 3] indicates outer cachability: 01 = normal memory, outer write-back write-allocate cacheable
-  // Bit 1 indicates sharable
+  // Bit 1 indicates shareable
   // 4A = 0100 1010
   int attr = ((aa & 1) << 6) | (bb << 3) | (shareable << 1) | ((aa & 2) >> 1);
   asm volatile ("mcr p15, 0, %0, c2, c0, 0" :: "r" (attr | (unsigned) &PageTable));

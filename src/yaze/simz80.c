@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 // 08-Feb-2017 JGH: Same bugfixes as BeebEm
 //   IN/OUT instructions use full 16-bit address, some were using wrong register
 //   Block instructions loop 65536/256 times for BC=0/B=0
-//   Block I/O decrements B between interations
+//   Block I/O decrements B between iterations
 //   Block I/O was doing B=C-1 instead of B=B-1
 //   Block instructions set flags closer to real hardware
 //   Added repeated EDxx instructions
@@ -164,12 +164,12 @@ enum register_numbers {
    i_F,
    i_BC,
    i_DE,
-   i_HL, 
+   i_HL,
    i_A_,
    i_F_,
    i_BC_,
    i_DE_,
-   i_HL_, 
+   i_HL_,
    i_IX,
    i_IY,
    i_SP,
@@ -185,12 +185,12 @@ static const char *dbg_reg_names[] = {
    "F",
    "BC",
    "DE",
-   "HL", 
+   "HL",
    "A'",
    "F'",
    "BC'",
    "DE'",
-   "HL'", 
+   "HL'",
    "IX",
    "IY",
    "SP",
@@ -1525,7 +1525,7 @@ simz80_execute(int tube_cycles)
       adr = HL;
       switch ((op = GetBYTE(PC)) & 7) {
           /*
-           * Use default to supress compiler warning: "warning:
+           * Use default to suppress compiler warning: "warning:
            * 'acu' may be used uninitialized in this function"
            */
       default:
@@ -1540,14 +1540,14 @@ simz80_execute(int tube_cycles)
       }
       switch (op & 0xc0) {
           /*
-           * Use default to supress compiler warning: "warning:
+           * Use default to suppress compiler warning: "warning:
            * 'temp' may be used uninitialized in this function"
            */
       default:
       case 0x00:      /* shift/rotate */
          switch (op & 0x38) {
          /*
-          * Use default to supress compiler warning: "warning:
+          * Use default to suppress compiler warning: "warning:
           * 'temp' may be used uninitialized in this function"
           */
          default:
@@ -2136,7 +2136,7 @@ simz80_execute(int tube_cycles)
          adr = IX + (signed char) GetBYTE_pp(PC);
          switch ((op = GetBYTE(PC)) & 7) {
              /*
-              * default: supresses compiler warning: "warning:
+              * default: suppresses compiler warning: "warning:
               * 'acu' may be used uninitialized in this function"
               */
          default:
@@ -2151,14 +2151,14 @@ simz80_execute(int tube_cycles)
          }
          switch (op & 0xc0) {
          /*
-          * Use default to supress compiler warning: "warning:
+          * Use default to suppress compiler warning: "warning:
           * 'temp' may be used uninitialized in this function"
           */
          default:
          case 0x00:      /* shift/rotate */
             switch (op & 0x38) {
             /*
-             * Use default: to supress compiler warning
+             * Use default: to suppress compiler warning
              * about 'temp' being used uninitialized
              */
             default:
@@ -3250,7 +3250,7 @@ simz80_execute(int tube_cycles)
          adr = IY + (signed char) GetBYTE_pp(PC);
          switch ((op = GetBYTE(PC)) & 7) {
              /*
-              * default: supresses compiler warning: "warning:
+              * default: suppresses compiler warning: "warning:
               * 'acu' may be used uninitialized in this function"
               */
          default:
@@ -3265,14 +3265,14 @@ simz80_execute(int tube_cycles)
          }
          switch (op & 0xc0) {
          /*
-          * Use default to supress compiler warning: "warning:
+          * Use default to suppress compiler warning: "warning:
           * 'temp' may be used uninitialized in this function"
           */
          default:
          case 0x00:      /* shift/rotate */
             switch (op & 0x38) {
             /*
-             * Use default to supress compiler warning:
+             * Use default to suppress compiler warning:
              * "warning: 'temp' may be used uninitialized
              * in this function"
              */
@@ -3374,7 +3374,7 @@ simz80_execute(int tube_cycles)
    case 0xFF:         /* RST 38H */
       PUSH(PC); PC = 0x38;
     }
-    tubeUseCycles(1); 
+    tubeUseCycles(1);
     } while (tubeContinueRunning());
 /* make registers visible for debugging if interrupted */
     SAVE_STATE();

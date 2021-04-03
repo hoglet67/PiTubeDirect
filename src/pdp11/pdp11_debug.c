@@ -376,7 +376,7 @@ static uint16_t disasm(char *buf, uint16_t a) {
    uint16_t d = ins & 077;
    uint8_t  o = ins & 0377;
 
-   // Work out the lenth
+   // Work out the length
    int len = 2;
    if (l.flag & S) {
       len += disaslen(s);
@@ -385,7 +385,7 @@ static uint16_t disasm(char *buf, uint16_t a) {
       len += disaslen(d);
    }
 
-   // Ouput the address
+   // Output the address
    buf += sprintf(buf, "%06o : ", a);
 
    // Output the instruction, max len is 3 words

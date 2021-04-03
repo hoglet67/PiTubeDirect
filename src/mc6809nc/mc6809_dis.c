@@ -308,9 +308,9 @@ TSTB";
 // The second byte is <length><mode>
 //      modes:
 //      1 immediate
-//      2 direct    
-//      3 indexed   
-//      4 extended  
+//      2 direct
+//      3 indexed
+//      4 extended
 //      5 inherent
 //      6 relative
 
@@ -653,7 +653,7 @@ static void stringAppend(const char *fmt, ...) {
    va_end(argptr);
 }
 
-/* disassemble one instruction at adress adr and return its size */
+/* disassemble one instruction at address adr and return its size */
 
 static char hexdigit(tt_u16 v)
 {
@@ -667,17 +667,17 @@ static char hexdigit(tt_u16 v)
 static char *hex8str(tt_u8 v)
 {
    static char tmpbuf[3] = "  ";
-   
+
    tmpbuf[1] = hexdigit(v);
    tmpbuf[0] = hexdigit(v >> 4);
-   
+
    return tmpbuf;
 }
 
 static char *hex16str(tt_u16 v)
 {
    static char tmpbuf[5] = "    ";
-   
+
    tmpbuf[3] = hexdigit(v);
    v >>= 4;
    tmpbuf[2] = hexdigit(v);
@@ -685,7 +685,7 @@ static char *hex16str(tt_u16 v)
    tmpbuf[1] = hexdigit(v);
    v >>= 4;
    tmpbuf[0] = hexdigit(v);
-   
+
    return tmpbuf;
 }
 
@@ -695,7 +695,7 @@ static char *ccstr(tt_u8 val)
 {
    static char tempbuf[9] = "        ";
    int i;
-   
+
    for (i = 0; i < 8; i++) {
       if (val & 0x80)
          tempbuf[i] = statusString[i];
@@ -703,7 +703,7 @@ static char *ccstr(tt_u8 val)
          tempbuf[i] = '.';
       val <<= 1;
    }
-   
+
    return tempbuf;
 }
 
@@ -714,21 +714,21 @@ static unsigned int disassemble(unsigned int addr)
    tt_u8 pb;
    char reg;
    const unsigned char *map = NULL;
-   
+
    // Default for most undefined opcodes
    unsigned char sm = 0x10; // size_mode byte
    unsigned char oi = OP_XX; // opcode index
-   
+
    if (d == 0x10) {
-      d = get_memb(addr + 1); 
+      d = get_memb(addr + 1);
       map = map1;
    }
-   
+
    if (d == 0x11) {
       d = get_memb(addr + 1);
       map = map2;
    }
-   
+
    if (map) {
       // Search for the opcode in map1 or map2
       map -= 3;
@@ -746,11 +746,11 @@ static unsigned int disassemble(unsigned int addr)
       oi = *(map++);
       sm = *(map++);
    }
-   
+
    s = sm >> 4;
-   
+
    stringAppend("%04X ", addr);
-   
+
    for (i = 0; i < s; i++) {
       stringAppend("%s", hex8str(get_memb(addr + i)));
       stringAppend("%c", ' ');
@@ -758,14 +758,14 @@ static unsigned int disassemble(unsigned int addr)
    for (i = s; i < 4; i++) {
       stringAppend("%s", "   ");
    }
-   
-   const char *ip = inst + oi * 4; 
+
+   const char *ip = inst + oi * 4;
    for (i = 0; i < 4; i++)
       stringAppend("%c", *(ip++));
-   
+
    stringAppend("%s", "  ");
-   
-   
+
+
    switch(sm & 15) {
    case 1:             /* immediate */
       stringAppend("%s", "#$");
@@ -781,7 +781,7 @@ static unsigned int disassemble(unsigned int addr)
    case 3:             /* indexed */
       pb = get_memb(addr + s - 1);
       reg = regi[(pb >> 5) & 0x03];
-      
+
       if (!(pb & 0x80)) {       /* n4,R */
          if (pb & 0x10)
             stringAppend("-$%s,%c", hex8str(((pb & 0x0f) ^ 0x0f) + 1), reg);
@@ -851,14 +851,14 @@ static unsigned int disassemble(unsigned int addr)
       switch (d) {
       case 0x1e: case 0x1f:              /* exg tfr */
          stringAppend("%s,%s", exgi[(pb >> 4) & 0x0f], exgi[pb & 0x0f]);
-         break; 
+         break;
       case 0x1a: case 0x1c: case 0x3c:   /* orcc andcc cwai */
          stringAppend("#$%s=%s", hex8str(pb), ccstr(pb));
          break;
       case 0x34:                         /* pshs */
       {
          int p = 0;
-         
+
          for (i = 0; i < 8; i++) {
             if (pb & 0x80) {
                if (p)
@@ -873,7 +873,7 @@ static unsigned int disassemble(unsigned int addr)
       case 0x35:                         /* puls */
       {
          int p = 0;
-         
+
          for (i = 7; i >= 0; i--) {
             if (pb & 0x01) {
                if (p)
@@ -888,7 +888,7 @@ static unsigned int disassemble(unsigned int addr)
       case 0x36:                         /* pshu */
       {
          int p = 0;
-         
+
          for (i = 0; i < 8; i++) {
             if (pb & 0x80) {
                if (p)
@@ -903,7 +903,7 @@ static unsigned int disassemble(unsigned int addr)
       case 0x37:                         /* pulu */
       {
          int p = 0;
-         
+
          for (i = 7; i >= 0; i--) {
             if (pb & 0x01) {
                if (p)
@@ -916,11 +916,11 @@ static unsigned int disassemble(unsigned int addr)
       }
       break;
       }
-      break; 
+      break;
    case 6:             /* relative */
    {
       tt_s16 v;
-      
+
       if (s == 2)
          v = (tt_s16)(tt_s8)get_memb(addr + 1);
       else
@@ -929,7 +929,7 @@ static unsigned int disassemble(unsigned int addr)
       break;
    }
    }
-   
+
    return addr + s;
 }
 
