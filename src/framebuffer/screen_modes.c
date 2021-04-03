@@ -15,8 +15,13 @@
 #endif
 
 // Registers to read the physical screen size
+#ifdef RPI4
+#define PIXELVALVE2_HORZB (volatile uint32_t *)(PERIPHERAL_BASE + 0x20A010)
+#define PIXELVALVE2_VERTB (volatile uint32_t *)(PERIPHERAL_BASE + 0x20A018)
+#else
 #define PIXELVALVE2_HORZB (volatile uint32_t *)(PERIPHERAL_BASE + 0x807010)
 #define PIXELVALVE2_VERTB (volatile uint32_t *)(PERIPHERAL_BASE + 0x807018)
+#endif
 
 unsigned char* fb = NULL;
 
@@ -851,7 +856,11 @@ static void init_colour_table(screen_mode_t *screen) {
 }
 
 static int get_hdisplay() {
+#ifdef RPI4
+   return  ((*PIXELVALVE2_HORZB) & 0xFFFF) * 2;
+#else
     return (*PIXELVALVE2_HORZB) & 0xFFFF;
+#endif
 }
 
 static int get_vdisplay() {
