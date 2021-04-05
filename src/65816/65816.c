@@ -3925,7 +3925,7 @@ static inline uint16_t rol16(uint16_t value)
     value <<= 1;
     if (tempc)
         value |= 1;
-    setzn16(a.w);
+    setzn16(value);
     return value;
 }
 
