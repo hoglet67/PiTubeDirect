@@ -15,8 +15,8 @@
 #include "65816_debug.h"
 #endif
 
-#define W65816_ROM_SIZE  0x8000
-#define W65816_RAM_SIZE 0x80000
+#define W65816_ROM_SIZE 0x008000
+#define W65816_RAM_SIZE 0x080000
 
 static uint8_t *w65816ram, *w65816rom;
 
@@ -349,7 +349,7 @@ static void do_writemem65816(uint32_t addr, uint32_t val)
         if (def || !(banking & 4))
             w65816mask = 0xFFFF;
         else
-            w65816mask = 0x7FFFF;
+            w65816mask = W65816_RAM_SIZE - 1;
         printf("def=%x divider=%x banking=%x banknum=%x mask=%"PRIX32"\r\n", def, divider, banking, banknum, w65816mask);
         return;
     }
