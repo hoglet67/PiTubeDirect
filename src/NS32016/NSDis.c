@@ -668,15 +668,15 @@ static void getgen(int gen, int c, uint32_t* pPC)
       Regs[c].Whole |= read_mem_8((*pPC)++) << 8;
       (*pPC)++;
 
-      if ((Regs[c].Whole & 0xF800) == (Immediate << 11))
-      {
-         SET_TRAP(IllegalImmediate);
-      }
+      //if ((Regs[c].Whole & 0xF800) == (Immediate << 11))
+      //{
+      //   SET_TRAP(IllegalImmediate);
+      //}
 
-      if ((Regs[c].Whole & 0xF800) >= (EaPlusRn << 11))
-      {
-         SET_TRAP(IllegalDoubleIndexing);
-      }
+      //if ((Regs[c].Whole & 0xF800) >= (EaPlusRn << 11))
+      //{
+      //   SET_TRAP(IllegalDoubleIndexing);
+      //}
    }
 }
 
@@ -843,7 +843,7 @@ static void Decode(uint32_t* pPC)
 
       default:
       {
-         SET_TRAP(UnknownFormat);
+         // SET_TRAP(UnknownFormat);
       }
       break;
    }
