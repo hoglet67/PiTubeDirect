@@ -665,7 +665,7 @@ static void getgen(int gen, int c, uint32_t* pPC)
 
    if (gen >= EaPlusRn)
    {
-      Regs[c].Whole |= read_mem_8((*pPC)++) << 8;
+      Regs[c].Whole |= read_mem_8(*pPC) << 8;
       (*pPC)++;
 
       //if ((Regs[c].Whole & 0xF800) == (Immediate << 11))
