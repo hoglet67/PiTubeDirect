@@ -52,7 +52,7 @@ const uint32_t IndexLKUP[8] = { 0x0, 0x1, 0x4, 0x5, 0x8, 0x9, 0xC, 0xD };       
 void n32016_warn(char *fmt, ...)
 {
    char buf[1024];
-   int len = snprintf(buf, sizeof(buf), "[pc=%"PRIX32"] ", pc);
+   int len = snprintf(buf, sizeof(buf), "[pc=%"PRIX32"] ", startpc);
    va_list ap;
    va_start(ap, fmt);
    vsnprintf(buf + len, sizeof(buf) - len, fmt, ap);
