@@ -295,7 +295,7 @@ static void GetOperandText(uint32_t Start, uint32_t* pPC, RegLKU Pattern, uint32
             RegLKU NewPattern;
             NewPattern.Whole = Pattern.Whole >> 11;
             GetOperandText(Start, pPC, NewPattern, c, OperandSize);   // Recurse
-            StringAppend("[R%" PRId16 ":%c]", ((Pattern.Whole >> 8) & 3), SizeLookup[Pattern.Whole & 3]);
+            StringAppend("[R%" PRId16 ":%c]", (Pattern.IdxReg), SizeLookup[Pattern.Whole & 3]);
          }
          break;
       }
