@@ -638,7 +638,7 @@ void tube_Byte(unsigned int *reg) {
     cy = receiveByte(R2_ID) & 0x80;
     y = receiveByte(R2_ID);
     x = receiveByte(R2_ID);
-    reg[1] = x | (y << 8);      // JGH
+    reg[1] = x;
     reg[2] = y;
     updateCarry(cy, reg);
   }
