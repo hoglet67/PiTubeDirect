@@ -1644,7 +1644,7 @@ int fb_get_current_screen_mode() {
 
 int32_t fb_read_vdu_variable(vdu_variable_t v) {
    if (v < 0x80) {
-      return fb_read_mode_variable(v, screen);
+      return fb_read_mode_variable( (mode_variable_t) v, screen);
    }
 
    font_t *font = screen->font;
