@@ -578,8 +578,8 @@ void HandleMemSingle(UINT32 insn)
     CYCLE_COUNT(S_CYCLE + I_CYCLE + N_CYCLE);
     if (insn & INSN_SDT_B)
     {
-      if (ARM_DEBUG_CORE && rd == eR15)
-        logerror("read byte R15 %08x\n", R15);
+        if (ARM_DEBUG_CORE && rd == eR15)
+          logerror("read byte R15 %08x\n", R15);
         SetRegister(rd,(UINT32) cpu_read8(rnv) );
       }
       else
@@ -614,14 +614,14 @@ void HandleMemSingle(UINT32 insn)
       if (insn & INSN_SDT_B)
       {
         if (ARM_DEBUG_CORE && rd==eR15)
-        logerror("Wrote R15 in byte mode\n");
+          logerror("Wrote R15 in byte mode\n");
 
         cpu_write8(rnv, (UINT8) GetRegister(rd) & 0xffu);
       }
       else
       {
         if (ARM_DEBUG_CORE && rd==eR15)
-        logerror("Wrote R15 in 32bit mode\n");
+          logerror("Wrote R15 in 32bit mode\n");
 
         cpu_write32(rnv, rd == eR15 ? R15 + 8 : GetRegister(rd));
       }
@@ -651,8 +651,8 @@ void HandleMemSingle(UINT32 insn)
       }
       else
       {
-        if ((insn & INSN_SDT_W) != 0)
-          logerror("%08x:  RegisterWritebackIncrement %d %d %d\n", R15,(insn & INSN_SDT_P)!=0,(insn&INSN_SDT_W)!=0,(insn & INSN_SDT_U)!=0);
+          if ((insn & INSN_SDT_W) != 0)
+            logerror("%08x:  RegisterWritebackIncrement %d %d %d\n", R15,(insn & INSN_SDT_P)!=0,(insn&INSN_SDT_W)!=0,(insn & INSN_SDT_U)!=0);
 
           SetRegister(rn,(rnv + off));
         }
@@ -755,8 +755,8 @@ void HandleALU(UINT32 insn)
   {
     if ((rn = (insn & INSN_RN) >> INSN_RN_SHIFT) == eR15)
     {
-      if (ARM_DEBUG_CORE)
-        logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,((insn&INSN_I)?8:12));
+        if (ARM_DEBUG_CORE)
+          logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,((insn&INSN_I)?8:12));
 
         /* Docs strongly suggest the mode bits should be included here, but it breaks Captain
          America, as it starts doing unaligned reads */
@@ -990,8 +990,8 @@ int storeInc(UINT32 pat, UINT32 rbv)
   {
     if ((pat >> i) & 1)
     {
-      if (ARM_DEBUG_CORE && i == 15) /* R15 is plus 12 from address of STM */
-        logerror("%08x: StoreInc on R15\n", R15);
+        if (ARM_DEBUG_CORE && i == 15) /* R15 is plus 12 from address of STM */
+          logerror("%08x: StoreInc on R15\n", R15);
 
         cpu_write32( rbv += 4, GetRegister(i) );
         result++;
@@ -1009,8 +1009,8 @@ int storeDec(UINT32 pat, UINT32 rbv)
   {
     if ((pat >> i) & 1)
     {
-      if (ARM_DEBUG_CORE && i == 15) /* R15 is plus 12 from address of STM */
-        logerror("%08x: StoreDec on R15\n", R15);
+        if (ARM_DEBUG_CORE && i == 15) /* R15 is plus 12 from address of STM */
+          logerror("%08x: StoreDec on R15\n", R15);
 
         cpu_write32( rbv -= 4, GetRegister(i) );
         result++;
@@ -1069,13 +1069,13 @@ void HandleMemBlock(UINT32 insn)
          implementations (the results are officially undefined).
          */
 
-        if (ARM_DEBUG_CORE && rb == 15)
-          logerror("%08x:  Illegal LDRM writeback to r15\n", R15);
+          if (ARM_DEBUG_CORE && rb == 15)
+            logerror("%08x:  Illegal LDRM writeback to r15\n", R15);
 
           if ((insn&(1<<rb))==0)
           SetModeRegister(mode, rb, GetModeRegister(mode, rb) + result * 4);
           else if (ARM_DEBUG_CORE)
-          logerror("%08x:  Illegal LDRM writeback to base register (%u)\n",R15, rb);
+            logerror("%08x:  Illegal LDRM writeback to base register (%u)\n",R15, rb);
         }
       }
       else
@@ -1133,7 +1133,7 @@ void HandleMemBlock(UINT32 insn)
       if (insn & (1<<eR15))
       {
         if (ARM_DEBUG_CORE)
-        logerror("%08x: Writing R15 in strm\n",R15);
+          logerror("%08x: Writing R15 in strm\n",R15);
 
         /* special case handling if writing to PC */
         R15 += 12;
@@ -1210,8 +1210,8 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
   if (t & 1)
   {
 //      logerror("%08x:  RegShift %02x %02x\n",R15, k>>1,GetRegister(k >> 1));
-    if (ARM_DEBUG_CORE && (insn & 0x80) == 0x80)
-      logerror("%08x:  RegShift ERROR (p36)\n", R15);
+      if (ARM_DEBUG_CORE && (insn & 0x80) == 0x80)
+        logerror("%08x:  RegShift ERROR (p36)\n", R15);
 
       //see p35 for check on this
       k = GetRegister(k >> 1)&0xff;
