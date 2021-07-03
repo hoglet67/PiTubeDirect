@@ -1207,11 +1207,12 @@ screen_mode_t *get_screen_mode(int mode_num) {
       if (!sm->flash && sm->log2bpp == 3) {
          sm->flash = default_flash;
       }
+   
+      // Set the colour index for black
+      sm->black = 0;
+      // Set the colour index for black, avoiding flashing colours
+      sm->white = (sm->ncolour == 15) ? 7 : sm->ncolour;
    }
-   // Set the colour index for black
-   sm->black = 0;
-   // Set the colour index for black, avoiding flashing colours
-   sm->white = (sm->ncolour == 15) ? 7 : sm->ncolour;
    return sm;
 }
 

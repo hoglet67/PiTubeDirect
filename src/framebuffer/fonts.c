@@ -311,8 +311,7 @@ static font_t *initialize_font(font_t * catalog, int num) {
    // The factor of 2 allows for character rounding to be enabled
    size_t size = font->height * MAX_CHARACTERS * 2 * sizeof(uint16_t);
    if (font->buffer == NULL) {
-      font->buffer = (uint16_t *)malloc(size);
-      memset(font->buffer, 0, size);
+      font->buffer = (uint16_t *)calloc(size, 1);
    }
 
    // Default implementation of setters
