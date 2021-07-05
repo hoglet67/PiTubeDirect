@@ -46,7 +46,7 @@ void copro_opc6_write_io(uint16_t addr, uint16_t data) {
    }
 #endif
    if ((addr & 0xFFF8) == 0xFEF8) {
-      tube_parasite_write(addr & 7, data);
+      tube_parasite_write(addr & 7, (uint8_t) data);
       DBG_PRINT("write: %d = %x\r\n", addr & 7, data);
    }
 }

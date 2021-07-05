@@ -29,7 +29,7 @@ void opc6_irq(int id);
 #define   C_MASK (1 <<   C_FLAG)
 #define   S_MASK (1 <<   S_FLAG)
 #define  EI_MASK (1 <<  EI_FLAG)
-#define SWI_MASK (15 << SWI_FLAG)
+#define SWI_MASK (15u << SWI_FLAG)
 
 #define PSR_MASK 0xFF
 
