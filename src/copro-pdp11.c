@@ -55,7 +55,7 @@ void copro_pdp11_write16(const uint16_t addr, const uint16_t data) {
    }
 #endif
    if ((addr & 0xFFF0) == 0xFFF0) {
-      tube_parasite_write((addr >> 1) & 7, data & 255);
+      tube_parasite_write((addr >> 1) & 7, ( uint8_t)data & 255);
    } else {
       *(uint16_t *)(memory + addr) = data;
    }
