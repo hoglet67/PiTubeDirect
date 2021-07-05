@@ -144,6 +144,6 @@ void OS_Byte(unsigned int a, unsigned int x, unsigned int y, unsigned int *retx,
 void OS_ReadLine(const char *buffer, int buflen, int minAscii, int maxAscii, unsigned int *flags, int *length);
 void OS_Exit();
 void OS_GenerateError(const ErrorBlock_type *eblk);
-int  OS_ReadModeVariable(int mode, int variable);
+int  OS_ReadModeVariable(unsigned int mode, int variable);
 
 #endif

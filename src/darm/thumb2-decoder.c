@@ -143,7 +143,7 @@ darm_instr_t thumb2_load_store_multiple(darm_t *d, uint16_t w, uint16_t w2)
 
     uint32_t op = (w >> 7) & b11;
     uint32_t L = (w >> 4) & b1;
-    uint32_t W_Rn = ((w >> 1) & 0x10) | (w & b1111);
+    uint32_t W_Rn = ((w >> 1) & 0x10u) | (w & 0xfu);
 
     d->instr_type = T_THUMB2_RN_REG;
     d->instr_imm_type = T_THUMB2_NO_IMM;
@@ -278,7 +278,7 @@ darm_instr_t thumb2_move_shift(darm_t *d, uint16_t w, uint16_t w2)
     (void) w;
 
     uint32_t type = (w2>>4) & b11;
-    uint32_t imm3_imm2 = ((w2>>10) & 0x1C) | ((w2>>6) & b11);
+    uint32_t imm3_imm2 = ((w2>>10) & 0x1Cu) | ((w2>>6) & 0x3u);
 
     d->instr_type = T_THUMB2_RD_RM_REG;
     d->instr_imm_type = T_THUMB2_IMM2_IMM3;
@@ -315,7 +315,7 @@ darm_instr_t thumb2_data_shifted_reg(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op = (w >> 5) & b1111;
     uint32_t Rn = w & b1111;
-    uint32_t Rd_S = ((w2 >> 7) & 0x1e) | ((w >> 4) & 1);
+    uint32_t Rd_S = ((w2 >> 7) & 0x1eu) | ((w >> 4) & 1u);
 
     d->instr_type = T_THUMB2_RN_RD_RM_REG;
     d->instr_imm_type = T_THUMB2_IMM2_IMM3;
@@ -397,7 +397,7 @@ darm_instr_t thumb2_modified_immediate(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op = (w >> 5) & b1111;
     uint32_t Rn = w & b1111;
-    uint32_t Rd_S = ((w2 >> 7) & 0x1e) | ((w >> 4) & 1);
+    uint32_t Rd_S = ((w2 >> 7) & 0x1eu) | ((w >> 4) & 1u);
 
     d->instr_type = T_THUMB2_RN_RD_REG;
     d->instr_imm_type = T_THUMB2_IMM1_IMM3_IMM8;

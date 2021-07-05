@@ -144,7 +144,7 @@ __attribute__ ((noinline)) void OS_GenerateError(const ErrorBlock_type *eblk) {
      );
 }
 
-__attribute__ ((noinline)) int OS_ReadModeVariable(int mode, int variable) {
+__attribute__ ((noinline)) int OS_ReadModeVariable(unsigned int mode, int variable) {
   asm volatile
     (
      "push    {r4,lr}          \r\n"

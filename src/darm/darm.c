@@ -41,9 +41,10 @@ POSSIBILITY OF SUCH DAMAGE.
         if(p != NULL) while (*p != 0) *out++ = *p++; \
     } while (0);
 
-static int _utoa(unsigned int value, char *out, int base)
+static int _utoa(unsigned int value, char *out, unsigned int base)
 {
-    char buf[30]; unsigned int i, counter = 0;
+    char buf[30]; 
+    int  counter = 0;
 
     if(value == 0) {
         buf[counter++] = '0';
@@ -53,7 +54,7 @@ static int _utoa(unsigned int value, char *out, int base)
         buf[counter++] = "0123456789abcdef"[value % base];
     }
 
-    for (i = 0; i < counter; i++) {
+    for (int i = 0; i < counter; i++) {
         out[i] = buf[counter - i - 1];
     }
 
@@ -98,7 +99,7 @@ int darm_disasm(darm_t *d, uint16_t w, uint16_t w2, uint32_t addr)
     if((addr & 1) == 0) {
 
         // disassemble and check for error return values
-        if(darm_armv7_disasm(d, (w2 << 16) | w) < 0) {
+        if(darm_armv7_disasm(d, (uint32_t) ((w2 << 16) | w)) < 0) {
             return 0;
         }
         else {
@@ -204,7 +205,7 @@ int darm_str(const darm_t *d, darm_str_t *str)
             APPEND(args[arg], darm_register_name(d->Rd));
             arg++;
             continue;
-            
+
         case 'z':
             if (d->B == 1)
             {
@@ -223,7 +224,7 @@ int darm_str(const darm_t *d, darm_str_t *str)
                if (d->Rd & 0x8) {APPEND(args[arg], "f")};
             }
             arg++;
-            continue;    
+            continue;
 
         case 'n':
             if(d->Rn == R_INVLD) break;
@@ -583,7 +584,7 @@ int darm_str2(const darm_t *d, darm_str_t *str, int lowercase)
         // just lowercase the entire object, including null-bytes
         char *buf = (char *) str;
         for (i = 0; i < sizeof(darm_str_t); i++) {
-          buf[i] = tolower((int) buf[i]);
+          buf[i] = (char) tolower((int) buf[i]);
         }
     }
     return 0;
@@ -609,7 +610,7 @@ int darm_reglist(uint16_t reglist, char *out)
 
         for (reg = start; reg == __builtin_ctz(reglist); reg++) {
             // unset this bit
-            reglist &= ~(1 << reg);
+            reglist &= (uint16_t) (~(1u << reg));
         }
 
         // if reg is not start + 1, then this means that a series of

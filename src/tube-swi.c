@@ -38,7 +38,7 @@
 
 static unsigned int last_r12 = 0;
 
-const int osword_in_len[] = {
+const unsigned char osword_in_len[] = {
   0,   // OSWORD 0x00
   0,   //  1  =TIME
   5,   //  2  TIME=
@@ -62,7 +62,7 @@ const int osword_in_len[] = {
   128  // 20  NetFSOp
 };
 
-const int osword_out_len[] = {
+const unsigned char osword_out_len[] = {
   0,   // OSWORD 0x00
   5,   //  1  =TIME
   0,   //  2  TIME=
@@ -277,7 +277,7 @@ void updateCarry(unsigned char cyf, unsigned int *reg) {
 void updateMode(unsigned char mode, unsigned int *reg) {
   // The PSW is on the stack two words before the registers
   reg-= 2;
-  *reg &= ~0x1f;
+  *reg &= ~0x1fu;
   *reg |= mode;
 }
 
@@ -338,7 +338,7 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
 
 // Helper functions
 
-int user_exec_fn(FunctionPtr_Type f, int param ) {
+int user_exec_fn(FunctionPtr_Type f, unsigned int param ) {
   int ret;
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x", (unsigned int)f, _get_cpsr());
@@ -362,8 +362,8 @@ int user_exec_fn(FunctionPtr_Type f, int param ) {
 }
 
 void user_exec_raw(volatile unsigned char *address) {
-  int off;
-  int carry = 0, r0 = 0; int r1 = 0; int r12 = 0; // Entry parameters
+  unsigned int off;
+  unsigned int carry = 0, r0 = 0, r1 = 0, r12 = 0; // Entry parameters
 
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
@@ -394,7 +394,7 @@ void user_exec_raw(volatile unsigned char *address) {
   } else {
     if (address[19] == 0 && address[23] == 0 && address[27] == 0) {
       // RISC OS module header
-      off=address[16] + 256 * address[17] + 65536 * address[18];
+      off=(unsigned int)address[16] + 256 * (unsigned int)address[17] + 65536 * (unsigned int)address[18];
       r0 = (unsigned int) address + off;    // R0=>module title
 
 // We need to do commandBuffer=moduleTitle+" "+MID$(commandBuffer,offset_to_space)
@@ -415,7 +415,7 @@ void user_exec_raw(volatile unsigned char *address) {
   while (*(char*)r1 == ' ') r1++;     // Step past spaces, r1=>command tail
 
   if (address[3]==0) {
-    off=address[0]+256*address[1]+65536*address[2];
+    off=(unsigned int)address[0]+256*(unsigned int)address[1]+65536*(unsigned int)address[2];
     address=address+off;              // Entry word is offset, not branch
   }
 
@@ -471,7 +471,7 @@ void tube_WriteS(unsigned int *reg) {
   reg[13] = (unsigned int) write_string((char *)reg[13]);
   // Make sure new value of link register is word aligned to the next word boundary
   reg[13] += 3;
-  reg[13] &= ~3;
+  reg[13] &= 0xfffffffcu;
 }
 
 void tube_Write0(unsigned int *reg) {
@@ -592,7 +592,7 @@ void tube_CLI(unsigned int *reg) {
     sendByte(R2_ID, 0x0D);
     if (receiveByte(R2_ID) & 0x80) {
       // Execution should pass to last transfer address
-      user_exec_raw(address);
+      user_exec_raw(tube_address);
       // Possibly this will return...
     }
   }
@@ -626,7 +626,7 @@ void tube_Byte(unsigned int *reg) {
        // OSBYTE &8E returns a 1-byte OSCLI acknowledgement
        if (receiveByte(R2_ID) & 0x80) {
           env->commandBuffer[0] = 0x0D;   // Null command line
-          user_exec_raw(address);
+          user_exec_raw(tube_address);
        }
        return;
     }
@@ -648,8 +648,8 @@ void tube_Byte(unsigned int *reg) {
 }
 
 void tube_Word(unsigned int *reg) {
-  int in_len;
-  int out_len;
+  unsigned char in_len;
+  unsigned char out_len;
   unsigned char a = reg[0] & 0xff;
   unsigned char *block;
   int i;
@@ -724,7 +724,7 @@ void tube_File(unsigned int *reg) {
   sendStringWithoutTerminator(R2_ID, (char *)*ptr--);  // r1 = filename ptr
   // Send the 0x0D terminator
   sendByte(R2_ID, 0x0D);
-  sendByte(R2_ID, *ptr);              // r0 = action
+  sendByte(R2_ID, (unsigned char )*ptr);              // r0 = action
   *ptr = receiveByte(R2_ID);          // r0 = action
   ptr = reg + 5;                   // ptr = r5
   *ptr-- = receiveWord(R2_ID);        // r5 = attr
@@ -740,11 +740,11 @@ void tube_Args(unsigned int *reg) {
   // OSARGS   R2: &0C Y block A                     A block
   sendByte(R2_ID, 0x0C);
   // Y = R1 is the file namdle
-  sendByte(R2_ID, reg[1]);
+  sendByte(R2_ID, (unsigned char )reg[1]);
   // R2 is the 4 byte data block
-  sendWord(R2_ID, reg[2]);
+  sendWord(R2_ID, (unsigned char )reg[2]);
   // A = R0 is the operation code
-  sendByte(R2_ID, reg[0]);
+  sendByte(R2_ID, (unsigned char )reg[0]);
   // get back A
   reg[0] = receiveByte(R2_ID);
   // get back 4 byte data block
@@ -755,7 +755,7 @@ void tube_BGet(unsigned int *reg) {
   // OSBGET   R2: &0E Y                             Cy A
   sendByte(R2_ID, 0x0E);
   // Y = R1 is the file namdle
-  sendByte(R2_ID, reg[1]);
+  sendByte(R2_ID, (unsigned char )reg[1]);
   // On exit, the Carry flag indicates validity
   updateCarry(receiveByte(R2_ID) & 0x80, reg);
   // On exit, R0 contains the character
@@ -766,9 +766,9 @@ void tube_BPut(unsigned int *reg) {
   // OSBPUT   R2: &10 Y A                           &7F
   sendByte(R2_ID, 0x10);
   // Y = R1 is the file namdle
-  sendByte(R2_ID, reg[1]);
+  sendByte(R2_ID, (unsigned char )reg[1]);
   // A = R0 is the character
-  sendByte(R2_ID, reg[0]);
+  sendByte(R2_ID, (unsigned char )reg[0]);
   // Response is always 7F so ignored
   receiveByte(R2_ID);
 }
@@ -781,8 +781,8 @@ void tube_GBPB(unsigned int *reg) {
   sendWord(R2_ID, *ptr--);              // r4
   sendWord(R2_ID, *ptr--);              // r3
   sendWord(R2_ID, *ptr--);              // r2
-  sendByte(R2_ID, *ptr--);              // r1
-  sendByte(R2_ID, *ptr);                // r0
+  sendByte(R2_ID, (unsigned char )*ptr--);              // r1
+  sendByte(R2_ID, (unsigned char )*ptr);                // r0
   ptr = reg + 4;
   *ptr-- = receiveWord(R2_ID);          // r4
   *ptr-- = receiveWord(R2_ID);          // r3
@@ -797,10 +797,10 @@ void tube_Find(unsigned int *reg) {
   // OSFIND   R2: &12 A string &0D                  A
   sendByte(R2_ID, 0x12);
   // A = R0 is the operation type
-  sendByte(R2_ID, reg[0]);
+  sendByte(R2_ID, (unsigned char )reg[0]);
   if (reg[0] == 0) {
     // Y = R1 is the file handle to close
-    sendByte(R2_ID, reg[1]);
+    sendByte(R2_ID, (unsigned char )reg[1]);
     // Response is always 7F so ignored
     receiveByte(R2_ID);
   } else {
@@ -817,9 +817,9 @@ void tube_ReadLine(unsigned int *reg) {
    unsigned char resp;
    // OSWORD0  R2: &0A block                         &FF or &7F string &0D
    sendByte(R2_ID, 0x0A);
-   sendByte(R2_ID, reg[3]);      // max ascii value
-   sendByte(R2_ID, reg[2]);      // min ascii value
-   sendByte(R2_ID, reg[1]);      // max line length
+   sendByte(R2_ID, (unsigned char )reg[3]);      // max ascii value
+   sendByte(R2_ID, (unsigned char )reg[2]);      // min ascii value
+   sendByte(R2_ID, (unsigned char )reg[1]);      // max line length
    sendByte(R2_ID, 0x07);        // Buffer MSB - set as per Tube Ap Note 004
    sendByte(R2_ID, 0x00);        // Buffer LSB - set as per Tube Ap Note 004
    resp = receiveByte(R2_ID);    // 0x7F or 0xFF
@@ -863,7 +863,7 @@ void tube_EnterOS(unsigned int *reg) {
 
 void tube_Mouse(unsigned int *reg) {
   // JGH: Read Mouse settings
-  int msX, msY, msZ;
+  unsigned int msX, msY, msZ;
 
   reg[0]=128; reg[1]=7; reg[2]=0;
   tube_Byte(reg);      // ADVAL(7)
@@ -904,10 +904,10 @@ void tube_ReadPoint(unsigned int *reg) {
   sendByte(R2_ID, 0x09);        // OSWORD A=&09
   sendByte(R2_ID, 0x04);        // inlen = 4
   // Blocks are sent in reverse (high downto low)
-  sendByte(R2_ID, reg[1] >> 8); // MSB of Y coord
-  sendByte(R2_ID, reg[1]);      // LSB of Y coord
-  sendByte(R2_ID, reg[0] >> 8); // MSB of X coord
-  sendByte(R2_ID, reg[0]);      // LSB of X coord
+  sendByte(R2_ID, (unsigned char )(reg[1] >> 8)); // MSB of Y coord
+  sendByte(R2_ID, (unsigned char )(reg[1]));      // LSB of Y coord
+  sendByte(R2_ID, (unsigned char )(reg[0] >> 8)); // MSB of X coord
+  sendByte(R2_ID, (unsigned char )(reg[0]));      // LSB of X coord
   sendByte(R2_ID, 0x05);        // outlen = 5
   int pt = receiveByte(R2_ID);  // logical colour of point, or 0xFF is the point is off screen
   receiveByte(R2_ID);           // MSB of Y coord
@@ -915,11 +915,11 @@ void tube_ReadPoint(unsigned int *reg) {
   receiveByte(R2_ID);           // MSB of X coord
   receiveByte(R2_ID);           // LSB of X coord
   if (pt == 0xff) {
-     reg[2] = -1;
+     reg[2] = 0xffffffffu;
      reg[3] = 0;
-     reg[4] = -1;
+     reg[4] = 0xffffffffu;
   } else {
-     reg[2] = pt;
+     reg[2] = ( unsigned int ) pt;
      reg[3] = 0;
      reg[4] = 0;
   }
@@ -986,16 +986,16 @@ void tube_ChangeEnvironment(unsigned int *reg) {
 
 void tube_Plot(unsigned int *reg) {
     sendByte(R1_ID, 25);
-    sendByte(R1_ID, reg[0]);
-    sendByte(R1_ID, reg[1]);
-    sendByte(R1_ID, reg[1] >> 8);
-    sendByte(R1_ID, reg[2]);
-    sendByte(R1_ID, reg[2] >> 8);
+    sendByte(R1_ID, (unsigned char )(reg[0]) );
+    sendByte(R1_ID, (unsigned char )(reg[1]) );
+    sendByte(R1_ID, (unsigned char )(reg[1] >> 8) );
+    sendByte(R1_ID, (unsigned char )(reg[2]) );
+    sendByte(R1_ID, (unsigned char )(reg[2] >> 8) );
 }
 
 void tube_WriteN(unsigned int *reg) {
   unsigned char *ptr = (unsigned char *)reg[0];
-  int len = reg[1];
+  unsigned int len = reg[1];
   while (len-- > 0) {
     sendByte(R1_ID, *ptr++);
   }

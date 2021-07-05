@@ -39,7 +39,7 @@ void sendStringWithoutTerminator(unsigned char reg, const volatile char *buf);
 
 void sendString(unsigned char reg, unsigned char terminator, const volatile char *buf);
 
-int receiveString(unsigned char reg, unsigned char terminator, volatile char *buf);
+unsigned int receiveString(unsigned char reg, unsigned char terminator, volatile char *buf);
 
 void sendBlock(unsigned char reg, int len, const unsigned char *buf);
 

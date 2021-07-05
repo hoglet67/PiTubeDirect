@@ -38,7 +38,7 @@ void setTubeLibDebug(int d)
 // Reg is 1..4
 void sendByte(unsigned char reg, unsigned char byte)
 {
-  unsigned char addr = (reg - 1) * 2;
+  unsigned char addr = (unsigned char) ((reg - 1) *2);
   if (debug >= 2)
   {
     printf("waiting for space in R%d\r\n", reg);
@@ -49,7 +49,7 @@ void sendByte(unsigned char reg, unsigned char byte)
   {
     printf("done waiting for space in R%d\r\n", reg);
   }
-  tubeWrite((reg - 1) * 2 + 1, byte);
+  tubeWrite(addr + 1, byte);
   if (debug >= 1)
   {
     printf("Tx: R%d = %02x\r\n", reg, byte);
@@ -60,7 +60,7 @@ void sendByte(unsigned char reg, unsigned char byte)
 unsigned char receiveByte(unsigned char reg)
 {
   unsigned char byte;
-  unsigned char addr = (reg - 1) * 2;
+  unsigned char addr = (unsigned char) ((reg - 1) * 2);
   if (debug >= 2)
   {
     printf("waiting for data in R%d\r\n", reg);
@@ -71,7 +71,7 @@ unsigned char receiveByte(unsigned char reg)
   {
     printf("done waiting for data in R%d\r\n", reg);
   }
-  byte = tubeRead((reg - 1) * 2 + 1);
+  byte = tubeRead(addr + 1);
   if (debug >= 1)
   {
     printf("Rx: R%d = %02x\r\n", reg, byte);
@@ -103,9 +103,9 @@ void sendString(unsigned char reg, unsigned char terminator, const volatile char
 }
 
 // Reg is 1..4
-int receiveString(unsigned char reg, unsigned char terminator, volatile char *buf)
+unsigned int receiveString(unsigned char reg, unsigned char terminator, volatile char *buf)
 {
-  int i = 0;
+  unsigned int i = 0;
   unsigned char c;
   do
   {
@@ -151,7 +151,7 @@ void sendWord(unsigned char reg, unsigned int word)
 // Reg is 1..4
 unsigned int receiveWord(unsigned char reg)
 {
-  int word = receiveByte(reg);
+  unsigned int word = receiveByte(reg);
   word <<= 8;
   word |= receiveByte(reg);
   word <<= 8;

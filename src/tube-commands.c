@@ -28,9 +28,9 @@ const char *copro_key = "COPROS";
 
 char line[256];
 
-static const int WRCVEC = 0x020E;
+#define WRCVEC 0x020E
 
-static const int WRCHANDLER = 0x0900;
+#define WRCHANDLER 0x0900
 
 /***********************************************************
  * Build in Commands
@@ -115,7 +115,7 @@ int dispatchCmd(char *cmd) {
     if (paramPtr) {
       if (cmdMode[i] == MODE_USER) {
         // Execute the command in user mode
-        return user_exec_fn(cmdFuncs[i], (int) paramPtr);
+        return user_exec_fn(cmdFuncs[i], ( unsigned int) paramPtr);
       } else {
         // Execute the command in supervisor mode
         return cmdFuncs[i](paramPtr);
@@ -163,7 +163,7 @@ int doCmdHelp(const char *params) {
      OS_Write0(" n Processor - *FX ");
      OS_Write0(get_elk_mode() ? "147" : "151");
      OS_Write0(",230,n\r\n");
-     for (unsigned int i = 0; i < num_copros(); i++) {
+     for (unsigned char i = 0; i < num_copros(); i++) {
 
         copro_def_t *copro_def = &copro_defs[i];
 
@@ -202,36 +202,34 @@ int doCmdGo(const char *params) {
 }
 
 int doCmdFill(const char *params) {
-  unsigned int i;
   unsigned int start;
   unsigned int end;
-  unsigned int data;
-  sscanf(params, "%x %x %x", &start, &end, &data);
-  for (i = start; i <= end; i++) {
+  unsigned char data;
+  sscanf(params, "%x %x %hhu", &start, &end, &data);
+  for (unsigned int i = start; i <= end; i++) {
     *((unsigned char *)i) = data;
   }
   return 0;
 }
 
 int doCmdMem(const char *params) {
-  int i, j;
   unsigned char c;
   char *ptr;
   unsigned int flags;
   unsigned int memAddr;
   sscanf(params, "%x", &memAddr);
   do {
-    for (i = 0; i < 16; i++) {
+    for (unsigned int i = 0; i < 16; i++) {
       ptr = line;
       // Generate the address
       ptr += sprintf(ptr, "%08X ", memAddr);
       // Generate the hex values
-      for (j = 0; j < 16; j++) {
+      for (unsigned int j = 0; j < 16; j++) {
         c = *((unsigned char *)(memAddr + j));
         ptr += sprintf(ptr, "%02X ", c);
       }
       // Generate the ascii values
-      for (j = 0; j < 16; j++) {
+      for (unsigned int j = 0; j < 16; j++) {
         c = *((unsigned char *)(memAddr + j));
         if (c < 32 || c > 126) {
           c = '.';
@@ -256,7 +254,7 @@ int doCmdDis(const char *params) {
   unsigned int opcode;
   unsigned int memAddr;
   sscanf(params, "%x", &memAddr);
-  memAddr &= ~3;
+  memAddr &= ~3u;
   do {
     for (i = 0; i < 16; i++) {
       opcode = *(unsigned int *)memAddr;
@@ -315,8 +313,8 @@ static uint8_t read_host_byte(uint16_t address) {
    return block[1] & 0xff;
 }
 
-static int read_host_word(uint16_t address) {
-   return (read_host_byte(address + 1) << 8) | read_host_byte(address);
+static uint16_t read_host_word(uint16_t address) {
+   return (uint16_t) ( (read_host_byte(address + 1) << 8) | read_host_byte(address));
 }
 
 static void write_host_byte(uint16_t address, uint8_t data) {
@@ -325,8 +323,8 @@ static void write_host_byte(uint16_t address, uint8_t data) {
 }
 
 static void write_host_word(uint16_t address, uint16_t data) {
-   write_host_byte(address + 0,  data       & 0xff);
-   write_host_byte(address + 1, (data >> 8) & 0xff);
+   write_host_byte(address + 0,(unsigned char)  data       & 0xff);
+   write_host_byte(address + 1,(unsigned char) (data >> 8) & 0xff);
 }
 
 
@@ -367,7 +365,7 @@ int doCmdPiVDU(const char *params) {
       // STA &FEE4  8D E4 FE
       // RTS        60
       uint8_t data[] = { 0x48, 0xa9, 0x03, 0x8d, 0xe2, 0xfe, 0x68, 0x8d, 0xe4, 0xfe, 0x60} ;
-      for (unsigned int i = 0; i < sizeof(data); i++) {
+      for (uint16_t i = 0; i < sizeof(data); i++) {
          write_host_byte(WRCHANDLER + i, data[i]);
       }
       write_host_word(WRCVEC, WRCHANDLER);
@@ -379,10 +377,10 @@ int doCmdPiLIFE(const char *params) {
    unsigned int mode = 1;
 
    int generations = 0;
-   int sx          = 0;
-   int sy          = 0;
+   unsigned int sx          = 0;
+   unsigned int sy          = 0;
 
-   int nargs = sscanf(params, "%d %d %d", &generations, &sx, &sy);
+   int nargs = sscanf(params, "%d %u %u", &generations, &sx, &sy);
 
    if (nargs < 1) {
       generations = 1000;
@@ -401,17 +399,13 @@ int doCmdPiLIFE(const char *params) {
    int xeigfactor = OS_ReadModeVariable(mode, 4);
    int yeigfactor = OS_ReadModeVariable(mode, 5);
 
-   uint8_t *a = malloc(sx * sy);
-   uint8_t *b = malloc(sx * sy);
-
-   // Clear
-   memset(a, 0, sx * sy);
-   memset(b, 0, sx * sy);
+   uint8_t *a = calloc(sx * sy, 1);
+   uint8_t *b = calloc(sx * sy, 1);
 
    // Randomize interior
-   for (int y = 1; y < sy - 1; y++) {
+   for (unsigned int y = 1; y < sy - 1; y++) {
       uint8_t *p = a + y * sx + 1;
-      for (int x = 1; x < sx - 1; x++) {
+      for (unsigned int x = 1; x < sx - 1; x++) {
          *p++ = random() & 1;
       }
    }
@@ -443,34 +437,34 @@ int doCmdPiLIFE(const char *params) {
 #endif
 
    // Draw Initial Configuration
-   for (int y = 1; y < sy - 1; y++) {
+   for (unsigned int y = 1; y < sy - 1; y++) {
       uint8_t *p = a + y * sx + 1;
-      for (int x = 1; x < sx - 1; x++) {
+      for (unsigned int x = 1; x < sx - 1; x++) {
          if (*p++) {
             OS_WriteC(25);
             OS_WriteC(69);
-            OS_WriteC((x << xeigfactor) & 255);
-            OS_WriteC((x >> (8 - xeigfactor)) & 255);
-            OS_WriteC((y << yeigfactor) & 255);
-            OS_WriteC((y >> (8 - yeigfactor)) & 255);
+            OS_WriteC((unsigned char)(x << xeigfactor) & 255);
+            OS_WriteC((unsigned char)(x >> (8 - xeigfactor)) & 255);
+            OS_WriteC((unsigned char)(y << yeigfactor) & 255);
+            OS_WriteC((unsigned char)(y >> (8 - yeigfactor)) & 255);
          }
       }
    }
 
    // Run Life
    for (int gen = 0; gen < generations; gen++) {
-      for (int y = 1; y < sy - 1; y++) {
+      for (unsigned int y = 1; y < sy - 1; y++) {
          uint8_t *p1 = a + (y - 1) * sx;
          uint8_t *p2 = a +  y      * sx;
          uint8_t *p3 = a + (y + 1) * sx;
          uint8_t *p4 = b + y * sx + 1;
-         for (int x = 1; x < sx - 1; x++) {
+         for (unsigned int x = 1; x < sx - 1; x++) {
             int count =
                *p1 + *(p1 + 1) + *(p1 + 2) +
                *p2 +             *(p2 + 2) +
                *p3 + *(p3 + 1) + *(p3 + 2);
-            int o = *(p2 + 1);
-            int n = ((count == 2 && o == 1) || count == 3) ? 1 : 0;
+            uint8_t o = *(p2 + 1);
+            uint8_t n = ((count == 2 && o == 1) || count == 3) ? 1 : 0;
             *p4 = n;
             p1++;
             p2++;
@@ -479,10 +473,10 @@ int doCmdPiLIFE(const char *params) {
             if (n != o) {
                OS_WriteC(25);
                OS_WriteC(n ? 69 : 71);
-               OS_WriteC((x << xeigfactor) & 255);
-               OS_WriteC((x >> (8 - xeigfactor)) & 255);
-               OS_WriteC((y << yeigfactor) & 255);
-               OS_WriteC((y >> (8 - yeigfactor)) & 255);
+               OS_WriteC((unsigned char)(x << xeigfactor) & 255);
+               OS_WriteC((unsigned char)(x >> (8 - xeigfactor)) & 255);
+               OS_WriteC((unsigned char)(y << yeigfactor) & 255);
+               OS_WriteC((unsigned char)(y >> (8 - yeigfactor)) & 255);
             }
          }
       }

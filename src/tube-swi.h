@@ -4,13 +4,13 @@
 #define TUBE_SWI_H
 
 // The bit position of the error handling bit in the SWI number
-#define ERROR_BIT (1 << 17)
+#define ERROR_BIT (1u << 17)
 
 // The bit position of the overflow flag in the ARM PSW
-#define OVERFLOW_MASK (1 << 28)
+#define OVERFLOW_MASK (1u << 28)
 
 // The bit position of the carry flag in the ARM PSW
-#define CARRY_MASK (1 << 29)
+#define CARRY_MASK (1u << 29)
 
 // The various modes
 #define MODE_USER                 0x10
@@ -41,7 +41,7 @@ extern SWIHandler_Type SWIHandler_Table[];
 typedef int (*FunctionPtr_Type) ();
 
 // Function prototypes
-int  user_exec_fn(FunctionPtr_Type f, int param);
+int  user_exec_fn(FunctionPtr_Type f, unsigned int param);
 void user_exec_raw(volatile unsigned char *address);
 void handler_not_defined(unsigned int num);
 void handler_not_implemented(char *type);
