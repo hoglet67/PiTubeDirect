@@ -103,12 +103,12 @@ static uint32_t dbg_memread(uint32_t addr) {
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
-   copro_arm2_write8(addr, value);
+   copro_arm2_write8(addr, (uint8_t)value);
 };
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    uint32_t instr = copro_arm2_read32(addr);
-   int len = snprintf(buf, bufsize, "%08"PRIx32" %08"PRIx32" ", addr, instr);
+   uint32_t len = (uint32_t)snprintf(buf, bufsize, "%08"PRIx32" %08"PRIx32" ", addr, instr);
    buf += len;
    bufsize -= len;
    int ok = 0;
@@ -155,18 +155,17 @@ static const char* flagname = "N Z C V I F M1 M0 ";
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    if (which == i_PSR) {
-      int i;
-      int bit;
+      uint32_t bit;
       char c;
       const char *flagnameptr = flagname;
-      int psr = dbg_reg_get(i_PSR);
+      uint32_t psr = dbg_reg_get(i_PSR);
 
       if (bufsize < 40) {
          strncpy(buf, "buffer too small!!!", bufsize);
       }
 
       bit = 0x80;
-      for (i = 0; i < 8; i++) {
+      for (int i = 0; i < 8; i++) {
          if (psr & bit) {
             c = '1';
          } else {
@@ -197,7 +196,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       }
       return strlen(buf);
    } else {
-      return snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));
+      return (size_t) snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));
    }
 };
 
