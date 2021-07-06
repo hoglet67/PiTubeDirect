@@ -57,12 +57,12 @@ static int dbg_debug_enable(int newvalue) {
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
-   return read8(addr);
+   return read8((uint16_t)addr);
 };
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
-   write8(addr, value);
+   write8((uint16_t)addr, (uint8_t)value);
 };
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
@@ -138,18 +138,17 @@ static const char* flagname = "E H H I N Z V C ";
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    if (which == i_CC) {
-      int i;
-      int bit;
+      uint32_t bit;
       char c;
       const char *flagnameptr = flagname;
-      int psr = dbg_reg_get(i_CC);
+      uint32_t psr = dbg_reg_get(i_CC);
 
       if (bufsize < 40) {
          strncpy(buf, "buffer too small!!!", bufsize);
       }
 
       bit = 0x80;
-      for (i = 0; i < 8; i++) {
+      for (int i = 0; i < 8; i++) {
          if (psr & bit) {
             c = '1';
          } else {
@@ -166,9 +165,9 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       }
       return strlen(buf);
    } else if (which == i_A || which == i_B || which == i_DP) {
-      return snprintf(buf, bufsize, "%02"PRIx32, dbg_reg_get(which));
+      return (size_t)snprintf(buf, bufsize, "%02"PRIx32, dbg_reg_get(which));
    } else {
-      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
+      return (size_t)snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
    }
 };
 

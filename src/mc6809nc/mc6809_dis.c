@@ -24,11 +24,11 @@ typedef unsigned short tt_u16;
 typedef signed short tt_s16;
 
 static inline unsigned int get_memw(unsigned int addr) {
-   return (read8(addr) << 8) + read8(addr + 1);
+   return read8((uint16_t)(addr << 8)) | read8((uint16_t)(addr + 1));
 }
 
 static inline unsigned char get_memb(unsigned int addr) {
-   return read8(addr);
+   return read8((uint16_t)addr);
 }
 
 enum opcodes {
@@ -644,10 +644,10 @@ static void stringInit(char *buf, size_t bufsize) {
 }
 
 static void stringAppend(const char *fmt, ...) {
-   int len;
+   uint32_t len;
    va_list argptr;
    va_start(argptr, fmt);
-   len = vsnprintf(str_buf, str_bufsize, fmt, argptr);
+   len = (uint32_t)vsnprintf(str_buf, str_bufsize, fmt, argptr);
    str_buf += len;
    str_bufsize -= len;
    va_end(argptr);
@@ -659,9 +659,9 @@ static char hexdigit(tt_u16 v)
 {
    v &= 0xf;
    if (v <= 9)
-      return '0' + v;
+      return (char) ('0' + v);
    else
-      return 'A' - 10 + v;
+      return (char) ('A' - 10 + v);
 }
 
 static char *hex8str(tt_u8 v)
@@ -674,17 +674,17 @@ static char *hex8str(tt_u8 v)
    return tmpbuf;
 }
 
-static char *hex16str(tt_u16 v)
+static char *hex16str(uint32_t v)
 {
    static char tmpbuf[5] = "    ";
 
-   tmpbuf[3] = hexdigit(v);
+   tmpbuf[3] = hexdigit((tt_u8)v);
    v >>= 4;
-   tmpbuf[2] = hexdigit(v);
+   tmpbuf[2] = hexdigit((tt_u8)v);
    v >>= 4;
-   tmpbuf[1] = hexdigit(v);
+   tmpbuf[1] = hexdigit((tt_u8)v);
    v >>= 4;
-   tmpbuf[0] = hexdigit(v);
+   tmpbuf[0] = hexdigit((tt_u8)v);
 
    return tmpbuf;
 }
@@ -710,7 +710,7 @@ static char *ccstr(tt_u8 val)
 static unsigned int disassemble(unsigned int addr)
 {
    int d = get_memb(addr);
-   int s, i;
+   uint32_t s, i;
    tt_u8 pb;
    char reg;
    const unsigned char *map = NULL;
@@ -874,7 +874,7 @@ static unsigned int disassemble(unsigned int addr)
       {
          int p = 0;
 
-         for (i = 7; i >= 0; i--) {
+         for (i = 7; i != 0; i--) {
             if (pb & 0x01) {
                if (p)
                   stringAppend("%c", ',');
@@ -904,7 +904,7 @@ static unsigned int disassemble(unsigned int addr)
       {
          int p = 0;
 
-         for (i = 7; i >= 0; i--) {
+         for (i = 7; i != 0; i--) {
             if (pb & 0x01) {
                if (p)
                   stringAppend("%c", ',');
@@ -925,7 +925,7 @@ static unsigned int disassemble(unsigned int addr)
          v = (tt_s16)(tt_s8)get_memb(addr + 1);
       else
          v = (tt_s16)get_memw(addr + s - 2);
-      stringAppend("$%s", hex16str(addr + (tt_u16)s + v));
+      stringAppend("$%s", hex16str((uint32_t)(addr + (tt_u16)s + (tt_u16)v)));
       break;
    }
    }
