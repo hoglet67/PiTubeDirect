@@ -65,16 +65,16 @@ static int dbg_debug_enable(int newvalue) {
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
-   return copro_pdp11_read8(addr);
+   return copro_pdp11_read8((uint16_t)addr);
 };
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
-   copro_pdp11_write8(addr, value);
+   copro_pdp11_write8((uint16_t)addr, (uint8_t)value);
 };
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
-   return disasm(buf, addr);
+   return disasm(buf, (uint16_t)addr);
 };
 
 // Get a register - which is the index into the names above
@@ -82,9 +82,9 @@ static uint32_t dbg_reg_get(int which) {
    if (which == i_PS) {
       return m_pdp11->PS;
    } else if (which == i_CURUSER) {
-      return m_pdp11->curuser;
+      return (uint32_t)m_pdp11->curuser;
    } else if (which == i_PREVUSER) {
-      return m_pdp11->prevuser;
+      return (uint32_t)m_pdp11->prevuser;
    } else {
       return (uint16_t) m_pdp11->R[which];
    }
@@ -108,8 +108,7 @@ static const char* flagname = "T N Z V C ";
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    if (which == i_PS) {
-      int i;
-      int bit;
+      uint32_t bit;
       char c;
       const char *flagnameptr = flagname;
       uint32_t psr = dbg_reg_get(i_PS);
@@ -130,7 +129,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
 
       // Print the remaining flag bits
       bit = 0x10;
-      for (i = 0; i < 5; i++) {
+      for (int i = 0; i < 5; i++) {
          if (psr & bit) {
             c = '1';
          } else {
@@ -148,14 +147,14 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = '\0';
       return strlen(buf);
    } else if (which == i_CURUSER || which == i_PREVUSER) {
-      return snprintf(buf, bufsize, "%c", dbg_reg_get(which) ? 'U' : 'K');
+      return (size_t)snprintf(buf, bufsize, "%c", dbg_reg_get(which) ? 'U' : 'K');
    } else if (which == i_INTQUEUE) {
       for (int i = 0; i < ITABN; i++) {
          sprintf(buf + i * 5, "%02x:%d ", m_pdp11->itab[i].vec,  m_pdp11->itab[i].pri);
       }
       return strlen(buf);
    } else {
-      return snprintf(buf, bufsize, "%06"PRIo32" (%04"PRIx32")", dbg_reg_get(which), dbg_reg_get(which));
+      return (size_t)snprintf(buf, bufsize, "%06"PRIo32" (%04"PRIx32")", dbg_reg_get(which), dbg_reg_get(which));
    }
 };
 
@@ -311,7 +310,7 @@ static uint16_t read16(uint16_t a) {
 }
 
 // Returns the number of additional operand bytes for the addressing mode
-static int disaslen(uint16_t m) {
+static uint16_t disaslen(uint16_t m) {
    if (((m & 027) == 027) || ((m & 060) == 060)) {
       // ((m & 027) == 027) catches 027 037 067 077
       // ((m & 060) == 060) catches 06x 07x
@@ -374,10 +373,10 @@ static uint16_t disasm(char *buf, uint16_t a) {
    // Decode the instruction
    uint16_t s = (ins & 07700) >> 6;
    uint16_t d = ins & 077;
-   uint8_t  o = ins & 0377;
+   uint8_t  o = ins & 0377u;
 
    // Work out the length
-   int len = 2;
+   uint32_t len = 2;
    if (l.flag & S) {
       len += disaslen(s);
    }
@@ -389,7 +388,7 @@ static uint16_t disasm(char *buf, uint16_t a) {
    buf += sprintf(buf, "%06o : ", a);
 
    // Output the instruction, max len is 3 words
-   for (int j = 0; j < 6; j += 2) {
+   for (uint16_t j = 0; j < 6; j += 2) {
       if (j < len) {
          buf += sprintf(buf, "%06o ", read16(a + j));
       } else {
