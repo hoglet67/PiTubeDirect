@@ -233,7 +233,7 @@ static void tube_Reset() {
  ***********************************************************/
 
 static int cli_loop() {
-  unsigned int flags;
+  unsigned int flags=0;
   int length;
 
   while( 1 ) {
