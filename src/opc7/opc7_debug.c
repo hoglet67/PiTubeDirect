@@ -141,13 +141,13 @@ static void dbg_iowrite(uint32_t addr, uint32_t value) {
 };
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
-   int len;
+   uint32_t len;
 
    // Read the instruction
    uint32_t instr = copro_opc7_read_mem(addr);
 
    // Output address/instruction in hex
-   len = snprintf(buf, bufsize, "%05"PRIx32" %08"PRIx32" ", addr, instr);
+   len = (uint32_t) snprintf(buf, bufsize, "%05"PRIx32" %08"PRIx32" ", addr, instr);
    buf += len;
    bufsize -= len;
 
@@ -156,7 +156,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
 
    // Decode the instruction
    int opcode = (instr >> OPCODE) & 31;
-   int pred = (instr >> PRED) & 7;
+   uint32_t pred = (instr >> PRED) & 7;
    int dst = (instr >> DST) & 15;
    int src = (instr >> SRC) & 15;
 
@@ -217,11 +217,10 @@ static const char* flagname = "EI S C Z ";
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    if (which == i_PSR) {
-      int i;
-      int bit;
+      uint32_t bit;
       char c;
       const char *flagnameptr = flagname;
-      int psr = dbg_reg_get(i_PSR);
+      uint32_t psr = dbg_reg_get(i_PSR);
 
       if (bufsize < 40) {
          strncpy(buf, "buffer too small!!!", bufsize);
@@ -232,13 +231,13 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = 'W';
       *buf++ = 'I';
       *buf++ = ':';
-      sprintf(buf, "%x", (psr >> 4) & 0x0F);
+      sprintf(buf, PRIx32, (psr >> 4) & 0x0F);
       buf++;
       *buf++ = ' ';
 
       // Print the remaining flag bits
       bit = 0x8;
-      for (i = 0; i < 4; i++) {
+      for (int i = 0; i < 4; i++) {
          if (psr & bit) {
             c = '1';
          } else {
@@ -256,7 +255,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = '\0';
       return strlen(buf);
    } else {
-      return snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));
+      return (size_t)snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));
    }
 };
 
