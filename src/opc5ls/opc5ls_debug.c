@@ -109,23 +109,22 @@ static int dbg_debug_enable(int newvalue) {
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_read(uint32_t addr) {
-   return copro_opc5ls_read(addr);
+   return copro_opc5ls_read((uint16_t)addr);
 };
 
 // CPU's usual memory write function.
 static void dbg_write(uint32_t addr, uint32_t value) {
-   copro_opc5ls_write(addr, value);
+   copro_opc5ls_write((uint16_t)addr, (uint16_t)value);
 };
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
-   int len;
-   int i;
+   uint32_t len;
 
    // Read the instruction
-   uint16_t instr = copro_opc5ls_read(addr);
+   uint16_t instr = copro_opc5ls_read((uint16_t)addr);
 
    // Output address/instruction in hex
-   len = snprintf(buf, bufsize, "%04x %04x ", (uint16_t) addr, instr);
+   len = (uint32_t)snprintf(buf, bufsize, "%04x %04x ", (uint16_t) addr, instr);
    buf += len;
    bufsize -= len;
 
@@ -155,22 +154,22 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    int operand_present = ((instr >> LEN) & 1);
    int operand = 0;
    if (operand_present) {
-      operand = copro_opc5ls_read(addr);
+      operand = copro_opc5ls_read((uint16_t)addr);
       addr += 1;
-      len = snprintf(buf, bufsize, "%04x ", operand);
+      len = (uint32_t)snprintf(buf, bufsize, "%04x ", operand);
    } else {
-      len = snprintf(buf, bufsize, "     ");
+      len = (uint32_t)snprintf(buf, bufsize, "     ");
    }
    buf += len;
    bufsize -= len;
 
    // Output instruction
-   len = snprintf(buf, bufsize, ": %s%s %s, %s",
+   len = (uint32_t)snprintf(buf, bufsize, ": %s%s %s, %s",
                   pred_names[pred], opcode_names[opcode],
                   dbg_reg_names[dst], dbg_reg_names[src]);
    // Lower case the buffer, so the registers don't stand out
-   for (i = 0; i < len; i++) {
-      buf[i] = tolower(buf[i]);
+   for (uint32_t i = 0; i < len; i++) {
+      buf[i] = (char)tolower(buf[i]);
    }
    buf += len;
    bufsize -= len;
@@ -199,13 +198,13 @@ static uint32_t dbg_reg_get(int which) {
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
    if (which == i_PSR) {
-      m_opc5ls->psr = value;
+      m_opc5ls->psr = (uint16_t)value;
    } else if (which == i_PSR_int) {
-      m_opc5ls->psr_int = value;
+      m_opc5ls->psr_int = (uint16_t)value;
    } else if (which == i_PC_int) {
-      m_opc5ls->pc_int = value;
+      m_opc5ls->pc_int = (uint16_t)value;
    } else {
-      m_opc5ls->reg[which] = value;
+      m_opc5ls->reg[which] = (uint16_t)value;
    }
 };
 
@@ -214,11 +213,10 @@ static const char* flagname = "EI S C Z ";
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    if (which == i_PSR) {
-      int i;
-      int bit;
+      uint32_t bit;
       char c;
       const char *flagnameptr = flagname;
-      int psr = dbg_reg_get(i_PSR);
+      uint32_t psr = dbg_reg_get(i_PSR);
 
       if (bufsize < 40) {
          strncpy(buf, "buffer too small!!!", bufsize);
@@ -229,13 +227,13 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = 'W';
       *buf++ = 'I';
       *buf++ = ':';
-      sprintf(buf, "%x", (psr >> 4) & 0x0F);
+      sprintf(buf, PRIx32, (psr >> 4) & 0x0F);
       buf++;
       *buf++ = ' ';
 
       // Print the remaining flag bits
       bit = 0x8;
-      for (i = 0; i < 4; i++) {
+      for (int i = 0; i < 4; i++) {
          if (psr & bit) {
             c = '1';
          } else {
@@ -253,7 +251,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = '\0';
       return strlen(buf);
    } else {
-      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
+      return (uint32_t)snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
    }
 };
 
