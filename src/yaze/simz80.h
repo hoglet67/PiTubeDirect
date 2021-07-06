@@ -57,7 +57,7 @@ extern FASTWORK simz80(FASTREG PC);
 #define FLAG_Z	64
 #define FLAG_S	128
 
-#define SETFLAG(f,c)	AF = (c) ? AF | FLAG_ ## f : AF & ~FLAG_ ## f
+#define SETFLAG(f,c)	AF = (c) ? AF | FLAG_ ## f : (AF & (uint32_t)~FLAG_ ## f)
 #define TSTFLAG(f)	((AF & FLAG_ ## f)?1:0)
 
 #define ldig(x)		((x) & 0xf)
@@ -65,15 +65,15 @@ extern FASTWORK simz80(FASTREG PC);
 #define lreg(x)		((x)&0xff)
 #define hreg(x)		(((x)>>8)&0xff)
 
-#define Setlreg(x, v)	x = (((x)&0xff00) | ((v)&0xff))
-#define Sethreg(x, v)	x = (((x)&0xff) | (((v)&0xff) << 8))
+#define Setlreg(x, v)	x = (uint16_t)(((x)&0xff00u) | ((v)&0xffu))
+#define Sethreg(x, v)	x = (uint16_t)(((x)&0xffu) | (((v)&0xffu) << 8))
 
 /* SEE functions for manipulating of memory in mem_mmu.h
       line RAM, GetBYTE, GetWORD, PutBYTE, PutWORD, ....
 */
 
 #ifndef BIOS
-extern int copro_z80_read_io(unsigned int);
+extern uint8_t copro_z80_read_io(unsigned int);
 extern void copro_z80_write_io(unsigned int, unsigned char);
 #define Input(port) copro_z80_read_io(port)
 #define Output(port, value) copro_z80_write_io(port,value)

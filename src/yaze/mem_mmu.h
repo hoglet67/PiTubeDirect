@@ -156,16 +156,16 @@ extern BYTE ram[MEMSIZE*1024];	/* RAM which is present */
 extern int copro_z80_read_mem(unsigned int);
 extern void copro_z80_write_mem(unsigned int, unsigned char);
 
-#define GetBYTE(a)	    copro_z80_read_mem(a)
-#define GetBYTE_pp(a)	 copro_z80_read_mem( (a++) )
-#define GetBYTE_mm(a)	 copro_z80_read_mem( (a--) )
+#define GetBYTE(a)	    ((uint8_t)copro_z80_read_mem(a))
+#define GetBYTE_pp(a)	 ((uint8_t)copro_z80_read_mem( (a++) ))
+#define GetBYTE_mm(a)	 ((uint8_t)copro_z80_read_mem( (a--) ))
 #define mm_GetBYTE(a)	 copro_z80_read_mem( (--(a)) )
-#define PutBYTE(a, v)	 copro_z80_write_mem(a, v)
-#define PutBYTE_pp(a,v)	 copro_z80_write_mem( (a++) , v)
-#define PutBYTE_mm(a,v)	 copro_z80_write_mem( (a--) , v)
-#define mm_PutBYTE(a,v)	 copro_z80_write_mem( (--(a)) , v)
-#define GetWORD(a)	    (copro_z80_read_mem(a) | ( copro_z80_read_mem( (a) + 1) << 8) )
-#define PutWORD(a, v)    { copro_z80_write_mem( (a), (BYTE)(v & 0xFF) ); copro_z80_write_mem( ((a)+1), (v)>>8 ); }
+#define PutBYTE(a, v)	 copro_z80_write_mem(a, (uint8_t)(v))
+#define PutBYTE_pp(a,v)	 copro_z80_write_mem( (a++) , (uint8_t)(v))
+#define PutBYTE_mm(a,v)	 copro_z80_write_mem( (a--) , (uint8_t)(v))
+#define mm_PutBYTE(a,v)	 copro_z80_write_mem( (--(a)) , (uint8_t)(v))
+#define GetWORD(a)	    ((uint16_t)(copro_z80_read_mem(a) | ( copro_z80_read_mem( (a) + 1) << 8) ))
+#define PutWORD(a, v)    { copro_z80_write_mem( (a), (BYTE)(v & 0xFF) ); copro_z80_write_mem( ((a)+1),(BYTE) ((v)>>8 )); }
 
 /*------------------- Some macros for manipulating Z80-memory : -------*/
 
