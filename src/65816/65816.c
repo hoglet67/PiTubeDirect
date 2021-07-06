@@ -179,25 +179,25 @@ static void dbg_reg_set(int which, uint32_t value)
 {
     switch (which) {
         case REG_A:
-            w65816a.w = value;
+            w65816a.w = (uint16_t)value;
             break;
         case REG_X:
-            w65816x.w = value;
+            w65816x.w = (uint16_t)value;
             break;
         case REG_Y:
-            w65816y.w = value;
+            w65816y.w = (uint16_t)value;
             break;
         case REG_S:
-            w65816s.w = value;
+            w65816s.w = (uint16_t)value;
             break;
         case REG_P:
-            unpack_flags(value);
+            unpack_flags((uint8_t)value);
             break;
         case REG_PC:
-            pc = value;
+            pc = (uint16_t)value;
             break;
         case REG_DP:
-            dp = value;
+            dp = (uint16_t)value;
             break;
         case REG_DB:
             dbr = value;
@@ -240,13 +240,13 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize)
         case REG_P:
             return dbg65816_print_flags(buf, bufsize);
         default:
-            return snprintf(buf, bufsize, "%04"PRIX32, dbg_reg_get(which));
+            return (size_t)snprintf(buf, bufsize, "%04"PRIX32, dbg_reg_get(which));
     }
 }
 
 static void dbg_reg_parse(int which, const char *str)
 {
-    uint32_t value = strtol(str, NULL, 16);
+    uint32_t value = (uint32_t)strtol(str, NULL, 16);
     dbg_reg_set(which, value);
 }
 
@@ -281,7 +281,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize)
 
 #endif
 
-static uint8_t do_readmem65816(uint32_t addr)
+static uint32_t do_readmem65816(uint32_t addr)
 {
     uint8_t temp;
     addr &= w65816mask;
@@ -300,7 +300,7 @@ static uint8_t do_readmem65816(uint32_t addr)
 
 static uint8_t readmem65816(uint32_t addr)
 {
-    uint8_t value = do_readmem65816(addr);
+    uint8_t value = (uint8_t)do_readmem65816(addr);
     cycles--;
 #ifdef INCLUDE_DEBUGGER
     if (dbg_w65816)
