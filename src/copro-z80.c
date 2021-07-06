@@ -315,7 +315,7 @@ void copro_z80_write_mem(unsigned int addr, unsigned char data) {
 #endif
 }
 
-int copro_z80_read_io(unsigned int addr) {
+uint8_t copro_z80_read_io(unsigned int addr) {
    unsigned char data =  tube_parasite_read(addr & 7);
 #ifdef INCLUDE_DEBUGGER
    if (simz80_debug_enabled) {
