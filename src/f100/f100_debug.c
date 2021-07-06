@@ -97,12 +97,12 @@ static int dbg_debug_enable(int newvalue) {
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
-   return copro_f100_read_mem(addr);
+   return copro_f100_read_mem((uint16_t)addr);
 };
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
-   copro_f100_write_mem(addr, value);
+   copro_f100_write_mem((uint16_t)addr, (uint16_t)value);
 };
 
 
@@ -126,7 +126,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
       char op_buf[16];
 
       // Read the instruction
-      uint16_t instr = copro_f100_read_mem(addr);
+      uint16_t instr = copro_f100_read_mem((uint16_t)addr);
 
       // Decode the instruction
       uint16_t f = (instr >> 12) & 0x000F;
@@ -140,7 +140,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
       uint16_t b = (instr      ) & 0x000F;
 
       // Track the instruction length
-      int oplen = 1;
+      uint32_t oplen = 1;
 
       // Format the operand
       uint16_t operand = 0;
@@ -150,7 +150,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
             if (r == 1) {
                sprintf(op_buf, "CR");
             } else if (r == 3) {
-               operand = copro_f100_read_mem(addr + oplen) & 0x7FFF;
+               operand = copro_f100_read_mem((uint16_t)(addr + oplen)) & 0x7FFF;
                oplen++;
                sprintf(op_buf, "%04"PRIx16, operand);
             } else {
@@ -161,7 +161,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
          // Default group
          if (i == 0) {
             if (n == 0) {
-               operand = copro_f100_read_mem(addr + oplen);
+               operand = copro_f100_read_mem((uint16_t)(addr + oplen));
                oplen++;
                sprintf(op_buf, ",%04"PRIx16, operand);
             } else {
@@ -169,7 +169,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
             }
          } else {
             if (p == 0) {
-               operand = copro_f100_read_mem(addr + oplen) & 0x7FFF;
+               operand = copro_f100_read_mem((uint16_t)(addr + oplen)) & 0x7FFF;
                oplen++;
                sprintf(op_buf, ".%04"PRIx16, operand);
             } else {
@@ -189,31 +189,31 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
       uint16_t target = 0;
       if ((f == 0 && t == 0 && s == 2) || (f == 7)) {
          // Conditional Jump and ICZ
-         target = copro_f100_read_mem(addr + oplen) & 0x7FFF;
+         target = copro_f100_read_mem((uint16_t)(addr + oplen)) & 0x7FFF;
          oplen++;
       }
 
       // Output address in hex and a separator
       len = snprintf(buf, bufsize, "%04"PRIx32" : ", addr);
       buf += len;
-      bufsize -= len;
+      bufsize -= (uint32_t)len;
 
 
       // Output the opcodes words in hex
-      for (int z = 0; z < 3; z++) {
+      for (uint32_t z = 0; z < 3; z++) {
          if (z < oplen) {
-            len = snprintf(buf, bufsize, "%04"PRIx16" ", copro_f100_read_mem(addr + z));
+            len = snprintf(buf, bufsize, "%04"PRIx16" ", copro_f100_read_mem((uint16_t)(addr + z)));
          } else {
             len = snprintf(buf, bufsize, "     ");
          }
          buf += len;
-         bufsize -= len;
+         bufsize -= (uint32_t)len;
       }
 
       // Output a separator
       len = snprintf(buf, bufsize, ": ");
       buf += len;
-      bufsize -= len;
+      bufsize -= (uint32_t)len;
 
 
       // Optput the instruction
@@ -271,7 +271,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
          break;
       }
       buf += len;
-      bufsize -= len;
+      bufsize -= (uint32_t)len;
 
       addr += oplen;
    }
@@ -281,11 +281,11 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
       if (need_newline) {
          len = snprintf(buf, bufsize, "\n");
          buf += len;
-         bufsize -= len;
+         bufsize -= (uint32_t)len;
       }
-      len = snprintf(buf, bufsize, "%04"PRIx32" : %04"PRIX16"           : DATA", addr, copro_f100_read_mem(addr));
+      len = snprintf(buf, bufsize, "%04"PRIx32" : %04"PRIX16"           : DATA", addr, copro_f100_read_mem((uint16_t)addr));
       buf += len;
-      bufsize -= len;
+      bufsize -= (uint32_t)len;
       addr++;
       need_newline = 1;
    }
@@ -303,7 +303,7 @@ static uint32_t dbg_reg_get(int which) {
       return m_f100->pc;
    } else {
       // TODO: Would be nice to re-used PACK_FLAGS
-      int psr = 0;
+      uint32_t psr = 0;
       if (m_f100->I) {
          psr |= 1;
       }
@@ -332,11 +332,11 @@ static uint32_t dbg_reg_get(int which) {
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
    if (which == i_ACC) {
-      m_f100->acc = value;
+      m_f100->acc = (uint16_t)value;
    } else if (which == i_OR) {
-      m_f100->or = value;
+      m_f100->or = (uint16_t)value;
    } else if (which == i_PC) {
-      m_f100->pc = value;
+      m_f100->pc = (uint16_t)value;
    } else {
       // TODO: Would be nice to re-use UNPACK_FLAGS
       m_f100->I = (value >> 0) & 1;
@@ -354,11 +354,10 @@ static const char* flagname = "F M C S V Z I ";
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    if (which == i_PSR) {
-      int i;
-      int bit;
+      uint32_t bit;
       char c;
       const char *flagnameptr = flagname;
-      int psr = dbg_reg_get(i_PSR);
+      uint32_t psr = dbg_reg_get(i_PSR);
 
       if (bufsize < 40) {
          strncpy(buf, "buffer too small!!!", bufsize);
@@ -366,7 +365,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
 
       // Print the remaining flag bits
       bit = 0x40;
-      for (i = 0; i < 7; i++) {
+      for (int i = 0; i < 7; i++) {
          if (psr & bit) {
             c = '1';
          } else {
@@ -384,7 +383,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = '\0';
       return strlen(buf);
    } else {
-      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
+      return (size_t) snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
    }
 };
 
