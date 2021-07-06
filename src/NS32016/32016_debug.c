@@ -79,7 +79,7 @@ static uint32_t dbg_memread(uint32_t addr) {
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
    // use the internal version so the debugger doesn't get notified
-   write_x8_internal(addr, value);
+   write_x8_internal(addr, (uint8_t)value);
 };
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
@@ -171,7 +171,7 @@ static const char* flagname = "****IPSUNZFV*LTC";
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    unsigned int i;
-   int bit;
+   uint32_t bit;
    char c;
    const char *flagnameptr = flagname;
 
@@ -201,9 +201,9 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       }
       return i;
    } if (which == i_MOD) {
-      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which) & 0xFFFF);       
+      return (size_t)snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which) & 0xFFFF);       
    } else {
-      return snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));       
+      return (size_t)snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));       
    }
 };
 
