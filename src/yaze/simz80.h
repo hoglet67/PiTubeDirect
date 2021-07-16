@@ -73,7 +73,7 @@ extern FASTWORK simz80(FASTREG PC);
 */
 
 #ifndef BIOS
-extern uint8_t copro_z80_read_io(unsigned int);
+extern unsigned char copro_z80_read_io(unsigned int);
 extern void copro_z80_write_io(unsigned int, unsigned char);
 #define Input(port) copro_z80_read_io(port)
 #define Output(port, value) copro_z80_write_io(port,value)
