@@ -1012,7 +1012,7 @@ static uint16_t ld16 (uint16_t arg)
 {
 
   Z = (arg !=0);
-  N = (uint8_t) arg >> 8;
+  N = (uint8_t) (arg >> 8);
   OV = 0;
 
   return arg;
