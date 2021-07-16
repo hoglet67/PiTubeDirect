@@ -63,7 +63,7 @@ static uint32_t host_addr_bus;
 #define HBIT_0 (1 << 8)
 
 #define BYTE_TO_WORD(data) ((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18))
-#define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) << 18) & 0xF0))
+#define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) >> 18) & 0xF0))
 
 static char copro_command =0;
 static perf_counters_t pct;
