@@ -39,8 +39,8 @@ void RPI_PropertyInit( void )
 */
 void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 {
-    int offset;
-    int num_colours;
+    uint32_t offset;
+    uint32_t num_colours;
     va_list vl;
     va_start( vl, tag );
 
@@ -81,7 +81,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
         case TAG_GET_MAX_VOLTAGE:
             pt[pt_index++] = 8;
             pt[pt_index++] = 0; /* Request */
-            pt[pt_index++] = va_arg( vl, int ); /* ClockID */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* ClockID */
             pt_index += 1;
             break;
 
@@ -89,34 +89,34 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
         case TAG_LAUNCH_VPU1:
             pt[pt_index++] = 28;
             pt[pt_index++] = 0; /* Request */
-            pt[pt_index++] = va_arg( vl, int ); // Function pointer
-            pt[pt_index++] = va_arg( vl, int ); // R0
-            pt[pt_index++] = va_arg( vl, int ); // R1
-            pt[pt_index++] = va_arg( vl, int ); // R2
-            pt[pt_index++] = va_arg( vl, int ); // R3
-            pt[pt_index++] = va_arg( vl, int ); // R4
-            pt[pt_index++] = va_arg( vl, int ); // R5
+            pt[pt_index++] = va_arg( vl, uint32_t ); // Function pointer
+            pt[pt_index++] = va_arg( vl, uint32_t ); // R0
+            pt[pt_index++] = va_arg( vl, uint32_t ); // R1
+            pt[pt_index++] = va_arg( vl, uint32_t ); // R2
+            pt[pt_index++] = va_arg( vl, uint32_t ); // R3
+            pt[pt_index++] = va_arg( vl, uint32_t ); // R4
+            pt[pt_index++] = va_arg( vl, uint32_t ); // R5
             break;
 
         case TAG_ALLOCATE_BUFFER:
             pt[pt_index++] = 8;
             pt[pt_index++] = 0; /* Request */
-            pt[pt_index++] = va_arg( vl, int );
+            pt[pt_index++] = va_arg( vl, uint32_t );
             pt_index += 1;
             break;
 
         case TAG_ENABLE_GPU:
             pt[pt_index++] = 8;
             pt[pt_index++] = 0; /* Request */
-            pt[pt_index++] = va_arg( vl, int ); /* 0 = disable, 1 = enable */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* 0 = disable, 1 = enable */
             break;
 
         case TAG_ALLOCATE_MEMORY:
             pt[pt_index++] = 4;
             pt[pt_index++] = 0; /* Request */
-            pt[pt_index++] = va_arg( vl, int ); /* u32: size      */
-            pt[pt_index++] = va_arg( vl, int ); /* u32: alignment */
-            pt[pt_index++] = va_arg( vl, int ); /* u32: flags     */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* u32: size      */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* u32: alignment */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* u32: flags     */
             break;
 
         case TAG_LOCK_MEMORY:
@@ -124,7 +124,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
         case TAG_UNLOCK_MEMORY:
             pt[pt_index++] = 4;
             pt[pt_index++] = 0; /* Request */
-            pt[pt_index++] = va_arg( vl, int ); /* u32: handle    */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* u32: handle    */
             break;
 
         case TAG_GET_PHYSICAL_SIZE:
@@ -144,8 +144,8 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
                 ( tag == TAG_TEST_PHYSICAL_SIZE ) ||
                 ( tag == TAG_TEST_VIRTUAL_SIZE ) )
             {
-                pt[pt_index++] = va_arg( vl, int ); /* Width */
-                pt[pt_index++] = va_arg( vl, int ); /* Height */
+                pt[pt_index++] = va_arg( vl, uint32_t ); /* Width */
+                pt[pt_index++] = va_arg( vl, uint32_t ); /* Height */
             }
             else
             {
@@ -169,7 +169,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
                 ( tag == TAG_SET_ALPHA_MODE ) )
             {
                 /* Colour Depth, bits-per-pixel \ Pixel Order State */
-                pt[pt_index++] = va_arg( vl, int );
+                pt[pt_index++] = va_arg( vl, uint32_t );
             }
             else
             {
@@ -184,10 +184,10 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 
             if( tag == TAG_SET_OVERSCAN )
             {
-                pt[pt_index++] = va_arg( vl, int ); /* Top pixels */
-                pt[pt_index++] = va_arg( vl, int ); /* Bottom pixels */
-                pt[pt_index++] = va_arg( vl, int ); /* Left pixels */
-                pt[pt_index++] = va_arg( vl, int ); /* Right pixels */
+                pt[pt_index++] = va_arg( vl, uint32_t ); /* Top pixels */
+                pt[pt_index++] = va_arg( vl, uint32_t ); /* Bottom pixels */
+                pt[pt_index++] = va_arg( vl, uint32_t ); /* Left pixels */
+                pt[pt_index++] = va_arg( vl, uint32_t ); /* Right pixels */
             }
             else
             {
@@ -196,14 +196,14 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             break;
 
        case TAG_SET_PALETTE:
-            offset = va_arg( vl, int);
-            num_colours = va_arg( vl, int);
+            offset = va_arg( vl, uint32_t);
+            num_colours = va_arg( vl, uint32_t);
             pt[pt_index++] = 8 + num_colours * 4;
             pt[pt_index++] = 0; /* Request */
             pt[pt_index++] = offset;                   // Offset to first colour
             pt[pt_index++] = num_colours;              // Number of colours
             uint32_t *palette = va_arg( vl, uint32_t *);
-            for (int i = 0; i < num_colours; i++) {
+            for (uint32_t i = 0; i < num_colours; i++) {
                pt[pt_index++] = palette[offset + i];
             }
             break;
@@ -211,21 +211,21 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
         case TAG_SET_CURSOR_INFO:
             pt[pt_index++] = 24;
             pt[pt_index++] = 0; /* Request */
-            pt[pt_index++] = va_arg( vl, int ); /* Width */
-            pt[pt_index++] = va_arg( vl, int ); /* Height */
-            pt[pt_index++] = va_arg( vl, int ); /* Unused */
-            pt[pt_index++] = va_arg( vl, int ); /* Pointer to pixels */
-            pt[pt_index++] = va_arg( vl, int ); /* hotspot X */
-            pt[pt_index++] = va_arg( vl, int ); /* hotspot Y */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* Width */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* Height */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* Unused */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* Pointer to pixels */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* hotspot X */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* hotspot Y */
             break;
 
         case TAG_SET_CURSOR_STATE:
             pt[pt_index++] = 16;
             pt[pt_index++] = 0; /* Request */
-            pt[pt_index++] = va_arg( vl, int ); /* Enable */
-            pt[pt_index++] = va_arg( vl, int ); /* X */
-            pt[pt_index++] = va_arg( vl, int ); /* Y */
-            pt[pt_index++] = va_arg( vl, int ); /* Flags */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* Enable */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* X */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* Y */
+            pt[pt_index++] = va_arg( vl, uint32_t ); /* Flags */
             break;
 
         default:
@@ -250,7 +250,7 @@ static int RPI_PropertyProcessInternal(int debug)
     }
 
     /* Fill in the size of the buffer */
-    pt[PT_OSIZE] = ( pt_index + 1 ) << 2;
+    pt[PT_OSIZE] = (uint32_t)(( pt_index + 1 ) << 2);
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
     if (debug) {
@@ -289,7 +289,7 @@ static void RPI_PropertyProcessNoCheckInternal(int debug)
    }
 
     /* Fill in the size of the buffer */
-    pt[PT_OSIZE] = ( pt_index + 1 ) << 2;
+    pt[PT_OSIZE] = (uint32_t) (( pt_index + 1 ) << 2);
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
 
     if (debug) {

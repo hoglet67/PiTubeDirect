@@ -43,7 +43,7 @@ int RPI_Mailbox0Read( mailbox0_channel_t channel )
 
         /* Extract the value from the Read register of the mailbox. The value
            is actually in the upper 28 bits */
-        value = rpiMailbox0->Data;
+        value = (int )rpiMailbox0->Data;
     }
 
     /* Return just the value (the upper 28-bits) */

@@ -116,12 +116,12 @@ typedef enum {
     } rpi_tag_offset_t;
 
 typedef struct {
-    int tag;
-    int byte_length;
+    unsigned int tag;
+    unsigned int byte_length;
     union {
-        int value_32;
+        unsigned int value_32;
         unsigned char buffer_8[PROP_SIZE];
-        int buffer_32[PROP_SIZE >> 2];
+        unsigned int buffer_32[PROP_SIZE >> 2];
     } data;
     } rpi_mailbox_property_t;
 
