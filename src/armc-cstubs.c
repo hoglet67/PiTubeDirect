@@ -197,7 +197,7 @@ int stat(const char *file, struct stat *st)
 /* Timing information for current process. Minimal implementation: */
 clock_t times(struct tms *buf)
 {
-  return -1;
+  return (clock_t)-1;
 }
 
 /* Remove a file's directory entry. Minimal implementation: */
