@@ -23,9 +23,9 @@ void n32016_warn(char * fmt, ...);
 #define MEM_MASK 0xFFFFFF
 
 
-#define BIT(in)   (1 <<(in))
+#define BIT(in)   (1u <<(in))
 
-#define TEST(in) ((in) ? 1 : 0)
+#define TEST(in) ((in) ? 1u : 0u)
 #define C_FLAG PR.PSR.c_flag
 #define T_FLAG PR.PSR.t_flag
 #define L_FLAG PR.PSR.l_flag
@@ -336,7 +336,7 @@ enum StringBits
 };
 
 extern void n32016_init();
-extern void n32016_ShowRegs(int Option);
+extern void n32016_ShowRegs(uint32_t Option);
 extern void n32016_reset();
 extern void n32016_reset_addr(uint32_t StartAddress);
 extern void n32016_exec();
@@ -393,4 +393,4 @@ extern const uint8_t FormatSizes[FormatCount + 1];
 
 #define NIBBLE_EXTEND(reg) \
    if (reg & 0x08) \
-      reg |= 0xFFFFFFF0;
+      reg |= 0xFFFFFFF0u;
