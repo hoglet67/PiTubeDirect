@@ -172,8 +172,8 @@ void reset_performance_counters(perf_counters_t *pct) {
    asm volatile ("mcr p15,0,%0,c9,c12,1" :: "r" (cntenset) : "memory");
 #else
    // Only two counters (0 and 1) are supported on the arm11
-   ctrl |= (pct->type[0] << 20);
-   ctrl |= (pct->type[1] << 12);
+   ctrl |= (uint32_t)(pct->type[0] << 20);
+   ctrl |= (uint32_t)(pct->type[1] << 12);
    asm volatile ("mcr p15,0,%0,c15,c12,0" :: "r" (ctrl) : "memory");
 #endif
 }
@@ -203,7 +203,7 @@ static char* uint64ToDecimal(uint64_t v) {
    char* p = bfr + sizeof(bfr);
    *(--p) = '\0';
    while (v || first) {
-      *(--p) = '0' + v % 10;
+      *(--p) = (char)('0' + v % 10);
       v = v / 10;
       first = 0;
    }
