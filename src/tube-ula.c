@@ -48,7 +48,7 @@
 #include "startup.h"
 
 int test_pin;
-static int led_type=0;
+static uint32_t led_type=0;
 
 static volatile uint32_t *tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
 static uint32_t host_addr_bus;
@@ -62,7 +62,7 @@ static uint32_t host_addr_bus;
 #define HBIT_1 (1 << 9)
 #define HBIT_0 (1 << 8)
 
-#define BYTE_TO_WORD(data) ((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18))
+#define BYTE_TO_WORD(data) ((uint32_t)((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18)))
 #define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) >> 18) & 0xF0))
 
 static char copro_command =0;
@@ -252,7 +252,7 @@ static void tube_reset()
 // Reading of status registers has no side effects, so nothing to
 // do here for even registers (all handled in the FIQ handler).
 
-static void tube_host_read(uint16_t addr)
+static void tube_host_read(uint32_t addr)
 {
    switch (addr & 7)
    {
@@ -268,7 +268,7 @@ static void tube_host_read(uint16_t addr)
             else
                ph1rdpos++;
          }
-         if (!ph1len) HSTAT1 &= ~HBIT_7;
+         if (!ph1len) HSTAT1 &= (uint8_t)~HBIT_7;
          PSTAT1 |= 0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the irq status
@@ -276,7 +276,7 @@ static void tube_host_read(uint16_t addr)
    case 3: /*Register 2*/
       if (HSTAT2 & HBIT_7)
       {
-         HSTAT2 &= ~HBIT_7;
+         HSTAT2 &= (uint8_t)~HBIT_7;
          PSTAT2 |=  0x40;
       }
       break;
@@ -286,7 +286,7 @@ static void tube_host_read(uint16_t addr)
          PH3_0 = BYTE_TO_WORD(PH3_1);
          ph3pos--;
          PSTAT3 |= 0xC0;
-         if (!ph3pos) HSTAT3 &= ~HBIT_7;
+         if (!ph3pos) HSTAT3 &= (uint8_t)~HBIT_7;
          if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=NMI_BIT;
          //tube_updateints_NMI();
       }
@@ -294,7 +294,7 @@ static void tube_host_read(uint16_t addr)
    case 7: /*Register 4*/
       if (HSTAT4 & HBIT_7)
       {
-         HSTAT4 &= ~HBIT_7;
+         HSTAT4 &= (uint8_t)~HBIT_7;
          PSTAT4 |=  0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the irq status
@@ -302,7 +302,7 @@ static void tube_host_read(uint16_t addr)
    }
 }
 
-static void tube_host_write(uint16_t addr, uint8_t val)
+static void tube_host_write(uint32_t addr, uint8_t val)
 {
    switch (addr & 7)
    {
@@ -364,7 +364,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       //      return;
       hp1 = val;
       PSTAT1 |=  0x80;
-      HSTAT1 &= ~HBIT_6;
+      HSTAT1 &= (uint8_t)~HBIT_6;
       if (HSTAT1 & HBIT_1) tube_irq  |= IRQ_BIT; //tube_updateints_IRQ();
       break;
    case 2:
@@ -391,7 +391,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       //  return;
       hp2 = val;
       PSTAT2 |=  0x80;
-      HSTAT2 &= ~HBIT_6;
+      HSTAT2 &= (uint8_t)~HBIT_6;
       break;
    case 4:
       copro_command_excute(copro_command,val);
@@ -411,7 +411,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          if (hp3pos == 2)
          {
             PSTAT3 |=  0x80;
-            HSTAT3 &= ~HBIT_6;
+            HSTAT3 &= (uint8_t)~HBIT_6;
          }
          if ((HSTAT1 & HBIT_3) && (hp3pos > 1)) tube_irq |= NMI_BIT;
       }
@@ -420,7 +420,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          hp3[0] = val;
          hp3pos = 1;
          PSTAT3 |=  0x80;
-         HSTAT3 &= ~HBIT_6;
+         HSTAT3 &= (uint8_t)~HBIT_6;
          if (HSTAT1 & HBIT_3) tube_irq |= NMI_BIT;
       }
       //tube_updateints_NMI();
@@ -434,7 +434,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
      //       return;
       hp4 = val;
       PSTAT4 |=  0x80;
-      HSTAT4 &= ~HBIT_6;
+      HSTAT4 &= (uint8_t)~HBIT_6;
 #ifdef DEBUG_TRANSFERS
       if (val == 4) {
          LOG_INFO("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
@@ -448,7 +448,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
        if (HSTAT1 & HBIT_2) tube_irq |= IRQ_BIT; //tube_updateints_IRQ();
       break;
    default:
-      LOG_WARN("Illegal host write to %d\r\n", addr);
+      LOG_WARN("Illegal host write to %ld\r\n", addr);
    }
 }
 
@@ -461,13 +461,13 @@ uint8_t tube_parasite_read(uint32_t addr)
    if (vdu_enabled && (addr & 0xFFF8) == 0xFEF0) {
       switch (addr & 7) {
       case 1:
-         temp = fb_get_edit_cursor_x();
+         temp = (uint8_t)fb_get_edit_cursor_x();
          break;
       case 2:
-         temp = fb_get_edit_cursor_y();
+         temp = (uint8_t)fb_get_edit_cursor_y();
          break;
       case 3:
-         temp = fb_get_edit_cursor_char();
+         temp = (uint8_t)fb_get_edit_cursor_char();
          break;
       }
       return temp;
@@ -476,13 +476,13 @@ uint8_t tube_parasite_read(uint32_t addr)
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
-      temp = PSTAT1 | (WORD_TO_BYTE(HSTAT1) & 0x3F);
+      temp = (uint8_t)(PSTAT1 | (WORD_TO_BYTE(HSTAT1) & 0x3F));
       break;
    case 1: /*Register 1*/
       temp = hp1;
       if (PSTAT1 & 0x80)
       {
-         PSTAT1 &= ~0x80;
+         PSTAT1 &= (uint8_t)~0x80;
          HSTAT1 |=  HBIT_6;
          //tube_updateints_IRQ(); // clear irq if required reg 4 isn't irqing
          if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT;
@@ -495,7 +495,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       temp = hp2;
       if (PSTAT2 & 0x80)
       {
-         PSTAT2 &= ~0x80;
+         PSTAT2 &= (uint8_t)~0x80;
          HSTAT2 |=  HBIT_6;
       }
       break;
@@ -516,7 +516,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          if (!hp3pos)
          {
             HSTAT3 |=  HBIT_6;
-            PSTAT3 &= ~0x80;
+            PSTAT3 &= (uint8_t)~0x80;
          }
          //tube_updateints_NMI();
          // here we want to only clear NMI if required
@@ -530,7 +530,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       temp = hp4;
       if (PSTAT4 & 0x80)
       {
-         PSTAT4 &= ~0x80;
+         PSTAT4 &= (uint8_t)~0x80;
          HSTAT4 |=  HBIT_6;
          //tube_updateints_IRQ(); // clear irq if  reg 1 isn't irqing
          if (!(PSTAT1 & 128)) tube_irq &= ~IRQ_BIT;
@@ -560,8 +560,8 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
     tube_parasite_write(addr, val);
   } else if ((addr & 0xFFF8) == 0xFEE0) {
      // Implement write only bank selection registers for 8x 8K pages
-     int logical = (addr & 7) << 1;
-     int physical = (val << 1);
+     unsigned int logical = (addr & 7) << 1;
+     unsigned int physical = (val << 1);
      map_4k_page(logical, physical);
      map_4k_page(logical + 1, physical + 1);
      // Page 0 must also be mapped as page 16 (64K)
@@ -598,14 +598,14 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
          ph1len++;
          HSTAT1 |= HBIT_7;
-         if (ph1len == 24) PSTAT1 &= ~0x40;
+         if (ph1len == 24) PSTAT1 &= (uint8_t)~0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the IRQ flags
       break;
    case 3: /*Register 2*/
       PH2 = BYTE_TO_WORD(val);
       HSTAT2 |=  HBIT_7;
-      PSTAT2 &= ~0x40;
+      PSTAT2 &= (uint8_t)~0x40;
       break;
    case 5: /*Register 3*/
       if (HSTAT1 & HBIT_4)
@@ -621,7 +621,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          if (ph3pos == 2)
          {
             HSTAT3 |=  HBIT_7;
-            PSTAT3 &= ~0xC0;
+            PSTAT3 &= (uint8_t)~0xC0;
          }
          //NMI if other case isn't setting it
          if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
@@ -631,7 +631,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          PH3_0 = BYTE_TO_WORD(val);
          ph3pos = 1;
          HSTAT3 |=  HBIT_7;
-         PSTAT3 &= ~0xC0;
+         PSTAT3 &= (uint8_t)~0xC0;
          //NMI if other case isn't setting it
          if (!(hp3pos > 0) ) tube_irq &= ~NMI_BIT;
       }
@@ -642,7 +642,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
    case 7: /*Register 4*/
       PH4 = BYTE_TO_WORD(val);
       HSTAT4 |=  HBIT_7;
-      PSTAT4 &= ~0x40;
+      PSTAT4 &= (uint8_t)~0x40;
       // tube_updateints_IRQ(); // the above can't change IRQ flag
       break;
    }
@@ -661,7 +661,7 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 int tube_io_handler(uint32_t mail)
 {
-   int addr;
+   unsigned int addr;
 #ifndef USE_GPU
    int data;
    int rnw;
@@ -765,7 +765,7 @@ int tube_io_handler(uint32_t mail)
 
 void tube_init_hardware()
 {
-   int revision = get_revision();
+   uint32_t revision = get_revision();
 
    // uuuu uuuu FMMM CCCC PPPP TTTT TTTT RRRR
    //
@@ -1001,14 +1001,14 @@ void disable_tube() {
 
 void start_vc_ula()
 {
-   int func,r0,r1, r2,r3,r4,r5;
-   extern int tube_delay;
+   unsigned int func,r0,r1, r2,r3,r4,r5;
+   extern unsigned int tube_delay;
 #ifdef USE_DOORBELL
-   func = (int) &tubevc_doorbell_asm[0];
+   func =  (uint32_t)&tubevc_doorbell_asm[0];
 #else
-   func = (int) &tubevc_mailbox_asm[0];
+   func =  (uint32_t)&tubevc_mailbox_asm[0];
 #endif
-   r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
+   r0   =  GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
    r1   = led_type;
    r2   = tube_delay;
 
