@@ -165,7 +165,7 @@ void copro_arm2_write32(unsigned int addr, UINT32 data) {
 #endif
       break;
    case 1:
-      tube_parasite_write((addr >> 2) & 7, data);
+      tube_parasite_write((addr >> 2) & 7, (unsigned char)data);
       break;
    }
    /* Unaligned writes are treated as normal writes */
