@@ -30,7 +30,7 @@ static void copro_80186_reset() {
   tube_reset_performance_counters();
 }
 
-int copro_80186_tube_read(uint16_t addr) {
+unsigned int copro_80186_tube_read(uint16_t addr) {
   return tube_parasite_read(addr);
 }
 
