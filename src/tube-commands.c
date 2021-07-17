@@ -236,7 +236,7 @@ int doCmdMem(const char *params) {
         }
         ptr += sprintf(ptr, "%c", c);
       }
-      ptr += sprintf(ptr, "\r\n");
+      sprintf(ptr, "\r\n");
       OS_Write0(line);
       memAddr += 0x10;
     }
