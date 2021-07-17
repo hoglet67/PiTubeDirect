@@ -15,14 +15,14 @@ typedef struct {
 extern void init_info();
 
 /* Cached on boot, so this is safe to call at any time */
-extern int get_speed();
+extern uint32_t get_speed();
 
 /* Cached on boot, so this is safe to call at any time */
 extern char *get_info_string();
 
-extern int get_clock_rate(int clk_id);
+extern unsigned int get_clock_rate(int clk_id);
 
-int get_revision();
+uint32_t get_revision();
 
 extern float get_temp();
 

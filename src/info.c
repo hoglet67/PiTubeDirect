@@ -18,7 +18,7 @@ void print_tag_value(char *name, const rpi_mailbox_property_t *buf, int hex) {
    if (buf == NULL) {
       LOG_INFO("*** failed ***");
    } else {
-      for (int i = 0;  i < (buf->byte_length + 3) >> 2; i++) {
+      for (uint32_t i = 0;  i < (buf->byte_length + 3) >> 2; i++) {
          if (hex) {
             LOG_INFO("%08x ", buf->data.buffer_32[i]);
          } else {
@@ -29,7 +29,7 @@ void print_tag_value(char *name, const rpi_mailbox_property_t *buf, int hex) {
    LOG_INFO("\r\n");
 }
 
-int get_revision() {
+uint32_t get_revision() {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_GET_BOARD_REVISION);
@@ -42,7 +42,7 @@ int get_revision() {
    }
 }
 
-int get_clock_rate(int clk_id) {
+unsigned int get_clock_rate(int clk_id) {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_GET_CLOCK_RATE, clk_id);
@@ -85,8 +85,8 @@ float get_voltage(int component_id) {
 // Speed
 // Temp
 
-int get_speed() {
-   static int speed = 0;
+uint32_t get_speed() {
+   static uint32_t speed = 0;
    if (!speed) {
      speed = get_clock_rate(ARM_CLK_ID) / 1000000;
    }
@@ -96,7 +96,7 @@ int get_speed() {
 char *get_info_string() {
    static int read = 0;
    if (!read) {
-      sprintf(info_string, "%x %04d/%03dMHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, get_temp());
+      sprintf(info_string, "%lx %04d/%03dMHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, (double)get_temp());
       read = 1;
    }
    return info_string;
@@ -126,7 +126,7 @@ char *get_cmdline_prop(char *prop) {
    static char ret[PROP_SIZE];
    char *retptr = ret;
    char *cmdptr = get_cmdline();
-   int proplen = strlen(prop);
+   uint32_t proplen = strlen(prop);
 
    // continue until the end terminator
    while (cmdptr && *cmdptr) {
@@ -155,7 +155,7 @@ char *get_cmdline_prop(char *prop) {
 
 clock_info_t * get_clock_rates(int clk_id) {
    static clock_info_t result;
-   int *rp = (int *) &result;
+   uint32_t *rp = (uint32_t *) &result;
    rpi_mailbox_tag_t tags[] = {
       TAG_GET_CLOCK_RATE,
       TAG_GET_MIN_CLOCK_RATE,
@@ -251,11 +251,11 @@ void dump_useful_info() {
          );
    }
 
-   LOG_INFO("           CORE TEMP : %6.2f °C\r\n", get_temp());
-   LOG_INFO("        CORE VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_CORE));
-   LOG_INFO("     SDRAM_C VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_C));
-   LOG_INFO("     SDRAM_P VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_P));
-   LOG_INFO("     SDRAM_I VOLTAGE : %6.2f V\r\n", get_voltage(COMPONENT_SDRAM_I));
+   LOG_INFO("           CORE TEMP : %6.2f °C\r\n", (double)get_temp());
+   LOG_INFO("        CORE VOLTAGE : %6.2f V\r\n", (double)get_voltage(COMPONENT_CORE));
+   LOG_INFO("     SDRAM_C VOLTAGE : %6.2f V\r\n", (double)get_voltage(COMPONENT_SDRAM_C));
+   LOG_INFO("     SDRAM_P VOLTAGE : %6.2f V\r\n", (double)get_voltage(COMPONENT_SDRAM_P));
+   LOG_INFO("     SDRAM_I VOLTAGE : %6.2f V\r\n", (double)get_voltage(COMPONENT_SDRAM_I));
 
    LOG_INFO("            CMD_LINE : %s\r\n", get_cmdline());
    char *cs ;
