@@ -12,7 +12,7 @@ extern volatile unsigned int copro_speed;
 
 extern volatile unsigned int copro_memory_size;
 
-extern int arm_speed;
+extern unsigned int arm_speed;
 
 extern void arm_fiq_handler_flag1();
 

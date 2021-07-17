@@ -183,9 +183,9 @@ void tube_ack_nmi(void)
    }
 }
 
-void copro_command_excute(unsigned char copro_command,unsigned char val)
+static void copro_command_excute(unsigned char copro_comm,unsigned char val)
 {
-   switch (copro_command) {
+   switch (copro_comm) {
    case 0:
       if (val == 0) {
          copro_speed = 0;

@@ -28,7 +28,7 @@ volatile unsigned int copro_speed;
 volatile unsigned int copro_memory_size = 0;
 unsigned int tube_delay = 0;
 
-int arm_speed;
+unsigned int arm_speed;
 
 static copro_def_t *copro_def;
 
