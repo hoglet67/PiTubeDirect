@@ -248,7 +248,7 @@ void generate_error(void * address, unsigned int errorNum, char *errorMsg) {
   // Copy the error number into the handler's error block
   ebuf->errorBlock.errorNum = errorNum;
   // Copy the error string into the handler's error block
-  strcpy(ebuf->errorBlock.errorMsg, errorMsg);
+  strncpy(ebuf->errorBlock.errorMsg, errorMsg, sizeof(ebuf->errorBlock.errorMsg));
   // The wrapper drops back to user mode and calls the handler
   unsigned int r0 = env->handler[ERROR_HANDLER].r12;
   _error_handler_wrapper(r0, last_r12, env->handler[ERROR_HANDLER].handler);
