@@ -1275,6 +1275,7 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
       {
         while (k > 32) k -= 32;
         if (pCarry) *pCarry = rm & (1 << (k - 1));
+        if (k==32) return 0;
         return ROR(rm, k);
       }
       else
