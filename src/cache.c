@@ -11,18 +11,14 @@
 // At that point, the stack appears to vanish and the data read back is 0x55555555
 // Reason turned out to be failure to correctly invalidate the entire data cache
 
-static const unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
-static const unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
-static const unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
-
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
 
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable3[256];
 
-static const int aa = 1;
-static const int bb = 1;
-static const int shareable = 1;
+static const unsigned int aa = 1u;
+static const unsigned int bb = 1u;
+static const unsigned int shareable = 1u;
 
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
@@ -138,7 +134,7 @@ void _clean_cache_area(void * start, unsigned int length)
 // 1      1
 // 0      1
 
-void map_4k_page(int logical, int physical) {
+void map_4k_page(unsigned int logical, unsigned int physical) {
   // Invalidate the data TLB before changing mapping
   _invalidate_dtlb_mva((void *)(logical << 12));
   // Setup the 4K page table entry
@@ -150,13 +146,13 @@ void map_4k_page(int logical, int physical) {
   //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
   //   (this was the cause of issue #27)
 #if defined(RPI2) || defined (RPI3) || defined(RPI4)
-  PageTable2[logical] = (physical<<12) | 0x132 | (bb << 6) | (aa << 2);
+  PageTable2[logical] = (physical<<12) | 0x132u | (bb << 6) | (aa << 2);
 #else
-  PageTable2[logical] = (physical<<12) | 0x133 | (bb << 6) | (aa << 2);
+  PageTable2[logical] = (physical<<12) | 0x133u | (bb << 6) | (aa << 2);
 #endif
 }
 
-void map_4k_pageJIT(int logical, int physical) {
+void map_4k_pageJIT(unsigned int logical, unsigned int physical) {
   // Invalidate the data TLB before changing mapping
   _invalidate_dtlb_mva((void *)(logical << 12));
   // Setup the 4K page table entry
@@ -168,9 +164,9 @@ void map_4k_pageJIT(int logical, int physical) {
   //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
   //   (this was the cause of issue #27)
 #if defined(RPI2) || defined (RPI3) || defined(RPI4)
-  PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x132 | (bb << 6) | (aa << 2);
+  PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x132u | (bb << 6) | (aa << 2);
 #else
-  PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x133 | (bb << 6) | (aa << 2);
+  PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x133u | (bb << 6) | (aa << 2);
 #endif
 }
 
@@ -219,7 +215,7 @@ void enable_MMU_and_IDCaches(void)
   // 11 = WBNWA (write-back, no write allocate)
   /// TEX = 100; C=0; B=1 (outer non cacheable, inner write-back, write allocate)
 
-  for (base = 0; base < l1_cached_threshold; base++)
+  for (base = 0; base < (L2_CACHED_MEM_BASE >> 20); base++)
   {
     // Value from my original RPI code = 11C0E (outer and inner write back, write allocate, shareable)
     // bits 11..10 are the AP bits, and setting them to 11 enables user mode access as well
@@ -228,12 +224,12 @@ void enable_MMU_and_IDCaches(void)
     // Values from RPI2 = 15C0A (outer write back, write allocate, inner write through, no write allocate, shareable)
     PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12) | (aa << 2);
   }
-  for (; base < l2_cached_threshold; base++)
+  for (; base < (UNCACHED_MEM_BASE >> 20); base++)
   {
      PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12);
   }
 #if L2_CACHED_MEM_BASE != UNCACHED_MEM_BASE
-  for (; base < uncached_threshold; base++)
+  for (; base < (PERIPHERAL_BASE >> 20); base++)
   {
     PageTable[base] = base << 20 | 0x01C02;
   }

@@ -13,7 +13,8 @@
 
 #ifndef __ASSEMBLER__
 
-void map_4k_page(int logical, int physical);
+void map_4k_page(unsigned int logical, unsigned int physical);
+void map_4k_pageJIT(unsigned int logical, unsigned int physical);
 
 void enable_MMU_and_IDCaches(void);
 
