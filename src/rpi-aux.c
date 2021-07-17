@@ -58,7 +58,7 @@ void RPI_AuxMiniUartIRQHandler() {
 
   while (1) {
 
-    int iir = auxiliary->MU_IIR;
+    uint32_t iir = auxiliary->MU_IIR;
 
     if (iir & AUX_MUIIR_INT_NOT_PENDING) {
       /* No more interrupts */
@@ -84,7 +84,7 @@ void RPI_AuxMiniUartIRQHandler() {
         auxiliary->MU_IO = tx_buffer[tx_tail];
       } else {
         /* Disable TxEmpty interrupt */
-        auxiliary->MU_IER &= ~AUX_MUIER_TX_INT;
+        auxiliary->MU_IER &= (uint32_t)~AUX_MUIER_TX_INT;
       }
     }
   }
@@ -166,7 +166,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   auxiliary->MU_IIR = 0xC6;
 
   /* Transposed calculation from Section 2.2.1 of the ARM peripherals manual */
-  auxiliary->MU_BAUD = ( sys_freq / (8 * baud)) - 1;
+  auxiliary->MU_BAUD = (uint32_t)(( sys_freq / (8 * baud)) - 1);
 
   extern unsigned int _interrupt_vector_h;
   _interrupt_vector_h = (uint32_t) _main_irq_handler;
@@ -198,7 +198,7 @@ void RPI_AuxMiniUartWrite(char c)
 
   /* Test if the buffer is full */
   if (tmp_head == tx_tail) {
-     int cpsr = _get_cpsr();
+     uint32_t cpsr = _get_cpsr();
      if (cpsr & 0x80) {
         /* IRQ disabled: drop the character to avoid deadlock */
         return;
