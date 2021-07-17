@@ -83,25 +83,25 @@ void dis6502( int addr)
 
    mpu.memory=0;
 
-   M6502_disassemble(&mpu, addr,buffer);
+   M6502_disassemble(&mpu, (unsigned short)addr,buffer);
    printf(" Jitting : %x : %s\r\n",addr,buffer);
 }
 
 static darm_t dis;
 static darm_str_t dis_str;
 
-void disarm(unsigned int addr, int endaddr)
+void disarm(unsigned int addr, unsigned int endaddr)
 {
    char buffer[4096];
 
    size_t bufsize = 4096;
-   int length = (endaddr+JITLET-addr)>>2;
+   unsigned int length = (endaddr+JITLET-addr)>>2;
 
-   for (int i=0;i<length;i++)
+   for (unsigned int i=0;i<length;i++)
    {
    unsigned int instr = *(char *)addr;
    char *buf= buffer;
-   int len = snprintf(buf, bufsize, "%08"PRIx32" %08"PRIx32" ",(long unsigned int) addr, (long unsigned int )instr);
+   unsigned int len = (unsigned int)snprintf(buf, bufsize, "%08"PRIx32" %08"PRIx32" ",(long unsigned int) addr, (long unsigned int )instr);
    buf += len;
    bufsize -= len;
    int ok = 0;
