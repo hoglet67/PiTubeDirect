@@ -55,10 +55,10 @@ void copro_65tubejit_emulator(int type) {
    copro_65tube_reset(type, mpu_memory);
 
    // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
-   map_4k_page(16, 0);
+   map_4k_page(65536>>12, 0);
 
    // Make the JITTEDTABLE16 table wrap as well.
-   map_4k_page((JITTEDTABLE16+(4*65536))/4096, JITTEDTABLE16/4096);
+   map_4k_pageJIT((JITTEDTABLE16+(4*65536))>>12, JITTEDTABLE16>>12);
 
    while (copro == last_copro) {
       tube_reset_performance_counters();
@@ -73,7 +73,7 @@ void copro_65tubejit_emulator(int type) {
    for ( unsigned int i= 0 ; i<=16; i++ )
      map_4k_page(i, i);
 
-   map_4k_page((JITTEDTABLE16+(4*65536))/4096, (JITTEDTABLE16+(4*65536))/4096);
+   map_4k_pageJIT((JITTEDTABLE16+(4*65536))>>12, (JITTEDTABLE16+(4*65536))>>12);
 }
 
 void dis6502( int addr)

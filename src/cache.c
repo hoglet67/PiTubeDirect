@@ -3,6 +3,7 @@
 #include "startup.h"
 #include "rpi-base.h"
 #include "cache.h"
+#include "copro-65tubejit.h"
 
 // Historical Note:
 // Were seeing core 3 crashes if inner *and* outer both set to some flavour of WB (i.e. 1 or 3)
@@ -16,6 +17,8 @@ static const unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
 
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
 volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
+
+volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable3[256];
 
 static const int aa = 1;
 static const int bb = 1;
@@ -153,6 +156,24 @@ void map_4k_page(int logical, int physical) {
 #endif
 }
 
+void map_4k_pageJIT(int logical, int physical) {
+  // Invalidate the data TLB before changing mapping
+  _invalidate_dtlb_mva((void *)(logical << 12));
+  // Setup the 4K page table entry
+  // Second level descriptors use extended small page format so inner/outer caching can be controlled
+  // Pi 0/1:
+  //   XP (bit 23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
+  // Pi 2/3:
+  //   XP (bit 23) in SCTRL no longer exists, and we see to be using ARMv6 table formats
+  //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
+  //   (this was the cause of issue #27)
+#if defined(RPI2) || defined (RPI3) || defined(RPI4)
+  PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x132 | (bb << 6) | (aa << 2);
+#else
+  PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x133 | (bb << 6) | (aa << 2);
+#endif
+}
+
 void enable_MMU_and_IDCaches(void)
 {
 
@@ -211,10 +232,12 @@ void enable_MMU_and_IDCaches(void)
   {
      PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12);
   }
+#if L2_CACHED_MEM_BASE != UNCACHED_MEM_BASE
   for (; base < uncached_threshold; base++)
   {
     PageTable[base] = base << 20 | 0x01C02;
   }
+#endif
   for (; base < 4096; base++)
   {
     // shared device, never execute
@@ -225,13 +248,21 @@ void enable_MMU_and_IDCaches(void)
   for (i = 0; i < NUM_4K_PAGES >> 8; i++)
   {
     PageTable[i] = (unsigned int) (&PageTable2[i << 8]);
-    PageTable[i] +=1;
+    PageTable[i] += 1;
   }
 
   // populate the second level page tables
   for (base = 0; base < NUM_4K_PAGES; base++)
   {
     map_4k_page(base, base);
+  }
+  // 6502 jitter needs a second level page table
+  PageTable[(JITTEDTABLE16>>20)] = (unsigned int) (&PageTable3[0]) + 1;
+   
+  // populate the second level page tables
+  for (base = 0; base < 256; base++)
+  {
+    map_4k_pageJIT((JITTEDTABLE16>>12)+base, (JITTEDTABLE16>>12)+base);
   }
 
 #if defined(RPI3)||defined(RPI4)
