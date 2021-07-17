@@ -2848,7 +2848,7 @@ void copy_test_programs(uint8_t *memory) {
 
    // add list of copros to end of code
    unsigned char *list_end = memory + 0x2000 + sizeof(coprolist);
-   int list_remain = 480;   // write max 480 chars, +1 for \0
+   unsigned int list_remain = 480;   // write max 480 chars, +1 for \0
    for (unsigned int i = 0; i < num_copros(); i++) {
       copro_def_t *copro_def = &copro_defs[i];
 
@@ -2857,12 +2857,12 @@ void copy_test_programs(uint8_t *memory) {
       }
 
       // write the name of the processor to the output buffer
-      int reqd =
-         (i == 1 || i == 3)?
+      unsigned int reqd = (unsigned int)(
+         (i == 1u || i == 3u)?
             snprintf((char *) list_end, list_remain, "%2u %s (%uMHz)\r",
                      i, copro_def->name, get_copro_mhz(i)):
             snprintf((char *) list_end, list_remain, "%2u %s\r",
-                     i, copro_def->name);
+                     i, copro_def->name));
 
       // if we didn't have space for this line, stop here
       if (reqd >= list_remain) {
