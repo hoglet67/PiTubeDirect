@@ -1194,7 +1194,7 @@ INLINE uint8_t FETCH(void)
 INLINE uint16_t FETCH16(void)
 {
 	uint16_t d;
-	d = cpu_readop(pc) | (cpu_readop(pc+1) << 8);
+	d = (uint16_t) ((uint16_t)cpu_readop(pc) | (cpu_readop(pc+1) << 8));
 	pc += 2;
 	return d;
 }
@@ -1202,7 +1202,7 @@ INLINE uint16_t FETCH16(void)
 INLINE uint32_t FETCH32(void)
 {
 	uint32_t d;
-	d = cpu_readop(pc) | (cpu_readop(pc+1) << 8) | (cpu_readop(pc+2) << 16) | (cpu_readop(pc+3) << 24);
+	d = (uint32_t)cpu_readop(pc) | (cpu_readop(pc+1) << 8) | (cpu_readop(pc+2) << 16) | (cpu_readop(pc+3) << 24);
 	pc += 4;
 	return d;
 }
@@ -1216,7 +1216,7 @@ INLINE uint8_t FETCHD(void)
 INLINE uint16_t FETCHD16(void)
 {
 	uint16_t d;
-	d = cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8);
+	d = (uint16_t) (cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8));
 	pc += 2;
 	return d;
 }
@@ -1224,7 +1224,7 @@ INLINE uint16_t FETCHD16(void)
 INLINE uint32_t FETCHD32(void)
 {
 	uint32_t d;
-	d = cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8) | (cpu_readop_arg(pc+2) << 16) | (cpu_readop_arg(pc+3) << 24);
+	d = (uint32_t)(cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8) | (cpu_readop_arg(pc+2) << 16) | (cpu_readop_arg(pc+3) << 24));
 	pc += 4;
 	return d;
 }
@@ -1274,9 +1274,9 @@ static char* handle_sib_byte( char* s, uint8_t mod )
 
 static void handle_modrm(char* s)
 {
-	int8_t disp8;
-	int16_t disp16;
-	int32_t disp32;
+	uint8_t disp8;
+	uint16_t disp16;
+	uint32_t disp32;
 	uint8_t mod, rm;
 
 	modrm = FETCHD();
@@ -1360,9 +1360,9 @@ static char* handle_param(char* s, uint32_t param)
 	uint32_t i32;
 	uint16_t ptr;
 	uint32_t addr;
-	int8_t d8;
-	int16_t d16;
-	int32_t d32;
+	uint8_t d8;
+	uint16_t d16;
+	uint32_t d32;
 
 	switch(param)
 	{
@@ -1599,7 +1599,7 @@ handle_unknown:
 	sprintf(s, "???");
 }
 
-int i386_dasm_one(char *buffer, uint32_t eip, int addr_size, int op_size)
+unsigned int i386_dasm_one(char *buffer, uint32_t eip, int addr_size, int op_size)
 {
 	uint8_t op;
 

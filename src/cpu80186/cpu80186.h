@@ -67,7 +67,7 @@ union _bytewordregs_
 
 #define StepIP(x)	ip += x
 #define getmem8(x, y)	read86(segbase(x) + (y))
-#define getmem16(x, y)	readw86(segbase(x) + (y))
+#define getmem16(x, y)	readw86((segbase(x) + (y)))
 #define putmem8(x, y, z)	write86(segbase(x) + (y), (z))
 #define putmem16(x, y, z)	writew86(segbase(x) + (y), (z))
 #define signext(value)	(int16_t)(int8_t)(value)

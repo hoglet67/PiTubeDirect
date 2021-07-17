@@ -118,7 +118,7 @@ uint8_t read86(uint32_t addr32)
 
 uint16_t readw86(uint32_t addr32)
 {
-   return ((uint16_t) read86(addr32) | (uint16_t)(read86(addr32 + 1) << 8));
+   return (uint16_t) (read86(addr32) | (read86(addr32 + 1) << 8));
 }
 
 void Cleari80186Ram(void)
@@ -126,7 +126,7 @@ void Cleari80186Ram(void)
    // Always allocate 1MB of space
    RAM = copro_mem_reset(ONE_MEG);
    if (copro_memory_size > 0) {
-      RAM_LIMIT = copro_memory_size  & ~((64*1024)-1);
+      RAM_LIMIT = copro_memory_size  & (unsigned int )~((64*1024)-1);
       if (RAM_LIMIT < 0x10000) {
          // Minimum is 64KB
          RAM_LIMIT = 0x10000;
