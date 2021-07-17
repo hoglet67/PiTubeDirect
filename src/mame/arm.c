@@ -220,7 +220,7 @@ enum
 
 /***************************************************************************/
 
-UINT32 GetRegister(int rIndex)
+UINT32 GetRegister(unsigned int rIndex)
 {
   if (MODE == 0)
   {
@@ -230,17 +230,17 @@ UINT32 GetRegister(int rIndex)
   return m_sArmRegister[sRegisterTable[MODE][rIndex]];
 }
 
-void SetRegister(int rIndex, UINT32 value)
+void SetRegister(unsigned int rIndex, UINT32 value)
 {
   m_sArmRegister[sRegisterTable[MODE][rIndex]] = value;
 }
 
-UINT32 GetModeRegister(int mode, int rIndex)
+UINT32 GetModeRegister(int mode, unsigned int rIndex)
 {
   return m_sArmRegister[sRegisterTable[mode][rIndex]];
 }
 
-void SetModeRegister(int mode, int rIndex, UINT32 value)
+void SetModeRegister(int mode, unsigned int rIndex, UINT32 value)
 {
   m_sArmRegister[sRegisterTable[mode][rIndex]] = value;
 }
@@ -685,7 +685,7 @@ void HandleMemSingle(UINT32 insn)
   if (insn & INSN_S)                            \
     R15 =                                             \
       ((R15 &~ (N_MASK | Z_MASK | V_MASK | C_MASK))                   \
-       | (((!SIGN_BITS_DIFFER(rn, op2)) && SIGN_BITS_DIFFER(rn, rd))  \
+       | (UINT32)(((!SIGN_BITS_DIFFER(rn, op2)) && SIGN_BITS_DIFFER(rn, rd))  \
           << V_BIT)                                                   \
        | (((IsNeg(rn) & IsNeg(op2)) | (IsNeg(rn) & IsPos(rd)) | (IsNeg(op2) & IsPos(rd))) ? C_MASK : 0) \
        | HandleALUNZFlags(rd))                                        \
@@ -696,7 +696,7 @@ void HandleMemSingle(UINT32 insn)
   if (insn & INSN_S)                            \
     R15 =                                             \
       ((R15 &~ (N_MASK | Z_MASK | V_MASK | C_MASK))                \
-       | ((SIGN_BITS_DIFFER(rn, op2) && SIGN_BITS_DIFFER(rn, rd))  \
+       | (UINT32)((SIGN_BITS_DIFFER(rn, op2) && SIGN_BITS_DIFFER(rn, rd))  \
           << V_BIT)                                                     \
        | (((IsNeg(rn) & IsPos(op2)) | (IsNeg(rn) & IsPos(rd)) | (IsPos(op2) & IsPos(rd))) ? C_MASK : 0) \
        | HandleALUNZFlags(rd))                                          \
@@ -706,13 +706,13 @@ void HandleMemSingle(UINT32 insn)
   /* Set NZC flags for logical operations. */
 
 #define HandleALUNZFlags(rd)                    \
-  (((rd) & SIGN_BIT) | ((!(rd)) << Z_BIT))
+  (((rd) & SIGN_BIT) | (((UINT32)!(rd)) << Z_BIT))
 
 #define HandleALULogicalFlags(rd, sc)           \
   if (insn & INSN_S)                            \
     R15 = ((R15 &~ (N_MASK | Z_MASK | C_MASK))  \
            | HandleALUNZFlags(rd)                      \
-           | (((sc) != 0) << C_BIT)) + 4;              \
+           | ((UINT32)((sc) != 0) << C_BIT)) + 4;              \
   else R15 += 4;
 
 void HandleALU(UINT32 insn)
@@ -929,9 +929,9 @@ void HandleMul(UINT32 insn)
   }
 }
 
-int loadInc(UINT32 pat, UINT32 rbv, UINT32 s)
+unsigned int loadInc(UINT32 pat, UINT32 rbv, UINT32 s)
 {
-  int i, result;
+  unsigned int i, result;
 
   result = 0;
   for (i = 0; i < 16; i++)
@@ -955,9 +955,10 @@ int loadInc(UINT32 pat, UINT32 rbv, UINT32 s)
   return result;
 }
 
-int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
+unsigned int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
 {
-  int i, result;
+  unsigned int result;
+  int i;
 
   result = 0;
   for (i = 15; i >= 0; i--)
@@ -974,16 +975,16 @@ int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
           *deferredR15 = (R15&PSR_MASK) | (R15&IRQ_MASK) | (R15&MODE_MASK) | ((cpu_read32(rbv-=4))&ADDRESS_MASK);
       }
       else
-        SetRegister( i, cpu_read32(rbv -=4) );
+        SetRegister( (UINT32)i, cpu_read32(rbv -=4) );
       result++;
     }
   }
   return result;
 }
 
-int storeInc(UINT32 pat, UINT32 rbv)
+unsigned int storeInc(UINT32 pat, UINT32 rbv)
 {
-  int i, result;
+  unsigned int i, result;
 
   result = 0;
   for (i = 0; i < 16; i++)
@@ -1000,10 +1001,11 @@ int storeInc(UINT32 pat, UINT32 rbv)
   return result;
 } /* storeInc */
 
-int storeDec(UINT32 pat, UINT32 rbv)
+unsigned int storeDec(UINT32 pat, UINT32 rbv)
 {
-  int i, result;
-
+  unsigned int result;
+  int i;
+  
   result = 0;
   for (i = 15; i >= 0; i--)
   {
@@ -1012,7 +1014,7 @@ int storeDec(UINT32 pat, UINT32 rbv)
         if (ARM_DEBUG_CORE && i == 15) /* R15 is plus 12 from address of STM */
           logerror("%08x: StoreDec on R15\n", R15);
 
-        cpu_write32( rbv -= 4, GetRegister(i) );
+        cpu_write32( rbv -= 4, GetRegister((UINT32)i) );
         result++;
       }
     }
@@ -1023,7 +1025,7 @@ void HandleMemBlock(UINT32 insn)
 {
   UINT32 rb = (insn & INSN_RN) >> INSN_RN_SHIFT;
   UINT32 rbp = GetRegister(rb);
-  int result;
+  unsigned int result;
 
   if (ARM_DEBUG_CORE && (insn & INSN_BDT_S))
     logerror("%08x:  S Bit set in MEMBLOCK\n", R15);
@@ -1037,12 +1039,12 @@ void HandleMemBlock(UINT32 insn)
 
       /* Incrementing */
       if (!(insn & INSN_BDT_P))
-        rbp = rbp + (-4);
+        rbp = rbp - 4 ;//+ (-4);
 
       // S Flag Set, but R15 not in list = Transfers to User Bank
       if ((insn & INSN_BDT_S) && !(insn & 0x8000))
       {
-        int curmode = MODE;
+        unsigned int curmode = MODE;
         R15 = R15 & ~MODE_MASK;
         result = loadInc( insn & 0xffff, rbp, insn&INSN_BDT_S );
         R15 = R15 | curmode;
@@ -1086,13 +1088,13 @@ void HandleMemBlock(UINT32 insn)
         /* Decrementing */
         if (!(insn & INSN_BDT_P))
         {
-          rbp = rbp - (- 4);
+          rbp = rbp + 4; //- (- 4);
         }
 
               // S Flag Set, but R15 not in list = Transfers to User Bank
         if ((insn & INSN_BDT_S) && !(insn & 0x8000))
         {
-          int curmode = MODE;
+          unsigned int curmode = MODE;
           R15 = R15 & ~MODE_MASK;
           result = loadDec( insn&0xffff, rbp, insn&INSN_BDT_S, &deferredR15, &defer );
           R15 = R15 | curmode;
@@ -1143,12 +1145,12 @@ void HandleMemBlock(UINT32 insn)
         /* Incrementing */
         if (!(insn & INSN_BDT_P))
         {
-          rbp = rbp + (- 4);
+          rbp = rbp -4 ; // + (- 4);
         }
         // S bit set = Transfers to User Bank
         if (insn & INSN_BDT_S)
         {
-          int curmode = MODE;
+          unsigned int curmode = MODE;
           R15 = R15 & ~MODE_MASK;
           result = storeInc( insn&0xffff, rbp );
           R15 = R15 | curmode;
@@ -1165,12 +1167,12 @@ void HandleMemBlock(UINT32 insn)
         /* Decrementing */
         if (!(insn & INSN_BDT_P))
         {
-          rbp = rbp - (- 4);
+          rbp = rbp + 4 ;// - (- 4);
         }
         // S bit set = Transfers to User Bank
         if (insn & INSN_BDT_S)
         {
-          int curmode = MODE;
+          unsigned int curmode = MODE;
           R15 = R15 & ~MODE_MASK;
           result = storeDec( insn&0xffff, rbp );
           R15 = R15 | curmode;
@@ -1394,8 +1396,8 @@ void HandleCoPro(UINT32 insn)
         if (m_coproRegister[crn]==0)
         {
           /* Unpack BCD */
-          int v0=BCDToDecimal(m_coproRegister[0]);
-          int v1=BCDToDecimal(m_coproRegister[1]);
+          unsigned int v0=BCDToDecimal(m_coproRegister[0]);
+          unsigned int v1=BCDToDecimal(m_coproRegister[1]);
 
           /* Repack vcd */
           m_coproRegister[5]=DecimalToBCD(v0+v1);
@@ -1406,8 +1408,8 @@ void HandleCoPro(UINT32 insn)
         else if (m_coproRegister[crn]==1)
         {
           /* Unpack BCD */
-          int v0=BCDToDecimal(m_coproRegister[0]);
-          int v1=BCDToDecimal(m_coproRegister[1]);
+          unsigned int v0=BCDToDecimal(m_coproRegister[0]);
+          unsigned int v1=BCDToDecimal(m_coproRegister[1]);
 
           /* Repack vcd */
           m_coproRegister[5]=DecimalToBCD(v0*v1);
@@ -1418,8 +1420,8 @@ void HandleCoPro(UINT32 insn)
         else if (m_coproRegister[crn]==3)
         {
           /* Unpack BCD */
-          int v0=BCDToDecimal(m_coproRegister[0]);
-          int v1=BCDToDecimal(m_coproRegister[1]);
+          unsigned int v0=BCDToDecimal(m_coproRegister[0]);
+          unsigned int v1=BCDToDecimal(m_coproRegister[1]);
 
           /* Repack vcd */
           m_coproRegister[5]=DecimalToBCD(v0-v1);
