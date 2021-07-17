@@ -37,7 +37,7 @@ static copro_def_t *copro_def;
 #define SWI_VECTOR ( _software_interrupt_vector_h)
 #define FIQ_VECTOR ( _fast_interrupt_vector_h)
 
-unsigned char * copro_mem_reset(int length)
+unsigned char * copro_mem_reset(unsigned int length)
 {
      // Wipe memory
      // Memory starts at zero now vectors have moved.
@@ -158,19 +158,19 @@ static void start_core(int core, func_ptr func) {
 #endif
 
 static unsigned int get_copro_number() {
-   unsigned int copro = default_copro();
+   unsigned int coproc = default_copro();
    char *copro_prop = get_cmdline_prop("copro");
 
    if (copro_prop) {
-      copro = atoi(copro_prop);
+      coproc = (unsigned int) atoi(copro_prop);
    }
-   if (copro >= num_copros()) {
-      copro = default_copro();
+   if (coproc >= num_copros()) {
+      coproc = default_copro();
    }
-   return copro;
+   return coproc;
 }
 
-unsigned int get_copro_mhz(int copro_num) {
+unsigned int get_copro_mhz(unsigned int copro_num) {
    unsigned int copro_mhz = 0; // default
    char *copro_prop = NULL;
    // Note: Co Pro Speed is only implemented in the 65tube Co Processors (copros 0/1/2/3)
@@ -182,7 +182,7 @@ unsigned int get_copro_mhz(int copro_num) {
       copro_prop = get_cmdline_prop("copro3_speed");
    }
    if (copro_prop) {
-      copro_mhz = atoi(copro_prop);
+      copro_mhz = (uint32_t) atoi(copro_prop);
    }
    if (copro_mhz > 255) {
       copro_mhz = 0;
@@ -208,7 +208,7 @@ static void get_copro_memory_size() {
       copro_prop = get_cmdline_prop("copro13_memory_size");
    }
    if (copro_prop) {
-      copro_memory_size = atoi(copro_prop);
+      copro_memory_size = (uint32_t)atoi(copro_prop);
    }
    if (copro_memory_size > 32*1024*1024) {
       copro_memory_size = 0;
@@ -220,7 +220,7 @@ static void get_tube_delay() {
    char *copro_prop = get_cmdline_prop("tube_delay");
    tube_delay = 0; // default
    if (copro_prop) {
-      tube_delay = atoi(copro_prop);
+      tube_delay = (uint32_t)atoi(copro_prop);
    }
    if (tube_delay > 40){
       tube_delay = 40;
