@@ -104,7 +104,7 @@ byte tmpr;
       : (MEM(ADDR)= BYTE) )
 
 #define getMemory(ADDR)				\
-  tmpr = ( readCallback[ADDR]			\
+  tmpr = (byte)( readCallback[ADDR]			\
     ?  readCallback[ADDR](mpu, ADDR, 0)	        \
     :  MEM(ADDR) ) ;				\
   if (lib6502_debug_enabled) {                  \
