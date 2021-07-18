@@ -115,7 +115,7 @@ static font_t font_catalog[] = {
 
 #define NUM_FONTS (sizeof(font_catalog) / sizeof(font_t))
 
-#define MAX_CHARACTERS 256
+#define MAX_CHARACTERS 256u
 
 // ==========================================================================
 // Static Methods
@@ -124,7 +124,7 @@ static font_t font_catalog[] = {
 // a is the 12 pixel row we wish to apply rounding to
 // b is the 12 pixel row we are using as a reference (either one above or one below)
 static inline uint16_t combine_rows(uint16_t a, uint16_t b) {
-    return a | ((a >> 1) & b & ~(b >> 1)) | ((a << 1) & b & ~(b << 1));
+    return (uint16_t)(a | ((a >> 1) & b & ~(b >> 1)) | ((a << 1) & b & ~(b << 1)));
 }
 
 static void copy_font_character(font_t *font, uint8_t *src, int c, int is_graphics) {
@@ -206,7 +206,7 @@ static char *default_get_name(font_t *font) {
    return font->name;
 }
 
-static int default_get_number(font_t *font) {
+static uint32_t default_get_number(font_t *font) {
    return font->number;
 }
 
@@ -247,7 +247,7 @@ static void default_write_char(font_t *font, screen_mode_t *screen, int c, int x
    for (int i = 0; i < height; i++) {
       int data = font->buffer[p++];
       for (int j = 0; j < width; j++) {
-         int col = (data & mask) ? fg_col : bg_col;
+         pixel_t col = (data & mask) ? fg_col : bg_col;
          for (int sx = 0; sx < font->scale_w; sx++) {
             for (int sy = 0; sy < font->scale_h; sy++) {
                screen->set_pixel(screen, x + sx, y + sy, col);
@@ -295,7 +295,7 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y, 
 // More Static Methods
 // ==========================================================================
 
-static font_t *initialize_font(font_t * catalog, int num) {
+static font_t *initialize_font(font_t * catalog, uint32_t num) {
 
    // Always return a copy, rather than the entry in the catalog
    //
@@ -309,7 +309,7 @@ static font_t *initialize_font(font_t * catalog, int num) {
    memcpy(font, catalog, sizeof(font_t));
 
    // The factor of 2 allows for character rounding to be enabled
-   size_t size = font->height * MAX_CHARACTERS * 2 * sizeof(uint16_t);
+   size_t size = (size_t)((size_t)font->height * MAX_CHARACTERS * 2 * sizeof(uint16_t));
    if (font->buffer == NULL) {
       font->buffer = (uint16_t *)calloc(size, 1);
    }
@@ -351,7 +351,7 @@ static font_t *initialize_font(font_t * catalog, int num) {
 // Public Methods
 // ==========================================================================
 
-char * get_font_name(unsigned int num) {
+char * get_font_name(uint32_t num) {
    font_t *font = &font_catalog[DEFAULT_FONT];
    if (num < NUM_FONTS) {
       font = &font_catalog[num];
@@ -359,7 +359,7 @@ char * get_font_name(unsigned int num) {
    return font->name;
 }
 
-font_t *get_font_by_number(unsigned int num) {
+font_t *get_font_by_number(uint32_t num) {
    font_t *font = &font_catalog[DEFAULT_FONT];
    if (num < NUM_FONTS) {
       font = &font_catalog[num];
@@ -368,8 +368,8 @@ font_t *get_font_by_number(unsigned int num) {
 }
 
 font_t *get_font_by_name(char *name) {
-   int num = DEFAULT_FONT;
-   for (unsigned int i = 0; i < NUM_FONTS; i++) {
+   uint32_t num = DEFAULT_FONT;
+   for (uint32_t i = 0; i < NUM_FONTS; i++) {
       if (!strcasecmp(name, font_catalog[i].name)) {
          num = i;
          break;

@@ -26,7 +26,7 @@ typedef struct font {
    int rounding;
 
    // The font number
-   int number;
+   uint32_t number;
 
    // The working copy of the font data
    uint16_t *buffer;
@@ -38,7 +38,7 @@ typedef struct font {
    void   (*set_rounding)(struct font *font, int rounding);
 
    char *     (*get_name)(struct font *font);
-   int      (*get_number)(struct font *font);
+   uint32_t (*get_number)(struct font *font);
    int   (*get_spacing_w)(struct font *font);
    int   (*get_spacing_h)(struct font *font);
    int     (*get_scale_w)(struct font *font);
@@ -52,9 +52,9 @@ typedef struct font {
 
 } font_t;
 
-char * get_font_name(unsigned int num);
+char * get_font_name(uint32_t num);
 
-font_t *get_font_by_number(unsigned int num);
+font_t *get_font_by_number(uint32_t num);
 
 font_t *get_font_by_name(char *name);
 

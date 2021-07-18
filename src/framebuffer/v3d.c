@@ -200,24 +200,24 @@ static void addbyte(uint8_t **list, uint8_t d) {
 }
 
 static void addshort(uint8_t **list, uint16_t d) {
-  *((*list)++) = (d) & 0xff;
-  *((*list)++) = (d >> 8)  & 0xff;
+  *((*list)++) = (uint8_t)(d);
+  *((*list)++) = (uint8_t)(d >> 8);
 }
 
 static void addword(uint8_t **list, uint32_t d) {
-  *((*list)++) = (d) & 0xff;
-  *((*list)++) = (d >> 8)  & 0xff;
-  *((*list)++) = (d >> 16) & 0xff;
-  *((*list)++) = (d >> 24) & 0xff;
+  *((*list)++) = (uint8_t)(d);
+  *((*list)++) = (uint8_t)(d >> 8);
+  *((*list)++) = (uint8_t)(d >> 16);
+  *((*list)++) = (uint8_t)(d >> 24);
 }
 
 static void addfloat(uint8_t **list, float f) {
 #if 0
   uint32_t d = *((uint32_t *)&f);
-  *((*list)++) = (d) & 0xff;
-  *((*list)++) = (d >> 8)  & 0xff;
-  *((*list)++) = (d >> 16) & 0xff;
-  *((*list)++) = (d >> 24) & 0xff;
+  *((*list)++) = (uint8_t)(d);
+  *((*list)++) = (uint8_t)(d >> 8);
+  *((*list)++) = (uint8_t)(d >> 16);
+  *((*list)++) = (uint8_t)(d >> 24);
 #endif
   uint8_t *d = (uint8_t *)&f;
   *((*list)++) = *d++;
@@ -265,8 +265,8 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
 
   uint8_t *p = list;
 
-  unsigned int w = screen->width;
-  unsigned int h = screen->height;
+  int w = screen->width;
+  int h = screen->height;
 
   int bw = (w + 63) / 64;
   int bh = (h + 63) / 64;
@@ -303,8 +303,8 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
   addword(&p, bus_addr + 0x6200); // tile allocation memory address
   addword(&p, 0x8000); // tile allocation memory size
   addword(&p, bus_addr + 0x100); // Tile state data address
-  addbyte(&p, bw); // 1920/64
-  addbyte(&p, bh); // 1080/64 (16.875)
+  addbyte(&p, (uint8_t)bw); // 1920/64
+  addbyte(&p, (uint8_t)bh); // 1080/64 (16.875)
   addbyte(&p, 0x04); // config
 
   // Start tile binning.
@@ -318,8 +318,8 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
   addbyte(&p, 102);
   addshort(&p, 0);
   addshort(&p, 0);
-  addshort(&p, w); // width
-  addshort(&p, h); // height
+  addshort(&p, (uint16_t)w); // width
+  addshort(&p, (uint16_t)h); // height
 
   // State
   addbyte(&p, 96);
@@ -369,8 +369,8 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
 // Vertex Data
   p = list + 0xa0;
   // Vertex: Top, red
-  addshort(&p, x1 << 4); // X in 12.4 fixed point
-  addshort(&p, y1 << 4); // Y in 12.4 fixed point
+  addshort(&p, (uint16_t)(x1 << 4)); // X in 12.4 fixed point
+  addshort(&p, (uint16_t)(y1 << 4)); // Y in 12.4 fixed point
   addfloat(&p, 1.0f); // Z
   addfloat(&p, 1.0f); // 1/W
   addfloat(&p, c1_r); // Varying 0 (Red)
@@ -378,8 +378,8 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
   addfloat(&p, c1_b); // Varying 2 (Blue)
 
   // Vertex: bottom left, Green
-  addshort(&p, x2 << 4); // X in 12.4 fixed point
-  addshort(&p, y2 << 4); // Y in 12.4 fixed point
+  addshort(&p, (uint16_t)(x2 << 4)); // X in 12.4 fixed point
+  addshort(&p, (uint16_t)(y2 << 4)); // Y in 12.4 fixed point
   addfloat(&p, 1.0f); // Z
   addfloat(&p, 1.0f); // 1/W
   addfloat(&p, c2_r); // Varying 0 (Red)
@@ -387,8 +387,8 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
   addfloat(&p, c2_b); // Varying 2 (Blue)
 
   // Vertex: bottom right, Blue
-  addshort(&p, x3 << 4); // X in 12.4 fixed point
-  addshort(&p, y3 << 4); // Y in 12.4 fixed point
+  addshort(&p, (uint16_t)(x3 << 4)); // X in 12.4 fixed point
+  addshort(&p, (uint16_t)(y3 << 4)); // Y in 12.4 fixed point
   addfloat(&p, 1.0f); // Z
   addfloat(&p, 1.0f); // 1/W
   addfloat(&p, c3_r); // Varying 0 (Red)
@@ -452,8 +452,8 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
   // Tile Rendering Mode Configuration
   addbyte(&p, 113);
   addword(&p, get_fb_address()); // framebuffer addresss
-  addshort(&p, w); // width
-  addshort(&p, h); // height
+  addshort(&p, (uint16_t)w); // width
+  addshort(&p, (uint16_t)h); // height
   if (screen->log2bpp == 5) {
      addbyte(&p, 0x04); // framebuffer mode (linear rgba8888)
   } else if (screen->log2bpp == 4) {
@@ -481,12 +481,12 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
 
       // Tile Coordinates
       addbyte(&p, 115);
-      addbyte(&p, x);
-      addbyte(&p, y);
+      addbyte(&p, (uint8_t)x);
+      addbyte(&p, (uint8_t)y);
 
       // Call Tile sublist
       addbyte(&p, 17);
-      addword(&p, bus_addr + 0x6200 + (y * bw + x) * 32);
+      addword(&p, bus_addr + 0x6200 + (uint32_t)(y * bw + x) * 32);
 
       // Last tile needs a special store instruction
       if(x == bw - 1 && y == bh - 1) {
@@ -521,7 +521,7 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
   }
 
   v3d[V3D_CT0CA] = bus_addr;
-  v3d[V3D_CT0EA] = bus_addr + length;
+  v3d[V3D_CT0EA] = bus_addr + (uint32_t)length;
 
   // Wait for control list to execute
   while(v3d[V3D_CT0CS] & 0x20);
@@ -539,7 +539,7 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
   }
 
   v3d[V3D_CT1CA] = bus_addr + 0xe200;
-  v3d[V3D_CT1EA] = bus_addr + 0xe200 + render_length;
+  v3d[V3D_CT1EA] = bus_addr + 0xe200 + (uint32_t)render_length;
 
   while(v3d[V3D_CT1CS] & 0x20);
 
@@ -582,8 +582,8 @@ int v3d_initialize(screen_mode_t *screen) {
 }
 
 void v3d_test(screen_mode_t *screen) {
-  unsigned int w = screen->width;
-  unsigned int h = screen->height;
+  int w = screen->width;
+  int h = screen->height;
   printf("Drawing a %d x %d triangle\r\n", w, h);
   v3d_draw_triangle(screen, w / 2, 0, 0, h-1, w-1, h-1, MAGIC_COLOUR);
 }

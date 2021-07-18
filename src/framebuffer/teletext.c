@@ -185,8 +185,8 @@ static void initialize_palette(screen_mode_t *screen) {
    // - solid blue would be 100100
    // - red/green flashing would be 001010
    //
-   for (int mark = 0; mark <= 1; mark++) {
-      for (int i = 0; i < 0x40; i++) {
+   for (uint32_t mark = 0; mark <= 1; mark++) {
+      for (uint32_t i = 0; i < 0x40; i++) {
          // Depending on whether mark is true
          int colour = (mark ? i : (i >> 3)) & 0x07;
          int red   = (colour & 1) ? 0xff : 0x00;
@@ -201,15 +201,15 @@ static void initialize_palette(screen_mode_t *screen) {
 static void set_foreground(tt_colour_t colour) {
    colour &= 0x07;
    if (tt.flashing) {
-      tt.fgd_colour = (tt.bgd_colour & 0x38) | colour;
+      tt.fgd_colour = (pixel_t) ((tt.bgd_colour & 0x38) | colour);
    } else {
-      tt.fgd_colour = (colour << 3) | colour;
+      tt.fgd_colour = (pixel_t) ((colour << 3) | colour);
    }
 }
 
 static void set_background(tt_colour_t colour) {
    colour &= 0x07;
-   tt.bgd_colour = (colour << 3) | colour;
+   tt.bgd_colour = (pixel_t) ((colour << 3) | colour);
    if (tt.flashing) {
       tt.fgd_colour = (colour << 3) | (tt.fgd_colour & 0x07);
    }
@@ -325,7 +325,7 @@ static void tt_reset_line_state(int row) {
 }
 
 // Process control characters that are "Set At"
-static int tt_process_controls(int c, int col, int row) {
+static uint8_t tt_process_controls(int c, int col, int row) {
    switch (c & 0x7F) {
    case TT_CONCEAL:
       tt.concealed = TRUE;
@@ -369,14 +369,14 @@ static int tt_process_controls(int c, int col, int row) {
    } else if (is_control(c)) {
       if (tt.held) {
          // Display control codes as the held character
-         return tt.held_char;
+         return (uint8_t)tt.held_char;
       } else {
          // Display control codes as space (the default behaviour)
          return TT_SPACE;
       }
    } else {
       // Display the character passed in
-      return c;
+      return (uint8_t)c;
    }
 }
 
@@ -452,10 +452,10 @@ static void tt_draw_character(screen_mode_t *screen, int c, int col, int row) {
       int height = font->height << font->get_rounding(font);
       uint16_t *rowp = font->buffer + c * height + (tt.double_bottom ? (height >> 1) : 0);
       for (int y = 0; y < height; y++) {
-         uint16_t row = *rowp;
+         uint16_t innerrow = *rowp;
          int mask = 1 << (width - 1);
          for (int x = 0; x < width; x++) {
-            screen->set_pixel(screen, xoffset + x, yoffset - y, (row & mask) ? tt.fgd_colour : tt.bgd_colour);
+            screen->set_pixel(screen, xoffset + x, yoffset - y, (innerrow & mask) ? tt.fgd_colour : tt.bgd_colour);
             mask >>= 1;
          }
          if (y & 1) {
@@ -515,7 +515,7 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
 
    // Update the backing store
    int oldc = tt.mode7screen[row][col];
-   tt.mode7screen[row][col] = c;
+   tt.mode7screen[row][col] = (uint8_t)c;
 
    // If the either the old or new character is a control character, then it gets more involved
    if ((c != oldc) && (is_control(c) || is_control(oldc))) {

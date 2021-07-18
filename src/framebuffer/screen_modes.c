@@ -765,7 +765,7 @@ static void init_colour_table(screen_mode_t *screen) {
       // Default 2-Colour Palette
       // Colour  0 = Black
       // Colour  1 = White
-      for (int i = 0; i < NUM_COLOURS * 2; i++) {
+      for (uint32_t i = 0; i < NUM_COLOURS * 2; i++) {
          switch (i & 1) {
          case 0:
             screen->set_colour(screen, i, 0x00, 0x00, 0x00);
@@ -781,7 +781,7 @@ static void init_colour_table(screen_mode_t *screen) {
       // Colour  1 = Red
       // Colour  2 = Yellow
       // Colour  3 = White
-      for (int i = 0; i < NUM_COLOURS * 2; i++) {
+      for (uint32_t i = 0; i < NUM_COLOURS * 2; i++) {
          switch (i & 3) {
          case 0:
             screen->set_colour(screen, i, 0x00, 0x00, 0x00);
@@ -815,7 +815,7 @@ static void init_colour_table(screen_mode_t *screen) {
       // Colour 13 = Magenta/Green
       // Colour 14 = Cyan/Red
       // Colour 15 = White/Black
-      for (int i = 0; i < NUM_COLOURS * 2; i++) {
+      for (uint32_t i = 0; i < NUM_COLOURS * 2; i++) {
          int c = ((i & 0x108) == 0x108) ? 7 - (i & 7) : (i & 7);
          int b = (c & 4) ? 0xff : 0x00;
          int g = (c & 2) ? 0xff : 0x00;
@@ -835,12 +835,12 @@ static void init_colour_table(screen_mode_t *screen) {
          int r = ((i     ) & 0x03) * 0x44 + tint;
          int g = ((i >> 2) & 0x03) * 0x44 + tint;
          int b = ((i >> 4) & 0x03) * 0x44 + tint;
-         screen->set_colour(screen, i, r, g, b);
+         screen->set_colour(screen, (uint32_t)i, r, g, b);
       }
    }
    // Prepare the palette request messages, to make flashing efficient
    if (screen->log2bpp == 3) {
-      int n = NUM_COLOURS;
+      uint32_t n = NUM_COLOURS;
       for (int i = 0; i < 2; i++) {
          uint32_t *p = i ? palette1_base : palette0_base;
          p[0]     = (n + 8) * 4;         // 0: property buffer: length (bytes)
@@ -940,7 +940,7 @@ void default_init_screen(screen_mode_t *screen) {
     printf("         display: %d x %d\r\n", h_display, v_display);
     printf("     framebuffer: %d x %d\r\n", screen->width, screen->height);
     printf("aspect corrected: %d x %d\r\n", h_corrected, v_corrected);
-    printf("         scaling: %1.1f x %1.1f\r\n", ((float) h_window) / ((float) screen->width), ((float) v_window) / ((float) screen->height));
+    printf("         scaling: %1.1f x %1.1f\r\n", (double)(((float) h_window) / ((float) screen->width)), (double)(((float) v_window) / ((float) screen->height)));
     printf("  display window: %d x %d\r\n", h_window, v_window);
     printf("display overscan: %d x %d\r\n", h_overscan, v_overscan);
 
@@ -958,21 +958,21 @@ void default_init_screen(screen_mode_t *screen) {
 
     if( ( mp = RPI_PropertyGet( TAG_GET_PHYSICAL_SIZE ) ) )
     {
-        int width = mp->data.buffer_32[0];
-        int height = mp->data.buffer_32[1];
+        uint32_t width = mp->data.buffer_32[0];
+        uint32_t height = mp->data.buffer_32[1];
 
-        printf( "Initialised Framebuffer: %dx%d ", width, height );
+        printf( "Initialised Framebuffer: %ldx%ld ", width, height );
     }
 
     if( ( mp = RPI_PropertyGet( TAG_GET_DEPTH ) ) )
     {
-        int bpp = mp->data.buffer_32[0];
-        printf( "%dbpp\r\n", bpp );
+        uint32_t bpp = mp->data.buffer_32[0];
+        printf( "%ldbpp\r\n", bpp );
     }
 
     if( ( mp = RPI_PropertyGet( TAG_GET_PITCH ) ) )
     {
-        screen->pitch = mp->data.buffer_32[0];
+        screen->pitch = (int)mp->data.buffer_32[0];
         printf( "Pitch: %d bytes\r\n", screen->pitch );
     }
 
@@ -1055,14 +1055,14 @@ void default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, 
 }
 
 void default_set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
-   pixel_t *colour_table = ((index & 0x100) ? palette1_base : palette0_base) + 7;
-   colour_table[index & 0xff] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
+   pixel_t *colour_t = ((index & 0x100) ? palette1_base : palette0_base) + 7;
+   colour_t[index & 0xff] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
 }
 
 void default_set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
    // 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
    // R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
-   colour_table[index & 0xff] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
+   colour_table[index & 0xff] = (pixel_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3));
 }
 
 void default_set_colour_32bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
@@ -1083,12 +1083,12 @@ pixel_t default_get_colour_32bpp(screen_mode_t *screen, colour_index_t index) {
 
 void default_set_pixel_8bpp(screen_mode_t *screen, int x, int y, pixel_t value) {
    uint8_t *fbptr = (uint8_t *)(fb + (screen->height - y - 1) * screen->pitch + x);
-   *fbptr = value;
+   *fbptr = (uint8_t)value;
 }
 
 void default_set_pixel_16bpp(screen_mode_t *screen, int x, int y, pixel_t value) {
    uint16_t *fbptr = (uint16_t *)(fb + (screen->height - y - 1) * screen->pitch + x * 2);
-   *fbptr = value;
+   *fbptr = (uint16_t)value;
 
 }
 void default_set_pixel_32bpp(screen_mode_t *screen, int x, int y, pixel_t value) {
@@ -1201,7 +1201,7 @@ screen_mode_t *get_screen_mode(int mode_num) {
          sm->get_pixel      = default_get_pixel_8bpp;
          break;
       }
-      if (sm->par == 0.0) {
+      if (sm->par == 0.0F) {
          sm->par = ((float) (1 << sm->xeigfactor)) / ((float) (1 << sm->yeigfactor));
       }
       if (!sm->flash && sm->log2bpp == 3) {

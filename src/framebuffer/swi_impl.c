@@ -39,7 +39,7 @@ static void OS_WriteC_impl(unsigned int *reg) {
 
 static void OS_WriteS_impl(unsigned int *reg) {
    // On exit, the link register should point to the byte after the terminator
-   int r13 = reg[13];
+   uint32_t r13 = reg[13];
    if (vdu_device & VDU_PI) {
       write_string((char *)reg[13]);
    }
@@ -50,12 +50,12 @@ static void OS_WriteS_impl(unsigned int *reg) {
    reg[13] = r13 + strlen((char *)r13) + 1;
    // Make sure new value of link register is word aligned to the next word boundary
    reg[13] += 3;
-   reg[13] &= ~3;
+   reg[13] &= 0xFFFFFFFC;
 }
 
 static void OS_Write0_impl(unsigned int *reg) {
    // On exit, R0 should point to the byte after the terminator
-   int r0 = reg[0];
+   uint32_t r0 = reg[0];
    if (vdu_device & VDU_PI) {
       write_string((char *)reg[0]);
    }
@@ -79,11 +79,11 @@ static void OS_NewLine_impl(unsigned int *reg) {
 static void OS_Plot_impl(unsigned int *reg) {
    if (vdu_device & VDU_PI) {
       fb_writec(25);
-      fb_writec(reg[0]);
-      fb_writec(reg[1]);
-      fb_writec(reg[1] >> 8);
-      fb_writec(reg[2]);
-      fb_writec(reg[2] >> 8);
+      fb_writec((char)reg[0]);
+      fb_writec((char)reg[1]);
+      fb_writec((char)(reg[1] >> 8));
+      fb_writec((char)reg[2]);
+      fb_writec((char)(reg[2] >> 8));
    }
    if (vdu_device & VDU_BEEB) {
       base_handler[SWI_OS_Plot](reg);
@@ -93,7 +93,7 @@ static void OS_Plot_impl(unsigned int *reg) {
 static void OS_WriteN_impl(unsigned int *reg) {
    if (vdu_device & VDU_PI) {
       char *ptr = (char *)reg[0];
-      int len = reg[1];
+      uint32_t len = reg[1];
       while (len-- > 0) {
          fb_writec(*ptr++);
       }
@@ -137,15 +137,15 @@ static void OS_Byte_impl(unsigned int *reg) {
 
      case 134:
         // Read text cursor position
-        reg[1] = fb_get_text_cursor_x();
-        reg[2] = fb_get_text_cursor_y();
+        reg[1] = (uint32_t)fb_get_text_cursor_x();
+        reg[2] = (uint32_t)fb_get_text_cursor_y();
         return;
 
      case 135:
         // Read character at text cursor position
-        reg[1] = fb_get_text_cursor_char();
+        reg[1] = (uint32_t)fb_get_text_cursor_char();
         // Also returns current screen mode
-        reg[2] = fb_get_current_screen_mode();
+        reg[2] = (uint32_t)fb_get_current_screen_mode();
         return;
      }
   }
@@ -169,11 +169,11 @@ static void OS_ReadLine_impl(unsigned int *reg) {
 
       // Handle ReadLine if the Pi VDU is enabled
 
-      int ptr = 0;
+      uint32_t ptr = 0;
       unsigned char c;
       unsigned char esc;
 
-      int buf_size  = reg[1];
+      uint32_t buf_size  = reg[1];
       int min_ascii = reg[2] & 0xff;
       int max_ascii = reg[3] & 0xff;
 
@@ -209,7 +209,7 @@ static void OS_ReadLine_impl(unsigned int *reg) {
 
          // Handle copy
          if (c == 0x87) {
-            c = fb_get_edit_cursor_char();
+            c = (uint8_t)fb_get_edit_cursor_char();
             // Invalid?
             if (c == 0) {
                continue;
@@ -281,7 +281,7 @@ static void OS_ScreenMode_impl(unsigned int *reg) {
    if (reg[0] == 0) {
       if (reg[1] < 256) {
          fb_writec(22);
-         fb_writec(reg[1]);
+         fb_writec((uint8_t)reg[1]);
          return;
       } else if ((reg[1] & 1) == 0) {
          unsigned int *selector_block = (unsigned int *)reg[1];
@@ -303,7 +303,7 @@ static void OS_ScreenMode_impl(unsigned int *reg) {
          /// log2bpp = 1: bpp = 2: n_colours = 4
          /// log2bpp = 2: bpp = 4: n_colours = 16
          /// log2bpp = 3: bpp = 8: n_colours = 256 (sent as 0x00)
-         fb_writec((1 << (1 << log2bpp)) & 0xff);
+         fb_writec((char)((1 << (1 << log2bpp)) & 0xff));
          fb_writec(0);
          return;
       }
@@ -326,12 +326,12 @@ static void OS_ScreenMode_impl(unsigned int *reg) {
 // C flag is set if variable or mode were invalid
 
 static void OS_ReadModeVariable_impl(unsigned int *reg) {
-   screen_mode_t *screen = get_screen_mode(reg[0]);
+   screen_mode_t *screen = get_screen_mode((int)reg[0]);
    // Return carry set if the screen mode could not be found, or unkonw VDU variable
    if (screen == NULL || reg[1] >= NUM_MODE_VARS) {
       updateCarry(1, reg);
    } else {
-      reg[2] = fb_read_mode_variable(reg[1], screen);
+      reg[2] = (uint32_t)fb_read_mode_variable(reg[1], screen);
    }
 }
 

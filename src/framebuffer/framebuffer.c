@@ -26,11 +26,11 @@
 static screen_mode_t *screen = NULL;
 
 // Current font
-static int16_t font_width;
-static int16_t font_height;
-static int16_t text_height; // of whole screen
-static int16_t text_width;  // of whole screen
-static int16_t cursor_height;
+static int font_width;
+static int font_height;
+static int text_height; // of whole screen
+static int text_width;  // of whole screen
+static int cursor_height;
 
 // Text area clip window
 static t_clip_window_t t_window;
@@ -225,13 +225,13 @@ static void update_text_area() {
    update_font_size();
    // Make sure text area is on the screen
    if (t_window.right >= text_width) {
-      t_window.right = text_width - 1;
+      t_window.right = (uint8_t)(text_width - 1);
       if (t_window.left > t_window.right) {
          t_window.left = t_window.right;
       }
    }
    if (t_window.bottom >= text_height) {
-      t_window.bottom = text_height - 1;
+      t_window.bottom = (uint8_t)(text_height - 1);
       if (t_window.top > t_window.bottom) {
          t_window.top = t_window.bottom;
       }
@@ -261,8 +261,8 @@ static void update_text_area() {
 static void init_variables() {
 
    // Character colour / cursor position
-   c_bg_col  = COL_BLACK;
-   c_fg_col  = COL_WHITE;
+   c_bg_col  = (uint8_t)COL_BLACK;
+   c_fg_col  = (uint8_t)COL_WHITE;
    c_enabled = 1;
 
    // Edit cursor
@@ -271,8 +271,8 @@ static void init_variables() {
    e_enabled = 0;
 
    // Graphics colour / cursor position
-   g_bg_col  = COL_BLACK;
-   g_fg_col  = COL_WHITE;
+   g_bg_col  = (uint8_t)COL_BLACK;
+   g_fg_col  = (uint8_t)COL_WHITE;
 
    // Sprites
    current_sprite = 0;
@@ -290,14 +290,14 @@ static void reset_areas() {
    update_font_size();
    // Initialize the text area to the full screen
    // (left, bottom, right, top)
-   t_clip_window_t default_t_window = {0, text_height - 1, text_width - 1, 0};
+   t_clip_window_t default_t_window = {0, (uint8_t)(text_height - 1), (uint8_t)(text_width - 1), 0};
    set_text_area(&default_t_window);
    // Set the graphics origin to 0,0
    g_x_origin = 0;
    g_y_origin = 0;
    // Initialize the graphics area to the full screen
    // (left, bottom, right, top)
-   g_clip_window_t default_graphics_window = {0, 0, (screen->width << screen->xeigfactor) - 1, (screen->height << screen->yeigfactor) - 1};
+   g_clip_window_t default_graphics_window = {0, 0, (int16_t)((screen->width << screen->xeigfactor) - 1), (int16_t)((screen->height << screen->yeigfactor) - 1)};
    set_graphics_area(screen, &default_graphics_window);
    // Initialize the default plot mode to normal plotting
    prim_set_fg_plotmode(0);
@@ -331,7 +331,7 @@ static void invert_cursor(int x_pos, int y_pos, int rows) {
    for (int i = font_height - rows; i < font_height; i++) {
       for (int j = 0; j < font_width; j++) {
          pixel_t col = screen->get_pixel(screen, x + j, y - i);
-         col ^= screen->get_colour(screen, COL_WHITE);
+         col ^= screen->get_colour(screen, (colour_index_t)COL_WHITE);
          screen->set_pixel(screen, x + j, y - i, col);
       }
    }
@@ -507,14 +507,14 @@ static void change_mode(screen_mode_t *new_screen) {
    prim_reset_sprites(screen);
 }
 
-static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window) {
+static void set_graphics_area(screen_mode_t *scr, g_clip_window_t *window) {
    // Sanity check illegal windowss
-   if (window->left   < 0 || window->left   >= screen->width  << screen->xeigfactor ||
-       window->bottom < 0 || window->bottom >= screen->height << screen->yeigfactor) {
+   if (window->left   < 0 || window->left   >= scr->width  << scr->xeigfactor ||
+       window->bottom < 0 || window->bottom >= scr->height << scr->yeigfactor) {
       return;
    }
-   if (window->right  < 0 || window->right  >= screen->width  << screen->xeigfactor ||
-       window->top    < 0 || window->top    >= screen->height << screen->yeigfactor) {
+   if (window->right  < 0 || window->right  >= scr->width  << scr->xeigfactor ||
+       window->top    < 0 || window->top    >= scr->height << scr->yeigfactor) {
       return;
    }
    if (window->left >= window->right || window->bottom >= window->top) {
@@ -523,10 +523,10 @@ static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window) {
    // Accept the window
    g_window = *window;
    // Transform to screen coordinates
-   int16_t x1 = window->left   >> screen->xeigfactor;
-   int16_t y1 = window->bottom >> screen->yeigfactor;
-   int16_t x2 = window->right  >> screen->xeigfactor;
-   int16_t y2 = window->top    >> screen->yeigfactor;
+   int16_t x1 = window->left   >> scr->xeigfactor;
+   int16_t y1 = window->bottom >> scr->yeigfactor;
+   int16_t x2 = window->right  >> scr->xeigfactor;
+   int16_t y2 = window->top    >> scr->yeigfactor;
    // Set the clipping window
    prim_set_graphics_area(screen, x1, y1, x2, y2);
 }
@@ -646,15 +646,15 @@ static void text_delete() {
 //    font_width/height are in screen pixels
 
 static void graphics_cursor_left() {
-   g_x_pos -= font_width << screen->xeigfactor;
+   g_x_pos -= (int16_t)(font_width << screen->xeigfactor);
    if (g_x_pos < g_window.left) {
-      g_x_pos = g_window.right + 1 - (font_width << screen->xeigfactor);
+      g_x_pos = (int16_t)(g_window.right + 1 - (font_width << screen->xeigfactor));
       graphics_cursor_up();
    }
 }
 
 static void graphics_cursor_right() {
-   g_x_pos += font_width << screen->xeigfactor;
+   g_x_pos += (int16_t)(font_width << screen->xeigfactor);
    if (g_x_pos > g_window.right) {
       g_x_pos = g_window.left;
       graphics_cursor_down();
@@ -662,14 +662,14 @@ static void graphics_cursor_right() {
 }
 
 static void graphics_cursor_up() {
-   g_y_pos += font_height << screen->yeigfactor;
+   g_y_pos += (int16_t)(font_height << screen->yeigfactor);
    if (g_y_pos > g_window.top) {
-      g_y_pos = g_window.bottom - 1 + (font_height << screen->yeigfactor);
+      g_y_pos = (int16_t)((g_window.bottom - 1) + (font_height << screen->yeigfactor));
    }
 }
 
 static void graphics_cursor_down() {
-   g_y_pos -= font_height << screen->yeigfactor;
+   g_y_pos -= (int16_t)(font_height << screen->yeigfactor);
    if (g_y_pos < g_window.bottom) {
       g_y_pos = g_window.top;
    }
@@ -691,11 +691,11 @@ static void graphics_cursor_tab(uint8_t *buf) {
    printf("cursor move to %d %d\r\n", x, y);
 #endif
    // Scale to absolute external coordinates
-   x *= font_width << screen->xeigfactor;
-   y *= font_height << screen->yeigfactor;
+   x *= (uint8_t)(font_width << screen->xeigfactor);
+   y *= (uint8_t)(font_height << screen->yeigfactor);
    // Take account of current text window
-   x += g_window.left;
-   y += g_window.bottom;
+   x += (uint8_t)g_window.left;
+   y += (uint8_t)g_window.bottom;
    // Deliberately don't range check here
    g_x_pos = g_window.left + x;
    g_y_pos = g_window.bottom + y;
@@ -741,31 +741,30 @@ static void vdu23_10(uint8_t *buf) {
 }
 
 static void vdu23_17(uint8_t *buf) {
-   int16_t tmp;
    // vdu 23,17: Set subsidary colour effects
    switch (buf[1]) {
    case 0:
       // VDU 23,17,0 - sets tint for text foreground colour
-      c_fg_col = ((c_fg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK);
+      c_fg_col = (uint8_t)(((c_fg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK));
       break;
    case 1:
       // VDU 23,17,1 - sets tint for text background colour
-      c_bg_col = ((c_bg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK);
+      c_bg_col = (uint8_t)(((c_bg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK));
       break;
    case 2:
       // VDU 23,17,2 - sets tint for graphics foreground colour
-      g_fg_col = ((g_fg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK);
+      g_fg_col = (uint8_t)(((g_fg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK));
       break;
    case 3:
       // VDU 23,17,3 - sets tint for graphics background colour
-      g_bg_col = ((g_bg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK);
+      g_bg_col = (uint8_t)(((g_bg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK));
       break;
    case 4:
       // TODO: VDU 23,17,4 - Select colour patterns
       break;
    case 5:
       // TODO: VDU 23,17,5 - Swap text colours
-      tmp = c_fg_col;
+      uint8_t tmp = c_fg_col;
       c_fg_col = g_bg_col;
       c_bg_col = tmp;
       break;
@@ -875,8 +874,8 @@ static void vdu23_19(uint8_t *buf) {
 static void vdu23_22(uint8_t *buf) {
    // VDU 23,22,xpixels;ypixels;xchars,ychars,colours,flags
    // User Defined Screen Mode
-   int16_t x_pixels = buf[1] | (buf[2] << 8);
-   int16_t y_pixels = buf[3] | (buf[4] << 8);
+   int16_t x_pixels = (int16_t)(buf[1] | (buf[2] << 8));
+   int16_t y_pixels = (int16_t)(buf[3] | (buf[4] << 8));
    unsigned int n_colours = buf[7] & 0xff;
    if (n_colours == 0) {
       n_colours = 256;
@@ -886,7 +885,7 @@ static void vdu23_22(uint8_t *buf) {
    new_screen->height = y_pixels;
    new_screen->xeigfactor = 1;
    new_screen->yeigfactor = 1;
-   new_screen->ncolour = n_colours - 1;
+   new_screen->ncolour = (int)(n_colours - 1);
    change_mode(new_screen);
 }
 
@@ -1103,7 +1102,7 @@ static void vdu_25(uint8_t *buf) {
 
    if (col >= 0) {
 
-      pixel_t colour = screen->get_colour(screen, col);
+      pixel_t colour = screen->get_colour(screen, (colour_index_t)col);
 
       switch (g_mode & 0xF8) {
 
@@ -1307,19 +1306,19 @@ static void select_font(int n, int sh, int sv, int r) {
    fb_writec(23);
    fb_writec(19);
    fb_writec(0);
-   fb_writec(n);
-   fb_writec(sh);
-   fb_writec(sv);
+   fb_writec((char)n);
+   fb_writec((char)sh);
+   fb_writec((char)sv);
    fb_writec(0xff);
    fb_writec(0xff);
-   fb_writec(r);
+   fb_writec((char)r);
    fb_writec(0);
 }
 
 static void cursor(int n) {
    fb_writec(23);
    fb_writec(1);
-   fb_writec(n);
+   fb_writec((char)n);
    fb_writec(0);
    fb_writec(0);
    fb_writec(0);
@@ -1331,11 +1330,11 @@ static void cursor(int n) {
 
 static void plot(int n, int x, int y) {
    fb_writec(25);
-   fb_writec(n);
-   fb_writec(x & 0xff);
-   fb_writec((x >> 8) & 0xff);
-   fb_writec(y & 0xff);
-   fb_writec((y >> 8) & 0xff);
+   fb_writec((char)n);
+   fb_writec((char)x);
+   fb_writec((char)(x >> 8));
+   fb_writec((char)y);
+   fb_writec((char)(y >> 8));
 }
 
 static void owl(int x0, int y0, int r, int col) {
@@ -1387,7 +1386,7 @@ static void owl(int x0, int y0, int r, int col) {
          int xc = x0 + x * r;
          int yc = y0 - y * r;
          int d = y / 3;
-         g_fg_col = cols[d];
+         g_fg_col = (uint8_t)cols[d];
          plot(  4, xc, yc);
          plot(157, xc, yc + r * 5 / 7);
       } else {
@@ -1544,7 +1543,7 @@ void fb_process_vdu_queue() {
       if (screen->flash) {
          if (flash_mark_time == 0 || flash_space_time == 0) {
             // An on/off time of zero is infinite and flashing stops
-            int tmp = (flash_mark_time == 0) ? 1 : 0;
+            uint8_t tmp = (flash_mark_time == 0) ? 1 : 0;
             if (tmp != flash_state) {
                flash_state = tmp;
                screen->flash(screen, tmp);

@@ -63,7 +63,7 @@ static inline int min(int a, int b) {
 }
 
 static int calc_radius(int x1, int y1, int x2, int y2) {
-   return (int)(sqrtf((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)) + 0.5);
+   return (int)(sqrtf((float)((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1))) + 0.5F);
 }
 
 static pixel_t get_pixel(screen_mode_t *screen, int x, int y) {
@@ -115,8 +115,8 @@ static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t col
 static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
    float invslope1 = ((float) (x2 - x1)) / ((float) (y1 - y2));
    float invslope2 = ((float) (x3 - x1)) / ((float) (y1 - y3));
-   float curx1 = x1;
-   float curx2 = x1;
+   float curx1 = (float)x1;
+   float curx2 = (float)x1;
    for (int scanlineY = y1; scanlineY >= y2; scanlineY--) {
       draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
       curx1 += invslope1;
@@ -127,8 +127,8 @@ static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int
 static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
    float invslope1 = ((float) (x3 - x1)) / ((float) (y1 - y3));
    float invslope2 = ((float) (x3 - x2)) / ((float) (y2 - y3));
-   float curx1 = x3;
-   float curx2 = x3;
+   float curx1 = (float)x3;
+   float curx2 = (float)x3;
    for (int scanlineY = y3; scanlineY < y1; scanlineY++) {
       draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
       curx1 -= invslope1;
@@ -354,7 +354,7 @@ static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
       int xr_this = 0;
       // Start at -1 to allow the pipeline to fill
       for (int y = -1; y < height; y++) {
-         float x = axis_ratio * sqrtf(h_squared - y_squared);
+         float x = axis_ratio * sqrtf((float)(h_squared - y_squared));
          int xl_next = (int) (xshear - x);
          int xr_next = (int) (xshear + x);
          xshear += shear_per_line;
@@ -472,7 +472,7 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
       int y_squared = 0;
       int h_squared = height * height;
       for (int y = 0; y <= height; y++) {
-         float x = axis_ratio * sqrtf(h_squared - y_squared);
+         float x = axis_ratio * sqrtf((float)(h_squared - y_squared));
          int xl = (int) (xshear - x);
          int xr = (int) (xshear + x);
          xshear += shear_per_line;
@@ -644,8 +644,8 @@ void prim_flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixe
    if (((get_pixel(screen, x, y) == ref_col) ? !c : c)) {
       return;
    }
-   flood_queue_x[0] = x;
-   flood_queue_y[0] = y;
+   flood_queue_x[0] = (int16_t)x;
+   flood_queue_y[0] = (int16_t)y;
    flood_queue_rd = 0;
    flood_queue_wr = 1;
    while (flood_queue_rd != flood_queue_wr) {
@@ -670,8 +670,8 @@ void prim_flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixe
       for (x = xl; x <= xr; x++) {
          set_pixel(screen, x, y, fill_col);
          if (y > g_y_min && ((get_pixel(screen, x, y - 1) == ref_col) ? c : !c)) {
-            flood_queue_x[flood_queue_wr] = x;
-            flood_queue_y[flood_queue_wr] = y - 1;
+            flood_queue_x[flood_queue_wr] = (int16_t)x;
+            flood_queue_y[flood_queue_wr] = (int16_t)(y - 1);
             flood_queue_wr ++;
             flood_queue_wr &= FLOOD_QUEUE_SIZE - 1;
 #ifdef DEBUG_VDU
@@ -681,8 +681,8 @@ void prim_flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixe
 #endif
          }
          if (y < g_y_max && ((get_pixel(screen, x, y + 1) == ref_col) ? c : !c)) {
-            flood_queue_x[flood_queue_wr] = x;
-            flood_queue_y[flood_queue_wr] = y + 1;
+            flood_queue_x[flood_queue_wr] = (int16_t)x;
+            flood_queue_y[flood_queue_wr] = (int16_t)(y + 1);
             flood_queue_wr ++;
             flood_queue_wr &= FLOOD_QUEUE_SIZE - 1;
 #ifdef DEBUG_VDU
@@ -816,7 +816,7 @@ void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, i
          fill_top_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
       } else {
          // general case - split the triangle in a topflat and bottom-flat one
-         int x4 = (int)(x1 + ((float)(y1 - y2) / (float)(y1 - y3)) * (x3 - x1));
+         int x4 = (int)((float)x1 + ((float)(y1 - y2) / (float)(y1 - y3)) * (float)(x3 - x1));
          int y4 = y2;
          fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x4, y4, colour);
          fill_top_flat_triangle(screen, x2, y2, x4, y4, x3, y3, colour);
@@ -836,7 +836,7 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    // Finds start and end quadrants and masks plotting of points
    int radius = calc_radius(xc, yc, x1, y1);
    // Don't use calc_radius for r2 as this rounds up and can lead to gaps and leakage
-   int r2 = sqrt((x2-xc)*(x2-xc) + (y2-yc)*(y2-yc));
+   int r2 = (int)sqrt((x2-xc)*(x2-xc) + (y2-yc)*(y2-yc));
 
    // Calc end point
    int x3 = xc + (x2 - xc) * radius / r2;
@@ -909,8 +909,8 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    }
    // Save the screen coordinates of the arc endpoint, for sector/chord drawing
    // (but don't reuse the graphics cursor for this purpose)
-   arc_end_x = x3;
-   arc_end_y = y3;
+   arc_end_x = (int16_t)x3;
+   arc_end_y = (int16_t)y3;
 
    // Find chord centre for flood fill
    int xf = (x1 + x3) / 2;
@@ -941,8 +941,8 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    xf += xc;
    yf += yc;
 
-   arc_fill_x = xf;
-   arc_fill_y = yf;
+   arc_fill_x = (int16_t)xf;
+   arc_fill_y = (int16_t)yf;
 }
 
 
@@ -1000,7 +1000,7 @@ void prim_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int
          src = fb + (screen->height - (y2 - y) - 1) * screen->pitch + x1;
          dst = fb + (screen->height - (y3 + rows - 1 - y) - 1) * screen->pitch + x3;
       }
-      memmove(dst, src, len);
+      memmove(dst, src, (size_t)len);
    }
 }
 
@@ -1137,7 +1137,7 @@ void prim_define_sprite(screen_mode_t *screen, int n, int x1, int y1, int x2, in
    // Memory allocation
    sprite->width = x2 - x1 + 1;
    sprite->height = y2 - y1 + 1;
-   size_t size = sprite->width * sprite->height * (1 << (screen->log2bpp - 3));
+   size_t size = (size_t)sprite->width * (size_t)sprite->height * (1 << (screen->log2bpp - 3));
    if (sprite->data == NULL || sprite->data_size < size) {
       if (sprite->data != NULL) {
          free(sprite->data);
@@ -1151,7 +1151,7 @@ void prim_define_sprite(screen_mode_t *screen, int n, int x1, int y1, int x2, in
       uint16_t *data = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
          for (int xp = 0; xp < sprite->width; xp++) {
-            *data++ = get_pixel(screen, x1 + xp, y1 + xp);
+            *data++ = (uint16_t)get_pixel(screen, x1 + xp, y1 + xp);
          }
       }
    } else if (screen->log2bpp == 5)  {
@@ -1165,7 +1165,7 @@ void prim_define_sprite(screen_mode_t *screen, int n, int x1, int y1, int x2, in
       uint8_t *data = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
          for (int xp = 0; xp < sprite->width; xp++) {
-            *data++ = get_pixel(screen, x1 + xp, y1 + yp);
+            *data++ = (uint8_t)get_pixel(screen, x1 + xp, y1 + yp);
          }
       }
    }
