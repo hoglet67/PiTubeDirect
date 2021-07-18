@@ -292,7 +292,7 @@ void enable_MMU_and_IDCaches(void)
   // [Bit 4, Bit 3] indicates outer cachability: 01 = normal memory, outer write-back write-allocate cacheable
   // Bit 1 indicates shareable
   // 4A = 0100 1010
-  int attr = ((aa & 1) << 6) | (bb << 3) | (shareable << 1) | ((aa & 2) >> 1);
+  unsigned int attr = ((aa & 1) << 6) | (bb << 3) | (shareable << 1) | ((aa & 2) >> 1);
   asm volatile ("mcr p15, 0, %0, c2, c0, 0" :: "r" (attr | (unsigned) &PageTable));
 #else
   // set TTBR0 (page table walk inner cacheable, outer non-cacheable, shareable memory)
