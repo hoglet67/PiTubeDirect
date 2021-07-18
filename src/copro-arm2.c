@@ -193,8 +193,6 @@ static void copro_arm2_reset() {
 }
 
 void copro_arm2_emulator() {
-   unsigned int tube_irq_copy;
-
    // Remember the current copro so we can exit if it changes
    unsigned int last_copro = copro;
 
@@ -204,7 +202,7 @@ void copro_arm2_emulator() {
    while (1)
    {
       arm2_execute_run(1);
-      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
+      int tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
       if (tube_irq_copy ) {
          // Reset the processor on active edge of rst
          if ( tube_irq_copy & RESET_BIT ) {

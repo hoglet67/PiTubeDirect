@@ -116,8 +116,7 @@ static int copro_lib6502_tube_write(M6502 *mpu, addr_t addr, uint8_t data) {
 static unsigned int last_copro;
 
 static int copro_lib6502_poll(M6502 *mpu) {
-   unsigned int tube_irq_copy;
-   tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
+   int tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
    if (tube_irq_copy) {
       // Reset the processor on a rst going inactive
       if ( tube_irq_copy & RESET_BIT ) {

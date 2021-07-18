@@ -100,8 +100,6 @@ static void copro_pdp11_reset() {
 
 void copro_pdp11_emulator()
 {
-   unsigned int tube_irq_copy;
-
    // Remember the current copro so we can exit if it changes
    unsigned int last_copro = copro;
 
@@ -110,7 +108,7 @@ void copro_pdp11_emulator()
 
    while (1) {
       pdp11_execute();
-      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT) ;
+      int tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT) ;
       if (tube_irq_copy) {
          // Reset the processor on active edge of rst
          if (tube_irq_copy & RESET_BIT) {
