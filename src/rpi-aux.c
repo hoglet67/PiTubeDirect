@@ -100,7 +100,7 @@ void RPI_AuxMiniUartIRQHandler() {
   _data_memory_barrier();
 }
 
-void RPI_AuxMiniUartInit(int baud, int bits)
+void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits)
 {
   // Data memory barrier need to be places between accesses to different peripherals
   //
@@ -110,7 +110,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
 
   clock_info_t *sys_clock_info = get_clock_rates(CORE_CLK_ID);
 
-  int sys_freq = sys_clock_info->rate;
+  uint32_t sys_freq = sys_clock_info->rate;
 
   // Sanity-check against the min clock rate
   if (sys_freq < sys_clock_info->min_rate) {
@@ -166,7 +166,7 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   auxiliary->MU_IIR = 0xC6;
 
   /* Transposed calculation from Section 2.2.1 of the ARM peripherals manual */
-  auxiliary->MU_BAUD = (uint32_t)(( sys_freq / (8 * baud)) - 1);
+  auxiliary->MU_BAUD = (( sys_freq / (8 * baud)) - 1);
 
   extern unsigned int _interrupt_vector_h;
   _interrupt_vector_h = (uint32_t) _main_irq_handler;
