@@ -635,7 +635,7 @@ void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel
 
 void prim_flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixel_t ref_col, int c) {
 #ifdef DEBUG_VDU
-   int max = 0;
+   int maxq = 0;
    printf("Flood fill @ %d,%d with col %"PRIx32"; initial pixel %"PRIx32"\r\n", x, y, fill_col, get_pixel(screen, x, y));
 #endif
    if (c && (fill_col == ref_col)) {
@@ -694,13 +694,13 @@ void prim_flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixe
       }
 #ifdef DEBUG_VDU
       int size = (FLOOD_QUEUE_SIZE + flood_queue_wr - flood_queue_rd) & (FLOOD_QUEUE_SIZE - 1);
-      if (size > max) {
-         max = size;
+      if (size > maxq) {
+         maxq = size;
       }
 #endif
    }
 #ifdef DEBUG_VDU
-   printf("Max queue size = %d\r\n", max);
+   printf("Max queue size = %d\r\n", maxq);
 #endif
 }
 
