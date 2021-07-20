@@ -255,8 +255,6 @@ uint32_t Truncate(uint32_t Value, uint32_t Size)
 
 uint32_t ReadGen(uint32_t c)
 {
-   uint32_t Temp = 0;
-
    switch (gentype[c])
    {
       case Memory:
@@ -272,8 +270,7 @@ uint32_t ReadGen(uint32_t c)
 
       case Register:
       {
-         Temp = *genreg[c];
-         return Truncate(Temp, OpSize.Op[c]);
+         return Truncate(*genreg[c], OpSize.Op[c]);
       }
       // No break due to return
 

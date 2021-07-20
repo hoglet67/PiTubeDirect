@@ -170,10 +170,9 @@ static const char* flagname = "****IPSUNZFV*LTC";
 
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
-   unsigned int i;
    uint32_t bit;
-   char c;
    const char *flagnameptr = flagname;
+   unsigned int i;
 
    if (which == i_PSR) {
       // !       Supervisor Flags        !          User Flags           !
@@ -183,14 +182,8 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       //  15                           8   7                           0
       bit = 0x8000;
       for (i = 0; i < 16 * 3 && i < bufsize - 3; i += 3) {
-         if (psr & bit) {
-            c = '1';
-         } else {
-            c = '0';
-         }
-         
          *(buf + i) = *flagnameptr++;
-         *(buf + i + 1) = c;
+         *(buf + i + 1) = (psr & bit)?'1':'0';
          *(buf + i + 2) = ' ';
 
          bit >>= 1;
