@@ -575,7 +575,6 @@ finalize:
 
 int darm_str2(const darm_t *d, darm_str_t *str, int lowercase)
 {
-    uint32_t i;
     if(darm_str(d, str) < 0) {
         return -1;
     }
@@ -583,7 +582,7 @@ int darm_str2(const darm_t *d, darm_str_t *str, int lowercase)
     if(lowercase != 0) {
         // just lowercase the entire object, including null-bytes
         char *buf = (char *) str;
-        for (i = 0; i < sizeof(darm_str_t); i++) {
+        for (size_t i = 0; i < sizeof(darm_str_t); i++) {
           buf[i] = (char) tolower((int) buf[i]);
         }
     }
