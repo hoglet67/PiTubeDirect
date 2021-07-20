@@ -115,7 +115,7 @@ static void vdu_23(uint8_t *buf);
 static void vdu_24(uint8_t *buf);
 static void vdu_25(uint8_t *buf);
 static void vdu_26(uint8_t *buf);
-static void vdu_27(uint8_t *bu0f);
+static void vdu_27(uint8_t *buf);
 static void vdu_28(uint8_t *buf);
 static void vdu_29(uint8_t *buf);
 static void vdu_nop(uint8_t *buf);
@@ -167,7 +167,7 @@ static void update_text_area();
 static void init_variables();
 static void reset_areas();
 static void set_text_area(t_clip_window_t *window);
-static void invert_cursor(int x_pos, int y_pos, int editing);
+static void invert_cursor(int x_pos, int y_pos, int rows);
 static void enable_edit_cursor();
 static void disable_edit_cursor();
 static void update_cursors();
@@ -179,7 +179,7 @@ static void edit_cursor_right();
 static void text_area_scroll();
 static void update_g_cursors(int16_t x, int16_t y);
 static void change_mode(screen_mode_t *new_screen);
-static void set_graphics_area(screen_mode_t *screen, g_clip_window_t *window);
+static void set_graphics_area(screen_mode_t *scr, g_clip_window_t *window);
 static int read_character(int x_pos, int y_pos);
 
 // These are used in VDU 4 mode
@@ -861,7 +861,7 @@ static void vdu23_19(uint8_t *buf) {
    }
 #ifdef DEBUG_VDU
    printf("    Font name: %s\r\n",    font->get_name(font));
-   printf("  Font number: %d\r\n",    font->get_number(font));
+   printf("  Font number: %"PRId32"\r\n",    font->get_number(font));
    printf("   Font scale: %d,%d\r\n", font->get_scale_w(font),   font->get_scale_h(font));
    printf(" Font spacing: %d,%d\r\n", font->get_spacing_w(font), font->get_spacing_h(font));
    printf("Font rounding: %d\r\n",    font->get_rounding(font));
@@ -1486,9 +1486,9 @@ void fb_destroy() {
    RPI_PropertyProcess();
 }
 
-void fb_writec_buffered(char ch) {
+void fb_writec_buffered(char c) {
    // TODO: Deal with overflow
-   vdu_queue[vdu_wp] = ch;
+   vdu_queue[vdu_wp] = c;
    vdu_wp = (vdu_wp + 1) & (VDU_QSIZE - 1);
 }
 
@@ -1575,14 +1575,14 @@ void fb_process_vdu_queue() {
       }
    }
 }
-void fb_writec(char ch) {
+void fb_writec(char c) {
    // Avoid re-ordering parasite and host charcters
    if (vdu_rp != vdu_wp) {
       // Some characters are already queued, so append to the end of the queue
-      fb_writec_buffered(ch);
+      fb_writec_buffered(c);
    } else {
       // Otherwise, it's safe to print directly
-      writec(ch);
+      writec(c);
    }
 }
 
