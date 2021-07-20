@@ -560,7 +560,7 @@ int v3d_initialize(screen_mode_t *screen) {
    RPI_PropertyProcess();
    buf = RPI_PropertyGet(TAG_ENABLE_GPU);
    if (buf) {
-      printf("%08x\r\n", buf->data.buffer_32[0]);
+      printf("%08"PRIx32"\r\n", buf->data.buffer_32[0]);
    } else {
       printf("null response\r\n");
 
