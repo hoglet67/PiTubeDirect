@@ -283,11 +283,9 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize)
 
 static uint32_t do_readmem65816(uint32_t addr)
 {
-    uint8_t temp;
     addr &= w65816mask;
     if ((addr & ~7u) == 0xFEF8) {
-        temp = tube_parasite_read(addr);
-        return temp;
+        return tube_parasite_read(addr);
     }
     if ((addr & 0x78000) == 0x8000 && (def || (banking & 8)))
         return w65816rom[addr & 0x7FFF];
