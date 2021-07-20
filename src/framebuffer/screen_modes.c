@@ -961,13 +961,13 @@ void default_init_screen(screen_mode_t *screen) {
         uint32_t width = mp->data.buffer_32[0];
         uint32_t height = mp->data.buffer_32[1];
 
-        printf( "Initialised Framebuffer: %ldx%ld ", width, height );
+        printf( "Initialised Framebuffer: %"PRId32"x%"PRId32, width, height );
     }
 
     if( ( mp = RPI_PropertyGet( TAG_GET_DEPTH ) ) )
     {
         uint32_t bpp = mp->data.buffer_32[0];
-        printf( "%ldbpp\r\n", bpp );
+        printf( "%"PRId32"bpp\r\n", bpp );
     }
 
     if( ( mp = RPI_PropertyGet( TAG_GET_PITCH ) ) )
