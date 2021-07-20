@@ -75,30 +75,30 @@ static uint32_t dbg_memread(uint32_t addr) {
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
-   write86(addr, value);
+   write86(addr, (uint8_t)value);
 };
 
 // CPU's usual IO read function for data.
 static uint32_t dbg_ioread(uint32_t addr) {
-   return portin(addr);
+   return portin((uint16_t)addr);
 };
 
 // CPU's usual IO write function.
 static void dbg_iowrite(uint32_t addr, uint32_t value) {
-   portout(addr, value);
+   portout((uint16_t)addr, (uint8_t)value);
 };
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    char instr[100];
-   int oplen = i386_dasm_one(instr, addr, 0, 0) & 0xffff;
-   int len = snprintf(buf, bufsize, "%06"PRIx32" ", addr);
+   unsigned int oplen = (unsigned int)i386_dasm_one(instr, addr, 0, 0) & 0xffff;
+   size_t len = (size_t)snprintf(buf, bufsize, "%06"PRIx32" ", addr);
    buf += len;
    bufsize -= len;
-   for (int i = 0; i < MAXOPLEN; i++) {
+   for (unsigned int i = 0; i < MAXOPLEN; i++) {
       if (i < oplen) {
-         len = snprintf(buf, bufsize, "%02x ", read86(addr + i));
+         len = (size_t)snprintf(buf, bufsize, "%02x ", read86(addr + i));
       } else {
-         len = snprintf(buf, bufsize, "   ");
+         len = (size_t)snprintf(buf, bufsize, "   ");
       }
       buf += len;
       bufsize -= len;
@@ -146,46 +146,46 @@ static uint32_t dbg_reg_get(int which) {
 static void  dbg_reg_set(int which, uint32_t value) {
    switch (which) {
    case i_IP:
-      ip = value;
+      ip = (uint16_t)value;
       break;
    case i_FLAGS:
-      putflags86(value);
+      putflags86((uint16_t)value);
       break;
    case i_AX:
-      putreg16(regax, value);
+      putreg16(regax, (uint16_t)value);
       break;
    case i_BX:
-      putreg16(regbx, value);
+      putreg16(regbx, (uint16_t)value);
       break;
    case i_CX:
-      putreg16(regcx, value);
+      putreg16(regcx, (uint16_t)value);
       break;
    case i_DX:
-      putreg16(regdx, value);
+      putreg16(regdx, (uint16_t)value);
       break;
    case i_DI:
-      putreg16(regdi, value);
+      putreg16(regdi, (uint16_t)value);
       break;
    case i_SI:
-      putreg16(regsi, value);
+      putreg16(regsi, (uint16_t)value);
       break;
    case i_BP:
-      putreg16(regbp, value);
+      putreg16(regbp, (uint16_t)value);
       break;
    case i_SP:
-      putreg16(regsp, value);
+      putreg16(regsp, (uint16_t)value);
       break;
    case i_CS:
-      putsegreg(regcs, value);
+      putsegreg(regcs, (uint16_t)value);
       break;
    case i_DS:
-      putsegreg(regds, value);
+      putsegreg(regds, (uint16_t)value);
       break;
    case i_ES:
-      putsegreg(reges, value);
+      putsegreg(reges, (uint16_t)value);
       break;
    case i_SS:
-      putsegreg(regss, value);
+      putsegreg(regss, (uint16_t)value);
       break;
    }
 };
@@ -195,18 +195,17 @@ static const char* flagname = "O D I T S Z * A * P * C ";
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    if (which == i_FLAGS) {
-      int i;
-      int bit;
+      unsigned int bit;
       char c;
       const char *flagnameptr = flagname;
-      int psr = dbg_reg_get(which);
+      uint32_t psr = dbg_reg_get(which);
 
       if (bufsize < 40) {
          strncpy(buf, "buffer too small!!!", bufsize);
       }
 
       bit = 0x800;
-      for (i = 0; i < 12; i++) {
+      for (int i = 0; i < 12; i++) {
          if (psr & bit) {
             c = '1';
          } else {
@@ -223,7 +222,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       }
       return strlen(buf);
    } else {
-      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
+      return (size_t)snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
    }
 };
 
