@@ -864,5 +864,5 @@ uint32_t n32016_disassemble(uint32_t address, char *buf, size_t bufsize)
    }
    //ShowTraps();
    //CLEAR_TRAP();
-   return addr;
+   return address;
 }
