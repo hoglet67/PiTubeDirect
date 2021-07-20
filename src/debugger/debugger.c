@@ -304,13 +304,12 @@ static char *format_char(uint32_t i) {
 static uint32_t memread(const cpu_debug_t *cpu, uint32_t addr) {
    uint32_t value = 0;
    int num  = 1 << (width - cpu->mem_width);
-   int size = 1 << (3 + cpu->mem_width);
-   int mask = (1 << size) - 1;
-   int i;
+   uint32_t size = 1u << (3 + cpu->mem_width);
+   uint32_t mask = (1u << size) - 1;
    internal = 1;
-   for (i = num - 1; i >= 0; i--) {
+   for (int i = num - 1; i >= 0; i--) {
       value <<= size;
-      value |= (cpu->memread(addr + i) & mask);
+      value |= (cpu->memread(addr + (uint32_t)i) & mask);
    }
    internal = 0;
    return value;
@@ -318,11 +317,10 @@ static uint32_t memread(const cpu_debug_t *cpu, uint32_t addr) {
 
 static void memwrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
    internal = 1;
-   int num  = 1 << (width - cpu->mem_width);
-   int size = 1 << (3 + cpu->mem_width);
-   int mask = (1 << size) - 1;
-   int i;
-   for (i = 0; i < num; i++) {
+   uint32_t num  = 1u << (width - cpu->mem_width);
+   uint32_t size = 1u << (3 + cpu->mem_width);
+   uint32_t mask = (1u << size) - 1;
+   for (uint32_t i = 0; i < num; i++) {
       cpu->memwrite(addr + i, value & mask);
       value >>= size;
    }
@@ -332,13 +330,12 @@ static void memwrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
 static uint32_t ioread(const cpu_debug_t *cpu, uint32_t addr) {
    uint32_t value = 0;
    int num  = 1 << (width - cpu->io_width);
-   int size = 1 << (3 + cpu->io_width);
-   int mask = (1 << size) - 1;
-   int i;
+   uint32_t size = 1u << (3 + cpu->io_width);
+   uint32_t mask = (1u << size) - 1;
    internal = 1;
-   for (i = num - 1; i >= 0; i++) {
+   for (int i = num - 1; i >= 0; i++) {
       value <<= size;
-      value |= cpu->ioread(addr + i) & mask;
+      value |= cpu->ioread(addr + (uint32_t)i) & mask;
    }
    internal = 0;
    return value;
@@ -346,11 +343,10 @@ static uint32_t ioread(const cpu_debug_t *cpu, uint32_t addr) {
 
 static void iowrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value) {
    internal = 1;
-   int num  = 1 << (width - cpu->io_width);
-   int size = 1 << (3 + cpu->io_width);
-   int mask = (1 << size) - 1;
-   int i;
-   for (i = 0; i < num; i++) {
+   uint32_t num  = 1u << (width - cpu->io_width);
+   uint32_t size = 1u << (3 + cpu->io_width);
+   uint32_t mask = (1u << size) - 1;
+   for (uint32_t i = 0; i < num; i++) {
       cpu->iowrite(addr + i, value & mask);
       value >>= size;
    }
@@ -583,7 +579,7 @@ int parseNparams(const char *p, int required, int total, unsigned int **result) 
          p += 2;
       }
       // Parse it in the current base
-      unsigned int value = strtol(p, &endptr, b);
+      unsigned int value = (unsigned int )strtol(p, &endptr, b);
       if (endptr == p) {
          printf("bad format for parameter %d\r\n", i + 1);
          return 1;
@@ -615,7 +611,7 @@ int parse3params(const char *params, int required, unsigned int *p1, unsigned in
 }
 
 // Set the breakpoint state variables
-void setBreakpoint(breakpoint_t *ptr, char *type, unsigned int addr, unsigned int mask, unsigned int mode) {
+void setBreakpoint(breakpoint_t *ptr, char *type, unsigned int addr, unsigned int mask, int mode) {
    printf("%s %s set at %s\r\n", type, modeStrings[mode], format_addr(addr));
    ptr->addr = addr & mask;
    ptr->mask = mask;
@@ -629,7 +625,7 @@ void copyBreakpoint(breakpoint_t *ptr1, const breakpoint_t *ptr2) {
 }
 
 // A generic helper that does most of the work of the watch/breakpoint commands
-void genericBreakpoint(const char *params, char *type, breakpoint_t *list, unsigned int mode) {
+void genericBreakpoint(const char *params, char *type, breakpoint_t *list, int mode) {
    int i = 0;
    unsigned int addr;
    unsigned int mask = 0xFFFFFFFF;
@@ -661,11 +657,7 @@ void genericBreakpoint(const char *params, char *type, breakpoint_t *list, unsig
 }
 
 static int parseCommand(const char ** cmdptr) {
-   int i;
-   char *cmdString;
-   int minLen;
-   int cmdStringLen;
-   int cmdLen = 0;
+   size_t cmdLen = 0;
    const char *cmd = *cmdptr;
    while (isspace((int)*cmd)) {
       cmd++;
@@ -678,10 +670,10 @@ static int parseCommand(const char ** cmdptr) {
       if (HAS_IO) {
          n += NUM_IO_CMDS;
       }
-      for (i = 0; i < n; i++) {
-         cmdString = dbgCmdStrings[i];
-         cmdStringLen = strlen(cmdString);
-         minLen = cmdLen < cmdStringLen ? cmdLen : cmdStringLen;
+      for (int i = 0; i < n; i++) {
+         char *cmdString = dbgCmdStrings[i];
+         size_t cmdStringLen = strlen(cmdString);
+         size_t minLen = cmdLen < cmdStringLen ? cmdLen : cmdStringLen;
          if (strncmp(cmdString, cmd, minLen) == 0) {
             *cmdptr = cmd + cmdLen;
             return i;
@@ -838,7 +830,7 @@ static void doCmdFill(const char *params) {
       return;
    }
    printf("Wr: %s to %s = %s %s\r\n", format_addr(start), format_addr2(end), format_data(data), format_char(data));
-   int stride = 1 << (width - cpu->mem_width);
+   unsigned int stride = 1u << (width - cpu->mem_width);
    for (i = start; i <= end; i += stride) {
       memwrite(cpu, i, data);
    }
@@ -850,14 +842,13 @@ static void doCmdCrc(const char *params) {
    unsigned int j;
    unsigned int start;
    unsigned int end;
-   unsigned int data;
    unsigned int crc = 0;
    if (parse2params(params, 2, &start, &end)) {
       return;
    }
    unsigned int stride = 1 << (width - cpu->mem_width);
    for (i = start; i <= end; i += stride) {
-      data = memread(cpu, i);
+      unsigned int data = memread(cpu, i);
       for (j = 0; j < 8 * stride; j++) {
          crc = crc << 1;
          crc = crc | (data & 1);
@@ -871,21 +862,21 @@ static void doCmdCrc(const char *params) {
 
 static void doCmdMem(const char *params) {
    const cpu_debug_t *cpu = getCpu();
-   int i, j;
+   unsigned int i, j;
    unsigned int row[16];
    unsigned int endAddr = 0;
    if (parse2params(params, 1, &memAddr, &endAddr)) {
       return;
    }
    // Number of cols is set so we get 16 bytes per row
-   int n_cols  = 0x10 >> width;
+   unsigned int n_cols  = 0x10u >> width;
    // Number of characters in each item
-   int n_chars = 1 << width;
+   unsigned int n_chars = 1u << width;
    // Address step of each item
-   int stride  = 0x01 << (width - cpu->mem_width);
+   unsigned int stride  = 0x01u << (width - cpu->mem_width);
    // Default end to enough data for 16 rows
    if (endAddr == 0) {
-      endAddr = memAddr + 16 * n_cols * stride;
+      endAddr = memAddr + 16u * n_cols * stride;
    }
    do {
       printf("%s  ", format_addr(memAddr));
