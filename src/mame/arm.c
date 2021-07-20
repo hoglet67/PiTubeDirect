@@ -718,7 +718,7 @@ void HandleMemSingle(UINT32 insn)
 void HandleALU(UINT32 insn)
 {
   UINT32 op2, sc = 0, rd, rn, opcode;
-  UINT32 by, rdn;
+  UINT32 rdn;
 
   opcode = (insn & INSN_OPCODE) >> INSN_OPCODE_SHIFT;
   CYCLE_COUNT(S_CYCLE);
@@ -730,7 +730,7 @@ void HandleALU(UINT32 insn)
   if (insn & INSN_I)
   {
     /* Immediate constant */
-    by = (insn & INSN_OP2_ROTATE) >> INSN_OP2_ROTATE_SHIFT;
+    UINT32 by = (insn & INSN_OP2_ROTATE) >> INSN_OP2_ROTATE_SHIFT;
     if (by)
     {
       op2 = ROR(insn & INSN_OP2_IMM, by << 1);
