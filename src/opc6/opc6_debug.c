@@ -235,7 +235,7 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = 'W';
       *buf++ = 'I';
       *buf++ = ':';
-      sprintf(buf, PRIx32, (psr >> 4) & 0x0F);
+      sprintf(buf, "%"PRIx32, (psr >> 4) & 0x0F);
       buf++;
       *buf++ = ' ';
 
