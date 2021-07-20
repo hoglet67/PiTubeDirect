@@ -312,7 +312,7 @@ void copro_armnative_emulator() {
   copy_armbasic();
 
   // Create the startup banner
-  sprintf(banner, "Native ARM Co Processor %ldMHz\r\n\n", get_speed());
+  sprintf(banner, "Native ARM Co Processor %"PRId32"MHz\r\n\n", get_speed());
 
   // Initialize the environment structure
   initEnv();
