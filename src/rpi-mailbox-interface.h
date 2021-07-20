@@ -119,9 +119,9 @@ typedef struct {
     unsigned int tag;
     unsigned int byte_length;
     union {
-        unsigned int value_32;
+        uint32_t value_32;
         unsigned char buffer_8[PROP_SIZE];
-        unsigned int buffer_32[PROP_SIZE >> 2];
+        uint32_t buffer_32[PROP_SIZE >> 2];
     } data;
     } rpi_mailbox_property_t;
 
