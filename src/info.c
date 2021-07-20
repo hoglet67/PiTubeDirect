@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 #include "info.h"
 #include "tube-defs.h"
 
@@ -20,9 +21,9 @@ void print_tag_value(char *name, const rpi_mailbox_property_t *buf, int hex) {
    } else {
       for (uint32_t i = 0;  i < (buf->byte_length + 3) >> 2; i++) {
          if (hex) {
-            LOG_INFO("%08x ", buf->data.buffer_32[i]);
+            LOG_INFO("%08"PRIx32, buf->data.buffer_32[i]);
          } else {
-            LOG_INFO("%8d ", buf->data.buffer_32[i]);
+            LOG_INFO("%8"PRId32, buf->data.buffer_32[i]);
          }
       }
    }
@@ -42,7 +43,7 @@ uint32_t get_revision() {
    }
 }
 
-unsigned int get_clock_rate(int clk_id) {
+uint32_t get_clock_rate(int clk_id) {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_GET_CLOCK_RATE, clk_id);
@@ -96,7 +97,7 @@ uint32_t get_speed() {
 char *get_info_string() {
    static int read = 0;
    if (!read) {
-      sprintf(info_string, "%lx %04d/%03dMHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, (double)get_temp());
+      sprintf(info_string, "%"PRIx32" %04"PRId32"/%03"PRId32"MHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, (double)get_temp());
       read = 1;
    }
    return info_string;
@@ -179,9 +180,6 @@ clock_info_t * get_clock_rates(int clk_id) {
 
 void dump_useful_info() {
    int i;
-   rpi_mailbox_property_t *buf;
-   clock_info_t *clk_info;
-
    rpi_mailbox_tag_t tags[] = {
         TAG_GET_FIRMWARE_VERSION
       , TAG_GET_BOARD_MODEL
@@ -237,12 +235,12 @@ void dump_useful_info() {
    RPI_PropertyProcess();
 
    for (i = 0; i < n; i++) {
-      buf = RPI_PropertyGet(tags[i]);
+      rpi_mailbox_property_t *buf = RPI_PropertyGet(tags[i]);
       print_tag_value(tagnames[i], buf, 1);
    }
 
    for (i = MIN_CLK_ID; i <= MAX_CLK_ID; i++) {
-      clk_info = get_clock_rates(i);
+         clock_info_t *clk_info = get_clock_rates(i);
       LOG_INFO("%15s_FREQ : %10.3f MHz %10.3f MHz %10.3f MHz\r\n",
              clock_names[i],
              (double) (clk_info->rate)  / 1.0e6,
