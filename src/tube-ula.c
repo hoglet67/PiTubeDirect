@@ -448,7 +448,7 @@ static void tube_host_write(uint32_t addr, uint8_t val)
        if (HSTAT1 & HBIT_2) tube_irq |= IRQ_BIT; //tube_updateints_IRQ();
       break;
    default:
-      LOG_WARN("Illegal host write to %ld\r\n", addr);
+      LOG_WARN("Illegal host write to %08"PRIX32"\r\n", addr);
    }
 }
 
@@ -1031,7 +1031,7 @@ void start_vc_ula()
    RPI_PropertyProcess();
    rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_LAUNCH_VPU1);
    if (buf) {
-      LOG_DEBUG("TAG_LAUNCH_VPU1 returned %08x\r\n", buf->data.buffer_32[0]);
+      LOG_DEBUG("TAG_LAUNCH_VPU1 returned %08"PRIx32"\r\n", buf->data.buffer_32[0]);
    } else {
       LOG_DEBUG("TAG_LAUNCH_VPU1 ?\r\n");
    }
