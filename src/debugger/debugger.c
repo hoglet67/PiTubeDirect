@@ -333,7 +333,7 @@ static uint32_t ioread(const cpu_debug_t *cpu, uint32_t addr) {
    uint32_t size = 1u << (3 + cpu->io_width);
    uint32_t mask = (1u << size) - 1;
    internal = 1;
-   for (int i = num - 1; i >= 0; i++) {
+   for (int i = num - 1; i >= 0; i--) {
       value <<= size;
       value |= cpu->ioread(addr + (uint32_t)i) & mask;
    }
