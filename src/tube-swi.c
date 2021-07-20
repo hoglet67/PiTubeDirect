@@ -652,7 +652,6 @@ void tube_Word(unsigned int *reg) {
   unsigned char out_len;
   unsigned char a = reg[0] & 0xff;
   unsigned char *block;
-  int i;
   // Note that call with R0b=0 (Acorn MOS RDLN) does nothing, the ReadLine call should be used instead.
   // Ref: http://chrisacorns.computinghistory.org.uk/docs/Acorn/OEM/AcornOEM_ARMUtilitiesRM.pdf
   if (a == 0) {
@@ -684,7 +683,7 @@ void tube_Word(unsigned int *reg) {
     if (block[0] != 0x00) {
       printf("OSWORD A=&0E sub-reason %d not implemented\r\n", block[0]);
       // Return something, as this gets used in a files load/exec address on SAVE in Basic
-      for (i = 0; i < 8; i++) {
+      for (int i = 0; i < 8; i++) {
         block[i] = 0xFF;
       }
       return;
@@ -937,7 +936,6 @@ void tube_ReadPoint(unsigned int *reg) {
 // R3   Previous buffer pointer
 
 void tube_ChangeEnvironment(unsigned int *reg) {
-  unsigned int previous;
 
   if (DEBUG_ARM) {
     printf("%08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3]);
@@ -951,7 +949,7 @@ void tube_ChangeEnvironment(unsigned int *reg) {
     HandlerState_type *hs = &env->handler[n];
 
     // Update the handler function from reg1
-    previous = (unsigned int) hs->handler;
+    unsigned int previous = (unsigned int) hs->handler;
     if (reg[1]) {
       hs->handler = (EnvironmentHandler_type) reg[1];
     }
