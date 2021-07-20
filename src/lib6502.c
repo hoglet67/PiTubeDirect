@@ -943,12 +943,11 @@ static int previousPC;
 
 void M6502_trace(M6502 *mpu)
 {
-  char state[124];
-
   if(elapsed > 40123000){
-  M6502_dump(mpu, state);
-  fflush(stdout);
-  fprintf(stderr, "Trace: %s\n", state);
+      char state[124];
+      M6502_dump(mpu, state);
+      fflush(stdout);
+      fprintf(stderr, "Trace: %s\n", state);
   }
 
   if (mpu->registers->pc == previousPC){
