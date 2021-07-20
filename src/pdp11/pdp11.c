@@ -437,7 +437,6 @@ static void DIV(uint16_t instr) {
    uint16_t da = aget(d, l);
    int32_t val2 = memread16(da);
    int32_t quo;
-   int32_t rem;
    cpu.PS &= 0xFFF0;
    if (val2 == 0) {
       // divide by zero
@@ -462,7 +461,7 @@ static void DIV(uint16_t instr) {
    if (quo < -0x8000 || quo > 0x7fff) {
       cpu.PS |= FLAGV;  // J11,11/70 compat
    } else {
-      rem = val1 - quo * val2;
+      int32_t rem = val1 - quo * val2;
       cpu.R[s & 7] = (uint16_t )quo & 0xFFFF;
       cpu.R[(s & 7) | 1] = (uint16_t )rem & 0xFFFF;
       setZ(cpu.R[s & 7] == 0);
