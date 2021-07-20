@@ -170,7 +170,6 @@ static void OS_ReadLine_impl(unsigned int *reg) {
       // Handle ReadLine if the Pi VDU is enabled
 
       uint32_t ptr = 0;
-      unsigned char c;
       unsigned char esc;
 
       uint32_t buf_size  = reg[1];
@@ -182,7 +181,7 @@ static void OS_ReadLine_impl(unsigned int *reg) {
          // OSRDCH R2: &00 Cy A
          sendByte(R2_ID, 0x00);
          esc = receiveByte(R2_ID) & 0x80;
-         c = receiveByte(R2_ID);
+         unsigned char c = receiveByte(R2_ID);
 
          // Handle escape
          if (esc) {
