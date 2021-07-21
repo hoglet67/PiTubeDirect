@@ -1020,13 +1020,11 @@ static uint16_t ld16 (uint16_t arg)
 
 static void sex (void)
 {
-  uint8_t res = B;
-
-  Z = res;
-  N = res &= 0x80;
-  if (res != 0)
-    res = 0xff;
-  A = res;
+  Z = B;
+  N = B &0x80;
+  A = N;
+  if (A != 0)
+    A = 0xff;
   cpu_clk -= 2;
 }
 
