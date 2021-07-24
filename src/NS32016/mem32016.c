@@ -287,7 +287,7 @@ void write_x16(uint32_t addr, uint16_t val)
 #endif
 
    write_x8(addr++,(uint8_t) val);
-   write_x8(addr, (uint8_t)val >> 8);
+   write_x8(addr, (uint8_t)(val >> 8));
 }
 
 void write_x32(uint32_t addr, uint32_t val)
