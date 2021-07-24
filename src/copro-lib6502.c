@@ -14,6 +14,7 @@
 #include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
+#include "tube-client.h"
 #include "tuberom_6502.h"
 #include "lib6502.h"
 #include "programs.h"
@@ -51,13 +52,13 @@ static void copro_lib6502_reset(M6502 *mpu) {
 #ifdef TURBO
   // (Slot 16 normal version, Slot 17 turbo 256K version)
   if (mpu->flags & M6502_Turbo) {
-    memcpy(mpu->memory + 0xf800, tuberom_6502_turbo, 0x800);
+    copro_memcpy(mpu->memory + 0xf800, tuberom_6502_turbo, 0x800);
   } else {
-    memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
+    copro_memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
   }
   turbo = 0;
 #else
-  memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
+  copro_memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
 #endif
   // Reset lib6502
   M6502_reset(mpu);

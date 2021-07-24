@@ -1,4 +1,4 @@
-#include <string.h>
+#include "tube-client.h"
 #include "armbasic.h"
 
 //  BAS135 (C) Acorn - with PAGE at &8F00
@@ -10246,5 +10246,5 @@ unsigned char BAS135H[] = {
 };
 
 void copy_armbasic() {
-   memcpy((void *)ARM_BASIC_START, BAS135, sizeof(BAS135));
+   copro_memcpy((void *)ARM_BASIC_START, BAS135, sizeof(BAS135));
 }

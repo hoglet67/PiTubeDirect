@@ -55,8 +55,8 @@ static void copro_f100_poweron_reset() {
    f100_init(memory, F100_PC_RST, 0xfffe, 0x0000);
 
    // Copy over client ROM
-   memcpy((void *) (memory + 0x0800), (void *)tuberom_f100, sizeof(tuberom_f100));
-   memcpy((void *) (memory + 0x7F00), (void *)tuberom_f100_high, sizeof(tuberom_f100_high));
+   copro_memcpy((void *) (memory + 0x0800), (void *)tuberom_f100, sizeof(tuberom_f100));
+   copro_memcpy((void *) (memory + 0x7F00), (void *)tuberom_f100_high, sizeof(tuberom_f100_high));
 }
 
 static void copro_f100_reset() {

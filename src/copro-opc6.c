@@ -73,7 +73,7 @@ static void copro_opc6_poweron_reset() {
    opc6_init(memory, 0xfffc, 0xfffe, 0x0000);
 
    // Copy over client ROM
-   memcpy((void *) (memory + 0xF800), (void *)tuberom_opc6, sizeof(tuberom_opc6));
+   copro_memcpy((void *) (memory + 0xF800), (void *)tuberom_opc6, sizeof(tuberom_opc6));
 }
 
 static void copro_opc6_reset() {
