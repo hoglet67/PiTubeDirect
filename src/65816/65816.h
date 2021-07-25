@@ -1,10 +1,6 @@
 #ifndef __INC_65816_H
 #define __INC_65816_H
 
-#ifdef INCLUDE_DEBUGGER
-#include "../cpu_debug.h"
-#endif
-
 enum register_numbers {
     REG_A,
     REG_X,

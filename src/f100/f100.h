@@ -8,11 +8,6 @@
 #include "../tube.h"
 #include "../copro-f100.h"
 
-#ifdef INCLUDE_DEBUGGER
-#include "f100_debug.h"
-#include "../cpu_debug.h"
-#endif
-
 // Point the memory read/write back to the Co Pro to include tube access
 #define F100_READ_MEM copro_f100_read_mem
 #define F100_WRITE_MEM copro_f100_write_mem
