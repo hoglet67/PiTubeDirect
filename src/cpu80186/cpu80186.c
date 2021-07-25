@@ -289,35 +289,35 @@ static void trace_instruction(uint16_t cs, uint16_t pc) {
 
 #endif
 
-void flag_szp8(uint8_t value)
+static void flag_szp8(uint8_t value)
 {
   zf = (!value) ? 1 : 0;															// set or clear zero flag
   sf = (value & 0x80) ? 1 : 0;												// set or clear sign flag
   pf = parity[value]; 								// retrieve parity state from lookup table
 }
 
-void flag_szp16(uint16_t value)
+static void flag_szp16(uint16_t value)
 {
   zf = (!value) ? 1 : 0;															// set or clear zero flag
   sf = (value & 0x8000) ? 1 : 0;											// set or clear sign flag
   pf = parity[value & 0xFF];					// retrieve parity state from lookup table
 }
 
-void flag_log8(uint8_t value)
+static void flag_log8(uint8_t value)
 {
   flag_szp8(value);
   cf = 0;
   of = 0; 									// bitwise logic ops always clear carry and overflow
 }
 
-void flag_log16(uint16_t value)
+static void flag_log16(uint16_t value)
 {
   flag_szp16(value);
   cf = 0;
   of = 0; 									// bitwise logic ops always clear carry and overflow
 }
 
-void flag_adc8(uint8_t v1, uint8_t v2, uint8_t v3)					// v1 = destination operand, v2 = source operand, v3 = carry flag
+static void flag_adc8(uint8_t v1, uint8_t v2, uint8_t v3)					// v1 = destination operand, v2 = source operand, v3 = carry flag
 {
   uint16_t dst;
 
@@ -328,7 +328,7 @@ void flag_adc8(uint8_t v1, uint8_t v2, uint8_t v3)					// v1 = destination opera
   af = (((v1 ^ v2 ^ dst) & 0x10) == 0x10) ? 1 : 0;					// set or clear auxiliary flag
 }
 
-void flag_adc16(uint16_t v1, uint16_t v2, uint16_t v3)
+static void flag_adc16(uint16_t v1, uint16_t v2, uint16_t v3)
 {
   uint32_t dst;
 
@@ -339,7 +339,7 @@ void flag_adc16(uint16_t v1, uint16_t v2, uint16_t v3)
   af = (((v1 ^ v2 ^ dst) & 0x10) == 0x10) ? 1 : 0;
 }
 
-void flag_add8(uint8_t v1, uint8_t v2)					// v1 = destination operand, v2 = source operand
+static void flag_add8(uint8_t v1, uint8_t v2)					// v1 = destination operand, v2 = source operand
 {
   uint16_t dst;
 
@@ -350,7 +350,7 @@ void flag_add8(uint8_t v1, uint8_t v2)					// v1 = destination operand, v2 = sou
   af = (((v1 ^ v2 ^ dst) & 0x10) == 0x10) ? 1 : 0;
 }
 
-void flag_add16(uint16_t v1, uint16_t v2)          // v1 = destination operand, v2 = source operand
+static void flag_add16(uint16_t v1, uint16_t v2)          // v1 = destination operand, v2 = source operand
 {
   uint32_t dst;
 
@@ -361,7 +361,7 @@ void flag_add16(uint16_t v1, uint16_t v2)          // v1 = destination operand, 
   af = (((v1 ^ v2 ^ dst) & 0x10) == 0x10) ? 1 : 0;
 }
 
-void flag_sbb8(uint8_t v1, uint8_t v2, uint8_t v3)
+static void flag_sbb8(uint8_t v1, uint8_t v2, uint8_t v3)
 {
 
   //v1 = destination operand, v2 = source operand, v3 = carry flag */
@@ -397,7 +397,7 @@ void flag_sbb8(uint8_t v1, uint8_t v2, uint8_t v3)
   }
 }
 
-void flag_sbb16(uint16_t v1, uint16_t v2, uint16_t v3)
+static void flag_sbb16(uint16_t v1, uint16_t v2, uint16_t v3)
 {
   /* v1 = destination operand, v2 = source operand, v3 = carry flag */
   uint32_t dst;
@@ -432,7 +432,7 @@ void flag_sbb16(uint16_t v1, uint16_t v2, uint16_t v3)
   }
 }
 
-void flag_sub8(uint8_t v1, uint8_t v2)
+static void flag_sub8(uint8_t v1, uint8_t v2)
 {
   /* v1 = destination operand, v2 = source operand */
   uint16_t dst;
@@ -467,7 +467,7 @@ void flag_sub8(uint8_t v1, uint8_t v2)
   }
 }
 
-void flag_sub16(uint16_t v1, uint16_t v2)
+static void flag_sub16(uint16_t v1, uint16_t v2)
 {
 
   /* v1 = destination operand, v2 = source operand */
@@ -503,85 +503,85 @@ void flag_sub16(uint16_t v1, uint16_t v2)
   }
 }
 
-void op_adc8()
+static void op_adc8()
 {
   res8 = (uint8_t)(oper1b + oper2b + cf);
   flag_adc8(oper1b, oper2b, cf);
 }
 
-void op_adc16()
+static void op_adc16()
 {
   res16 = (uint16_t)(oper1 + oper2 + cf);
   flag_adc16(oper1, oper2, cf);
 }
 
-void op_add8()
+static void op_add8()
 {
   res8 = (uint8_t)oper1b + oper2b;
   flag_add8(oper1b, oper2b);
 }
 
-void op_add16()
+static void op_add16()
 {
   res16 = (uint16_t)oper1 + oper2;
   flag_add16(oper1, oper2);
 }
 
-void op_and8()
+static void op_and8()
 {
   res8 = oper1b & oper2b;
   flag_log8(res8);
 }
 
-void op_and16()
+static void op_and16()
 {
   res16 = oper1 & oper2;
   flag_log16(res16);
 }
 
-void op_or8()
+static void op_or8()
 {
   res8 = oper1b | oper2b;
   flag_log8(res8);
 }
 
-void op_or16()
+static void op_or16()
 {
   res16 = oper1 | oper2;
   flag_log16(res16);
 }
 
-void op_xor8()
+static void op_xor8()
 {
   res8 = oper1b ^ oper2b;
   flag_log8(res8);
 }
 
-void op_xor16()
+static void op_xor16()
 {
   res16 = oper1 ^ oper2;
   flag_log16(res16);
 }
 
-void op_sub8()
+static void op_sub8()
 {
   res8 = oper1b - oper2b;
   flag_sub8(oper1b, oper2b);
 }
 
-void op_sub16()
+static void op_sub16()
 {
   res16 = oper1 - oper2;
   flag_sub16(oper1, oper2);
 }
 
-void op_sbb8()
+static void op_sbb8()
 {
   res8 = (uint8_t)(oper1b - (oper2b + cf));
   flag_sbb8(oper1b, oper2b, cf);
 }
 
-void op_sbb16()
+static void op_sbb16()
 {
   res16 = (uint16_t)(oper1 - (oper2 + cf));
   flag_sbb16(oper1, oper2, cf);
@@ -627,7 +627,7 @@ void op_sbb16()
 } \
 }
 
-void getea(uint8_t rmval)
+static void getea(uint8_t rmval)
 {
   uint32_t tempea;
 
@@ -699,13 +699,13 @@ void getea(uint8_t rmval)
   ea = (tempea & 0xFFFF) + (useseg << 4);
 }
 
-void push(uint16_t pushval)
+static void push(uint16_t pushval)
 {
   putreg16(regsp, getreg16(regsp) - 2);
   putmem16(segregs[regss], getreg16(regsp), pushval);
 }
 
-uint16_t pop()
+static uint16_t pop()
 {
 
   uint16_t tempval;
@@ -722,7 +722,7 @@ void reset86()
   //regs.wordregs[regsp] = 0xFFFE;
 }
 
-uint16_t readrm16(uint8_t rmval)
+static uint16_t readrm16(uint8_t rmval)
 {
   if (mode < 3)
   {
@@ -735,7 +735,7 @@ uint16_t readrm16(uint8_t rmval)
   }
 }
 
-uint8_t readrm8(uint8_t rmval)
+static uint8_t readrm8(uint8_t rmval)
 {
   if (mode < 3)
   {
@@ -748,7 +748,7 @@ uint8_t readrm8(uint8_t rmval)
   }
 }
 
-void writerm16(uint8_t rmval, uint16_t value)
+static void writerm16(uint8_t rmval, uint16_t value)
 {
   if (mode < 3)
   {
@@ -762,7 +762,7 @@ void writerm16(uint8_t rmval, uint16_t value)
   }
 }
 
-void writerm8(uint8_t rmval, uint8_t value)
+static void writerm8(uint8_t rmval, uint8_t value)
 {
   if (mode < 3)
   {
@@ -775,7 +775,7 @@ void writerm8(uint8_t rmval, uint8_t value)
   }
 }
 
-void op_daa_das(int8_t low_nibble, int8_t high_nibble) {
+static void op_daa_das(int8_t low_nibble, int8_t high_nibble) {
   oldal = regs.byteregs[regal];
   uint8_t oldcftemp = cf;
 
@@ -799,7 +799,7 @@ void op_daa_das(int8_t low_nibble, int8_t high_nibble) {
   flag_szp8(regs.byteregs[regal]);
 }
 
-uint8_t op_grp2_8(uint8_t cnt)
+static uint8_t op_grp2_8(uint8_t cnt)
 {
 
   uint16_t s;
@@ -949,7 +949,7 @@ uint8_t op_grp2_8(uint8_t cnt)
   return s & 0xFFu;
 }
 
-uint16_t op_grp2_16(uint8_t cnt)
+static uint16_t op_grp2_16(uint8_t cnt)
 {
 
   uint32_t s;
@@ -1099,7 +1099,7 @@ uint16_t op_grp2_16(uint8_t cnt)
   return (uint16_t) s & 0xFFFF;
 }
 
-void op_div8(uint16_t valdiv, uint8_t divisor)
+static void op_div8(uint16_t valdiv, uint8_t divisor)
 {
   if (divisor == 0)
   {
@@ -1117,7 +1117,7 @@ void op_div8(uint16_t valdiv, uint8_t divisor)
   regs.byteregs[regal] = (uint8_t)(valdiv / (uint16_t) divisor);
 }
 
-void op_idiv8(uint16_t valdiv, uint8_t divisor)
+static void op_idiv8(uint16_t valdiv, uint8_t divisor)
 {
 
   uint16_t s1;
@@ -1155,7 +1155,7 @@ void op_idiv8(uint16_t valdiv, uint8_t divisor)
   regs.byteregs[regal] = (uint8_t) d1;
 }
 
-void op_grp3_8()
+static void op_grp3_8()
 {
   oper1 = (uint16_t)signext(oper1b);
   oper2 = (uint16_t)signext(oper2b);
@@ -1244,7 +1244,7 @@ void op_grp3_8()
   }
 }
 
-void op_div16(uint32_t valdiv, uint16_t divisor)
+static void op_div16(uint32_t valdiv, uint16_t divisor)
 {
   if (divisor == 0)
   {
@@ -1262,7 +1262,7 @@ void op_div16(uint32_t valdiv, uint16_t divisor)
   putreg16(regax, (uint16_t)(valdiv / (uint32_t) divisor));
 }
 
-void op_idiv16(uint32_t valdiv, uint16_t divisor)
+static void op_idiv16(uint32_t valdiv, uint16_t divisor)
 {
 
   uint32_t d1;
@@ -1301,7 +1301,7 @@ void op_idiv16(uint32_t valdiv, uint16_t divisor)
   putreg16(regdx, (uint16_t)d2);
 }
 
-void op_grp3_16()
+static void op_grp3_16()
 {
   switch (reg)
   {
@@ -1389,7 +1389,7 @@ void op_grp3_16()
   }
 }
 
-void op_grp5()
+static void op_grp5()
 {
   switch (reg)
   {
