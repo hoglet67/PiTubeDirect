@@ -224,16 +224,17 @@ void enable_MMU_and_IDCaches(void)
     // Values from RPI2 = 15C0A (outer write back, write allocate, inner write through, no write allocate, shareable)
     PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12) | (aa << 2);
   }
+#if L2_CACHED_MEM_BASE != UNCACHED_MEM_BASE
   for (; base < (UNCACHED_MEM_BASE >> 20); base++)
   {
      PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12);
   }
-#if L2_CACHED_MEM_BASE != UNCACHED_MEM_BASE
+#endif
   for (; base < (PERIPHERAL_BASE >> 20); base++)
   {
     PageTable[base] = base << 20 | 0x01C02;
   }
-#endif
+
   for (; base < 4096; base++)
   {
     // shared device, never execute
