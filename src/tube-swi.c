@@ -980,12 +980,12 @@ static void tube_ChangeEnvironment(unsigned int *reg) {
   unsigned int n = reg[0];
 
   if (n < NUM_HANDLERS) {
-
+	unsigned int previous;
     // Grab the appropriate handler state block from the environment
     HandlerState_type *hs = &env->handler[n];
 
     // Update the handler function from reg1
-    unsigned int previous = (unsigned int) hs->handler;
+    previous = (unsigned int) hs->handler;
     if (reg[1]) {
       hs->handler = (EnvironmentHandler_type) reg[1];
     }
