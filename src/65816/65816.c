@@ -560,7 +560,7 @@ static inline uint32_t indirectl(void)
     uint32_t temp, addr;
     temp = (readmem(pbr | pc) + dp) & 0xFFFF;
     pc++;
-    addr = (uint16_t)(readmemw(temp) |  (readmem(temp + 2) << 16));
+    addr = (uint32_t) (readmemw(temp) | (readmem(temp + 2) << 16));
     return addr;
 }
 
@@ -569,7 +569,7 @@ static inline uint32_t indirectly(void)
     uint32_t temp, addr;
     temp = (readmem(pbr | pc) + dp) & 0xFFFF;
     pc++;
-    addr = (uint16_t) ((readmemw(temp) | (readmem(temp + 2) << 16)) + y.w);
+    addr =  (uint32_t) ((readmemw(temp) | (readmem(temp + 2) << 16)) + y.w);
     return addr;
 }
 
@@ -593,7 +593,7 @@ static inline void adcbin8(uint8_t temp)
 {
     uint16_t tempw= (uint16_t) (a.b.l + temp + ((p.c) ? 1 : 0));
     p.v = (!((a.b.l ^ temp) & 0x80) && ((a.b.l ^ tempw) & 0x80));
-    a.b.l = (uint8_t) (tempw & 0xFF);
+    a.b.l = (uint8_t) (tempw);
     setzn8(a.b.l);
     p.c = tempw & 0x100;
 }
@@ -674,7 +674,7 @@ static inline void sbcbin8(uint8_t temp)
 {
     uint16_t tempw = (uint16_t) (a.b.l - temp - ((p.c) ? 0 : 1));
     p.v = (((a.b.l ^ temp) & 0x80) && ((a.b.l ^ tempw) & 0x80));
-    a.b.l = (uint8_t) (tempw & 0xFF);
+    a.b.l = (uint8_t) (tempw);
     setzn8(a.b.l);
     p.c = tempw <= 0xFF;
 }
@@ -694,7 +694,7 @@ static inline void sbcbcd8(uint8_t temp)
        tempw -= 0x60;
     if (al < 0)
        tempw -= 0x06;
-    a.b.l = (uint8_t) (tempw & 0xFF);
+    a.b.l = (uint8_t) (tempw);
     setzn8(a.b.l);
     cycles--;
     clockspc(6);
