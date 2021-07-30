@@ -337,10 +337,8 @@ enum StringBits
 
 extern void n32016_init();
 extern void n32016_ShowRegs(uint32_t Option);
-extern void n32016_reset();
 extern void n32016_reset_addr(uint32_t StartAddress);
 extern void n32016_exec();
-extern void n32016_close();
 extern void n32016_build_matrix();
 extern uint32_t n32016_get_pc();
 extern uint32_t n32016_get_startpc();
@@ -371,8 +369,6 @@ extern int tube_irq;
 //extern volatile int tube_irq;
 #endif
 
-extern uint32_t genaddr[2];
-extern int gentype[2];
 extern const uint8_t FormatSizes[FormatCount + 1];
 
 //#define SHOW_STACK

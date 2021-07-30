@@ -28,6 +28,6 @@ extern uint32_t TrapFlags;
 // Use GOTO_TRAP when in the main loop
 #define GOTO_TRAP(in) TrapFlags |= (in); goto DoTrap
 
-extern void ShowTraps(void);
+//extern void ShowTraps(void);
 extern void HandleTrap(void);
 extern void n32016_dumpregs();

@@ -30,22 +30,22 @@
 
 ProcessorRegisters PR;
 uint32_t r[8];
-FloatingPointRegisters FR;
-uint32_t FSR;
+static FloatingPointRegisters FR;
+static uint32_t FSR;
 
 static uint32_t pc;
 uint32_t sp[2];
-Temp64Type Immediate64;
+static Temp64Type Immediate64;
 
-uint32_t startpc;
+static uint32_t startpc;
 
 RegLKU Regs[2];
-uint32_t genaddr[2];
-uint32_t *genreg[2];
-int gentype[2];
-OperandSizeType OpSize;
+static uint32_t genaddr[2];
+static uint32_t *genreg[2];
+static int gentype[2];
+static OperandSizeType OpSize;
 
-const uint32_t IndexLKUP[8] = { 0x0, 0x1, 0x4, 0x5, 0x8, 0x9, 0xC, 0xD };                    // See Page 2-3 of the manual!
+static const uint32_t IndexLKUP[8] = { 0x0, 0x1, 0x4, 0x5, 0x8, 0x9, 0xC, 0xD };                    // See Page 2-3 of the manual!
 
 /* A custom warning logger for n32016 that logs the PC */
 
@@ -106,16 +106,16 @@ void n32016_init()
 {
    init_ram();
 }
-
-void n32016_close()
+#if 0
+static void n32016_close()
 {
 }
 
-void n32016_reset()
+static void n32016_reset()
 {
    n32016_reset_addr(0xF00000);
 }
-
+#endif 
 void n32016_reset_addr(uint32_t StartAddress)
 {
    n32016_build_matrix();
@@ -150,7 +150,7 @@ static void pushd(uint32_t val)
    write_x32(GET_SP(), val);
 }
 
-void PushArbitary(uint64_t Value, uint32_t Size)
+static void PushArbitary(uint64_t Value, uint32_t Size)
 {
    DEC_SP(Size);
    write_Arbitary(GET_SP(), &Value, Size);
@@ -172,7 +172,7 @@ static uint32_t popd()
    return temp;
 }
 
-uint32_t PopArbitary(uint32_t Size)
+static uint32_t PopArbitary(uint32_t Size)
 {
    uint32_t Result = read_n(GET_SP(), Size);
    INC_SP(Size);
@@ -240,7 +240,7 @@ int32_t GetDisplacement(uint32_t* pPC)
    return Value;
 }
 
-uint32_t Truncate(uint32_t Value, uint32_t Size)
+static uint32_t Truncate(uint32_t Value, uint32_t Size)
 {
    switch (Size)
    {
@@ -253,7 +253,7 @@ uint32_t Truncate(uint32_t Value, uint32_t Size)
    return Value;
 }
 
-uint32_t ReadGen(uint32_t c)
+static uint32_t ReadGen(uint32_t c)
 {
    switch (gentype[c])
    {
@@ -290,7 +290,7 @@ uint32_t ReadGen(uint32_t c)
    return 0;
 }
 
-uint64_t ReadGen64(uint32_t c)
+static uint64_t ReadGen64(uint32_t c)
 {
    uint64_t Temp = 0;
 
@@ -325,7 +325,7 @@ uint64_t ReadGen64(uint32_t c)
    return Temp;
 }
 
-uint32_t ReadAddress(uint32_t c)
+static uint32_t ReadAddress(uint32_t c)
 {
    if (gentype[c] == Register)
    {
@@ -733,7 +733,7 @@ static void handle_mei_dei_upper_write(uint64_t result)
    }
 }
 
-uint32_t CompareCommon(uint32_t src1, uint32_t src2)
+static uint32_t CompareCommon(uint32_t src1, uint32_t src2)
 {
    L_FLAG = TEST(src1 > src2);
 
@@ -755,7 +755,7 @@ uint32_t CompareCommon(uint32_t src1, uint32_t src2)
    return Z_FLAG;
 }
 
-uint32_t StringMatching(uint32_t opcode, uint32_t Value)
+static uint32_t StringMatching(uint32_t opcode, uint32_t Value)
 {
    uint32_t Options = (opcode >> 17) & 3;
 
@@ -784,7 +784,7 @@ uint32_t StringMatching(uint32_t opcode, uint32_t Value)
    return 0;
 }
 
-void StringRegisterUpdate(uint32_t opcode)
+static void StringRegisterUpdate(uint32_t opcode)
 {
    uint32_t Size = OpSize.Op[0];
 
@@ -812,7 +812,7 @@ void StringRegisterUpdate(uint32_t opcode)
    r[0]--; // Adjust R0
 }
 
-uint32_t CheckCondition(uint32_t Pattern)
+static uint32_t CheckCondition(uint32_t Pattern)
 {
    uint32_t bResult = 0;
 
@@ -888,7 +888,7 @@ uint32_t CheckCondition(uint32_t Pattern)
    return bResult;
 }
 
-uint32_t BitPrefix(void)
+static uint32_t BitPrefix(void)
 {
    uint32_t Offset = ReadGen(0);
    uint32_t bit;
@@ -920,7 +920,7 @@ uint32_t BitPrefix(void)
    return BIT(bit);
 }
 
-void PopRegisters(void)
+static void PopRegisters(void)
 {
    uint32_t temp = READ_PC_BYTE();
 
@@ -933,7 +933,7 @@ void PopRegisters(void)
    }
 }
 
-void TakeInterrupt(uint32_t IntBase)
+static void TakeInterrupt(uint32_t IntBase)
 {
    uint32_t temp = psr;
    uint32_t temp2, temp3;
@@ -955,7 +955,7 @@ void TakeInterrupt(uint32_t IntBase)
    pc = temp2 + temp3;
 }
 
-void WarnIfShiftInvalid(uint32_t shift, uint8_t size)
+static void WarnIfShiftInvalid(uint32_t shift, uint8_t size)
 {
    size *= 8;    // 8, 16, 32
    // We allow a shift of +- 33 without warning, as we see examples
@@ -966,7 +966,7 @@ void WarnIfShiftInvalid(uint32_t shift, uint8_t size)
    }
 }
 
-uint32_t ReturnCommon(void)
+static uint32_t ReturnCommon(void)
 {
    if (U_FLAG)
    {

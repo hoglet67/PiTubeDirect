@@ -214,7 +214,7 @@ int wait(int *status)
   return -1;
 }
 
-void outbyte(char b)
+static void outbyte(char b)
 {
   RPI_AuxMiniUartWrite(b);
 }

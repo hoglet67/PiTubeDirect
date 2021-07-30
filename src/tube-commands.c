@@ -12,6 +12,17 @@
 #include "copro-defs.h"
 #include "utils.h"
 
+static int doCmdHelp(const char *params);
+static int doCmdTest(const char *params);
+static int doCmdGo(const char *params);
+static int doCmdMem(const char *params);
+static int doCmdDis(const char *params);
+static int doCmdFill(const char *params);
+static int doCmdCrc(const char *params);
+static int doCmdArmBasic(const char *params);
+static int doCmdPiVDU(const char *params);
+static int doCmdPiLIFE(const char *params);
+
 // Include ARM Basic
 #include "armbasic.h"
 
@@ -20,13 +31,13 @@
 
 // Include the framebuffer for fb_set_vdu_device
 
-const char *help = "Native ARM Tube Client ("RELEASENAME"/"GITVERSION")\r\n";
+static const char *help = "Native ARM Tube Client ("RELEASENAME"/"GITVERSION")\r\n";
 
-const char *help_key = "ARM";
+static const char *help_key = "ARM";
 
-const char *copro_key = "COPROS";
+static const char *copro_key = "COPROS";
 
-char line[256];
+static char line[256];
 
 #define WRCVEC 0x020E
 
@@ -39,7 +50,7 @@ char line[256];
 #define NUM_CMDS 10
 
 // Must be kept in step with cmdFuncs (just below)
-char *cmdStrings[NUM_CMDS] = {
+static const char *cmdStrings[NUM_CMDS] = {
   "HELP",
   "TEST",
   "GO",
@@ -52,7 +63,7 @@ char *cmdStrings[NUM_CMDS] = {
   "PILIFE"
 };
 
-int (*cmdFuncs[NUM_CMDS])(const char *params) = {
+static int (*cmdFuncs[NUM_CMDS])(const char *params) = {
   doCmdHelp,
   doCmdTest,
   doCmdGo,
@@ -65,7 +76,7 @@ int (*cmdFuncs[NUM_CMDS])(const char *params) = {
   doCmdPiLIFE,
 };
 
-int cmdMode[NUM_CMDS] = {
+static const int cmdMode[NUM_CMDS] = {
   MODE_USER,
   MODE_USER,
   MODE_USER,
@@ -78,7 +89,7 @@ int cmdMode[NUM_CMDS] = {
   MODE_USER
 };
 
-const char *matchCommand(const char *cmdPtr, const char *refPtr, int minLen) {
+static const char *matchCommand(const char *cmdPtr, const char *refPtr, int minLen) {
   int c;
   int r;
   int index = 0;
@@ -126,12 +137,12 @@ int dispatchCmd(char *cmd) {
   return 1;
 }
 
-int doCmdTest(const char *params) {
+static int doCmdTest(const char *params) {
   OS_Write0("doCmdTest\r\n");
   return 0;
 }
 
-int doCmdHelp(const char *params) {
+static int doCmdHelp(const char *params) {
   char buff[10];
   if (*params == 0x00 || *params == 0x0a || *params == 0x0d) {
     // *HELP without any parameters
@@ -191,7 +202,7 @@ int doCmdHelp(const char *params) {
   return 1;
 }
 
-int doCmdGo(const char *params) {
+static int doCmdGo(const char *params) {
   unsigned int address;
   FunctionPtr_Type f;
   sscanf(params, "%x", &address);
@@ -201,7 +212,7 @@ int doCmdGo(const char *params) {
   return 0;
 }
 
-int doCmdFill(const char *params) {
+static int doCmdFill(const char *params) {
   unsigned int start;
   unsigned int end;
   unsigned char data;
@@ -212,7 +223,7 @@ int doCmdFill(const char *params) {
   return 0;
 }
 
-int doCmdMem(const char *params) {
+static int doCmdMem(const char *params) {
   unsigned char c;
   char *ptr;
   unsigned int flags;
@@ -246,7 +257,7 @@ int doCmdMem(const char *params) {
   return 0;
 }
 
-int doCmdDis(const char *params) {
+static int doCmdDis(const char *params) {
   darm_t d;
   darm_str_t str;
   int i;
@@ -275,7 +286,7 @@ int doCmdDis(const char *params) {
   return 0;
 }
 
-int doCmdCrc(const char *params) {
+static int doCmdCrc(const char *params) {
   unsigned int i;
   unsigned int j;
   unsigned int start;
@@ -298,7 +309,7 @@ int doCmdCrc(const char *params) {
   return 0;
 }
 
-int doCmdArmBasic(const char *params) {
+static int doCmdArmBasic(const char *params) {
   FunctionPtr_Type f;
   armbasic = 1;
   // Cast address to a generic function pointer

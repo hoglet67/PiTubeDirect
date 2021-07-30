@@ -32,7 +32,7 @@
 
 // 4MB of RAM starting at 0x00000000
 #define ARM_RAM_SIZE (1024 * 1024 * 4)
-UINT8 * arm2_ram;
+static UINT8 * arm2_ram;
 
 // 16KB of ROM starting at 0x03000000
 //UINT8 arm2_rom[0x4000] __attribute__((aligned(0x10000)));

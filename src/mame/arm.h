@@ -54,28 +54,8 @@ enum
 
 void arm2_device_reset();
 void arm2_execute_run(int tube_cycles);
-void arm2_check_irq_state();
+
 void arm2_execute_set_input(int irqline, int state);
 UINT32 arm2_getR15();
-
-UINT32 GetRegister( unsigned int rIndex );
-void SetRegister( unsigned int rIndex, UINT32 value );
-UINT32 GetModeRegister( int mode, unsigned int rIndex );
-void SetModeRegister( int mode, unsigned int rIndex, UINT32 value );
-
-void HandleBranch( UINT32 insn );
-void HandleMemSingle( UINT32 insn );
-void HandleALU( UINT32 insn );
-void HandleMul( UINT32 insn);
-unsigned int loadInc(UINT32 pat, UINT32 rbv, UINT32 s);
-unsigned int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer);
-unsigned int storeInc(UINT32 pat, UINT32 rbv);
-unsigned int storeDec(UINT32 pat, UINT32 rbv);
-void HandleMemBlock( UINT32 insn );
-UINT32 decodeShift(UINT32 insn, UINT32 *pCarry);
-UINT32 DecimalToBCD(UINT32 value);
-void HandleCoProVL86C020( UINT32 insn );
-void HandleCoPro( UINT32 insn );
-
 
 #endif /* __ARM_H__ */

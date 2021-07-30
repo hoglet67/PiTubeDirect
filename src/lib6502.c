@@ -33,6 +33,7 @@
 #include <stdlib.h>
 
 #include "lib6502.h"
+static void   M6502_dump(M6502 *mpu, char buffer[124]);
 
 #ifdef INCLUDE_DEBUGGER
 #include "lib6502_debug.h"
@@ -91,7 +92,7 @@ static int elapsed;
 
 #ifdef INCLUDE_DEBUGGER
 
-byte tmpr;
+static byte tmpr;
 
 #define putMemory(ADDR, BYTE)                   \
   if (lib6502_debug_enabled) {                  \
@@ -1071,7 +1072,7 @@ int M6502_disassemble(M6502 *mpu, word ip, char buffer[64])
   return 0;
 }
 
-void M6502_dump(M6502 *mpu, char buffer[124])
+static void M6502_dump(M6502 *mpu, char buffer[124])
 {
   M6502_Registers *r= mpu->registers;
   uint8_t p= r->p;

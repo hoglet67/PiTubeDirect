@@ -35,6 +35,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "darm.h"
 #include "darm-internal.h"
 
+static int darm_reglist(uint16_t reglist, char *out);
+
 #define APPEND(out, ptr) \
     do { \
         const char *p = ptr; \
@@ -135,7 +137,7 @@ int darm_disasm(darm_t *d, uint16_t w, uint16_t w2, uint32_t addr)
     }
 }
 
-int darm_str(const darm_t *d, darm_str_t *str)
+static int darm_str(const darm_t *d, darm_str_t *str)
 {
     int i;
     char ch;
@@ -589,7 +591,7 @@ int darm_str2(const darm_t *d, darm_str_t *str, int lowercase)
     return 0;
 }
 
-int darm_reglist(uint16_t reglist, char *out)
+static int darm_reglist(uint16_t reglist, char *out)
 {
     char *base = out;
 
@@ -631,7 +633,7 @@ int darm_reglist(uint16_t reglist, char *out)
     *out = 0;
     return out - base;
 }
-
+#if 0 
 void darm_dump(const darm_t *d)
 {
     printf(
@@ -736,3 +738,4 @@ void darm_dump(const darm_t *d)
 
     printf("\n");
 }
+#endif

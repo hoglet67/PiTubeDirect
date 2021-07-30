@@ -11,7 +11,7 @@
 
 uint32_t TrapFlags;
 
-const char TrapText[TrapCount][40] =
+static const char TrapText[TrapCount][40] =
 {
    "Break Point Hit",
    "Break Point Trap",
@@ -28,7 +28,7 @@ const char TrapText[TrapCount][40] =
    "Privileged Instruction"
 };
 
-void ShowTraps(void)
+static void ShowTraps(void)
 {
    if (TrapFlags)
    {
@@ -43,7 +43,7 @@ void ShowTraps(void)
    }
 }
 
-void Dump(void)
+static void Dump(void)
 {
    n32016_ShowRegs(0xFF);
    ShowTraps();

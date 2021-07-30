@@ -260,7 +260,7 @@ static void free_control_list() {
 }
 
 // Render a single triangle to memory.
-void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
+static void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
   int x, y;
 
   uint8_t *p = list;

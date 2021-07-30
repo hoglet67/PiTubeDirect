@@ -47,10 +47,12 @@
 #include "cpu80186_debug.h"
 #include "../cpu_debug.h"
 #endif
+#if 0
+uint64_t curtimer, lasttimer;
+#endif
+static uint64_t timerfreq;
 
-uint64_t curtimer, lasttimer, timerfreq;
-
-uint8_t byteregtable[8] =
+static uint8_t byteregtable[8] =
 { regal, regcl, regdl, regbl, regah, regch, regdh, regbh };
 
 static const uint8_t parity[0x100] =
@@ -60,13 +62,14 @@ static const uint8_t parity[0x100] =
     0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0,
     1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1 };
 
-uint8_t opcode, segoverride, reptype, bootdrive = 0, hdcount = 0;
-uint16_t segregs[4], savecs, saveip, ip, useseg, oldsp;
-uint8_t tempcf, oldcf, cf, pf, af, zf, sf, tf, ifl, df, of, mode, reg, rm, oldal;
-uint16_t oper1, oper2, res16, disp16, temp16, dummy, stacksize, frametemp;
-uint8_t oper1b, oper2b, res8, disp8, temp8, nestlev, addrbyte;
-uint32_t temp1, temp2, temp3, temp4, temp5, temp32, tempaddr32, ea;
-int32_t result;
+static uint8_t opcode, segoverride, reptype;
+uint16_t segregs[4],ip;
+static uint16_t savecs, saveip, useseg, oldsp;
+static uint8_t tempcf, cf, pf, af, zf, sf, tf, df, of, mode, reg, rm, oldal;
+uint8_t ifl;
+static uint16_t oper1, oper2, res16, disp16, temp16, dummy, stacksize, frametemp;
+static uint8_t oper1b, oper2b, res8, disp8, nestlev, addrbyte;
+static uint32_t temp1, temp2, temp3, ea;
 
 //uint64_t totalexec;
 //#define INC_TOTAL_EXEC() totalexec++; loopcount++
@@ -74,8 +77,9 @@ int32_t result;
 
 union _bytewordregs_ regs;
 
-uint8_t debugmode, showcsip, verbose = 1, mouseemu, didbootstrap = 0;
-uint8_t ethif;
+static uint8_t verbose = 1, didbootstrap = 0;
+// debugmode, showcsip, mouseemu, 
+//uint8_t ethif;
 
 #define makeflagsword() \
 	((uint16_t)(\
@@ -714,14 +718,14 @@ static uint16_t pop()
   putreg16(regsp, getreg16(regsp) + 2);
   return tempval;
 }
-
+#if 0
 void reset86()
 {
   segregs[regcs] = 0xFFFF;
   ip = 0x0000;
   //regs.wordregs[regsp] = 0xFFFE;
 }
-
+#endif
 static uint16_t readrm16(uint8_t rmval)
 {
   if (mode < 3)
@@ -1438,9 +1442,8 @@ static void op_grp5()
   }
 }
 
-uint8_t dolog = 0, didintr = 0;
-FILE *logout;
-uint8_t printops = 0;
+static uint8_t didintr = 0;
+//static uint8_t printops = 0;
 
 #ifdef NETWORKING_ENABLED
 extern void nethandler();
@@ -1472,12 +1475,15 @@ extern struct netstruct
   uint16_t pktlen;
 }net;
 #endif
-uint64_t frametimer = 0, didwhen = 0, didticks = 0;
-uint32_t makeupticks = 0;
+#if 0
+static uint64_t frametimer = 0, didwhen = 0, didticks = 0;
+static uint32_t makeupticks = 0;
 
-uint64_t timerticks = 0, realticks = 0;
-uint64_t lastcountertimer = 0, counterticks = 10000;
+static uint64_t timerticks = 0, realticks = 0;
+static uint64_t lastcountertimer = 0;
 
+#endif
+static uint64_t counterticks = 10000;
 //extern float	timercomp;
 //extern uint8_t	nextintr();
 

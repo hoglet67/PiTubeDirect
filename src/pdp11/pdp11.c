@@ -15,7 +15,7 @@
 // #define ALLOW_UNALIGNED
 
 
-jmp_buf trapbuf;
+static jmp_buf trapbuf;
 
 enum {
    INTBUS    = 0004,
@@ -41,7 +41,7 @@ enum {
 };
 
 // Encapsulate the persistent CPU state
-pdp11_state cpu;
+static pdp11_state cpu;
 
 pdp11_state *m_pdp11 = &cpu;
 
@@ -94,7 +94,7 @@ static void write16(uint16_t a, const uint16_t v) {
    copro_pdp11_write16(a, v);
 }
 
-void printstate() {
+static void printstate() {
    printf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\r\n",
           (uint16_t)cpu.R[0], (uint16_t)cpu.R[1], (uint16_t)cpu.R[2],
           (uint16_t)cpu.R[3], (uint16_t)cpu.R[4], (uint16_t)cpu.R[5],
@@ -106,7 +106,7 @@ void printstate() {
    printf("\r\n");
 }
 
-void panic() {
+static void panic() {
    cpu.halted = 1;
 #ifndef TEST_MODE
    printstate();
@@ -1415,6 +1415,7 @@ void pdp11_interrupt(uint8_t vec, uint8_t pri) {
    if (i >= ITABN) {
       printf("interrupt table full\r\n");
       panic();
+      return;
    }
    uint8_t j;
    for (j = ITABN - 1; j >= i + 1; j--) {

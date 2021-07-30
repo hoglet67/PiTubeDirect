@@ -36,15 +36,37 @@ int m_trace;
 #include "../cpu_debug.h"
 #endif
 
+static UINT32 decodeShift(UINT32 insn, UINT32 *pCarry);
+static UINT32 DecimalToBCD(UINT32 value);
+static void HandleBranch( UINT32 insn );
+static void HandleMemSingle( UINT32 insn );
+static void HandleALU( UINT32 insn );
+static void HandleMul( UINT32 insn);
+static void HandleMemBlock( UINT32 insn );
+static void HandleCoProVL86C020( UINT32 insn );
+static void HandleCoPro( UINT32 insn );
+
+static UINT32 GetRegister( unsigned int rIndex );
+static void SetRegister( unsigned int rIndex, UINT32 value );
+static UINT32 GetModeRegister( int mode, unsigned int rIndex );
+static void SetModeRegister( int mode, unsigned int rIndex, UINT32 value );
+
+static void arm2_check_irq_state();
+
+static unsigned int loadInc(UINT32 pat, UINT32 rbv, UINT32 s);
+static unsigned int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer);
+static unsigned int storeInc(UINT32 pat, UINT32 rbv);
+static unsigned int storeDec(UINT32 pat, UINT32 rbv);
+
 //int    m_icount;
 #define CYCLE_COUNT(in)
 
 UINT32 m_sArmRegister[27];
-UINT32 m_coproRegister[16];
+static UINT32 m_coproRegister[16];
 
-UINT8 m_pendingIrq;
-UINT8 m_pendingFiq;
-UINT8 m_copro_type;
+static UINT8 m_pendingIrq;
+static UINT8 m_pendingFiq;
+static UINT8 m_copro_type;
 
 enum
 {
@@ -220,7 +242,7 @@ enum
 
 /***************************************************************************/
 
-UINT32 GetRegister(unsigned int rIndex)
+static UINT32 GetRegister(unsigned int rIndex)
 {
   if (MODE == 0)
   {
@@ -230,17 +252,17 @@ UINT32 GetRegister(unsigned int rIndex)
   return m_sArmRegister[sRegisterTable[MODE][rIndex]];
 }
 
-void SetRegister(unsigned int rIndex, UINT32 value)
+static void SetRegister(unsigned int rIndex, UINT32 value)
 {
   m_sArmRegister[sRegisterTable[MODE][rIndex]] = value;
 }
 
-UINT32 GetModeRegister(int mode, unsigned int rIndex)
+static UINT32 GetModeRegister(int mode, unsigned int rIndex)
 {
   return m_sArmRegister[sRegisterTable[mode][rIndex]];
 }
 
-void SetModeRegister(int mode, unsigned int rIndex, UINT32 value)
+static void SetModeRegister(int mode, unsigned int rIndex, UINT32 value)
 {
   m_sArmRegister[sRegisterTable[mode][rIndex]] = value;
 }
@@ -431,7 +453,7 @@ void arm2_execute_run(int tube_cycles)
   //while (number--);
 } /* arm_execute */
 
-void arm2_check_irq_state()
+static void arm2_check_irq_state()
 {
   UINT32 pc = R15+4; /* save old pc (already incremented in pipeline) */;
 
@@ -493,7 +515,7 @@ UINT32 arm2_getR15()
 
 /***************************************************************************/
 
-void HandleBranch(UINT32 insn)
+static void HandleBranch(UINT32 insn)
 {
   UINT32 off = (insn & INSN_BRANCH) << 2;
 
@@ -515,7 +537,7 @@ void HandleBranch(UINT32 insn)
   CYCLE_COUNT(2 * S_CYCLE + N_CYCLE);
 }
 
-void HandleMemSingle(UINT32 insn)
+static void HandleMemSingle(UINT32 insn)
 {
   UINT32 rn, rnv, off, rd;
 
@@ -715,7 +737,7 @@ void HandleMemSingle(UINT32 insn)
            | ((UINT32)((sc) != 0) << C_BIT)) + 4;              \
   else R15 += 4;
 
-void HandleALU(UINT32 insn)
+static void HandleALU(UINT32 insn)
 {
   UINT32 op2, sc = 0, rd, rn, opcode;
   UINT32 rdn;
@@ -880,7 +902,7 @@ void HandleALU(UINT32 insn)
   }
 }
 
-void HandleMul(UINT32 insn)
+static void HandleMul(UINT32 insn)
 {
   UINT32 r;
 
@@ -929,7 +951,7 @@ void HandleMul(UINT32 insn)
   }
 }
 
-unsigned int loadInc(UINT32 pat, UINT32 rbv, UINT32 s)
+static unsigned int loadInc(UINT32 pat, UINT32 rbv, UINT32 s)
 {
   unsigned int i, result;
 
@@ -955,7 +977,7 @@ unsigned int loadInc(UINT32 pat, UINT32 rbv, UINT32 s)
   return result;
 }
 
-unsigned int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
+static unsigned int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
 {
   unsigned int result;
   int i;
@@ -982,7 +1004,7 @@ unsigned int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int*
   return result;
 }
 
-unsigned int storeInc(UINT32 pat, UINT32 rbv)
+static unsigned int storeInc(UINT32 pat, UINT32 rbv)
 {
   unsigned int i, result;
 
@@ -1001,7 +1023,7 @@ unsigned int storeInc(UINT32 pat, UINT32 rbv)
   return result;
 } /* storeInc */
 
-unsigned int storeDec(UINT32 pat, UINT32 rbv)
+static unsigned int storeDec(UINT32 pat, UINT32 rbv)
 {
   unsigned int result;
   int i;
@@ -1021,7 +1043,7 @@ unsigned int storeDec(UINT32 pat, UINT32 rbv)
   return result;
 } /* storeDec */
 
-void HandleMemBlock(UINT32 insn)
+static void HandleMemBlock(UINT32 insn)
 {
   UINT32 rb = (insn & INSN_RN) >> INSN_RN_SHIFT;
   UINT32 rbp = GetRegister(rb);
@@ -1195,7 +1217,7 @@ void HandleMemBlock(UINT32 insn)
    * shifter carry output will manifest itself as @*carry == 0@ for carry clear
    * and @*carry != 0@ for carry set.
    */
-UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
+static UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
 {
   UINT32 k = (insn & INSN_OP2_SHIFT) >> INSN_OP2_SHIFT_SHIFT;
   UINT32 rm = GetRegister(insn & INSN_OP2_RM);
@@ -1291,7 +1313,7 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
   return 0;
 } /* decodeShift */
 
-UINT32 BCDToDecimal(UINT32 value)
+static UINT32 BCDToDecimal(UINT32 value)
 {
   UINT32 accumulator = 0;
   UINT32 multiplier = 1;
@@ -1308,7 +1330,7 @@ UINT32 BCDToDecimal(UINT32 value)
   return accumulator;
 }
 
-UINT32 DecimalToBCD(UINT32 value)
+static UINT32 DecimalToBCD(UINT32 value)
 {
   UINT32 accumulator = 0;
   UINT32 divisor = 10;
@@ -1330,7 +1352,7 @@ UINT32 DecimalToBCD(UINT32 value)
   return accumulator;
 }
 
-void HandleCoProVL86C020(UINT32 insn)
+static void HandleCoProVL86C020(UINT32 insn)
 {
   UINT32 rn = (insn >> 12) & 0xf;
   UINT32 crn = (insn >> 16) & 0xf;
@@ -1370,7 +1392,7 @@ void HandleCoProVL86C020(UINT32 insn)
   }
 }
 
-void HandleCoPro(UINT32 insn)
+static void HandleCoPro(UINT32 insn)
 {
   UINT32 rn = (insn >> 12) & 0xf;
   UINT32 crn = (insn >> 16) & 0xf;

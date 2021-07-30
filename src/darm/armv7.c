@@ -921,13 +921,13 @@ const char *darm_mnemonic_name(darm_instr_t instr)
     return instr < ARRAYSIZE(darm_mnemonics) ?
         darm_mnemonics[instr] : NULL;
 }
-
-const char *darm_enctype_name(darm_enctype_t enctype)
+#if 0
+static const char *darm_enctype_name(darm_enctype_t enctype)
 {
     return enctype < ARRAYSIZE(darm_enctypes) ?
         darm_enctypes[enctype] : NULL;
 }
-
+#endif
 const char *darm_register_name(darm_reg_t reg)
 {
     return reg != R_INVLD && reg < (int32_t) ARRAYSIZE(darm_registers) ?
@@ -950,20 +950,20 @@ const char *darm_condition_name(darm_cond_t cond, int omit_always_execute)
     return cond != C_INVLD && cond < (int32_t) ARRAYSIZE(g_condition_codes) ?
         g_condition_codes[cond].mnemonic_extension : NULL;
 }
-
-const char *darm_condition_meaning_int(darm_cond_t cond)
+#if 0
+static const char *darm_condition_meaning_int(darm_cond_t cond)
 {
     return cond != C_INVLD && cond < (int32_t) ARRAYSIZE(g_condition_codes) ?
         g_condition_codes[cond].meaning_integer : NULL;
 }
 
-const char *darm_condition_meaning_fp(darm_cond_t cond)
+static const char *darm_condition_meaning_fp(darm_cond_t cond)
 {
     return cond != C_INVLD && cond < (int32_t) ARRAYSIZE(g_condition_codes) ?
         g_condition_codes[cond].meaning_fp : NULL;
 }
 
-darm_cond_t darm_condition_index(const char *condition_code)
+static darm_cond_t darm_condition_index(const char *condition_code)
 {
     uint32_t i;
     if(condition_code == NULL) return -1;
@@ -979,3 +979,4 @@ darm_cond_t darm_condition_index(const char *condition_code)
 
     return C_INVLD;
 }
+#endif

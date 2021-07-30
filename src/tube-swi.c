@@ -38,7 +38,7 @@
 
 static unsigned int last_r12 = 0;
 
-const unsigned char osword_in_len[] = {
+static const unsigned char osword_in_len[] = {
   0,   // OSWORD 0x00
   0,   //  1  =TIME
   5,   //  2  TIME=
@@ -62,7 +62,7 @@ const unsigned char osword_in_len[] = {
   128  // 20  NetFSOp
 };
 
-const unsigned char osword_out_len[] = {
+static const unsigned char osword_out_len[] = {
   0,   // OSWORD 0x00
   5,   //  1  =TIME
   0,   //  2  TIME=
@@ -107,6 +107,40 @@ const unsigned char osword_out_len[] = {
 //   SWI 0000013e // OS_WriteI
 //   SWI 0000000e // OS_ReadLine
 
+// SWI handler prototypes
+static void tube_WriteC(unsigned int *reg);            // &00
+static void tube_WriteS(unsigned int *reg);            // &01
+static void tube_Write0(unsigned int *reg);            // &02
+static void tube_NewLine(unsigned int *reg);           // &03
+static void tube_ReadC(unsigned int *reg);             // &04
+static void tube_CLI(unsigned int *reg);               // &05
+static void tube_Byte(unsigned int *reg);              // &06
+static void tube_Word(unsigned int *reg);              // &07
+static void tube_File(unsigned int *reg);              // &08
+static void tube_Args(unsigned int *reg);              // &09
+static void tube_BGet(unsigned int *reg);              // &0A
+static void tube_BPut(unsigned int *reg);              // &0B
+static void tube_GBPB(unsigned int *reg);              // &0C
+static void tube_Find(unsigned int *reg);              // &0D
+static void tube_ReadLine(unsigned int *reg);          // &0E
+static void tube_GetEnv(unsigned int *reg);            // &10
+static void tube_Exit(unsigned int *reg);              // &11
+static void tube_IntOn(unsigned int *reg);             // &13
+static void tube_IntOff(unsigned int *reg);            // &14
+static void tube_EnterOS(unsigned int *reg);           // &16
+static void tube_Mouse(unsigned int *reg);             // &1C
+static void tube_GenerateError(unsigned int *reg);     // &2B
+static void tube_ReadPoint(unsigned int *reg);         // &32
+static void tube_ChangeEnvironment(unsigned int *reg); // &40
+static void tube_Plot(unsigned int *reg);              // &45
+static void tube_WriteN(unsigned int *reg);            // &46
+static void tube_BASICTrans_HELP(unsigned int *reg);   // &42C80
+static void tube_BASICTrans_Error(unsigned int *reg);  // &42C81
+static void tube_BASICTrans_Message(unsigned int *reg);// &42C82
+static void tube_SynchroniseCodeAreas(unsigned int *reg);// (&6E) -- OS_SynchroniseCodeAreas
+
+static void handler_not_defined(unsigned int num);
+static void tube_SWI_Not_Known(unsigned int *reg);
 
 SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
   tube_WriteC,                // (&00) -- OS_WriteC
@@ -256,7 +290,7 @@ void generate_error(void * address, unsigned int errorNum, char *errorMsg) {
   _error_handler_wrapper(r0, last_r12, env->handler[ERROR_HANDLER].handler);
 }
 
-void updateOverflow(unsigned char ovf, unsigned int *reg) {
+static void updateOverflow(unsigned char ovf, unsigned int *reg) {
   // The PSW is on the stack two words before the registers
   reg-= 2;
   if (ovf) {
@@ -276,7 +310,7 @@ void updateCarry(unsigned char cyf, unsigned int *reg) {
   }
 }
 
-void updateMode(unsigned char mode, unsigned int *reg) {
+static void updateMode(unsigned char mode, unsigned int *reg) {
   // The PSW is on the stack two words before the registers
   reg-= 2;
   *reg &= ~0x1fu;
@@ -289,12 +323,12 @@ void handler_not_implemented(char *type) {
 }
 
 // For an undefined environment handler (i.e. where num >= NUM_HANDLERS)
-void handler_not_defined(unsigned int num) {
+static void handler_not_defined(unsigned int num) {
   printf("Handler 0x%x not defined\r\n", num);
 }
 
 // For an unimplemented SWI
-void tube_SWI_Not_Known(unsigned int *reg) {
+static void tube_SWI_Not_Known(unsigned int *reg) {
   unsigned int *lr = (unsigned int *)reg[13];
   printf("%08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3]);
   printf("SWI %08x not implemented ************\r\n", *(lr - 1) & 0xFFFFFF);
@@ -464,11 +498,11 @@ static char *write_string(char *ptr) {
 // OSFILE   R2: &14 block string &0D A            A block
 // OSGBPB   R2: &16 block A                       block Cy A
 
-void tube_WriteC(unsigned int *reg) {
+static void tube_WriteC(unsigned int *reg) {
   sendByte(R1_ID, (unsigned char)((reg[0]) & 0xff));
 }
 
-void tube_WriteS(unsigned int *reg) {
+static void tube_WriteS(unsigned int *reg) {
   // Reg 13 is the stacked link register which points to the string
   reg[13] = (unsigned int) write_string((char *)reg[13]);
   // Make sure new value of link register is word aligned to the next word boundary
@@ -476,17 +510,17 @@ void tube_WriteS(unsigned int *reg) {
   reg[13] &= 0xfffffffcu;
 }
 
-void tube_Write0(unsigned int *reg) {
+static void tube_Write0(unsigned int *reg) {
   // On exit, R0 points to the byte after the terminator
   reg[0] = (unsigned int)write_string((char *)reg[0]);;
 }
 
-void tube_NewLine(unsigned int *reg) {
+static void tube_NewLine(unsigned int *reg) {
   sendByte(R1_ID, 0x0A);
   sendByte(R1_ID, 0x0D);
 }
 
-void tube_ReadC(unsigned int *reg) {
+static void tube_ReadC(unsigned int *reg) {
   // OSRDCH   R2: &00                               Cy A
   sendByte(R2_ID, 0x00);
   // On exit, the Carry flag indicates validity
@@ -498,7 +532,7 @@ void tube_ReadC(unsigned int *reg) {
 
 // Legitimate terminators for OS_CLI are are 0x00, 0x0A or 0x0D
 
-void tube_CLI(unsigned int *reg) {
+static void tube_CLI(unsigned int *reg) {
 
   // Keep a copy of the original command, so it's not perturbed when we fake the environmeny
   char command[256];
@@ -600,7 +634,7 @@ void tube_CLI(unsigned int *reg) {
   }
 }
 
-void tube_Byte(unsigned int *reg) {
+static void tube_Byte(unsigned int *reg) {
   if (DEBUG_ARM) {
     printf("%08x %08x %08x\r\n", reg[0], reg[1], reg[2]);
   }
@@ -649,7 +683,7 @@ void tube_Byte(unsigned int *reg) {
   }
 }
 
-void tube_Word(unsigned int *reg) {
+static void tube_Word(unsigned int *reg) {
   unsigned char in_len;
   unsigned char out_len;
   unsigned char a = reg[0] & 0xff;
@@ -701,14 +735,14 @@ void tube_Word(unsigned int *reg) {
   receiveBlock(R2_ID, out_len, block);
 }
 
-void print_debug_string(char *s) {
+static void print_debug_string(char *s) {
    while (*s >= ' ') {
       putchar(*s++);
    }
    putchar(10);
    putchar(13);
 }
-void tube_File(unsigned int *reg) {
+static void tube_File(unsigned int *reg) {
   if (DEBUG_ARM) {
     printf("%08x %08x %08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]);
     print_debug_string((char *)reg[1]);
@@ -737,7 +771,7 @@ void tube_File(unsigned int *reg) {
   }
 }
 
-void tube_Args(unsigned int *reg) {
+static void tube_Args(unsigned int *reg) {
   // OSARGS   R2: &0C Y block A                     A block
   sendByte(R2_ID, 0x0C);
   // Y = R1 is the file namdle
@@ -752,7 +786,7 @@ void tube_Args(unsigned int *reg) {
   reg[2] = receiveWord(R2_ID);
 }
 
-void tube_BGet(unsigned int *reg) {
+static void tube_BGet(unsigned int *reg) {
   // OSBGET   R2: &0E Y                             Cy A
   sendByte(R2_ID, 0x0E);
   // Y = R1 is the file namdle
@@ -763,7 +797,7 @@ void tube_BGet(unsigned int *reg) {
   reg[0] = receiveByte(R2_ID);
 }
 
-void tube_BPut(unsigned int *reg) {
+static void tube_BPut(unsigned int *reg) {
   // OSBPUT   R2: &10 Y A                           &7F
   sendByte(R2_ID, 0x10);
   // Y = R1 is the file namdle
@@ -774,7 +808,7 @@ void tube_BPut(unsigned int *reg) {
   receiveByte(R2_ID);
 }
 
-void tube_GBPB(unsigned int *reg) {
+static void tube_GBPB(unsigned int *reg) {
   // start at the last param (r4)
   unsigned int *ptr = reg + 4;
   // OSGBPB   R2: &16 block A                       block Cy A
@@ -793,7 +827,7 @@ void tube_GBPB(unsigned int *reg) {
   *ptr-- = receiveByte(R2_ID);          // r0
 }
 
-void tube_Find(unsigned int *reg) {
+static void tube_Find(unsigned int *reg) {
   // OSFIND   R2: &12 &00 Y                         &7F
   // OSFIND   R2: &12 A string &0D                  A
   sendByte(R2_ID, 0x12);
@@ -814,7 +848,7 @@ void tube_Find(unsigned int *reg) {
   }
 }
 
-void tube_ReadLine(unsigned int *reg) {
+static void tube_ReadLine(unsigned int *reg) {
    unsigned char resp;
    // OSWORD0  R2: &0A block                         &FF or &7F string &0D
    sendByte(R2_ID, 0x0A);
@@ -831,7 +865,7 @@ void tube_ReadLine(unsigned int *reg) {
    }
 }
 
-void tube_GetEnv(unsigned int *reg) {
+static void tube_GetEnv(unsigned int *reg) {
   reg[0] = (unsigned int) env->commandBuffer;       // R0 => command string (0 terminated) which ran the program
   reg[1] = (unsigned int) env->handler[MEMORY_LIMIT_HANDLER].handler; // R1 = permitted RAM limit for example &10000 for 64K machine
   reg[2] = (unsigned int) env->timeBuffer;        // R2 => 5 bytes - the time the program started running
@@ -840,7 +874,7 @@ void tube_GetEnv(unsigned int *reg) {
   }
 }
 
-void tube_Exit(unsigned int *reg) {
+static void tube_Exit(unsigned int *reg) {
   unsigned int r12 = env->handler[EXIT_HANDLER].r12;
   EnvironmentHandler_type handler = env->handler[EXIT_HANDLER].handler;
   if (DEBUG_ARM) {
@@ -849,20 +883,20 @@ void tube_Exit(unsigned int *reg) {
   _exit_handler_wrapper(r12, handler);
 }
 
-void tube_IntOn(unsigned int *reg) {
+static void tube_IntOn(unsigned int *reg) {
   _enable_interrupts();
 }
 
-void tube_IntOff(unsigned int *reg) {
+static void tube_IntOff(unsigned int *reg) {
   _disable_interrupts();
 }
 
-void tube_EnterOS(unsigned int *reg) {
+static void tube_EnterOS(unsigned int *reg) {
   // Set the mode on return from the call to be SVR mode
   updateMode(MODE_SVR, reg);
 }
 
-void tube_Mouse(unsigned int *reg) {
+static void tube_Mouse(unsigned int *reg) {
   // JGH: Read Mouse settings
   unsigned int msX, msY, msZ;
 
@@ -883,7 +917,7 @@ void tube_Mouse(unsigned int *reg) {
   reg[2]=msZ;
 }
 
-void tube_GenerateError(unsigned int *reg) {
+static void tube_GenerateError(unsigned int *reg) {
   // The error block is passed to the SWI in reg 0
   ErrorBlock_type *eblk = (ErrorBlock_type *)reg[0];
   // Error address from the stacked link register
@@ -899,7 +933,7 @@ void tube_GenerateError(unsigned int *reg) {
 // R1   preserved
 // R2   colour
 // Map to OSWORD A=&9;
-void tube_ReadPoint(unsigned int *reg) {
+static void tube_ReadPoint(unsigned int *reg) {
   // OSWORD   R2: &08 A in_length block out_length  block
   sendByte(R2_ID, 0x08);
   sendByte(R2_ID, 0x09);        // OSWORD A=&09
@@ -937,7 +971,7 @@ void tube_ReadPoint(unsigned int *reg) {
 // R2   Previous R12
 // R3   Previous buffer pointer
 
-void tube_ChangeEnvironment(unsigned int *reg) {
+static void tube_ChangeEnvironment(unsigned int *reg) {
 
   if (DEBUG_ARM) {
     printf("%08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3]);
@@ -984,7 +1018,7 @@ void tube_ChangeEnvironment(unsigned int *reg) {
 
 }
 
-void tube_Plot(unsigned int *reg) {
+static void tube_Plot(unsigned int *reg) {
     sendByte(R1_ID, 25);
     sendByte(R1_ID, (unsigned char )(reg[0]) );
     sendByte(R1_ID, (unsigned char )(reg[1]) );
@@ -993,7 +1027,7 @@ void tube_Plot(unsigned int *reg) {
     sendByte(R1_ID, (unsigned char )(reg[2] >> 8) );
 }
 
-void tube_WriteN(unsigned int *reg) {
+static void tube_WriteN(unsigned int *reg) {
   unsigned char *ptr = (unsigned char *)reg[0];
   unsigned int len = reg[1];
   while (len-- > 0) {
@@ -1001,27 +1035,27 @@ void tube_WriteN(unsigned int *reg) {
   }
 }
 
-void tube_SynchroniseCodeAreas(unsigned int *reg) {
+static void tube_SynchroniseCodeAreas(unsigned int *reg) {
    _invalidate_icache();
 }
 
 // The purpose of this call is to lookup and output (via OS_WriteC) a help message for a given BASIC keyword.
 
-void tube_BASICTrans_HELP(unsigned int *reg) {
+static void tube_BASICTrans_HELP(unsigned int *reg) {
   // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
 }
 
 // The purpose of this call is to lookup an error message. The buffer pointer to by R1 must be at least 252 bytes long.
 
-void tube_BASICTrans_Error(unsigned int *reg) {
+static void tube_BASICTrans_Error(unsigned int *reg) {
   // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
 }
 
 // The purpose of this call is to lookup and display (via OS_WriteC) a message.
 
-void tube_BASICTrans_Message(unsigned int *reg) {
+static void tube_BASICTrans_Message(unsigned int *reg) {
   // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
 }

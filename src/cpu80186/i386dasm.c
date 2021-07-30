@@ -37,8 +37,8 @@ typedef unsigned int                        offs_t;
 extern uint8_t *RAM;
 
 /* ----- opcode and opcode argument reading ----- */
-INLINE uint8_t  cpu_readop(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
-INLINE uint8_t  cpu_readop_arg(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
+static INLINE uint8_t  cpu_readop(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
+static INLINE uint8_t  cpu_readop_arg(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
 
 enum {
 	PARAM_REG = 1,		/* 16 or 32-bit register */
@@ -1185,21 +1185,21 @@ static char modrm_string[256];
 #define MODRM_REG1	((modrm >> 3) & 0x7)
 #define MODRM_REG2	(modrm & 0x7)
 
-INLINE uint8_t FETCH(void)
+static INLINE uint8_t FETCH(void)
 {
 	pc++;
 	return cpu_readop(pc-1);
 }
-
-INLINE uint16_t FETCH16(void)
+#if 0 
+static INLINE uint16_t FETCH16(void)
 {
 	uint16_t d;
 	d = (uint16_t) ((uint16_t)cpu_readop(pc) | (cpu_readop(pc+1) << 8));
 	pc += 2;
 	return d;
 }
-
-INLINE uint32_t FETCH32(void)
+#endif
+static INLINE uint32_t FETCH32(void)
 {
 	uint32_t d;
 	d = (uint32_t)cpu_readop(pc) | (cpu_readop(pc+1) << 8) | (cpu_readop(pc+2) << 16) | (cpu_readop(pc+3) << 24);
@@ -1207,13 +1207,13 @@ INLINE uint32_t FETCH32(void)
 	return d;
 }
 
-INLINE uint8_t FETCHD(void)
+static INLINE uint8_t FETCHD(void)
 {
 	pc++;
 	return cpu_readop_arg(pc-1);
 }
 
-INLINE uint16_t FETCHD16(void)
+static INLINE uint16_t FETCHD16(void)
 {
 	uint16_t d;
 	d = (uint16_t) (cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8));
@@ -1221,7 +1221,7 @@ INLINE uint16_t FETCHD16(void)
 	return d;
 }
 
-INLINE uint32_t FETCHD32(void)
+static INLINE uint32_t FETCHD32(void)
 {
 	uint32_t d;
 	d = (uint32_t)(cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8) | (cpu_readop_arg(pc+2) << 16) | (cpu_readop_arg(pc+3) << 24));

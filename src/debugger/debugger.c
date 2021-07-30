@@ -559,7 +559,7 @@ void debug_trap(const cpu_debug_t *cpu, uint32_t addr, int reason) {
  * Helpers
  *******************************************/
 
-int parseNparams(const char *p, int required, int total, unsigned int **result) {
+static int parseNparams(const char *p, int required, int total, unsigned int **result) {
    char *endptr;
    int i;
    int n = 0;
@@ -595,37 +595,37 @@ int parseNparams(const char *p, int required, int total, unsigned int **result) 
    return 0;
 }
 
-int parse1params(const char *params, int required, unsigned int *p1) {
+static int parse1params(const char *params, int required, unsigned int *p1) {
    unsigned int *p[] = { p1 };
    return parseNparams(params, required, 1, p);
 }
 
-int parse2params(const char *params, int required, unsigned int *p1, unsigned int *p2) {
+static int parse2params(const char *params, int required, unsigned int *p1, unsigned int *p2) {
    unsigned int *p[] = { p1, p2 };
    return parseNparams(params, required, 2, p);
 }
 
-int parse3params(const char *params, int required, unsigned int *p1, unsigned int *p2, unsigned int *p3) {
+static int parse3params(const char *params, int required, unsigned int *p1, unsigned int *p2, unsigned int *p3) {
    unsigned int *p[] = { p1, p2, p3 };
    return parseNparams(params, required, 3, p);
 }
 
 // Set the breakpoint state variables
-void setBreakpoint(breakpoint_t *ptr, char *type, unsigned int addr, unsigned int mask, int mode) {
+static void setBreakpoint(breakpoint_t *ptr, char *type, unsigned int addr, unsigned int mask, int mode) {
    printf("%s %s set at %s\r\n", type, modeStrings[mode], format_addr(addr));
    ptr->addr = addr & mask;
    ptr->mask = mask;
    ptr->mode = mode;
 }
 
-void copyBreakpoint(breakpoint_t *ptr1, const breakpoint_t *ptr2) {
+static void copyBreakpoint(breakpoint_t *ptr1, const breakpoint_t *ptr2) {
    ptr1->addr = ptr2->addr;
    ptr1->mask = ptr2->mask;
    ptr1->mode = ptr2->mode;
 }
 
 // A generic helper that does most of the work of the watch/breakpoint commands
-void genericBreakpoint(const char *params, char *type, breakpoint_t *list, int mode) {
+static void genericBreakpoint(const char *params, char *type, breakpoint_t *list, int mode) {
    int i = 0;
    unsigned int addr;
    unsigned int mask = 0xFFFFFFFF;
@@ -1047,7 +1047,7 @@ static void doCmdWatchOut(const char *params) {
 }
 
 
-int genericClear(uint32_t addr, char *type, breakpoint_t *list) {
+static int genericClear(uint32_t addr, char *type, breakpoint_t *list) {
 
    unsigned int i = 0;
 

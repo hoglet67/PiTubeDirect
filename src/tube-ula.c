@@ -41,6 +41,8 @@
 // Another option if we go back to 8-bit values tube_regs is to use
 // CPG_Param0..CPG_Param1
 
+static void start_vc_ula();
+
 #define GPU_TUBE_REG_ADDR 0x7e0000a0
 #define ARM_TUBE_REG_ADDR ((GPU_TUBE_REG_ADDR & 0x00FFFFFF) | PERIPHERAL_BASE)
 
@@ -68,11 +70,11 @@ static uint32_t host_addr_bus;
 static char copro_command =0;
 static perf_counters_t pct;
 
-uint8_t ph1[24],ph3_1;
-uint8_t hp1,hp2,hp3[2],hp4;
-uint8_t pstat[4];
-uint8_t ph3pos,hp3pos;
-uint8_t ph1rdpos,ph1wrpos,ph1len;
+static uint8_t ph1[24],ph3_1;
+static uint8_t hp1,hp2,hp3[2],hp4;
+static uint8_t pstat[4];
+static uint8_t ph3pos,hp3pos;
+static uint8_t ph1rdpos,ph1wrpos,ph1len;
 volatile int tube_irq;
 
 // Default value of the VDU property is 0 (off)
@@ -999,7 +1001,7 @@ void disable_tube() {
    }
 }
 
-void start_vc_ula()
+static void start_vc_ula()
 {
    unsigned int func,r0,r1, r2,r3,r4,r5;
    extern unsigned int tube_delay;

@@ -12,10 +12,10 @@
 #include "tube-isr.h"
 
 volatile unsigned char *tube_address;
-volatile unsigned int count;
-volatile unsigned int signature;
+static volatile unsigned int count;
+static volatile unsigned int signature;
 
-ErrorBlock_type isrErrorBlock;
+static ErrorBlock_type isrErrorBlock;
 
 #ifdef TUBE_ISR_STATE_MACHINE
 
