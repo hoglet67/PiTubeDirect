@@ -58,7 +58,7 @@ void copro_memcpy(unsigned char * dst,unsigned char * src,unsigned int length)
 #pragma GCC diagnostic pop
 }
 
-void init_emulator() {
+static void init_emulator() {
    _disable_interrupts();
 
    // Make sure that copro number is valid

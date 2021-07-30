@@ -192,7 +192,6 @@ typedef struct
   volatile unsigned int SPI1_PEEK;
 } aux_t;
 
-extern aux_t* RPI_GetAux(void);
 extern void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits);
 extern void RPI_AuxMiniUartWrite(char c);
 extern void RPI_EnableUart(const char* pMessage);

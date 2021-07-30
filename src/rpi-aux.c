@@ -23,12 +23,6 @@
 
 static aux_t* auxiliary = (aux_t*) AUX_BASE;
 
-aux_t* RPI_GetAux(void)
-{
-  return auxiliary;
-}
-
-
 #include "rpi-interrupts.h"
 
 #ifdef USE_IRQ

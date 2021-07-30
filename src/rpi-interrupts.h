@@ -102,6 +102,4 @@ typedef struct {
 
 extern rpi_irq_controller_t* RPI_GetIrqController( void );
 
-extern void reboot_now(void);
-
 #endif

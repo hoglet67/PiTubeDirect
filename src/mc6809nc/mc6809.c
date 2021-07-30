@@ -538,7 +538,7 @@ void set_cc (unsigned arg)
   cc_changed = 1;
 }
 
-void cc_modified (void)
+static void cc_modified (void)
 {
   /* Check for pending interrupts */
    if (firqs_pending && !(EFI & F_FLAG))
@@ -548,7 +548,7 @@ void cc_modified (void)
    cc_changed = 0;
 }
 
-uint16_t get_reg (unsigned nro)
+static uint16_t get_reg (unsigned nro)
 {
   uint16_t val = 0xff;
 
@@ -605,7 +605,7 @@ uint16_t get_reg (unsigned nro)
   return val;
 }
 
-void set_reg (unsigned nro, uint16_t val)
+static void set_reg (unsigned nro, uint16_t val)
 {
   uint8_t val8 = (uint8_t) val;
   switch (nro)
@@ -2982,7 +2982,7 @@ void mc6809nc_reset (void)
    sync_flag = 0;
    change_pc (read16 (0xfefe));
 }
-
+#if 0
 void print_regs (void)
 {
    char flags[9] = "        \0";
@@ -3005,3 +3005,4 @@ void print_regs (void)
    printf (" A: 0x%02X      B: 0x%02X    [D]: 0x%04X   CC: %s\n",
             get_a(), get_b(), read16(get_d()), flags );
 }
+#endif

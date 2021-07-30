@@ -210,7 +210,7 @@ static void dbg_reg_set(int which, uint32_t value)
     }
 }
 
-size_t dbg65816_print_flags(char *buf, size_t bufsize)
+static size_t dbg65816_print_flags(char *buf, size_t bufsize)
 {
     if (bufsize >= 10) {
         *buf++ = p.n  ? 'N' : ' ';

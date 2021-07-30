@@ -7,7 +7,7 @@
 #include "startup.h"
 
 // From here: https://www.raspberrypi.org/forums/viewtopic.php?f=72&t=53862
-void reboot_now(void)
+static void reboot_now(void)
 {
   const int PM_PASSWORD = 0x5a000000;
   const int PM_RSTC_WRCFG_FULL_RESET = 0x00000020;
@@ -20,7 +20,7 @@ void reboot_now(void)
   while(1);
 }
 
-void dump_digit(unsigned int c) {
+static void dump_digit(unsigned int c) {
    c &= 15;
    if (c < 10) {
       c = '0' + c;
@@ -30,7 +30,7 @@ void dump_digit(unsigned int c) {
    RPI_AuxMiniUartWrite((uint8_t)c);
 }
 
-void dump_hex(unsigned int value) {
+static void dump_hex(unsigned int value) {
   for (int i = 0; i < 8; i++) {
     unsigned int c = value >> 28;
     if (c < 10) {
@@ -43,14 +43,14 @@ void dump_hex(unsigned int value) {
   }
 }
 
-void dump_binary(unsigned int value) {
+static void dump_binary(unsigned int value) {
   for (int i = 0; i < 32; i++) {
     RPI_AuxMiniUartWrite((uint8_t)('0' + (value >> 31)));
     value <<= 1;
   }
 }
 
-void dump_string(char *string) {
+static void dump_string(char *string) {
   char c;
   while ((c = *string++) != 0) {
     RPI_AuxMiniUartWrite((uint8_t)c);
@@ -58,7 +58,7 @@ void dump_string(char *string) {
 }
 
 // For some reason printf generally doesn't work here
-void dump_info(unsigned int *context, int offset, char *type) {
+static void dump_info(unsigned int *context, int offset, char *type) {
   unsigned int *addr;
   unsigned int *reg;
   unsigned int flags;

@@ -43,6 +43,4 @@ extern void tube_reset_performance_counters();
 
 extern void tube_log_performance_counters();
 
-extern void start_vc_ula();
-
 #endif

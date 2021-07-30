@@ -8,12 +8,6 @@ static char cmdline[PROP_SIZE];
 
 static char info_string[PROP_SIZE];
 
-extern void init_info() {
-  get_speed();
-  get_info_string();
-  get_cmdline();
-}
-
 void print_tag_value(char *name, const rpi_mailbox_property_t *buf, int hex) {
    LOG_INFO("%20s : ", name);
    if (buf == NULL) {
@@ -56,7 +50,7 @@ uint32_t get_clock_rate(int clk_id) {
    }
 }
 
-float get_temp() {
+static float get_temp() {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_GET_TEMPERATURE, 0);
@@ -69,7 +63,7 @@ float get_temp() {
    }
 }
 
-float get_voltage(int component_id) {
+static float get_voltage(int component_id) {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_GET_VOLTAGE, component_id);
@@ -103,7 +97,7 @@ char *get_info_string() {
    return info_string;
 }
 
-char *get_cmdline() {
+static char *get_cmdline() {
    static int read = 0;
    if (!read) {
       memset(cmdline, 0, PROP_SIZE);
@@ -261,5 +255,10 @@ void dump_useful_info() {
    if (!cs)
       cs = "0 (default)";
    LOG_INFO("               COPRO : %s\r\n", cs);
+}
 
+extern void init_info() {
+  get_speed();
+  get_info_string();
+  get_cmdline();
 }

@@ -49,7 +49,7 @@ static void thumb2_parse_misc(darm_t *d, uint16_t w, uint16_t w2);
 // 12 -> 32 bit expansion function
 // See manual for this
 // We don't care about the carry for the moment (should we?)
-uint32_t thumb_expand_imm(uint16_t imm12)
+static uint32_t thumb_expand_imm(uint16_t imm12)
 {
     uint32_t value = 0;
 
@@ -83,7 +83,7 @@ uint32_t thumb_expand_imm(uint16_t imm12)
     return value;
 }
 
-void thumb2_decode_immshift(darm_t *d, uint8_t type, uint8_t imm5)
+static void thumb2_decode_immshift(darm_t *d, uint8_t type, uint8_t imm5)
 {
     switch (type) {
     case 0:

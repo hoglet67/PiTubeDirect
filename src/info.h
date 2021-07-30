@@ -24,21 +24,14 @@ extern uint32_t get_clock_rate(int clk_id);
 
 uint32_t get_revision();
 
-extern float get_temp();
-
 #define    COMPONENT_CORE 1
 #define COMPONENT_SDRAM_C 2
 #define COMPONENT_SDRAM_P 3
 #define COMPONENT_SDRAM_I 4
 
-float get_voltage(int component_id);
-
 extern clock_info_t *get_clock_rates(int clk_id);
 
 extern void dump_useful_info();
-
-/* Cached on boot, so this is safe to call at any time */
-extern char *get_cmdline();
 
 /* Cached on boot, so this is safe to call at any time */
 extern char *get_cmdline_prop(char *prop);

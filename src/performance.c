@@ -6,7 +6,7 @@
 
 #if defined(RPI3) || defined(RPI4)
 
-const char * type_names[] = {
+static const char * type_names[] = {
 
    "SW_INCR",
    "L1I_CACHE_REFILL",
@@ -44,7 +44,7 @@ const char * type_names[] = {
 
 #elif defined(RPI2)
 
-const char * type_names[] = {
+static const char * type_names[] = {
    "TODO",
    "TODO",
    "TODO",
@@ -81,7 +81,7 @@ const char * type_names[] = {
 
 #else
 
-const char * type_names[] = {
+static const char * type_names[] = {
    "I_CACHE_MISS",
    "IBUF_STALL",
    "DATA_DEP_STALL",
@@ -124,7 +124,7 @@ const char * type_names[] = {
 
 #endif
 
-const char *type_lookup(int type) {
+static const char *type_lookup(int type) {
    static const char *UNKNOWN = "UNKNOWN";
    int num_types = sizeof(type_names) / sizeof(type_names[0]);
    if (type >= 0 && type < num_types) {

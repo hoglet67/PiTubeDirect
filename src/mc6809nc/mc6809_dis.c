@@ -689,7 +689,7 @@ static char *hex16str(uint32_t v)
    return tmpbuf;
 }
 
-const char *statusString = "EFHINZVC";
+static const char *statusString = "EFHINZVC";
 
 static char *ccstr(tt_u8 val)
 {
