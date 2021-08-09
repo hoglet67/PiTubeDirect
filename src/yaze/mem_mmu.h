@@ -153,12 +153,12 @@ extern BYTE ram[MEMSIZE*1024];	/* RAM which is present */
 /* Some important macros. They are the interface between an access from
    the simz80-/yaze-Modules and the method of the memory access: */
 
-extern int copro_z80_read_mem(unsigned int);
+extern unsigned char copro_z80_read_mem(unsigned int);
 extern void copro_z80_write_mem(unsigned int, unsigned char);
 
-#define GetBYTE(a)	    ((uint8_t)copro_z80_read_mem(a))
-#define GetBYTE_pp(a)	 ((uint8_t)copro_z80_read_mem( (a++) ))
-#define GetBYTE_mm(a)	 ((uint8_t)copro_z80_read_mem( (a--) ))
+#define GetBYTE(a)	     ((uint8_t)copro_z80_read_mem(a))
+#define GetBYTE_pp(a)	 ((uint8_t)copro_z80_read_mem( (a++) ) )
+#define GetBYTE_mm(a)	 ((uint8_t)copro_z80_read_mem( (a--) ) )
 #define mm_GetBYTE(a)	 copro_z80_read_mem( (--(a)) )
 #define PutBYTE(a, v)	 copro_z80_write_mem(a, (uint8_t)(v))
 #define PutBYTE_pp(a,v)	 copro_z80_write_mem( (a++) , (uint8_t)(v))

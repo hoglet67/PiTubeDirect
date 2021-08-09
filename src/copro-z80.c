@@ -280,8 +280,8 @@ static unsigned char copro_z80_rom[0x1000] = {
   0xf6, 0xc3, 0xef, 0xf8, 0xc3, 0x8e, 0xf8, 0xc3, 0xb7, 0xf6, 0xac, 0xfa, 0x70, 0xf6, 0x82, 0xfa
 };
 
-int copro_z80_read_mem(unsigned int addr) {
-   unsigned char data;
+uint8_t copro_z80_read_mem(unsigned int addr) {
+   uint8_t  data;
    if (addr >= 0x8000) {
       overlay_rom = 0;
    }
@@ -316,7 +316,7 @@ void copro_z80_write_mem(unsigned int addr, unsigned char data) {
 }
 
 uint8_t copro_z80_read_io(unsigned int addr) {
-   unsigned char data =  tube_parasite_read(addr & 7);
+   uint8_t data =  tube_parasite_read(addr & 7);
 #ifdef INCLUDE_DEBUGGER
    if (simz80_debug_enabled) {
       debug_ioread(&simz80_cpu_debug, addr, data, 1);
@@ -364,9 +364,10 @@ void copro_z80_emulator()
 
    while (1)
    {
+      int tube_irq_copy;
       // Execute emulator for one instruction
       simz80_execute(1);
-      int tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
+      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT );
       if (tube_irq_copy) {
          // Reset the processor on active edge of rst
          if (tube_irq_copy & RESET_BIT) {

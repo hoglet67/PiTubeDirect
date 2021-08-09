@@ -148,6 +148,7 @@ void opc7_execute() {
             cout = (res >> 32) & 1;
             break;
          case op_bperm: // pick off one of four bytes from source, four times.
+		 	{
             uint32_t result = 0;
             ea_ed = s.reg[src];
             result |= ((operand & 0xf) == 4) ? 0 : 0xff & (ea_ed >> (8 * (operand & 0xf) ));
@@ -159,6 +160,7 @@ void opc7_execute() {
             result |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (8 * (operand & 0xf) ))) << 24;
             s.reg[dst] = result;
             break;
+			}
          case op_ror:
             cout = ea_ed & 1;
             s.reg[dst] = (cin << 31) | (ea_ed >> 1);

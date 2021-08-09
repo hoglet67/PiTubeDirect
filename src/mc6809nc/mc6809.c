@@ -669,7 +669,7 @@ static uint8_t adc (uint8_t arg, uint8_t val)
   unsigned res = (unsigned)arg + val + (C != 0);
 
   C = (res >> 1) & 0x80;
-    res &= 0xff;
+  res &= 0xff;
   N = Z = (uint8_t) res;
   OV = H = arg ^ val ^ res ^ C;
 
@@ -788,7 +788,7 @@ static uint8_t dec (uint8_t arg)
   OV = (uint32_t)(arg & ~res);
   cpu_clk -= 2;
 
-  return (uint8_t) res;
+  return res;
 }
 
 static uint8_t eor (uint8_t arg, uint8_t val)

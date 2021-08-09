@@ -710,7 +710,7 @@ static char *ccstr(tt_u8 val)
 static unsigned int disassemble(unsigned int addr)
 {
    int d = get_memb(addr);
-   uint32_t s, i;
+   uint32_t s;
    tt_u8 pb;
    char reg;
    const unsigned char *map = NULL;
@@ -751,16 +751,16 @@ static unsigned int disassemble(unsigned int addr)
 
    stringAppend("%04X ", addr);
 
-   for (i = 0; i < s; i++) {
+   for (uint32_t i = 0; i < s; i++) {
       stringAppend("%s", hex8str(get_memb(addr + i)));
       stringAppend("%c", ' ');
    }
-   for (i = s; i < 4; i++) {
+   for (uint32_t i = s; i < 4; i++) {
       stringAppend("%s", "   ");
    }
 
    const char *ip = inst + oi * 4;
-   for (i = 0; i < 4; i++)
+   for (uint32_t i = 0; i < 4; i++)
       stringAppend("%c", *(ip++));
 
    stringAppend("%s", "  ");
@@ -859,7 +859,7 @@ static unsigned int disassemble(unsigned int addr)
       {
          int p = 0;
 
-         for (i = 0; i < 8; i++) {
+         for (int i = 0; i < 8; i++) {
             if (pb & 0x80) {
                if (p)
                   stringAppend("%c", ',');
@@ -874,7 +874,7 @@ static unsigned int disassemble(unsigned int addr)
       {
          int p = 0;
 
-         for (i = 7; i != 0; i--) {
+         for (int i = 7; i >= 0; i--) {
             if (pb & 0x01) {
                if (p)
                   stringAppend("%c", ',');
@@ -889,7 +889,7 @@ static unsigned int disassemble(unsigned int addr)
       {
          int p = 0;
 
-         for (i = 0; i < 8; i++) {
+         for (int i = 0; i < 8; i++) {
             if (pb & 0x80) {
                if (p)
                   stringAppend("%c", ',');
@@ -904,7 +904,7 @@ static unsigned int disassemble(unsigned int addr)
       {
          int p = 0;
 
-         for (i = 7; i != 0; i--) {
+         for (int i = 7; i >= 0; i--) {
             if (pb & 0x01) {
                if (p)
                   stringAppend("%c", ',');

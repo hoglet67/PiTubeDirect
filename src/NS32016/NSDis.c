@@ -58,7 +58,7 @@ static void StringInit(char *buf, size_t bufsize) {
 
 
 static void StringAppend(const char *fmt, ...) {
-   unsigned int len;
+   uint32_t len;
    va_list argptr;
    va_start(argptr, fmt);
    len = (uint32_t)vsnprintf(str_buf, str_bufsize, fmt, argptr);
@@ -854,7 +854,7 @@ uint32_t n32016_disassemble(uint32_t address, char *buf, size_t bufsize)
 {
    unsigned int i;
    uint32_t old = address;
-   unsigned int len;
+   uint32_t len;
    StringInit(buf, bufsize);
    Decode(&address);
    len = addr - old;
