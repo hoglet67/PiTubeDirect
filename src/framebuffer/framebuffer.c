@@ -764,10 +764,12 @@ static void vdu23_17(uint8_t *buf) {
       break;
    case 5:
       // TODO: VDU 23,17,5 - Swap text colours
-      uint8_t tmp = c_fg_col;
-      c_fg_col = g_bg_col;
-      c_bg_col = tmp;
-      break;
+      {
+         uint8_t tmp = c_fg_col;
+         c_fg_col = g_bg_col;
+         c_bg_col = tmp;
+         break;
+      }
    case 6:
       // TODO: VDU 23,17,6 - Set ECF origin
       break;
