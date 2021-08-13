@@ -20,6 +20,7 @@ static void reboot_now(void)
   while(1);
 }
 
+#ifdef HAS_MULTICORE
 static void dump_digit(unsigned int c) {
    c &= 15;
    if (c < 10) {
@@ -29,6 +30,7 @@ static void dump_digit(unsigned int c) {
    }
    RPI_AuxMiniUartWrite((uint8_t)c);
 }
+#endif
 
 static void dump_hex(unsigned int value) {
   for (int i = 0; i < 8; i++) {
