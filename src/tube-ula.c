@@ -270,7 +270,7 @@ static void tube_host_read(uint32_t addr)
             else
                ph1rdpos++;
          }
-         if (!ph1len) HSTAT1 &= (uint8_t)~HBIT_7;
+         if (!ph1len) HSTAT1 &= (uint32_t)~HBIT_7;
          PSTAT1 |= 0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the irq status
@@ -278,7 +278,7 @@ static void tube_host_read(uint32_t addr)
    case 3: /*Register 2*/
       if (HSTAT2 & HBIT_7)
       {
-         HSTAT2 &= (uint8_t)~HBIT_7;
+         HSTAT2 &= (uint32_t)~HBIT_7;
          PSTAT2 |=  0x40;
       }
       break;
@@ -288,7 +288,7 @@ static void tube_host_read(uint32_t addr)
          PH3_0 = BYTE_TO_WORD(PH3_1);
          ph3pos--;
          PSTAT3 |= 0xC0;
-         if (!ph3pos) HSTAT3 &= (uint8_t)~HBIT_7;
+         if (!ph3pos) HSTAT3 &= (uint32_t)~HBIT_7;
          if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=NMI_BIT;
          //tube_updateints_NMI();
       }
@@ -296,7 +296,7 @@ static void tube_host_read(uint32_t addr)
    case 7: /*Register 4*/
       if (HSTAT4 & HBIT_7)
       {
-         HSTAT4 &= (uint8_t)~HBIT_7;
+         HSTAT4 &= (uint32_t)~HBIT_7;
          PSTAT4 |=  0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the irq status
@@ -366,7 +366,7 @@ static void tube_host_write(uint32_t addr, uint8_t val)
       //      return;
       hp1 = val;
       PSTAT1 |=  0x80;
-      HSTAT1 &= (uint8_t)~HBIT_6;
+      HSTAT1 &= (uint32_t)~HBIT_6;
       if (HSTAT1 & HBIT_1) tube_irq  |= IRQ_BIT; //tube_updateints_IRQ();
       break;
    case 2:
@@ -393,7 +393,7 @@ static void tube_host_write(uint32_t addr, uint8_t val)
       //  return;
       hp2 = val;
       PSTAT2 |=  0x80;
-      HSTAT2 &= (uint8_t)~HBIT_6;
+      HSTAT2 &= (uint32_t)~HBIT_6;
       break;
    case 4:
       copro_command_excute(copro_command,val);
@@ -413,7 +413,7 @@ static void tube_host_write(uint32_t addr, uint8_t val)
          if (hp3pos == 2)
          {
             PSTAT3 |=  0x80;
-            HSTAT3 &= (uint8_t)~HBIT_6;
+            HSTAT3 &= (uint32_t)~HBIT_6;
          }
          if ((HSTAT1 & HBIT_3) && (hp3pos > 1)) tube_irq |= NMI_BIT;
       }
@@ -422,7 +422,7 @@ static void tube_host_write(uint32_t addr, uint8_t val)
          hp3[0] = val;
          hp3pos = 1;
          PSTAT3 |=  0x80;
-         HSTAT3 &= (uint8_t)~HBIT_6;
+         HSTAT3 &= (uint32_t)~HBIT_6;
          if (HSTAT1 & HBIT_3) tube_irq |= NMI_BIT;
       }
       //tube_updateints_NMI();
@@ -436,7 +436,7 @@ static void tube_host_write(uint32_t addr, uint8_t val)
      //       return;
       hp4 = val;
       PSTAT4 |=  0x80;
-      HSTAT4 &= (uint8_t)~HBIT_6;
+      HSTAT4 &= (uint32_t)~HBIT_6;
 #ifdef DEBUG_TRANSFERS
       if (val == 4) {
          LOG_INFO("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
