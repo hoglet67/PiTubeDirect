@@ -967,7 +967,7 @@ void default_init_screen(screen_mode_t *screen) {
     if( ( mp = RPI_PropertyGet( TAG_GET_DEPTH ) ) )
     {
         uint32_t bpp = mp->data.buffer_32[0];
-        printf( "%"PRId32"bpp\r\n", bpp );
+        printf( " %"PRId32"bpp\r\n", bpp );
     }
 
     if( ( mp = RPI_PropertyGet( TAG_GET_PITCH ) ) )
