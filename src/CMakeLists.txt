@@ -41,21 +41,20 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" )
 # are in the toolchain files toolchain-arm-none-eabi-bcm2835.cmake, etc.
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-r7" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2" )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -Wshadow -Wdouble-promotion -Wformat-truncation -Wundef -Wconversion -Wduplicated-cond -Wlogical-not-parentheses -Wnull-dereference" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fomit-frame-pointer " )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -fanalyzer" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fanalyzer" )
 
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -fdelete-null-pointer-checks -fdata-sections -ffunction-sections -Wa,-adhlns=$@.lst")
-#-fno-delete-null-pointer-checks
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-delete-null-pointer-checks -fdata-sections -ffunction-sections ")
+
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --specs=nano.specs --specs=nosys.specs -u _printf_float" )
 
 # Set the linker flags so that we use our "custom" linker script
 
-set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections  -Wl,-Map=output.map -Wl,--cref  -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
-#set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections  -Wl,-Map=output.map -Wl,--cref -Wl,--print-gc-sections -Wl,-unresolved-symbols=ignore-in-object-files -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
+#set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -Wl,--print-gc-sections -Wl,-unresolved-symbols=ignore-in-object-files -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
 
-#set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
+set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
 
 
 file( GLOB core_files
