@@ -1141,7 +1141,7 @@ bitabsio:
    ldr temp0,=ioload
    add temp1,r6,#4
    BL MAKEBRANCHLINK
-  
+
    ldr temp0,=bit2
    add temp1,r6,#20
    BL MAKEBRANCHLINK
@@ -3020,8 +3020,7 @@ ioload:
    CPSID   if
    bl      tube_parasite_read
    msr     CPSR, regSP               // Restore 6502 flags and interrupts
-   pop     {regSP,r12,lr}
-   bx lr
+   pop     {regSP,r12,pc}
 
 iostore:
    push    {regSP, r12,lr}
@@ -3029,8 +3028,7 @@ iostore:
    CPSID   if
    bl      tube_parasite_write_banksel
    msr     CPSR, regSP               // Restore 6502 flags and interrupts
-   pop     {regSP,r12,lr}
-   bx lr
+   pop     {regSP,r12,pc}
 
 // Jits overflow
 
@@ -3088,7 +3086,7 @@ check_irq_plp:
    tsteq   temp0, #1                    // Test for IRQ
    beq     handle_irqplp
    msr     CPSR_flg, temp              // Restore the 6502 flags
-   mov   pc,r14
+   bx lr
 
 handle_irqplp:
    sub temp1,r14,#JITLET
