@@ -3197,7 +3197,7 @@ ply:
    ldrb   regY, [regSP]
    mov     regY, regY, LSL #24
    teq  regY, #0
-   mov pc,r14
+   bx lr
 
 pla:
    uadd8   regSP,regSP,temp
