@@ -2293,7 +2293,6 @@ Bopc_FB:
    nop
    nop
 #endif
-   TRIPLEBYTEABSBLOUT Bopc_FD SBC2 20
 Bopc_FD:
    JITADCSBCABSX
 Bopc_FE:
