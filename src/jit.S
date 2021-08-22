@@ -69,9 +69,10 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define BMIINSTRUCTION 0x4A000000
 #define BPLINSTRUCTION 0x5A000000
 #define BINSTRUCTION   0xEA000000
-
 #define BLINSTRUCTION 0xEB000000
-#define MOVPCR14INSTRUCTION 0xe1a0f00e
+// bx lr      0xe12fff1e
+// mov pc,r14 0xe1a0f00e  // This is very slow on Pi3B+
+#define MOVPCR14INSTRUCTION 0xe12fff1e
 #define ARMNOP 0xe320f000
 
 #define ARMBLCC 0x3B000000
@@ -2651,7 +2652,7 @@ dejit16bit1: //temp1 pointer to address to dejit
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
-   mov pc,r14
+   bx lr
 
 // two byte instruction
 dejit16bit21: // temp1 , temp1+4
@@ -2671,7 +2672,7 @@ dejit16bit21: // temp1 , temp1+4
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
-   mov pc,r14
+   bx lr
 
 dejit16bit22: // temp1 , temp1-4
    ldr temp2,=(dojit-JITLET-8)
@@ -2690,7 +2691,7 @@ dejit16bit22: // temp1 , temp1-4
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
-   mov pc,r14
+   bx lr
 
 // three byte instruction
 dejit16bit31: // temp1 , temp1+4, temp1 + 8
@@ -2713,7 +2714,7 @@ dejit16bit31: // temp1 , temp1+4, temp1 + 8
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
-   mov pc,r14
+   bx lr
 
 dejit16bit32: // temp1 , temp1-4, temp1 + 4
 
@@ -2736,7 +2737,7 @@ dejit16bit32: // temp1 , temp1-4, temp1 + 4
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
-   mov pc,r14
+   bx lr
 
 dejit16bit33: // temp1 , temp1-4, temp1 - 8
    ldr temp2,=dojit-JITLET-8
@@ -2758,7 +2759,7 @@ dejit16bit33: // temp1 , temp1-4, temp1 - 8
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
-   mov pc,r14
+   bx lr
 
 // *************
 
@@ -2987,7 +2988,7 @@ MAKEBRANCH:
    BIC temp0,temp0,#0xFF000000
    ORR temp0,temp0,#BINSTRUCTION
    str temp0,[temp1],#4
-   mov pc,r14
+   bx lr
 
 MAKEBRANCHLINK:
    sub temp0,temp0,temp1
@@ -2996,7 +2997,7 @@ MAKEBRANCHLINK:
    BIC temp0,temp0,#0xFF000000
    ORR temp0,temp0,#BLINSTRUCTION
    str temp0,[temp1],#4
-   mov pc,r14
+   bx lr
 
 // Always gets the first byte operand byte as that is the LSB
 //
@@ -3012,7 +3013,7 @@ fixuptype2access:
    orr temp0,temp0,temp5
 
    str temp0,[temp4]
-   mov pc,r14
+   bx lr
 
 ioload:
    push    {regSP, r12,lr}
@@ -3021,7 +3022,7 @@ ioload:
    bl      tube_parasite_read
    msr     CPSR, regSP               // Restore 6502 flags and interrupts
    pop     {regSP,r12,lr}
-   mov      pc,lr
+   bx lr
 
 iostore:
    push    {regSP, r12,lr}
@@ -3030,7 +3031,7 @@ iostore:
    bl      tube_parasite_write_banksel
    msr     CPSR, regSP               // Restore 6502 flags and interrupts
    pop     {regSP,r12,lr}
-   mov      pc,lr
+   bx lr
 
 // Jits overflow
 
@@ -3109,41 +3110,41 @@ putcharopcode:
 debugopcode:
 //   ldr temp1,=debugflag
 //   str temp,[temp1]
-   mov pc,r14
+   bx lr
 
 invertcarry:
    mrs   temp0, CPSR
    eor   temp0, temp0, #C_FLAG
    msr   CPSR_flg, temp0
-   mov pc,r14
+   bx lr
 
 testvflagC:
    mrs     temp1, CPSR
    tst     flags, #V_FLAG6502
    addne pc,r14,#8 // return to jit
-   mov pc,r14
+   bx lr
 
 testvflagS:
    mrs     temp1, CPSR
    tst     flags, #V_FLAG6502
    addeq pc,r14,#8 // return to jit
-   mov pc,r14
+   bx lr
 
 bbrreturn:
    addne pc,r14,#4 // return to jit
    msr     CPSR_flg, temp1
-   mov pc,r14
+   bx lr
 
 bbsreturn:
    addeq pc,r14,#4 // return to jit
    msr     CPSR_flg, temp1
-   mov pc,r14
+   bx lr
 
 bitimm:
    bicne   temp1, temp1, #Z_FLAG
    orreq   temp1, temp1, #Z_FLAG
    msr     CPSR_flg, temp1
-   mov pc,r14
+   bx lr
 
 jitstxytable:
    mov temp,temp1,LSR #24-2
@@ -3172,24 +3173,24 @@ storeXflags:
 tempflags:
    sxtb temp, temp
    teq  temp, #0
-   mov pc,r14
+   bx lr
 
 incstore:
    add  temp, temp, #1
    strb temp,[temp1]
-   mov pc,r14
+   bx lr
 
 decstore:
    sub  temp, temp, #1
    strb temp,[temp1]
-   mov pc,r14
+   bx lr
 
 plx:
    uadd8   regSP,regSP,temp
    ldrb   regX, [regSP]
    mov     regX, regX, LSL #24
    teq  regX, #0
-   mov pc,r14
+   bx lr
 
 ply:
    uadd8   regSP,regSP,temp
@@ -3202,7 +3203,7 @@ pla:
    uadd8   regSP,regSP,temp
    ldrsb   regA, [regSP]
    teq  regA, #0
-   mov pc,r14
+   bx lr
 
 rts:
 
@@ -3217,22 +3218,22 @@ rts:
 rora:
    subcs   regA, regA, #0x100   // if Carry set all other bits ie sign extend
    rrxs    regA, regA
-   mov pc,r14
+   bx lr
 
 ror:
    ROR6
-   mov pc,r14
+   bx lr
 
 rol:
    adc  temp, temp, temp
    strb temp,[temp1]
    lsls    temp, temp, #24
-   mov pc,r14
+   bx lr
 
 rola:
    lsls    temp1, regA, #24
    sxtb    regA, regA
-   mov pc,r14
+   bx lr
 
 bitioload: //2c
    push {r14}
@@ -3260,27 +3261,27 @@ bit2: // 24 3c
    orr     flags, flags, temp
    orr     temp0, temp0, temp1, LSL #24
    msr     CPSR_flg, temp0
-   mov pc,r14
+   bx lr
 
 cmpa:
    ldrb temp,[temp1]
    mov temp1,regA,LSL #24
    cmp temp1,temp,LSL#24
-   mov pc,r14
+   bx lr
 
 loada:
    ldrsb regA,[temp]
    teq regA,#0
-   mov pc,r14
+   bx lr
 
 aflags:
    sxtb    regA, regA
    teq     regA, #0
-   mov pc,r14
+   bx lr
 
 asl:
    ASL
-   mov pc,r14
+   bx lr
 
 php:
    orrmi temp, temp, #N_FLAG6502
@@ -3288,7 +3289,7 @@ php:
    orreq temp, temp, #Z_FLAG6502
 pushtemp:
    SPUSH temp
-   mov pc,r14
+   bx lr
 
 //   mrs temp0, CPSR
 trb:
@@ -3299,7 +3300,7 @@ trb2:
    strb temp,[temp1]
    orreq   temp0, temp0, #Z_FLAG
    msr     CPSR_flg, temp0
-   mov pc,r14
+   bx lr
 
 //   mrs temp0, CPSR
 tsb:
@@ -3310,13 +3311,13 @@ tsb2:
    strb temp,[temp1]
    orreq   temp0, temp0, #Z_FLAG
    msr     CPSR_flg, temp0
-   mov pc,r14
+   bx lr
 
 //   mov temp1,temp1,LSR #24
 ldrhldrsb:
    ldrh temp,[temp1]
    ldrsb temp,[temp]
-   mov pc,r14
+   bx lr
 
 //
 // Decimal mode functions
@@ -3336,7 +3337,7 @@ ADC3:
         adcs    regA, regA, temp, ror #8
         orrvs   flags, #V_FLAG6502
         SXTB    regA, regA, ROR #24
-        mov pc,r14
+        bx lr
 6:
 decimal_mode_adc:
         // if carry is set the upper 24 bits of temp are set too
@@ -3359,7 +3360,7 @@ decimal_mode_adc:
         orr     regA, regA, temp1, lsl #24
         sxtb    regA, regA, ror #24
         teq     regA, #0
-        mov pc,r14
+        bx lr
 
 SBCload:
         ldrb    temp,[temp1]
@@ -3376,7 +3377,7 @@ SBC3:
         sbcs    regA, regA, temp, ror #8
         orrvs   flags, #V_FLAG6502
         SXTB    regA, regA, ROR #24
-        mov pc,r14
+        bx lr
 6:
 
 decimal_mode_sbc:
@@ -3390,7 +3391,7 @@ decimal_mode_sbc:
         submi   regA, regA, #0x6<<24
         sxtb    regA, regA, ror #24
         teq     regA, #0
-        mov pc,r14
+        bx lr
 
 .ltorg
 
