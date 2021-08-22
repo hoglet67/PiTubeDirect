@@ -577,11 +577,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ASSIGNCARRY carry
-.ifc \carry,clear
-   ldr temp0,=clearcarry
-.else
-   ldr temp0,=setcarry
-.endif
+   ldr temp0,=invertcarry
    sub temp0,temp0,r6
    sub temp0,temp0,#8-0
    mov temp0,temp0,LSR #2
@@ -3115,15 +3111,9 @@ debugopcode:
 //   str temp,[temp1]
    mov pc,r14
 
-setcarry:
-   mrs     temp0, CPSR
-   orr   temp0, temp0, #C_FLAG
-   msr   CPSR_flg, temp0
-   mov pc,r14
-
-clearcarry:
-   mrs     temp0, CPSR
-   bic   temp0, temp0, #C_FLAG
+invertcarry:
+   mrs   temp0, CPSR
+   eor   temp0, temp0, #C_FLAG
    msr   CPSR_flg, temp0
    mov pc,r14
 
