@@ -47,7 +47,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define temp2     r2
 #define temp3     r3
 #define temp4     r4
-#define temp5     r5
+#define jitteedtable16     r5
 #define ram6502   r6
 
 #define flags     r7
@@ -651,8 +651,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro JITABSXYST reg index
    JITABS
    strb \reg,[temp1,\index,LSR#24]!
-   mov temp,#JITTEDTABLE16
-   add temp,temp,temp1,LSL#2
+   nop
+   add temp,jitteedtable16,temp1,LSL#2
    blx temp
 .endm
 
@@ -1375,13 +1375,15 @@ Bopc_72:
    JITADCSBCIND
 Bopc_74:
    add temp1,regX,#0xFF<<24
-   mov temp1,temp1, LSR #24
-   strb ram6502,[temp1]
+   strb ram6502,[ram6502,temp1,LSR #24]
+   add temp,jitteedtable16, temp1,LSR #24-2
+   BLX temp 
+   
 Bopc_75:
    JITADCSBCZPX
 Bopc_76:
    add temp1,regX,#0xFF<<24
-   mov temp1,temp1,LSR #24 // can save a cycle here
+   mov temp1,temp1,LSR #24
    ldrb temp,[temp1]
 Bopc_77:
    JITRMB 7
@@ -1462,7 +1464,7 @@ opc_72: // Opcode 72 - ADC ($00)
    DOUBLEBYTEBYTET2BLOUT Bopc_72 ADC1 12
 
 opc_74: // Opcode 74 - STZ $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_74 jitstatable1 12
+   DOUBLEBYTESETFIRSTBYTE Bopc_74
 
 opc_75: // Opcode 75 - ADC $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_75 ADC1 12
@@ -1610,20 +1612,26 @@ Bopc_8F:
    JITBBS 0
 Bopc_91:
    ldrh temp1,[ram6502,#00]
-   mov temp,#JITTEDTABLE16
    strb regA,[temp1,regY,LSR #24]!
+   add temp,jitteedtable16, temp1,LSL #2
+   BLX temp
+   
 Bopc_92:
    ldrh temp1,[ram6502,#00]
-   mov temp,#JITTEDTABLE16
    strb regA,[temp1]
+   add temp,jitteedtable16, temp1,LSL #2
+   BLX temp
+   
 Bopc_94:
    add temp1,regX,#0xFF<<24
    mov temp,regY,LSR #24
    strb temp,[ram6502,temp1,LSR #24]
 Bopc_95:
    add temp1,regX,#0xFF<<24
-   mov temp,#JITTEDTABLE16
    strb regA,[ram6502,temp1,LSR #24]
+   add temp,jitteedtable16, temp1,LSR #24-2
+   BLX temp
+   
 Bopc_96:
    add temp1,regY,#0xFF<<24
    mov temp,regX,LSR #24
@@ -1651,16 +1659,16 @@ opc_90: // Opcode 90 - BCC
    BRANCH BCCINSTRUCTION
 
 opc_91: // Opcode 91 - STA ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_91 jitstatable1a 12
+   DOUBLEBYTET2 Bopc_91
 
 opc_92: // Opcode 92 - STA ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_92 jitstatable3 12
+   DOUBLEBYTET2 Bopc_92
 
 opc_94: // Opcode 94 - STY $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_94 jitstxytable 12
 
 opc_95: // Opcode 95 - STA $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_95 jitstatable2 12
+   DOUBLEBYTESETFIRSTBYTE Bopc_95
 
 opc_96: // Opcode 96 - STX $00,Y
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_96 jitstxytable 12
@@ -2483,6 +2491,7 @@ cacheflushloopjittable:
 
    mov temp0,temp0,LSL#JITLETSHIFT
    add temp0,temp0,#JITLET
+   mov jitteedtable16,#JITTEDTABLE16
    bx temp0
 
 
@@ -3003,14 +3012,14 @@ MAKEBRANCHLINK:
 fixuptype2access:
    // need to look at the instruction to get the operand.
    mov temp,temp2,LSR #JITLETSHIFT
+   
    ldrb temp,[temp,#1]
    ldr temp0,[temp4]
-   and temp5,temp,#0xF0
+   and jitteedtable16,temp,#0xF0
    and temp,temp,#0x0F
-   mov temp5,temp5,LSL #4
+   orr temp0,temp0,jitteedtable16,LSL #4
    orr temp0,temp0,temp
-   orr temp0,temp0,temp5
-
+   mov jitteedtable16,#JITTEDTABLE16  // recover jitteedtable16
    str temp0,[temp4]
    bx lr
 
@@ -3144,25 +3153,12 @@ bitimm:
    bx lr
 
 jitstxytable:
-   mov temp,temp1,LSR #24-2
-   add temp,temp,#JITTEDTABLE16
-   BX temp
-
-jitstatable2:
-   add temp,temp, temp1,LSR #24-2
+   add temp,jitteedtable16,temp1,LSR #24-2
    BX temp
 
 jitstatable:
-   mov temp,#JITTEDTABLE16
    strb regA,[temp1]
-jitstatable3:
-   add temp,temp, temp1,LSL #2
-   BX temp
-
-jitstatable1:
-   mov temp,#JITTEDTABLE16
-jitstatable1a:
-   add temp,temp, temp1,LSL #2
+   add temp,jitteedtable16, temp1,LSL #2
    BX temp
 
 storeXflags:
