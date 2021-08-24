@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Hognose-dev"
+#define RELEASENAME "Hognose-alpha1"
 
 #define NDEBUG
 
