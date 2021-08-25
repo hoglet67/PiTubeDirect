@@ -106,11 +106,6 @@ void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits)
 
   uint32_t sys_freq = sys_clock_info->rate;
 
-  // Sanity-check against the min clock rate
-  if (sys_freq < sys_clock_info->min_rate) {
-     sys_freq = sys_clock_info->min_rate;
-  }
-
   // Sanity-check against zero
   if (!sys_freq) {
      sys_freq = FALLBACK_SYS_FREQ;
