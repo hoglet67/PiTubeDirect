@@ -71,6 +71,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             break;
 
         case TAG_GET_CLOCK_RATE:
+        case TAG_GET_CLOCK_RATE_MEASURED:
         case TAG_GET_MAX_CLOCK_RATE:
         case TAG_GET_MIN_CLOCK_RATE:
         case TAG_GET_TURBO:
