@@ -52,6 +52,8 @@
 #include "tube-isr.h"
 #include "tube-ula.h"
 
+#include "framebuffer/framebuffer.h"
+
 static unsigned int last_copro;
 
 static jmp_buf reboot;
@@ -307,6 +309,10 @@ void copro_armnative_emulator() {
     // Allow another copro to be selected
     return;
   }
+
+  // Reset the VDU device back to the default
+  // (this is harmless if the VDU is disabled)
+  fb_set_vdu_device(VDU_BEEB);
 
   // Always copy ARM Basic into memory (in case it's been corrupted)
   copy_armbasic();
