@@ -3,6 +3,7 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include "cache.h"
 #include "rpi-mailbox.h"
 #include "rpi-mailbox-interface.h"
 #include "tube-defs.h"
@@ -262,6 +263,12 @@ static int RPI_PropertyProcessInternal(int debug)
     RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
 
     result = RPI_Mailbox0Read( MB0_TAGS_ARM_TO_VC );
+
+    // On the Pi 4 we occasionally observed stale property memory, even though  RPI_Mailbox0Write clean/invalidated this memory
+    // This caused two issues:
+    // - the info debug command would sometimes include null data
+    // - a framebuffer mode change would sometimes get a incorrect framebuffer address
+    _invalidate_cache_area(pt, pt[0]);
 
     if (debug) {
        for (unsigned int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
