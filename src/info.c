@@ -40,9 +40,9 @@ uint32_t get_revision() {
 uint32_t get_clock_rate(int clk_id) {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
-   RPI_PropertyAddTag(TAG_GET_CLOCK_RATE, clk_id);
+   RPI_PropertyAddTag(TAG_GET_CLOCK_RATE_MEASURED, clk_id);
    RPI_PropertyProcess();
-   buf = RPI_PropertyGet(TAG_GET_CLOCK_RATE);
+   buf = RPI_PropertyGet(TAG_GET_CLOCK_RATE_MEASURED);
    if (buf) {
       return buf->data.buffer_32[1];
    } else {
@@ -152,7 +152,7 @@ clock_info_t * get_clock_rates(int clk_id) {
    static clock_info_t result;
    uint32_t *rp = (uint32_t *) &result;
    rpi_mailbox_tag_t tags[] = {
-      TAG_GET_CLOCK_RATE,
+      TAG_GET_CLOCK_RATE_MEASURED,
       TAG_GET_MIN_CLOCK_RATE,
       TAG_GET_MAX_CLOCK_RATE
    };

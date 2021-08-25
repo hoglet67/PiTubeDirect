@@ -120,8 +120,32 @@ void _clean_cache_area(void * start, unsigned int length)
    } while ( startptr  < endptr);
 #else
    asm volatile("mcrr p15,0,%0,%1,c14"::"r" (start+length), "r" (start));
-   _data_memory_barrier();
 #endif
+   _data_memory_barrier();
+}
+
+void _invalidate_cache_area(void * start, unsigned int length)
+{
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+   uint32_t cachelinesize;
+   char * startptr = start;
+   char * endptr;
+   asm volatile ("mrc p15, 0, %0, c0, c0,  1" : "=r" (cachelinesize));
+   cachelinesize = (cachelinesize>> 16 ) & 0xF;
+   cachelinesize = 4<<cachelinesize;
+   endptr = startptr + length;
+
+   // round down start address
+   startptr = (char *)(((uint32_t)start) & ~(cachelinesize - 1));
+
+   do{
+      asm volatile ("mcr     p15, 0, %0, c7, c6, 1" : : "r" (startptr));
+      startptr = startptr + cachelinesize;
+   } while ( startptr  < endptr);
+#else
+   asm volatile("mcrr p15,0,%0,%1,c6"::"r" (start+length), "r" (start));
+#endif
+   _data_memory_barrier();
 }
 
 // TLB 4KB Section Descriptor format

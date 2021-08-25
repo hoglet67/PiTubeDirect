@@ -32,10 +32,12 @@ kernel=kernelrpi.img
 
 [pi1]
 core_freq=350
+core_freq_min=350
 
 # Settings for Pi 2
 [pi2]
 core_freq=400
+core_freq_min=400
 kernel=kernelrpi2.img
 # Debug kernel (needs a 115200 serial connection)
 #kernel=debug/kernelrpi2.img
