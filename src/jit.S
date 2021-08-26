@@ -7,7 +7,7 @@
 // 0x00010000 - 0x010FFF 4K ram doubly mapped by the mmu
 // 0x00010000 - 0x0FFFFF 1MByte for extra RAM we won't support code in this area
 
-// 0x0C000000 - 0x0C0001FF // 6502 stack during ARM FIQ 
+// 0x0C000000 - 0x0C0001FF // 6502 stack during ARM FIQ
 
 #define FIQSTACK 0x0C000000
 
@@ -1134,7 +1134,7 @@ opc_2C: // Opcode 2C - BIT $0000
 
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // tregs holds the constant 0xFEE0 >> 5
+   cmp temp, temp0, lsr #5  //  constant 0xFEE0 >> 5
    BEQ bitabsio
    TRIPLEBYTEABSBLOUT Bopc_2C bit3 20
 
@@ -1533,7 +1533,7 @@ opc_8C: // Opcode 8C - STY $0000
    ldrh temp0,[temp,#1]
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // tregs holds the constant 0xFEE0 >> 5
+   cmp temp, temp0, lsr #5  // constant 0xFEE0 >> 5
    BEQ 9f
    ABSSTORE Bopc_8C
 9:
@@ -1544,7 +1544,7 @@ opc_8D: // Opcode 8D - STA $0000
    ldrh temp0,[temp,#1]
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // tregs holds the constant 0xFEE0 >> 5
+   cmp temp, temp0, lsr #5  // constant 0xFEE0 >> 5
    BEQ 9f
 
    ABSSTORE Bopc_8D
@@ -1558,7 +1558,7 @@ opc_8E: // Opcode 8E - STX $0000
 
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // tregs holds the constant 0xFEE0 >> 5
+   cmp temp, temp0, lsr #5  // constant 0xFEE0 >> 5
    BEQ 9f
 
    ABSSTORE Bopc_8E
@@ -1828,7 +1828,7 @@ opc_AC: // Opcode AC - LDY $0000
 
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // tregs holds the constant 0xFEE0 >> 5
+   cmp temp, temp0, lsr #5  // constant 0xFEE0 >> 5
    BEQ 9f
 
    TRIPLEBYTEABS Bopc_AC
@@ -1842,7 +1842,7 @@ opc_AD: // Opcode AD - LDA $0000
 
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // tregs holds the constant 0xFEE0 >> 5
+   cmp temp, temp0, lsr #5  // constant 0xFEE0 >> 5
    BEQ loadio
    // ramload
    TRIPLEBYTEABST2 Bopc_AD
@@ -1857,7 +1857,7 @@ opc_AE: // Opcode AE - LDX $0000
 
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // tregs holds the constant 0xFEE0 >> 5
+   cmp temp, temp0, lsr #5  // constant 0xFEE0 >> 5
    BEQ 9f
 
    TRIPLEBYTEABS Bopc_AE
@@ -1945,7 +1945,7 @@ Bopc_B9:
    mov  temp, regY, lsr #24
    ldrsb regA,[temp1, temp]
    nop
-   teq  regA, #0   // Can save a cycle if the branch back occurs before the teq
+   teq  regA, #0
 Bopc_BA:
    lsl     regX, regSP, #24
    teq     regX, #0
@@ -1954,19 +1954,19 @@ Bopc_BC:
    ldrb regY,[temp1, regX, lsr #24]
    nop
    mov  regY,regY, lsl #24
-   teq  regY, #0   // Can save a cycle if the branch back occurs before the teq
+   teq  regY, #0
 Bopc_BD:
    JITABS
    mov  temp, regX, lsr #24
    ldrsb regA,[temp1, temp]
    nop
-   teq  regA, #0   // Can save a cycle if the branch back occurs before the teq
+   teq  regA, #0
 Bopc_BE:
    JITABS
    ldrb regX,[temp1, regY, lsr #24]
    nop
    mov  regX,regX, lsl #24
-   teq  regX, #0   // Can save a cycle if the branch back occurs before the teq
+   teq  regX, #0
 Bopc_BF:
    JITBBS 3
 Bopc_C0:
@@ -2592,7 +2592,7 @@ arm_fiq_handler_jit:
 
 //
 // We need to restore these registers incase the FIQ has interupted an IRQ which
-// has over written them. other register 
+// has over written them. other register
 // e.g. flag register needs to be thought about
    ldr regSP, fiq_stack
    mov jittedtable16ptr,#JITTEDTABLE16
