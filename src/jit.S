@@ -2371,6 +2371,7 @@ exec_65tubejit:
    push  {r4-r11,lr}
    str   r13,stackptr
    mov   ram6502,r0  // this is assumed to be zero
+   str   ram6502,ram6502store
    mov   regSP, #0x1F0
 
    ldr   temp,=(FIQSTACK+0x1FF)
@@ -2539,6 +2540,8 @@ cacheline:
    .word 0
 fiq_stack:
    .word 0
+ram6502store:
+   .word 0
 
 .ltorg
 
@@ -2590,6 +2593,7 @@ arm_fiq_handler_jit:
 
    ldr regSP, fiq_stack
    mov jittedtable16ptr,#JITTEDTABLE16
+   ldr ram6502, ram6502store
 
 // process events
    ldr      r1,=tube_irq
