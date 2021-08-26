@@ -2590,6 +2590,10 @@ arm_fiq_handler_jit:
    mrs r2, CPSR                // preserve the 6502 flags
    push {r0-r2, regSP}
 
+//
+// We need to restore these registers incase the FIQ has interupted an IRQ which
+// has over written them. other register 
+// e.g. flag register needs to be thought about
    ldr regSP, fiq_stack
    mov jittedtable16ptr,#JITTEDTABLE16
    ldr ram6502, ram6502store
