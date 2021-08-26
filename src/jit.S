@@ -7,6 +7,10 @@
 // 0x00010000 - 0x010FFF 4K ram doubly mapped by the mmu
 // 0x00010000 - 0x0FFFFF 1MByte for extra RAM we won't support code in this area
 
+// 0x0C000000 - 0x0C0001FF // 6502 stack during ARM FIQ 
+
+#define FIQSTACK 0x0C000000
+
 // we use the ram at 0x0D000000 for code as that
 // is within jump range of the kernel
 // we have up to 0x0DC00000 to use
@@ -78,7 +82,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define ARMBLCC 0x3B000000
 #define ARMBLCS 0x2B000000
 
-#define FIQSTACK 0x00020000
+
 
 .equ    N_FLAG,                 0x80000000
 .equ    Z_FLAG,                 0x40000000
