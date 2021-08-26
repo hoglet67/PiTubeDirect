@@ -2585,6 +2585,7 @@ arm_fiq_handler_jit:
    push {r0-r2, regSP}
 
    ldr regSP, fiq_stack
+   mov jitteedtable16,#JITTEDTABLE16
 
 // process events
    ldr      r1,=tube_irq
