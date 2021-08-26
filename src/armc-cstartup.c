@@ -47,6 +47,7 @@ void _cstartup( unsigned int r0, unsigned int r1, unsigned int r2 )
         See https://sourceware.org/newlib/libc.html#Stubs for further
             information on the c-library stubs
     */
+    // cppcheck-suppress comparePointers
     while( bss < bss_end )
         *bss++ = 0;
 
