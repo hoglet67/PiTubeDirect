@@ -1377,8 +1377,8 @@ Bopc_74:
    add temp1,regX,#0xFF<<24
    strb ram6502,[ram6502,temp1,LSR #24]
    add temp,jitteedtable16, temp1,LSR #24-2
-   BLX temp 
-   
+   BLX temp
+
 Bopc_75:
    JITADCSBCZPX
 Bopc_76:
@@ -1615,13 +1615,13 @@ Bopc_91:
    strb regA,[temp1,regY,LSR #24]!
    add temp,jitteedtable16, temp1,LSL #2
    BLX temp
-   
+
 Bopc_92:
    ldrh temp1,[ram6502,#00]
    strb regA,[temp1]
    add temp,jitteedtable16, temp1,LSL #2
    BLX temp
-   
+
 Bopc_94:
    add temp1,regX,#0xFF<<24
    mov temp,regY,LSR #24
@@ -1631,7 +1631,7 @@ Bopc_95:
    strb regA,[ram6502,temp1,LSR #24]
    add temp,jitteedtable16, temp1,LSR #24-2
    BLX temp
-   
+
 Bopc_96:
    add temp1,regY,#0xFF<<24
    mov temp,regX,LSR #24
@@ -3012,7 +3012,7 @@ MAKEBRANCHLINK:
 fixuptype2access:
    // need to look at the instruction to get the operand.
    mov temp,temp2,LSR #JITLETSHIFT
-   
+
    ldrb temp,[temp,#1]
    ldr temp0,[temp4]
    and jitteedtable16,temp,#0xF0
@@ -3382,4 +3382,3 @@ immediatesignextenedtable:
    mov temp,#0xFFFFFF00+imm
    .set imm,imm+1
 .endr
-
