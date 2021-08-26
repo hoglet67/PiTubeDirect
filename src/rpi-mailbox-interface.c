@@ -262,7 +262,13 @@ static int RPI_PropertyProcessInternal(int debug)
     }
     RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
 
-    result = RPI_Mailbox0Read( MB0_TAGS_ARM_TO_VC );
+    // It's possible we will occasionally see an in-flight response from
+    // someelse (e.g. the VDU driver timer interrupt palette switching)
+    // These use a different buffer, and should be ignored here. Eventually
+    // We'll receive our response.
+    do {
+       result = RPI_Mailbox0Read( MB0_TAGS_ARM_TO_VC );
+    } while ((uint32_t) result != ((uint32_t) pt) >> 4);
 
     // On the Pi 4 we occasionally observed stale property memory, even though  RPI_Mailbox0Write clean/invalidated this memory
     // This caused two issues:
