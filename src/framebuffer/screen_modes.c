@@ -9,6 +9,7 @@
 #include "screen_modes.h"
 #include "fonts.h"
 #include "teletext.h"
+#include "framebuffer.h"
 
 #ifdef USE_V3D
 #include "v3d.h"
@@ -937,12 +938,14 @@ void default_init_screen(screen_mode_t *screen) {
     int h_overscan = (h_display - h_window) / 2;
     int v_overscan = (v_display - v_window) / 2;
 
+#ifdef DEBUG_VDU
     printf("         display: %d x %d\r\n", h_display, v_display);
     printf("     framebuffer: %d x %d\r\n", screen->width, screen->height);
     printf("aspect corrected: %d x %d\r\n", h_corrected, v_corrected);
     printf("         scaling: %1.1f x %1.1f\r\n", (double)(((float) h_window) / ((float) screen->width)), (double)(((float) v_window) / ((float) screen->height)));
     printf("  display window: %d x %d\r\n", h_window, v_window);
     printf("display overscan: %d x %d\r\n", h_overscan, v_overscan);
+#endif
 
     /* Initialise a framebuffer... */
     RPI_PropertyInit();
@@ -956,11 +959,11 @@ void default_init_screen(screen_mode_t *screen) {
     RPI_PropertyAddTag(TAG_SET_OVERSCAN, v_overscan, v_overscan, h_overscan, h_overscan);
     RPI_PropertyProcess();
 
+#ifdef DEBUG_VDU
     if( ( mp = RPI_PropertyGet( TAG_GET_PHYSICAL_SIZE ) ) )
     {
         uint32_t width = mp->data.buffer_32[0];
         uint32_t height = mp->data.buffer_32[1];
-
         printf( "Initialised Framebuffer: %"PRId32"x%"PRId32, width, height );
     }
 
@@ -969,17 +972,22 @@ void default_init_screen(screen_mode_t *screen) {
         uint32_t bpp = mp->data.buffer_32[0];
         printf( " %"PRId32"bpp\r\n", bpp );
     }
+#endif
 
     if( ( mp = RPI_PropertyGet( TAG_GET_PITCH ) ) )
     {
         screen->pitch = (int)mp->data.buffer_32[0];
+#ifdef DEBUG_VDU
         printf( "Pitch: %d bytes\r\n", screen->pitch );
+#endif
     }
 
     if( ( mp = RPI_PropertyGet( TAG_ALLOCATE_BUFFER ) ) )
     {
         fb = (unsigned char*)mp->data.buffer_32[0];
+#ifdef DEBUG_VDU
         printf( "Framebuffer address: %8.8X\r\n", (unsigned int)fb );
+#endif
     }
 
     // On the Pi 2/3 the mailbox returns the address with bits 31..30 set, which is wrong
@@ -1207,7 +1215,7 @@ screen_mode_t *get_screen_mode(int mode_num) {
       if (!sm->flash && sm->log2bpp == 3) {
          sm->flash = default_flash;
       }
-   
+
       // Set the colour index for black
       sm->black = 0;
       // Set the colour index for black, avoiding flashing colours
