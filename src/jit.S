@@ -7,10 +7,6 @@
 // 0x00010000 - 0x010FFF 4K ram doubly mapped by the mmu
 // 0x00010000 - 0x0FFFFF 1MByte for extra RAM we won't support code in this area
 
-// 0x0C000000 - 0x0C0001FF // 6502 stack during ARM FIQ
-
-#define FIQSTACK 0x0C000000
-
 // we use the ram at 0x0D000000 for code as that
 // is within jump range of the kernel
 // we have up to 0x0DC00000 to use
@@ -737,10 +733,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro INTR vector setbrk  fake     // vector is -2 for IRQ/BRK or -6 for NMI
                                 // setbrk should be 1 for BRK, 0 for IRQ/NMI
-.if \setbrk
-   // Hack to reset outer context - fixes BRK in 6502 IRQ handler crash
-   bic   regSP,#FIQSTACK  // Switch from private FIQ 6502 stack back to normal 6502 stack
-.endif
    sub     regSP, regSP, #2
    mov     temp, #0x10000
 .ifc \fake, FAKE
@@ -2373,9 +2365,6 @@ exec_65tubejit:
    str   ram6502,ram6502store
    mov   regSP, #0x1F0
 
-   ldr   temp,=(FIQSTACK+0x1FF)
-   str   temp,fiq_stack
-
 // install our interrupt handler
 
    ldr   temp,=_fast_interrupt_vector_h
@@ -2537,8 +2526,6 @@ stackptr:
    .word 0
 cacheline:
    .word 0
-fiq_stack:
-   .word 0
 ram6502store:
    .word 0
 
@@ -2588,13 +2575,17 @@ arm_fiq_handler_jit:
    ldr r0,fiq_spsr_temp
    ldr r1,fiq_lr_temp
    mrs r2, CPSR                // preserve the 6502 flags
-   push {r0-r2, regSP}
+   push {r0-r2}
 
-//
+   // If the SPSR indicates FIQ has interruped IRQ then we need to recover a valid 6502 SP
+   and    r0, #0x1F
+   cmp    r0, #0x12
+   ldreq  r0, =_main_irq_r9_regsp
+   ldreq  r9, [r0]
+
 // We need to restore these registers incase the FIQ has interupted an IRQ which
 // has over written them. other register
 // e.g. flag register needs to be thought about
-   ldr regSP, fiq_stack
    mov jittedtable16ptr,#JITTEDTABLE16
    ldr ram6502, ram6502store
 
@@ -2612,9 +2603,7 @@ arm_fiq_handler_jit:
 
 noirq:
 // unstack
-   str regSP, fiq_stack
-
-   pop {r0-r2, regSP}
+   pop {r0-r2}
    str  r0,fiq_spsr_temp
    str  r1,fiq_lr_temp
    msr  CPSR_flg,r2
@@ -3036,20 +3025,28 @@ fixuptype2access:
    bx lr
 
 ioload:
+   // Dom: Why is regSP being used here, why not just use r12?
+   CPSID   f
    push    {regSP, r12,lr}
    mrs     regSP, CPSR               // Save 6502 flags
-   CPSID   if
+   CPSID   i
    bl      tube_parasite_read
    msr     CPSR, regSP               // Restore 6502 flags and interrupts
-   pop     {regSP,r12,pc}
+   pop     {regSP,r12,lr}
+   CPSIE   f
+   mov     pc,lr
 
 iostore:
+   // Dom: Why is regSP being used here, why not just use r12?
+   CPSID   f
    push    {regSP, r12,lr}
    mrs     regSP, CPSR               // Save 6502 flags
-   CPSID   if
+   CPSID   i
    bl      tube_parasite_write_banksel
    msr     CPSR, regSP               // Restore 6502 flags and interrupts
-   pop     {regSP,r12,pc}
+   pop     {regSP,r12,lr}
+   CPSIE   f
+   mov     pc,lr
 
 // Jits overflow
 
