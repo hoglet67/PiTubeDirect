@@ -3025,28 +3025,20 @@ fixuptype2access:
    bx lr
 
 ioload:
-   // Dom: Why is regSP being used here, why not just use r12?
-   CPSID   f
-   push    {regSP, r12,lr}
-   mrs     regSP, CPSR               // Save 6502 flags
-   CPSID   i
-   bl      tube_parasite_read
-   msr     CPSR, regSP               // Restore 6502 flags and interrupts
-   pop     {regSP,r12,lr}
-   CPSIE   f
-   mov     pc,lr
+   push    {ram6502,r12,lr}            // ram6502 (r6) is used as a working register
+   mrs     ram6502, CPSR               // Save 6502 flags and current FIQ/IRQ bits
+   CPSID   if                          // Disable FIQ/IRQ at the same time
+   bl      tube_parasite_read          // Call up to C code to handle parasite read
+   msr     CPSR, ram6502               // Restore 6502 flags and FIQ/IRQ bits
+   pop     {ram6502,r12,pc}            // Restore registers and return
 
 iostore:
-   // Dom: Why is regSP being used here, why not just use r12?
-   CPSID   f
-   push    {regSP, r12,lr}
-   mrs     regSP, CPSR               // Save 6502 flags
-   CPSID   i
-   bl      tube_parasite_write_banksel
-   msr     CPSR, regSP               // Restore 6502 flags and interrupts
-   pop     {regSP,r12,lr}
-   CPSIE   f
-   mov     pc,lr
+   push    {ram6502,r12,lr}            // ram6502 (r6) is used as a working register
+   mrs     ram6502, CPSR               // Save 6502 flags and current FIQ/IRQ bits
+   CPSID   if                          // Disable FIQ/IRQ at the same time
+   bl      tube_parasite_write_banksel // Call up to C code to handle parasite write
+   msr     CPSR, ram6502               // Restore 6502 flags and FIQ/IRQ bits
+   pop     {ram6502,r12,pc}            // Restore registers and return
 
 // Jits overflow
 
