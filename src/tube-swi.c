@@ -137,6 +137,8 @@ static void tube_ChangeEnvironment(unsigned int *reg);    // &40
 static void tube_Plot(unsigned int *reg);                 // &45
 static void tube_WriteN(unsigned int *reg);               // &46
 static void tube_SynchroniseCodeAreas(unsigned int *reg); // &6E
+static void tube_CallASWI(unsigned int *reg);             // &6F
+static void tube_CallASWIR12(unsigned int *reg);          // &71
 static void tube_BASICTrans_HELP(unsigned int *reg);      // &42C80
 static void tube_BASICTrans_Error(unsigned int *reg);     // &42C81
 static void tube_BASICTrans_Message(unsigned int *reg);   // &42C82
@@ -256,9 +258,9 @@ SWIDescriptor_Type SWI_Table[] = {
    {tube_SWI_Not_Known,        "OS_ResyncTime"},                 // &6C
    {tube_SWI_Not_Known,        "OS_PlatformFeatures"},           // &6D
    {tube_SynchroniseCodeAreas, "OS_SynchroniseCodeAreas"},       // &6E
-   {tube_SWI_Not_Known,        "OS_CallASWI"},                   // &6F
+   {tube_CallASWI,             "OS_CallASWI"},                   // &6F
    {tube_SWI_Not_Known,        "OS_AMBControl"},                 // &70
-   {tube_SWI_Not_Known,        "OS_CallASWIR12"},                // &71
+   {tube_CallASWIR12,          "OS_CallASWIR12"},                // &71
    {tube_SWI_Not_Known,        "OS_SpecialControl"},             // &72
    {tube_SWI_Not_Known,        "OS_EnterUSR32"},                 // &73
    {tube_SWI_Not_Known,        "OS_EnterUSR26"},                 // &74
@@ -1280,4 +1282,12 @@ static void tube_SWI_NumberToString(unsigned int *reg) {
    } else {
       generate_error((void *)reg[13], 484, "Buffer overflow");
    }
+}
+
+static void tube_CallASWI(unsigned int *reg) {
+   C_SWI_Handler(reg[10], reg);
+}
+
+static void tube_CallASWIR12(unsigned int *reg) {
+   C_SWI_Handler(reg[12], reg);
 }
