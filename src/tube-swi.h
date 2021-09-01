@@ -32,10 +32,17 @@
 // Type definition for a SWI handler
 typedef void (*SWIHandler_Type) (unsigned int *reg);
 
-#define NUM_SWI_HANDLERS 0x80
+#define NUM_SWI_HANDLERS 0x100
+
+#define SWI_NAME_LEN 32
+
+typedef struct {
+   SWIHandler_Type handler;
+   char *name;
+} SWIDescriptor_Type;
 
 // SWI handler table
-extern SWIHandler_Type SWIHandler_Table[];
+extern SWIDescriptor_Type SWI_Table[];
 
 // Type definition for a generic function pointer
 typedef int (*FunctionPtr_Type) ();

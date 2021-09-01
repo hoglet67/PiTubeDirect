@@ -108,170 +108,333 @@ static const unsigned char osword_out_len[] = {
 //   SWI 0000000e // OS_ReadLine
 
 // SWI handler prototypes
-static void tube_WriteC(unsigned int *reg);            // &00
-static void tube_WriteS(unsigned int *reg);            // &01
-static void tube_Write0(unsigned int *reg);            // &02
-static void tube_NewLine(unsigned int *reg);           // &03
-static void tube_ReadC(unsigned int *reg);             // &04
-static void tube_CLI(unsigned int *reg);               // &05
-static void tube_Byte(unsigned int *reg);              // &06
-static void tube_Word(unsigned int *reg);              // &07
-static void tube_File(unsigned int *reg);              // &08
-static void tube_Args(unsigned int *reg);              // &09
-static void tube_BGet(unsigned int *reg);              // &0A
-static void tube_BPut(unsigned int *reg);              // &0B
-static void tube_GBPB(unsigned int *reg);              // &0C
-static void tube_Find(unsigned int *reg);              // &0D
-static void tube_ReadLine(unsigned int *reg);          // &0E
-static void tube_GetEnv(unsigned int *reg);            // &10
-static void tube_Exit(unsigned int *reg);              // &11
-static void tube_IntOn(unsigned int *reg);             // &13
-static void tube_IntOff(unsigned int *reg);            // &14
-static void tube_EnterOS(unsigned int *reg);           // &16
-static void tube_Mouse(unsigned int *reg);             // &1C
-static void tube_GenerateError(unsigned int *reg);     // &2B
-static void tube_ReadPoint(unsigned int *reg);         // &32
-static void tube_ChangeEnvironment(unsigned int *reg); // &40
-static void tube_Plot(unsigned int *reg);              // &45
-static void tube_WriteN(unsigned int *reg);            // &46
-static void tube_BASICTrans_HELP(unsigned int *reg);   // &42C80
-static void tube_BASICTrans_Error(unsigned int *reg);  // &42C81
-static void tube_BASICTrans_Message(unsigned int *reg);// &42C82
-static void tube_SynchroniseCodeAreas(unsigned int *reg);// (&6E) -- OS_SynchroniseCodeAreas
+static void tube_WriteC(unsigned int *reg);               // &00
+static void tube_WriteS(unsigned int *reg);               // &01
+static void tube_Write0(unsigned int *reg);               // &02
+static void tube_NewLine(unsigned int *reg);              // &03
+static void tube_ReadC(unsigned int *reg);                // &04
+static void tube_CLI(unsigned int *reg);                  // &05
+static void tube_Byte(unsigned int *reg);                 // &06
+static void tube_Word(unsigned int *reg);                 // &07
+static void tube_File(unsigned int *reg);                 // &08
+static void tube_Args(unsigned int *reg);                 // &09
+static void tube_BGet(unsigned int *reg);                 // &0A
+static void tube_BPut(unsigned int *reg);                 // &0B
+static void tube_GBPB(unsigned int *reg);                 // &0C
+static void tube_Find(unsigned int *reg);                 // &0D
+static void tube_ReadLine(unsigned int *reg);             // &0E
+static void tube_GetEnv(unsigned int *reg);               // &10
+static void tube_Exit(unsigned int *reg);                 // &11
+static void tube_IntOn(unsigned int *reg);                // &13
+static void tube_IntOff(unsigned int *reg);               // &14
+static void tube_EnterOS(unsigned int *reg);              // &16
+static void tube_Mouse(unsigned int *reg);                // &1C
+static void tube_GenerateError(unsigned int *reg);        // &2B
+static void tube_ReadPoint(unsigned int *reg);            // &32
+static void tube_SWI_NumberToString(unsigned int *reg);   // &38
+static void tube_SWI_NumberFromString(unsigned int *reg); // &39
+static void tube_ChangeEnvironment(unsigned int *reg);    // &40
+static void tube_Plot(unsigned int *reg);                 // &45
+static void tube_WriteN(unsigned int *reg);               // &46
+static void tube_SynchroniseCodeAreas(unsigned int *reg); // &6E
+static void tube_BASICTrans_HELP(unsigned int *reg);      // &42C80
+static void tube_BASICTrans_Error(unsigned int *reg);     // &42C81
+static void tube_BASICTrans_Message(unsigned int *reg);   // &42C82
 
 static void handler_not_defined(unsigned int num);
 static void tube_SWI_Not_Known(unsigned int *reg);
 
-SWIHandler_Type SWIHandler_Table[NUM_SWI_HANDLERS] = {
-  tube_WriteC,                // (&00) -- OS_WriteC
-  tube_WriteS,                // (&01) -- OS_WriteS
-  tube_Write0,                // (&02) -- OS_Write0
-  tube_NewLine,               // (&03) -- OS_NewLine
-  tube_ReadC,                 // (&04) -- OS_ReadC
-  tube_CLI,                   // (&05) -- OS_CLI
-  tube_Byte,                  // (&06) -- OS_Byte
-  tube_Word,                  // (&07) -- OS_Word
-  tube_File,                  // (&08) -- OS_File
-  tube_Args,                  // (&09) -- OS_Args
-  tube_BGet,                  // (&0A) -- OS_BGet
-  tube_BPut,                  // (&0B) -- OS_BPut
-  tube_GBPB,                  // (&0C) -- OS_GBPB
-  tube_Find,                  // (&0D) -- OS_Find
-  tube_ReadLine,              // (&0E) -- OS_ReadLine
-  tube_SWI_Not_Known,         // (&0F) -- OS_Control
-  tube_GetEnv,                // (&10) -- OS_GetEnv
-  tube_Exit,                  // (&11) -- OS_Exit
-  tube_SWI_Not_Known,         // (&12) -- OS_SetEnv
-  tube_IntOn,                 // (&13) -- OS_IntOn
-  tube_IntOff,                // (&14) -- OS_IntOff
-  tube_SWI_Not_Known,         // (&15) -- OS_CallBack
-  tube_EnterOS,               // (&16) -- OS_EnterOS
-  tube_SWI_Not_Known,         // (&17) -- OS_BreakPt
-  tube_SWI_Not_Known,         // (&18) -- OS_BreakCtrl
-  tube_SWI_Not_Known,         // (&19) -- OS_UnusedSWI
-  tube_SWI_Not_Known,         // (&1A) -- OS_UpdateMEMC
-  tube_SWI_Not_Known,         // (&1B) -- OS_SetCallBack
-  tube_Mouse,                 // (&1C) -- OS_Mouse
-  tube_SWI_Not_Known,         // (&1D) -- OS_Heap
-  tube_SWI_Not_Known,         // (&1E) -- OS_Module
-  tube_SWI_Not_Known,         // (&1F) -- OS_Claim
-  tube_SWI_Not_Known,         // (&20) -- OS_Release
-  tube_SWI_Not_Known,         // (&21) -- OS_ReadUnsigned
-  tube_SWI_Not_Known,         // (&22) -- OS_GenerateEvent
-  tube_SWI_Not_Known,         // (&23) -- OS_ReadVarVal
-  tube_SWI_Not_Known,         // (&24) -- OS_SetVarVal
-  tube_SWI_Not_Known,         // (&25) -- OS_GSInit
-  tube_SWI_Not_Known,         // (&26) -- OS_GSRead
-  tube_SWI_Not_Known,         // (&27) -- OS_GSTrans
-  tube_SWI_Not_Known,         // (&28) -- OS_BinaryToDecimal
-  tube_SWI_Not_Known,         // (&29) -- OS_FSControl
-  tube_SWI_Not_Known,         // (&2A) -- OS_ChangeDynamicArea
-  tube_GenerateError,         // (&2B) -- OS_GenerateError
-  tube_SWI_Not_Known,         // (&2C) -- OS_ReadEscapeState
-  tube_SWI_Not_Known,         // (&2D) -- OS_EvaluateExpression
-  tube_SWI_Not_Known,         // (&2E) -- OS_SpriteOp
-  tube_SWI_Not_Known,         // (&2F) -- OS_ReadPalette
-  tube_SWI_Not_Known,         // (&30) -- OS_ServiceCall
-  tube_SWI_Not_Known,         // (&31) -- OS_ReadVduVariables
-  tube_ReadPoint,             // (&32) -- OS_ReadPoint
-  tube_SWI_Not_Known,         // (&33) -- OS_UpCall
-  tube_SWI_Not_Known,         // (&34) -- OS_CallAVector
-  tube_SWI_Not_Known,         // (&35) -- OS_ReadModeVariable
-  tube_SWI_Not_Known,         // (&36) -- OS_RemoveCursors
-  tube_SWI_Not_Known,         // (&37) -- OS_RestoreCursors
-  tube_SWI_Not_Known,         // (&38) -- OS_SWINumberToString
-  tube_SWI_Not_Known,         // (&39) -- OS_SWINumberFromString
-  tube_SWI_Not_Known,         // (&3A) -- OS_ValidateAddress
-  tube_SWI_Not_Known,         // (&3B) -- OS_CallAfter
-  tube_SWI_Not_Known,         // (&3C) -- OS_CallEvery
-  tube_SWI_Not_Known,         // (&3D) -- OS_RemoveTickerEvent
-  tube_SWI_Not_Known,         // (&3E) -- OS_InstallKeyHandler
-  tube_SWI_Not_Known,         // (&3F) -- OS_CheckModeValid
-  tube_ChangeEnvironment,     // (&40) -- OS_ChangeEnvironment
-  tube_SWI_Not_Known,         // (&41) -- OS_ClaimScreenMemory
-  tube_SWI_Not_Known,         // (&42) -- OS_ReadMonotonicTime
-  tube_SWI_Not_Known,         // (&43) -- OS_SubstituteArgs
-  tube_SWI_Not_Known,         // (&44) -- OS_PrettyPrintCode
-  tube_Plot,                  // (&45) -- OS_Plot
-  tube_WriteN,                // (&46) -- OS_WriteN
-  tube_SWI_Not_Known,         // (&47) -- OS_AddToVector
-  tube_SWI_Not_Known,         // (&48) -- OS_WriteEnv
-  tube_SWI_Not_Known,         // (&49) -- OS_ReadArgs
-  tube_SWI_Not_Known,         // (&4A) -- OS_ReadRAMFsLimits
-  tube_SWI_Not_Known,         // (&4B) -- OS_ClaimDeviceVector
-  tube_SWI_Not_Known,         // (&4C) -- OS_ReleaseDeviceVector
-  tube_SWI_Not_Known,         // (&4D) -- OS_DelinkApplication
-  tube_SWI_Not_Known,         // (&4E) -- OS_RelinkApplication
-  tube_SWI_Not_Known,         // (&4F) -- OS_HeapSort
-  tube_SWI_Not_Known,         // (&50) -- OS_ExitAndDie
-  tube_SWI_Not_Known,         // (&51) -- OS_ReadMemMapInfo
-  tube_SWI_Not_Known,         // (&52) -- OS_ReadMemMapEntries
-  tube_SWI_Not_Known,         // (&53) -- OS_SetMemMapEntries
-  tube_SWI_Not_Known,         // (&54) -- OS_AddCallBack
-  tube_SWI_Not_Known,         // (&55) -- OS_ReadDefaultHandler
-  tube_SWI_Not_Known,         // (&56) -- OS_SetECFOrigin
-  tube_SWI_Not_Known,         // (&57) -- OS_SerialOp
-  tube_SWI_Not_Known,         // (&58) -- OS_ReadSysInfo
-  tube_SWI_Not_Known,         // (&59) -- OS_Confirm
-  tube_SWI_Not_Known,         // (&5A) -- OS_ChangedBox
-  tube_SWI_Not_Known,         // (&5B) -- OS_CRC
-  tube_SWI_Not_Known,         // (&5C) -- OS_ReadDynamicArea
-  tube_SWI_Not_Known,         // (&5D) -- OS_PrintChar
-  tube_SWI_Not_Known,         // (&5E) -- OS_ChangeRedirection
-  tube_SWI_Not_Known,         // (&5F) -- OS_RemoveCallBack
-  tube_SWI_Not_Known,         // (&60) -- OS_FindMemMapEntries
-  tube_SWI_Not_Known,         // (&61) -- OS_SetColourCode
-  tube_SWI_Not_Known,         // (&62) -- OS_ClaimSWI
-  tube_SWI_Not_Known,         // (&63) -- OS_ReleaseSWI
-  tube_SWI_Not_Known,         // (&64) -- OS_Pointer
-  tube_SWI_Not_Known,         // (&65) -- OS_ScreenMode
-  tube_SWI_Not_Known,         // (&66) -- OS_DynamicArea
-  tube_SWI_Not_Known,         // (&67) -- OS_AbortTrap
-  tube_SWI_Not_Known,         // (&68) -- OS_Memory
-  tube_SWI_Not_Known,         // (&69) -- OS_ClaimProcessorVector
-  tube_SWI_Not_Known,         // (&6A) -- OS_Reset
-  tube_SWI_Not_Known,         // (&6B) -- OS_MMUControl
-  tube_SWI_Not_Known,         // (&6C) -- OS_ResyncTime
-  tube_SWI_Not_Known,         // (&6D) -- OS_PlatformFeatures
-  tube_SynchroniseCodeAreas,  // (&6E) -- OS_SynchroniseCodeAreas
-  tube_SWI_Not_Known,         // (&6F) -- OS_CallASWI
-  tube_SWI_Not_Known,         // (&70) -- OS_AMBControl
-  tube_SWI_Not_Known,         // (&71) -- OS_CallASWIR12
-  tube_SWI_Not_Known,         // (&72) -- OS_SpecialControl
-  tube_SWI_Not_Known,         // (&73) -- OS_EnterUSR32
-  tube_SWI_Not_Known,         // (&74) -- OS_EnterUSR26
-  tube_SWI_Not_Known,         // (&75) -- OS_VIDCDivider
-  tube_SWI_Not_Known,         // (&76) -- OS_NVMemory
-  tube_SWI_Not_Known,         // (&77) -- OS_ClaimOSSWI
-  tube_SWI_Not_Known,         // (&78) -- OS_TaskControl
-  tube_SWI_Not_Known,         // (&79) -- OS_DeviceDriver
-  tube_SWI_Not_Known,         // (&7A) -- OS_Hardware
-  tube_SWI_Not_Known,         // (&7B) -- OS_IICOp
-  tube_SWI_Not_Known,         // (&7C) -- OS_LeaveOS
-  tube_SWI_Not_Known,         // (&7D) -- OS_ReadLine32
-  tube_SWI_Not_Known,         // (&7E) -- OS_SubstituteArgs32
-  tube_SWI_Not_Known          // (&7F) -- OS_HeapSort32
+SWIDescriptor_Type SWI_Table[] = {
+   {tube_WriteC,               "OS_WriteC"},                     // &00
+   {tube_WriteS,               "OS_WriteS"},                     // &01
+   {tube_Write0,               "OS_Write0"},                     // &02
+   {tube_NewLine,              "OS_NewLine"},                    // &03
+   {tube_ReadC,                "OS_ReadC"},                      // &04
+   {tube_CLI,                  "OS_CLI"},                        // &05
+   {tube_Byte,                 "OS_Byte"},                       // &06
+   {tube_Word,                 "OS_Word"},                       // &07
+   {tube_File,                 "OS_File"},                       // &08
+   {tube_Args,                 "OS_Args"},                       // &09
+   {tube_BGet,                 "OS_BGet"},                       // &0A
+   {tube_BPut,                 "OS_BPut"},                       // &0B
+   {tube_GBPB,                 "OS_GBPB"},                       // &0C
+   {tube_Find,                 "OS_Find"},                       // &0D
+   {tube_ReadLine,             "OS_ReadLine"},                   // &0E
+   {tube_SWI_Not_Known,        "OS_Control"},                    // &0F
+   {tube_GetEnv,               "OS_GetEnv"},                     // &10
+   {tube_Exit,                 "OS_Exit"},                       // &11
+   {tube_SWI_Not_Known,        "OS_SetEnv"},                     // &12
+   {tube_IntOn,                "OS_IntOn"},                      // &13
+   {tube_IntOff,               "OS_IntOff"},                     // &14
+   {tube_SWI_Not_Known,        "OS_CallBack"},                   // &15
+   {tube_EnterOS,              "OS_EnterOS"},                    // &16
+   {tube_SWI_Not_Known,        "OS_BreakPt"},                    // &17
+   {tube_SWI_Not_Known,        "OS_BreakCtrl"},                  // &18
+   {tube_SWI_Not_Known,        "OS_UnusedSWI"},                  // &19
+   {tube_SWI_Not_Known,        "OS_UpdateMEMC"},                 // &1A
+   {tube_SWI_Not_Known,        "OS_SetCallBack"},                // &1B
+   {tube_Mouse,                "OS_Mouse"},                      // &1C
+   {tube_SWI_Not_Known,        "OS_Heap"},                       // &1D
+   {tube_SWI_Not_Known,        "OS_Module"},                     // &1E
+   {tube_SWI_Not_Known,        "OS_Claim"},                      // &1F
+   {tube_SWI_Not_Known,        "OS_Release"},                    // &20
+   {tube_SWI_Not_Known,        "OS_ReadUnsigned"},               // &21
+   {tube_SWI_Not_Known,        "OS_GenerateEvent"},              // &22
+   {tube_SWI_Not_Known,        "OS_ReadVarVal"},                 // &23
+   {tube_SWI_Not_Known,        "OS_SetVarVal"},                  // &24
+   {tube_SWI_Not_Known,        "OS_GSInit"},                     // &25
+   {tube_SWI_Not_Known,        "OS_GSRead"},                     // &26
+   {tube_SWI_Not_Known,        "OS_GSTrans"},                    // &27
+   {tube_SWI_Not_Known,        "OS_BinaryToDecimal"},            // &28
+   {tube_SWI_Not_Known,        "OS_FSControl"},                  // &29
+   {tube_SWI_Not_Known,        "OS_ChangeDynamicArea"},          // &2A
+   {tube_GenerateError,        "OS_GenerateError"},              // &2B
+   {tube_SWI_Not_Known,        "OS_ReadEscapeState"},            // &2C
+   {tube_SWI_Not_Known,        "OS_EvaluateExpression"},         // &2D
+   {tube_SWI_Not_Known,        "OS_SpriteOp"},                   // &2E
+   {tube_SWI_Not_Known,        "OS_ReadPalette"},                // &2F
+   {tube_SWI_Not_Known,        "OS_ServiceCall"},                // &30
+   {tube_SWI_Not_Known,        "OS_ReadVduVariables"},           // &31
+   {tube_ReadPoint,            "OS_ReadPoint"},                  // &32
+   {tube_SWI_Not_Known,        "OS_UpCall"},                     // &33
+   {tube_SWI_Not_Known,        "OS_CallAVector"},                // &34
+   {tube_SWI_Not_Known,        "OS_ReadModeVariable"},           // &35
+   {tube_SWI_Not_Known,        "OS_RemoveCursors"},              // &36
+   {tube_SWI_Not_Known,        "OS_RestoreCursors"},             // &37
+   {tube_SWI_NumberToString,   "OS_SWINumberToString"},          // &38
+   {tube_SWI_NumberFromString, "OS_SWINumberFromString"},        // &39
+   {tube_SWI_Not_Known,        "OS_ValidateAddress"},            // &3A
+   {tube_SWI_Not_Known,        "OS_CallAfter"},                  // &3B
+   {tube_SWI_Not_Known,        "OS_CallEvery"},                  // &3C
+   {tube_SWI_Not_Known,        "OS_RemoveTickerEvent"},          // &3D
+   {tube_SWI_Not_Known,        "OS_InstallKeyHandler"},          // &3E
+   {tube_SWI_Not_Known,        "OS_CheckModeValid"},             // &3F
+   {tube_ChangeEnvironment,    "OS_ChangeEnvironment"},          // &40
+   {tube_SWI_Not_Known,        "OS_ClaimScreenMemory"},          // &41
+   {tube_SWI_Not_Known,        "OS_ReadMonotonicTime"},          // &42
+   {tube_SWI_Not_Known,        "OS_SubstituteArgs"},             // &43
+   {tube_SWI_Not_Known,        "OS_PrettyPrint"},                // &44
+   {tube_Plot,                 "OS_Plot"},                       // &45
+   {tube_WriteN,               "OS_WriteN"},                     // &46
+   {tube_SWI_Not_Known,        "OS_AddToVector"},                // &47
+   {tube_SWI_Not_Known,        "OS_WriteEnv"},                   // &48
+   {tube_SWI_Not_Known,        "OS_ReadArgs"},                   // &49
+   {tube_SWI_Not_Known,        "OS_ReadRAMFsLimits"},            // &4A
+   {tube_SWI_Not_Known,        "OS_ClaimDeviceVector"},          // &4B
+   {tube_SWI_Not_Known,        "OS_ReleaseDeviceVector"},        // &4C
+   {tube_SWI_Not_Known,        "OS_DelinkApplication"},          // &4D
+   {tube_SWI_Not_Known,        "OS_RelinkApplication"},          // &4E
+   {tube_SWI_Not_Known,        "OS_HeapSort"},                   // &4F
+   {tube_SWI_Not_Known,        "OS_ExitAndDie"},                 // &50
+   {tube_SWI_Not_Known,        "OS_ReadMemMapInfo"},             // &51
+   {tube_SWI_Not_Known,        "OS_ReadMemMapEntries"},          // &52
+   {tube_SWI_Not_Known,        "OS_SetMemMapEntries"},           // &53
+   {tube_SWI_Not_Known,        "OS_AddCallBack"},                // &54
+   {tube_SWI_Not_Known,        "OS_ReadDefaultHandler"},         // &55
+   {tube_SWI_Not_Known,        "OS_SetECFOrigin"},               // &56
+   {tube_SWI_Not_Known,        "OS_SerialOp"},                   // &57
+   {tube_SWI_Not_Known,        "OS_ReadSysInfo"},                // &58
+   {tube_SWI_Not_Known,        "OS_Confirm"},                    // &59
+   {tube_SWI_Not_Known,        "OS_ChangedBox"},                 // &5A
+   {tube_SWI_Not_Known,        "OS_CRC"},                        // &5B
+   {tube_SWI_Not_Known,        "OS_ReadDynamicArea"},            // &5C
+   {tube_SWI_Not_Known,        "OS_PrintChar"},                  // &5D
+   {tube_SWI_Not_Known,        "OS_ChangeRedirection"},          // &5E
+   {tube_SWI_Not_Known,        "OS_RemoveCallBack"},             // &5F
+   {tube_SWI_Not_Known,        "OS_FindMemMapEntries"},          // &60
+   {tube_SWI_Not_Known,        "OS_SetColour"},                  // &61
+   {tube_SWI_Not_Known,        "OS_ClaimSWI"},                   // &62
+   {tube_SWI_Not_Known,        "OS_ReleaseSWI"},                 // &63
+   {tube_SWI_Not_Known,        "OS_Pointer"},                    // &64
+   {tube_SWI_Not_Known,        "OS_ScreenMode"},                 // &65
+   {tube_SWI_Not_Known,        "OS_DynamicArea"},                // &66
+   {tube_SWI_Not_Known,        "OS_AbortTrap"},                  // &67
+   {tube_SWI_Not_Known,        "OS_Memory"},                     // &68
+   {tube_SWI_Not_Known,        "OS_ClaimProcessorVector"},       // &69
+   {tube_SWI_Not_Known,        "OS_Reset"},                      // &6A
+   {tube_SWI_Not_Known,        "OS_MMUControl"},                 // &6B
+   {tube_SWI_Not_Known,        "OS_ResyncTime"},                 // &6C
+   {tube_SWI_Not_Known,        "OS_PlatformFeatures"},           // &6D
+   {tube_SynchroniseCodeAreas, "OS_SynchroniseCodeAreas"},       // &6E
+   {tube_SWI_Not_Known,        "OS_CallASWI"},                   // &6F
+   {tube_SWI_Not_Known,        "OS_AMBControl"},                 // &70
+   {tube_SWI_Not_Known,        "OS_CallASWIR12"},                // &71
+   {tube_SWI_Not_Known,        "OS_SpecialControl"},             // &72
+   {tube_SWI_Not_Known,        "OS_EnterUSR32"},                 // &73
+   {tube_SWI_Not_Known,        "OS_EnterUSR26"},                 // &74
+   {tube_SWI_Not_Known,        "OS_VIDCDivider"},                // &75
+   {tube_SWI_Not_Known,        "OS_NVMemory"},                   // &76
+   {tube_SWI_Not_Known,        "OS_ClaimOSSWI"},                 // &77
+   {tube_SWI_Not_Known,        "OS_TaskControl"},                // &78
+   {tube_SWI_Not_Known,        "OS_DeviceDriver"},               // &79
+   {tube_SWI_Not_Known,        "OS_Hardware"},                   // &7A
+   {tube_SWI_Not_Known,        "OS_IICOp"},                      // &7B
+   {tube_SWI_Not_Known,        "OS_LeaveOS"},                    // &7C
+   {tube_SWI_Not_Known,        "OS_ReadLine32"},                 // &7D
+   {tube_SWI_Not_Known,        "OS_SubstituteArgs32"},           // &7E
+   {tube_SWI_Not_Known,        "OS_HeapSort32"},                 // &7F
+   {tube_SWI_Not_Known,        NULL},                            // &80
+   {tube_SWI_Not_Known,        NULL},                            // &81
+   {tube_SWI_Not_Known,        NULL},                            // &82
+   {tube_SWI_Not_Known,        NULL},                            // &83
+   {tube_SWI_Not_Known,        NULL},                            // &84
+   {tube_SWI_Not_Known,        NULL},                            // &85
+   {tube_SWI_Not_Known,        NULL},                            // &86
+   {tube_SWI_Not_Known,        NULL},                            // &87
+   {tube_SWI_Not_Known,        NULL},                            // &88
+   {tube_SWI_Not_Known,        NULL},                            // &89
+   {tube_SWI_Not_Known,        NULL},                            // &8A
+   {tube_SWI_Not_Known,        NULL},                            // &8B
+   {tube_SWI_Not_Known,        NULL},                            // &8C
+   {tube_SWI_Not_Known,        NULL},                            // &8D
+   {tube_SWI_Not_Known,        NULL},                            // &8E
+   {tube_SWI_Not_Known,        NULL},                            // &8F
+   {tube_SWI_Not_Known,        NULL},                            // &90
+   {tube_SWI_Not_Known,        NULL},                            // &91
+   {tube_SWI_Not_Known,        NULL},                            // &92
+   {tube_SWI_Not_Known,        NULL},                            // &93
+   {tube_SWI_Not_Known,        NULL},                            // &94
+   {tube_SWI_Not_Known,        NULL},                            // &95
+   {tube_SWI_Not_Known,        NULL},                            // &96
+   {tube_SWI_Not_Known,        NULL},                            // &97
+   {tube_SWI_Not_Known,        NULL},                            // &98
+   {tube_SWI_Not_Known,        NULL},                            // &99
+   {tube_SWI_Not_Known,        NULL},                            // &9A
+   {tube_SWI_Not_Known,        NULL},                            // &9B
+   {tube_SWI_Not_Known,        NULL},                            // &9C
+   {tube_SWI_Not_Known,        NULL},                            // &9D
+   {tube_SWI_Not_Known,        NULL},                            // &9E
+   {tube_SWI_Not_Known,        NULL},                            // &9F
+   {tube_SWI_Not_Known,        NULL},                            // &A0
+   {tube_SWI_Not_Known,        NULL},                            // &A1
+   {tube_SWI_Not_Known,        NULL},                            // &A2
+   {tube_SWI_Not_Known,        NULL},                            // &A3
+   {tube_SWI_Not_Known,        NULL},                            // &A4
+   {tube_SWI_Not_Known,        NULL},                            // &A5
+   {tube_SWI_Not_Known,        NULL},                            // &A6
+   {tube_SWI_Not_Known,        NULL},                            // &A7
+   {tube_SWI_Not_Known,        NULL},                            // &A8
+   {tube_SWI_Not_Known,        NULL},                            // &A9
+   {tube_SWI_Not_Known,        NULL},                            // &AA
+   {tube_SWI_Not_Known,        NULL},                            // &AB
+   {tube_SWI_Not_Known,        NULL},                            // &AC
+   {tube_SWI_Not_Known,        NULL},                            // &AD
+   {tube_SWI_Not_Known,        NULL},                            // &AE
+   {tube_SWI_Not_Known,        NULL},                            // &AF
+   {tube_SWI_Not_Known,        NULL},                            // &B0
+   {tube_SWI_Not_Known,        NULL},                            // &B1
+   {tube_SWI_Not_Known,        NULL},                            // &B2
+   {tube_SWI_Not_Known,        NULL},                            // &B3
+   {tube_SWI_Not_Known,        NULL},                            // &B4
+   {tube_SWI_Not_Known,        NULL},                            // &B5
+   {tube_SWI_Not_Known,        NULL},                            // &B6
+   {tube_SWI_Not_Known,        NULL},                            // &B7
+   {tube_SWI_Not_Known,        NULL},                            // &B8
+   {tube_SWI_Not_Known,        NULL},                            // &B9
+   {tube_SWI_Not_Known,        NULL},                            // &BA
+   {tube_SWI_Not_Known,        NULL},                            // &BB
+   {tube_SWI_Not_Known,        NULL},                            // &BC
+   {tube_SWI_Not_Known,        NULL},                            // &BD
+   {tube_SWI_Not_Known,        NULL},                            // &BE
+   {tube_SWI_Not_Known,        NULL},                            // &BF
+   {tube_SWI_Not_Known,        "OS_ConvertStandardDateAndTime"}, // &C0
+   {tube_SWI_Not_Known,        "OS_ConvertDateAndTime"},         // &C1
+   {tube_SWI_Not_Known,        NULL},                            // &C2
+   {tube_SWI_Not_Known,        NULL},                            // &C3
+   {tube_SWI_Not_Known,        NULL},                            // &C4
+   {tube_SWI_Not_Known,        NULL},                            // &C5
+   {tube_SWI_Not_Known,        NULL},                            // &C6
+   {tube_SWI_Not_Known,        NULL},                            // &C7
+   {tube_SWI_Not_Known,        NULL},                            // &C8
+   {tube_SWI_Not_Known,        NULL},                            // &C9
+   {tube_SWI_Not_Known,        NULL},                            // &CA
+   {tube_SWI_Not_Known,        NULL},                            // &CB
+   {tube_SWI_Not_Known,        NULL},                            // &CC
+   {tube_SWI_Not_Known,        NULL},                            // &CD
+   {tube_SWI_Not_Known,        NULL},                            // &CE
+   {tube_SWI_Not_Known,        NULL},                            // &CF
+   {tube_SWI_Not_Known,        "OS_ConvertHex1"},                // &D0
+   {tube_SWI_Not_Known,        "OS_ConvertHex2"},                // &D1
+   {tube_SWI_Not_Known,        "OS_ConvertHex3"},                // &D2
+   {tube_SWI_Not_Known,        "OS_ConvertHex4"},                // &D3
+   {tube_SWI_Not_Known,        "OS_ConvertHex8"},                // &D4
+   {tube_SWI_Not_Known,        "OS_ConvertCardinal1"},           // &D5
+   {tube_SWI_Not_Known,        "OS_ConvertCardinal2"},           // &D6
+   {tube_SWI_Not_Known,        "OS_ConvertCardinal3"},           // &D7
+   {tube_SWI_Not_Known,        "OS_ConvertCardinal4"},           // &D8
+   {tube_SWI_Not_Known,        "OS_ConvertInteger1"},            // &D9
+   {tube_SWI_Not_Known,        "OS_ConvertInteger2"},            // &DA
+   {tube_SWI_Not_Known,        "OS_ConvertInteger3"},            // &DB
+   {tube_SWI_Not_Known,        "OS_ConvertInteger4"},            // &DC
+   {tube_SWI_Not_Known,        "OS_ConvertBinary1"},             // &DD
+   {tube_SWI_Not_Known,        "OS_ConvertBinary2"},             // &DE
+   {tube_SWI_Not_Known,        "OS_ConvertBinary3"},             // &DF
+   {tube_SWI_Not_Known,        "OS_ConvertBinary4"},             // &E0
+   {tube_SWI_Not_Known,        "OS_ConvertSpacedCardinal1"},     // &E1
+   {tube_SWI_Not_Known,        "OS_ConvertSpacedCardinal2"},     // &E2
+   {tube_SWI_Not_Known,        "OS_ConvertSpacedCardinal3"},     // &E3
+   {tube_SWI_Not_Known,        "OS_ConvertSpacedCardinal4"},     // &E4
+   {tube_SWI_Not_Known,        "OS_ConvertSpacedInteger1"},      // &E5
+   {tube_SWI_Not_Known,        "OS_ConvertSpacedInteger2"},      // &E6
+   {tube_SWI_Not_Known,        "OS_ConvertSpacedInteger3"},      // &E7
+   {tube_SWI_Not_Known,        "OS_ConvertSpacedInteger4"},      // &E8
+   {tube_SWI_Not_Known,        "OS_ConvertFixedNetStation"},     // &E9
+   {tube_SWI_Not_Known,        "OS_ConvertNetStation"},          // &EA
+   {tube_SWI_Not_Known,        "OS_ConvertFixedFileSize"},       // &EB
+   {tube_SWI_Not_Known,        "OS_ConvertFileSize"},            // &EC
+   {tube_SWI_Not_Known,        NULL},                            // &ED
+   {tube_SWI_Not_Known,        NULL},                            // &EE
+   {tube_SWI_Not_Known,        NULL},                            // &EF
+   {tube_SWI_Not_Known,        NULL},                            // &F0
+   {tube_SWI_Not_Known,        NULL},                            // &F1
+   {tube_SWI_Not_Known,        NULL},                            // &F2
+   {tube_SWI_Not_Known,        NULL},                            // &F3
+   {tube_SWI_Not_Known,        NULL},                            // &F4
+   {tube_SWI_Not_Known,        NULL},                            // &F5
+   {tube_SWI_Not_Known,        NULL},                            // &F6
+   {tube_SWI_Not_Known,        NULL},                            // &F7
+   {tube_SWI_Not_Known,        NULL},                            // &F8
+   {tube_SWI_Not_Known,        NULL},                            // &F9
+   {tube_SWI_Not_Known,        NULL},                            // &FA
+   {tube_SWI_Not_Known,        NULL},                            // &FB
+   {tube_SWI_Not_Known,        NULL},                            // &FC
+   {tube_SWI_Not_Known,        NULL},                            // &FD
+   {tube_SWI_Not_Known,        NULL},                            // &FE
+   {tube_SWI_Not_Known,        NULL}                             // &FF
 };
+
+static char *lookup_swi_name(unsigned int num) {
+   static char name[SWI_NAME_LEN];
+   char *ptr = name;
+
+   // If bit 17 of the number is set, prefix the returned string with X
+   if (num & 0x20000) {
+      *ptr++ = 'X';
+      num -= 0x20000;
+   }
+
+   if (num < NUM_SWI_HANDLERS) {
+      // Lookup the SWI name in the handler table
+      if (SWI_Table[num].name) {
+         strcpy(ptr, SWI_Table[num].name);
+      } else {
+         strcpy(ptr, "OS_Undefined");
+      }
+   } else if (num >= 0x100 && num < 0x200) {
+      // Special case OS_WriteI
+      num &= 0xFF;
+      if (num >= 0x20 && num < 0x7F) {
+         sprintf(ptr, "OS_WriteI+\"%c\"", num);
+      } else {
+         sprintf(ptr, "OS_WriteI+%d", num);
+      }
+   } else {
+      // Anything else causes User to be returned
+      strcpy(ptr, "User");
+   }
+
+   return name;
+}
 
 // A helper method to make generating errors easier
 void generate_error(void * address, unsigned int errorNum, char *errorMsg) {
@@ -331,7 +494,9 @@ static void handler_not_defined(unsigned int num) {
 static void tube_SWI_Not_Known(unsigned int *reg) {
   unsigned int *lr = (unsigned int *)reg[13];
   printf("%08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3]);
-  printf("SWI %08x not implemented ************\r\n", *(lr - 1) & 0xFFFFFF);
+  unsigned int num = *(lr - 1) & 0xFFFFFF;
+  char *name = lookup_swi_name(num);
+  printf("SWI %08x (%s) not implemented ************\r\n", num, name);
 }
 
 void C_SWI_Handler(unsigned int number, unsigned int *reg) {
@@ -351,10 +516,10 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
   }
   if (num < NUM_SWI_HANDLERS) {
     // Invoke one of the fixed handlers
-    SWIHandler_Table[num](reg);
+    SWI_Table[num].handler(reg);
   } else if ((num & 0xFFFFFF00) == 0x0100) {      // JGH
     // SWIs 0x100 - 0x1FF are OS_WriteI
-    SWIHandler_Table[SWI_OS_WriteC](&num);
+    SWI_Table[SWI_OS_WriteC].handler(&num);
   } else if (num == 0x42c80) {
     tube_BASICTrans_HELP(reg);
   } else if (num == 0x42c81) {
@@ -1058,4 +1223,61 @@ static void tube_BASICTrans_Error(unsigned int *reg) {
 static void tube_BASICTrans_Message(unsigned int *reg) {
   // Return with V set to indicate BASICTrans not present
   updateOverflow(1, reg);
+}
+
+static void tube_SWI_NumberFromString(unsigned int *reg) {
+   char name[SWI_NAME_LEN];
+   int num = 0;
+
+   // On entry, r1 points to a control character terminated string
+   char *ptr = (char *)reg[1];
+
+   // If the name starts with X, return num plus 0x20000
+   if (*ptr == 'X') {
+      num += 0x20000;
+      ptr++;
+   }
+
+   // Copy the string, stopping at the first control character
+   unsigned int i = 0;
+   while (i < SWI_NAME_LEN - 1 && *ptr >= 0x20 && *ptr < 0x7F) {
+      name[i++] = *ptr++;
+   }
+   // Add a zero terminator
+   name[i] = 0;
+
+   // Search for the name
+   for (i = 0; i < NUM_SWI_HANDLERS; i++) {
+      if (!strcmp(name, SWI_Table[i].name)) {
+         reg[0] = num + i;
+         return;
+      }
+   }
+
+   // Special case OS_WriteI as they are not in the handler table
+   if (!strcmp(name, "OS_WriteI")) {
+      reg[0] = 0x100 + i;
+      return;
+   }
+
+   // Generate an error if name not found
+   generate_error((void *)reg[13], 486, "SWI name not known");
+}
+
+
+static void tube_SWI_NumberToString(unsigned int *reg) {
+   unsigned int num =         reg[0];
+   char * buffer    = (char *)reg[1];
+   int buffer_len   = (int)   reg[2];
+
+   char *name = lookup_swi_name(num);
+
+   // Make sure we don't overflow the buffer
+   int name_len = strlen(name);
+   if (name_len < buffer_len) {
+      strcpy(buffer, name);
+      reg[2] = name_len + 1; // Returned length includes terminator
+   } else {
+      generate_error((void *)reg[13], 484, "Buffer overflow");
+   }
 }

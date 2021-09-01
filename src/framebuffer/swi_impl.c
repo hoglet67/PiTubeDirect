@@ -370,29 +370,29 @@ void fb_add_swi_handlers() {
    // Only need to setup the base handlers once
    if (!initialized) {
       for (int i = 0; i < NUM_SWI_HANDLERS; i++) {
-         base_handler[i] = SWIHandler_Table[i];
+         base_handler[i] = SWI_Table[i].handler;
       }
       initialized = 1;
    }
 
-   SWIHandler_Table[SWI_OS_WriteC]           = OS_WriteC_impl;
-   SWIHandler_Table[SWI_OS_WriteS]           = OS_WriteS_impl;
-   SWIHandler_Table[SWI_OS_Write0]           = OS_Write0_impl;
-   SWIHandler_Table[SWI_OS_NewLine]          = OS_NewLine_impl;
-   SWIHandler_Table[SWI_OS_Plot]             = OS_Plot_impl;
-   SWIHandler_Table[SWI_OS_WriteN]           = OS_WriteN_impl;
-   SWIHandler_Table[SWI_OS_Byte]             = OS_Byte_impl;
-   SWIHandler_Table[SWI_OS_ReadLine]         = OS_ReadLine_impl;
-   SWIHandler_Table[SWI_OS_ScreenMode]       = OS_ScreenMode_impl;
-   SWIHandler_Table[SWI_OS_ReadModeVariable] = OS_ReadModeVariable_impl;
-   SWIHandler_Table[SWI_OS_ReadVduVariables] = OS_ReadVduVariables_impl;
+   SWI_Table[SWI_OS_WriteC].handler           = OS_WriteC_impl;
+   SWI_Table[SWI_OS_WriteS].handler           = OS_WriteS_impl;
+   SWI_Table[SWI_OS_Write0].handler           = OS_Write0_impl;
+   SWI_Table[SWI_OS_NewLine].handler          = OS_NewLine_impl;
+   SWI_Table[SWI_OS_Plot].handler             = OS_Plot_impl;
+   SWI_Table[SWI_OS_WriteN].handler           = OS_WriteN_impl;
+   SWI_Table[SWI_OS_Byte].handler             = OS_Byte_impl;
+   SWI_Table[SWI_OS_ReadLine].handler         = OS_ReadLine_impl;
+   SWI_Table[SWI_OS_ScreenMode].handler       = OS_ScreenMode_impl;
+   SWI_Table[SWI_OS_ReadModeVariable].handler = OS_ReadModeVariable_impl;
+   SWI_Table[SWI_OS_ReadVduVariables].handler = OS_ReadVduVariables_impl;
 
 }
 
 void fb_remove_swi_handlers() {
    if (initialized) {
       for (int i = 0; i < NUM_SWI_HANDLERS; i++) {
-         SWIHandler_Table[i] = base_handler[i];
+         SWI_Table[i].handler = base_handler[i];
       }
    }
 }
