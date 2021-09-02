@@ -568,6 +568,14 @@ void prim_set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
    set_pixel(screen, x, y, colour);
 }
 
+pixel_t prim_get_pixel(screen_mode_t *screen, int x, int y) {
+   return get_pixel(screen, x, y);
+}
+
+int prim_on_screen(screen_mode_t *screen, int x, int y) {
+   return x >= g_x_min && x <= g_x_max && y >= g_y_min && y <= g_y_max;
+}
+
 // Rodders: Line mode support
 // Implementation of Bresenham's line drawing algorithm from here:
 // http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/

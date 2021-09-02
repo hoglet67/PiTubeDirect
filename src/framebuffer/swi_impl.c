@@ -6,6 +6,7 @@
 #include "../tube-lib.h"
 #include "../tube-swi.h"
 
+#include "primitives.h"
 #include "framebuffer.h"
 #include "screen_modes.h"
 
@@ -355,6 +356,47 @@ static void OS_ReadVduVariables_impl(unsigned int *reg) {
 }
 
 // ==========================================================================
+// Implementation of OS_ReadPoint SWI
+// ==========================================================================
+
+// Entry
+//   R0	X co-ordinate
+//   R1	Y co-ordinate
+// Exit
+//   R0	Preserved
+//   R1	Preserved
+//   R2	Colour
+//   R3	Tint
+//   R4	-1 if point was off screen, else 0
+// Notes
+//   If in a 16 or 32 bpp mode, this will return the 15 or 24 bit
+//   colour number in R2 and tint will be 0.
+
+static void OS_ReadPoint_impl(unsigned int *reg) {
+   int32_t x = (int32_t)reg[0];
+   int32_t y = (int32_t)reg[1];
+
+   screen_mode_t *screen = get_screen_mode(fb_get_current_screen_mode());
+
+   pixel_t colour = prim_get_pixel(screen, x, y);
+
+   if (prim_on_screen(screen, x, y)) {
+      if (screen->log2bpp == 3) {
+         reg[2] = colour & 0x3F;
+         reg[3] = colour & 0xC0;
+      } else {
+         reg[2] = colour;
+         reg[3] = 0;
+      }
+      reg[4] = 0;
+   } else {
+      reg[2] = -1;
+      reg[3] = 0;
+      reg[4] = -1;
+   }
+}
+
+// ==========================================================================
 // Public methods
 // ==========================================================================
 
@@ -384,6 +426,7 @@ void fb_add_swi_handlers() {
    SWI_Table[SWI_OS_Byte].handler             = OS_Byte_impl;
    SWI_Table[SWI_OS_ReadLine].handler         = OS_ReadLine_impl;
    SWI_Table[SWI_OS_ScreenMode].handler       = OS_ScreenMode_impl;
+   SWI_Table[SWI_OS_ReadPoint].handler        = OS_ReadPoint_impl;
    SWI_Table[SWI_OS_ReadModeVariable].handler = OS_ReadModeVariable_impl;
    SWI_Table[SWI_OS_ReadVduVariables].handler = OS_ReadVduVariables_impl;
 
