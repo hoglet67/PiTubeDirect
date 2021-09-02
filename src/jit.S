@@ -1043,16 +1043,9 @@ Bopc_29:
 Bopc_2A:
    adc     regA, regA, regA
 Bopc_2C:
-   JITABSLDRB
-   bic     flags, flags, #V_FLAG6502
-   tst     temp, regA  // This clears N flag and sets up the Z flag
-   mrs     temp0, CPSR
+   mov temp1,#0xFF<<8
 Bopc_2C_io:
    mov r0,#0xFF
-   BL ioload
-   mov temp,r0
-   bic     flags, flags, #V_FLAG6502
-   tst     temp, regA  // This clears N flag and sets up the Z flag
 Bopc_2D:
    JITABSLOGICAL ands
 Bopc_2E:
@@ -1128,19 +1121,27 @@ opc_2C: // Opcode 2C - BIT $0000
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
    cmp temp, temp0, lsr #5  //  constant 0xFEE0 >> 5
    BEQ bitabsio
-   TRIPLEBYTEABSBLOUT Bopc_2C bit3 20
 
-bitabsio:
-   COPY5 Bopc_2C_io
-   SETBYTE
-   ldr temp0,=ioload
+   COPY1 Bopc_2C
+   SETBYTEHIGH
+   ldr temp0,=bitabstable
+   ldrb temp1,[temp,#1]
+   add temp0,temp0,temp1,LSL #3
    add temp1,r6,#4
    BL MAKEBRANCHLINK
+   FILLINJITTEDTABLES dejit16bit1
+   add temp2,temp2,#2*NEXTJITLET
+   B dojitloop
 
-   ldr temp0,=bit2
-   add temp1,r6,#20
+bitabsio:
+   COPY1 Bopc_2C_io
+   SETBYTE
+   ldr temp0,=bitioload
+   add temp1,r6,#4
    BL MAKEBRANCHLINK
-   B jitend3byte
+   FILLINJITTEDTABLES dejit16bit1
+   add temp2,temp2,#2*NEXTJITLET
+   B dojitloop
 
 opc_2D: // Opcode 2D - AND $0000
    TRIPLEBYTEABST2 Bopc_2D
@@ -3229,11 +3230,27 @@ rola:
    sxtb    regA, regA
    bx lr
 
+bitioload: //2c
+   push {r14}
+   BL      ioload
+   pop  {r14}
+
+bitadjustr14:
+   add temp2,r14,#16
+   bic     flags, flags, #V_FLAG6502
+   tst     r0, regA  // This clears N flag and sets up the Z flag
+   mrs     temp, CPSR
+   and     temp1, r0, #N_FLAG6502
+   and     r0, r0, #V_FLAG6502
+   orr     flags, flags, r0
+   orr     temp, temp, temp1, LSL #24
+   msr     CPSR_flg, temp
+   bx  temp2
+
 bit: // 34
    tst     temp, regA  // This clears N flag and sets up the Z flag
 bit2: // 24 3c
    mrs     temp0, CPSR
-bit3:
    and     temp1, temp, #N_FLAG6502
    and     temp, temp, #V_FLAG6502
    orr     flags, flags, temp
@@ -3381,5 +3398,13 @@ immediatesignextenedtable:
 .endr
 .rept 128
    mov temp,#0xFFFFFF00+imm
+   .set imm,imm+1
+.endr
+
+bitabstable:
+.set imm,0
+.rept 256
+   ldrb temp0,[temp1,#imm]
+   B bitadjustr14
    .set imm,imm+1
 .endr
