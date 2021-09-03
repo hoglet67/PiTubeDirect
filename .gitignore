@@ -78,3 +78,4 @@ src/scripts/cov-int/tmp/emit-db-cache
 src/scripts/cov-int/tmp/emit-db-cache.lock
 src/scripts/cov-int/tu-timings.txt
 src/scripts/myproject.tgz
+*.su

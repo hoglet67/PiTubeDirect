@@ -1339,12 +1339,12 @@ static void tube_SWI_NumberFromString(unsigned int *reg) {
 static void tube_SWI_NumberToString(unsigned int *reg) {
    unsigned int num =         reg[0];
    char * buffer    = (char *)reg[1];
-   int buffer_len   = (int)   reg[2];
+   unsigned int buffer_len  = reg[2];
 
    char *name = lookup_swi_name(num);
 
    // Make sure we don't overflow the buffer
-   int name_len = strlen(name);
+   unsigned int name_len = strlen(name);
    if (name_len < buffer_len) {
       strcpy(buffer, name);
       reg[2] = name_len + 1; // Returned length includes terminator
