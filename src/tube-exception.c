@@ -52,7 +52,7 @@ static void dump_binary(unsigned int value) {
   }
 }
 
-static void dump_string(char *string) {
+static void dump_string(const char *string) {
   char c;
   while ((c = *string++) != 0) {
     RPI_AuxMiniUartWrite((uint8_t)c);
@@ -60,7 +60,7 @@ static void dump_string(char *string) {
 }
 
 // For some reason printf generally doesn't work here
-static void dump_info(unsigned int *context, int offset, char *type) {
+static void dump_info(unsigned int *context, int offset, const char *type) {
   unsigned int *addr;
   unsigned int *reg;
   unsigned int flags;

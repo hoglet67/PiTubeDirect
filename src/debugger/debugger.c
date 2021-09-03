@@ -95,7 +95,7 @@ static void doCmdWr(const char *params);
 // if h is entered, then help will match.
 
 // Must be kept in step with dbgCmdFuncs (just below)
-static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
+static const char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
    "info",
    "help",
    "continue",
@@ -128,7 +128,7 @@ static char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
    "watcho"
 };
 
-static char *dbgHelpStrings[NUM_CMDS + NUM_IO_CMDS] = {
+static const char *dbgHelpStrings[NUM_CMDS + NUM_IO_CMDS] = {
    "",                       // info
    "[ <command> ]",          // help
    "",                       // continue
@@ -611,7 +611,7 @@ static int parse3params(const char *params, int required, unsigned int *p1, unsi
 }
 
 // Set the breakpoint state variables
-static void setBreakpoint(breakpoint_t *ptr, char *type, unsigned int addr, unsigned int mask, int mode) {
+static void setBreakpoint(breakpoint_t *ptr, const char *type, unsigned int addr, unsigned int mask, int mode) {
    printf("%s %s set at %s\r\n", type, modeStrings[mode], format_addr(addr));
    ptr->addr = addr & mask;
    ptr->mask = mask;
@@ -625,7 +625,7 @@ static void copyBreakpoint(breakpoint_t *ptr1, const breakpoint_t *ptr2) {
 }
 
 // A generic helper that does most of the work of the watch/breakpoint commands
-static void genericBreakpoint(const char *params, char *type, breakpoint_t *list, int mode) {
+static void genericBreakpoint(const char *params, const char *type, breakpoint_t *list, int mode) {
    int i = 0;
    unsigned int addr;
    unsigned int mask = 0xFFFFFFFF;
@@ -671,7 +671,7 @@ static int parseCommand(const char ** cmdptr) {
          n += NUM_IO_CMDS;
       }
       for (int i = 0; i < n; i++) {
-         char *cmdString = dbgCmdStrings[i];
+         const char *cmdString = dbgCmdStrings[i];
          size_t cmdStringLen = strlen(cmdString);
          size_t minLen = cmdLen < cmdStringLen ? cmdLen : cmdStringLen;
          if (strncmp(cmdString, cmd, minLen) == 0) {
@@ -1047,7 +1047,7 @@ static void doCmdWatchOut(const char *params) {
 }
 
 
-static int genericClear(uint32_t addr, char *type, breakpoint_t *list) {
+static int genericClear(uint32_t addr, const char *type, breakpoint_t *list) {
 
    unsigned int i = 0;
 

@@ -485,7 +485,7 @@ static char *lookup_swi_name(unsigned int num) {
 }
 
 // A helper method to make generating errors easier
-void generate_error(void * address, unsigned int errorNum, char *errorMsg) {
+void generate_error(void * address, unsigned int errorNum, const char *errorMsg) {
   // Get the current handler's error buffer
   ErrorBuffer_type *ebuf = (ErrorBuffer_type *)env->handler[ERROR_HANDLER].address;
   // Copy the error address into the handler's error block
@@ -529,7 +529,7 @@ static void updateMode(unsigned char mode, unsigned int *reg) {
 }
 
 // For an unimplemented environment handler
-void handler_not_implemented(char *type) {
+void handler_not_implemented(const char *type) {
   printf("Handler %s defined but not implemented\r\n", type);
 }
 
