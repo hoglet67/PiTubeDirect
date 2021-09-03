@@ -461,7 +461,7 @@ static char *lookup_swi_name(unsigned int num) {
       if (num >= 0x20 && num < 0x7F) {
          sprintf(ptr, "OS_WriteI+\"%c\"", num);
       } else {
-         sprintf(ptr, "OS_WriteI+%d", num);
+         sprintf(ptr, "OS_WriteI+%u", num);
       }
    } else {
       // Default to user
