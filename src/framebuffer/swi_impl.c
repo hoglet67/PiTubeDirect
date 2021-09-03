@@ -388,9 +388,9 @@ static void OS_ReadPoint_impl(unsigned int *reg) {
       }
       reg[4] = 0;
    } else {
-      reg[2] = -1;
+      reg[2] = 0xFFFFFFFF;
       reg[3] = 0;
-      reg[4] = -1;
+      reg[4] = 0xFFFFFFFF;
    }
 }
 
