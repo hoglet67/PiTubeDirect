@@ -944,7 +944,7 @@ static void tube_Args(unsigned int *reg) {
   // Y = R1 is the file namdle
   sendByte(R2_ID, (unsigned char )reg[1]);
   // R2 is the 4 byte data block
-  sendWord(R2_ID, (unsigned char )reg[2]);
+  sendWord(R2_ID, reg[2]);
   // A = R0 is the operation code
   sendByte(R2_ID, (unsigned char )reg[0]);
   // get back A
