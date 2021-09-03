@@ -34,6 +34,6 @@ extern clock_info_t *get_clock_rates(int clk_id);
 extern void dump_useful_info();
 
 /* Cached on boot, so this is safe to call at any time */
-extern char *get_cmdline_prop(char *prop);
+extern char *get_cmdline_prop(const char *prop);
 
 #endif

@@ -8,7 +8,7 @@ static char cmdline[PROP_SIZE];
 
 static char info_string[PROP_SIZE];
 
-void print_tag_value(char *name, const rpi_mailbox_property_t *buf, int hex) {
+static void print_tag_value(const char *name, const rpi_mailbox_property_t *buf, int hex) {
    LOG_INFO("%20s : ", name);
    if (buf == NULL) {
       LOG_INFO("*** failed ***");
@@ -117,7 +117,7 @@ static char *get_cmdline() {
    return cmdline;
 }
 
-char *get_cmdline_prop(char *prop) {
+char *get_cmdline_prop(const char *prop) {
    static char ret[PROP_SIZE];
    char *retptr = ret;
    char *cmdptr = get_cmdline();
@@ -187,7 +187,7 @@ void dump_useful_info() {
       //, TAG_GET_COMMAND_LINE
    };
 
-   char *tagnames[] = {
+   const char *tagnames[] = {
       "FIRMWARE_VERSION"
       , "BOARD_MODEL"
       , "BOARD_REVISION"
@@ -200,7 +200,7 @@ void dump_useful_info() {
       //, "COMMAND_LINE"
    };
 
-   char *clock_names[] = {
+   const char *clock_names[] = {
       "RESERVED",
       "EMMC",
       "UART",
@@ -250,7 +250,7 @@ void dump_useful_info() {
    LOG_INFO("     SDRAM_I VOLTAGE : %6.2f V\r\n", (double)get_voltage(COMPONENT_SDRAM_I));
 
    LOG_INFO("            CMD_LINE : %s\r\n", get_cmdline());
-   char *cs ;
+   const char *cs ;
    cs = get_cmdline_prop("copro");
    if (!cs)
       cs = "0 (default)";
