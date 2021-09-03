@@ -38,7 +38,7 @@ typedef void (*SWIHandler_Type) (unsigned int *reg);
 
 typedef struct {
    SWIHandler_Type handler;
-   char *name;
+   const char * const name;
 } SWIDescriptor_Type;
 
 // SWI handler table
