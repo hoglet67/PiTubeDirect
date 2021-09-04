@@ -227,18 +227,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    orr     regSP, #0x0100
 .endm
 
-// Macro for popping a byte from the stack, whilst correctly handing wrapping
-// This relies on the 6502 memory being 256 Byte aligned
-.macro SPOP reg sign
-   mov     \reg,#1
-   uadd8   regSP,regSP,\reg
-.ifc \sign,SIGN
-   ldrsb   \reg, [regSP]
-.else
-   ldrb \reg,[regSP]
-.endif
-.endm
-
 .macro NOP6
    ldr temp,=ARMNOP
    str temp,[r6]
@@ -772,7 +760,10 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro  PLP
-   SPOP temp2
+   mov   temp,#1
+   uadd8 temp2,regSP,temp
+   ldrb  temp2, [temp2]
+   uadd8 regSP,regSP,temp
 
    and  flags, flags, #0xffffff00
    orr  flags, flags, temp2        // preserve the other bits in flags, e.g. the slowdown bit
@@ -1015,11 +1006,10 @@ Bopc_1F:
    JITBBR 1
 
 Bopc_20:
-   JITABS
-   strh temp1,[regSP,#-1]
-   sub     regSP, regSP, #2
-   orr     regSP, #0x0100
-   // ???? usub8   regSP, regSP, memry
+   JITABS 
+   sub  regSP, regSP, #2
+   strh temp1,[regSP,#1]
+   orr  regSP, #0x0100
 
 Bopc_21:
    JITINDXLOGICAL ands
@@ -3181,23 +3171,26 @@ decstore:
    bx lr
 
 plx:
-   uadd8   regSP,regSP,temp
-   ldrb   regX, [regSP]
-   mov     regX, regX, LSL #24
-   teq  regX, #0
+   uadd8 regX,regSP,temp
+   ldrb  regX, [regX]
+   uadd8 regSP,regSP,temp
+   mov   regX, regX, LSL #24
+   teq   regX, #0
    bx lr
 
 ply:
-   uadd8   regSP,regSP,temp
-   ldrb   regY, [regSP]
-   mov     regY, regY, LSL #24
-   teq  regY, #0
+   uadd8 regY,regSP,temp
+   ldrb  regY, [regY]
+   uadd8 regSP,regSP,temp
+   mov   regY, regY, LSL #24
+   teq   regY, #0
    bx lr
 
 pla:
-   uadd8   regSP,regSP,temp
-   ldrsb   regA, [regSP]
-   teq  regA, #0
+   uadd8 regA,regSP,temp
+   ldrsb regA, [regA]
+   uadd8 regSP,regSP,temp
+   teq   regA, #0
    bx lr
 
 rts:
