@@ -83,14 +83,13 @@ void ProfileAdd(uint32_t Function, uint16_t Regs0, uint16_t Regs1)
 char *operandText(uint16_t Reg)
 {
    static char result[80];
-   static char mode[4] = "BWDQ";
    if (Reg < 16)
    {
       sprintf(result, "%s", operandStrings[Reg]);
    }
    else
    {
-      sprintf(result, "%s[Rn:%c]", operandStrings[Reg & 15], mode[(Reg >> 4) - 1]);
+      sprintf(result, "%s[Rn:%c]", operandStrings[Reg & 15], "BWDQ"[(Reg >> 4) - 1]);
    }
    return result;
 }
