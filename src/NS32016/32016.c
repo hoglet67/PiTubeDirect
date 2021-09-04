@@ -1046,14 +1046,13 @@ void n32016_exec()
       BreakPoint(startpc, opcode);
 
       Function = FunctionLookup[opcode & 0xFF];
-      uint32_t Format   = Function >> 4;
 
-      //if (Format < (FormatCount + 1)) // always true
+      //if ((Function >> 4) < (FormatCount + 1)) // always true
       {
-         pc += FormatSizes[Format];                                        // Add the basic number of bytes for a particular instruction
+         pc += FormatSizes[Function >> 4];                                        // Add the basic number of bytes for a particular instruction
       }
 
-      switch (Format)
+      switch (Function >> 4)
       {
          case Format0:
          case Format1:

@@ -1608,7 +1608,7 @@ void fb_writec(char c) {
    }
 }
 
-void fb_writes(char *string) {
+void fb_writes(const char *string) {
    while (*string) {
       fb_writec(*string++);
    }

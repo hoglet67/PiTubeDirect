@@ -82,7 +82,7 @@ void fb_process_vdu_queue();
 
 void fb_writec(char c);
 
-void fb_writes(char *string);
+void fb_writes(const char *string);
 
 uint32_t fb_get_address();
 

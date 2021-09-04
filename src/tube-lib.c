@@ -117,7 +117,7 @@ unsigned int receiveString(unsigned char reg, unsigned char terminator, volatile
 }
 
 // Reg is 1..4
-void sendBlock(unsigned char reg, int len, const unsigned char *buf)
+void sendBlock(unsigned char reg, unsigned int len, const unsigned char *buf)
 {
   // bytes in a block are transferred high downto low
   buf += len;
@@ -128,7 +128,7 @@ void sendBlock(unsigned char reg, int len, const unsigned char *buf)
 }
 
 // Reg is 1..4
-void receiveBlock(unsigned char reg, int len, unsigned char *buf)
+void receiveBlock(unsigned char reg, unsigned int len, unsigned char *buf)
 {
   // bytes in a block are transferred high downto low
   // bytes in a block are transferred high downto low

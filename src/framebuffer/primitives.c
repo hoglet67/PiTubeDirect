@@ -94,6 +94,7 @@ static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
       case PM_INVERT:
          colour = existing ^ 0xFF;
          break;
+      case PM_NORMAL : break;
       default:
          break;
       }

@@ -40,8 +40,6 @@ void RPI_PropertyInit( void )
 */
 void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
 {
-    uint32_t offset;
-    uint32_t num_colours;
     va_list vl;
     va_start( vl, tag );
 
@@ -197,9 +195,9 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             }
             break;
 
-       case TAG_SET_PALETTE:
-            offset = va_arg( vl, uint32_t);
-            num_colours = va_arg( vl, uint32_t);
+       case TAG_SET_PALETTE:{
+            uint32_t offset = va_arg( vl, uint32_t);
+            uint32_t num_colours = va_arg( vl, uint32_t);
             pt[pt_index++] = 8 + num_colours * 4;
             pt[pt_index++] = 0; /* Request */
             pt[pt_index++] = offset;                   // Offset to first colour
@@ -209,7 +207,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
                pt[pt_index++] = palette[offset + i];
             }
             break;
-
+            }
         case TAG_SET_CURSOR_INFO:
             pt[pt_index++] = 24;
             pt[pt_index++] = 0; /* Request */

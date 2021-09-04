@@ -309,7 +309,7 @@ static void tube_host_write(uint32_t addr, uint8_t val)
    switch (addr & 7)
    {
    case 0: /*Register 1 control/status*/
-
+      {
       if (!(tube_irq & TUBE_ENABLE_BIT))
          return;
 
@@ -361,6 +361,7 @@ static void tube_host_write(uint32_t addr, uint8_t val)
       if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= IRQ_BIT;
 
       break;
+      }
    case 1: /*Register 1*/
       //if (!tube_enabled)
       //      return;
