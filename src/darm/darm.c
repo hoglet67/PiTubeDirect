@@ -45,7 +45,7 @@ static int darm_reglist(uint16_t reglist, char *out);
 
 static int _utoa(unsigned int value, char *out, unsigned int base)
 {
-    char buf[30]; 
+    char buf[30];
     int  counter = 0;
 
     if(value == 0) {
@@ -110,7 +110,7 @@ int darm_disasm(darm_t *d, uint16_t w, uint16_t w2, uint32_t addr)
     }
 
     // magic table constructed based on section A6.1 of the ARM manual
-    static uint8_t is_thumb2[0x20] = {
+    static const uint8_t is_thumb2[0x20] = {
         [b11101] = 1,
         [b11110] = 1,
         [b11111] = 1,
@@ -633,7 +633,7 @@ static int darm_reglist(uint16_t reglist, char *out)
     *out = 0;
     return out - base;
 }
-#if 0 
+#if 0
 void darm_dump(const darm_t *d)
 {
     printf(
