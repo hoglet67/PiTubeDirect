@@ -854,7 +854,6 @@ static void tube_Byte(unsigned int *reg) {
   if (DEBUG_ARM) {
     printf("%08x %08x %08x\r\n", reg[0], reg[1], reg[2]);
   }
-  unsigned char cy;
   unsigned char a = reg[0] & 0xff;
   unsigned char x = reg[1] & 0xff;
   unsigned char y = reg[2] & 0xff;
@@ -886,13 +885,14 @@ static void tube_Byte(unsigned int *reg) {
        // OSBYTE &9D immediately returns.
        return;
     }
-
-    cy = receiveByte(R2_ID) & 0x80;
-    y = receiveByte(R2_ID);
-    x = receiveByte(R2_ID);
-    reg[1] = x;
-    reg[2] = y;
-    updateCarry(cy, reg);
+    {
+      unsigned char cy = receiveByte(R2_ID) & 0x80;
+      y = receiveByte(R2_ID);
+      x = receiveByte(R2_ID);
+      reg[1] = x;
+      reg[2] = y;
+      updateCarry(cy, reg);
+    }
   }
   if (DEBUG_ARM) {
     printf("%08x %08x %08x\r\n", reg[0], reg[1], reg[2]);
