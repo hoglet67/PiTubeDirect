@@ -1541,11 +1541,8 @@ static void writec(char ch) {
 }
 
 void fb_process_vdu_queue() {
-   static uint8_t flash_count = 0;
-   static uint8_t flash_state = 0;
-   static uint8_t cursor_count = 0;
-
    if (RPI_GetIrqController()->IRQ_pending_2 & RPI_VSYNC_IRQ) {
+      static uint8_t cursor_count = 0;
       // Clear the vsync interrupt
       _data_memory_barrier();
       *((volatile uint32_t *)SMICTRL) = 0;
@@ -1564,6 +1561,8 @@ void fb_process_vdu_queue() {
       // - teletext mode, 320ms on 960ms off
       // -
       if (screen->flash) {
+         static uint8_t flash_count = 0;
+         static uint8_t flash_state = 0;
          if (flash_mark_time == 0 || flash_space_time == 0) {
             // An on/off time of zero is infinite and flashing stops
             uint8_t tmp = (flash_mark_time == 0) ? 1 : 0;
