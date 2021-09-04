@@ -125,12 +125,11 @@ static const char * type_names[] = {
 #endif
 
 static const char *type_lookup(int type) {
-   static const char *UNKNOWN = "UNKNOWN";
    int num_types = sizeof(type_names) / sizeof(type_names[0]);
    if (type >= 0 && type < num_types) {
       return type_names[type];
    } else {
-      return UNKNOWN;
+      return "UNKNOWN";
    }
 }
 
@@ -142,7 +141,7 @@ void reset_performance_counters(perf_counters_t *pct) {
    // bit 1 = 1 means reset counters to zero
    // bit 0 = 1 enable counters
    unsigned ctrl = 0x0F;
-   
+
 
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
    int i;
@@ -285,7 +284,7 @@ int benchmark() {
       memcpy(mem1, mem2, size);
       read_performance_counters(&pct);
       print_performance_counters(&pct);
-   }   
+   }
 
    return total;
 }
