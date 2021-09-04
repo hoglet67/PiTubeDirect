@@ -186,7 +186,7 @@ static int darm_str(const darm_t *d, darm_str_t *str)
     default:
         break;
     }
-
+    {
     const char **ptrs = armv7_format_strings[d->instr];
     if(ptrs[0] == NULL) return -1;
 
@@ -457,7 +457,7 @@ static int darm_str(const darm_t *d, darm_str_t *str)
             }
             continue;
 
-        case 'b':
+        case 'b':{
             // BLX first checks for branch and only then for the conditional
             // version which takes the Rm as operand, so let's see if the
             // branch stuff has been initialized yet
@@ -467,7 +467,7 @@ static int darm_str(const darm_t *d, darm_str_t *str)
             *args[arg]++ = '&';
             args[arg] += _utoa(target, args[arg], 16);
             continue;
-
+            }
         case 'M':
             *args[arg]++ = '[';
             APPEND(args[arg], darm_register_name(d->Rn));
@@ -550,7 +550,7 @@ static int darm_str(const darm_t *d, darm_str_t *str)
         if(ptrs[++idx] == NULL || idx == 3) return -1;
         off--;
     }
-
+    }
 finalize:
 
     *mnemonic = *shift = 0;
