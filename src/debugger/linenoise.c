@@ -378,7 +378,6 @@ static void freeCompletions(linenoiseCompletions *lc) {
  * structure as described in the structure definition. */
 static signed char completeLine(struct linenoiseState *ls) {
     linenoiseCompletions lc = { 0, NULL };
-    int nread, nwritten;
     signed char c = 0;
 
     completionCallback(ls->buf,&lc);
@@ -402,8 +401,7 @@ static signed char completeLine(struct linenoiseState *ls) {
                 refreshLine(ls);
             }
 
-            nread = read(ls->ifd,&c,1);
-            if (nread <= 0) {
+            if (read(ls->ifd,&c,1) <= 0) {
                 freeCompletions(&lc);
                 return -1;
             }
@@ -421,8 +419,7 @@ static signed char completeLine(struct linenoiseState *ls) {
                 default:
                     /* Update buffer and return */
                     if (i < lc.len) {
-                        nwritten = snprintf(ls->buf,ls->buflen,"%s",lc.cvec[i]);
-                        ls->len = ls->pos = (size_t)nwritten;
+                        ls->len = ls->pos = (size_t)snprintf(ls->buf,ls->buflen,"%s",lc.cvec[i]);
                     }
                     stop = 1;
                     break;
@@ -503,11 +500,11 @@ static void abFree(struct abuf *ab) {
 /* Helper of refreshSingleLine() and refreshMultiLine() to show hints
  * to the right of the prompt. */
 static void refreshShowHints(struct abuf *ab, struct linenoiseState *l, size_t plen) {
-    char seq[64];
     if (hintsCallback && plen+l->len < l->cols) {
         int color = -1, bold = 0;
         char *hint = hintsCallback(l->buf,&color,&bold);
         if (hint) {
+            char seq[64];
             size_t hintlen = strlen(hint);
             size_t hintmaxlen = l->cols-(plen+l->len);
             if (hintlen > hintmaxlen) hintlen = hintmaxlen;
@@ -595,14 +592,14 @@ static void refreshMultiLine(struct linenoiseState *l) {
     abInit(&ab);
     if (old_rows-rpos > 0) {
         lndebug("go down %d", old_rows-rpos);
-        snprintf(seq,64,"\x1b[%dB", old_rows-rpos);
+        snprintf(seq,64,"\x1b[%uB", (unsigned int)(old_rows-rpos));
         abAppend(&ab,seq,strlen(seq));
     }
 
     /* Now for every row clear it, go up. */
     for (j = 0; j < old_rows-1; j++) {
         lndebug("clear+up");
-        snprintf(seq,64,"\r\x1b[0K\x1b[1A");
+        snprintf(seq,64,"\r\x1b[0K\x1u[1A");
         abAppend(&ab,seq,strlen(seq));
     }
 
@@ -644,7 +641,7 @@ static void refreshMultiLine(struct linenoiseState *l) {
     /* Go up till we reach the expected positon. */
     if (rows-rpos2 > 0) {
         lndebug("go-up %d", rows-rpos2);
-        snprintf(seq,64,"\x1b[%dA", rows-rpos2);
+        snprintf(seq,64,"\x1b[%uA", (unsigned int)(rows-rpos2));
         abAppend(&ab,seq,strlen(seq));
     }
 
@@ -652,7 +649,7 @@ static void refreshMultiLine(struct linenoiseState *l) {
     col = (plen+l->pos) % l->cols;
     lndebug("set col %d", 1+col);
     if (col)
-        snprintf(seq,64,"\r\x1b[%dC", col);
+        snprintf(seq,64,"\r\x1b[%uC", (unsigned int)col);
     else
         snprintf(seq,64,"\r");
     abAppend(&ab,seq,strlen(seq));
@@ -842,10 +839,9 @@ static int  linenoiseInitLine(struct linenoiseState *l, int stdin_fd, int stdout
 static int linenoiseProcessChar(struct linenoiseState *l, char c) {
 
     static int esc_state = 0;
-    static char seq[3];
 
     if (esc_state) {
-
+         static char seq[3];
         /* Read the next two bytes representing the escape sequence.
          * Use two calls to handle slow terminals returning the two
          * chars at different times. */
