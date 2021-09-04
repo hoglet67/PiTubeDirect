@@ -60,24 +60,15 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   static r1_state_type r1_state = IDLE_R1;
   static r4_state_type r4_state = IDLE_R4;
 
-  static unsigned char a;
-  static unsigned char x;
-  static unsigned char y;
   static unsigned char type;
   static ErrorBlock_type *eblk;
-  static char *emsg;
-  static unsigned char id;
-  static unsigned char a3;
-  static unsigned char a2;
-  static unsigned char a1;
-  static unsigned char a0;
+
   static int remaining;
 
   int addr;
   int rnw;
   int ntube;
   int nrst;
-  unsigned char flag;
 
   addr = (mail>>8) & 7;
   rnw   = ( (mail >>11 ) & 1);
@@ -95,12 +86,13 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   // State machine updates on tube write cycles
 
   if (nrst == 1 && ntube == 0 && rnw == 0 && addr == 1) {
-
+    static unsigned char x;
+    static unsigned char y;
     switch (r1_state) {
 
-    case IDLE_R1:
+    case IDLE_R1: {
       // R1 interrupt
-      flag = tubeRead(R1_DATA);
+      unsigned char flag = tubeRead(R1_DATA);
       if (flag & 0x80) {
         // Escape
         // The escape handler is called with the escape flag value in R11
@@ -112,7 +104,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         r1_state = EVENT_R1_Y;
       }
       break;
-
+    }
     case EVENT_R1_Y:
       y = tubeRead(R1_DATA);
       r1_state = EVENT_R1_X;
@@ -124,15 +116,19 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
       break;
 
     case EVENT_R1_A:
-      a = tubeRead(R1_DATA);
-      env->handler[EVENT_HANDLER].handler(a, x, y);
+      env->handler[EVENT_HANDLER].handler(tubeRead(R1_DATA), x, y);
       r1_state = IDLE_R1;
       break;
     }
   }
 
   if (nrst == 1 && ntube == 0 && rnw == 0) {
-
+    static unsigned char id;
+    static unsigned char a3;
+    static unsigned char a2;
+    static unsigned char a1;
+    static char *emsg;
+    
     switch (r4_state) {
 
     case IDLE_R4:
@@ -215,7 +211,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
 
     case TRANSFER_R4_A0:
       if (addr == 7) {
-        a0 = tubeRead(R4_DATA);
+        unsigned char a0 = tubeRead(R4_DATA);
         tube_address = (unsigned char *)((a3 << 24) + (a2 << 16) + (a1 << 8) + a0);
         if (DEBUG_TRANSFER) {
           printf("Transfer = %02x %02x %08x\r\n", type, id, (unsigned int)tube_address);
@@ -299,10 +295,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   // R4_State machine updates on tube read cycles
 
   if (nrst == 1 && ntube == 0 && rnw == 1) {
-
-    switch (r4_state) {
-
-    case TRANSFER_R3:
+    if (r4_state == TRANSFER_R3) {
       if (addr == 5) {
         if (type == 0 || type == 2 || (type == 6 && remaining > 0)) {
           // Write the R3 data register, which should also clear the NMI
@@ -318,9 +311,6 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           }
         }
       }
-      break;
-    default:
-      break;
     }
   }
 }
