@@ -138,7 +138,7 @@ static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2
 }
 
 // Rodders: Arc drawing routines, used by chord and sector fills
-static int arc_quadrant(int x, int y) {
+static unsigned int arc_quadrant(int x, int y) {
    if (x >= 0) {
       if (y >= 0) {
          return 0;
@@ -154,7 +154,7 @@ static int arc_quadrant(int x, int y) {
    }
 }
 
-static int arc_point(int q, quadrant_t state, int x, int y, int xs, int ys, int xe, int ye) {
+static int arc_point(unsigned int q, quadrant_t state, int x, int y, int xs, int ys, int xe, int ye) {
    if (state == Q_ALL) {
       return TRUE;
    }
@@ -852,13 +852,13 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    int y3 = yc + (y2 - yc) * radius / r2;
 
    // Set up quadrants
-   int qstart = arc_quadrant(x1 - xc, y1 - yc);
-   int qend = arc_quadrant(x3 - xc, y3 - yc);
+   unsigned int qstart = arc_quadrant(x1 - xc, y1 - yc);
+   unsigned int qend = arc_quadrant(x3 - xc, y3 - yc);
    quadrant_t q[4] = {Q_NONE, Q_NONE, Q_NONE, Q_NONE};
    q[qstart] = (qstart == qend) ? Q_BOTH : Q_START;
    if (qstart != qend || (y1 >= yc && x1 < x3) || (y1 < yc && x1 > x3)) {
-      for (int i = qstart + 1; i < qstart + 4; i++) {
-         int j = i % 4;
+      for (unsigned int i = qstart + 1; i < qstart + 4; i++) {
+         unsigned int j = i % 4;
          if (j == qend) {
             q[j] = Q_END;
             break;
@@ -934,7 +934,7 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
       xf = -(y1 - yc) / 2;
       yf =  (x1 - xc) / 2;
    }
-   int qf = arc_quadrant(xf, yf);
+   unsigned int qf = arc_quadrant(xf, yf);
    int rf = calc_radius(0, 0, xf, yf);
    if (rf < 5) rf = radius / 2;
    xf = (xf + xf * radius / rf) / 2;
