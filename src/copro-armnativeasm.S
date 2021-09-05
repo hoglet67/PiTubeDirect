@@ -25,7 +25,7 @@ copro_armnative_enable_mailbox:
         ldr     r1, =MBOX0_CONFIG       // to generate interrupts when data is present
         str     r0, [r1]
 #endif
-        mov     pc, lr
+        bx      lr
 
 copro_armnative_disable_mailbox:
 #ifndef USE_DOORBELL
@@ -33,7 +33,7 @@ copro_armnative_disable_mailbox:
         ldr     r1, =MBOX0_CONFIG       // when data is present
         str     r0, [r1]
 #endif
-        mov     pc, lr
+        bx      lr
 
 #ifdef USE_REENTRANT_FIQ_HANDLER
 
@@ -222,7 +222,7 @@ _error_handler_wrapper:
     mov      r12, r1
 
     // Continue execution of the error handler
-    mov      pc, r2
+    bx       r2
 
     // Called with the escape flag value in R0 and the escape handler address in R1
 _escape_handler_wrapper:
@@ -241,7 +241,7 @@ _escape_handler_wrapper:
 
     // Restore stacked resisters and return
     ldmfd    sp!, {r11-r12, lr}
-    mov      pc, lr
+    bx       lr
 
     // Called with the R12 value in R0 and the exit handler address in R1
 _exit_handler_wrapper:
@@ -250,7 +250,7 @@ _exit_handler_wrapper:
     mov      r12, r0
 
     // Re-enable ARM FIQ and IRQ interrupts, and move to user mode
-    CPSIE   if, #CPSR_MODE_USER
+    CPSIE    if, #CPSR_MODE_USER
 
     // Continue execution of the exit handler
-    mov      pc, r1
+    bx       r1

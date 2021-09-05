@@ -267,12 +267,12 @@ _reset_continue:
 .section ".text._get_stack_pointer"
 _get_stack_pointer:
     mov     r0, sp
-    mov     pc, lr
+    bx      lr
 
 .section ".text._get_cpsr"
 _get_cpsr:
     mrs     r0, cpsr
-    mov     pc, lr
+    bx      lr
 
 .section ".text._set_interrupts"
 _set_interrupts:
@@ -281,21 +281,21 @@ _set_interrupts:
     bic     r1, r1, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     orr     r1, r1, r0
     msr     cpsr_c, r1
-    mov     pc, lr
+    bx      lr
 
 .section ".text._enable_interrupts"
 _enable_interrupts:
     mrs     r0, cpsr
     bic     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r0
-    mov     pc, lr
+    bx      lr
 
 .section ".text._disable_interrupts"
 _disable_interrupts:
     mrs     r0, cpsr
     orr     r1, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r1
-    mov     pc, lr
+    bx      lr
 
 .section ".text._undefined_instruction_handler_"
 _undefined_instruction_handler_:
@@ -335,7 +335,7 @@ _enable_unaligned_access:
     bic      r0, r0, #2              // A (no unaligned access fault)
     orr      r0, r0, #1 << 22        // U (v6 unaligned access model)
     mcr      p15, 0, r0, c1, c0, 0   // write SCTLR
-    mov      pc, lr
+    bx       lr
 
     // Enable L1 Cache -------------------------------------------------------
 .section ".text._enable_l1_cache"
@@ -352,56 +352,56 @@ _enable_l1_cache:
     // System Control Register = R0
     mcr p15,0,r0,c1,c0,0
 
-    mov      pc, lr
+    bx      lr
 
 .section ".text._invalidate_icache"
 _invalidate_icache:
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c5, 0
-    mov      pc, lr
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c5, 0
+    bx      lr
 
 .section ".text._invalidate_dcache"
 _invalidate_dcache:
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c6, 0
-    mov      pc, lr
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c6, 0
+    bx      lr
 
 .section ".text._clean_invalidate_dcache"
 _clean_invalidate_dcache:
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c14, 0
-    mov      pc, lr
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c14, 0
+    bx      lr
 
 .section ".text._invalidate_dcache_mva"
 _invalidate_dcache_mva:
-    mcr      p15, 0, r0, c7, c6, 1
-    mov      pc, lr
+    mcr     p15, 0, r0, c7, c6, 1
+    bx      lr
 
 .section ".text._clean_invalidate_dcache_mva"
 _clean_invalidate_dcache_mva:
-    mcr      p15, 0, r0, c7, c14, 1
-    mov      pc, lr
+    mcr     p15, 0, r0, c7, c14, 1
+    bx      lr
 
 .section ".text._invalidate_dtlb"
 _invalidate_dtlb:
-    mov      r0, #0
-    mcr      p15, 0, r0, c8, c6, 0
-    mov      pc, lr
+    mov     r0, #0
+    mcr     p15, 0, r0, c8, c6, 0
+    bx      lr
 
 .section ".text._invalidate_dtlb_mva"
 _invalidate_dtlb_mva:
-    mcr      p15, 0, r0, c8, c6, 1
-    mov      pc, lr
+    mcr     p15, 0, r0, c8, c6, 1
+    bx      lr
 
 .section ".text._data_memory_barrier"
 _data_memory_barrier:
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
     dmb
 #else
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c10, 5
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c10, 5
 #endif
-    mov      pc, lr
+    bx      lr
 
 #ifdef USE_MULTICORE
 +.section ".text._init_core"
@@ -495,7 +495,7 @@ _spin_core1:
 _get_core:
     mrc     p15, 0, r0, c0, c0, 5
     and     r0, #3
-    mov     pc, lr
+    bx      lr
 
 #endif
 
@@ -510,7 +510,7 @@ _toggle_test_pin_loop:
         str     r1, [r2]
         subs    r0, r0, #1
         bne     _toggle_test_pin_loop
-        mov     pc, lr
+        bx      lr
 #endif
 
 
