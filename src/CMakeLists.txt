@@ -44,7 +44,12 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fomit-frame-pointer " )
+
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fanalyzer" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto" )
+
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wnarrowing -Woverflow -Wconversion -Wjump-misses-init -Wlogical-not-parentheses -Wnull-dereference -Winit-self -Wpointer-arith  -Wwrite-strings -Wunreachable-code -Wshadow -Wdouble-promotion  -Wformat-truncation -fstack-usage -Wconversion" )
+# other options to try which fail currently : Wformat=2 -Wswitch-enum -Wstrict-overflow=5 -Wcast-qual
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-delete-null-pointer-checks -fdata-sections -ffunction-sections ")
 
