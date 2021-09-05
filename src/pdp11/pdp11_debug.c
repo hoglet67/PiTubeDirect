@@ -192,7 +192,7 @@ cpu_debug_t pdp11_cpu_debug = {
 typedef struct {
    uint16_t inst;
    uint16_t arg;
-   char *msg;
+   const char *msg;
    uint8_t flag;
    bool b;
 } D;
