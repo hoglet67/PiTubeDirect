@@ -261,15 +261,15 @@ static void free_control_list() {
 
 // Render a single triangle to memory.
 void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, unsigned int colour) {
-  int x, y;
+  unsigned int x, y;
 
   uint8_t *p = list;
 
-  int w = screen->width;
-  int h = screen->height;
+  unsigned int w = (unsigned int)screen->width;
+  unsigned int h = (unsigned int)screen->height;
 
-  int bw = (w + 63) / 64;
-  int bh = (h + 63) / 64;
+  unsigned int bw = (w + 63) / 64;
+  unsigned int bh = (h + 63) / 64;
 
   float c1_r, c1_g, c1_b;
   float c2_r, c2_g, c2_b;
@@ -486,7 +486,7 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
 
       // Call Tile sublist
       addbyte(&p, 17);
-      addword(&p, bus_addr + 0x6200 + (uint32_t)(y * bw + x) * 32);
+      addword(&p, bus_addr + 0x6200 + (y * bw + x) * 32);
 
       // Last tile needs a special store instruction
       if(x == bw - 1 && y == bh - 1) {
