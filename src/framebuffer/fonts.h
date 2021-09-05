@@ -9,7 +9,7 @@
 
 typedef struct font {
    // The raw font data itself
-   char *name;         // (max) 8 character ASCII name of the font
+   const char *name;         // (max) 8 character ASCII name of the font
    uint8_t *data;      // pointer to the raw font data
    int bytes_per_char; // Number of bytes of raw data per character
    int num_chars;      // Number of characters in the character set
@@ -37,7 +37,7 @@ typedef struct font {
    void    (*set_scale_h)(struct font *font, int scale_h);
    void   (*set_rounding)(struct font *font, int rounding);
 
-   char *     (*get_name)(struct font *font);
+   const char *     (*get_name)(struct font *font);
    uint32_t (*get_number)(struct font *font);
    int   (*get_spacing_w)(struct font *font);
    int   (*get_spacing_h)(struct font *font);
@@ -52,7 +52,7 @@ typedef struct font {
 
 } font_t;
 
-char * get_font_name(uint32_t num);
+const char * get_font_name(uint32_t num);
 
 font_t *get_font_by_number(uint32_t num);
 

@@ -202,7 +202,7 @@ static void default_set_rounding(font_t *font, int rounding) {
    }
 }
 
-static char *default_get_name(font_t *font) {
+static const char *default_get_name(font_t *font) {
    return font->name;
 }
 
@@ -351,7 +351,7 @@ static font_t *initialize_font(font_t * catalog, uint32_t num) {
 // Public Methods
 // ==========================================================================
 
-char * get_font_name(uint32_t num) {
+const char * get_font_name(uint32_t num) {
    font_t *font = &font_catalog[DEFAULT_FONT];
    if (num < NUM_FONTS) {
       font = &font_catalog[num];
