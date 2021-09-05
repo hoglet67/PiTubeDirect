@@ -92,8 +92,8 @@ static volatile uint8_t flash_space_time = 25;
 
 // VDU Queue
 #define VDU_QSIZE 8192
-static volatile int vdu_wp = 0;
-static volatile int vdu_rp = 0;
+static volatile unsigned int vdu_wp = 0;
+static volatile unsigned int vdu_rp = 0;
 static uint8_t vdu_queue[VDU_QSIZE];
 
 #define VDU_BUF_LEN 16
