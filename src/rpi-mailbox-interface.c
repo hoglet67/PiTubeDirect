@@ -15,7 +15,7 @@
 
 __attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t pt[PROP_BUFFER_SIZE];
 
-static int pt_index ;
+static unsigned int pt_index ;
 
 void RPI_PropertyInit( void )
 {
