@@ -1,7 +1,7 @@
 #include "../logging.h"
 
 /* A custom warning logger for n32016 that logs the PC */
-void n32016_warn(char * fmt, ...);
+void n32016_warn(const char * fmt, ...);
 
 #define PiTRACE(...) log_debug(__VA_ARGS__)
 
