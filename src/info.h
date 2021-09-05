@@ -20,7 +20,7 @@ extern uint32_t get_speed();
 /* Cached on boot, so this is safe to call at any time */
 extern char *get_info_string();
 
-extern uint32_t get_clock_rate(int clk_id);
+extern uint32_t get_clock_rate(unsigned int clk_id);
 
 uint32_t get_revision();
 
@@ -29,7 +29,7 @@ uint32_t get_revision();
 #define COMPONENT_SDRAM_P 3
 #define COMPONENT_SDRAM_I 4
 
-extern clock_info_t *get_clock_rates(int clk_id);
+extern clock_info_t *get_clock_rates(unsigned int clk_id);
 
 extern void dump_useful_info();
 

@@ -37,7 +37,7 @@ uint32_t get_revision() {
    }
 }
 
-uint32_t get_clock_rate(int clk_id) {
+uint32_t get_clock_rate(unsigned int clk_id) {
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_GET_CLOCK_RATE_MEASURED, clk_id);
@@ -148,7 +148,7 @@ char *get_cmdline_prop(const char *prop) {
    return NULL;
 }
 
-clock_info_t * get_clock_rates(int clk_id) {
+clock_info_t * get_clock_rates(unsigned int clk_id) {
    static clock_info_t result;
    uint32_t *rp = (uint32_t *) &result;
    rpi_mailbox_tag_t tags[] = {
@@ -156,8 +156,8 @@ clock_info_t * get_clock_rates(int clk_id) {
       TAG_GET_MIN_CLOCK_RATE,
       TAG_GET_MAX_CLOCK_RATE
    };
-   int i;
-   int n = sizeof(tags) / sizeof(rpi_mailbox_tag_t);
+   unsigned int i;
+   unsigned int n = sizeof(tags) / sizeof(rpi_mailbox_tag_t);
 
    rpi_mailbox_property_t *buf;
    RPI_PropertyInit();
@@ -173,7 +173,7 @@ clock_info_t * get_clock_rates(int clk_id) {
 }
 
 void dump_useful_info() {
-   int i;
+   unsigned int i;
    rpi_mailbox_tag_t tags[] = {
         TAG_GET_FIRMWARE_VERSION
       , TAG_GET_BOARD_MODEL
@@ -214,7 +214,7 @@ void dump_useful_info() {
       "PWM"
    };
 
-   int n = sizeof(tags) / sizeof(rpi_mailbox_tag_t);
+   unsigned int n = sizeof(tags) / sizeof(rpi_mailbox_tag_t);
    LOG_INFO("\r\n"); // put some new lines in the serial stream as we don't know what is currently on the terminal
    LOG_INFO("\r\n");
    LOG_INFO("**********     Raspberry Pi BBC Micro Coprocessor     **********\r\n");

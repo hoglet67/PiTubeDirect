@@ -44,7 +44,7 @@ static char *perl_params =
 
 /* Z80 registers */
 static WORD af[2];         /* accumulator and flags (2 banks) */
-static int af_sel;         /* bank select for af */
+static unsigned int af_sel;         /* bank select for af */
 
 /* two sets of 16-bit registers */
 
@@ -55,7 +55,7 @@ static struct ddregs {
 } regs[2];
 
 //struct ddregs regs[2];      /* bc,de,hl */
-static int regs_sel;         /* bank select for ddregs */
+static unsigned int regs_sel;         /* bank select for ddregs */
 
 static WORD ir;         /* other Z80 registers */
 static WORD ix;
