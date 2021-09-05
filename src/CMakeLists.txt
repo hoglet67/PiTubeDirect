@@ -29,7 +29,7 @@
 
 # CMake 2.8.10 Documentation: http://www.cmake.org/cmake/help/v2.8.10/cmake.html
 
-cmake_minimum_required( VERSION 2.8 )
+cmake_minimum_required( VERSION 2.9 )
 
 # Mark the language as C so that CMake doesn't try to test the C++
 # cross-compiler's ability to compile a simple program because that will fail
