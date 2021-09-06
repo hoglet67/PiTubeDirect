@@ -1006,7 +1006,7 @@ Bopc_1F:
    JITBBR 1
 
 Bopc_20:
-   JITABS 
+   JITABS
    sub  regSP, regSP, #2
    strh temp1,[regSP,#1]
    orr  regSP, #0x0100
