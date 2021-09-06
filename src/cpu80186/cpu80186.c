@@ -2245,7 +2245,7 @@ void exec86(uint32_t tube_cycles)
         break;
 
         case 0x54: /* 54 PUSH eSP */
-        push(getreg16(regsp));
+        push(getreg16(regsp)-2);  // 286 onwards doesn't have the -2
         break;
 
         case 0x55: /* 55 PUSH eBP */
@@ -3240,8 +3240,8 @@ void exec86(uint32_t tube_cycles)
           break;
         }
 
-        oper1b = getmem8(segregs[reges], getreg16(regdi));
-        oper2b = regs.byteregs[regal];
+        oper2b = getmem8(segregs[reges], getreg16(regdi));
+        oper1b = regs.byteregs[regal];
         flag_sub8(oper1b, oper2b);
         if (df)
         {
@@ -3281,8 +3281,8 @@ void exec86(uint32_t tube_cycles)
           break;
         }
 
-        oper1 = getmem16(segregs[reges], getreg16(regdi));
-        oper2 = getreg16(regax);
+        oper2 = getmem16(segregs[reges], getreg16(regdi));
+        oper1 = getreg16(regax);
         flag_sub16(oper1, oper2);
         if (df)
         {
