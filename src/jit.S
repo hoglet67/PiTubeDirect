@@ -2569,10 +2569,13 @@ arm_fiq_handler_jit:
    push {r0-r2}
 
    // If the SPSR indicates FIQ has interruped IRQ then we need to recover a valid 6502 SP
+   mov    r1, regSP
    and    r0, #0x1F
    cmp    r0, #0x12
    ldreq  r0, =_main_irq_r9_regsp
-   ldreq  r9, [r0]
+   ldreq  r1, [r0]
+   cmp    r1, #0
+   movne  regSP, r1
 
 // We need to restore these registers incase the FIQ has interupted an IRQ which
 // has over written them. other register

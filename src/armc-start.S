@@ -566,6 +566,10 @@ _main_irq_handler:
         // ARM ABI says that Callee must preserve r4-r8, r10, r11 and SP
         // r9 is platform specific, but GCC seems to callee save that
         bl      RPI_AuxMiniUartIRQHandler
+        // Mark the copy Jit6502 regsp (r9) as invalid
+        // This is safe to do, as r9 now holds the real regsp again
+        mov     r0, #0
+        str     r0, _main_irq_r9_regsp
         ldm     sp!, {r0, r1, r2, r3, ip, pc}^
 
 _main_irq_r9_regsp:
