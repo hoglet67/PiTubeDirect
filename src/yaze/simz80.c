@@ -240,27 +240,27 @@ static int dbg_debug_enable(int newvalue) {
    int oldvalue = simz80_debug_enabled;
    simz80_debug_enabled = newvalue;
    return oldvalue;
-};
+}
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
    return (uint32_t)copro_z80_read_mem(addr);
-};
+}
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
    copro_z80_write_mem(addr, (uint8_t)value);
-};
+}
 
 // CPU's usual I/O read function for data.
 static uint32_t dbg_ioread(uint32_t addr) {
    return (uint32_t)copro_z80_read_io(addr);
-};
+}
 
 // CPU's usual I/O write function.
 static void dbg_iowrite(uint32_t addr, uint32_t value) {
    copro_z80_write_io(addr, (uint8_t)value);
-};
+}
 
 // Get a register - which is the index into the names above
 static uint32_t dbg_reg_get(int which) {
@@ -302,7 +302,7 @@ static uint32_t dbg_reg_get(int which) {
   default:
     return 0;
    }
-};
+}
 
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
@@ -359,7 +359,7 @@ static void  dbg_reg_set(int which, uint32_t value) {
     IFF = (WORD)((IFF & ~2u) | ((value & 1u)<<1));
     break;
    }
-};
+}
 
 static const char* flagname = "S Z * H * P N C ";
 
@@ -399,14 +399,14 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    } else {
       return (size_t) snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
    }
-};
+}
 
 // Parse a value into a register.
 static void dbg_reg_parse(int which, const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
-};
+}
 
 static uint32_t dbg_get_instr_addr() {
    return last_PC;

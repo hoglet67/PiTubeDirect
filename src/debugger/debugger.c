@@ -476,31 +476,31 @@ void debug_init () {
       // Disable the debugger
       cpu->debug_enable(0);
    }
-};
+}
 
 void debug_memread (const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
    if (!internal) {
       generic_memory_access(cpu, addr, value, size, "Mem Rd", mem_rd_breakpoints);
    }
-};
+}
 
 void debug_memwrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
    if (!internal) {
       generic_memory_access(cpu, addr, value, size, "Mem Wr", mem_wr_breakpoints);
    }
-};
+}
 
 void debug_ioread (const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
    if (!internal) {
       generic_memory_access(cpu, addr, value, size, "IO Rd", io_rd_breakpoints);
    }
-};
+}
 
 void debug_iowrite(const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size) {
    if (!internal) {
       generic_memory_access(cpu, addr, value, size, "IO Wr", io_wr_breakpoints);
    }
-};
+}
 
 void debug_preexec (const cpu_debug_t *cpu, uint32_t addr) {
    int show = 0;
@@ -546,7 +546,7 @@ void debug_preexec (const cpu_debug_t *cpu, uint32_t addr) {
       disassemble_addr(addr);
    }
    while (stopped);
-};
+}
 
 void debug_trap(const cpu_debug_t *cpu, uint32_t addr, int reason) {
    const char *desc = cpu->trap_names[reason];

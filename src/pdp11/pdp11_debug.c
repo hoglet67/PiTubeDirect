@@ -61,21 +61,21 @@ static int dbg_debug_enable(int newvalue) {
    int oldvalue = pdp11_debug_enabled;
    pdp11_debug_enabled = newvalue;
    return oldvalue;
-};
+}
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
    return copro_pdp11_read8((uint16_t)addr);
-};
+}
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
    copro_pdp11_write8((uint16_t)addr, (uint8_t)value);
-};
+}
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    return disasm(buf, (uint16_t)addr);
-};
+}
 
 // Get a register - which is the index into the names above
 static uint32_t dbg_reg_get(int which) {
@@ -88,7 +88,7 @@ static uint32_t dbg_reg_get(int which) {
    } else {
       return (uint16_t) m_pdp11->R[which];
    }
-};
+}
 
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
@@ -101,7 +101,7 @@ static void  dbg_reg_set(int which, uint32_t value) {
    } else {
       m_pdp11->R[which] = value & 0xFFFF;
    }
-};
+}
 
 static const char* flagname = "T N Z V C ";
 
@@ -156,14 +156,14 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    } else {
       return (size_t)snprintf(buf, bufsize, "%06"PRIo32" (%04"PRIx32")", dbg_reg_get(which), dbg_reg_get(which));
    }
-};
+}
 
 // Parse a value into a register.
 static void dbg_reg_parse(int which, const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
-};
+}
 
 static uint32_t dbg_get_instr_addr() {
    return m_pdp11->PC;

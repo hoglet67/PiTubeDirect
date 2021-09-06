@@ -1010,7 +1010,7 @@ void default_init_screen(screen_mode_t *screen) {
        v3d_initialize(NULL);
     }
 #endif
-};
+}
 
 void default_reset_screen(screen_mode_t *screen) {
     /* Copy default colour table */

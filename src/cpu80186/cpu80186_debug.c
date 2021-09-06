@@ -66,27 +66,27 @@ static int dbg_debug_enable(int newvalue) {
    int oldvalue = cpu80186_debug_enabled;
    cpu80186_debug_enabled = newvalue;
    return oldvalue;
-};
+}
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
    return read86(addr);
-};
+}
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
    write86(addr, (uint8_t)value);
-};
+}
 
 // CPU's usual IO read function for data.
 static uint32_t dbg_ioread(uint32_t addr) {
    return portin((uint16_t)addr);
-};
+}
 
 // CPU's usual IO write function.
 static void dbg_iowrite(uint32_t addr, uint32_t value) {
    portout((uint16_t)addr, (uint8_t)value);
-};
+}
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    char instr[100];
@@ -105,7 +105,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    }
    strncpy(buf, instr, bufsize);
    return addr + oplen;
-};
+}
 
 // Get a register - which is the index into the names above
 static uint32_t dbg_reg_get(int which) {
@@ -140,7 +140,7 @@ static uint32_t dbg_reg_get(int which) {
       return getsegreg(regss);
    }
    return 0;
-};
+}
 
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
@@ -188,7 +188,7 @@ static void  dbg_reg_set(int which, uint32_t value) {
       putsegreg(regss, (uint16_t)value);
       break;
    }
-};
+}
 
 static const char* flagname = "O D I T S Z * A * P * C ";
 
@@ -224,14 +224,14 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    } else {
       return (size_t)snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
    }
-};
+}
 
 // Parse a value into a register.
 static void dbg_reg_parse(int which, const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
-};
+}
 
 static uint32_t dbg_get_instr_addr() {
    return getinstraddr86();

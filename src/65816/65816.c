@@ -79,7 +79,7 @@ static int dbg_debug_enable(int newvalue)
     int oldvalue = dbg_w65816;
     dbg_w65816 = newvalue;
     return oldvalue;
-};
+}
 
 #endif
 

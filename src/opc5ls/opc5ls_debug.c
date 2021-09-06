@@ -105,17 +105,17 @@ static int dbg_debug_enable(int newvalue) {
    int oldvalue = opc5ls_debug_enabled;
    opc5ls_debug_enabled = newvalue;
    return oldvalue;
-};
+}
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_read(uint32_t addr) {
    return copro_opc5ls_read((uint16_t)addr);
-};
+}
 
 // CPU's usual memory write function.
 static void dbg_write(uint32_t addr, uint32_t value) {
    copro_opc5ls_write((uint16_t)addr, (uint16_t)value);
-};
+}
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    uint32_t len;
@@ -180,7 +180,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    }
 
    return addr;
-};
+}
 
 // Get a register - which is the index into the names above
 static uint32_t dbg_reg_get(int which) {
@@ -193,7 +193,7 @@ static uint32_t dbg_reg_get(int which) {
    } else {
       return m_opc5ls->reg[which];
    }
-};
+}
 
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
@@ -206,7 +206,7 @@ static void  dbg_reg_set(int which, uint32_t value) {
    } else {
       m_opc5ls->reg[which] = (uint16_t)value;
    }
-};
+}
 
 static const char* flagname = "EI S C Z ";
 
@@ -253,14 +253,14 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    } else {
       return (uint32_t)snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
    }
-};
+}
 
 // Parse a value into a register.
 static void dbg_reg_parse(int which, const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
-};
+}
 
 static uint32_t dbg_get_instr_addr() {
    return m_opc5ls->saved_pc;

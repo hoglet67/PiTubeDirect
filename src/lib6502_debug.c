@@ -48,17 +48,17 @@ static int dbg_debug_enable(int newvalue) {
    int oldvalue = lib6502_debug_enabled;
    lib6502_debug_enabled = newvalue;
    return oldvalue;
-};
+}
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
    return (uint32_t)copro_lib6502_mem_read(copro_lib6502_mpu, addr, 0);
-};
+}
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
    copro_lib6502_mem_write(copro_lib6502_mpu, addr, (uint8_t)value);
-};
+}
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    char instr[64];
@@ -77,7 +77,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    }
    strncpy(buf, instr, bufsize);
    return (uint32_t)(addr + oplen);
-};
+}
 
 // Get a register - which is the index into the names above
 static uint32_t dbg_reg_get(int which) {
@@ -97,7 +97,7 @@ static uint32_t dbg_reg_get(int which) {
    default:
       return 0;
    }
-};
+}
 
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
@@ -121,7 +121,7 @@ static void  dbg_reg_set(int which, uint32_t value) {
       copro_lib6502_mpu->registers->pc = (uint16_t)value;
       break;
    }
-};
+}
 
 static const char* flagname = "N V * B D I Z C ";
 
@@ -159,14 +159,14 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    } else {
       return (size_t)snprintf(buf, bufsize, "%02"PRIx32, dbg_reg_get(which));
    }
-};
+}
 
 // Parse a value into a register.
 static void dbg_reg_parse(int which, const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
-};
+}
 
 static uint32_t dbg_get_instr_addr() {
    return (uint32_t)lib6502_last_PC;
