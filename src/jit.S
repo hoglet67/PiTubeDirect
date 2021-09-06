@@ -765,12 +765,12 @@ then return to our secret stack This relies on instructions being re entrant , b
    ldrb  temp2, [temp2]
    uadd8 regSP,regSP,temp
 
-   and  flags, flags, #0xffffff00
-   orr  flags, flags, temp2        // preserve the other bits in flags, e.g. the slowdown bit
+   and  temp, flags, #0xffffff00
+   orr  temp, temp, temp2        // preserve the other bits in flags, e.g. the slowdown bit
+   bic  flags, temp, #N_FLAG6502+X_FLAG6502+B_FLAG6502+Z_FLAG6502+C_FLAG6502
    and  temp, temp2, #N_FLAG6502
    and  temp2, temp2, #Z_FLAG6502+C_FLAG6502
    mov  temp, temp, lsl #24
-   bic  flags, flags, #N_FLAG6502+X_FLAG6502+B_FLAG6502+Z_FLAG6502+C_FLAG6502
    orr  temp, temp, temp2, lsl #29
    //   Need to update the ARM flags later with  msr     CPSR_flg, temp
    // temp1 return address
