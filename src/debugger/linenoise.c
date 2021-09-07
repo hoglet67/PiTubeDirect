@@ -187,7 +187,6 @@ enum KEY_ACTION{
 static void linenoiseAtExit(void);
 #endif
 
-int linenoiseHistoryAdd(const char *line);
 static void refreshLine(struct linenoiseState *l);
 
 /* Debugging macro. */
