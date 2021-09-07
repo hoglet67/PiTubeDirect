@@ -78,7 +78,7 @@ static uint32_t temp1, temp2, temp3, ea;
 union _bytewordregs_ regs;
 
 static uint8_t verbose = 1, didbootstrap = 0;
-// debugmode, showcsip, mouseemu, 
+// debugmode, showcsip, mouseemu,
 //uint8_t ethif;
 
 #define makeflagsword() \
@@ -2245,7 +2245,10 @@ void exec86(uint32_t tube_cycles)
         break;
 
         case 0x54: /* 54 PUSH eSP */
-        push(getreg16(regsp)-2);  // 286 onwards doesn't have the -2
+        push(getreg16(regsp));  // 8086 and intel 80186 have a bug where sp-2
+                                // is push on the stack. AMD 80186 and 286
+                                // onwards doesn't have the -2 bug. This bug
+                                // is used to detect the 186 by the TubeOS
         break;
 
         case 0x55: /* 55 PUSH eBP */
