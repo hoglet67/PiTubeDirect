@@ -1218,8 +1218,16 @@ screen_mode_t *get_screen_mode(int mode_num) {
 
       // Set the colour index for black
       sm->black = 0;
-      // Set the colour index for black, avoiding flashing colours
-      sm->white = (sm->ncolour == 15) ? 7 : sm->ncolour;
+      // Set the colour index for while, avoiding flashing colours in 16-colour modes
+      if (sm->ncolour == 1) {
+         sm->white = 1;
+      } else if (sm->ncolour == 3) {
+         sm->white = 3;
+      } else if (sm->ncolour == 15) {
+         sm->white = 7;
+      } else {
+         sm->white = 255;
+      }
    }
    return sm;
 }
