@@ -119,7 +119,7 @@ void _clean_cache_area(void * start, unsigned int length)
       startptr = startptr + cachelinesize;
    } while ( startptr  < endptr);
 #else
-   asm volatile("mcrr p15,0,%0,%1,c14"::"r" (start+length), "r" (start));
+   asm volatile("mcrr p15,0,%0,%1,c14"::"r" ((uint32_t)start+length), "r" (start));
 #endif
    _data_memory_barrier();
 }
@@ -143,7 +143,7 @@ void _invalidate_cache_area(void * start, unsigned int length)
       startptr = startptr + cachelinesize;
    } while ( startptr  < endptr);
 #else
-   asm volatile("mcrr p15,0,%0,%1,c6"::"r" (start+length), "r" (start));
+   asm volatile("mcrr p15,0,%0,%1,c6"::"r" ((uint32_t)start+length), "r" (start));
 #endif
    _data_memory_barrier();
 }
