@@ -726,16 +726,19 @@ static screen_mode_t screen_modes[] = {
       .mode_flags    = F_FULL_PALETTE,
       .log2bpp       = 3,
       .log2bpc       = 3,
+      .par           = 0.0f
    },
    {
       .mode_num      = CUSTOM_16BPP_SCREEN_MODE,
       .log2bpp       = 4,
       .log2bpc       = 4,
+      .par           = 0.0f
    },
    {
       .mode_num      = CUSTOM_32BPP_SCREEN_MODE,
       .log2bpp       = 5,
       .log2bpc       = 5,
+      .par           = 0.0f
    },
    {
       .mode_num      = -1,

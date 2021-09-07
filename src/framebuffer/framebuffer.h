@@ -72,6 +72,8 @@ void fb_initialize();
 
 void fb_destroy();
 
+void fb_custom_mode(int16_t x_pixels, int16_t y_pixels, unsigned int n_colours);
+
 void fb_writec_buffered(char c);
 
 void fb_process_vdu_queue();

@@ -872,7 +872,6 @@ static void vdu23_19(uint8_t *buf) {
    update_text_area();
 }
 
-
 static void vdu23_22(uint8_t *buf) {
    // VDU 23,22,xpixels;ypixels;xchars,ychars,colours,flags
    // User Defined Screen Mode
@@ -882,13 +881,7 @@ static void vdu23_22(uint8_t *buf) {
    if (n_colours == 0) {
       n_colours = 256;
    }
-   screen_mode_t *new_screen = get_screen_mode(CUSTOM_8BPP_SCREEN_MODE);
-   new_screen->width = x_pixels;
-   new_screen->height = y_pixels;
-   new_screen->xeigfactor = 1;
-   new_screen->yeigfactor = 1;
-   new_screen->ncolour = (int)(n_colours - 1);
-   change_mode(new_screen);
+   fb_custom_mode(x_pixels, y_pixels, n_colours);
 }
 
 static void vdu23_27(uint8_t *buf) {
@@ -1486,6 +1479,35 @@ void fb_destroy() {
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_RELEASE_BUFFER);
    RPI_PropertyProcess();
+}
+
+void fb_custom_mode(int16_t x_pixels, int16_t y_pixels, unsigned int n_colours) {
+   screen_mode_t *new_screen;
+   if (n_colours > 0x10000) {
+      new_screen = get_screen_mode(CUSTOM_32BPP_SCREEN_MODE);
+   } else if (n_colours > 0x100) {
+      new_screen = get_screen_mode(CUSTOM_16BPP_SCREEN_MODE);
+   } else {
+      new_screen = get_screen_mode(CUSTOM_8BPP_SCREEN_MODE);
+   }
+   new_screen->width = x_pixels;
+   new_screen->height = y_pixels;
+   // Calculate xeigfactor so minimum X dimension in OS Units is 1280
+   // and the minimum xeigfactor is 1
+   new_screen->xeigfactor = 0;
+   do {
+      new_screen->xeigfactor++;
+      x_pixels <<= 1;
+   } while (x_pixels < 1280);
+   // Calculate yeigfactor so minimum Y dimension in OS Units is 1024
+   // and the minimum yeigfactor is 1
+   new_screen->yeigfactor = 0;
+   do {
+      new_screen->yeigfactor++;
+      y_pixels <<= 1;
+   } while (y_pixels < 1024);
+   new_screen->ncolour = (int)(n_colours - 1);
+   change_mode(new_screen);
 }
 
 void fb_writec_buffered(char c) {

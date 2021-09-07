@@ -285,26 +285,27 @@ static void OS_ScreenMode_impl(unsigned int *reg) {
          return;
       } else if ((reg[1] & 1) == 0) {
          unsigned int *selector_block = (unsigned int *)reg[1];
-         unsigned int xpixels = *(selector_block + 1);
-         unsigned int ypixels = *(selector_block + 2);
+         unsigned int x_pixels = *(selector_block + 1);
+         unsigned int y_pixels = *(selector_block + 2);
          unsigned int log2bpp = *(selector_block + 3);
          printf("OS_ScreenMode: x=%08x y=%08x log2bpp=%08x\r\n",
-                xpixels, ypixels, log2bpp);
-         fb_writec(23);
-         fb_writec(22);
-         fb_writec(xpixels & 0xff);
-         fb_writec((xpixels >> 8) & 0xff);
-         fb_writec(ypixels & 0xff);
-         fb_writec((ypixels >> 8) & 0xff);
-         fb_writec(8);
-         fb_writec(8);
-         // number of colours:
-         /// log2bpp = 0: bpp = 1: n_colours = 2
-         /// log2bpp = 1: bpp = 2: n_colours = 4
-         /// log2bpp = 2: bpp = 4: n_colours = 16
-         /// log2bpp = 3: bpp = 8: n_colours = 256 (sent as 0x00)
-         fb_writec((char)((1 << (1 << log2bpp)) & 0xff));
-         fb_writec(0);
+                x_pixels, y_pixels, log2bpp);
+
+         // Number of colours:
+         // log2bpp = 0: bpp =  1: n_colours = 2
+         // log2bpp = 1: bpp =  2: n_colours = 4
+         // log2bpp = 2: bpp =  4: n_colours = 16
+         // log2bpp = 3: bpp =  8: n_colours = 256
+         // log2bpp = 4: bpp = 16: n_colours = 65536
+         // log2bpp = 5: bpp = 32: n_colours = 16777216 (2^24)
+         unsigned int n_colours;
+         if (log2bpp < 5) {
+            n_colours = 1 << (1 << log2bpp);
+         } else {
+            n_colours = 1 << 24;
+         }
+         // Use private methoth here rather than VDU 23,22 to allow selection of high colour modes
+         fb_custom_mode(x_pixels, y_pixels, n_colours);
          return;
       }
    }
