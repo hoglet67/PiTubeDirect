@@ -3,6 +3,8 @@
 
 #include <inttypes.h>
 
+#include "screen_modes.h"
+
 // #define DEBUG_VDU
 
 #define FALSE 0
@@ -119,5 +121,7 @@ void fb_set_flash_space_time(uint8_t time);
 uint8_t fb_get_flash_mark_time();
 
 uint8_t fb_get_flash_space_time();
+
+int fb_point(int16_t x, int16_t y, pixel_t *colour);
 
 #endif

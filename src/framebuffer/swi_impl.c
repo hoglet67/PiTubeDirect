@@ -376,13 +376,9 @@ static void OS_ReadVduVariables_impl(unsigned int *reg) {
 static void OS_ReadPoint_impl(unsigned int *reg) {
    int32_t x = (int32_t)reg[0];
    int32_t y = (int32_t)reg[1];
-
-   screen_mode_t *screen = get_screen_mode(fb_get_current_screen_mode());
-
-   pixel_t colour = prim_get_pixel(screen, x, y);
-
-   if (prim_on_screen(screen, x, y)) {
-      if (screen->log2bpp == 3) {
+   pixel_t colour;
+   if (!fb_point(x, y, &colour)) {
+      if (fb_read_vdu_variable(M_LOG2BPP) == 3) {
          reg[2] = colour & 0x3F;
          reg[3] = colour & 0xC0;
       } else {

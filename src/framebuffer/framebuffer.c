@@ -1848,3 +1848,21 @@ uint8_t fb_get_flash_mark_time() {
 uint8_t fb_get_flash_space_time() {
    return flash_space_time;
 }
+
+int fb_point(int16_t x, int16_t y, pixel_t *colour) {
+   // convert to absolute external coorrdinates
+   x += g_x_origin;
+   y += g_y_origin;
+   if (x < g_window.left || x > g_window.right || y < g_window.bottom || y > g_window.top) {
+      // -1 indicates pixel off sceen
+      return -1;
+   } else {
+      // convert to absolute pixel coorrdinates
+      x >>= screen->xeigfactor;
+      y >>= screen->yeigfactor;
+      // read the pixel
+      *colour = prim_get_pixel(screen, x, y);
+      // 0 indicates pixel on screen
+      return 0;
+   }
+}
