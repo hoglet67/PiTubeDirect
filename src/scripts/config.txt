@@ -25,44 +25,37 @@ disable_overscan=1
 # PiTubeDirect Settings
 #
 
-# default options
-kernel=kernelrpi.img
+# Settings PiZero/PiZeroW/Pi1
 # Debug kernel (needs a 115200 serial connection)
-#kernel=debug/kernelrpi.img
+#kernel=debug/kernel.img
 
+# Pi1 requires the core over clocking
 [pi1]
 core_freq=350
 core_freq_min=350
 
-# Settings for Pi 2
+# Settings for Pi 2B
 [pi2]
 core_freq=400
 core_freq_min=400
-kernel=kernelrpi2.img
 # Debug kernel (needs a 115200 serial connection)
-#kernel=debug/kernelrpi2.img
+#kernel=debug/kernel7.img
 
-# Settings for Pi 3
+# Settings for Pi 3B/3A+/3B+/CM3
 [pi3]
-kernel=kernelrpi3.img
-# Debug kernel (needs a 115200 serial connection)
-#kernel=debug/kernelrpi3.img
-
-# Settings for Pi 3
-[pi3+]
-kernel=kernelrpi3.img
-# Debug kernel (needs a 115200 serial connection)
-#kernel=debug/kernelrpi3.img
-
-[pi4]
-kernel=kernel8-32.img
 # Debug kernel (needs a 115200 serial connection)
 #kernel=debug/kernel8-32.img
+
+# Settings for Pi4B/Pi400/CM4
+[pi4]
+kernel=kernelrpi4.img
+# Debug kernel (needs a 115200 serial connection)
+#kernel=debug/kernelrpi4.img
 
 # Global settings
 [all]
 force_turbo=1
-
+force_eeprom_read=0
 boot_delay=0
 
 # Memory map to stay compatible with 256MB Pi Models
