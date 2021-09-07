@@ -27,6 +27,9 @@
  *   - emulator+disassembler in same object file (library is kind of pointless)
  */
 
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #define notick
 
 #include <stdio.h>
@@ -1127,3 +1130,5 @@ void M6502_delete(M6502 *mpu)
 
   free(mpu);
 }
+
+#pragma GCC diagnostic pop
