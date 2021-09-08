@@ -42,7 +42,7 @@ typedef struct {
 } SWIDescriptor_Type;
 
 // SWI handler table
-extern SWIDescriptor_Type SWI_Table[];
+extern SWIDescriptor_Type os_table[];
 
 // Type definition for a generic function pointer
 typedef int (*FunctionPtr_Type) ();
@@ -58,5 +58,7 @@ void generate_error(void * address, unsigned int errorNum, char *errorMsg);
 // (e.g. in framebuffer/swi_impl.c)
 
 void updateCarry(unsigned char cyf, unsigned int *reg);
+
+void swi_modules_init(int vdu);
 
 #endif

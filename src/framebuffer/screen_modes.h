@@ -92,20 +92,20 @@ typedef struct screen_mode {
 
    struct font *font; // the current font for this screen mode
 
-   void            (*init)(struct screen_mode *screen);
-   void           (*reset)(struct screen_mode *screen);
-   void           (*clear)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
-   void          (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
-   void           (*flash)(struct screen_mode *screen, int mark);
-   void      (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
-   pixel_t   (*get_colour)(struct screen_mode *screen, colour_index_t index);
-   void  (*update_palette)(struct screen_mode *screen, int mark);
-   void       (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
-   pixel_t    (*get_pixel)(struct screen_mode *screen, int x, int y);
-   void (*write_character)(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
-   int   (*read_character)(struct screen_mode *screen,        int col, int row,                 pixel_t bg_col);
-   void     (*unknown_vdu)(struct screen_mode *screen, uint8_t *buf);
-
+   void                     (*init)(struct screen_mode *screen);
+   void                    (*reset)(struct screen_mode *screen);
+   void                    (*clear)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
+   void                   (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
+   void                    (*flash)(struct screen_mode *screen, int mark);
+   void               (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
+   pixel_t            (*get_colour)(struct screen_mode *screen, colour_index_t index);
+   colour_index_t (*nearest_colour)(struct screen_mode *screen, int r, int g, int b);
+   void           (*update_palette)(struct screen_mode *screen, int mark);
+   void                (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
+   pixel_t             (*get_pixel)(struct screen_mode *screen, int x, int y);
+   void          (*write_character)(struct screen_mode *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
+   int            (*read_character)(struct screen_mode *screen,        int col, int row,                 pixel_t bg_col);
+   void              (*unknown_vdu)(struct screen_mode *screen, uint8_t *buf);
 } screen_mode_t;
 
 

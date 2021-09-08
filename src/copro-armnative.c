@@ -310,6 +310,8 @@ void copro_armnative_emulator() {
     return;
   }
 
+  swi_modules_init(0);
+
   // Reset the VDU device back to the default
   // (this is harmless if the VDU is disabled)
   fb_set_vdu_device(VDU_BEEB);

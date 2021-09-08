@@ -104,7 +104,7 @@ uint8_t fb_get_g_fg_col();
 
 void fb_wait_for_vsync();
 
-int fb_get_current_screen_mode();
+screen_mode_t *fb_get_current_screen_mode();
 
 void fb_set_vdu_device(vdu_device_t device);
 
@@ -123,5 +123,13 @@ uint8_t fb_get_flash_mark_time();
 uint8_t fb_get_flash_space_time();
 
 int fb_point(int16_t x, int16_t y, pixel_t *colour);
+
+void fb_set_g_fg_col(uint8_t action, colour_index_t gcol);
+
+void fb_set_g_bg_col(uint8_t action, colour_index_t gcol);
+
+void fb_set_c_fg_col(colour_index_t gcol);
+
+void fb_set_c_bg_col(colour_index_t gcol);
 
 #endif

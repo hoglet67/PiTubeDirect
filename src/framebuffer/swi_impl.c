@@ -146,7 +146,7 @@ static void OS_Byte_impl(unsigned int *reg) {
         // Read character at text cursor position
         reg[1] = (uint32_t)fb_get_text_cursor_char();
         // Also returns current screen mode
-        reg[2] = (uint32_t)fb_get_current_screen_mode();
+        reg[2] = (uint32_t)fb_get_current_screen_mode()->mode_num;
         return;
      }
   }
@@ -327,7 +327,8 @@ static void OS_ScreenMode_impl(unsigned int *reg) {
 // C flag is set if variable or mode were invalid
 
 static void OS_ReadModeVariable_impl(unsigned int *reg) {
-   screen_mode_t *screen = get_screen_mode((int)reg[0]);
+   int mode = (int) reg[0];
+   screen_mode_t *screen = (mode < 0) ? fb_get_current_screen_mode() : get_screen_mode(mode);
    // Return carry set if the screen mode could not be found, or unkonw VDU variable
    if (screen == NULL || reg[1] >= NUM_MODE_VARS) {
       updateCarry(1, reg);
@@ -409,30 +410,30 @@ void fb_add_swi_handlers() {
    // Only need to setup the base handlers once
    if (!initialized) {
       for (int i = 0; i < NUM_SWI_HANDLERS; i++) {
-         base_handler[i] = SWI_Table[i].handler;
+         base_handler[i] = os_table[i].handler;
       }
       initialized = 1;
    }
 
-   SWI_Table[SWI_OS_WriteC].handler           = OS_WriteC_impl;
-   SWI_Table[SWI_OS_WriteS].handler           = OS_WriteS_impl;
-   SWI_Table[SWI_OS_Write0].handler           = OS_Write0_impl;
-   SWI_Table[SWI_OS_NewLine].handler          = OS_NewLine_impl;
-   SWI_Table[SWI_OS_Plot].handler             = OS_Plot_impl;
-   SWI_Table[SWI_OS_WriteN].handler           = OS_WriteN_impl;
-   SWI_Table[SWI_OS_Byte].handler             = OS_Byte_impl;
-   SWI_Table[SWI_OS_ReadLine].handler         = OS_ReadLine_impl;
-   SWI_Table[SWI_OS_ScreenMode].handler       = OS_ScreenMode_impl;
-   SWI_Table[SWI_OS_ReadPoint].handler        = OS_ReadPoint_impl;
-   SWI_Table[SWI_OS_ReadModeVariable].handler = OS_ReadModeVariable_impl;
-   SWI_Table[SWI_OS_ReadVduVariables].handler = OS_ReadVduVariables_impl;
+   os_table[SWI_OS_WriteC].handler           = OS_WriteC_impl;
+   os_table[SWI_OS_WriteS].handler           = OS_WriteS_impl;
+   os_table[SWI_OS_Write0].handler           = OS_Write0_impl;
+   os_table[SWI_OS_NewLine].handler          = OS_NewLine_impl;
+   os_table[SWI_OS_Plot].handler             = OS_Plot_impl;
+   os_table[SWI_OS_WriteN].handler           = OS_WriteN_impl;
+   os_table[SWI_OS_Byte].handler             = OS_Byte_impl;
+   os_table[SWI_OS_ReadLine].handler         = OS_ReadLine_impl;
+   os_table[SWI_OS_ScreenMode].handler       = OS_ScreenMode_impl;
+   os_table[SWI_OS_ReadPoint].handler        = OS_ReadPoint_impl;
+   os_table[SWI_OS_ReadModeVariable].handler = OS_ReadModeVariable_impl;
+   os_table[SWI_OS_ReadVduVariables].handler = OS_ReadVduVariables_impl;
 
 }
 
 void fb_remove_swi_handlers() {
    if (initialized) {
       for (int i = 0; i < NUM_SWI_HANDLERS; i++) {
-         SWI_Table[i].handler = base_handler[i];
+         os_table[i].handler = base_handler[i];
       }
    }
 }

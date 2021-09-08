@@ -1661,8 +1661,8 @@ void fb_wait_for_vsync() {
    vsync_flag = 0;
 }
 
-int fb_get_current_screen_mode() {
-   return screen->mode_num;
+screen_mode_t *fb_get_current_screen_mode() {
+   return screen;
 }
 
 int32_t fb_read_vdu_variable(vdu_variable_t v) {
@@ -1865,4 +1865,22 @@ int fb_point(int16_t x, int16_t y, pixel_t *colour) {
       // 0 indicates pixel on screen
       return 0;
    }
+}
+
+void fb_set_g_fg_col(uint8_t action, colour_index_t gcol) {
+   g_fg_col = (uint8_t) gcol;
+   prim_set_fg_plotmode(action);
+}
+
+void fb_set_g_bg_col(uint8_t action, colour_index_t gcol) {
+   g_bg_col = (uint8_t) gcol;
+   prim_set_bg_plotmode(action);
+}
+
+void fb_set_c_fg_col(colour_index_t gcol) {
+   c_fg_col = (uint8_t) gcol;
+}
+
+void fb_set_c_bg_col(colour_index_t gcol) {
+   c_bg_col = (uint8_t) gcol;
 }

@@ -40,6 +40,9 @@ typedef struct {
 } rectangle_t;
 
 // Colour palette request blocks
+
+#define PALETTE_DATA_OFFSET 7
+
 __attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t palette0_base[PROP_BUFFER_SIZE];
 __attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t palette1_base[PROP_BUFFER_SIZE];
 
@@ -1066,7 +1069,7 @@ void default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, 
 }
 
 void default_set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
-   pixel_t *colour_t = ((index & 0x100) ? palette1_base : palette0_base) + 7;
+   pixel_t *colour_t = ((index & 0x100) ? palette1_base : palette0_base) + PALETTE_DATA_OFFSET;
    colour_t[index & 0xff] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
 }
 
@@ -1091,6 +1094,62 @@ pixel_t default_get_colour_16bpp(screen_mode_t *screen, colour_index_t index) {
 pixel_t default_get_colour_32bpp(screen_mode_t *screen, colour_index_t index) {
    return colour_table[index & 0xff];
 }
+
+colour_index_t default_nearest_colour_8bpp(struct screen_mode *screen, int r, int g, int b) {
+   unsigned int distance = 0x7fffffff;
+   colour_index_t best = 0;
+   for (colour_index_t i = 0; i < NUM_COLOURS && distance != 0; i++) {
+      pixel_t colour = palette0_base[i + PALETTE_DATA_OFFSET];
+      // xxBBGGRR
+      int dr = r - (colour & 0xff);
+      int dg = g - ((colour >> 8) & 0xff);
+      int db = b - ((colour >> 16) & 0xff);
+      unsigned int d = 2 * dr * dr + 4 * dg * dg + db * db;
+      if (d < distance) {
+         distance = d;
+         best = i;
+      }
+   }
+   return best;
+}
+
+colour_index_t default_nearest_colour_16bpp(struct screen_mode *screen, int r, int g, int b) {
+   unsigned int distance = 0x7fffffff;
+   colour_index_t best = 0;
+   for (colour_index_t i = 0; i < NUM_COLOURS && distance != 0; i++) {
+      pixel_t colour = colour_table[i];
+      // 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+      // R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
+      int dr = r - ((colour >> 8) & 0xf8);
+      int dg = g - ((colour >> 3) & 0xfC);
+      int db = b - ((colour << 3) & 0xf8);
+      unsigned int d = 2 * dr * dr + 4 * dg * dg + db * db;
+      if (d < distance) {
+         distance = d;
+         best = i;
+      }
+   }
+  return best;
+}
+
+colour_index_t default_nearest_colour_32bpp(struct screen_mode *screen, int r, int g, int b) {
+   unsigned int distance = 0x7fffffff;
+   colour_index_t best = 0;
+   for (colour_index_t i = 0; i < NUM_COLOURS && distance != 0; i++) {
+      pixel_t colour = colour_table[i];
+      // xxRRGGBB
+      int dr = r - ((colour >> 16) & 0xff);
+      int dg = g - ((colour >> 8) & 0xff);
+      int db = b - (colour & 0xff);
+      unsigned int d = 2 * dr * dr + 4 * dg * dg + db * db;
+      if (d < distance) {
+         distance = d;
+         best = i;
+      }
+   }
+  return best;
+}
+
 
 void default_set_pixel_8bpp(screen_mode_t *screen, int x, int y, pixel_t value) {
    uint8_t *fbptr = (uint8_t *)(fb + (screen->height - y - 1) * screen->pitch + x);
@@ -1193,6 +1252,7 @@ screen_mode_t *get_screen_mode(int mode_num) {
       case 4:
          sm->set_colour     = default_set_colour_16bpp;
          sm->get_colour     = default_get_colour_16bpp;
+         sm->nearest_colour = default_nearest_colour_16bpp;
          sm->update_palette = null_handler;
          sm->set_pixel      = default_set_pixel_16bpp;
          sm->get_pixel      = default_get_pixel_16bpp;
@@ -1200,6 +1260,7 @@ screen_mode_t *get_screen_mode(int mode_num) {
       case 5:
          sm->set_colour     = default_set_colour_32bpp;
          sm->get_colour     = default_get_colour_32bpp;
+         sm->nearest_colour = default_nearest_colour_32bpp;
          sm->update_palette = null_handler;
          sm->set_pixel      = default_set_pixel_32bpp;
          sm->get_pixel      = default_get_pixel_32bpp;
@@ -1207,6 +1268,7 @@ screen_mode_t *get_screen_mode(int mode_num) {
       default:
          sm->set_colour     = default_set_colour_8bpp;
          sm->get_colour     = default_get_colour_8bpp;
+         sm->nearest_colour = default_nearest_colour_8bpp;
          sm->update_palette = update_palette;
          sm->set_pixel      = default_set_pixel_8bpp;
          sm->get_pixel      = default_get_pixel_8bpp;

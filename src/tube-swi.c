@@ -36,6 +36,8 @@
 #include "tube-isr.h"
 #include "swi.h"
 
+#include "framebuffer/module_colourtrans.h"
+
 static unsigned int last_r12 = 0;
 
 static const unsigned char osword_in_len[] = {
@@ -144,286 +146,317 @@ static void tube_BASICTrans_Error(unsigned int *reg);     // &42C81
 static void tube_BASICTrans_Message(unsigned int *reg);   // &42C82
 
 static void handler_not_defined(unsigned int num);
-static void tube_SWI_Not_Known(unsigned int *reg);
 
-SWIDescriptor_Type SWI_Table[] = {
-   {tube_WriteC,               "OS_WriteC"},                     // &00
-   {tube_WriteS,               "OS_WriteS"},                     // &01
-   {tube_Write0,               "OS_Write0"},                     // &02
-   {tube_NewLine,              "OS_NewLine"},                    // &03
-   {tube_ReadC,                "OS_ReadC"},                      // &04
-   {tube_CLI,                  "OS_CLI"},                        // &05
-   {tube_Byte,                 "OS_Byte"},                       // &06
-   {tube_Word,                 "OS_Word"},                       // &07
-   {tube_File,                 "OS_File"},                       // &08
-   {tube_Args,                 "OS_Args"},                       // &09
-   {tube_BGet,                 "OS_BGet"},                       // &0A
-   {tube_BPut,                 "OS_BPut"},                       // &0B
-   {tube_GBPB,                 "OS_GBPB"},                       // &0C
-   {tube_Find,                 "OS_Find"},                       // &0D
-   {tube_ReadLine,             "OS_ReadLine"},                   // &0E
-   {tube_SWI_Not_Known,        "OS_Control"},                    // &0F
-   {tube_GetEnv,               "OS_GetEnv"},                     // &10
-   {tube_Exit,                 "OS_Exit"},                       // &11
-   {tube_SWI_Not_Known,        "OS_SetEnv"},                     // &12
-   {tube_IntOn,                "OS_IntOn"},                      // &13
-   {tube_IntOff,               "OS_IntOff"},                     // &14
-   {tube_SWI_Not_Known,        "OS_CallBack"},                   // &15
-   {tube_EnterOS,              "OS_EnterOS"},                    // &16
-   {tube_SWI_Not_Known,        "OS_BreakPt"},                    // &17
-   {tube_SWI_Not_Known,        "OS_BreakCtrl"},                  // &18
-   {tube_SWI_Not_Known,        "OS_UnusedSWI"},                  // &19
-   {tube_SWI_Not_Known,        "OS_UpdateMEMC"},                 // &1A
-   {tube_SWI_Not_Known,        "OS_SetCallBack"},                // &1B
-   {tube_Mouse,                "OS_Mouse"},                      // &1C
-   {tube_SWI_Not_Known,        "OS_Heap"},                       // &1D
-   {tube_SWI_Not_Known,        "OS_Module"},                     // &1E
-   {tube_SWI_Not_Known,        "OS_Claim"},                      // &1F
-   {tube_SWI_Not_Known,        "OS_Release"},                    // &20
-   {tube_SWI_Not_Known,        "OS_ReadUnsigned"},               // &21
-   {tube_SWI_Not_Known,        "OS_GenerateEvent"},              // &22
-   {tube_SWI_Not_Known,        "OS_ReadVarVal"},                 // &23
-   {tube_SWI_Not_Known,        "OS_SetVarVal"},                  // &24
-   {tube_SWI_Not_Known,        "OS_GSInit"},                     // &25
-   {tube_SWI_Not_Known,        "OS_GSRead"},                     // &26
-   {tube_SWI_Not_Known,        "OS_GSTrans"},                    // &27
-   {tube_SWI_Not_Known,        "OS_BinaryToDecimal"},            // &28
-   {tube_SWI_Not_Known,        "OS_FSControl"},                  // &29
-   {tube_SWI_Not_Known,        "OS_ChangeDynamicArea"},          // &2A
-   {tube_GenerateError,        "OS_GenerateError"},              // &2B
-   {tube_SWI_Not_Known,        "OS_ReadEscapeState"},            // &2C
-   {tube_SWI_Not_Known,        "OS_EvaluateExpression"},         // &2D
-   {tube_SWI_Not_Known,        "OS_SpriteOp"},                   // &2E
-   {tube_SWI_Not_Known,        "OS_ReadPalette"},                // &2F
-   {tube_SWI_Not_Known,        "OS_ServiceCall"},                // &30
-   {tube_SWI_Not_Known,        "OS_ReadVduVariables"},           // &31
-   {tube_ReadPoint,            "OS_ReadPoint"},                  // &32
-   {tube_SWI_Not_Known,        "OS_UpCall"},                     // &33
-   {tube_SWI_Not_Known,        "OS_CallAVector"},                // &34
-   {tube_SWI_Not_Known,        "OS_ReadModeVariable"},           // &35
-   {tube_SWI_Not_Known,        "OS_RemoveCursors"},              // &36
-   {tube_SWI_Not_Known,        "OS_RestoreCursors"},             // &37
-   {tube_SWI_NumberToString,   "OS_SWINumberToString"},          // &38
-   {tube_SWI_NumberFromString, "OS_SWINumberFromString"},        // &39
-   {tube_SWI_Not_Known,        "OS_ValidateAddress"},            // &3A
-   {tube_SWI_Not_Known,        "OS_CallAfter"},                  // &3B
-   {tube_SWI_Not_Known,        "OS_CallEvery"},                  // &3C
-   {tube_SWI_Not_Known,        "OS_RemoveTickerEvent"},          // &3D
-   {tube_SWI_Not_Known,        "OS_InstallKeyHandler"},          // &3E
-   {tube_SWI_Not_Known,        "OS_CheckModeValid"},             // &3F
-   {tube_ChangeEnvironment,    "OS_ChangeEnvironment"},          // &40
-   {tube_SWI_Not_Known,        "OS_ClaimScreenMemory"},          // &41
-   {tube_SWI_Not_Known,        "OS_ReadMonotonicTime"},          // &42
-   {tube_SWI_Not_Known,        "OS_SubstituteArgs"},             // &43
-   {tube_SWI_Not_Known,        "OS_PrettyPrint"},                // &44
-   {tube_Plot,                 "OS_Plot"},                       // &45
-   {tube_WriteN,               "OS_WriteN"},                     // &46
-   {tube_SWI_Not_Known,        "OS_AddToVector"},                // &47
-   {tube_SWI_Not_Known,        "OS_WriteEnv"},                   // &48
-   {tube_SWI_Not_Known,        "OS_ReadArgs"},                   // &49
-   {tube_SWI_Not_Known,        "OS_ReadRAMFsLimits"},            // &4A
-   {tube_SWI_Not_Known,        "OS_ClaimDeviceVector"},          // &4B
-   {tube_SWI_Not_Known,        "OS_ReleaseDeviceVector"},        // &4C
-   {tube_SWI_Not_Known,        "OS_DelinkApplication"},          // &4D
-   {tube_SWI_Not_Known,        "OS_RelinkApplication"},          // &4E
-   {tube_SWI_Not_Known,        "OS_HeapSort"},                   // &4F
-   {tube_SWI_Not_Known,        "OS_ExitAndDie"},                 // &50
-   {tube_SWI_Not_Known,        "OS_ReadMemMapInfo"},             // &51
-   {tube_SWI_Not_Known,        "OS_ReadMemMapEntries"},          // &52
-   {tube_SWI_Not_Known,        "OS_SetMemMapEntries"},           // &53
-   {tube_SWI_Not_Known,        "OS_AddCallBack"},                // &54
-   {tube_SWI_Not_Known,        "OS_ReadDefaultHandler"},         // &55
-   {tube_SWI_Not_Known,        "OS_SetECFOrigin"},               // &56
-   {tube_SWI_Not_Known,        "OS_SerialOp"},                   // &57
-   {tube_SWI_Not_Known,        "OS_ReadSysInfo"},                // &58
-   {tube_SWI_Not_Known,        "OS_Confirm"},                    // &59
-   {tube_SWI_Not_Known,        "OS_ChangedBox"},                 // &5A
-   {tube_SWI_Not_Known,        "OS_CRC"},                        // &5B
-   {tube_SWI_Not_Known,        "OS_ReadDynamicArea"},            // &5C
-   {tube_SWI_Not_Known,        "OS_PrintChar"},                  // &5D
-   {tube_SWI_Not_Known,        "OS_ChangeRedirection"},          // &5E
-   {tube_SWI_Not_Known,        "OS_RemoveCallBack"},             // &5F
-   {tube_SWI_Not_Known,        "OS_FindMemMapEntries"},          // &60
-   {tube_SWI_Not_Known,        "OS_SetColour"},                  // &61
-   {tube_SWI_Not_Known,        "OS_ClaimSWI"},                   // &62
-   {tube_SWI_Not_Known,        "OS_ReleaseSWI"},                 // &63
-   {tube_SWI_Not_Known,        "OS_Pointer"},                    // &64
-   {tube_SWI_Not_Known,        "OS_ScreenMode"},                 // &65
-   {tube_SWI_Not_Known,        "OS_DynamicArea"},                // &66
-   {tube_SWI_Not_Known,        "OS_AbortTrap"},                  // &67
-   {tube_SWI_Not_Known,        "OS_Memory"},                     // &68
-   {tube_SWI_Not_Known,        "OS_ClaimProcessorVector"},       // &69
-   {tube_SWI_Not_Known,        "OS_Reset"},                      // &6A
-   {tube_SWI_Not_Known,        "OS_MMUControl"},                 // &6B
-   {tube_SWI_Not_Known,        "OS_ResyncTime"},                 // &6C
-   {tube_SWI_Not_Known,        "OS_PlatformFeatures"},           // &6D
-   {tube_SynchroniseCodeAreas, "OS_SynchroniseCodeAreas"},       // &6E
-   {tube_CallASWI,             "OS_CallASWI"},                   // &6F
-   {tube_SWI_Not_Known,        "OS_AMBControl"},                 // &70
-   {tube_CallASWIR12,          "OS_CallASWIR12"},                // &71
-   {tube_SWI_Not_Known,        "OS_SpecialControl"},             // &72
-   {tube_SWI_Not_Known,        "OS_EnterUSR32"},                 // &73
-   {tube_SWI_Not_Known,        "OS_EnterUSR26"},                 // &74
-   {tube_SWI_Not_Known,        "OS_VIDCDivider"},                // &75
-   {tube_SWI_Not_Known,        "OS_NVMemory"},                   // &76
-   {tube_SWI_Not_Known,        "OS_ClaimOSSWI"},                 // &77
-   {tube_SWI_Not_Known,        "OS_TaskControl"},                // &78
-   {tube_SWI_Not_Known,        "OS_DeviceDriver"},               // &79
-   {tube_SWI_Not_Known,        "OS_Hardware"},                   // &7A
-   {tube_SWI_Not_Known,        "OS_IICOp"},                      // &7B
-   {tube_SWI_Not_Known,        "OS_LeaveOS"},                    // &7C
-   {tube_SWI_Not_Known,        "OS_ReadLine32"},                 // &7D
-   {tube_SWI_Not_Known,        "OS_SubstituteArgs32"},           // &7E
-   {tube_SWI_Not_Known,        "OS_HeapSort32"},                 // &7F
-   {tube_SWI_Not_Known,        NULL},                            // &80
-   {tube_SWI_Not_Known,        NULL},                            // &81
-   {tube_SWI_Not_Known,        NULL},                            // &82
-   {tube_SWI_Not_Known,        NULL},                            // &83
-   {tube_SWI_Not_Known,        NULL},                            // &84
-   {tube_SWI_Not_Known,        NULL},                            // &85
-   {tube_SWI_Not_Known,        NULL},                            // &86
-   {tube_SWI_Not_Known,        NULL},                            // &87
-   {tube_SWI_Not_Known,        NULL},                            // &88
-   {tube_SWI_Not_Known,        NULL},                            // &89
-   {tube_SWI_Not_Known,        NULL},                            // &8A
-   {tube_SWI_Not_Known,        NULL},                            // &8B
-   {tube_SWI_Not_Known,        NULL},                            // &8C
-   {tube_SWI_Not_Known,        NULL},                            // &8D
-   {tube_SWI_Not_Known,        NULL},                            // &8E
-   {tube_SWI_Not_Known,        NULL},                            // &8F
-   {tube_SWI_Not_Known,        NULL},                            // &90
-   {tube_SWI_Not_Known,        NULL},                            // &91
-   {tube_SWI_Not_Known,        NULL},                            // &92
-   {tube_SWI_Not_Known,        NULL},                            // &93
-   {tube_SWI_Not_Known,        NULL},                            // &94
-   {tube_SWI_Not_Known,        NULL},                            // &95
-   {tube_SWI_Not_Known,        NULL},                            // &96
-   {tube_SWI_Not_Known,        NULL},                            // &97
-   {tube_SWI_Not_Known,        NULL},                            // &98
-   {tube_SWI_Not_Known,        NULL},                            // &99
-   {tube_SWI_Not_Known,        NULL},                            // &9A
-   {tube_SWI_Not_Known,        NULL},                            // &9B
-   {tube_SWI_Not_Known,        NULL},                            // &9C
-   {tube_SWI_Not_Known,        NULL},                            // &9D
-   {tube_SWI_Not_Known,        NULL},                            // &9E
-   {tube_SWI_Not_Known,        NULL},                            // &9F
-   {tube_SWI_Not_Known,        NULL},                            // &A0
-   {tube_SWI_Not_Known,        NULL},                            // &A1
-   {tube_SWI_Not_Known,        NULL},                            // &A2
-   {tube_SWI_Not_Known,        NULL},                            // &A3
-   {tube_SWI_Not_Known,        NULL},                            // &A4
-   {tube_SWI_Not_Known,        NULL},                            // &A5
-   {tube_SWI_Not_Known,        NULL},                            // &A6
-   {tube_SWI_Not_Known,        NULL},                            // &A7
-   {tube_SWI_Not_Known,        NULL},                            // &A8
-   {tube_SWI_Not_Known,        NULL},                            // &A9
-   {tube_SWI_Not_Known,        NULL},                            // &AA
-   {tube_SWI_Not_Known,        NULL},                            // &AB
-   {tube_SWI_Not_Known,        NULL},                            // &AC
-   {tube_SWI_Not_Known,        NULL},                            // &AD
-   {tube_SWI_Not_Known,        NULL},                            // &AE
-   {tube_SWI_Not_Known,        NULL},                            // &AF
-   {tube_SWI_Not_Known,        NULL},                            // &B0
-   {tube_SWI_Not_Known,        NULL},                            // &B1
-   {tube_SWI_Not_Known,        NULL},                            // &B2
-   {tube_SWI_Not_Known,        NULL},                            // &B3
-   {tube_SWI_Not_Known,        NULL},                            // &B4
-   {tube_SWI_Not_Known,        NULL},                            // &B5
-   {tube_SWI_Not_Known,        NULL},                            // &B6
-   {tube_SWI_Not_Known,        NULL},                            // &B7
-   {tube_SWI_Not_Known,        NULL},                            // &B8
-   {tube_SWI_Not_Known,        NULL},                            // &B9
-   {tube_SWI_Not_Known,        NULL},                            // &BA
-   {tube_SWI_Not_Known,        NULL},                            // &BB
-   {tube_SWI_Not_Known,        NULL},                            // &BC
-   {tube_SWI_Not_Known,        NULL},                            // &BD
-   {tube_SWI_Not_Known,        NULL},                            // &BE
-   {tube_SWI_Not_Known,        NULL},                            // &BF
-   {tube_SWI_Not_Known,        "OS_ConvertStandardDateAndTime"}, // &C0
-   {tube_SWI_Not_Known,        "OS_ConvertDateAndTime"},         // &C1
-   {tube_SWI_Not_Known,        NULL},                            // &C2
-   {tube_SWI_Not_Known,        NULL},                            // &C3
-   {tube_SWI_Not_Known,        NULL},                            // &C4
-   {tube_SWI_Not_Known,        NULL},                            // &C5
-   {tube_SWI_Not_Known,        NULL},                            // &C6
-   {tube_SWI_Not_Known,        NULL},                            // &C7
-   {tube_SWI_Not_Known,        NULL},                            // &C8
-   {tube_SWI_Not_Known,        NULL},                            // &C9
-   {tube_SWI_Not_Known,        NULL},                            // &CA
-   {tube_SWI_Not_Known,        NULL},                            // &CB
-   {tube_SWI_Not_Known,        NULL},                            // &CC
-   {tube_SWI_Not_Known,        NULL},                            // &CD
-   {tube_SWI_Not_Known,        NULL},                            // &CE
-   {tube_SWI_Not_Known,        NULL},                            // &CF
-   {tube_SWI_Not_Known,        "OS_ConvertHex1"},                // &D0
-   {tube_SWI_Not_Known,        "OS_ConvertHex2"},                // &D1
-   {tube_SWI_Not_Known,        "OS_ConvertHex3"},                // &D2
-   {tube_SWI_Not_Known,        "OS_ConvertHex4"},                // &D3
-   {tube_SWI_Not_Known,        "OS_ConvertHex8"},                // &D4
-   {tube_SWI_Not_Known,        "OS_ConvertCardinal1"},           // &D5
-   {tube_SWI_Not_Known,        "OS_ConvertCardinal2"},           // &D6
-   {tube_SWI_Not_Known,        "OS_ConvertCardinal3"},           // &D7
-   {tube_SWI_Not_Known,        "OS_ConvertCardinal4"},           // &D8
-   {tube_SWI_Not_Known,        "OS_ConvertInteger1"},            // &D9
-   {tube_SWI_Not_Known,        "OS_ConvertInteger2"},            // &DA
-   {tube_SWI_Not_Known,        "OS_ConvertInteger3"},            // &DB
-   {tube_SWI_Not_Known,        "OS_ConvertInteger4"},            // &DC
-   {tube_SWI_Not_Known,        "OS_ConvertBinary1"},             // &DD
-   {tube_SWI_Not_Known,        "OS_ConvertBinary2"},             // &DE
-   {tube_SWI_Not_Known,        "OS_ConvertBinary3"},             // &DF
-   {tube_SWI_Not_Known,        "OS_ConvertBinary4"},             // &E0
-   {tube_SWI_Not_Known,        "OS_ConvertSpacedCardinal1"},     // &E1
-   {tube_SWI_Not_Known,        "OS_ConvertSpacedCardinal2"},     // &E2
-   {tube_SWI_Not_Known,        "OS_ConvertSpacedCardinal3"},     // &E3
-   {tube_SWI_Not_Known,        "OS_ConvertSpacedCardinal4"},     // &E4
-   {tube_SWI_Not_Known,        "OS_ConvertSpacedInteger1"},      // &E5
-   {tube_SWI_Not_Known,        "OS_ConvertSpacedInteger2"},      // &E6
-   {tube_SWI_Not_Known,        "OS_ConvertSpacedInteger3"},      // &E7
-   {tube_SWI_Not_Known,        "OS_ConvertSpacedInteger4"},      // &E8
-   {tube_SWI_Not_Known,        "OS_ConvertFixedNetStation"},     // &E9
-   {tube_SWI_Not_Known,        "OS_ConvertNetStation"},          // &EA
-   {tube_SWI_Not_Known,        "OS_ConvertFixedFileSize"},       // &EB
-   {tube_SWI_Not_Known,        "OS_ConvertFileSize"},            // &EC
-   {tube_SWI_Not_Known,        NULL},                            // &ED
-   {tube_SWI_Not_Known,        NULL},                            // &EE
-   {tube_SWI_Not_Known,        NULL},                            // &EF
-   {tube_SWI_Not_Known,        NULL},                            // &F0
-   {tube_SWI_Not_Known,        NULL},                            // &F1
-   {tube_SWI_Not_Known,        NULL},                            // &F2
-   {tube_SWI_Not_Known,        NULL},                            // &F3
-   {tube_SWI_Not_Known,        NULL},                            // &F4
-   {tube_SWI_Not_Known,        NULL},                            // &F5
-   {tube_SWI_Not_Known,        NULL},                            // &F6
-   {tube_SWI_Not_Known,        NULL},                            // &F7
-   {tube_SWI_Not_Known,        NULL},                            // &F8
-   {tube_SWI_Not_Known,        NULL},                            // &F9
-   {tube_SWI_Not_Known,        NULL},                            // &FA
-   {tube_SWI_Not_Known,        NULL},                            // &FB
-   {tube_SWI_Not_Known,        NULL},                            // &FC
-   {tube_SWI_Not_Known,        NULL},                            // &FD
-   {tube_SWI_Not_Known,        NULL},                            // &FE
-   {tube_SWI_Not_Known,        NULL}                             // &FF
+SWIDescriptor_Type os_table[] = {
+   {tube_WriteC,               "WriteC"},                     // &00
+   {tube_WriteS,               "WriteS"},                     // &01
+   {tube_Write0,               "Write0"},                     // &02
+   {tube_NewLine,              "NewLine"},                    // &03
+   {tube_ReadC,                "ReadC"},                      // &04
+   {tube_CLI,                  "CLI"},                        // &05
+   {tube_Byte,                 "Byte"},                       // &06
+   {tube_Word,                 "Word"},                       // &07
+   {tube_File,                 "File"},                       // &08
+   {tube_Args,                 "Args"},                       // &09
+   {tube_BGet,                 "BGet"},                       // &0A
+   {tube_BPut,                 "BPut"},                       // &0B
+   {tube_GBPB,                 "GBPB"},                       // &0C
+   {tube_Find,                 "Find"},                       // &0D
+   {tube_ReadLine,             "ReadLine"},                   // &0E
+   {NULL,                      "Control"},                    // &0F
+   {tube_GetEnv,               "GetEnv"},                     // &10
+   {tube_Exit,                 "Exit"},                       // &11
+   {NULL,                      "SetEnv"},                     // &12
+   {tube_IntOn,                "IntOn"},                      // &13
+   {tube_IntOff,               "IntOff"},                     // &14
+   {NULL,                      "CallBack"},                   // &15
+   {tube_EnterOS,              "EnterOS"},                    // &16
+   {NULL,                      "BreakPt"},                    // &17
+   {NULL,                      "BreakCtrl"},                  // &18
+   {NULL,                      "UnusedSWI"},                  // &19
+   {NULL,                      "UpdateMEMC"},                 // &1A
+   {NULL,                      "SetCallBack"},                // &1B
+   {tube_Mouse,                "Mouse"},                      // &1C
+   {NULL,                      "Heap"},                       // &1D
+   {NULL,                      "Module"},                     // &1E
+   {NULL,                      "Claim"},                      // &1F
+   {NULL,                      "Release"},                    // &20
+   {NULL,                      "ReadUnsigned"},               // &21
+   {NULL,                      "GenerateEvent"},              // &22
+   {NULL,                      "ReadVarVal"},                 // &23
+   {NULL,                      "SetVarVal"},                  // &24
+   {NULL,                      "GSInit"},                     // &25
+   {NULL,                      "GSRead"},                     // &26
+   {NULL,                      "GSTrans"},                    // &27
+   {NULL,                      "BinaryToDecimal"},            // &28
+   {NULL,                      "FSControl"},                  // &29
+   {NULL,                      "ChangeDynamicArea"},          // &2A
+   {tube_GenerateError,        "GenerateError"},              // &2B
+   {NULL,                      "ReadEscapeState"},            // &2C
+   {NULL,                      "EvaluateExpression"},         // &2D
+   {NULL,                      "SpriteOp"},                   // &2E
+   {NULL,                      "ReadPalette"},                // &2F
+   {NULL,                      "ServiceCall"},                // &30
+   {NULL,                      "ReadVduVariables"},           // &31
+   {tube_ReadPoint,            "ReadPoint"},                  // &32
+   {NULL,                      "UpCall"},                     // &33
+   {NULL,                      "CallAVector"},                // &34
+   {NULL,                      "ReadModeVariable"},           // &35
+   {NULL,                      "RemoveCursors"},              // &36
+   {NULL,                      "RestoreCursors"},             // &37
+   {tube_SWI_NumberToString,   "SWINumberToString"},          // &38
+   {tube_SWI_NumberFromString, "SWINumberFromString"},        // &39
+   {NULL,                      "ValidateAddress"},            // &3A
+   {NULL,                      "CallAfter"},                  // &3B
+   {NULL,                      "CallEvery"},                  // &3C
+   {NULL,                      "RemoveTickerEvent"},          // &3D
+   {NULL,                      "InstallKeyHandler"},          // &3E
+   {NULL,                      "CheckModeValid"},             // &3F
+   {tube_ChangeEnvironment,    "ChangeEnvironment"},          // &40
+   {NULL,                      "ClaimScreenMemory"},          // &41
+   {NULL,                      "ReadMonotonicTime"},          // &42
+   {NULL,                      "SubstituteArgs"},             // &43
+   {NULL,                      "PrettyPrint"},                // &44
+   {tube_Plot,                 "Plot"},                       // &45
+   {tube_WriteN,               "WriteN"},                     // &46
+   {NULL,                      "AddToVector"},                // &47
+   {NULL,                      "WriteEnv"},                   // &48
+   {NULL,                      "ReadArgs"},                   // &49
+   {NULL,                      "ReadRAMFsLimits"},            // &4A
+   {NULL,                      "ClaimDeviceVector"},          // &4B
+   {NULL,                      "ReleaseDeviceVector"},        // &4C
+   {NULL,                      "DelinkApplication"},          // &4D
+   {NULL,                      "RelinkApplication"},          // &4E
+   {NULL,                      "HeapSort"},                   // &4F
+   {NULL,                      "ExitAndDie"},                 // &50
+   {NULL,                      "ReadMemMapInfo"},             // &51
+   {NULL,                      "ReadMemMapEntries"},          // &52
+   {NULL,                      "SetMemMapEntries"},           // &53
+   {NULL,                      "AddCallBack"},                // &54
+   {NULL,                      "ReadDefaultHandler"},         // &55
+   {NULL,                      "SetECFOrigin"},               // &56
+   {NULL,                      "SerialOp"},                   // &57
+   {NULL,                      "ReadSysInfo"},                // &58
+   {NULL,                      "Confirm"},                    // &59
+   {NULL,                      "ChangedBox"},                 // &5A
+   {NULL,                      "CRC"},                        // &5B
+   {NULL,                      "ReadDynamicArea"},            // &5C
+   {NULL,                      "PrintChar"},                  // &5D
+   {NULL,                      "ChangeRedirection"},          // &5E
+   {NULL,                      "RemoveCallBack"},             // &5F
+   {NULL,                      "FindMemMapEntries"},          // &60
+   {NULL,                      "SetColour"},                  // &61
+   {NULL,                      "ClaimSWI"},                   // &62
+   {NULL,                      "ReleaseSWI"},                 // &63
+   {NULL,                      "Pointer"},                    // &64
+   {NULL,                      "ScreenMode"},                 // &65
+   {NULL,                      "DynamicArea"},                // &66
+   {NULL,                      "AbortTrap"},                  // &67
+   {NULL,                      "Memory"},                     // &68
+   {NULL,                      "ClaimProcessorVector"},       // &69
+   {NULL,                      "Reset"},                      // &6A
+   {NULL,                      "MMUControl"},                 // &6B
+   {NULL,                      "ResyncTime"},                 // &6C
+   {NULL,                      "PlatformFeatures"},           // &6D
+   {tube_SynchroniseCodeAreas, "SynchroniseCodeAreas"},       // &6E
+   {tube_CallASWI,             "CallASWI"},                   // &6F
+   {NULL,                      "AMBControl"},                 // &70
+   {tube_CallASWIR12,          "CallASWIR12"},                // &71
+   {NULL,                      "SpecialControl"},             // &72
+   {NULL,                      "EnterUSR32"},                 // &73
+   {NULL,                      "EnterUSR26"},                 // &74
+   {NULL,                      "VIDCDivider"},                // &75
+   {NULL,                      "NVMemory"},                   // &76
+   {NULL,                      "ClaimOSSWI"},                 // &77
+   {NULL,                      "TaskControl"},                // &78
+   {NULL,                      "DeviceDriver"},               // &79
+   {NULL,                      "Hardware"},                   // &7A
+   {NULL,                      "IICOp"},                      // &7B
+   {NULL,                      "LeaveOS"},                    // &7C
+   {NULL,                      "ReadLine32"},                 // &7D
+   {NULL,                      "SubstituteArgs32"},           // &7E
+   {NULL,                      "HeapSort32"},                 // &7F
+   {NULL,                      NULL},                         // &80
+   {NULL,                      NULL},                         // &81
+   {NULL,                      NULL},                         // &82
+   {NULL,                      NULL},                         // &83
+   {NULL,                      NULL},                         // &84
+   {NULL,                      NULL},                         // &85
+   {NULL,                      NULL},                         // &86
+   {NULL,                      NULL},                         // &87
+   {NULL,                      NULL},                         // &88
+   {NULL,                      NULL},                         // &89
+   {NULL,                      NULL},                         // &8A
+   {NULL,                      NULL},                         // &8B
+   {NULL,                      NULL},                         // &8C
+   {NULL,                      NULL},                         // &8D
+   {NULL,                      NULL},                         // &8E
+   {NULL,                      NULL},                         // &8F
+   {NULL,                      NULL},                         // &90
+   {NULL,                      NULL},                         // &91
+   {NULL,                      NULL},                         // &92
+   {NULL,                      NULL},                         // &93
+   {NULL,                      NULL},                         // &94
+   {NULL,                      NULL},                         // &95
+   {NULL,                      NULL},                         // &96
+   {NULL,                      NULL},                         // &97
+   {NULL,                      NULL},                         // &98
+   {NULL,                      NULL},                         // &99
+   {NULL,                      NULL},                         // &9A
+   {NULL,                      NULL},                         // &9B
+   {NULL,                      NULL},                         // &9C
+   {NULL,                      NULL},                         // &9D
+   {NULL,                      NULL},                         // &9E
+   {NULL,                      NULL},                         // &9F
+   {NULL,                      NULL},                         // &A0
+   {NULL,                      NULL},                         // &A1
+   {NULL,                      NULL},                         // &A2
+   {NULL,                      NULL},                         // &A3
+   {NULL,                      NULL},                         // &A4
+   {NULL,                      NULL},                         // &A5
+   {NULL,                      NULL},                         // &A6
+   {NULL,                      NULL},                         // &A7
+   {NULL,                      NULL},                         // &A8
+   {NULL,                      NULL},                         // &A9
+   {NULL,                      NULL},                         // &AA
+   {NULL,                      NULL},                         // &AB
+   {NULL,                      NULL},                         // &AC
+   {NULL,                      NULL},                         // &AD
+   {NULL,                      NULL},                         // &AE
+   {NULL,                      NULL},                         // &AF
+   {NULL,                      NULL},                         // &B0
+   {NULL,                      NULL},                         // &B1
+   {NULL,                      NULL},                         // &B2
+   {NULL,                      NULL},                         // &B3
+   {NULL,                      NULL},                         // &B4
+   {NULL,                      NULL},                         // &B5
+   {NULL,                      NULL},                         // &B6
+   {NULL,                      NULL},                         // &B7
+   {NULL,                      NULL},                         // &B8
+   {NULL,                      NULL},                         // &B9
+   {NULL,                      NULL},                         // &BA
+   {NULL,                      NULL},                         // &BB
+   {NULL,                      NULL},                         // &BC
+   {NULL,                      NULL},                         // &BD
+   {NULL,                      NULL},                         // &BE
+   {NULL,                      NULL},                         // &BF
+   {NULL,                      "ConvertStandardDateAndTime"}, // &C0
+   {NULL,                      "ConvertDateAndTime"},         // &C1
+   {NULL,                      NULL},                         // &C2
+   {NULL,                      NULL},                         // &C3
+   {NULL,                      NULL},                         // &C4
+   {NULL,                      NULL},                         // &C5
+   {NULL,                      NULL},                         // &C6
+   {NULL,                      NULL},                         // &C7
+   {NULL,                      NULL},                         // &C8
+   {NULL,                      NULL},                         // &C9
+   {NULL,                      NULL},                         // &CA
+   {NULL,                      NULL},                         // &CB
+   {NULL,                      NULL},                         // &CC
+   {NULL,                      NULL},                         // &CD
+   {NULL,                      NULL},                         // &CE
+   {NULL,                      NULL},                         // &CF
+   {NULL,                      "ConvertHex1"},                // &D0
+   {NULL,                      "ConvertHex2"},                // &D1
+   {NULL,                      "ConvertHex3"},                // &D2
+   {NULL,                      "ConvertHex4"},                // &D3
+   {NULL,                      "ConvertHex8"},                // &D4
+   {NULL,                      "ConvertCardinal1"},           // &D5
+   {NULL,                      "ConvertCardinal2"},           // &D6
+   {NULL,                      "ConvertCardinal3"},           // &D7
+   {NULL,                      "ConvertCardinal4"},           // &D8
+   {NULL,                      "ConvertInteger1"},            // &D9
+   {NULL,                      "ConvertInteger2"},            // &DA
+   {NULL,                      "ConvertInteger3"},            // &DB
+   {NULL,                      "ConvertInteger4"},            // &DC
+   {NULL,                      "ConvertBinary1"},             // &DD
+   {NULL,                      "ConvertBinary2"},             // &DE
+   {NULL,                      "ConvertBinary3"},             // &DF
+   {NULL,                      "ConvertBinary4"},             // &E0
+   {NULL,                      "ConvertSpacedCardinal1"},     // &E1
+   {NULL,                      "ConvertSpacedCardinal2"},     // &E2
+   {NULL,                      "ConvertSpacedCardinal3"},     // &E3
+   {NULL,                      "ConvertSpacedCardinal4"},     // &E4
+   {NULL,                      "ConvertSpacedInteger1"},      // &E5
+   {NULL,                      "ConvertSpacedInteger2"},      // &E6
+   {NULL,                      "ConvertSpacedInteger3"},      // &E7
+   {NULL,                      "ConvertSpacedInteger4"},      // &E8
+   {NULL,                      "ConvertFixedNetStation"},     // &E9
+   {NULL,                      "ConvertNetStation"},          // &EA
+   {NULL,                      "ConvertFixedFileSize"},       // &EB
+   {NULL,                      "ConvertFileSize"},            // &EC
+   {NULL,                      NULL},                         // &ED
+   {NULL,                      NULL},                         // &EE
+   {NULL,                      NULL},                         // &EF
+   {NULL,                      NULL},                         // &F0
+   {NULL,                      NULL},                         // &F1
+   {NULL,                      NULL},                         // &F2
+   {NULL,                      NULL},                         // &F3
+   {NULL,                      NULL},                         // &F4
+   {NULL,                      NULL},                         // &F5
+   {NULL,                      NULL},                         // &F6
+   {NULL,                      NULL},                         // &F7
+   {NULL,                      NULL},                         // &F8
+   {NULL,                      NULL},                         // &F9
+   {NULL,                      NULL},                         // &FA
+   {NULL,                      NULL},                         // &FB
+   {NULL,                      NULL},                         // &FC
+   {NULL,                      NULL},                         // &FD
+   {NULL,                      NULL},                         // &FE
+   {NULL,                      NULL}                          // &FF
 };
+
+SWIDescriptor_Type basictrans_table[] = {
+   {tube_BASICTrans_HELP,     "HELP"},    // &42c80
+   {tube_BASICTrans_Error,    "Error"},   // &42c81
+   {tube_BASICTrans_Message,  "Message"}  // &42c82
+};
+
+module_t module_os = {
+   .name            = "OS",
+   .swi_num_min     = 0x00000,
+   .swi_num_max     = 0x000FF,
+   .swi_table       = os_table,
+   .init            = NULL
+};
+
+module_t module_basictrans = {
+   .name            = "BASICTrans",
+   .swi_num_min     = 0x42c80,
+   .swi_num_max     = 0x42c82,
+   .swi_table       = basictrans_table,
+   .init            = NULL
+};
+
+static module_t *module_list[] = {
+   &module_os,
+   &module_colourtrans,
+   &module_basictrans
+};
+
+#define NUM_MODULES (sizeof(module_list) / sizeof(module_t *))
+
+void swi_modules_init(int vdu) {
+   for (unsigned int m = 0; m < NUM_MODULES; m++) {
+      module_t *module = module_list[m];
+      if (module->init) {
+         module->init(vdu);
+      }
+   }
+}
 
 static char *lookup_swi_name(unsigned int num) {
    static char name[SWI_NAME_LEN];
    char *ptr = name;
 
    // If bit 17 of the number is set, prefix the returned string with X
-   if (num & 0x20000) {
+   if (num & ERROR_BIT) {
       *ptr++ = 'X';
-      num -= 0x20000;
+      num &= ~ERROR_BIT;
    }
 
-   if (num < NUM_SWI_HANDLERS) {
-      // Lookup the SWI name in the handler table
-      if (SWI_Table[num].name) {
-         strcpy(ptr, SWI_Table[num].name);
-      } else {
-         strcpy(ptr, "OS_Undefined");
-      }
-   } else if (num >= 0x100 && num < 0x200) {
-      // Special case OS_WriteI
+   // Special case OS_WriteI
+   if (num >= 0x100 && num < 0x200) {
       num &= 0xFF;
       if (num >= 0x20 && num < 0x7F) {
          sprintf(ptr, "OS_WriteI+\"%c\"", num);
@@ -431,8 +464,21 @@ static char *lookup_swi_name(unsigned int num) {
          sprintf(ptr, "OS_WriteI+%d", num);
       }
    } else {
-      // Anything else causes User to be returned
+      // Default to user
       strcpy(ptr, "User");
+      // Consult modules, the first one being the OS
+      for (unsigned int m = 0; m < NUM_MODULES; m++) {
+         module_t *module = module_list[m];
+         if (num >= module->swi_num_min && num <= module->swi_num_max) {
+            const char *swi_name = module->swi_table[num - module->swi_num_min].name;
+            if (swi_name != NULL) {
+               sprintf(ptr, "%s_%s", module->name, swi_name);
+            } else {
+               sprintf(ptr, "%s_%s", module->name, "Undefined");
+            }
+            break;
+         }
+      }
    }
 
    return name;
@@ -516,23 +562,26 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
     errorBit = 1;
     num &= ~ERROR_BIT;
   }
-  if (num < NUM_SWI_HANDLERS) {
-    // Invoke one of the fixed handlers
-    SWI_Table[num].handler(reg);
-  } else if ((num & 0xFFFFFF00) == 0x0100) {      // JGH
-    // SWIs 0x100 - 0x1FF are OS_WriteI
-    SWI_Table[SWI_OS_WriteC].handler(&num);
-  } else if (num == 0x42c80) {
-    tube_BASICTrans_HELP(reg);
-  } else if (num == 0x42c81) {
-    tube_BASICTrans_Error(reg);
-  } else if (num == 0x42c82) {
-    tube_BASICTrans_Message(reg);
+
+  if ((num & 0xFFFFFF00) == 0x0100) {      // JGH
+     os_table[SWI_OS_WriteC].handler(&num);
   } else {
-    tube_SWI_Not_Known(reg);
-    if (errorBit) {
-      updateOverflow(1, reg);
-    }
+     SWIHandler_Type handler = NULL;
+     for (unsigned int m = 0; m < NUM_MODULES; m++) {
+        module_t *module = module_list[m];
+        if (num >= module->swi_num_min && num <= module->swi_num_max) {
+           handler = module->swi_table[num - module->swi_num_min].handler;
+           break;
+        }
+     }
+     if (handler != NULL) {
+        handler(reg);
+     } else {
+        tube_SWI_Not_Known(reg);
+        if (errorBit) {
+           updateOverflow(1, reg);
+        }
+     }
   }
   if (DEBUG_ARM) {
     printf("SWI %08x complete cpsr=%08x\r\n", number, _get_cpsr());
@@ -1228,38 +1277,58 @@ static void tube_BASICTrans_Message(unsigned int *reg) {
 }
 
 static void tube_SWI_NumberFromString(unsigned int *reg) {
-   char name[SWI_NAME_LEN];
-   int num = 0;
+   char mod_name[SWI_NAME_LEN];
+   char swi_name[SWI_NAME_LEN];
+   unsigned int i;
+   unsigned int x_flag = 0;
 
    // On entry, r1 points to a control character terminated string
    char *ptr = (char *)reg[1];
 
    // If the name starts with X, return num plus 0x20000
    if (*ptr == 'X') {
-      num += 0x20000;
+      x_flag = ERROR_BIT;
       ptr++;
    }
 
-   // Copy the string, stopping at the first control character
-   unsigned int i = 0;
-   while (i < SWI_NAME_LEN - 1 && *ptr >= 0x20 && *ptr < 0x7F) {
-      name[i++] = *ptr++;
+   // Copy the base part of the name, stopping at the first _ or an illegal character
+   i = 0;
+   while (i < SWI_NAME_LEN - 1 && *ptr >= 0x20 && *ptr < 0x7F && *ptr != '_') {
+      mod_name[i++] = *ptr++;
    }
-   // Add a zero terminator
-   name[i] = 0;
+   mod_name[i] = 0;
 
-   // Search for the name
-   for (i = 0; i < NUM_SWI_HANDLERS; i++) {
-      if (!strcmp(name, SWI_Table[i].name)) {
-         reg[0] = num + i;
+   if (*ptr == '_') {
+
+      ptr++;
+
+      i = 0;
+      while (i < SWI_NAME_LEN - 1 && *ptr >= 0x20 && *ptr < 0x7F) {
+         swi_name[i++] = *ptr++;
+      }
+      swi_name[i] = 0;
+
+      for (unsigned int m = 0; m < NUM_MODULES; m++) {
+         module_t *module = module_list[m];
+
+         // Check i fthe module name (OS, ColourTrans, ...) matches
+         if (!strcmp(mod_name, module->name)) {
+
+            // Search for the swi name in the module's swi handler table
+            for (i = 0; i <= module->swi_num_max - module->swi_num_min; i++) {
+               if (!strcmp(swi_name, module->swi_table[i].name)) {
+                  reg[0] = x_flag + module->swi_num_min + i;
+                  return;
+               }
+            }
+         }
+      }
+
+      // Special case OS_WriteI as they are not in the handler table
+      if (!strcmp(mod_name, "OS") && !strcmp(swi_name, "WriteI")) {
+         reg[0] = x_flag + 0x100 + i;
          return;
       }
-   }
-
-   // Special case OS_WriteI as they are not in the handler table
-   if (!strcmp(name, "OS_WriteI")) {
-      reg[0] = 0x100 + i;
-      return;
    }
 
    // Generate an error if name not found

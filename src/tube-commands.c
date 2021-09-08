@@ -360,7 +360,11 @@ int doCmdPiVDU(const char *params) {
       // *FX 4,0 to enable cursor editing
       OS_Byte(4, 0, 0, NULL, NULL);
    }
+
    fb_set_vdu_device(device);
+
+   // Re-run the module init code, in case any handlers need to change
+   swi_modules_init(device & VDU_PI);
 
    if (device & VDU_BEEB) {
       // Restore the original host OSWRCH
