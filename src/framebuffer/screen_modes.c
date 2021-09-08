@@ -88,7 +88,7 @@ static screen_mode_t screen_modes[] = {
       .mode_num      = 3,
       .mode_flags    = F_NON_GRAPHICS | F_BBC_GAP,
       .width         = 640,
-      .height        = 256,
+      .height        = 250,
       .xeigfactor    = 1,
       .yeigfactor    = 2,
       .log2bpp       = 3,
@@ -122,7 +122,7 @@ static screen_mode_t screen_modes[] = {
       .mode_num      = 6,
       .mode_flags    = F_NON_GRAPHICS | F_BBC_GAP,
       .width         = 320,
-      .height        = 256,
+      .height        = 250,
       .xeigfactor    = 2,
       .yeigfactor    = 2,
       .log2bpp       = 3,
@@ -1020,7 +1020,9 @@ void default_reset_screen(screen_mode_t *screen) {
     screen->update_palette(screen, 0);
 
     /* Initialize the font */
-    screen->font = get_font_by_number(DEFAULT_FONT);
+    font_t *font = get_font_by_number(DEFAULT_FONT);
+    font->set_spacing_h(font, (screen->mode_flags & F_BBC_GAP) ? 2 : 0);
+    screen->font = font;
 }
 
 void default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
