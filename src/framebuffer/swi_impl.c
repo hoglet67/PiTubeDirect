@@ -304,7 +304,7 @@ static void OS_ScreenMode_impl(unsigned int *reg) {
          } else {
             n_colours = 1 << 24;
          }
-         // Use private methoth here rather than VDU 23,22 to allow selection of high colour modes
+         // Use private method here rather than VDU 23,22 to allow selection of high colour modes
          fb_custom_mode(x_pixels, y_pixels, n_colours);
          return;
       }
