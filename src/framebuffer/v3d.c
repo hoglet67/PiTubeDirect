@@ -193,7 +193,7 @@ static uint8_t v3d_buffer[1024*1048] __attribute__((aligned(0x1000)));
 
 #endif
 
-// Execute a nop control list to prove that we have contol.
+// Execute a nop control list to prove that we have control.
 
 static void addbyte(uint8_t **list, uint8_t d) {
   *((*list)++) = d;
@@ -323,7 +323,7 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
 
   // State
   addbyte(&p, 96);
-  addbyte(&p, 0x03); // enable both foward and back facing polygons
+  addbyte(&p, 0x03); // enable both forward and back facing polygons
   addbyte(&p, 0x00); // depth testing disabled
   addbyte(&p, 0x02); // enable early depth write
 
@@ -451,7 +451,7 @@ void v3d_draw_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, in
 
   // Tile Rendering Mode Configuration
   addbyte(&p, 113);
-  addword(&p, get_fb_address()); // framebuffer addresss
+  addword(&p, get_fb_address()); // framebuffer address
   addshort(&p, (uint16_t)w); // width
   addshort(&p, (uint16_t)h); // height
   if (screen->log2bpp == 5) {
@@ -572,7 +572,7 @@ int v3d_initialize(screen_mode_t *screen) {
    printf("%08x\r\n", v3d[V3D_IDENT0]);
 
    if (v3d[V3D_IDENT0] != 0x02443356) { // Magic number.
-      printf("Error: V3D pipeline isn't powered up and accessable.\r\n");
+      printf("Error: V3D pipeline isn't powered up and accessible.\r\n");
       return 1;
    }
 

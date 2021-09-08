@@ -577,7 +577,7 @@ static void refreshMultiLine(struct linenoiseState *l) {
     size_t rows = (plen+l->len+l->cols-1)/l->cols; /* rows used by current buf. */
     size_t rpos = (plen+l->oldpos+l->cols)/l->cols; /* cursor relative row. */
     size_t rpos2; /* rpos after refresh. */
-    size_t col; /* colum position, zero-based. */
+    size_t col; /* column position, zero-based. */
     size_t old_rows = l->maxrows;
     int fd = l->ofd;
     size_t j;
@@ -637,7 +637,7 @@ static void refreshMultiLine(struct linenoiseState *l) {
     rpos2 = (plen+l->pos+l->cols)/l->cols; /* current cursor relative row. */
     lndebug("rpos2 %d", rpos2);
 
-    /* Go up till we reach the expected positon. */
+    /* Go up till we reach the expected position. */
     if (rows-rpos2 > 0) {
         lndebug("go-up %d", rows-rpos2);
         snprintf(seq,64,"\x1b[%uA", (unsigned int)(rows-rpos2));

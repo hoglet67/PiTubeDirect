@@ -758,12 +758,12 @@ static void update_palette(screen_mode_t *screen, int mark) {
       mark = last_mark;
    }
    uint32_t *pt = mark ? palette0_base : palette1_base;
-   // These are overwritten by the previous reponse
+   // These are overwritten by the previous response
    pt[1] = 0;
    pt[4] = 0;
    // Don't block waiting for the response
    RPI_Mailbox0Write( MB0_TAGS_ARM_TO_VC, pt );
-   // Remeber the currently selected palette
+   // Remember the currently selected palette
    last_mark = mark;
 }
 

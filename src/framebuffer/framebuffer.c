@@ -280,7 +280,7 @@ static void init_variables() {
    // Cursor mode
    vdu_4(NULL);
 
-   // Reset text/grapics areas and home cursors (VDU 26 actions)
+   // Reset text/graphics areas and home cursors (VDU 26 actions)
    reset_areas();
 
 }
@@ -321,7 +321,7 @@ static void set_text_area(t_clip_window_t *window) {
    }
    // Shallow copy of the struct
    t_window = *window;
-   // Update any dependant variabled
+   // Update any dependent variabled
    update_text_area();
 }
 
@@ -499,7 +499,7 @@ static void change_mode(screen_mode_t *new_screen) {
       flash_mark_time  = 25;
       flash_space_time = 25;
    }
-   // initialze VDU variable
+   // initialise VDU variable
    init_variables();
    // clear screen
    text_area_clear();
@@ -740,7 +740,7 @@ static void vdu23_10(uint8_t *buf) {
 }
 
 static void vdu23_17(uint8_t *buf) {
-   // vdu 23,17: Set subsidary colour effects
+   // vdu 23,17: Set subsidiary colour effects
    switch (buf[1]) {
    case 0:
       // VDU 23,17,0 - sets tint for text foreground colour
@@ -801,7 +801,7 @@ static void vdu23_19(uint8_t *buf) {
    font_t *font = screen->font;
 
    if (buf[0] >= 'A' && buf[0] <= 'Z') {
-      // Select the font by name (upto 8 upper case characters)
+      // Select the font by name (up to 8 upper case characters)
       buf[8] = 0;
       font = get_font_by_name((char *)buf);
       if (font != NULL) {
@@ -987,7 +987,7 @@ static void vdu_19(uint8_t *buf) {
          screen->set_colour(screen, l, r, g, b);
       }
       if (p == 16 || p == 18) {
-         // Second flasing physical colour
+         // Second flashing physical colour
          screen->set_colour(screen, l + 0x100, r, g, b);
       }
    }
@@ -1598,7 +1598,7 @@ void fb_process_vdu_queue() {
    }
 }
 void fb_writec(char c) {
-   // Avoid re-ordering parasite and host charcters
+   // Avoid re-ordering parasite and host characters
    if (vdu_rp != vdu_wp) {
       // Some characters are already queued, so append to the end of the queue
       fb_writec_buffered(c);
@@ -1852,7 +1852,7 @@ int fb_point(int16_t x, int16_t y, pixel_t *colour) {
    x += g_x_origin;
    y += g_y_origin;
    if (x < g_window.left || x > g_window.right || y < g_window.bottom || y > g_window.top) {
-      // -1 indicates pixel off sceen
+      // -1 indicates pixel off screen
       return -1;
    } else {
       // convert to absolute pixel coorrdinates

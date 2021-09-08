@@ -746,7 +746,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    bic     flags, flags, #D_FLAG6502 // Clear the D bit in the 6502 status register
    mov temp0,temp0,LSL#JITLETSHIFT
    add temp0,temp0,#JITLET
-// In the case of a "fake" interrupt, we need to exlicitely re-enable FIQ
+// In the case of a "fake" interrupt, we need to explicitly re-enable FIQ
 // interrupts, because the FIQ handler is not going to exit until the 6502
 // RTI is executed. We leave IRQ masked at this point to avoid the possibility
 // of a re-entrant IRQ, which IRQ handler should not have to deal with.
@@ -2568,7 +2568,7 @@ arm_fiq_handler_jit:
    mrs r2, CPSR                // preserve the 6502 flags
    push {r0-r2}
 
-   // If the SPSR indicates FIQ has interruped IRQ then we need to recover a valid 6502 SP
+   // If the SPSR indicates FIQ has interrupted IRQ then we need to recover a valid 6502 SP
    mov    r1, regSP
    and    r0, #0x1F
    cmp    r0, #0x12
@@ -2577,7 +2577,7 @@ arm_fiq_handler_jit:
    cmp    r1, #0
    movne  regSP, r1
 
-// We need to restore these registers incase the FIQ has interupted an IRQ which
+// We need to restore these registers in case the FIQ has interrupted an IRQ which
 // has over written them. other register
 // e.g. flag register needs to be thought about
    mov jittedtable16ptr,#JITTEDTABLE16

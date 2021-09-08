@@ -125,7 +125,7 @@ void tube_dump_buffer() {
          if (tube_buffer[i] & TUBE_WRITE_MARKER) {
             LOG_INFO("Wr R");
          }
-         // Covert address (1,3,5,7) to R1,R2,R3,R4
+         // Convert address (1,3,5,7) to R1,R2,R3,R4
          LOG_INFO("%u = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
       } else {
          LOG_INFO("?? %08x\r\n", tube_buffer[i]);

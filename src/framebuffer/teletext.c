@@ -27,7 +27,7 @@
 #include "screen_modes.h"
 #include "fonts.h"
 
-// These are the maxium size of screen mode that we support
+// These are the maximum size of screen mode that we support
 #define MAX_COLUMNS 80
 #define MAX_ROWS    32
 
@@ -177,7 +177,7 @@ static inline int is_normal(int c) {
 }
 
 static void initialize_palette(screen_mode_t *screen) {
-   // Setup colour palatte
+   // Setup colour palette
    // Bits 5..3 control the space colour
    // Bits 2..0 control the mark colour
    //
@@ -315,9 +315,9 @@ static void tt_reset_line_state(int row) {
    tt.held_char = TT_SPACE;
    tt.held_separated = FALSE;
    // The bottom row of double height is only selected if the number of consecutive
-   // preceeding rows that contain the double height control codes is odd
+   // preceding rows that contain the double height control codes is odd
    // This attribute also causes normal height stuff on the bottom row of double height
-   // to be supressed (i.e. displayed as spaces in the current background colour).
+   // to be suppressed (i.e. displayed as spaces in the current background colour).
    tt.double_bottom = FALSE;
    for (int r = row - 1; r >= 0 && tt.dh_count[r] > 0; r--) {
       tt.double_bottom = !tt.double_bottom;
@@ -432,7 +432,7 @@ static void tt_draw_character(screen_mode_t *screen, int c, int col, int row) {
       } else {
          c &= 0x1F;
       }
-      // Copy seperated flag to bit 6
+      // Copy separated flag to bit 6
       if (separated) {
          c |= 0x40;
       } else {
@@ -482,7 +482,7 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
    // Note: fg_col/bg_col (from COLOUR n) are ignored in teletext mode
    // because colour control characters are used insread
 
-   // Remap some codes to accomodate differences between the
+   // Remap some codes to accommodate differences between the
    // Beeb's character set and the SAA5050 Character ROM
    // (this is also done by Beeb OS VDU driver)
    //

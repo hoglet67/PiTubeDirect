@@ -151,7 +151,7 @@ static void OS_Byte_impl(unsigned int *reg) {
      }
   }
 
-  // Otherise pass call to the old handler
+  // Otherwise pass call to the old handler
   base_handler[SWI_OS_Byte](reg);
 
 }
@@ -267,7 +267,7 @@ static void OS_ReadLine_impl(unsigned int *reg) {
 
    } else {
 
-      // Otherise pass call to the old handler
+      // Otherwise pass call to the old handler
       base_handler[SWI_OS_ReadLine](reg);
 
    }
