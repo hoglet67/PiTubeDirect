@@ -394,6 +394,39 @@ static void OS_ReadPoint_impl(unsigned int *reg) {
    }
 }
 
+// On Entry:
+//   R0 - flags
+//        bits 2..0 = action
+//        bit 3 = use transparency (ignored)
+//        bit 4 = 0:foreground, 1:background
+//        bit 5 = 0:r1 = colour number, 1:r1 = ECF pattern (ignored)
+//        bit 6 = 0:graphics, 1:text
+//        bit 7 = 0:write, 1:read (ginored)
+
+static void OS_SetColour_impl(unsigned int *reg) {
+   unsigned int flags = reg[0];
+   pixel_t colour     = reg[1];
+   if (flags & 0x40) {
+      // Text
+      if (flags & 0x10) {
+         // background
+         fb_set_c_bg_col(colour);
+      } else {
+         // foreground
+         fb_set_c_fg_col(colour);
+      }
+   } else {
+      // Graphics
+      if (flags & 0x10) {
+         // background
+         fb_set_g_bg_col(flags & 7, colour);
+      } else {
+         // foreground
+         fb_set_g_fg_col(flags & 7, colour);
+      }
+   }
+}
+
 // ==========================================================================
 // Public methods
 // ==========================================================================
@@ -427,6 +460,7 @@ void fb_add_swi_handlers() {
    os_table[SWI_OS_ReadPoint].handler        = OS_ReadPoint_impl;
    os_table[SWI_OS_ReadModeVariable].handler = OS_ReadModeVariable_impl;
    os_table[SWI_OS_ReadVduVariables].handler = OS_ReadVduVariables_impl;
+   os_table[SWI_OS_SetColour].handler        = OS_SetColour_impl;
 
 }
 

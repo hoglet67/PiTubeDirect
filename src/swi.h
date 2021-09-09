@@ -101,7 +101,7 @@
 #define SWI_OS_ChangeRedirection       0x00005E
 #define SWI_OS_RemoveCallBack          0x00005F
 #define SWI_OS_FindMemMapEntries       0x000060
-#define SWI_OS_SetColourCode           0x000061
+#define SWI_OS_SetColour               0x000061
 #define SWI_OS_ClaimSWI                0x000062
 #define SWI_OS_ReleaseSWI              0x000063
 #define SWI_OS_Pointer                 0x000064
