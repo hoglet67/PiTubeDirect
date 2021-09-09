@@ -29,9 +29,6 @@ unsigned char* fb = NULL;
 // Maximum number of logical colours
 #define NUM_COLOURS 256
 
-// The colour_table is used in 16bpp and 32bpp modes to map logical to physical colour
-static pixel_t colour_table[NUM_COLOURS];
-
 typedef struct {
    int x1;
    int y1;
@@ -831,17 +828,17 @@ static void init_colour_table(screen_mode_t *screen) {
       }
    } else {
       // Default 256-colour mode palette
-      // Bits 1..0 = R    (0x00, 0x44, 0x88, 0xCC)
-      // Bits 3..2 = G    (0x00, 0x44, 0x88, 0xCC)
-      // Bits 5..4 = B    (0x00, 0x44, 0x88, 0xCC)
-      // Bits 7..6 = Tint (0x00, 0x11, 0x22, 0x33) added
+      // Bits 1,0 = Tint (0x00, 0x11, 0x22, 0x33) added
+      // Bits 4,2 = R    (0x00, 0x44, 0x88, 0xCC)
+      // Bits 6,5 = G    (0x00, 0x44, 0x88, 0xCC)
+      // Bits 7,3 = B    (0x00, 0x44, 0x88, 0xCC)
       for (int i = 0; i < NUM_COLOURS * 2; i++) {
          // Tint
-         int tint = ((i >> 6) & 0x03) * 0x11;
+         int tint = (i & 0x03) * 0x11;
          // Colour
-         int r = ((i     ) & 0x03) * 0x44 + tint;
-         int g = ((i >> 2) & 0x03) * 0x44 + tint;
-         int b = ((i >> 4) & 0x03) * 0x44 + tint;
+         int r = (((i >> 3) & 0x02) | ((i >> 2) & 0x01)) * 0x44 + tint;
+         int g = (((i >> 5) & 0x02) | ((i >> 5) & 0x01)) * 0x44 + tint;
+         int b = (((i >> 6) & 0x02) | ((i >> 3) & 0x01)) * 0x44 + tint;
          screen->set_colour(screen, (uint32_t)i, r, g, b);
       }
    }
@@ -1076,31 +1073,47 @@ void default_set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r,
 }
 
 void default_set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
-   // 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
-   // R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
-   colour_table[index & 0xff] = (pixel_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3));
 }
 
 void default_set_colour_32bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
-   colour_table[index & 0xff] = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
 }
 
-pixel_t default_get_colour_8bpp(screen_mode_t *screen, colour_index_t index) {
-   return index;
+pixel_t default_get_colour_8bpp(screen_mode_t *screen, uint8_t gcol) {
+   //                                     7  6  5  4  3  2  1  0
+   // The          GCOL number format is B3 B2 G3 G2 R3 R2 T1 T0
+   // The  8-bit colour number format is B3 G3 G2 R3 B2 R2 T1 T0
+   if (screen->ncolour == 255) {
+      return (gcol & 0x87) | ((gcol & 0x38) << 1) | ((gcol & 0x40) >> 3);
+   } else {
+      return gcol & screen->ncolour;
+   }
 }
 
-pixel_t default_get_colour_16bpp(screen_mode_t *screen, colour_index_t index) {
-   return colour_table[index & 0xff];
+pixel_t default_get_colour_16bpp(screen_mode_t *screen, uint8_t gcol) {
+   //                                     7  6  5  4  3  2  1  0
+   // The          GCOL number format is B3 B2 G3 G2 R3 R2 T1 T0
+   //                                    15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+   // The 16-bit colour number format is R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
+   int r = ((gcol & 0x0C)     ) | (gcol & 0x03);
+   int g = ((gcol & 0x30) >> 2) | (gcol & 0x03);
+   int b = ((gcol & 0xC0) >> 4) | (gcol & 0x03);
+   return (r << 12) | (g << 7) | (b << 1);
 }
 
-pixel_t default_get_colour_32bpp(screen_mode_t *screen, colour_index_t index) {
-   return colour_table[index & 0xff];
+pixel_t default_get_colour_32bpp(screen_mode_t *screen, uint8_t gcol) {
+   //                                     7  6  5  4  3  2  1  0
+   // The          GCOL number format is B3 B2 G3 G2 R3 R2 T1 T0
+   // The 32-bit colour number format is xxRRGGBB
+   int r = ((gcol & 0x0C)     ) | (gcol & 0x03);
+   int g = ((gcol & 0x30) >> 2) | (gcol & 0x03);
+   int b = ((gcol & 0xC0) >> 4) | (gcol & 0x03);
+   return (r << 20) | (g << 12) | (b << 4);
 }
 
-colour_index_t default_nearest_colour_8bpp(struct screen_mode *screen, int r, int g, int b) {
+pixel_t default_nearest_colour_8bpp(struct screen_mode *screen, int r, int g, int b) {
    unsigned int distance = 0x7fffffff;
    colour_index_t best = 0;
-   for (colour_index_t i = 0; i < NUM_COLOURS && distance != 0; i++) {
+   for (colour_index_t i = 0; i <= screen->ncolour && distance != 0; i++) {
       pixel_t colour = palette0_base[i + PALETTE_DATA_OFFSET];
       // xxBBGGRR
       int dr = r - (colour & 0xff);
@@ -1115,41 +1128,15 @@ colour_index_t default_nearest_colour_8bpp(struct screen_mode *screen, int r, in
    return best;
 }
 
-colour_index_t default_nearest_colour_16bpp(struct screen_mode *screen, int r, int g, int b) {
-   unsigned int distance = 0x7fffffff;
-   colour_index_t best = 0;
-   for (colour_index_t i = 0; i < NUM_COLOURS && distance != 0; i++) {
-      pixel_t colour = colour_table[i];
-      // 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
-      // R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
-      int dr = r - ((colour >> 8) & 0xf8);
-      int dg = g - ((colour >> 3) & 0xfC);
-      int db = b - ((colour << 3) & 0xf8);
-      unsigned int d = 2 * dr * dr + 4 * dg * dg + db * db;
-      if (d < distance) {
-         distance = d;
-         best = i;
-      }
-   }
-  return best;
+pixel_t default_nearest_colour_16bpp(struct screen_mode *screen, int r, int g, int b) {
+   //                                    15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+   // The 16-bit colour number format is R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
+   return ((r & 0xF8) << 8) | ((g & 0xF8) << 3) | ((b & 0xF8) >> 3);
 }
 
-colour_index_t default_nearest_colour_32bpp(struct screen_mode *screen, int r, int g, int b) {
-   unsigned int distance = 0x7fffffff;
-   colour_index_t best = 0;
-   for (colour_index_t i = 0; i < NUM_COLOURS && distance != 0; i++) {
-      pixel_t colour = colour_table[i];
-      // xxRRGGBB
-      int dr = r - ((colour >> 16) & 0xff);
-      int dg = g - ((colour >> 8) & 0xff);
-      int db = b - (colour & 0xff);
-      unsigned int d = 2 * dr * dr + 4 * dg * dg + db * db;
-      if (d < distance) {
-         distance = d;
-         best = i;
-      }
-   }
-  return best;
+pixel_t default_nearest_colour_32bpp(struct screen_mode *screen, int r, int g, int b) {
+   // The 32-bit colour number format is xxRRGGBB
+   return (r << 16) | (g << 8) | b;
 }
 
 
@@ -1283,8 +1270,6 @@ screen_mode_t *get_screen_mode(int mode_num) {
          sm->flash = default_flash;
       }
 
-      // Set the colour index for black
-      sm->black = 0;
       // Set the colour index for while, avoiding flashing colours in 16-colour modes
       if (sm->ncolour == 1) {
          sm->white = 1;

@@ -69,7 +69,7 @@ static int calc_radius(int x1, int y1, int x2, int y2) {
 static pixel_t get_pixel(screen_mode_t *screen, int x, int y) {
    if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
       // Return the graphics background colour if off the screen
-      return screen->get_colour(screen, fb_get_g_bg_col());
+      return fb_get_g_bg_col();
    } else {
       return screen->get_pixel(screen, x, y);
    }
@@ -720,8 +720,8 @@ void prim_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t 
    // printf("Plot (%d,%d), colour %d, mode %d\r\n", x, y, colour, mode);
    // printf("g_bg_col = %d, g_fg_col = %d\n\r", g_bg_col, g_fg_col);
 
-   pixel_t fg_col = screen->get_colour(screen, fb_get_g_fg_col());
-   pixel_t bg_col = screen->get_colour(screen, fb_get_g_bg_col());
+   pixel_t fg_col = fb_get_g_fg_col();
+   pixel_t bg_col = fb_get_g_bg_col();
 
    if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
       return;

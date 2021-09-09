@@ -18,10 +18,6 @@
 #include "primitives.h"
 #include "fonts.h"
 
-// Default colours
-#define COL_BLACK   (screen->black)
-#define COL_WHITE   (screen->white)
-
 // Current screen mode
 static screen_mode_t *screen = NULL;
 
@@ -39,8 +35,13 @@ static t_clip_window_t t_window;
 #define TINT_MASK   0xc0
 
 // Character colour
-static uint8_t c_bg_col;
-static uint8_t c_fg_col;
+static pixel_t c_bg_col;
+static pixel_t c_fg_col;
+
+static uint8_t c_bg_gcol;
+static uint8_t c_bg_tint;
+static uint8_t c_fg_gcol;
+static uint8_t c_fg_tint;
 
 // Character cursor status and position
 static int16_t c_enabled;  // controlled by VDU 23,1
@@ -63,8 +64,15 @@ static int16_t f_y_pos;
 static int16_t f_visible;
 
 // Graphics colour / cursor position
-static uint8_t g_bg_col;
-static uint8_t g_fg_col;
+static pixel_t g_bg_col;
+static pixel_t g_fg_col;
+static pixel_t white_col;
+
+static uint8_t g_bg_gcol;
+static uint8_t g_bg_tint;
+static uint8_t g_fg_gcol;
+static uint8_t g_fg_tint;
+
 static int16_t g_x_pos;
 static int16_t g_x_pos_last1;
 static int16_t g_x_pos_last2;
@@ -258,11 +266,36 @@ static void update_text_area() {
    }
 }
 
+static pixel_t calculate_colour(uint8_t col, uint8_t tint) {
+   col  &= COLOUR_MASK & screen->ncolour;
+   tint &= TINT_MASK;
+   if (screen->ncolour < 255) {
+      return col;
+   } else {
+      return screen->get_colour(screen, (col << 2) | (tint >> 6));
+   }
+}
+
+static void update_tint_and_colour(uint8_t gcol, uint8_t *col, uint8_t *tint) {
+   if (screen->ncolour == 255) {
+      *col = (gcol >> 2) & COLOUR_MASK;
+      *tint = (gcol << 6) & TINT_MASK;
+   } else {
+      *col = gcol & COLOUR_MASK;
+      *tint = 0;
+   }
+}
+
 static void init_variables() {
 
+   // White...
+   white_col = screen->get_colour(screen, screen->white);
+
    // Character colour / cursor position
-   c_bg_col  = (uint8_t)COL_BLACK;
-   c_fg_col  = (uint8_t)COL_WHITE;
+   c_bg_col  = 0; // Black is always 0
+   c_fg_col  = white_col;
+   update_tint_and_colour(c_bg_col, &c_bg_gcol, &c_bg_tint);
+   update_tint_and_colour(c_fg_col, &c_fg_gcol, &c_fg_tint);
    c_enabled = 1;
 
    // Edit cursor
@@ -271,8 +304,10 @@ static void init_variables() {
    e_enabled = 0;
 
    // Graphics colour / cursor position
-   g_bg_col  = (uint8_t)COL_BLACK;
-   g_fg_col  = (uint8_t)COL_WHITE;
+   g_bg_col  = 0; // Black is always 0
+   g_fg_col  = white_col;
+   update_tint_and_colour(g_bg_col, &g_bg_gcol, &g_bg_tint);
+   update_tint_and_colour(g_fg_col, &g_fg_gcol, &g_fg_tint);
 
    // Sprites
    current_sprite = 0;
@@ -331,7 +366,7 @@ static void invert_cursor(int x_pos, int y_pos, int rows) {
    for (int i = font_height - rows; i < font_height; i++) {
       for (int j = 0; j < font_width; j++) {
          pixel_t col = screen->get_pixel(screen, x + j, y - i);
-         col ^= screen->get_colour(screen, (colour_index_t)COL_WHITE);
+         col ^= white_col;
          screen->set_pixel(screen, x + j, y - i, col);
       }
    }
@@ -457,9 +492,8 @@ static void edit_cursor_right() {
 }
 
 static void text_area_scroll() {
-   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
    int tmp = disable_cursors();
-   screen->scroll(screen, &t_window, bg_col);
+   screen->scroll(screen, &t_window, c_bg_col);
    if (tmp) {
       enable_cursors();
    }
@@ -533,8 +567,7 @@ static void set_graphics_area(screen_mode_t *scr, g_clip_window_t *window) {
 
 static int read_character(int x_pos, int y_pos) {
    int tmp = disable_cursors();
-   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
-   int c = screen->read_character(screen, x_pos, y_pos, bg_col);
+   int c = screen->read_character(screen, x_pos, y_pos, c_bg_col);
    if (tmp) {
       enable_cursors();
    }
@@ -612,9 +645,8 @@ static void text_cursor_tab(uint8_t *buf) {
 }
 
 static void text_area_clear() {
-   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
    int tmp = disable_cursors();
-   screen->clear(screen, &t_window, bg_col);
+   screen->clear(screen, &t_window, c_bg_col);
    if (tmp) {
       enable_cursors();
    }
@@ -625,10 +657,8 @@ static void text_area_clear() {
 
 static void text_delete() {
    text_cursor_left();
-   pixel_t fg_col = screen->get_colour(screen, c_fg_col);
-   pixel_t bg_col = screen->get_colour(screen, c_bg_col);
    int tmp = disable_cursors();
-   screen->write_character(screen, ' ', c_x_pos, c_y_pos, fg_col, bg_col);
+   screen->write_character(screen, ' ', c_x_pos, c_y_pos, c_fg_col, c_bg_col);
    if (tmp) {
       enable_cursors();
    }
@@ -703,16 +733,14 @@ static void graphics_cursor_tab(uint8_t *buf) {
 static void graphics_area_clear() {
    g_x_pos = g_window.left;
    g_y_pos = g_window.top;
-   pixel_t col = screen->get_colour(screen, g_bg_col);
-   prim_clear_graphics_area(screen, col);
+   prim_clear_graphics_area(screen, g_bg_col);
 }
 
 static void graphics_delete() {
    graphics_cursor_left();
    int x = g_x_pos >> screen->xeigfactor;
    int y = g_y_pos >> screen->yeigfactor;
-   pixel_t col = screen->get_colour(screen, g_bg_col);
-   prim_fill_rectangle(screen, x, y, x + (font_width - 1), y - (font_height - 1), col);
+   prim_fill_rectangle(screen, x, y, x + (font_width - 1), y - (font_height - 1), g_bg_col);
 }
 
 // ==========================================================================
@@ -744,19 +772,23 @@ static void vdu23_17(uint8_t *buf) {
    switch (buf[1]) {
    case 0:
       // VDU 23,17,0 - sets tint for text foreground colour
-      c_fg_col = (uint8_t)(((c_fg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK));
+      c_fg_tint = buf[2] & TINT_MASK;
+      c_fg_col = calculate_colour(c_fg_gcol, c_fg_tint);
       break;
    case 1:
       // VDU 23,17,1 - sets tint for text background colour
-      c_bg_col = (uint8_t)(((c_bg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK));
+      c_bg_tint = buf[2] & TINT_MASK;
+      c_bg_col = calculate_colour(c_bg_gcol, c_bg_tint);
       break;
    case 2:
       // VDU 23,17,2 - sets tint for graphics foreground colour
-      g_fg_col = (uint8_t)(((g_fg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK));
+      g_fg_tint = buf[2] & TINT_MASK;
+      g_fg_col = calculate_colour(g_fg_gcol, g_fg_tint);
       break;
    case 3:
       // VDU 23,17,3 - sets tint for graphics background colour
-      g_bg_col = (uint8_t)(((g_bg_col) & COLOUR_MASK) | (buf[2] & TINT_MASK));
+      g_bg_tint = buf[2] & TINT_MASK;
+      g_bg_col = calculate_colour(g_bg_gcol, g_bg_tint);
       break;
    case 4:
       // TODO: VDU 23,17,4 - Select colour patterns
@@ -764,7 +796,7 @@ static void vdu23_17(uint8_t *buf) {
    case 5:
       // TODO: VDU 23,17,5 - Swap text colours
       {
-         uint8_t tmp = c_fg_col;
+         pixel_t tmp = c_fg_col;
          c_fg_col = g_bg_col;
          c_bg_col = tmp;
          break;
@@ -930,34 +962,37 @@ static void vdu_5(uint8_t *buf) {
    text_at_g_cursor = 1;
 }
 
-
 static void vdu_16(uint8_t *buf) {
-   prim_clear_graphics_area(screen, screen->get_colour(screen, g_bg_col));
+   prim_clear_graphics_area(screen, g_bg_col);
 }
 
 static void vdu_17(uint8_t *buf) {
-   uint8_t c = buf[1];
-   if (c & 128) {
-      c_bg_col = c & 127;
+   uint8_t col = buf[1];
+   if (col & 128) {
+      c_bg_gcol = col & COLOUR_MASK;
+      c_bg_col = calculate_colour(c_bg_gcol, c_bg_tint);
 #ifdef DEBUG_VDU
-      printf("bg = %d\r\n", c_bg_col);
+      printf("bg = %x\r\n", c_bg_col);
 #endif
    } else {
-      c_fg_col = c & 127;
+      c_fg_gcol = col & COLOUR_MASK;
+      c_fg_col = calculate_colour(c_fg_gcol, c_fg_tint);
 #ifdef DEBUG_VDU
-      printf("fg = %d\r\n", c_fg_col);
+      printf("fg = %x\r\n", c_fg_col);
 #endif
    }
 }
 
 static void vdu_18(uint8_t *buf) {
    uint8_t mode = buf[1];
-   uint8_t col  = buf[2];
+   uint8_t col = buf[2];
    if (col & 128) {
-      g_bg_col = col & 63;
+      g_bg_gcol = col & COLOUR_MASK;
+      g_bg_col = calculate_colour(g_bg_gcol, g_bg_tint);
       prim_set_bg_plotmode(mode);
    } else {
-      g_fg_col = col & 63;
+      g_fg_gcol = col & COLOUR_MASK;
+      g_fg_col = calculate_colour(g_fg_gcol, g_fg_tint);
       prim_set_fg_plotmode(mode);
    }
 }
@@ -1054,7 +1089,6 @@ static void vdu_24(uint8_t *buf) {
 
 
 static void vdu_25(uint8_t *buf) {
-   int col;
    int skew;
    uint8_t g_mode = buf[1];
    int16_t x = (int16_t)(buf[2] + (buf[3] << 8));
@@ -1071,20 +1105,6 @@ static void vdu_25(uint8_t *buf) {
       // Relative to the last point.
       update_g_cursors(g_x_pos + x, g_y_pos + y);
    }
-   switch (g_mode & 3) {
-   case 0:
-      col = -1;
-      break;
-   case 1:
-      col = g_fg_col;
-      break;
-   case 2:
-      col = 15 - g_fg_col;
-      break;
-   case 3:
-      col = g_bg_col;
-      break;
-   }
 
    // Transform plotting coordinates to screen coordinates
    int x_pos       = g_x_pos       >> screen->xeigfactor;
@@ -1094,9 +1114,17 @@ static void vdu_25(uint8_t *buf) {
    int x_pos_last2 = g_x_pos_last2 >> screen->xeigfactor;
    int y_pos_last2 = g_y_pos_last2 >> screen->yeigfactor;
 
-   if (col >= 0) {
+   if (g_mode & 0x03) {
 
-      pixel_t colour = screen->get_colour(screen, (colour_index_t)col);
+      pixel_t colour;
+
+      if ((g_mode & 0x03) == 1) {
+         colour = g_fg_col;
+      } else if ((g_mode & 3) == 1) {
+         colour = white_col - g_fg_col;
+      } else {
+         colour = g_bg_col;
+      }
 
       switch (g_mode & 0xF8) {
 
@@ -1270,8 +1298,7 @@ static void vdu_default(uint8_t *buf) {
       int x = g_x_pos >> screen->xeigfactor;
       int y = g_y_pos >> screen->yeigfactor;
       // Only draw the foreground pixels
-      pixel_t col = screen->get_colour(screen, g_fg_col);
-      prim_draw_character(screen, c, x, y, col);
+      prim_draw_character(screen, c, x, y, g_fg_col);
       // Advance the drawing position
       graphics_cursor_right();
    } else {
@@ -1280,10 +1307,8 @@ static void vdu_default(uint8_t *buf) {
       // - Character 0,0 is in the top left
       // - So the Y axis needs flipping
       // Draw the foreground and background pixels
-      pixel_t fg_col = screen->get_colour(screen, c_fg_col);
-      pixel_t bg_col = screen->get_colour(screen, c_bg_col);
       int tmp = disable_cursors();
-      screen->write_character(screen, c, c_x_pos, c_y_pos, fg_col, bg_col);
+      screen->write_character(screen, c, c_x_pos, c_y_pos, c_fg_col, c_bg_col);
       if (tmp) {
          enable_cursors();
       }
@@ -1358,20 +1383,21 @@ static void owl(int x0, int y0, int r, int col) {
    int y = 0;
 
 
-   // Default 256-colour mode palette
-   // Bits 1..0 = R    (0x00, 0x44, 0x88, 0xCC)
-   // Bits 3..2 = G    (0x00, 0x44, 0x88, 0xCC)
-   // Bits 5..4 = B    (0x00, 0x44, 0x88, 0xCC)
-   // Bits 7..6 = Tint (0x00, 0x11, 0x22, 0x33) added
+   // 256-colour GCOL but numbering
+   // Bits 0..1 = Tint (0x00, 0x11, 0x22, 0x33) added
+   // Bits 3..2 = R    (0x00, 0x44, 0x88, 0xCC)
+   // Bits 5..4 = G    (0x00, 0x44, 0x88, 0xCC)
+   // Bits 7..6 = B    (0x00, 0x44, 0x88, 0xCC)
 
-   int cols[] = {
-      0xC3,  // Red
-      0xC7,  // Orange
-      0xCF,  // Yellow
-      0x08,  // Green
-      0xF0,  // Blue
-      0x21,  // Indigo
-      0xA6   // Violet
+   pixel_t cols[] = {
+             //         RRGGBBTT
+      0x0F,  // Red     00001111
+      0x1F,  // Orange  00011111
+      0x3F,  // Yellow  00111111
+      0x20,  // Green   00100000
+      0xC3,  // Blue    11000011
+      0x84,  // Indigo  10000100
+      0x9A   // Violet  10011010
    };
 
    for (unsigned int i = 0; i < sizeof(data) / sizeof(int); i++) {
@@ -1380,7 +1406,7 @@ static void owl(int x0, int y0, int r, int col) {
          int xc = x0 + x * r;
          int yc = y0 - y * r;
          int d = y / 3;
-         g_fg_col = (uint8_t)cols[d];
+         g_fg_col = screen->get_colour(screen, cols[d]);
          plot(  4, xc, yc);
          plot(157, xc, yc + r * 5 / 7);
       } else {
@@ -1642,11 +1668,11 @@ int fb_get_text_cursor_char() {
    return read_character(c_x_pos, c_y_pos);
 }
 
-uint8_t fb_get_g_bg_col() {
+pixel_t fb_get_g_bg_col() {
    return g_bg_col;
 }
 
-uint8_t fb_get_g_fg_col() {
+pixel_t fb_get_g_fg_col() {
    return g_fg_col;
 }
 
@@ -1748,28 +1774,44 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
       return prim_get_bg_plotmode();
    case V_GFCOL:
       // Graphics foreground col
-      return g_fg_col & COLOUR_MASK;
+      if (screen->ncolour <= 255) {
+         return g_fg_gcol & COLOUR_MASK;
+      } else {
+         return g_fg_col;
+      }
    case V_GBCOL:
       // Graphics background col
-      return g_bg_col & COLOUR_MASK;
+      if (screen->ncolour <= 255) {
+         return g_bg_gcol & COLOUR_MASK;
+      } else {
+         return g_bg_col;
+      }
    case V_TFORECOL:
       // Text foreground col
-      return c_fg_col & COLOUR_MASK;
+      if (screen->ncolour <= 255) {
+         return c_fg_gcol & COLOUR_MASK;
+      } else {
+         return c_fg_col;
+      }
    case V_TBACKCOL:
       // Text background col
-      return c_bg_col & COLOUR_MASK;
+      if (screen->ncolour <= 255) {
+         return c_bg_gcol & COLOUR_MASK;
+      } else {
+         return c_bg_col;
+      }
    case V_GFTINT:
       // Graphics foreground tint
-      return g_fg_col & TINT_MASK;
+      return g_fg_tint & TINT_MASK;
    case V_GBTINT:
       // Graphics background tint
-      return g_bg_col & TINT_MASK;
+      return g_bg_tint & TINT_MASK;
    case V_TFTINT:
       // Text foreground tint
-      return c_fg_col & TINT_MASK;
+      return c_fg_tint & TINT_MASK;
    case V_TBTINT:
       // Text background tint
-      return c_bg_col & TINT_MASK;
+      return c_bg_tint & TINT_MASK;
    case V_MAXMODE:
       // Highest built-in numbered mode known to kernel - TODO
       return 95;
@@ -1865,20 +1907,20 @@ int fb_point(int16_t x, int16_t y, pixel_t *colour) {
    }
 }
 
-void fb_set_g_fg_col(uint8_t action, colour_index_t gcol) {
-   g_fg_col = (uint8_t) gcol;
+void fb_set_g_fg_col(uint8_t action, pixel_t gcol) {
+   g_fg_col = gcol;
    prim_set_fg_plotmode(action);
 }
 
-void fb_set_g_bg_col(uint8_t action, colour_index_t gcol) {
-   g_bg_col = (uint8_t) gcol;
+void fb_set_g_bg_col(uint8_t action, pixel_t gcol) {
+   g_bg_col = gcol;
    prim_set_bg_plotmode(action);
 }
 
-void fb_set_c_fg_col(colour_index_t gcol) {
-   c_fg_col = (uint8_t) gcol;
+void fb_set_c_fg_col(pixel_t gcol) {
+   c_fg_col = gcol;
 }
 
-void fb_set_c_bg_col(colour_index_t gcol) {
-   c_bg_col = (uint8_t) gcol;
+void fb_set_c_bg_col(pixel_t gcol) {
+   c_bg_col = gcol;
 }

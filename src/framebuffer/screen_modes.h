@@ -87,8 +87,7 @@ typedef struct screen_mode {
 
    int pitch;       // filled in by init
 
-   int black;       // the colour value for black
-   int white;       // the colour value for white
+   uint8_t white;   // the gcol number for white
 
    struct font *font; // the current font for this screen mode
 
@@ -98,8 +97,8 @@ typedef struct screen_mode {
    void                   (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
    void                    (*flash)(struct screen_mode *screen, int mark);
    void               (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
-   pixel_t            (*get_colour)(struct screen_mode *screen, colour_index_t index);
-   colour_index_t (*nearest_colour)(struct screen_mode *screen, int r, int g, int b);
+   pixel_t            (*get_colour)(struct screen_mode *screen, uint8_t gcol);
+   pixel_t        (*nearest_colour)(struct screen_mode *screen, int r, int g, int b);
    void           (*update_palette)(struct screen_mode *screen, int mark);
    void                (*set_pixel)(struct screen_mode *screen, int x, int y, pixel_t value);
    pixel_t             (*get_pixel)(struct screen_mode *screen, int x, int y);
@@ -122,9 +121,9 @@ void       default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_wi
 void     default_set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b);
 void    default_set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b);
 void    default_set_colour_32bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b);
-pixel_t  default_get_colour_8bpp(screen_mode_t *screen, colour_index_t index);
-pixel_t default_get_colour_16bpp(screen_mode_t *screen, colour_index_t index);
-pixel_t default_get_colour_32bpp(screen_mode_t *screen, colour_index_t index);
+pixel_t  default_get_colour_8bpp(screen_mode_t *screen, uint8_t gcol);
+pixel_t default_get_colour_16bpp(screen_mode_t *screen, uint8_t gcol);
+pixel_t default_get_colour_32bpp(screen_mode_t *screen, uint8_t gcol);
 void      default_set_pixel_8bpp(screen_mode_t *screen, int x, int y, pixel_t value);
 void     default_set_pixel_16bpp(screen_mode_t *screen, int x, int y, pixel_t value);
 void     default_set_pixel_32bpp(screen_mode_t *screen, int x, int y, pixel_t value);

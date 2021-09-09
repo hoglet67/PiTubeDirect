@@ -63,7 +63,7 @@ static void colourtrans_setgcol(unsigned int *reg) {
    int flags = reg[3];
    uint8_t action = reg[4] & 7;
    screen_mode_t *screen = fb_get_current_screen_mode();
-   colour_index_t col = screen->nearest_colour(screen, r, g, b);
+   pixel_t col = screen->nearest_colour(screen, r, g, b);
    if (flags & 0x80) {
       fb_set_g_bg_col(action, col);
    } else {
@@ -86,7 +86,7 @@ static void colourtrans_settextcolour(unsigned int *reg) {
    int b = (reg[0] >> 24) & 0xff;
    int flags = reg[3];
    screen_mode_t *screen = fb_get_current_screen_mode();
-   colour_index_t col = screen->nearest_colour(screen, r, g, b);
+   pixel_t col = screen->nearest_colour(screen, r, g, b);
    if (flags & 0x80) {
       fb_set_c_bg_col(col);
    } else {
