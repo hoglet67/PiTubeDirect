@@ -288,14 +288,15 @@ static void update_tint_and_colour(uint8_t gcol, uint8_t *col, uint8_t *tint) {
 
 static void init_variables() {
 
-   // White...
-   white_col = screen->get_colour(screen, screen->white);
+   // Lookup the pixel_t value for white...
+   uint8_t white_gcol = screen->white;
+   white_col = screen->get_colour(screen, white_gcol);
 
    // Character colour / cursor position
    c_bg_col  = 0; // Black is always 0
    c_fg_col  = white_col;
-   update_tint_and_colour(c_bg_col, &c_bg_gcol, &c_bg_tint);
-   update_tint_and_colour(c_fg_col, &c_fg_gcol, &c_fg_tint);
+   update_tint_and_colour(white_gcol, &c_bg_gcol, &c_bg_tint);
+   update_tint_and_colour(white_gcol, &c_fg_gcol, &c_fg_tint);
    c_enabled = 1;
 
    // Edit cursor
@@ -306,8 +307,8 @@ static void init_variables() {
    // Graphics colour / cursor position
    g_bg_col  = 0; // Black is always 0
    g_fg_col  = white_col;
-   update_tint_and_colour(g_bg_col, &g_bg_gcol, &g_bg_tint);
-   update_tint_and_colour(g_fg_col, &g_fg_gcol, &g_fg_tint);
+   update_tint_and_colour(white_gcol, &g_bg_gcol, &g_bg_tint);
+   update_tint_and_colour(white_gcol, &g_fg_gcol, &g_fg_tint);
 
    // Sprites
    current_sprite = 0;
@@ -1781,28 +1782,28 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
       if (screen->ncolour <= 255) {
          return g_fg_gcol & COLOUR_MASK;
       } else {
-         return g_fg_col;
+         return (int32_t) g_fg_col;
       }
    case V_GBCOL:
       // Graphics background col
       if (screen->ncolour <= 255) {
          return g_bg_gcol & COLOUR_MASK;
       } else {
-         return g_bg_col;
+         return (int32_t) g_bg_col;
       }
    case V_TFORECOL:
       // Text foreground col
       if (screen->ncolour <= 255) {
          return c_fg_gcol & COLOUR_MASK;
       } else {
-         return c_fg_col;
+         return (int32_t) c_fg_col;
       }
    case V_TBACKCOL:
       // Text background col
       if (screen->ncolour <= 255) {
          return c_bg_gcol & COLOUR_MASK;
       } else {
-         return c_bg_col;
+         return (int32_t) c_bg_col;
       }
    case V_GFTINT:
       // Graphics foreground tint
