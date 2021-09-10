@@ -267,19 +267,19 @@ static void update_text_area() {
 }
 
 static pixel_t calculate_colour(uint8_t col, uint8_t tint) {
-   col  &= COLOUR_MASK & screen->ncolour;
+   col &= COLOUR_MASK;
    tint &= TINT_MASK;
    if (screen->ncolour < 255) {
-      return col;
+      return col & ((uint8_t)screen->ncolour);
    } else {
-      return screen->get_colour(screen, (col << 2) | (tint >> 6));
+      return screen->get_colour(screen, (uint8_t)((col << 2) | (tint >> 6)));
    }
 }
 
 static void update_tint_and_colour(uint8_t gcol, uint8_t *col, uint8_t *tint) {
    if (screen->ncolour == 255) {
-      *col = (gcol >> 2) & COLOUR_MASK;
-      *tint = (gcol << 6) & TINT_MASK;
+      *col = (uint8_t)((gcol >> 2) & COLOUR_MASK);
+      *tint = (uint8_t)((gcol << 6) & TINT_MASK);
    } else {
       *col = gcol & COLOUR_MASK;
       *tint = 0;
