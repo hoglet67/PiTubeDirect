@@ -1389,7 +1389,7 @@ static void owl(int x0, int y0, int r, int col) {
    // Bits 5..4 = G    (0x00, 0x44, 0x88, 0xCC)
    // Bits 7..6 = B    (0x00, 0x44, 0x88, 0xCC)
 
-   pixel_t cols[] = {
+   uint8_t cols[] = {
              //         RRGGBBTT
       0x0F,  // Red     00001111
       0x1F,  // Orange  00011111
@@ -1400,6 +1400,8 @@ static void owl(int x0, int y0, int r, int col) {
       0x9A   // Violet  10011010
    };
 
+   // Save graphics colour
+   pixel_t old_g_fg_col = g_fg_col;
    for (unsigned int i = 0; i < sizeof(data) / sizeof(int); i++) {
       int x = data[i];
       if (x >= 0) {
@@ -1413,6 +1415,8 @@ static void owl(int x0, int y0, int r, int col) {
          y++;
       }
    }
+   // Restore graphics colour
+   g_fg_col = old_g_fg_col;
 }
 
 static void help_message() {
