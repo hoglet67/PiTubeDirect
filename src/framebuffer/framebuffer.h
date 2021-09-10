@@ -132,4 +132,10 @@ void fb_set_c_fg_col(pixel_t gcol);
 
 void fb_set_c_bg_col(pixel_t gcol);
 
+uint8_t fb_get_gcol_from_colnum(uint8_t colnum);
+
+uint8_t fb_get_col_from_colnum(uint8_t colnum);
+
+uint8_t fb_get_tint_from_colnum(uint8_t colnum);
+
 #endif

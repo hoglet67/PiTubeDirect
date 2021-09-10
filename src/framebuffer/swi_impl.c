@@ -382,8 +382,9 @@ static void OS_ReadPoint_impl(unsigned int *reg) {
       pixel_t colour;
       if (!fb_point(x, y, &colour)) {
          if (fb_read_vdu_variable((vdu_variable_t)M_LOG2BPP) == 3) {
-            reg[2] = colour & 0x3F;
-            reg[3] = colour & 0xC0;
+            uint8_t colnum = (uint8_t)(colour & 0xff);
+            reg[2] = fb_get_col_from_colnum(colnum);
+            reg[3] = fb_get_tint_from_colnum(colnum);
          } else {
             reg[2] = colour;
             reg[3] = 0;

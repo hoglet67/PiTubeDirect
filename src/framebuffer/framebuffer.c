@@ -1907,6 +1907,10 @@ int fb_point(int16_t x, int16_t y, pixel_t *colour) {
       y >>= screen->yeigfactor;
       // read the pixel
       *colour = prim_get_pixel(screen, x, y);
+      // If 8bit mode, convert to a gcol number
+      if (screen->ncolour == 255) {
+         *colour = (pixel_t)(fb_get_gcol_from_colnum((uint8_t)*colour));
+      }
       // 0 indicates pixel on screen
       return 0;
    }
@@ -1928,4 +1932,51 @@ void fb_set_c_fg_col(pixel_t gcol) {
 
 void fb_set_c_bg_col(pixel_t gcol) {
    c_bg_col = gcol;
+}
+
+// Extracts the VDU gcol number (0..255) from the 8-bit colour number
+// It is an error to use this function in high colour modes
+uint8_t fb_get_gcol_from_colnum(uint8_t colnum) {
+   if (screen->ncolour < 255) {
+      return (uint8_t)(colnum & screen->ncolour);
+   } else if (screen->ncolour == 255) {
+      //                                     7  6  5  4  3  2  1  0
+      // The  8-bit colour number format is B3 G3 G2 R3 B2 R2 T1 T0
+      // The      VDU gcol number format is B3 B2 G3 G2 R3 R2 T1 T0
+      return (uint8_t)((colnum & 0x87) | ((colnum & 0x70) >> 1) | ((colnum & 0x08) << 3));
+   } else {
+      printf("Illegal use of get_gcol_from_colnum()\n\r");
+      return 0;
+   }
+}
+
+// Extracts the VDU colour (0..63) from the 8-bit colour number
+// It is an error to use this function in high colour modes
+uint8_t fb_get_col_from_colnum(uint8_t colnum) {
+   if (screen->ncolour < 255) {
+      return (uint8_t)(colnum & screen->ncolour);
+   } else if (screen->ncolour == 255) {
+      //                                     7  6  5  4  3  2  1  0
+      // The  8-bit colour number format is B3 G3 G2 R3 B2 R2 T1 T0
+      // The   VDU driver colour  format is  0  0 B3 B2 G3 G2 R3 R2
+      return (uint8_t)(((colnum & 0x84) >> 2) | ((colnum & 0x70) >> 3) | ((colnum & 0x08) << 1));
+   } else {
+      printf("Illegal use of get_col_from_colnum()\n\r");
+      return 0;
+   }
+}
+
+// Extract the VDU tint (0,64,128,192) from 8-bit the colour
+uint8_t fb_get_tint_from_colnum(uint8_t colnum) {
+   if (screen->ncolour < 255) {
+      return 0;
+   } else if (screen->ncolour == 255) {
+      //                                     7  6  5  4  3  2  1  0
+      // The  8-bit colour number format is B3 G3 G2 R3 B2 R2 T1 T0
+      // The   VDU driver tint  format is   T1 T0  0  0  0  0  0  0
+      return (uint8_t)((colnum & 0x03) << 6);
+   } else {
+      printf("Illegal use of get_tint_from_colnum()\n\r");
+      return 0;
+   }
 }
