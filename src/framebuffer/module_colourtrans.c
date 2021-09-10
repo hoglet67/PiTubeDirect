@@ -69,9 +69,9 @@ static void colourtrans_setgcol(unsigned int *reg) {
    } else {
       fb_set_g_fg_col(action, col);
    }
-   reg[0] = col;
-   reg[2] = screen->log2bpp;
-   reg[3] = reg[3] & 0x80;
+   reg[0] = (unsigned int)col;
+   reg[2] = (unsigned int)screen->log2bpp;
+   reg[3] = (unsigned int)(reg[3] & 0x80);
 }
 
 // Entry
@@ -81,10 +81,10 @@ static void colourtrans_setgcol(unsigned int *reg) {
 //   R0	GCOL
 //   R3	Preserved
 static void colourtrans_settextcolour(unsigned int *reg) {
-   int r = (reg[0] >>  8) & 0xff;
-   int g = (reg[0] >> 16) & 0xff;
-   int b = (reg[0] >> 24) & 0xff;
-   int flags = reg[3];
+   uint8_t r = (uint8_t)((reg[0] >>  8) & 0xff);
+   uint8_t g = (uint8_t)((reg[0] >> 16) & 0xff);
+   uint8_t b = (uint8_t)((reg[0] >> 24) & 0xff);
+   unsigned int flags = reg[3];
    screen_mode_t *screen = fb_get_current_screen_mode();
    pixel_t col = screen->nearest_colour(screen, r, g, b);
    if (flags & 0x80) {
@@ -92,7 +92,7 @@ static void colourtrans_settextcolour(unsigned int *reg) {
    } else {
       fb_set_c_fg_col(col);
    }
-   reg[0] = col;
+   reg[0] = (unsigned int )col;
 }
 
 static void colourtrans_init(int vdu) {
