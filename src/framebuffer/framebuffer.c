@@ -1120,7 +1120,7 @@ static void vdu_25(uint8_t *buf) {
 
       if ((g_mode & 0x03) == 1) {
          colour = g_fg_col;
-      } else if ((g_mode & 3) == 1) {
+      } else if ((g_mode & 3) == 2) {
          colour = white_col - g_fg_col;
       } else {
          colour = g_bg_col;
