@@ -1083,9 +1083,9 @@ pixel_t default_get_colour_8bpp(screen_mode_t *screen, uint8_t gcol) {
    // The          GCOL number format is B3 B2 G3 G2 R3 R2 T1 T0
    // The  8-bit colour number format is B3 G3 G2 R3 B2 R2 T1 T0
    if (screen->ncolour == 255) {
-      return (gcol & 0x87) | ((gcol & 0x38) << 1) | ((gcol & 0x40) >> 3);
+      return (pixel_t)((gcol & 0x87) | ((gcol & 0x38) << 1) | ((gcol & 0x40) >> 3));
    } else {
-      return gcol & screen->ncolour;
+      return (pixel_t)(gcol & screen->ncolour);
    }
 }
 
@@ -1097,7 +1097,7 @@ pixel_t default_get_colour_16bpp(screen_mode_t *screen, uint8_t gcol) {
    int r = ((gcol & 0x0C)     ) | (gcol & 0x03);
    int g = ((gcol & 0x30) >> 2) | (gcol & 0x03);
    int b = ((gcol & 0xC0) >> 4) | (gcol & 0x03);
-   return (r << 12) | (g << 7) | (b << 1);
+   return (pixel_t)((r << 12) | (g << 7) | (b << 1));
 }
 
 pixel_t default_get_colour_32bpp(screen_mode_t *screen, uint8_t gcol) {
@@ -1107,7 +1107,7 @@ pixel_t default_get_colour_32bpp(screen_mode_t *screen, uint8_t gcol) {
    int r = ((gcol & 0x0C)     ) | (gcol & 0x03);
    int g = ((gcol & 0x30) >> 2) | (gcol & 0x03);
    int b = ((gcol & 0xC0) >> 4) | (gcol & 0x03);
-   return (r << 20) | (g << 12) | (b << 4);
+   return (pixel_t)((r << 20) | (g << 12) | (b << 4));
 }
 
 pixel_t default_nearest_colour_8bpp(struct screen_mode *screen, int r, int g, int b) {
