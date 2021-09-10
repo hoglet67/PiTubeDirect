@@ -57,10 +57,10 @@ static SWIDescriptor_Type colourtrans_table[] = {
 //   R3	Initial value AND &80
 //   R4	Preserved
 static void colourtrans_setgcol(unsigned int *reg) {
-   int r = (reg[0] >>  8) & 0xff;
-   int g = (reg[0] >> 16) & 0xff;
-   int b = (reg[0] >> 24) & 0xff;
-   int flags = reg[3];
+   uint8_t r = (uint8_t)((reg[0] >>  8) & 0xff);
+   uint8_t g = (uint8_t)((reg[0] >> 16) & 0xff);
+   uint8_t b = (uint8_t)((reg[0] >> 24) & 0xff);
+   unsigned int flags = reg[3];
    uint8_t action = reg[4] & 7;
    screen_mode_t *screen = fb_get_current_screen_mode();
    pixel_t col = screen->nearest_colour(screen, r, g, b);

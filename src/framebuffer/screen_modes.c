@@ -1110,8 +1110,9 @@ pixel_t default_get_colour_32bpp(screen_mode_t *screen, uint8_t gcol) {
    return (pixel_t)((r << 20) | (g << 12) | (b << 4));
 }
 
-pixel_t default_nearest_colour_8bpp(struct screen_mode *screen, int r, int g, int b) {
-   unsigned int distance = 0x7fffffff;
+pixel_t default_nearest_colour_8bpp(struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
+   // Max distance is 7 * 255 * 255 which fits easily in an int
+   int distance = 0x7fffffff;
    colour_index_t best = 0;
    for (colour_index_t i = 0; i <= screen->ncolour && distance != 0; i++) {
       pixel_t colour = palette0_base[i + PALETTE_DATA_OFFSET];
@@ -1119,7 +1120,7 @@ pixel_t default_nearest_colour_8bpp(struct screen_mode *screen, int r, int g, in
       int dr = r - (colour & 0xff);
       int dg = g - ((colour >> 8) & 0xff);
       int db = b - ((colour >> 16) & 0xff);
-      unsigned int d = 2 * dr * dr + 4 * dg * dg + db * db;
+      int d = 2 * dr * dr + 4 * dg * dg + db * db;
       if (d < distance) {
          distance = d;
          best = i;
@@ -1128,15 +1129,15 @@ pixel_t default_nearest_colour_8bpp(struct screen_mode *screen, int r, int g, in
    return best;
 }
 
-pixel_t default_nearest_colour_16bpp(struct screen_mode *screen, int r, int g, int b) {
+pixel_t default_nearest_colour_16bpp(struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
    //                                    15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
    // The 16-bit colour number format is R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
-   return ((r & 0xF8) << 8) | ((g & 0xF8) << 3) | ((b & 0xF8) >> 3);
+   return (pixel_t)(((r & 0xF8) << 8) | ((g & 0xF8) << 3) | ((b & 0xF8) >> 3));
 }
 
-pixel_t default_nearest_colour_32bpp(struct screen_mode *screen, int r, int g, int b) {
+pixel_t default_nearest_colour_32bpp(struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
    // The 32-bit colour number format is xxRRGGBB
-   return (r << 16) | (g << 8) | b;
+   return (pixel_t)((r << 16) | (g << 8) | b);
 }
 
 
