@@ -375,23 +375,27 @@ static void OS_ReadVduVariables_impl(unsigned int *reg) {
 //   colour number in R2 and tint will be 0.
 
 static void OS_ReadPoint_impl(unsigned int *reg) {
-   int32_t x = (int32_t)reg[0];
-   int32_t y = (int32_t)reg[1];
-   pixel_t colour;
-   if (!fb_point(x, y, &colour)) {
-      if (fb_read_vdu_variable(M_LOG2BPP) == 3) {
-         reg[2] = colour & 0x3F;
-         reg[3] = colour & 0xC0;
-      } else {
-         reg[2] = colour;
-         reg[3] = 0;
+   // Make sure both the coordinates are in the range of a 16-bit value
+   if (((reg[0] | reg[1]) & 0xFFFF0000) == 0) {
+      int16_t x = (int16_t)reg[0];
+      int16_t y = (int16_t)reg[1];
+      pixel_t colour;
+      if (!fb_point(x, y, &colour)) {
+         if (fb_read_vdu_variable((vdu_variable_t)M_LOG2BPP) == 3) {
+            reg[2] = colour & 0x3F;
+            reg[3] = colour & 0xC0;
+         } else {
+            reg[2] = colour;
+            reg[3] = 0;
+         }
+         reg[4] = 0;
+         return;
       }
-      reg[4] = 0;
-   } else {
-      reg[2] = 0xFFFFFFFF;
-      reg[3] = 0;
-      reg[4] = 0xFFFFFFFF;
    }
+   // Otherwise return off screen
+   reg[2] = 0xFFFFFFFF;
+   reg[3] = 0;
+   reg[4] = 0xFFFFFFFF;
 }
 
 // On Entry:
