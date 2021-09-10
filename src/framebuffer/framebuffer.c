@@ -906,8 +906,8 @@ static void vdu23_19(uint8_t *buf) {
 static void vdu23_22(uint8_t *buf) {
    // VDU 23,22,xpixels;ypixels;xchars,ychars,colours,flags
    // User Defined Screen Mode
-   int16_t x_pixels = (int16_t)(buf[1] | (buf[2] << 8));
-   int16_t y_pixels = (int16_t)(buf[3] | (buf[4] << 8));
+   int x_pixels = buf[1] | (buf[2] << 8);
+   int y_pixels = buf[3] | (buf[4] << 8);
    unsigned int n_colours = buf[7] & 0xff;
    if (n_colours == 0) {
       n_colours = 256;
@@ -1506,7 +1506,7 @@ void fb_destroy() {
    RPI_PropertyProcess();
 }
 
-void fb_custom_mode(int16_t x_pixels, int16_t y_pixels, unsigned int n_colours) {
+void fb_custom_mode(int x_pixels, int y_pixels, unsigned int n_colours) {
    screen_mode_t *new_screen;
    if (n_colours > 0x10000) {
       new_screen = get_screen_mode(CUSTOM_32BPP_SCREEN_MODE);

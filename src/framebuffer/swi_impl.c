@@ -284,10 +284,10 @@ static void OS_ScreenMode_impl(unsigned int *reg) {
          fb_writec((uint8_t)reg[1]);
          return;
       } else if ((reg[1] & 1) == 0) {
-         unsigned int *selector_block = (unsigned int *)reg[1];
-         unsigned int x_pixels = *(selector_block + 1);
-         unsigned int y_pixels = *(selector_block + 2);
-         unsigned int log2bpp = *(selector_block + 3);
+         int *selector_block = (int *)reg[1];
+         int x_pixels = *(selector_block + 1);
+         int y_pixels = *(selector_block + 2);
+         int log2bpp = *(selector_block + 3);
          printf("OS_ScreenMode: x=%08x y=%08x log2bpp=%08x\r\n",
                 x_pixels, y_pixels, log2bpp);
 
