@@ -1103,11 +1103,15 @@ pixel_t default_get_colour_16bpp(screen_mode_t *screen, uint8_t gcol) {
 pixel_t default_get_colour_32bpp(screen_mode_t *screen, uint8_t gcol) {
    //                                     7  6  5  4  3  2  1  0
    // The          GCOL number format is B3 B2 G3 G2 R3 R2 T1 T0
-   // The 32-bit colour number format is xxRRGGBB
+   // The 32-bit colour number format is xxBBGGRR i.e. the same as RISC OS
+   // (this requires framebuffer_swap=0 in config.txt)
    int r = ((gcol & 0x0C)     ) | (gcol & 0x03);
    int g = ((gcol & 0x30) >> 2) | (gcol & 0x03);
    int b = ((gcol & 0xC0) >> 4) | (gcol & 0x03);
-   return (pixel_t)((r << 20) | (g << 12) | (b << 4));
+   r |= r << 4;
+   g |= g << 4;
+   b |= b << 4;
+   return (pixel_t)((b << 16) | (g << 8) | r);
 }
 
 pixel_t default_nearest_colour_8bpp(struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
@@ -1136,8 +1140,9 @@ pixel_t default_nearest_colour_16bpp(struct screen_mode *screen, uint8_t r, uint
 }
 
 pixel_t default_nearest_colour_32bpp(struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
-   // The 32-bit colour number format is xxRRGGBB
-   return (pixel_t)((r << 16) | (g << 8) | b);
+   // The 32-bit colour number format is xxBBGGRR i.e. the same as RISC OS
+   // (this requires framebuffer_swap=0 in config.txt)
+   return (pixel_t)((b << 16) | (g << 8) | r);
 }
 
 

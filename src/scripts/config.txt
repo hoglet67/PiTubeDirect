@@ -14,6 +14,9 @@ scaling_kernel=8
 # Stretch framebuffer to fill display window
 framebuffer_aspect=-1
 
+# Framebuffer pixel order of XXBBGGRR which is more compatible with RISC OS
+framebuffer_swap=0
+
 # Disable default overscan values
 disable_overscan=1
 
