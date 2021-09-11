@@ -381,10 +381,11 @@ static void OS_ReadPoint_impl(unsigned int *reg) {
       int16_t y = (int16_t)reg[1];
       pixel_t colour;
       if (!fb_point(x, y, &colour)) {
-         if (fb_read_vdu_variable((vdu_variable_t)M_LOG2BPP) == 3) {
-            uint8_t colnum = (uint8_t)(colour & 0xff);
-            reg[2] = fb_get_col_from_colnum(colnum);
-            reg[3] = fb_get_tint_from_colnum(colnum);
+         if (fb_read_vdu_variable((vdu_variable_t)M_NCOLOUR) == 255) {
+            uint8_t gcol = fb_get_gcol_from_colnum((uint8_t)(colour & 0xFF));
+            // GCOL number format is BBGGRRTT
+            reg[2] = (gcol & 0xFC) >> 2;
+            reg[3] = (gcol & 0x03) << 6;
          } else {
             reg[2] = colour;
             reg[3] = 0;

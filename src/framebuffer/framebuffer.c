@@ -266,23 +266,19 @@ static void update_text_area() {
    }
 }
 
+// This is used by VDU 17, VDU 18 and VDU 23,17 to calculate a new pixel_t colour
+// when ever the VDU colour or tint is altered.
 static pixel_t calculate_colour(uint8_t col, uint8_t tint) {
+   // Colour masking here is a precaution, it is also done in VDU 17/18
    col &= COLOUR_MASK;
-   tint &= TINT_MASK;
    if (screen->ncolour < 255) {
+      // Tint is ignored in 1,2,4 and 16 colour modes
+      // Colour masking here is a precaution, it is also done in VDU 17/18
       return col & ((uint8_t)screen->ncolour);
    } else {
+      // This should be the only place TINT_MASK is used,
+      tint &= TINT_MASK;
       return screen->get_colour(screen, (uint8_t)((col << 2) | (tint >> 6)));
-   }
-}
-
-static void update_tint_and_colour(uint8_t gcol, uint8_t *col, uint8_t *tint) {
-   if (screen->ncolour == 255) {
-      *col = (uint8_t)((gcol >> 2) & COLOUR_MASK);
-      *tint = (uint8_t)((gcol << 6) & TINT_MASK);
-   } else {
-      *col = gcol & COLOUR_MASK;
-      *tint = 0;
    }
 }
 
@@ -293,10 +289,12 @@ static void init_variables() {
    white_col = screen->get_colour(screen, white_gcol);
 
    // Character colour / cursor position
-   c_bg_col  = 0; // Black is always 0
-   c_fg_col  = white_col;
-   update_tint_and_colour(white_gcol, &c_bg_gcol, &c_bg_tint);
-   update_tint_and_colour(white_gcol, &c_fg_gcol, &c_fg_tint);
+   c_bg_col  = 0;          // Black is always 0
+   c_bg_gcol = 0;
+   c_bg_tint = 0;
+   c_fg_col  = white_col;  // White depends on the screen bit depth
+   c_fg_gcol = white_gcol;
+   c_fg_tint = 0xFF;
    c_enabled = 1;
 
    // Edit cursor
@@ -305,10 +303,12 @@ static void init_variables() {
    e_enabled = 0;
 
    // Graphics colour / cursor position
-   g_bg_col  = 0; // Black is always 0
-   g_fg_col  = white_col;
-   update_tint_and_colour(white_gcol, &g_bg_gcol, &g_bg_tint);
-   update_tint_and_colour(white_gcol, &g_fg_gcol, &g_fg_tint);
+   g_bg_col  = 0;          // Black is always 0
+   g_bg_gcol = 0;
+   g_bg_tint = 0;
+   g_fg_col  = white_col;  // White depends on the screen bit depth
+   g_fg_gcol = white_gcol;
+   g_fg_tint = 0xFF;
 
    // Sprites
    current_sprite = 0;
@@ -773,22 +773,22 @@ static void vdu23_17(uint8_t *buf) {
    switch (buf[1]) {
    case 0:
       // VDU 23,17,0 - sets tint for text foreground colour
-      c_fg_tint = buf[2] & TINT_MASK;
+      c_fg_tint = buf[2];
       c_fg_col = calculate_colour(c_fg_gcol, c_fg_tint);
       break;
    case 1:
       // VDU 23,17,1 - sets tint for text background colour
-      c_bg_tint = buf[2] & TINT_MASK;
+      c_bg_tint = buf[2];
       c_bg_col = calculate_colour(c_bg_gcol, c_bg_tint);
       break;
    case 2:
       // VDU 23,17,2 - sets tint for graphics foreground colour
-      g_fg_tint = buf[2] & TINT_MASK;
+      g_fg_tint = buf[2];
       g_fg_col = calculate_colour(g_fg_gcol, g_fg_tint);
       break;
    case 3:
       // VDU 23,17,3 - sets tint for graphics background colour
-      g_bg_tint = buf[2] & TINT_MASK;
+      g_bg_tint = buf[2];
       g_bg_col = calculate_colour(g_bg_gcol, g_bg_tint);
       break;
    case 4:
@@ -968,9 +968,9 @@ static void vdu_16(uint8_t *buf) {
 }
 
 static void vdu_17(uint8_t *buf) {
-   uint8_t col = buf[1];
-   if (col & 128) {
-      c_bg_gcol = col & COLOUR_MASK;
+   uint8_t col = (uint8_t)(buf[1] & COLOUR_MASK & screen->ncolour);
+   if (buf[1] & 128) {
+      c_bg_gcol = col;
       c_bg_col = calculate_colour(c_bg_gcol, c_bg_tint);
 #ifdef DEBUG_VDU
       printf("bg = %x\r\n", c_bg_col);
@@ -986,8 +986,8 @@ static void vdu_17(uint8_t *buf) {
 
 static void vdu_18(uint8_t *buf) {
    uint8_t mode = buf[1];
-   uint8_t col = buf[2];
-   if (col & 128) {
+   uint8_t col = (uint8_t)(buf[2] & COLOUR_MASK & screen->ncolour);
+   if (buf[1] & 128) {
       g_bg_gcol = col & COLOUR_MASK;
       g_bg_col = calculate_colour(g_bg_gcol, g_bg_tint);
       prim_set_bg_plotmode(mode);
@@ -1779,44 +1779,28 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
       return prim_get_bg_plotmode();
    case V_GFCOL:
       // Graphics foreground col
-      if (screen->ncolour <= 255) {
-         return g_fg_gcol & COLOUR_MASK;
-      } else {
-         return (int32_t) g_fg_col;
-      }
+      return g_fg_gcol;
    case V_GBCOL:
       // Graphics background col
-      if (screen->ncolour <= 255) {
-         return g_bg_gcol & COLOUR_MASK;
-      } else {
-         return (int32_t) g_bg_col;
-      }
+      return g_bg_gcol;
    case V_TFORECOL:
       // Text foreground col
-      if (screen->ncolour <= 255) {
-         return c_fg_gcol & COLOUR_MASK;
-      } else {
-         return (int32_t) c_fg_col;
-      }
+      return c_fg_gcol;
    case V_TBACKCOL:
       // Text background col
-      if (screen->ncolour <= 255) {
-         return c_bg_gcol & COLOUR_MASK;
-      } else {
-         return (int32_t) c_bg_col;
-      }
+      return c_bg_gcol;
    case V_GFTINT:
       // Graphics foreground tint
-      return g_fg_tint & TINT_MASK;
+      return g_fg_tint;
    case V_GBTINT:
       // Graphics background tint
-      return g_bg_tint & TINT_MASK;
+      return g_bg_tint;
    case V_TFTINT:
       // Text foreground tint
-      return c_fg_tint & TINT_MASK;
+      return c_fg_tint;
    case V_TBTINT:
       // Text background tint
-      return c_bg_tint & TINT_MASK;
+      return c_bg_tint;
    case V_MAXMODE:
       // Highest built-in numbered mode known to kernel - TODO
       return 95;
@@ -1907,31 +1891,31 @@ int fb_point(int16_t x, int16_t y, pixel_t *colour) {
       y >>= screen->yeigfactor;
       // read the pixel
       *colour = prim_get_pixel(screen, x, y);
-      // If 8bit mode, convert to a gcol number
-      if (screen->ncolour == 255) {
-         *colour = (pixel_t)(fb_get_gcol_from_colnum((uint8_t)*colour));
-      }
       // 0 indicates pixel on screen
       return 0;
    }
 }
 
-void fb_set_g_fg_col(uint8_t action, pixel_t gcol) {
-   g_fg_col = gcol;
+// Set the foreground graphics colour directly, bypassing the colour/tint VDU variables
+void fb_set_g_fg_col(uint8_t action, pixel_t colour) {
+   g_fg_col = colour;
    prim_set_fg_plotmode(action);
 }
 
-void fb_set_g_bg_col(uint8_t action, pixel_t gcol) {
-   g_bg_col = gcol;
+// Set the background graphics colour directly, bypassing the colour/tint VDU variables
+void fb_set_g_bg_col(uint8_t action, pixel_t colour) {
+   g_bg_col = colour;
    prim_set_bg_plotmode(action);
 }
 
-void fb_set_c_fg_col(pixel_t gcol) {
-   c_fg_col = gcol;
+// Set the foreground text colour directly, bypassing the colour/tint VDU variables
+void fb_set_c_fg_col(pixel_t colour) {
+   c_fg_col = colour;
 }
 
-void fb_set_c_bg_col(pixel_t gcol) {
-   c_bg_col = gcol;
+// Set the background text colour directly, bypassing the colour/tint VDU variables
+void fb_set_c_bg_col(pixel_t colour) {
+   c_bg_col = colour;
 }
 
 // Extracts the VDU gcol number (0..255) from the 8-bit colour number
@@ -1946,37 +1930,6 @@ uint8_t fb_get_gcol_from_colnum(uint8_t colnum) {
       return (uint8_t)((colnum & 0x87) | ((colnum & 0x70) >> 1) | ((colnum & 0x08) << 3));
    } else {
       printf("Illegal use of get_gcol_from_colnum()\n\r");
-      return 0;
-   }
-}
-
-// Extracts the VDU colour (0..63) from the 8-bit colour number
-// It is an error to use this function in high colour modes
-uint8_t fb_get_col_from_colnum(uint8_t colnum) {
-   if (screen->ncolour < 255) {
-      return (uint8_t)(colnum & screen->ncolour);
-   } else if (screen->ncolour == 255) {
-      //                                     7  6  5  4  3  2  1  0
-      // The  8-bit colour number format is B3 G3 G2 R3 B2 R2 T1 T0
-      // The   VDU driver colour  format is  0  0 B3 B2 G3 G2 R3 R2
-      return (uint8_t)(((colnum & 0x84) >> 2) | ((colnum & 0x70) >> 3) | ((colnum & 0x08) << 1));
-   } else {
-      printf("Illegal use of get_col_from_colnum()\n\r");
-      return 0;
-   }
-}
-
-// Extract the VDU tint (0,64,128,192) from 8-bit the colour
-uint8_t fb_get_tint_from_colnum(uint8_t colnum) {
-   if (screen->ncolour < 255) {
-      return 0;
-   } else if (screen->ncolour == 255) {
-      //                                     7  6  5  4  3  2  1  0
-      // The  8-bit colour number format is B3 G3 G2 R3 B2 R2 T1 T0
-      // The   VDU driver tint  format is   T1 T0  0  0  0  0  0  0
-      return (uint8_t)((colnum & 0x03) << 6);
-   } else {
-      printf("Illegal use of get_tint_from_colnum()\n\r");
       return 0;
    }
 }
