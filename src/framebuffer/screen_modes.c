@@ -40,8 +40,8 @@ typedef struct {
 
 #define PALETTE_DATA_OFFSET 7
 
-__attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t palette0_base[PROP_BUFFER_SIZE];
-__attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t palette1_base[PROP_BUFFER_SIZE];
+__attribute__((aligned(64))) static uint32_t palette0_base[PROP_BUFFER_SIZE];
+__attribute__((aligned(64))) static uint32_t palette1_base[PROP_BUFFER_SIZE];
 
 // ==========================================================================
 // Screen Mode Definitions

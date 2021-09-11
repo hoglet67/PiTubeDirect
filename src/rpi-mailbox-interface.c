@@ -13,7 +13,7 @@
    the address of the buffer to the VC. */
 //static int *pt = ( int *) UNCACHED_MEM_BASE ;// [PROP_BUFFER_SIZE] __attribute__((aligned(16)));
 
-__attribute__((aligned(64))) __attribute__ ((section (".noinit"))) static uint32_t pt[PROP_BUFFER_SIZE];
+__attribute__((aligned(64))) static uint32_t pt[PROP_BUFFER_SIZE];
 
 static unsigned int pt_index ;
 
