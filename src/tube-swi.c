@@ -1066,11 +1066,14 @@ static void tube_Find(unsigned int *reg) {
 
 static void tube_ReadLine(unsigned int *reg) {
    unsigned char resp;
+   unsigned char buf_len   = (unsigned char)(reg[1] > 0xff ? 0xff : reg[1]);
+   unsigned char min_ascii = (unsigned char) reg[2];
+   unsigned char max_ascii = (unsigned char) reg[3];
    // OSWORD0  R2: &0A block                         &FF or &7F string &0D
    sendByte(R2_ID, 0x0A);
-   sendByte(R2_ID, (unsigned char )reg[3]);      // max ascii value
-   sendByte(R2_ID, (unsigned char )reg[2]);      // min ascii value
-   sendByte(R2_ID, (unsigned char )reg[1]);      // max line length
+   sendByte(R2_ID, (unsigned char )max_ascii); // max ascii value
+   sendByte(R2_ID, (unsigned char )min_ascii); // min ascii value
+   sendByte(R2_ID, (unsigned char )buf_len);   // max line length
    sendByte(R2_ID, 0x07);        // Buffer MSB - set as per Tube Ap Note 004
    sendByte(R2_ID, 0x00);        // Buffer LSB - set as per Tube Ap Note 004
    resp = receiveByte(R2_ID);    // 0x7F or 0xFF
