@@ -1071,9 +1071,9 @@ static void tube_ReadLine(unsigned int *reg) {
    unsigned char max_ascii = (unsigned char) reg[3];
    // OSWORD0  R2: &0A block                         &FF or &7F string &0D
    sendByte(R2_ID, 0x0A);
-   sendByte(R2_ID, (unsigned char )max_ascii); // max ascii value
-   sendByte(R2_ID, (unsigned char )min_ascii); // min ascii value
-   sendByte(R2_ID, (unsigned char )buf_len);   // max line length
+   sendByte(R2_ID, max_ascii);   // max ascii value
+   sendByte(R2_ID, min_ascii);   // min ascii value
+   sendByte(R2_ID, buf_len);     // max line length
    sendByte(R2_ID, 0x07);        // Buffer MSB - set as per Tube Ap Note 004
    sendByte(R2_ID, 0x00);        // Buffer LSB - set as per Tube Ap Note 004
    resp = receiveByte(R2_ID);    // 0x7F or 0xFF
