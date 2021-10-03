@@ -22,6 +22,7 @@
 
 #define JITTEDTABLE16 0x0d100000
 
+// NB this code starts 0x0e400000
 //#define JITDEBUG 1
 //#define DORMANN_TEST 1
 
@@ -78,8 +79,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define ARMBLCC 0x3B000000
 #define ARMBLCS 0x2B000000
 
-
-
 .equ    N_FLAG,                 0x80000000
 .equ    Z_FLAG,                 0x40000000
 .equ    C_FLAG,                 0x20000000
@@ -106,12 +105,8 @@ then return to our secret stack This relies on instructions being re entrant , b
    ldr temp0,=\table16
    // temp0 is address to goto
    // temp1 is location for store
-   mov temp,temp2,LSR #JITLETSHIFT-2
-   add temp1,temp,#JITTEDTABLE16
-   BL MAKEBRANCH
 
-   add temp2,temp2,#NEXTJITLET
-
+   BL MAKEBRANCHFILLINJITTEDTABLES
 .endm
 
 .macro DEJITCLEAN reg table scale=2
@@ -2951,7 +2946,10 @@ savelastwordjitend2byte:
 
 jitend2byte:
    FILLINJITTEDTABLES dejit16bit21
-   FILLINJITTEDTABLES dejit16bit22
+   add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
+   add temp2,temp2,#NEXTJITLET
+   str temp0,[temp1],#4
+  // FILLINJITTEDTABLES dejit16bit22
    B dojitloop
 
 savelastwordjitend2byteexit:
@@ -2959,24 +2957,49 @@ savelastwordjitend2byteexit:
 
 jitend2byteexit:
    FILLINJITTEDTABLES dejit16bit21
-   FILLINJITTEDTABLES dejit16bit22
+   add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
+   add temp2,temp2,#NEXTJITLET
+   str temp0,[temp1],#4
+  // FILLINJITTEDTABLES dejit16bit22
    B dojitexit
 
 savelastwordjitend3byte:
    str temp,[r6,#20]
 jitend3byte:
    FILLINJITTEDTABLES dejit16bit31
-   FILLINJITTEDTABLES dejit16bit32
-   FILLINJITTEDTABLES dejit16bit33
+   add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
+   add temp2,temp2,#NEXTJITLET*2
+   str temp0,[temp1],#4
+   add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
+   str temp0,[temp1],#4
+   //FILLINJITTEDTABLES dejit16bit32
+   //FILLINJITTEDTABLES dejit16bit33
    B dojitloop
 
 savelastwordjitend3byteexit:
    str temp,[r6,#20]
 jitend3byteexit:
    FILLINJITTEDTABLES dejit16bit31
-   FILLINJITTEDTABLES dejit16bit32
-   FILLINJITTEDTABLES dejit16bit33
+   add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
+   add temp2,temp2,#NEXTJITLET*2
+   str temp0,[temp1],#4
+   add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
+   str temp0,[temp1],#4
+   //FILLINJITTEDTABLES dejit16bit32
+   //FILLINJITTEDTABLES dejit16bit33
    B dojitexit
+
+MAKEBRANCHFILLINJITTEDTABLES:
+   mov temp,temp2,LSR #JITLETSHIFT-2
+   add temp1,temp,#JITTEDTABLE16
+   sub temp0,temp0,temp1
+   sub temp0,temp0,#8
+   add temp2,temp2,#NEXTJITLET
+   mov temp0,temp0,LSR #2
+   //BIC temp0,temp0,#0xFF000000  // branch should be forward
+   ORR temp0,temp0,#BINSTRUCTION
+   str temp0,[temp1],#4
+   bx lr
 
 // entry temp0 address to goto (JITLET)
 //       temp1 address to place the branch
