@@ -191,12 +191,15 @@ then return to our secret stack This relies on instructions being re entrant , b
    STMIA r6,{r7,r8,r9,r10,r11,r12}
 .endm
 
-.macro SETABS MSB=0 LSB=4
+.macro GET6502OPERAND
    mov temp,temp2,LSR #JITLETSHIFT
    ldrb temp0,[temp,#1]
-   ldrb temp,[temp,#2]
-   strb temp0,[r6,#\LSB]
-   strb temp,[r6,#\MSB]
+.endm
+
+.macro GET6502OPERAND2BYTE
+   mov temp,temp2,LSR #JITLETSHIFT
+   ldrb temp0,[temp,#1]
+   ldrb r14,[temp,#2]
 .endm
 
 .macro SETBYTE LSB=0
@@ -205,10 +208,13 @@ then return to our secret stack This relies on instructions being re entrant , b
    strb temp0,[r6,#\LSB]
 .endm
 
-.macro SETBYTEHIGH LSB=0
-   mov temp,temp2,LSR #JITLETSHIFT
-   ldrb temp0,[temp,#2]
+.macro STOREJITOPERAND LSB=0
    strb temp0,[r6,#\LSB]
+.endm
+
+.macro STOREJITOPERAND2BYTE MSB=0 LSB=4
+   strb temp0,[r6,#\LSB]
+   strb r14,[r6,#\MSB]
 .endm
 
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
@@ -282,11 +288,11 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro IMMLOAD block
-   COPY4 \block
    mov temp,temp2,LSR #JITLETSHIFT
+   ldr r11,=immediatesignextenedtable
    ldrb temp,[temp,#1]
-   ldr temp1,=immediatesignextenedtable
-   ldr temp,[temp1,temp,LSL #2]
+   COPY4 \block
+   ldr temp,[r11,temp,LSL #2]
    str temp,[r6]
    B jitend2byte
 .endm
@@ -337,8 +343,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro BBRS block blout
+   GET6502OPERAND
    COPY6 \block
-   SETBYTE
+   STOREJITOPERAND
 
    // fill in BL
    ldr r0,=\blout
@@ -462,18 +469,20 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTESETFIRSTBYTE block
+   GET6502OPERAND
    COPY4 \block
-   SETBYTE 0
+   STOREJITOPERAND 0
    B jitend2byte
 .endm
 
 .macro DOUBLEBYTESETFIRSTBYTEBLOUT block address offset
+   GET6502OPERAND
 .ifc \offset,12
    COPY3 \block
 .else
    COPY4 \block
 .endif
-   SETBYTE 0
+   STOREJITOPERAND 0
    ldr temp0,=\address
    add temp1,r6,#\offset
    BL MAKEBRANCHLINK
@@ -498,35 +507,39 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTESETTWOBYTES block offset=8
+   GET6502OPERAND
    COPY4 \block
-   SETBYTE
+   STOREJITOPERAND 0
    strb temp0,[r6,#\offset]
    B jitend2byte
 .endm
 
 .macro TRIPLEBYTEABS block
+   GET6502OPERAND2BYTE
    COPY6 \block
-   SETABS 0 4
+   STOREJITOPERAND2BYTE
    B  jitend3byte
 .endm
 
 .macro TRIPLEBYTEABST2 block
+   mov temp0,temp2,LSR #JITLETSHIFT
+   ldrb temp0,[temp0,#2]
    COPY6 \block
-   mov temp,temp2,LSR #JITLETSHIFT
-   ldrb temp,[temp,#2]
+
    add temp4,r6,#4
-   strb temp,[r6]
+   strb temp0,[r6]
    BL fixuptype2access
    b jitend3byte
 .endm
 
 .macro TRIPLEBYTEABSBLOUT block address offset
+   GET6502OPERAND2BYTE
 .ifc offset,20
    COPY5 \block
 .else
    COPY6 \block
 .endif
-   SETABS 0 4
+   STOREJITOPERAND2BYTE 0 4
    ldr temp0,=\address
    add temp1,r6,#\offset
    BL MAKEBRANCHLINK
@@ -534,12 +547,13 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ABSSTORE block
+   GET6502OPERAND2BYTE
    COPY5 \block
    mov temp,temp2,LSR #JITLETSHIFT
-   ldrh r14,[temp,#1]
-   SETABS 0 16
+   ldrh r11,[temp,#1]
+   STOREJITOPERAND2BYTE 0 16
    add temp1,r6,#20
-   mov temp0,r14, LSL #2
+   mov temp0,r11, LSL #2
    add temp0,temp0,#JITTEDTABLE16
    BL MAKEBRANCHLINK
    B  jitend3byte
@@ -560,9 +574,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ASSIGNCARRY carry
-   ldr temp0,=invertcarry
+   ldr temp0,=invertcarry-8
    sub temp0,temp0,r6
-   sub temp0,temp0,#8-0
    mov temp0,temp0,LSR #2
 .ifc \carry,clear
    orr temp0,temp0,#ARMBLCS
@@ -595,8 +608,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ZPSTAZ block
+   GET6502OPERAND
    COPY4 \block
-   SETBYTE
+   STOREJITOPERAND 0
    strb temp0,[r6,#4]
    mov temp0,temp0,LSL #2
    add temp0,temp0,#JITTEDTABLE16
@@ -613,8 +627,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ZPST block
+   GET6502OPERAND
    COPY4 \block
-   SETBYTE 8
+   STOREJITOPERAND 8
    strb temp0,[r6,#4]
    mov temp0,temp0,LSL #2
    add temp0,temp0,#JITTEDTABLE16
@@ -910,16 +925,16 @@ opc_1F: // Opcode 1F - BBR1
    BBRS Bopc_1F bbrreturn
 
 opc_20:// Opcode 20 - JSR $0000
+   add temp0,temp2,#NEXTJITLET*2
    COPY5 Bopc_20
 
-   add temp0,temp2,#NEXTJITLET*2
    mov temp,temp0,LSR #JITLETSHIFT
    mov temp0,temp0,LSR #JITLETSHIFT+8
 
    strb temp,[r6,#4]
+   mov temp,temp2,LSR #JITLETSHIFT
    strb temp0,[r6,#0]
 
-   mov temp,temp2,LSR #JITLETSHIFT
    ldrh temp0,[temp,#1]
    add temp1,r6,#20
    mov temp0,temp0,LSL#JITLETSHIFT
@@ -1104,9 +1119,10 @@ opc_2C: // Opcode 2C - BIT $0000
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
    cmp temp, temp0, lsr #5  //  constant 0xFEE0 >> 5
    BEQ bitabsio
-
+   mov temp,temp2,LSR #JITLETSHIFT
+   ldrb temp0,[temp,#2]
    COPY1 Bopc_2C
-   SETBYTEHIGH
+   strb temp0,[r6]
    ldr temp0,=bitabstable
    ldrb temp1,[temp,#1]
    add temp0,temp0,temp1,LSL #3
@@ -1200,8 +1216,8 @@ opc_4A: // Opcode 4A - LSR A
 opc_4C: // Opcode 4C - JMP $0000
    mov temp,temp2,LSR #JITLETSHIFT
    ldrh temp0,[temp,#1]
-   mov temp0,temp0,LSL#JITLETSHIFT
    add temp1,temp2,#JITLET
+   mov temp0,temp0,LSL#JITLETSHIFT
    BL MAKEBRANCHTOJITLET
    B jitend3byteexit
 
@@ -1416,11 +1432,11 @@ opc_6A: // Opcode 6A - ROR A
    SINGLEOPCODEBLOUT Bopc_6A rora 4
 
 opc_6C: // Opcode 6C - JMP ($0000)
+   mov temp0,temp2,LSR #JITLETSHIFT 
+   ldrb temp0,[temp0,#2]
    COPY6 Bopc_6C
-   mov temp,temp2,LSR #JITLETSHIFT
-   ldrb temp,[temp,#2]
    add temp4,r6,#4
-   strb temp,[r6]
+   strb temp0,[r6]
    BL fixuptype2access
    b jitend3byteexit
 
@@ -1464,8 +1480,9 @@ opc_7A: // Opcode 7A - PLY
    SINGLEOPCODEBLOUT Bopc_7A ply 4
 
 opc_7C: // Opcode 7C - JMP ($0000,X)
+   GET6502OPERAND2BYTE
    COPY6 Bopc_7C
-   SETABS 0 4
+   STOREJITOPERAND2BYTE 0 4
    B  jitend3byteexit
 
 opc_7D: // Opcode 7D - ADC $0000,X
@@ -2171,8 +2188,9 @@ opc_ED: // Opcode ED - SBC $0000
    TRIPLEBYTEABSBLOUT Bopc_ED SBC3 20
 
 opc_EE: // Opcode EE - INC $0000
+   GET6502OPERAND2BYTE
    COPY5 Bopc_EE
-   SETABS 0 4
+   STOREJITOPERAND2BYTE 0 4
 
    LDR temp0,=incstore
    add temp1,r6,#8
@@ -3068,11 +3086,10 @@ fixuptype2access:
 
    ldrb temp,[temp,#1]
    ldr temp0,[temp4]
-   and jittedtable16ptr,temp,#0xF0
+   and r7,temp,#0xF0
    and temp,temp,#0x0F
-   orr temp0,temp0,jittedtable16ptr,LSL #4
+   orr temp0,temp0,r7,LSL #4
    orr temp0,temp0,temp
-   mov jittedtable16ptr,#JITTEDTABLE16  // recover jittedtable16ptr
    str temp0,[temp4]
    bx lr
 
