@@ -754,7 +754,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro  PLP
-   mov   temp,#1
    uadd8 temp2,regSP,temp
    ldrb  temp2, [temp2]
    uadd8 regSP,regSP,temp
@@ -1021,7 +1020,7 @@ Bopc_26:
 Bopc_27:
    JITRMB 2
 Bopc_28:
-   nop
+   mov   temp,#1
 Bopc_29:
    JITIMMLOGICAL ands
 Bopc_2A:
@@ -3102,6 +3101,7 @@ brk:
    INTR    -2, 1
 
 rti:
+   mov   temp,#1
    PLP
    ldrh    temp1, [regSP, #1]
 
