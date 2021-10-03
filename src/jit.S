@@ -670,46 +670,46 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITADCSBCABSX
    JITABS
-   ldrb  temp,[temp1, regX, lsr #24]
+   ldrb    temp,[temp1, regX, lsr #24]
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
 .endm
 
 .macro JITADCSBCABSY
    JITABS
-   ldrb  temp,[temp1, regY, lsr #24]
+   ldrb    temp,[temp1, regY, lsr #24]
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
 .endm
 
 .macro JITADCSBCZP
-   ldrb temp,[ram6502,#0x00]
+   ldrb    temp,[ram6502,#0x00]
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
 .endm
 
 .macro JITADCSBCIMM
-   mov temp,#00 // NB could save a cycle later on
+   mov     temp,#00 // NB could save a cycle later on
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
 .endm
 
 .macro JITADCSBCINDY
-   ldrh temp1,[ram6502,#0x00]
-   ldrb temp,[temp1,regY,LSR #24]
+   ldrh    temp1,[ram6502,#0x00]
    tst     flags, #D_FLAG6502
+   ldrb    temp,[temp1,regY,LSR #24]
 .endm
 
 .macro JITADCSBCIND
-   ldrh temp1,[ram6502,#0x00]
-   ldrb temp,[temp1]
+   ldrh    temp1,[ram6502,#0x00]
    tst     flags, #D_FLAG6502
+   ldrb    temp,[temp1]
 .endm
 
 .macro JITADCSBCZPX
-   add temp1,regX,#0xFF<<24
-   ldrb temp,[ram6502,temp1,LSR#24]
+   add     temp1,regX,#0xFF<<24
    tst     flags, #D_FLAG6502
+   ldrb    temp,[ram6502,temp1,LSR#24]
 .endm
 
 
