@@ -109,12 +109,10 @@ then return to our secret stack This relies on instructions being re entrant , b
    BL MAKEBRANCHFILLINJITTEDTABLES
 .endm
 
-.macro DEJITCLEAN reg table scale=2
-   mov temp,#\table
-   str \reg,[temp,temp1,LSL #\scale]!
+.macro DEJITCLEAN
 
 #if defined(RPI4)|| defined(RPI3)
-   bic temp,temp,#0x3f // hack
+  // bic temp,temp,#0x3f // hack
       MCR p15, 0, temp, c7, c11, 1 // clean data cache line
       DSB
       MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line
@@ -133,9 +131,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #endif
 .endm
 
-.macro DEJITCLEANMID reg table  scale=2
-   mov temp,#\table
-   str \reg,[temp,temp1,LSL #\scale]!
+.macro DEJITCLEANMID
    MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
 .endm
 
@@ -434,25 +430,28 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro SINGLEOPCODEBLOUT block address offset
-   COPY1 \block
+   ldr temp,\block
    ldr temp0,=\address
    add temp1,r6,#\offset
+   str temp,[r6]
    BL MAKEBRANCHLINK
    B jitend1byte
 .endm
 
 .macro SINGLEOPCODEEXIT block address offset
-   COPY1 \block
+   ldr temp,\block
    ldr temp0,=\address
    add temp1,r6,#\offset
+   str temp,[r6]
    BL MAKEBRANCH
    B jitend1byteexit
 .endm
 
 .macro SINGLEOPCODEBLEXIT block address offset
-   COPY1 \block
+   ldr temp,\block
    ldr temp0,=\address
    add temp1,r6,#\offset
+   str temp,[r6]
    BL MAKEBRANCHLINK
    B jitend1byteexit
 .endm
@@ -2641,12 +2640,16 @@ handle_nmi:
 dejit16bit1: //temp1 pointer to address to dejit
    ldr temp2,=dojit-JITLET-8
    ldr temp0,=MOVPCR14INSTRUCTION
+   mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
-   DEJITCLEAN temp2 JITLET,JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
+   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   DEJITCLEAN
+   mov temp,#JITTEDTABLE16
+   str temp0,[temp,temp1,LSL #2]!
+   DEJITCLEAN
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -2657,16 +2660,22 @@ dejit16bit21: // temp1 , temp1+4
 
    ldr temp2,=dojit-JITLET-8
    ldr temp0,=MOVPCR14INSTRUCTION
+   mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
-   DEJITCLEAN temp2 JITLET ,JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
-   add temp1,temp1,#1
+   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   DEJITCLEAN
    sub temp2,temp2,#(NEXTJITLET>>2)
-   DEJITCLEAN temp2 JITLET,JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
+   str temp2,[temp,#NEXTJITLET]!
+   DEJITCLEAN
+
+   mov temp,#JITTEDTABLE16
+   str temp0,[temp,temp1,LSL #2]!
+   DEJITCLEAN
+   str temp0,[temp,#4]!
+   DEJITCLEAN
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -2675,17 +2684,23 @@ dejit16bit21: // temp1 , temp1+4
 dejit16bit22: // temp1 , temp1-4
    ldr temp2,=(dojit-JITLET-8)
    ldr temp0,=MOVPCR14INSTRUCTION
+   mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
-   DEJITCLEAN temp2 JITLET ,JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
-
-   sub temp1,temp1,#1
+   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   DEJITCLEAN
    add temp2,temp2,#(NEXTJITLET>>2)
-   DEJITCLEAN temp2 JITLET, JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
+   str temp2,[temp,#-NEXTJITLET]!
+   DEJITCLEAN
+
+   mov temp,#JITTEDTABLE16
+   str temp0,[temp,temp1,LSL #2]!
+   DEJITCLEAN
+   str temp0,[temp,#-4]!
+   DEJITCLEAN
+
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -2695,20 +2710,27 @@ dejit16bit22: // temp1 , temp1-4
 dejit16bit31: // temp1 , temp1+4, temp1 + 8
    ldr temp2,=dojit-JITLET-8
    ldr temp0,=MOVPCR14INSTRUCTION
+   mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
-   DEJITCLEAN temp2 JITLET, JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
-   add temp1,temp1,#1
+   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   DEJITCLEAN
    sub temp2,temp2,#NEXTJITLET>>2
-   DEJITCLEANMID temp2 JITLET, JITLETSHIFT
-   DEJITCLEANMID temp0 JITTEDTABLE16
-   add temp1,temp1,#1
+   str temp2,[temp,#NEXTJITLET]!
+   DEJITCLEANMID
    sub temp2,temp2,#NEXTJITLET>>2
-   DEJITCLEAN temp2 JITLET ,JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
+   str temp2,[temp,#NEXTJITLET]!
+   DEJITCLEAN
+
+   mov temp,#JITTEDTABLE16
+   str temp0,[temp,temp1,LSL #2]!
+   DEJITCLEAN
+   str temp0,[temp,#4]!
+   DEJITCLEANMID
+   str temp0,[temp,#4]!
+   DEJITCLEAN
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -2718,20 +2740,27 @@ dejit16bit32: // temp1 , temp1-4, temp1 + 4
 
    ldr temp2,=dojit-JITLET-8
    ldr temp0,=MOVPCR14INSTRUCTION
+   mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
-   DEJITCLEANMID temp2 JITLET, JITLETSHIFT
-   DEJITCLEANMID temp0 JITTEDTABLE16
-   add temp1,temp1,#-1
+   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   DEJITCLEANMID
    sub temp2,temp2,#-(NEXTJITLET>>2)
-   DEJITCLEAN temp2 JITLET ,JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
-   add temp1,temp1,#2
+   str temp2,[temp,#-NEXTJITLET]!
+   DEJITCLEAN
    sub temp2,temp2,#(NEXTJITLET>>2)*2
-   DEJITCLEAN temp2 JITLET ,JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
+   str temp2,[temp,#NEXTJITLET*2]!
+   DEJITCLEAN
+
+   mov temp,#JITTEDTABLE16
+   str temp0,[temp,temp1,LSL #2]!
+   DEJITCLEANMID
+   str temp0,[temp,#-4]!
+   DEJITCLEAN
+   str temp0,[temp,#8]!
+   DEJITCLEAN
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -2740,20 +2769,27 @@ dejit16bit32: // temp1 , temp1-4, temp1 + 4
 dejit16bit33: // temp1 , temp1-4, temp1 - 8
    ldr temp2,=dojit-JITLET-8
    ldr temp0,=MOVPCR14INSTRUCTION
+   mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
-   DEJITCLEAN temp2 JITLET ,JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
-   add temp1,temp1,#-1
+   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   DEJITCLEAN
    sub temp2,temp2,#-(NEXTJITLET>>2)
-   DEJITCLEANMID temp2 JITLET ,JITLETSHIFT
-   DEJITCLEANMID temp0 JITTEDTABLE16
-   add temp1,temp1,#-1
+   str temp2,[temp,#-NEXTJITLET]!
+   DEJITCLEANMID
    sub temp2,temp2,#-(NEXTJITLET>>2)
-   DEJITCLEAN temp2 JITLET, JITLETSHIFT
-   DEJITCLEAN temp0 JITTEDTABLE16
+   str temp2,[temp,#-NEXTJITLET]!
+   DEJITCLEAN
+
+   mov temp,#JITTEDTABLE16
+   str temp0,[temp,temp1,LSL #2]!
+   DEJITCLEAN
+   str temp0,[temp,#-4]!
+   DEJITCLEANMID
+   str temp0,[temp,#-4]!
+   DEJITCLEAN
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
