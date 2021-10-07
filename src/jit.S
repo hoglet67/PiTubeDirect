@@ -191,30 +191,13 @@ then return to our secret stack This relies on instructions being re entrant , b
    STMIA r6,{r7,r8,r9,r10,r11,r12}
 .endm
 
-.macro GET6502OPERAND
-   mov temp,temp2,LSR #JITLETSHIFT
-   ldrb temp0,[temp,#1]
-.endm
-
-.macro GET6502OPERAND2BYTE
-   mov temp,temp2,LSR #JITLETSHIFT
-   ldrb temp0,[temp,#1]
-   ldrb r14,[temp,#2]
-.endm
-
-.macro SETBYTE LSB=0
-   mov temp,temp2,LSR #JITLETSHIFT
-   ldrb temp0,[temp,#1]
-   strb temp0,[r6,#\LSB]
-.endm
-
 .macro STOREJITOPERAND LSB=0
-   strb temp0,[r6,#\LSB]
+   strb r4,[r6,#\LSB]
 .endm
 
 .macro STOREJITOPERAND2BYTE MSB=0 LSB=4
-   strb temp0,[r6,#\LSB]
-   strb r14,[r6,#\MSB]
+   strb r4,[r6,#\LSB]
+   strb r5,[r6,#\MSB]
 .endm
 
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
@@ -344,7 +327,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro BBRS block blout
-   GET6502OPERAND
    COPY6 \block
    STOREJITOPERAND
 
@@ -457,7 +439,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTESETFIRSTBYTEBLOUT block address offset
-   GET6502OPERAND
 .ifc \offset,12
    COPY3 \block
 .else
@@ -488,10 +469,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTESETTWOBYTES block offset=8
-   GET6502OPERAND
    COPY4 \block
    STOREJITOPERAND 0
-   strb temp0,[r6,#\offset]
+   strb r4,[r6,#\offset]
    B jitend2byte
 .endm
 
@@ -512,7 +492,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro TRIPLEBYTEABSBLOUT block address offset
-   GET6502OPERAND2BYTE
 .ifc offset,20
    COPY5 \block
 .else
@@ -526,7 +505,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ABSSTORE block
-   GET6502OPERAND2BYTE
    COPY5 \block
    mov temp,temp2,LSR #JITLETSHIFT
    ldrh r11,[temp,#1]
@@ -588,12 +566,11 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ZPSTAZ block
-   GET6502OPERAND
    COPY4 \block
+   mov temp0,r4,LSL #2
    STOREJITOPERAND 0
-   strb temp0,[r6,#4]
-   mov temp0,temp0,LSL #2
    add temp0,temp0,#JITTEDTABLE16
+   STOREJITOPERAND 4
    add temp1,r6,#12
    BL MAKEBRANCHLINK
    b jitend2byte
@@ -607,12 +584,11 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ZPST block
-   GET6502OPERAND
    COPY4 \block
-   STOREJITOPERAND 8
-   strb temp0,[r6,#4]
-   mov temp0,temp0,LSL #2
+   mov temp0,r4,LSL #2
+   STOREJITOPERAND 4
    add temp0,temp0,#JITTEDTABLE16
+   STOREJITOPERAND 8
    add temp1,r6,#12
    BL MAKEBRANCHLINK
    b jitend2byte
@@ -818,8 +794,6 @@ opc_5C: // Opcode 5C - NOP6 $0000
 opc_DC: // Opcode DC - NOP6 $0000
 opc_FC: // Opcode FC - NOP6 $0000
    NOP6_2
-
-.ltorg
 opc_10: // Opcode 10 - BPL
    BRANCH BPLINSTRUCTION
 
@@ -922,6 +896,26 @@ opc_20:// Opcode 20 - JSR $0000
    BL MAKEBRANCHTOJITLET
 
    B jitend3byteexit
+
+
+opc_21: // Opcode 21 - AND ($00,X)
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_21 ldrhldrsb 8
+
+opc_24: // Opcode 24 - BIT $00
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_24 bit2 12
+
+opc_25: // Opcode 25 - AND $00
+   DOUBLEBYTET2 Bopc_25
+
+opc_26: // Opcode 26 - ROL $00
+   DOUBLEBYTESETTWOBYTES Bopc_26
+
+opc_27: // Opcode 27 - RMB2 $00
+   DOUBLEBYTESETTWOBYTES Bopc_27 12
+
+opc_28:// Opcode 28 - PLP
+   SINGLEOPCODEBLOUT Bopc_28 plp
+
 Bopc_00:
    nop
 Bopc_01:
@@ -1065,24 +1059,35 @@ Bopc_3E:
    ROL6
 Bopc_3F:
    JITBBR 3
-
-opc_21: // Opcode 21 - AND ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_21 ldrhldrsb 8
-
-opc_24: // Opcode 24 - BIT $00
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_24 bit2 12
-
-opc_25: // Opcode 25 - AND $00
-   DOUBLEBYTET2 Bopc_25
-
-opc_26: // Opcode 26 - ROL $00
-   DOUBLEBYTESETTWOBYTES Bopc_26
-
-opc_27: // Opcode 27 - RMB2 $00
-   DOUBLEBYTESETTWOBYTES Bopc_27 12
-
-opc_28:// Opcode 28 - PLP
-   SINGLEOPCODEBLOUT Bopc_28 plp
+Bopc_40:
+   nop
+Bopc_41:
+   JITINDXLOGICAL eors
+Bopc_45:
+   JITZPLOGICAL eors
+Bopc_46:
+   ldrb temp,[ram6502,#00]
+   nop
+   lsrs temp, temp, #1
+   strb  temp,[ram6502,#00]
+Bopc_47:
+   JITRMB 4
+Bopc_48:
+   SPUSH regA
+Bopc_49:
+   JITIMMLOGICAL eors
+Bopc_4A:
+   lsrs regA, regA, #1
+   and  regA, regA, #0x7F
+Bopc_4D:
+   JITABSLOGICAL eors
+Bopc_4E:
+   JITABSLDRBWB
+   nop
+   nop
+   LSR
+Bopc_4F:
+   JITBBR 4
 
 opc_29: // Opcode 29 - AND #$00
    IMMLOAD Bopc_29
@@ -1114,7 +1119,7 @@ opc_2C: // Opcode 2C - BIT $0000
 
 bitabsio:
    COPY1 Bopc_2C_io
-   SETBYTE
+   STOREJITOPERAND
    ldr temp0,=bitioload
    add temp1,r6,#4
    BL MAKEBRANCHLINK
@@ -1246,35 +1251,7 @@ opc_5E: // Opcode 5E - LSR $0000,X
 opc_5F: // Opcode 5F - BBR5
    BBRS Bopc_5F bbrreturn
 
-Bopc_40:
-   nop
-Bopc_41:
-   JITINDXLOGICAL eors
-Bopc_45:
-   JITZPLOGICAL eors
-Bopc_46:
-   ldrb temp,[ram6502,#00]
-   nop
-   lsrs temp, temp, #1
-   strb  temp,[ram6502,#00]
-Bopc_47:
-   JITRMB 4
-Bopc_48:
-   SPUSH regA
-Bopc_49:
-   JITIMMLOGICAL eors
-Bopc_4A:
-   lsrs regA, regA, #1
-   and  regA, regA, #0x7F
-Bopc_4D:
-   JITABSLOGICAL eors
-Bopc_4E:
-   JITABSLDRBWB
-   nop
-   nop
-   LSR
-Bopc_4F:
-   JITBBR 4
+
 Bopc_50:
    JITBRANCHVCS
 Bopc_51:
@@ -1305,7 +1282,6 @@ Bopc_5E:
    LSR
 Bopc_5F:
    JITBBR 5
-.ltorg
 Bopc_60:
    ldrh temp0,[regSP,#1]
 Bopc_61:
@@ -1384,6 +1360,8 @@ Bopc_7E:
 Bopc_7F:
    JITBBR 7
 
+.ltorg
+
 opc_60: // Opcode 60 - RTS
    SINGLEOPCODEEXIT Bopc_60 rts
 
@@ -1460,7 +1438,6 @@ opc_7A: // Opcode 7A - PLY
    SINGLEOPCODEBLOUT Bopc_7A ply
 
 opc_7C: // Opcode 7C - JMP ($0000,X)
-   GET6502OPERAND2BYTE
    COPY6 Bopc_7C
    STOREJITOPERAND2BYTE 0 4
    B  jitend3byteexit
@@ -1753,7 +1730,6 @@ Bopc_AE_io:
    teq regX,#0
 Bopc_AF:
    JITBBS 2
-.ltorg
 opc_A0: // Opcode A0 - LDY #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_A0
 
@@ -2042,7 +2018,7 @@ Bopc_DE:
    strb temp,[temp1]
 Bopc_DF:
    JITBBS 5
-
+.ltorg
 opc_C0: // Opcode C0 - CPY #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_C0
 
@@ -2056,12 +2032,11 @@ opc_C5: // Opcode C5 - CMP $00
    DOUBLEBYTESETFIRSTBYTE Bopc_C5
 
 opc_C6: // Opcode C6 - DEC $00
-   GET6502OPERAND
    COPY3 Bopc_C6
-   STOREJITOPERAND
-   strb temp0,[r6,#8]
    ldr temp0,=tempflags
+   STOREJITOPERAND
    add temp1,r6,#12
+   STOREJITOPERAND 8
    BL MAKEBRANCHLINK
    B jitend2byte
 
@@ -2141,12 +2116,11 @@ opc_E5: // Opcode E5 - SBC $00
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_E5 SBC2 12
 
 opc_E6: // Opcode E6 - INC $00
-   GET6502OPERAND
    COPY3 Bopc_E6
-   STOREJITOPERAND
-   strb temp0,[r6,#8]
    ldr temp0,=tempflags
+   STOREJITOPERAND
    add temp1,r6,#12
+   STOREJITOPERAND 8
    BL MAKEBRANCHLINK
    B jitend2byte
 
@@ -2169,7 +2143,6 @@ opc_ED: // Opcode ED - SBC $0000
    TRIPLEBYTEABSBLOUT Bopc_ED SBC3 20
 
 opc_EE: // Opcode EE - INC $0000
-   GET6502OPERAND2BYTE
    COPY5 Bopc_EE
    STOREJITOPERAND2BYTE 0 4
 
@@ -2187,6 +2160,48 @@ opc_EE: // Opcode EE - INC $0000
 
 opc_EF: // Opcode EF - BBS6
    BBRS Bopc_EF bbsreturn
+opc_F0: // Opcode F0 - BEQ
+   BRANCH BEQINSTRUCTION
+
+opc_F1: // Opcode F1 - SBC ($00),Y
+   DOUBLEBYTEBYTET2BLOUT Bopc_F1 SBC1 12
+
+opc_F2: // Opcode F2 - SBC ($00)
+   DOUBLEBYTEBYTET2BLOUT Bopc_F2 SBC1 12
+
+opc_F3: // Opcode F3 - NOP6
+   //NOP6
+   SINGLEOPCODEBLOUT Bopc_F3 putcharopcode
+
+opc_F5: // Opcode F5 - SBC $00,X
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_F5 SBC1 12
+
+opc_F6: // Opcode F6 - INC $00,X
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_F6 storeXflags 12
+
+opc_F7: // Opcode F7 - SMB7 $00
+   DOUBLEBYTESETTWOBYTES Bopc_F7 12
+
+opc_F8: // Opcode F8 - SED
+   SINGLEBYTE Bopc_F8
+
+opc_F9: // Opcode F9 - SBC $0000,Y
+   TRIPLEBYTEABSBLOUT Bopc_F9 SBC2 20
+
+opc_FA: // Opcode FA - PLX
+   SINGLEOPCODEBLOUT Bopc_FA plx
+
+opc_FB: // Opcode FB - NOP6
+   SINGLEBYTE Bopc_FB
+
+opc_FD: // Opcode FD - SBC $0000,X
+   TRIPLEBYTEABSBLOUT Bopc_FD SBC2 20
+
+opc_FE: // Opcode FE - INC $0000,X
+   TRIPLEBYTEABSBLOUT Bopc_FE incstore 12
+
+opc_FF: // Opcode FF - BBS7
+   BBRS Bopc_FF bbsreturn
 
 Bopc_E0:
    cmp     regX, #0xFF<<24
@@ -2286,48 +2301,7 @@ Bopc_FE:
 Bopc_FF:
    JITBBS 7
 
-opc_F0: // Opcode F0 - BEQ
-   BRANCH BEQINSTRUCTION
 
-opc_F1: // Opcode F1 - SBC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_F1 SBC1 12
-
-opc_F2: // Opcode F2 - SBC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_F2 SBC1 12
-
-opc_F3: // Opcode F3 - NOP6
-   //NOP6
-   SINGLEOPCODEBLOUT Bopc_F3 putcharopcode
-
-opc_F5: // Opcode F5 - SBC $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_F5 SBC1 12
-
-opc_F6: // Opcode F6 - INC $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_F6 storeXflags 12
-
-opc_F7: // Opcode F7 - SMB7 $00
-   DOUBLEBYTESETTWOBYTES Bopc_F7 12
-
-opc_F8: // Opcode F8 - SED
-   SINGLEBYTE Bopc_F8
-
-opc_F9: // Opcode F9 - SBC $0000,Y
-   TRIPLEBYTEABSBLOUT Bopc_F9 SBC2 20
-
-opc_FA: // Opcode FA - PLX
-   SINGLEOPCODEBLOUT Bopc_FA plx
-
-opc_FB: // Opcode FB - NOP6
-   SINGLEBYTE Bopc_FB
-
-opc_FD: // Opcode FD - SBC $0000,X
-   TRIPLEBYTEABSBLOUT Bopc_FD SBC2 20
-
-opc_FE: // Opcode FE - INC $0000,X
-   TRIPLEBYTEABSBLOUT Bopc_FE incstore 12
-
-opc_FF: // Opcode FF - BBS7
-   BBRS Bopc_FF bbsreturn
 
 .ltorg
 
@@ -2808,7 +2782,6 @@ dojit:
    b jitentry
 
 doublebyteend:
-   GET6502OPERAND
    LDMIA temp1,{r7,r8,r9,r10}
    STMIA r6,{r7,r8,r9,r10}
    STOREJITOPERAND 0
@@ -2848,11 +2821,22 @@ jitentry:
 1:
 #endif
    mov temp,temp2,LSR#JITLETSHIFT
-   ldrb temp,[temp]
+   ldrb temp1,[temp]
    adr temp0,opcode_table
    add r6,temp2,#JITLET
-   ldr pc,[temp0,temp,LSL#2]
-
+   ldr temp0,[temp0,temp1,LSL#2]
+   ldrb r4,[temp,#1]
+   ldrb r5,[temp,#2]
+   bx temp0
+// entry regs
+// r0
+// r1
+// r2 ptr to 6502 code instruction
+// r3 address to return to ( start of jitting)
+// r4 operand byte 1
+// r5 operand byte 2
+// r6 Address to write to JITLET code to
+//r7,r8,r9,r10,r11,r12 six registers for COPY6
 opcode_table:
 .word opc_00,opc_01,opc_02,opc_03,opc_04,opc_05,opc_06,opc_07
 .word opc_08,opc_09,opc_0A,opc_0B,opc_0C,opc_0D,opc_0E,opc_0F
@@ -2978,17 +2962,33 @@ cacheflushloop:
    DSB
    ISB
 #else
+// Pizero Cache flush code
+#if 0
+   // this should fludh the cache area but doesn't appear to be working
+   // MCRR p15,end,start,cxx
+   MCRR p15,0,r2,r3,c12 // clean data cache
+   MCRR p15,0,r2,r3,c5 // invalidate instruction cache
+
+   sub r4,r3,#JITLET
+   mov r4,r4,LSR #(JITLETSHIFT-2)
+   add r4,r4,#JITTEDTABLE16
+
+   sub r2,r2,#JITLET
+   mov r2,r2,LSR #(JITLETSHIFT-2)
+   add r2,r2,#JITTEDTABLE16
+
+   MCRR p15,0,r2,r4,c12 // clean data cache
+   MCRR p15,0,r2,r4,c5 // invalidate instruction cache
+   MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
+#else
+   // clean all the cache
    mov temp,#0
    MCR p15, 0, temp, c7, c10, 0 //; clean data cache line
    MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
-
-   //add r1,r6,#8
-   //MCRR p15,0,r3,r2,c12 // clean data cache
-   //MCRR p15,0,r3,r2,c12 // clean data cache
-   //MCRR p15,0,r3,r2,c5 // invalidate instruction cache
-   //MCRR p15,0,r3,r2,c5 // invalidate instruction cache
+#endif
    // MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
 #endif
+
 #endif
 
    pop {r0-r12,r14}
@@ -3012,10 +3012,7 @@ jitend1byte:
    FILLINJITTEDTABLES dejit16bit1
    B dojitloop
 
-
-
 jittriplebyteend:
-   GET6502OPERAND2BYTE
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
    STMIA r6,{r7,r8,r9,r10,r11,r12}
    STOREJITOPERAND2BYTE
