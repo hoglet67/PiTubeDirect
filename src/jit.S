@@ -468,7 +468,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .ifc \offset,12
    COPY3LOAD \block
    ldr temp0,=\address
-   COPY4STORE
+   COPY3STORE
 .else
    COPY4LOAD \block
    ldr temp0,=\address
