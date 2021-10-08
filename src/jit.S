@@ -162,8 +162,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro COPY2 start
-   adr temp1,\start
-   LDMIA temp1,{r7,r8}
+   ldr r7,\start
+   ldr r8,4+\start
    STMIA r6,{r7,r8}
 .endm
 
@@ -408,8 +408,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro SINGLEOPCODEEXIT block address
    ldr temp,\block
    ldr temp0,=\address
-   add temp1,r6,#4
-   str temp,[r6]
+   str temp,[r6],#4
    BL MAKEBRANCH
    B jitend1byteexit
 .endm
@@ -880,10 +879,7 @@ opc_20:// Opcode 20 - JSR $0000
    mov temp0,temp0,LSR #JITLETSHIFT+8
 
    strb temp1,[r6,#4]
-   strb temp0,[r6,#0]
-
-   add temp1,r6,#20
-   mov temp0,r12,LSL#JITLETSHIFT
+   strb temp0,[r6],#20
 
    BL MAKEBRANCHTOJITLET
 
@@ -1211,9 +1207,8 @@ opc_4A: // Opcode 4A - LSR A
    SINGLEBYTE Bopc_4A
 
 opc_4C: // Opcode 4C - JMP $0000
-   ldrh temp0,[r1,#1]
-   add temp1,temp2,#JITLET
-   mov temp0,temp0,LSL#JITLETSHIFT
+   ldrh r12,[r1,#1]
+
    BL MAKEBRANCHTOJITLET
    B jitend3byteexit
 
@@ -3020,15 +3015,16 @@ MAKEBRANCHFILLINJITTEDTABLES:
 //       temp1 address to place the branch
 
 MAKEBRANCHTOJITLET:
+   mov temp0,r12,LSL#JITLETSHIFT
    add temp0,temp0,#JITLET
 
 MAKEBRANCH:
-   sub temp0,temp0,temp1
+   sub temp0,temp0,r6
    sub temp0,temp0,#8
    mov temp0,temp0,LSR #2
    BIC temp0,temp0,#0xFF000000
    ORR temp0,temp0,#BINSTRUCTION
-   str temp0,[temp1],#4
+   str temp0,[r6]
    bx lr
 
 MAKEBRANCHLINK:
