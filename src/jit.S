@@ -381,7 +381,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    COPY4 \block
    sxtb r4,r4
    // fill in BL
-   add r1,r6,#0
    BL MAKEBRANCHLINK
 
    mov temp0,r4,LSL #1
@@ -438,8 +437,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .else
    COPY4 \block
 .endif
-   STOREJITOPERAND 0
-   add temp1,r6,#\offset
+   strb r4,[r6],#\offset
    BL MAKEBRANCHLINK
    B jitend2byte
 .endm
@@ -448,7 +446,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    COPY3 \block
    BL fixuptype2access
    ldr temp0,=\address
-   add temp1,r6,#\offset
+   add r6,r6,#\offset
    BL MAKEBRANCHLINK
    B jitend2byte
 .endm
@@ -486,18 +484,17 @@ then return to our secret stack This relies on instructions being re entrant , b
 .else
    COPY6 \block
 .endif
-   STOREJITOPERAND2BYTE 0 4
-   add temp1,r6,#\offset
+   strb r4,[r6,#4]
+   strb r5,[r6],#\offset
    BL MAKEBRANCHLINK
    B jitend3byte
 .endm
 
 .macro ABSSTORE block
    COPY5 \block
-
-   STOREJITOPERAND2BYTE 0 16
-   add temp1,r6,#20
+   strb r4,[r6,#16]
    mov temp0,r12, LSL #2
+   strb r5,[r6],#20
    add temp0,temp0,#JITTEDTABLE16
    BL MAKEBRANCHLINK
    B  jitend3byte
@@ -555,10 +552,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro ZPSTAZ block
    COPY4 \block
    mov temp0,r4,LSL #2
-   STOREJITOPERAND 0
-   add temp0,temp0,#JITTEDTABLE16
    STOREJITOPERAND 4
-   add temp1,r6,#12
+   add temp0,temp0,#JITTEDTABLE16
+   strb r4,[r6],#12
    BL MAKEBRANCHLINK
    b jitend2byte
 .endm
@@ -576,7 +572,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    STOREJITOPERAND 4
    add temp0,temp0,#JITTEDTABLE16
    STOREJITOPERAND 8
-   add temp1,r6,#12
+   add r6,r6,#12
    BL MAKEBRANCHLINK
    b jitend2byte
 .endm
@@ -927,9 +923,8 @@ opc_2C: // Opcode 2C - BIT $0000
 
    ldr r7,Bopc_2C
    ldr temp0,=bitabstable
-   add temp1,r6,#4
    str r7,[r6]
-   strb r5,[r6]
+   strb r5,[r6],#4
    add temp0,temp0,r4,LSL #3
    BL MAKEBRANCHLINK
    FILLINJITTEDTABLES dejit16bit1
@@ -939,9 +934,8 @@ opc_2C: // Opcode 2C - BIT $0000
 bitabsio:
    ldr r7,Bopc_2C_io
    ldr temp0,=bitioload
-   add temp1,r6,#4
    orr r7,r7,r4
-   str r7,[r6]
+   str r7,[r6],#4
    BL MAKEBRANCHLINK
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#2*NEXTJITLET
@@ -1760,9 +1754,8 @@ opc_C5: // Opcode C5 - CMP $00
 opc_C6: // Opcode C6 - DEC $00
    COPY3 Bopc_C6
    ldr temp0,=tempflags
-   STOREJITOPERAND
-   add temp1,r6,#12
    STOREJITOPERAND 8
+   strb r4,[r6],#12
    BL MAKEBRANCHLINK
    B jitend2byte
 
@@ -2185,9 +2178,8 @@ opc_E5: // Opcode E5 - SBC $00
 opc_E6: // Opcode E6 - INC $00
    COPY3 Bopc_E6
    ldr temp0,=tempflags
-   STOREJITOPERAND
-   add temp1,r6,#12
    STOREJITOPERAND 8
+   strb r4,[r6],#12
    BL MAKEBRANCHLINK
    B jitend2byte
 
@@ -2215,10 +2207,10 @@ opc_EE: // Opcode EE - INC $0000
    STOREJITOPERAND2BYTE 0 4
 
    LDR temp0,=incstore
-   add temp1,r6,#8
+   add r6,r6,#8
    BL MAKEBRANCHLINK
 
-   add temp1,r6,#20
+   add r6,r6,#20-8
    mov temp0,r12, LSL #2
    add temp0,temp0,#JITTEDTABLE16
    BL MAKEBRANCHLINK
@@ -2764,7 +2756,7 @@ dojitloop:
    BEQ 1f
 
    push {r0-r12}
-   mov r0,r6
+   mov r0,r6 // r6 can be corrupt now ******** by fixt2
    mov r1,r2
    BL disarm
    pop {r0-r12}
@@ -2961,16 +2953,14 @@ cacheflushloop:
    bx r14
 
 singleopcodeexit:
-   add temp1,r6,#4
-   str temp,[r6]
+   str temp,[r6],#4
    BL MAKEBRANCHLINK
 jitend1byteexit:
    FILLINJITTEDTABLES dejit16bit1
    B dojitexit
 
 singleopcodeend:
-   add temp1,r6,#4
-   str temp,[r6]
+   str temp,[r6],#4
    BL MAKEBRANCHLINK
 jitend1byte:
    FILLINJITTEDTABLES dejit16bit1
@@ -2995,14 +2985,13 @@ jitend3byte:
 jitend3byteexitBBRS:
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
    STMIA r6,{r7,r8,r9,r10,r11,r12}
-   STOREJITOPERAND
-   add r1,r6,#12
+   strb r4,[r6],#12
    BL MAKEBRANCHLINK
    sxtb temp, r5
    mov temp,temp,LSL #1
    BIC  temp,temp,#0xFF000000
    orr temp,temp,#BINSTRUCTION
-   str temp,[r6,#16]
+   str temp,[r6,#16-12]
 
 jitend3byteexit:
    FILLINJITTEDTABLES dejit16bit31
@@ -3043,12 +3032,12 @@ MAKEBRANCH:
    bx lr
 
 MAKEBRANCHLINK:
-   sub temp0,temp0,temp1
+   sub temp0,temp0,r6
    sub temp0,temp0,#8
    mov temp0,temp0,LSR #2
    BIC temp0,temp0,#0xFF000000
    ORR temp0,temp0,#BLINSTRUCTION
-   str temp0,[temp1],#4
+   str temp0,[r6]
    bx lr
 
 // Always gets the first byte operand byte as that is the LSB
