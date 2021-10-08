@@ -22,7 +22,8 @@
 
 #define JITTEDTABLE16 0x0d100000
 
-// NB this code starts 0x0e400000
+// NB this code starts 0x0e400000 + xxx
+
 //#define JITDEBUG 1
 //#define DORMANN_TEST 1
 
@@ -173,9 +174,27 @@ then return to our secret stack This relies on instructions being re entrant , b
    STMIA r6,{r7,r8,r9}
 .endm
 
+.macro COPY3LOAD start
+   adr temp1,\start
+   LDMIA temp1,{r7,r8,r9}
+.endm
+
+.macro COPY3STORE
+   STMIA r6,{r7,r8,r9}
+.endm
+
 .macro COPY4 start
    adr temp1,\start
    LDMIA temp1,{r7,r8,r9,r10}
+   STMIA r6,{r7,r8,r9,r10}
+.endm
+
+.macro COPY4LOAD start
+   adr temp1,\start
+   LDMIA temp1,{r7,r8,r9,r10}
+.endm
+
+.macro COPY4STORE
    STMIA r6,{r7,r8,r9,r10}
 .endm
 
@@ -184,10 +203,24 @@ then return to our secret stack This relies on instructions being re entrant , b
    LDMIA temp1,{r7,r8,r9,r10,r11}
    STMIA r6,{r7,r8,r9,r10,r11}
 .endm
+.macro COPY5LOAD start
+   adr temp1,\start
+   LDMIA temp1,{r7,r8,r9,r10,r11}
+.endm
+.macro COPY5STORE
+   STMIA r6,{r7,r8,r9,r10,r11}
+.endm
 
 .macro COPY6 start
    adr temp1,\start
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   STMIA r6,{r7,r8,r9,r10,r11,r12}
+.endm
+.macro COPY6LOAD start
+   adr temp1,\start
+   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+.endm
+.macro COPY6STORE
    STMIA r6,{r7,r8,r9,r10,r11,r12}
 .endm
 
@@ -377,9 +410,10 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro BRANCHVCS block branch
+   COPY4LOAD \block
    ldr r0,=\branch
-   COPY4 \block
    sxtb r4,r4
+   COPY4STORE
    // fill in BL
    BL MAKEBRANCHLINK
 
@@ -430,11 +464,15 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTESETFIRSTBYTEBLOUT block address offset
-   ldr temp0,=\address
+
 .ifc \offset,12
-   COPY3 \block
+   COPY3LOAD \block
+   ldr temp0,=\address
+   COPY4STORE
 .else
-   COPY4 \block
+   COPY4LOAD \block
+   ldr temp0,=\address
+   COPY4STORE
 .endif
    strb r4,[r6],#\offset
    BL MAKEBRANCHLINK
@@ -442,9 +480,10 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTEBYTET2BLOUT block address offset
-   COPY3 \block
-   BL fixuptype2access
+   COPY3LOAD \block
    ldr temp0,=\address
+   COPY3STORE
+   BL fixuptype2access
    add r6,r6,#\offset
    BL MAKEBRANCHLINK
    B jitend2byte
@@ -477,11 +516,14 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro TRIPLEBYTEABSBLOUT block address offset
-   ldr temp0,=\address
 .ifc offset,20
-   COPY5 \block
+   COPY5LOAD \block
+   ldr temp0,=\address
+   COPY5STORE
 .else
-   COPY6 \block
+   COPY6LOAD \block
+   ldr temp0,=\address
+   COPY6STORE
 .endif
    strb r4,[r6,#4]
    strb r5,[r6],#\offset
@@ -490,11 +532,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ABSSTORE block
-   COPY5 \block
-   strb r4,[r6,#16]
+   COPY5LOAD \block
    mov temp0,r12, LSL #2
-   strb r5,[r6],#20
    add temp0,temp0,#JITTEDTABLE16
+   COPY5STORE
+   strb r4,[r6,#16]
+   strb r5,[r6],#20
    BL MAKEBRANCHLINK
    B  jitend3byte
 .endm
@@ -549,10 +592,11 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ZPSTAZ block
-   COPY4 \block
+   COPY4LOAD \block
    mov temp0,r4,LSL #2
-   STOREJITOPERAND 4
    add temp0,temp0,#JITTEDTABLE16
+   COPY4STORE
+   STOREJITOPERAND 4
    strb r4,[r6],#12
    BL MAKEBRANCHLINK
    b jitend2byte
@@ -566,10 +610,11 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ZPST block
-   COPY4 \block
+   COPY4LOAD \block
    mov temp0,r4,LSL #2
-   STOREJITOPERAND 4
    add temp0,temp0,#JITTEDTABLE16
+   COPY4STORE
+   STOREJITOPERAND 4
    STOREJITOPERAND 8
    add r6,r6,#12
    BL MAKEBRANCHLINK
@@ -872,8 +917,9 @@ opc_1F: // Opcode 1F - BBR1
 opc_20:// Opcode 20 - JSR $0000
 
    ldrh r12,[r1,#1]
+   COPY5LOAD Bopc_20
    add temp0,temp2,#NEXTJITLET*2
-   COPY5 Bopc_20
+   COPY5STORE
 
    mov temp1,temp0,LSR #JITLETSHIFT
    mov temp0,temp0,LSR #JITLETSHIFT+8
@@ -1641,8 +1687,9 @@ opc_A8: // Opcode A8 - TAY
    SINGLEBYTE Bopc_A8
 
 opc_A9: // Opcode A9 - LDA #$00
+   COPY4LOAD Bopc_A9
    ldr r11,=immediatesignextenedtable
-   COPY4 Bopc_A9
+   COPY4STORE
    ldr temp,[r11,r4,LSL #2]
    orr temp,temp,#1<<20// S FLAG
    bic temp,temp,#0xF000
@@ -1747,8 +1794,9 @@ opc_C5: // Opcode C5 - CMP $00
    DOUBLEBYTESETFIRSTBYTE Bopc_C5
 
 opc_C6: // Opcode C6 - DEC $00
-   COPY3 Bopc_C6
+   COPY3LOAD Bopc_C6
    ldr temp0,=tempflags
+   COPY3STORE
    STOREJITOPERAND 8
    strb r4,[r6],#12
    BL MAKEBRANCHLINK
@@ -2171,8 +2219,9 @@ opc_E5: // Opcode E5 - SBC $00
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_E5 SBC2 12
 
 opc_E6: // Opcode E6 - INC $00
-   COPY3 Bopc_E6
+   COPY3LOAD Bopc_E6
    ldr temp0,=tempflags
+   COPY3STORE
    STOREJITOPERAND 8
    strb r4,[r6],#12
    BL MAKEBRANCHLINK
@@ -2198,10 +2247,11 @@ opc_ED: // Opcode ED - SBC $0000
 
 opc_EE: // Opcode EE - INC $0000
    ldrh r12,[r1,#1]
-   COPY5 Bopc_EE
+   COPY5LOAD Bopc_EE
+   LDR temp0,=incstore
+   COPY5STORE
    STOREJITOPERAND2BYTE 0 4
 
-   LDR temp0,=incstore
    add r6,r6,#8
    BL MAKEBRANCHLINK
 
@@ -2558,6 +2608,17 @@ handle_nmi:
 
 
 // **** dejit functions
+
+// so we get here by storing data to a location that has already been jitted
+// Normaly we having branched with link to the JITTEDTABLE16. which contains BX LR
+// if that location has been jitted then the bx lr will have been replaced b dejit
+//
+// so now we need to replace all the jitted code for that instruction with
+// B dojit.
+// the JITTEDTABLE16 entries can be replaced with bx lr
+// the caches need to be flushed
+// temp1 is the memory location that has been unjitted
+
 
 // one byte instruction
 dejit16bit1: //temp1 pointer to address to dejit
@@ -2984,7 +3045,7 @@ jitend3byteexitBBRS:
    BL MAKEBRANCHLINK
    sxtb temp, r5
    mov temp,temp,LSL #1
-   BIC  temp,temp,#0xFF000000
+   BIC temp,temp,#0xFF000000
    orr temp,temp,#BINSTRUCTION
    str temp,[r6,#16-12]
 
@@ -3000,8 +3061,8 @@ jitend3byteexit:
    B dojitexit
 
 MAKEBRANCHFILLINJITTEDTABLES:
-   mov temp,temp2,LSR #JITLETSHIFT-2
-   add temp1,temp,#JITTEDTABLE16
+   mov temp1,temp2,LSR #JITLETSHIFT-2
+   add temp1,temp1,#JITTEDTABLE16
    sub temp0,temp0,temp1
    sub temp0,temp0,#8
    add temp2,temp2,#NEXTJITLET
@@ -3012,7 +3073,7 @@ MAKEBRANCHFILLINJITTEDTABLES:
    bx lr
 
 // entry temp0 address to goto (JITLET)
-//       temp1 address to place the branch
+//       r6 address to place the branch
 
 MAKEBRANCHTOJITLET:
    mov temp0,r12,LSL#JITLETSHIFT
