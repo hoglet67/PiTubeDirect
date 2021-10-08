@@ -208,7 +208,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro NOP6
-   ldr temp,=B_NOP
+   ldr temp,B_NOP
    str temp,[r6]
    str temp,[r6,#4]
    B jitend1byte
@@ -364,7 +364,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro BRANCH type
    sxtb r4,r4
-   ldr temp,=B_NOP
+   ldr temp,B_NOP
 // do jump maths
 // temp0 is where we need to goto NB -2 ie. if we have 6 we goto +8
 // so it look like arm and 6502 jumps are the same so if we load the bit signed
@@ -521,7 +521,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro ASSIGNCARRY carry
    ldr temp0,=invertcarry-8
-   ldr temp,=B_NOP
+   ldr temp,B_NOP
    sub temp0,temp0,r6
    mov temp0,temp0,LSR #2
 .ifc \carry,clear
@@ -788,6 +788,15 @@ opc_10: // Opcode 10 - BPL
 
 opc_30: // Opcode 30 - BMI
    BRANCH BMIINSTRUCTION
+
+opc_90: // Opcode 90 - BCC
+   BRANCH BCCINSTRUCTION
+opc_B0: // Opcode B0 - BCS
+   BRANCH BCSINSTRUCTION
+opc_D0: // Opcode D0 - BNE
+   BRANCH BNEINSTRUCTION
+opc_F0: // Opcode F0 - BEQ
+   BRANCH BEQINSTRUCTION
 
 opc_00: // Opcode 00 - BRK is really a two byte instruction
    SINGLEOPCODEBLEXIT Bopc_00 brk
@@ -1578,9 +1587,6 @@ opc_8E: // Opcode 8E - STX $0000
 opc_8F: // Opcode 8F - BBS0
    BBRS Bopc_8F bbsreturn
 
-opc_90: // Opcode 90 - BCC
-   BRANCH BCCINSTRUCTION
-
 opc_91: // Opcode 91 - STA ($00),Y
    DOUBLEBYTET2 Bopc_91
 
@@ -1700,8 +1706,6 @@ opc_AE: // Opcode AE - LDX $0000
 
 opc_AF: // Opcode AF - BBS2
    BBRS Bopc_AF bbsreturn
-opc_B0: // Opcode B0 - BCS
-   BRANCH BCSINSTRUCTION
 
 opc_B1: // Opcode B1 - LDA ($00),Y
    DOUBLEBYTET2 Bopc_B1
@@ -2128,8 +2132,7 @@ Bopc_FE:
 Bopc_FF:
    JITBBS 7
 
-opc_D0: // Opcode D0 - BNE
-   BRANCH BNEINSTRUCTION
+
 
 opc_D1: // Opcode D1 - CMP ($00),Y
    DOUBLEBYTET2 Bopc_D1
@@ -2223,8 +2226,7 @@ opc_EE: // Opcode EE - INC $0000
 
 opc_EF: // Opcode EF - BBS6
    BBRS Bopc_EF bbsreturn
-opc_F0: // Opcode F0 - BEQ
-   BRANCH BEQINSTRUCTION
+
 
 opc_F1: // Opcode F1 - SBC ($00),Y
    DOUBLEBYTEBYTET2BLOUT Bopc_F1 SBC1 12
