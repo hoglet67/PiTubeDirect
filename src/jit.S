@@ -446,7 +446,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro DOUBLEBYTEBYTET2BLOUT block address offset
    COPY3 \block
-   mov r5,r6
    BL fixuptype2access
    ldr temp0,=\address
    add temp1,r6,#\offset
@@ -456,7 +455,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro DOUBLEBYTET2 block
    COPY4 \block
-   mov r5,r6
    BL fixuptype2access
    B jitend2byte
 .endm
@@ -475,8 +473,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro TRIPLEBYTEABST2 block
    COPY6 \block
-   strb r5,[r6]
-   add r5,r6,#4
+   strb r5,[r6],#4
+   mov r7,r8
    BL fixuptype2access
    b jitend3byte
 .endm
@@ -1298,8 +1296,8 @@ opc_6A: // Opcode 6A - ROR A
 
 opc_6C: // Opcode 6C - JMP ($0000)
    COPY6 Bopc_6C
-   strb r5,[r6]
-   add r5,r6,#4
+   strb r5,[r6],#4
+   mov r7,r8
    BL fixuptype2access
    b jitend3byteexit
 
@@ -3057,12 +3055,11 @@ MAKEBRANCHLINK:
 //
 fixuptype2access:
    // need to look at the instruction to get the operand.
-   ldr temp0,[r5]
-   and r7,r4,#0xF0
+   and r8,r4,#0xF0
    and temp,r4,#0x0F
-   orr temp0,temp0,r7,LSL #4
-   orr temp0,temp0,temp
-   str temp0,[r5]
+   orr r7,r7,r8,LSL #4
+   orr r7,r7,temp
+   str r7,[r6]
    bx lr
 
 ioload:
