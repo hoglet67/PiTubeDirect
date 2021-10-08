@@ -157,8 +157,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro COPY1 start
-   ldr temp,\start
-   str temp,[r6]
+   ldr r7,\start
+   str r7,[r6]
 .endm
 
 .macro COPY2 start
@@ -927,21 +927,23 @@ opc_2C: // Opcode 2C - BIT $0000
    cmp temp, temp0, lsr #5  //  constant 0xFEE0 >> 5
    BEQ bitabsio
 
-   COPY1 Bopc_2C
-   strb r5,[r6]
+   ldr r7,Bopc_2C
    ldr temp0,=bitabstable
-   add temp0,temp0,r4,LSL #3
    add temp1,r6,#4
+   str r7,[r6]
+   strb r5,[r6]
+   add temp0,temp0,r4,LSL #3
    BL MAKEBRANCHLINK
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#2*NEXTJITLET
    B dojitloop
 
 bitabsio:
-   COPY1 Bopc_2C_io
-   STOREJITOPERAND
+   ldr r7,Bopc_2C_io
    ldr temp0,=bitioload
    add temp1,r6,#4
+   orr r7,r7,r4
+   str r7,[r6]
    BL MAKEBRANCHLINK
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#2*NEXTJITLET
@@ -1053,7 +1055,7 @@ Bopc_2A:
 Bopc_2C:
    mov temp1,#0xFF<<8
 Bopc_2C_io:
-   mov r0,#0xFF
+   mov r0,#0x00
 Bopc_2D:
    JITABSLOGICAL ands
 Bopc_2E:
