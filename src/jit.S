@@ -42,6 +42,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 // NOP6s &0000
 // NOP6s &00
 
+// used for scope debug
+#include "tube-defs.h"
+
 // Registers
 
 #define temp0     r0
@@ -123,11 +126,16 @@ then return to our secret stack This relies on instructions being re entrant , b
    #if defined(RPI2)
       DSB
    #endif
-      MCR p15, 0, temp, c7, c10, 1 // clean data cache line
-      MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line
-      MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
+   MCR p15, 0, temp, c7, c10, 1 // clean data cache line
+   MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line
+   MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
+
    #if defined(RPI2)
       DSB
+   #else
+      mov temp3,#0
+      MCR p15, 0, temp3, c7, c10, 4 // DSB
+      MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line // errata
    #endif
 #endif
 .endm
@@ -2321,7 +2329,6 @@ exec_65tubejit:
    str   r13,stackptr
    mov   ram6502,r0  // this is assumed to be zero
    str   ram6502,ram6502store
-   mov   regSP, #0x1F0
 
 // install our interrupt handler
 
@@ -2398,18 +2405,12 @@ cacheflushloopjittable:
 #endif
 
    mov temp,#0
-   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache
-   MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
+   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
 
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
    DSB
    ISB
 #endif
-   orr   flags, flags, #I_FLAG6502   // Set the I bit
-   bic   flags, flags, #D_FLAG6502   // Clear the D bit
-
-   mov temp,#1
-   str temp,debugflag
 
    mov   r0, #0x10000
    ldrh  temp0, [r0, #-4]        // Fetch the vector address
@@ -2424,13 +2425,17 @@ cacheflushloopjittable:
    str temp,[temp1,#1]
 #endif
 
+#if JITDEBUG
 // Enable jit tracing
+   mov temp,#1
+   str temp,debugflag
 
    mov temp,#0xe3
    ldr temp1,= 0x7FFE
    strb temp,[temp1],#1
    mov temp,#0x60
    strb temp,[temp1]
+#endif
 
    add regSP,ram6502, #0x1F0
 
@@ -2486,8 +2491,6 @@ cacheline:
    .word 0
 ram6502store:
    .word 0
-
-
 
 CACHELINE_ALIGN = 5
 .equ    CPSR_MODE_USER,         0x10
@@ -2927,8 +2930,7 @@ dojitexit :
    mov r4,r4,LSR #(JITLETSHIFT-2)
    add r4,r4,#JITTEDTABLE16
 
-   add r1,r2,r12
-   mov r5,r3
+   add r1,r2,r12  // why ????
 
    sub r0,r12,#1  // this appears to fix an A72 issue where the cache wasn't being
    bic  r3,r3,r0  // flushed if the address was the last word in a cache line
@@ -2955,7 +2957,6 @@ cacheflushloop:
 
 #else
 #if defined(RPI2)
-   push {r3}
    // Clean data cache both JITLET
    // r3 has the first address of JITLET instruction
    // r6 has last address ( possibly needs to be +8
@@ -2966,7 +2967,6 @@ cacheflushloop:
    mov r5,r1
    BL _clean_cache_area
 
-   pop {r3}
    DSB
    mov temp,#0
    MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache
@@ -2975,30 +2975,51 @@ cacheflushloop:
    ISB
 #else
 // Pizero Cache flush code
-#if 0
-   // this should fludh the cache area but doesn't appear to be working
+        mov     r7, #TEST2_MASK
+        ldr     r8, =GPSET0
+        str     r7, [r8]
+#if 1
+
+   // this should flush the cache area used in the jitter.
+   // even better if we were to work out if full cache fush would be faster
+   // especially because of the ARMv6 cache flush errata which can be seen in the
+   // Twinhead demo on the Desire screen
+
    // MCRR p15,end,start,cxx
+   add r2,r2,#JITLET
+   mov temp,#0
    MCRR p15,0,r2,r3,c12 // clean data cache
    MCRR p15,0,r2,r3,c5 // invalidate instruction cache
 
-   sub r4,r3,#JITLET
-   mov r4,r4,LSR #(JITLETSHIFT-2)
-   add r4,r4,#JITTEDTABLE16
+   MCR p15, 0, temp, c7, c10, 4 // DSB
+   MCRR p15,0,r2,r3,c5 // invalidate instruction cache // Do it again ( errata)
 
+   sub r4,r3,#JITLET
    sub r2,r2,#JITLET
+   mov r4,r4,LSR #(JITLETSHIFT-2)
    mov r2,r2,LSR #(JITLETSHIFT-2)
+   add r4,r4,#JITTEDTABLE16
    add r2,r2,#JITTEDTABLE16
 
    MCRR p15,0,r2,r4,c12 // clean data cache
    MCRR p15,0,r2,r4,c5 // invalidate instruction cache
+   MCR p15, 0, temp, c7, c10, 4 // DSB
+   MCRR p15,0,r2,r4,c5 // invalidate instruction cache // Do it again ( errata)
+
    MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
+   MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
+   MCR p15, 0, temp, c7, c10, 4 // DSB
 #else
    // clean all the cache
    mov temp,#0
    MCR p15, 0, temp, c7, c10, 0 //; clean data cache line
+   //mcr p15, 0, temp, c7, c10, 4 //drain write buffer
    MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
+   MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
 #endif
-   // MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
+        mov     r7, #TEST2_MASK
+        ldr     r8, =GPCLR0
+        str     r7, [r8]
 #endif
 
 #endif
@@ -3097,10 +3118,7 @@ MAKEBRANCHLINK:
    str temp0,[r6]
    bx lr
 
-// Always gets the first byte operand byte as that is the LSB
-//
 fixuptype2access:
-   // need to look at the instruction to get the operand.
    and r8,r4,#0xF0
    and temp,r4,#0x0F
    orr r7,r7,r8,LSL #4
@@ -3200,8 +3218,10 @@ putcharopcode:
    pop     {regSP,r12,pc}
 
 debugopcode:
-//   ldr temp1,=debugflag
-//   str temp,[temp1]
+#if JITDEBUG
+   ldr temp1,=debugflag
+   str temp,[temp1]
+#endif
    bx lr
 
 invertcarry:
@@ -3288,7 +3308,6 @@ pla:
    bx lr
 
 rts:
-
    mov temp1, #2
    mov temp,#JITLET
    UADD8 regSP, regSP, temp1
