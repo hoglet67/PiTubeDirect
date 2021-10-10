@@ -133,7 +133,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    #if defined(RPI2)
       DSB
    #else
-      mov temp3,#0
       MCR p15, 0, temp3, c7, c10, 4 // DSB
       MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line // errata
    #endif
@@ -2631,6 +2630,7 @@ dejit16bit1: //temp1 pointer to address to dejit
    ldr temp0,=MOVPCR14INSTRUCTION
    mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
+   mov temp3,#0 // only used in Armv6 DSB
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
@@ -2651,7 +2651,7 @@ dejit16bit21: // temp1 , temp1+4
    ldr temp0,=MOVPCR14INSTRUCTION
    mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
-
+   mov temp3,#0 // only used in Armv6 DSB
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
@@ -2676,6 +2676,7 @@ dejit16bit22: // temp1 , temp1-4
    ldr temp0,=MOVPCR14INSTRUCTION
    mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
+   mov temp3,#0 // only used in Armv6 DSB
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
@@ -2702,6 +2703,7 @@ dejit16bit31: // temp1 , temp1+4, temp1 + 8
    ldr temp0,=MOVPCR14INSTRUCTION
    mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
+   mov temp3,#0 // only used in Armv6 DSB
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
@@ -2732,6 +2734,7 @@ dejit16bit32: // temp1 , temp1-4, temp1 + 4
    ldr temp0,=MOVPCR14INSTRUCTION
    mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
+   mov temp3,#0 // only used in Armv6 DSB
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
@@ -2761,6 +2764,7 @@ dejit16bit33: // temp1 , temp1-4, temp1 - 8
    ldr temp0,=MOVPCR14INSTRUCTION
    mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
+   mov temp3,#0 // only used in Armv6 DSB
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
