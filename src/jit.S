@@ -106,7 +106,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .global exec_65tubejit
 
 .macro FILLINJITTEDTABLES table16
-   ldr temp0,=\table16
+   ldr temp0,=\table16-8
    // temp0 is address to goto
    // temp1 is location for store
 
@@ -171,39 +171,47 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro COPY2 start
-   ldr r7,\start
-   ldr r8,4+\start
-   STMIA r6,{r7,r8}
+   ldr r8,\start
+   ldr r9,4+\start
+   strd r8,r9,[r6]
 .endm
 
 .macro COPY3 start
    adr temp1,\start
-   LDMIA temp1,{r7,r8,r9}
-   STMIA r6,{r7,r8,r9}
+   LDMIA temp1,{r8,r9,r10}
+   STMIA r6,{r8,r9,10}
+   //strd r8,r9,[r6]
+   //str r10,[r6,#8]
 .endm
 
 .macro COPY3LOAD start
    adr temp1,\start
-   LDMIA temp1,{r7,r8,r9}
+   LDMIA temp1,{r8,r9,r10}
 .endm
 
 .macro COPY3STORE
-   STMIA r6,{r7,r8,r9}
+   STMIA r6,{r8,r9,r10}
+   //strd r8,r9,[r6]
+   //str r10,[r6,#8]
 .endm
 
 .macro COPY4 start
    adr temp1,\start
-   LDMIA temp1,{r7,r8,r9,r10}
-   STMIA r6,{r7,r8,r9,r10}
+   LDMIA temp1,{r8,r9,r10,r11}
+   stmia r6,{r8,r9,r10,r11}
+   //strd r8,r9,[r6]
+   //strd r10,r11,[r6,#8]
 .endm
 
 .macro COPY4LOAD start
    adr temp1,\start
-   LDMIA temp1,{r7,r8,r9,r10}
+   LDMIA temp1,{r8,r9,r10,r11}
 .endm
 
 .macro COPY4STORE
-   STMIA r6,{r7,r8,r9,r10}
+   stmia r6,{r8,r9,r10,r11}
+   //strd r8,r9,[r6]
+   //strd r10,r11,[r6,#8]
 .endm
 
 .macro COPY5 start
@@ -256,18 +264,20 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro NOP6_1
-   ldr temp,=0xEA000000+(NEXTJITLET>>2) // B $+8
+   mov temp,#BINSTRUCTION
+   ORR temp,temp,#(NEXTJITLET>>2) // B $+8
    str temp,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#NEXTJITLET
+   add temp2,temp2,#1
    B dojitloop
 .endm
 
 .macro NOP6_2
-   ldr temp,=0xEA000000+(NEXTJITLET>>1) // B $+C
+   mov temp,#BINSTRUCTION
+   ORR temp,temp,#(NEXTJITLET>>1) // B $+10
    str temp,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#2*NEXTJITLET
+   add temp2,temp2,#2
    B dojitloop
 .endm
 
@@ -314,19 +324,17 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro IMMLOAD block
    adr temp1,\block
-   ldr r11,=immediatesignextenedtable
-   LDMIA temp1,{r7,r8,r9,r10}
-   ldr temp,[r11,r4,LSL #2]
-   STMIA r6,{r7,r8,r9,r10}
-   str temp,[r6]
+   ldr r7,=immediatesignextenedtable
+   LDMIA temp1,{r8,r9}
+   ldr r7,[r7,r4,LSL #2]
+   strd  r8,r9,[r6,#8]
+   STMIA r6,{r7,r8}
    B jitend2byte
 .endm
 
 .macro JITIMMLOGICAL inst
-   mov temp,#00
    nop
    \inst regA,regA,temp
-   nop
 .endm
 
 .macro JITABSLOGICAL inst
@@ -418,26 +426,27 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro BRANCHVCS block branch
-   COPY4LOAD \block
+// Make BL testvflagC
+//      msr CPSR_flg, temp1
+//      B xx // branch taken
+//      msr CPSR_flg,temp1
+
    ldr r0,=\branch
+   LDR r9,\block
    sxtb r4,r4
-   COPY4STORE
    // fill in BL
    BL MAKEBRANCHLINK
 
    mov temp0,r4,LSL #1
+   str r9,[R6,#4]
    BIC temp0,temp0,#0xFF000000
+   str r9,[R6,#12]
    orr temp0,temp0,#BINSTRUCTION
    str temp0,[r6,#8]
    B jitend2byteexit
 .endm
 
 .macro JITBRANCHVCS
-   BL testvflagC
-   //  mrs     temp1, CPSR
-   //  tst     flags, #V_FLAG6502
-   msr     CPSR_flg, temp1
-   b    .+8 // branch taken
    msr     CPSR_flg, temp1
 .endm
 
@@ -498,16 +507,15 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTET2 block
-   COPY4 \block
-   BL fixuptype2access
+   COPY4LOAD \block
+   BL fixuptype2accessstore4
    B jitend2byte
 .endm
 
 .macro DOUBLEBYTESETTWOBYTES block offset=8
    COPY4 \block
-   STOREJITOPERAND 0
    strb r4,[r6,#\offset]
-   B jitend2byte
+   B jitend2bytestoreoperand
 .endm
 
 .macro TRIPLEBYTEABS block
@@ -518,7 +526,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro TRIPLEBYTEABST2 block
    COPY6 \block
    strb r5,[r6],#4
-   mov r7,r8
    BL fixuptype2access
    b jitend3byte
 .endm
@@ -924,16 +931,15 @@ opc_1F: // Opcode 1F - BBR1
 
 opc_20:// Opcode 20 - JSR $0000
 
-   ldrh r12,[r1,#1]
+   ldrh temp,[temp2,#1]
    COPY5LOAD Bopc_20
-   add temp0,temp2,#NEXTJITLET*2
+   add temp0,temp2,#2
    COPY5STORE
 
-   mov temp1,temp0,LSR #JITLETSHIFT
-   mov temp0,temp0,LSR #JITLETSHIFT+8
+   mov temp1,temp0,LSR #8
 
-   strb temp1,[r6,#4]
-   strb temp0,[r6],#20
+   strb temp0,[r6,#4]
+   strb temp1,[r6],#20
 
    BL MAKEBRANCHTOJITLET
 
@@ -964,7 +970,7 @@ opc_2A: // Opcode 2A - ROL A
    SINGLEOPCODEBLOUT Bopc_2A rola
 
 opc_2C: // Opcode 2C - BIT $0000
-   ldrh temp0,[r1,#1]
+   ldrh temp0,[temp2,#1]
 
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
@@ -978,7 +984,7 @@ opc_2C: // Opcode 2C - BIT $0000
    add temp0,temp0,r4,LSL #3
    BL MAKEBRANCHLINK
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#2*NEXTJITLET
+   add temp2,temp2,#2
    B dojitloop
 
 bitabsio:
@@ -988,7 +994,7 @@ bitabsio:
    str r7,[r6],#4
    BL MAKEBRANCHLINK
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#2*NEXTJITLET
+   add temp2,temp2,#2
    B dojitloop
 
 opc_2D: // Opcode 2D - AND $0000
@@ -999,10 +1005,7 @@ opc_2E: // Opcode 2E - ROL $0000
 
 opc_2F: // Opcode 2F - BBR2
    BBRS Bopc_2F bbrreturn
-B_NOP:
-Bopc_00:
-Bopc_40:
-   nop
+
 Bopc_01:
    JITINDXLOGICAL orrs
 Bopc_04:
@@ -1163,6 +1166,9 @@ Bopc_4D:
 Bopc_4E:
    JITABSLDRBWB
    nop
+B_NOP:
+Bopc_00:
+Bopc_40:
    nop
    LSR
 Bopc_4F:
@@ -1261,7 +1267,7 @@ opc_4A: // Opcode 4A - LSR A
    SINGLEBYTE Bopc_4A
 
 opc_4C: // Opcode 4C - JMP $0000
-   ldrh r12,[r1,#1]
+   ldrh r12,[temp2,#1]
 
    BL MAKEBRANCHTOJITLET
    B jitend3byteexit
@@ -1340,7 +1346,6 @@ opc_6A: // Opcode 6A - ROR A
 opc_6C: // Opcode 6C - JMP ($0000)
    COPY6 Bopc_6C
    strb r5,[r6],#4
-   mov r7,r8
    BL fixuptype2access
    b jitend3byteexit
 
@@ -1595,7 +1600,7 @@ opc_8A: // Opcode 8A - TXA
    SINGLEBYTE Bopc_8A
 
 opc_8C: // Opcode 8C - STY $0000
-   ldrh r12,[r1,#1]
+   ldrh r12,[temp2,#1]
    mov temp0,#(0xFEE0>>5) & 0xFF
    orr temp0,temp0, #(0xFEE0>>5) & 0xFF00
    cmp temp0, r12, lsr #5  // constant 0xFEE0 >> 5
@@ -1605,7 +1610,7 @@ opc_8C: // Opcode 8C - STY $0000
    TRIPLEBYTEABSBLOUT Bopc_8C_io iostore 20
 
 opc_8D: // Opcode 8D - STA $0000
-   ldrh r12,[r1,#1]
+   ldrh r12,[temp2,#1]
    mov temp0,#(0xFEE0>>5) & 0xFF
    orr temp0,temp0, #(0xFEE0>>5) & 0xFF00
    cmp temp0, r12, lsr #5  // constant 0xFEE0 >> 5
@@ -1617,7 +1622,7 @@ opc_8D: // Opcode 8D - STA $0000
    TRIPLEBYTEABSBLOUT Bopc_8D_io iostore 20
 
 opc_8E: // Opcode 8E - STX $0000
-   ldrh r12,[r1,#1]
+   ldrh temp,[temp2,#1]
    mov temp0,#(0xFEE0>>5) & 0xFF
    orr temp0,temp0, #(0xFEE0>>5) & 0xFF00
    cmp temp0, r12, lsr #5  // constant 0xFEE0 >> 5
@@ -1658,7 +1663,7 @@ opc_9A: // Opcode 9A - TXS
    SINGLEBYTE Bopc_9A
 
 opc_9C: // Opcode 9C - STZ $0000
-   ldrh r12,[r1,#1]
+   ldrh r12,[temp2,#1]
    ABSSTORE Bopc_9C
 
 opc_9D: // Opcode 9D - STA $0000,X
@@ -1695,9 +1700,11 @@ opc_A8: // Opcode A8 - TAY
    SINGLEBYTE Bopc_A8
 
 opc_A9: // Opcode A9 - LDA #$00
-   COPY4LOAD Bopc_A9
+   LDR r8,B_NOP
    ldr r11,=immediatesignextenedtable
-   COPY4STORE
+   str r8,[r6,#4]
+   str r8,[r6,#8]
+   str r8,[r6,#12]
    ldr temp,[r11,r4,LSL #2]
    orr temp,temp,#1<<20// S FLAG
    bic temp,temp,#0xF000
@@ -1709,7 +1716,7 @@ opc_AA: // Opcode AA - TAX
    SINGLEBYTE Bopc_AA
 
 opc_AC: // Opcode AC - LDY $0000
-   ldrh temp0,[r1,#1]
+   ldrh temp0,[temp2,#1]
 
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
@@ -1722,7 +1729,7 @@ opc_AC: // Opcode AC - LDY $0000
    TRIPLEBYTEABSBLOUT Bopc_AC_io ioload 8
 
 opc_AD: // Opcode AD - LDA $0000
-   ldrh temp0,[r1,#1]
+   ldrh temp0,[temp2,#1]
 
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
@@ -1736,7 +1743,7 @@ loadio:
    TRIPLEBYTEABSBLOUT Bopc_AD_io ioload 8
 
 opc_AE: // Opcode AE - LDX $0000
-   ldrh temp0,[r1,#1]
+   ldrh temp0,[temp2,#1]
 
    mov temp,#(0xFEE0>>5) & 0xFF
    orr temp,temp, #(0xFEE0>>5) & 0xFF00
@@ -1870,11 +1877,6 @@ Bopc_A7:
 Bopc_A8:
    lsl   regY, regA, #24
    TEQ   regA, #0
-Bopc_A9:
-   mov regA,#00
-   nop
-   nop
-   nop
 Bopc_AA:
    lsl    regX, regA, #24
    TEQ    regA, #0
@@ -2254,7 +2256,7 @@ opc_ED: // Opcode ED - SBC $0000
    TRIPLEBYTEABSBLOUT Bopc_ED SBC3 20
 
 opc_EE: // Opcode EE - INC $0000
-   ldrh r12,[r1,#1]
+   ldrh r12,[temp2,#1]
    COPY5LOAD Bopc_EE
    LDR temp0,=incstore
    COPY5STORE
@@ -2649,6 +2651,7 @@ dejit16bit21: // temp1 , temp1+4
    ldr temp0,=MOVPCR14INSTRUCTION
    mov temp,#JITLET
    sub temp2,temp2,temp1,LSL # JITLETSHIFT
+
    mov temp2,temp2,LSR#2
    add temp2,temp2,#BLINSTRUCTION
 
@@ -2791,20 +2794,26 @@ dojit:
    CPSID   if                     // Disable ARM FIQ and IRQ interrupts
    sub r14,r14,#4
    push {r0-r12,r14}
-
-   mov temp3,R14 // return address
+        ldr     r8, =GPSET0
+        mov     r7, #TEST2_MASK
+        str     r7, [r8]
    sub temp2,R14,#JITLET
+   mov temp3,R14 // return address
+   mov temp2,temp2,LSR#JITLETSHIFT
    b jitentry
 
 doublebyteend:
-   LDMIA temp1,{r7,r8,r9,r10}
-   STMIA r6,{r7,r8,r9,r10}
+   LDMIA temp1,{r8,r9,r10,r11}
+   STMIA r6,{r8,r9,r10,r11}
+   //strd r8,r9,[r6]
+   //strd r10,r11,[r6,#8]
+jitend2bytestoreoperand:
    STOREJITOPERAND 0
 
 jitend2byte:
    FILLINJITTEDTABLES dejit16bit21
    add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
-   add temp2,temp2,#NEXTJITLET
+   add temp2,temp2,#1
    str temp0,[temp1],#4
   // FILLINJITTEDTABLES dejit16bit22
 
@@ -2830,22 +2839,22 @@ jitentry:
    BEQ 1f
 
    push {r0-r12}
-   mov r0,temp2,LSR#JITLETSHIFT
+   mov r0,temp2,
    BL dis6502
    pop {r0-r12}
 1:
 #endif
-   mov r1,temp2,LSR#JITLETSHIFT
-   ldrb r7,[r1]
+   ldrb r7,[temp2]
+   mov r6,temp2,LSL#JITLETSHIFT
    adr temp0,opcode_table
-   add r6,temp2,#JITLET
+   add r6,r6,#JITLET
    ldr temp0,[temp0,r7,LSL#2]
-   ldrb r4,[r1,#1]
-   ldrb r5,[r1,#2]
+   ldrb r4,[temp2,#1]
+   ldrb r5,[temp2,#2]
    bx temp0
 // entry regs
 // r0
-// r1 r2 LSR # JITLETSHIFT
+// r1
 // r2 ptr to 6502 code instruction
 // r3 address to return to ( start of jitting)
 // r4 operand byte 1
@@ -2897,7 +2906,7 @@ branchsavewords:
 jitend2byteexit:
    FILLINJITTEDTABLES dejit16bit21
    add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
-   add temp2,temp2,#NEXTJITLET
+   add temp2,temp2,#1
    str temp0,[temp1],#4
   // FILLINJITTEDTABLES dejit16bit22
 
@@ -2925,12 +2934,11 @@ dojitexit :
    // r3 has the first address of JITLET instruction
    // r2 has last address
    ldr r12,cacheline
+   mov r2,r2,LSL #JITLETSHIFT
    sub r4,r3,#JITLET
    add r2,r2,#JITLET
    mov r4,r4,LSR #(JITLETSHIFT-2)
    add r4,r4,#JITTEDTABLE16
-
-   add r1,r2,r12  // why ????
 
    sub r0,r12,#1  // this appears to fix an A72 issue where the cache wasn't being
    bic  r3,r3,r0  // flushed if the address was the last word in a cache line
@@ -2961,10 +2969,9 @@ cacheflushloop:
    // r3 has the first address of JITLET instruction
    // r6 has last address ( possibly needs to be +8
    mov r0,r3
-   add r1,r6,#8
+   mov r2,r2,LSL #JITLETSHIFT
+   add r1,r2,#JITLET
    sub r1,r1,r0
-   mov r4,r0
-   mov r5,r1
    BL _clean_cache_area
 
    DSB
@@ -2975,9 +2982,7 @@ cacheflushloop:
    ISB
 #else
 // Pizero Cache flush code
-        mov     r7, #TEST2_MASK
-        ldr     r8, =GPSET0
-        str     r7, [r8]
+
 #if 1
 
    // this should flush the cache area used in the jitter.
@@ -2986,16 +2991,17 @@ cacheflushloop:
    // Twinhead demo on the Desire screen
 
    // MCRR p15,end,start,cxx
-   add r2,r2,#JITLET
+   mov r2,r2,LSL #JITLETSHIFT
+   add r7,r2,#JITLET
    mov temp,#0
-   MCRR p15,0,r2,r3,c12 // clean data cache
-   MCRR p15,0,r2,r3,c5 // invalidate instruction cache
+   MCRR p15,0,r7,r3,c12 // clean data cache
+   MCRR p15,0,r7,r3,c5 // invalidate instruction cache
 
    MCR p15, 0, temp, c7, c10, 4 // DSB
-   MCRR p15,0,r2,r3,c5 // invalidate instruction cache // Do it again ( errata)
+   MCRR p15,0,r7,r3,c5 // invalidate instruction cache // Do it again ( errata)
 
+   //MCR p15, 0, r0, c7, c5, 1
    sub r4,r3,#JITLET
-   sub r2,r2,#JITLET
    mov r4,r4,LSR #(JITLETSHIFT-2)
    mov r2,r2,LSR #(JITLETSHIFT-2)
    add r4,r4,#JITTEDTABLE16
@@ -3008,7 +3014,7 @@ cacheflushloop:
 
    MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
    MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
-   MCR p15, 0, temp, c7, c10, 4 // DSB
+ //  MCR p15, 0, temp, c7, c10, 4 // DSB
 #else
    // clean all the cache
    mov temp,#0
@@ -3017,8 +3023,8 @@ cacheflushloop:
    MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
    MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
 #endif
-        mov     r7, #TEST2_MASK
         ldr     r8, =GPCLR0
+        mov     r7, #TEST2_MASK
         str     r7, [r8]
 #endif
 
@@ -3051,7 +3057,7 @@ jittriplebyteend:
 jitend3byte:
    FILLINJITTEDTABLES dejit16bit31
    add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   add temp2,temp2,#NEXTJITLET*2
+   add temp2,temp2,#2
    str temp0,[temp1],#4
    add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
    str temp0,[temp1],#4
@@ -3061,19 +3067,19 @@ jitend3byte:
 
 jitend3byteexitBBRS:
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   sxtb r5, r5
+   mov r5,r5,LSL #1
+   BIC r5,r5,#0xFF000000
+   orr r5,r5,#BINSTRUCTION
    STMIA r6,{r7,r8,r9,r10,r11,r12}
    strb r4,[r6],#12
+   str r5,[r6,#16-12]
    BL MAKEBRANCHLINK
-   sxtb temp, r5
-   mov temp,temp,LSL #1
-   BIC temp,temp,#0xFF000000
-   orr temp,temp,#BINSTRUCTION
-   str temp,[r6,#16-12]
 
 jitend3byteexit:
    FILLINJITTEDTABLES dejit16bit31
    add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   add temp2,temp2,#NEXTJITLET*2
+   add temp2,temp2,#2
    str temp0,[temp1],#4
    add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
    str temp0,[temp1],#4
@@ -3082,11 +3088,11 @@ jitend3byteexit:
    B dojitexit
 
 MAKEBRANCHFILLINJITTEDTABLES:
-   mov temp1,temp2,LSR #JITLETSHIFT-2
+   mov temp1,temp2,LSL #2
    add temp1,temp1,#JITTEDTABLE16
    sub temp0,temp0,temp1
-   sub temp0,temp0,#8
-   add temp2,temp2,#NEXTJITLET
+   //sub temp0,temp0,#8
+   add temp2,temp2,#1
    mov temp0,temp0,LSR #2
    //BIC temp0,temp0,#0xFF000000  // branch should be forward
    ORR temp0,temp0,#BINSTRUCTION
@@ -3118,12 +3124,15 @@ MAKEBRANCHLINK:
    str temp0,[r6]
    bx lr
 
+fixuptype2accessstore4:
+   str r9,[r6,#4]
+   strd r10,r11,[r6,#8]
 fixuptype2access:
-   and r8,r4,#0xF0
+   and r9,r4,#0xF0
    and temp,r4,#0x0F
-   orr r7,r7,r8,LSL #4
-   orr r7,r7,temp
-   str r7,[r6]
+   orr r8,r8,r9,LSL #4
+   orr r8,r8,temp
+   str r8,[r6]
    bx lr
 
 ioload:
