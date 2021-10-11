@@ -91,7 +91,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define MOVR1CONST     .word 0xe3a01400
 #define CMPREGXCONST   .word 0xe35b0400
 #define CMPREGYCONST   .word 0xe3580400
-
+//   mov temp1,#0xFF<<8
+#define MOVR0HIGH      .word 0xe3a00C00
+#define MOVR1HIGH      .word 0xe3a01C00
 
 .equ    N_FLAG,                 0x80000000
 .equ    Z_FLAG,                 0x40000000
@@ -569,16 +571,16 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro JITABSSTORE reg
-   mov temp1,#0xFF<<8
+   MOVR1HIGH
    nop
 .ifc \reg,regA
    nop
    nop
-   strb regA,[temp1,#0xFF]!
+   strb regA,[temp1,#0]!
 .else
    mov temp0,\reg,LSR #24
    nop
-   strb temp0,[temp1,#0xFF]!
+   strb temp0,[temp1,#0]!
 .endif
 .endm
 
@@ -598,22 +600,26 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro JITABS reg=temp1
-   mov \reg,#0xFF<<8
-   orr \reg,\reg,#0xFF  // NB armv8 faster option
+.ifc \reg,temp1
+   MOVR1HIGH
+.else
+   MOVR0HIGH
+.endif
+   orr \reg,\reg,#0x00  // NB armv8 faster option
 .endm
 
 .macro JITABSLDRB
-   mov temp1,#0xFF<<8
+   MOVR1HIGH
    ldrb temp,[temp1,#0x00]
 .endm
 
 .macro JITABSLDRBWB
-   mov temp1,#0xFF<<8
+   MOVR1HIGH
    ldrb temp,[temp1,#0x00]!
 .endm
 
 .macro JITABSLDRSB
-   mov temp1,#0xFF<<8
+   MOVR1HIGH
    ldrsb temp,[temp1,#0x00]
 .endm
 
@@ -1109,7 +1115,7 @@ Bopc_29:
 Bopc_2A:
    adc     regA, regA, regA
 Bopc_2C:
-   mov temp1,#0xFF<<8
+   MOVR1HIGH
 Bopc_2C_io:
    mov r0,#0x00
 Bopc_2D:
@@ -1435,7 +1441,7 @@ Bopc_69:
 Bopc_6A:
    and     regA, regA, #0xFF    // isolate lower byte
 Bopc_6C:
-   mov temp1,#0xFF<<8
+   MOVR1HIGH
    ldrh temp,[temp1,#0x00]
    nop
    mov temp0,#JITLET
@@ -1904,7 +1910,7 @@ Bopc_AC_io:
    nop
    teq regY,#0
 Bopc_AD:
-   mov temp1,#0xFF<<8
+   MOVR1HIGH
    ldrsb regA,[temp1,#0x00]
    nop
    nop
@@ -2010,9 +2016,9 @@ Bopc_C5:
    nop
    cmp temp1, temp, LSL #24
 Bopc_C6:
-   ldrb temp,[ram6502,#0xFF]
+   ldrb temp,[ram6502,#0]
    sub  temp, temp, #1
-   strb temp,[ram6502,#0xFF]
+   strb temp,[ram6502,#0]
 Bopc_C7:
    JITSMB 4
 Bopc_C8:
@@ -2108,9 +2114,9 @@ Bopc_E4:
 Bopc_E5:
    JITADCSBCZP
 Bopc_E6:
-   ldrb temp,[ram6502,#0xFF]
+   ldrb temp,[ram6502,#0]
    add  temp, temp, #1
-   strb temp,[ram6502,#0xFF]
+   strb temp,[ram6502,#0]
 Bopc_E7:
    JITSMB 6
 Bopc_E8:
