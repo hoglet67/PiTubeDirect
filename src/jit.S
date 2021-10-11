@@ -106,7 +106,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .global exec_65tubejit
 
 .macro FILLINJITTEDTABLES table16
-   ldr temp0,=\table16-8
+   ldr temp0,=\table16-8-JITTEDTABLE16
    // temp0 is address to goto
    // temp1 is location for store
 
@@ -267,7 +267,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ORR temp,temp,#(NEXTJITLET>>2) // B $+8
    str temp,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#1
+   add temp2,temp2,#2
    B dojitloop
 .endm
 
@@ -276,7 +276,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ORR temp,temp,#(NEXTJITLET>>1) // B $+10
    str temp,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#2
+   add temp2,temp2,#3
    B dojitloop
 .endm
 
@@ -983,7 +983,7 @@ opc_2C: // Opcode 2C - BIT $0000
    add temp0,temp0,r4,LSL #3
    BL MAKEBRANCHLINK
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#2
+   add temp2,temp2,#3
    B dojitloop
 
 bitabsio:
@@ -993,7 +993,7 @@ bitabsio:
    str r7,[r6],#4
    BL MAKEBRANCHLINK
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#2
+   add temp2,temp2,#3
    B dojitloop
 
 opc_2D: // Opcode 2D - AND $0000
@@ -2817,8 +2817,8 @@ jitend2bytestoreoperand:
 jitend2byte:
    FILLINJITTEDTABLES dejit16bit21
    add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
-   add temp2,temp2,#1
-   str temp0,[temp1],#4
+   add temp2,temp2,#2
+   str temp0,[temp1,#4]
   // FILLINJITTEDTABLES dejit16bit22
 
 dojitloop:
@@ -2910,8 +2910,8 @@ branchsavewords:
 jitend2byteexit:
    FILLINJITTEDTABLES dejit16bit21
    add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
-   add temp2,temp2,#1
-   str temp0,[temp1],#4
+   add temp2,temp2,#2
+   str temp0,[temp1,#4]
   // FILLINJITTEDTABLES dejit16bit22
 
 dojitexit :
@@ -3044,6 +3044,7 @@ singleopcodeexit:
    BL MAKEBRANCHLINK
 jitend1byteexit:
    FILLINJITTEDTABLES dejit16bit1
+   add temp2,temp2,#1
    B dojitexit
 
 singleopcodeend:
@@ -3051,6 +3052,7 @@ singleopcodeend:
    BL MAKEBRANCHLINK
 jitend1byte:
    FILLINJITTEDTABLES dejit16bit1
+   add temp2,temp2,#1
    B dojitloop
 
 jittriplebyteend:
@@ -3061,10 +3063,10 @@ jittriplebyteend:
 jitend3byte:
    FILLINJITTEDTABLES dejit16bit31
    add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   add temp2,temp2,#2
-   str temp0,[temp1],#4
+   add temp2,temp2,#3
+   str temp0,[temp1,#4]
    add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
-   str temp0,[temp1],#4
+   str temp0,[temp1,#8]
    //FILLINJITTEDTABLES dejit16bit32
    //FILLINJITTEDTABLES dejit16bit33
    B dojitloop
@@ -3083,24 +3085,21 @@ jitend3byteexitBBRS:
 jitend3byteexit:
    FILLINJITTEDTABLES dejit16bit31
    add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   add temp2,temp2,#2
-   str temp0,[temp1],#4
+   add temp2,temp2,#3
+   str temp0,[temp1,#4]
    add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
-   str temp0,[temp1],#4
+   str temp0,[temp1,#8]
    //FILLINJITTEDTABLES dejit16bit32
    //FILLINJITTEDTABLES dejit16bit33
    B dojitexit
 
 MAKEBRANCHFILLINJITTEDTABLES:
-   mov temp1,temp2,LSL #2
-   add temp1,temp1,#JITTEDTABLE16
-   sub temp0,temp0,temp1
-   //sub temp0,temp0,#8
-   add temp2,temp2,#1
+   sub temp0,temp0,temp2,LSL #2
+   mov temp1,#JITTEDTABLE16
    mov temp0,temp0,LSR #2
    //BIC temp0,temp0,#0xFF000000  // branch should be forward
    ORR temp0,temp0,#BINSTRUCTION
-   str temp0,[temp1],#4
+   str temp0,[temp1,temp2,LSL #2]!
    bx lr
 
 // entry temp0 address to goto (JITLET)
