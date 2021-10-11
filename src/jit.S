@@ -83,6 +83,16 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define ARMBLCC 0x3B000000
 #define ARMBLCS 0x2B000000
 
+// add r1,regx,#00<<24
+#define ADDR1REGXZP    .word 0xe28b1400
+#define ADDR1REGYCONST .word 0xe2881400
+#define MOVREGXCONST   .word 0xe3a0b400
+#define MOVREGYCONST   .word 0xe3a08400
+#define MOVR1CONST     .word 0xe3a01400
+#define CMPREGXCONST   .word 0xe35b0400
+#define CMPREGYCONST   .word 0xe3580400
+
+
 .equ    N_FLAG,                 0x80000000
 .equ    Z_FLAG,                 0x40000000
 .equ    C_FLAG,                 0x20000000
@@ -281,13 +291,13 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro JITINDX
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    mov temp1,temp1,LSR #24
    ldrh temp1,[temp1]
 .endm
 
 .macro JITINDXLOGICAL inst
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    mov temp1,temp1,LSR #24
    BL .+8 // BL ldrhldrsb
    \inst regA,regA,temp
@@ -315,7 +325,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro JITZPXLOGICAL inst
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    mov temp1,temp1,LSR#24
    ldrsb temp,[temp1]
    \inst regA,regA,temp
@@ -485,12 +495,14 @@ then return to our secret stack This relies on instructions being re entrant , b
    COPY3LOAD \block
    ldr temp0,=\address
    COPY3STORE
+   strb r4,[r6],#\offset
 .else
    COPY4LOAD \block
    ldr temp0,=\address
    COPY4STORE
-.endif
    strb r4,[r6],#\offset
+.endif
+
    BL MAKEBRANCHLINK
    B jitend2byte
 .endm
@@ -719,7 +731,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro JITADCSBCZPX
-   add     temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    tst     flags, #D_FLAG6502
    ldrb    temp,[ram6502,temp1,LSR#24]
 .endm
@@ -1050,7 +1062,7 @@ Bopc_12:
 Bopc_15:
    JITZPXLOGICAL orrs
 Bopc_16:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    ldrb temp,[ram6502,temp1,LSR #24]
    mov temp1,temp1,LSR #24  // can save a cycle here
 Bopc_17:
@@ -1113,13 +1125,13 @@ Bopc_31:
 Bopc_32:
    JITINDLOGICAL ands
 Bopc_34:
-   add  temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    ldrb temp,[ram6502,temp1,LSR #24]
    bic  flags, flags, #V_FLAG6502
 Bopc_35:
    JITZPXLOGICAL ands
 Bopc_36:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    mov temp1,temp1,LSR #24 // can save a cycle here
    ldrb temp,[temp1]
 Bopc_37:
@@ -1181,7 +1193,7 @@ Bopc_52:
 Bopc_55:
    JITZPXLOGICAL eors
 Bopc_56:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    ldrb temp,[ram6502,temp1,LSR #24]
    lsrs temp, temp, #1
    strb temp,[ram6502,temp1,LSR #24]
@@ -1445,7 +1457,7 @@ Bopc_71:
 Bopc_72:
    JITADCSBCIND
 Bopc_74:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    strb ram6502,[ram6502,temp1,LSR #24]
    add temp,jittedtable16ptr, temp1,LSR #24-2
    BLX temp
@@ -1453,7 +1465,7 @@ Bopc_74:
 Bopc_75:
    JITADCSBCZPX
 Bopc_76:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    mov temp1,temp1,LSR #24
    ldrb temp,[temp1]
 Bopc_77:
@@ -1482,7 +1494,7 @@ Bopc_7F:
 .ltorg
 
 Bopc_81:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    mov temp1,temp1,LSR #24
    ldrh temp1,[temp1]
 Bopc_84:
@@ -1539,17 +1551,17 @@ Bopc_92:
    BLX temp
 
 Bopc_94:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    mov temp,regY,LSR #24
    strb temp,[ram6502,temp1,LSR #24]
 Bopc_95:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    strb regA,[ram6502,temp1,LSR #24]
    add temp,jittedtable16ptr, temp1,LSR #24-2
    BLX temp
 
 Bopc_96:
-   add temp1,regY,#0xFF<<24
+   ADDR1REGYCONST
    mov temp,regX,LSR #24
    strb temp,[ram6502,temp1,LSR #24]
 Bopc_97:
@@ -1843,16 +1855,16 @@ opc_CF: // Opcode CF - BBS4
 
 
 Bopc_A0:
-   mov regY,#0xFF<<24
+   MOVREGYCONST
    nop
    teq regY,#0
    nop
 Bopc_A1:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    mov temp1,temp1,LSR#24
    ldrh temp,[temp1]
 Bopc_A2:
-   mov regX,#0xFF<<24
+   MOVREGXCONST
    nop
    teq regX,#0
    nop
@@ -1930,17 +1942,17 @@ Bopc_B2:
    ldrsb regA,[temp]
    teq   regA,#0
 Bopc_B4:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    ldrb temp,[ram6502,temp1,LSR#24]
    mov regY,temp,LSL #24
    teq   regY,#0
 Bopc_B5:
-   add temp,regX,#0xFF<<24
-   mov temp,temp,LSR#24
-   ldrsb regA,[temp]
+   ADDR1REGXZP
+   mov temp1,temp1,LSR#24
+   ldrsb regA,[temp1]
    teq   regA,#0
 Bopc_B6:
-   add temp1,regY,#0xFF<<24
+   ADDR1REGYCONST
    ldrb temp,[ram6502,temp1,LSR#24]
    mov regX,temp,LSL #24
    teq   regX,#0
@@ -1979,12 +1991,12 @@ Bopc_BE:
 Bopc_BF:
    JITBBS 3
 Bopc_C0:
-   cmp     regY, #0xFF<<24
+   CMPREGYCONST
    nop
    nop
    nop
 Bopc_C1:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    mov temp1,temp1,LSR#24
    ldrh temp1,[temp1]
 Bopc_C4:
@@ -2007,9 +2019,9 @@ Bopc_C8:
    add     regY, regY, #0x1000000
    teq     regY, #0
 Bopc_C9:
-   mov temp,#0xFF<<24
+   MOVR1CONST
    nop
-   rsbs temp,temp,regA,LSL #24
+   rsbs temp1,temp1,regA,LSL #24
    nop
 Bopc_CA:
    sub     regX, regX, #0x1000000
@@ -2045,12 +2057,12 @@ Bopc_D2:
    mov temp1,regA, LSL #24
    cmp temp1,temp,LSL #24
 Bopc_D5:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    ldrb temp,[ram6502,temp1,LSR#24]
    mov temp1,regA,LSL #24
    cmp temp1,temp,LSL #24
 Bopc_D6:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    ldrb temp,[ram6502,temp1,LSR#24]
    sub  temp, temp, #1
 Bopc_D7:
@@ -2080,7 +2092,7 @@ Bopc_DE:
 Bopc_DF:
    JITBBS 5
 Bopc_E0:
-   cmp     regX, #0xFF<<24
+   CMPREGXCONST
    nop
    nop
    nop
@@ -2142,7 +2154,7 @@ Bopc_F3:
 Bopc_F5:
    JITADCSBCZPX
 Bopc_F6:
-   add temp1,regX,#0xFF<<24
+   ADDR1REGXZP
    ldrb temp,[ram6502,temp1,LSR#24]
    add  temp, temp, #1
 Bopc_F7:
