@@ -2976,7 +2976,7 @@ cacheflushloop:
    mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16
    MCR p15,0,r4, c7, c5, 1 // instruction
    add r4,r4,r12
-   cmp r1,r3
+   cmp r2,r3
    bhi cacheflushloop
 
    DSB
