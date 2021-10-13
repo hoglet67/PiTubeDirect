@@ -519,12 +519,11 @@ then return to our secret stack This relies on instructions being re entrant , b
    B jitend2byte
 .endm
 
-.macro DOUBLEBYTEBYTET2BLOUT block address offset=12
+.macro DOUBLEBYTEBYTET2BLOUT block address
    COPY3LOAD \block
    ldr temp0,=\address
-   COPY3STORE
-   BL fixuptype2access
-   add r6,r6,#\offset
+   BL fixuptype2accessquick
+   COPY3STOREINC
    BL MAKEBRANCHLINK
    B jitend2byte
 .endm
@@ -543,14 +542,14 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro TRIPLEBYTEABS block
    adr temp1,\block
-   B  jittriplebyteend
+   B  jitend3byteloadstoreoperand
 .endm
 
 .macro TRIPLEBYTEABST2 block
-   COPY6 \block
-   strb r5,[r6],#4
-   BL fixuptype2access
-   b jitend3byte
+   COPY6LOAD \block
+   orr r7,r7,r5
+   BL fixuptype2accessquick
+   b jitend3bytestore
 .endm
 
 .macro TRIPLEBYTEABSBLOUT block address offset
@@ -1371,6 +1370,11 @@ opc_6C: // Opcode 6C - JMP ($0000)
    COPY6 Bopc_6C
    strb r5,[r6],#4
    BL fixuptype2access
+
+   //COPY6LOAD Bopc_6C
+   //orr r7,r7,r5
+   //BL fixuptype2accessquick
+   //COPY6STORE
    b jitend3byteexit
 
 opc_6D: // Opcode 6D - ADC $0000
@@ -3083,11 +3087,12 @@ jitend1byte:
    add temp2,temp2,#1
    B dojitloop
 
-jittriplebyteend:
+jitend3byteloadstoreoperand:
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
-   STMIA r6,{r7,r8,r9,r10,r11,r12}
-   STOREJITOPERAND2BYTE
-
+   orr r7,r7,r5
+   orr r8,r8,r4
+jitend3bytestore:
+   COPY6STORE
 jitend3byte:
    FILLINJITTEDTABLES dejit16bit31
    add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
@@ -3165,6 +3170,13 @@ fixuptype2access:
    orr r8,r8,r9,LSL #4
    orr r8,r8,temp
    str r8,[r6]
+   bx lr
+
+fixuptype2accessquick:
+   and r1,r4,#0xF0
+   and temp,r4,#0x0F
+   orr r8,r8,r1,LSL #4
+   orr r8,r8,temp
    bx lr
 
 ioload:
