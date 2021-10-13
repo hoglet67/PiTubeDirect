@@ -3172,9 +3172,9 @@ fixuptype2accessstore4:
    str r9,[r6,#4]
    strd r10,r11,[r6,#8]
 fixuptype2access:
-   and r9,r4,#0xF0
+   and r1,r4,#0xF0
    and temp,r4,#0x0F
-   orr r8,r8,r9,LSL #4
+   orr r8,r8,r1,LSL #4
    orr r8,r8,temp
    str r8,[r6]
    bx lr
