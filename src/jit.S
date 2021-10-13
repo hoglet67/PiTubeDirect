@@ -83,6 +83,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define ARMBLCC 0x3B000000
 #define ARMBLCS 0x2B000000
 
+// Manually create instructions which have 0x00 shifts
 // add r1,regx,#00<<24
 #define ADDR1REGXZP    .word 0xe28b1400
 #define ADDR1REGYCONST .word 0xe2881400
@@ -206,6 +207,11 @@ then return to our secret stack This relies on instructions being re entrant , b
    //str r10,[r6,#8]
 .endm
 
+.macro COPY3STOREINC
+   STMIA r6!,{r8,r9,r10}
+   //strd r8,r9,[r6]
+   //str r10,[r6,#8]
+.endm
 .macro COPY4 start
    adr temp1,\start
    LDMIA temp1,{r8,r9,r10,r11}
@@ -238,6 +244,9 @@ then return to our secret stack This relies on instructions being re entrant , b
    STMIA r6,{r7,r8,r9,r10,r11}
 .endm
 
+.macro COPY5STOREINC
+   STMIA r6!,{r7,r8,r9,r10,r11}
+.endm
 .macro COPY6 start
    adr temp1,\start
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
@@ -398,7 +407,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ldrb temp,[ram6502,#0x00]
    mrs     temp1, CPSR
    tst     temp, #(1 << \bitnum)
-   BL bbrreturn
+   BL .+8
 
    //   addne pc,r14,#4 // return to jit
    //   msr     CPSR_flg, temp1
@@ -412,7 +421,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ldrb temp,[ram6502,#0x00]
    mrs     temp1, CPSR
    tst     temp, #(1 << \bitnum)
-   BL bbsreturn
+   BL .+8
 
    //   addne pc,r14,#4 // return to jit
    //   msr     CPSR_flg, temp1
@@ -638,7 +647,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    strb  \reg,[ram6502,#0x00]
    mov temp1,#00
    nop
-   b .+8
 .endm
 
 .macro ZPST block
@@ -657,7 +665,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    mov temp,\reg,LSR #24
    mov temp1,#00
    strb temp,[ram6502,#0x00]
-   B .+8
 .endm
 
 .macro JITABSXYST reg index
@@ -881,7 +888,7 @@ opc_05: // Opcode 05 - ORA $00
    DOUBLEBYTET2 Bopc_05
 
 opc_06: // Opcode 06 - ASL $00
-   DOUBLEBYTESETTWOBYTES Bopc_06
+   DOUBLEBYTESETTWOBYTES Bopc_06 8
 
 opc_07: // Opcode 07 - RMB0 $00
    DOUBLEBYTESETTWOBYTES Bopc_07 12
@@ -972,7 +979,7 @@ opc_25: // Opcode 25 - AND $00
    DOUBLEBYTET2 Bopc_25
 
 opc_26: // Opcode 26 - ROL $00
-   DOUBLEBYTESETTWOBYTES Bopc_26
+   DOUBLEBYTESETTWOBYTES Bopc_26 8
 
 opc_27: // Opcode 27 - RMB2 $00
    DOUBLEBYTESETTWOBYTES Bopc_27 12
@@ -2224,7 +2231,7 @@ opc_DA: // Opcode DA - PHX
 opc_DD: // Opcode DD - CMP $0000,X
    TRIPLEBYTEABS Bopc_DD
 
-opc_DE: // Opcode DE - DEX $0000,X
+opc_DE: // Opcode DE - DEC $0000,X
    TRIPLEBYTEABSBLOUT Bopc_DE tempflags 20
 
 opc_DF: // Opcode DF - BBS5
