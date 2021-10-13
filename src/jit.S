@@ -3104,10 +3104,11 @@ jitend3byteexitBBRS:
    sxtb r5, r5
    mov r5,r5,LSL #1
    BIC r5,r5,#0xFF000000
-   orr r5,r5,#BINSTRUCTION
+   orr r11,r5,#BINSTRUCTION
+   orr r7,r7,r4
    STMIA r6,{r7,r8,r9,r10,r11,r12}
-   strb r4,[r6],#12
-   str r5,[r6,#16-12]
+   add r6,r6,#12
+
    BL MAKEBRANCHLINK
 
 jitend3byteexit:
