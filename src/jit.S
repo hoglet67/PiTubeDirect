@@ -572,9 +572,9 @@ then return to our secret stack This relies on instructions being re entrant , b
    COPY5LOAD \block
    mov temp0,r12, LSL #2
    add temp0,temp0,#JITTEDTABLE16
-   COPY5STORE
-   strb r4,[r6,#16]
-   strb r5,[r6],#20
+   orr r7,r7,r5
+   orr r11,r11,r4
+   COPY5STOREINC
    BL MAKEBRANCHLINK
    B  jitend3byte
 .endm
@@ -633,12 +633,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ZPSTAZ block
-   COPY4LOAD \block
+   COPY3LOAD \block
    mov temp0,r4,LSL #2
    add temp0,temp0,#JITTEDTABLE16
-   COPY4STORE
-   STOREJITOPERAND 4
-   strb r4,[r6],#12
+   orr r8,r8,r4
+   orr r9,r9,r4
+   COPY3STOREINC
    BL MAKEBRANCHLINK
    b jitend2byte
 .endm
@@ -650,13 +650,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ZPST block
-   COPY4LOAD \block
+   COPY3LOAD \block
    mov temp0,r4,LSL #2
    add temp0,temp0,#JITTEDTABLE16
-   COPY4STORE
-   STOREJITOPERAND 4
-   STOREJITOPERAND 8
-   add r6,r6,#12
+   orr r9,r9,r4
+   orr r10,r10,r4
+   COPY3STOREINC
    BL MAKEBRANCHLINK
    b jitend2byte
 .endm
