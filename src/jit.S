@@ -534,10 +534,17 @@ then return to our secret stack This relies on instructions being re entrant , b
    B jitend2byte
 .endm
 
-.macro DOUBLEBYTESETTWOBYTES block offset=8
-   COPY4 \block
-   strb r4,[r6,#\offset]
-   B jitend2bytestoreoperand
+.macro DOUBLEBYTESETTWOBYTES block offset
+   COPY4LOAD \block
+   orr r8,r8,r4
+.ifc \offset,8
+   orr r10,r10,r4
+.endif
+
+.ifc \offset,12
+   orr r11,r11,r4
+.endif
+   B jitend2bytestore4
 .endm
 
 .macro TRIPLEBYTEABS block
@@ -2840,11 +2847,11 @@ dojit:
 
 doublebyteend:
    LDMIA temp1,{r8,r9,r10,r11}
-   STMIA r6,{r8,r9,r10,r11}
+   orr r8,r8,r4
+jitend2bytestore4:
+   COPY4STORE
    //strd r8,r9,[r6]
    //strd r10,r11,[r6,#8]
-jitend2bytestoreoperand:
-   STOREJITOPERAND 0
 
 jitend2byte:
    FILLINJITTEDTABLES dejit16bit21
