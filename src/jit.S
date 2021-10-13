@@ -260,14 +260,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    STMIA r6,{r7,r8,r9,r10,r11,r12}
 .endm
 
-.macro STOREJITOPERAND LSB=0
-   strb r4,[r6,#\LSB]
-.endm
 
-.macro STOREJITOPERAND2BYTE MSB=0 LSB=4
-   strb r4,[r6,#\LSB]
-   strb r5,[r6,#\MSB]
-.endm
 
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 256 byte aligned
