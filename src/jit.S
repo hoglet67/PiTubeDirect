@@ -505,20 +505,21 @@ then return to our secret stack This relies on instructions being re entrant , b
 .ifc \offset,12
    COPY3LOAD \block
    ldr temp0,=\address
-   COPY3STORE
-   strb r4,[r6],#\offset
+   orr r8,r8,r4
+   COPY3STOREINC
 .else
    COPY4LOAD \block
    ldr temp0,=\address
+   orr r8,r8,r4
    COPY4STORE
-   strb r4,[r6],#\offset
+   add r6,r6,#\offset
 .endif
 
    BL MAKEBRANCHLINK
    B jitend2byte
 .endm
 
-.macro DOUBLEBYTEBYTET2BLOUT block address offset
+.macro DOUBLEBYTEBYTET2BLOUT block address offset=12
    COPY3LOAD \block
    ldr temp0,=\address
    COPY3STORE
@@ -553,17 +554,20 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro TRIPLEBYTEABSBLOUT block address offset
-.ifc offset,20
+.ifc \offset,20
    COPY5LOAD \block
    ldr temp0,=\address
-   COPY5STORE
+   orr r7,r7,r5
+   orr r8,r8,r4
+   COPY5STOREINC
 .else
    COPY6LOAD \block
    ldr temp0,=\address
+   orr r7,r7,r5
+   orr r8,r8,r4
    COPY6STORE
+   add r6,r6,#\offset
 .endif
-   strb r4,[r6,#4]
-   strb r5,[r6],#\offset
    BL MAKEBRANCHLINK
    B jitend3byte
 .endm
@@ -1381,10 +1385,10 @@ opc_70: // Opcode 70 - BVS
    BRANCHVCS Bopc_70 testvflagS
 
 opc_71: // Opcode 71 - ADC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_71 ADC1 12
+   DOUBLEBYTEBYTET2BLOUT Bopc_71 ADC1
 
 opc_72: // Opcode 72 - ADC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_72 ADC1 12
+   DOUBLEBYTEBYTET2BLOUT Bopc_72 ADC1
 
 opc_74: // Opcode 74 - STZ $00,X
    DOUBLEBYTESETFIRSTBYTE Bopc_74
@@ -1408,8 +1412,10 @@ opc_7A: // Opcode 7A - PLY
    SINGLEOPCODEBLOUT Bopc_7A ply
 
 opc_7C: // Opcode 7C - JMP ($0000,X)
-   COPY6 Bopc_7C
-   STOREJITOPERAND2BYTE 0 4
+   COPY6LOAD Bopc_7C
+   orr r7,r7,r5
+   orr r8,r8,r4
+   COPY6STORE
    B  jitend3byteexit
 
 opc_7D: // Opcode 7D - ADC $0000,X
@@ -1831,9 +1837,9 @@ opc_C5: // Opcode C5 - CMP $00
 opc_C6: // Opcode C6 - DEC $00
    COPY3LOAD Bopc_C6
    ldr temp0,=tempflags
-   COPY3STORE
-   STOREJITOPERAND 8
-   strb r4,[r6],#12
+   orr r8,r8,r4
+   orr r10,r10,r4
+   COPY3STOREINC
    BL MAKEBRANCHLINK
    B jitend2byte
 
@@ -2251,9 +2257,9 @@ opc_E5: // Opcode E5 - SBC $00
 opc_E6: // Opcode E6 - INC $00
    COPY3LOAD Bopc_E6
    ldr temp0,=tempflags
-   COPY3STORE
-   STOREJITOPERAND 8
-   strb r4,[r6],#12
+   orr r8,r8,r4
+   orr r10,r10,r4
+   COPY3STOREINC
    BL MAKEBRANCHLINK
    B jitend2byte
 
@@ -2296,10 +2302,10 @@ opc_EF: // Opcode EF - BBS6
 
 
 opc_F1: // Opcode F1 - SBC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_F1 SBC1 12
+   DOUBLEBYTEBYTET2BLOUT Bopc_F1 SBC1
 
 opc_F2: // Opcode F2 - SBC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_F2 SBC1 12
+   DOUBLEBYTEBYTET2BLOUT Bopc_F2 SBC1
 
 opc_F3: // Opcode F3 - NOP6
    //NOP6
