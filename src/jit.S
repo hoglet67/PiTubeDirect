@@ -2283,10 +2283,11 @@ opc_ED: // Opcode ED - SBC $0000
 
 opc_EE: // Opcode EE - INC $0000
    ldrh r12,[temp2,#1]
-   COPY5LOAD Bopc_EE
    LDR temp0,=incstore
+   COPY5LOAD Bopc_EE
+   orr r7,r7,r5
+   orr r8,r8,r4
    COPY5STORE
-   STOREJITOPERAND2BYTE 0 4
 
    add r6,r6,#8
    BL MAKEBRANCHLINK
