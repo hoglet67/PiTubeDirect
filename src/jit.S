@@ -1368,15 +1368,9 @@ opc_6A: // Opcode 6A - ROR A
 opc_6C: // Opcode 6C - JMP ($0000)
    COPY6LOAD Bopc_6C
 
-
+   BL fixuptype2accessquick
+   orr r7,r7,r5
    COPY6STORE
-   strb r5,[r6],#4
-   BL fixuptype2access
-
-   //orr r7,r7,r5
-   //BL fixuptype2accessquick
-   //COPY6STORE
-
 
    b jitend3byteexit
 
@@ -3034,6 +3028,7 @@ cacheflushloop:
    add r7,r2,#JITLET
    mov temp,#0
    MCRR p15,0,r7,r3,c12 // clean data cache
+      MCR p15, 0, temp, c7, c10, 4 // DSB
    MCRR p15,0,r7,r3,c5 // invalidate instruction cache
 
    MCR p15, 0, temp, c7, c10, 4 // DSB
@@ -3047,6 +3042,7 @@ cacheflushloop:
    add r2,r2,#JITTEDTABLE16
 
    MCRR p15,0,r2,r4,c12 // clean data cache
+      MCR p15, 0, temp, c7, c10, 4 // DSB
    MCRR p15,0,r2,r4,c5 // invalidate instruction cache
    MCR p15, 0, temp, c7, c10, 4 // DSB
    MCRR p15,0,r2,r4,c5 // invalidate instruction cache // Do it again ( errata)
@@ -3173,17 +3169,9 @@ fixuptype2accessstore4:
 
 fixuptype2accessquick:
    and r1,r4,#0xF0
-   and temp,r4,#0x0F
+   and r4,r4,#0x0F
    orr r8,r8,r1,LSL #4
-   orr r8,r8,temp
-   bx lr
-
-fixuptype2access:
-   and r1,r4,#0xF0
-   and temp,r4,#0x0F
-   orr r8,r8,r1,LSL #4
-   orr r8,r8,temp
-   str r8,[r6]
+   orr r8,r8,r4
    bx lr
 
 ioload:
