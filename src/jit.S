@@ -546,8 +546,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro TRIPLEBYTEABST2 block
    COPY6LOAD \block
-   orr r7,r7,r5
    BL fixuptype2accessquick
+   orr r7,r7,r5
    b jitend3bytestore
 .endm
 
@@ -1366,14 +1366,18 @@ opc_6A: // Opcode 6A - ROR A
    SINGLEOPCODEBLOUT Bopc_6A rora
 
 opc_6C: // Opcode 6C - JMP ($0000)
-   COPY6 Bopc_6C
+   COPY6LOAD Bopc_6C
+
+
+   COPY6STORE
    strb r5,[r6],#4
    BL fixuptype2access
 
-   //COPY6LOAD Bopc_6C
    //orr r7,r7,r5
    //BL fixuptype2accessquick
    //COPY6STORE
+
+
    b jitend3byteexit
 
 opc_6D: // Opcode 6D - ADC $0000
