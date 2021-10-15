@@ -518,8 +518,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTEBYTET2BLOUT block address
-   COPY3LOAD \block
    ldr temp0,=\address
+   COPY3LOAD \block
    BL fixuptype2accessquick
    BL COPY3STOREINCMAKEBRANCHLINK
    B jitend2byte
@@ -601,7 +601,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro ASSIGNCARRY carry
    ldr temp0,=invertcarry-8
-   ldr temp,B_NOP
+   ldr temp1,B_NOP
    sub temp0,temp0,r6
    mov temp0,temp0,LSR #2
 .ifc \carry,clear
@@ -609,8 +609,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .else
    orr temp0,temp0,#ARMBLCC
 .endif
-   str temp0,[r6]
-   str temp,[r6,#4]
+   STRD temp0,temp1,[R6]
    B jitend1byte
 .endm
 
