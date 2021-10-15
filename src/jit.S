@@ -126,7 +126,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    BL MAKEBRANCHFILLINJITTEDTABLES
 .endm
 
-.macro DEJITCLEAN
+.macro DEJITCLEAN count=0
 
 #if defined(RPI4)|| defined(RPI3)
   // bic temp,temp,#0x3f // hack
@@ -140,20 +140,26 @@ then return to our secret stack This relies on instructions being re entrant , b
       DSB
    #endif
    MCR p15, 0, temp, c7, c10, 1 // clean data cache line
-   MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line
-   MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
 
    #if defined(RPI2)
+      MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line
+      MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
       DSB
    #else
+   .ifc \count,0
+      MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
       MCR p15, 0, temp3, c7, c10, 4 // DSB
-      MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line // errata
+   .endif
+     // MCR p15, 0, temp3, c7, c10, 4 // DSB
+     // MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line // errata
    #endif
 #endif
 .endm
 
 .macro DEJITCLEANMID
-   MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
+   #if defined(RPI4)|| defined(RPI3) || defined(RPI2)
+      MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
+   #endif
 .endm
 
 
@@ -2664,10 +2670,10 @@ dejit16bit1: //temp1 pointer to address to dejit
    add temp2,temp2,#BLINSTRUCTION
 
    str temp2,[temp,temp1,LSL #JITLETSHIFT]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    mov temp,#JITTEDTABLE16
    str temp0,[temp,temp1,LSL #2]!
-   DEJITCLEAN
+   DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -2685,16 +2691,16 @@ dejit16bit21: // temp1 , temp1+4
    add temp2,temp2,#BLINSTRUCTION
 
    str temp2,[temp,temp1,LSL #JITLETSHIFT]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    sub temp2,temp2,#(NEXTJITLET>>2)
    str temp2,[temp,#NEXTJITLET]!
-   DEJITCLEAN
+   DEJITCLEAN 1
 
    mov temp,#JITTEDTABLE16
    str temp0,[temp,temp1,LSL #2]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    str temp0,[temp,#4]!
-   DEJITCLEAN
+   DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -2710,16 +2716,16 @@ dejit16bit22: // temp1 , temp1-4
    add temp2,temp2,#BLINSTRUCTION
 
    str temp2,[temp,temp1,LSL #JITLETSHIFT]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    add temp2,temp2,#(NEXTJITLET>>2)
    str temp2,[temp,#-NEXTJITLET]!
-   DEJITCLEAN
+   DEJITCLEAN 1
 
    mov temp,#JITTEDTABLE16
    str temp0,[temp,temp1,LSL #2]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    str temp0,[temp,#-4]!
-   DEJITCLEAN
+   DEJITCLEAN 0
 
 #if defined(RPI4)|| defined(RPI3)
    ISB
@@ -2737,21 +2743,21 @@ dejit16bit31: // temp1 , temp1+4, temp1 + 8
    add temp2,temp2,#BLINSTRUCTION
 
    str temp2,[temp,temp1,LSL #JITLETSHIFT]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    sub temp2,temp2,#NEXTJITLET>>2
    str temp2,[temp,#NEXTJITLET]!
    DEJITCLEANMID
    sub temp2,temp2,#NEXTJITLET>>2
    str temp2,[temp,#NEXTJITLET]!
-   DEJITCLEAN
+   DEJITCLEAN 1
 
    mov temp,#JITTEDTABLE16
    str temp0,[temp,temp1,LSL #2]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    str temp0,[temp,#4]!
    DEJITCLEANMID
    str temp0,[temp,#4]!
-   DEJITCLEAN
+   DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -2771,18 +2777,18 @@ dejit16bit32: // temp1 , temp1-4, temp1 + 4
    DEJITCLEANMID
    sub temp2,temp2,#-(NEXTJITLET>>2)
    str temp2,[temp,#-NEXTJITLET]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    sub temp2,temp2,#(NEXTJITLET>>2)*2
    str temp2,[temp,#NEXTJITLET*2]!
-   DEJITCLEAN
+   DEJITCLEAN 1
 
    mov temp,#JITTEDTABLE16
    str temp0,[temp,temp1,LSL #2]!
    DEJITCLEANMID
    str temp0,[temp,#-4]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    str temp0,[temp,#8]!
-   DEJITCLEAN
+   DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -2798,21 +2804,21 @@ dejit16bit33: // temp1 , temp1-4, temp1 - 8
    add temp2,temp2,#BLINSTRUCTION
 
    str temp2,[temp,temp1,LSL #JITLETSHIFT]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    sub temp2,temp2,#-(NEXTJITLET>>2)
    str temp2,[temp,#-NEXTJITLET]!
    DEJITCLEANMID
    sub temp2,temp2,#-(NEXTJITLET>>2)
    str temp2,[temp,#-NEXTJITLET]!
-   DEJITCLEAN
+   DEJITCLEAN 1
 
    mov temp,#JITTEDTABLE16
    str temp0,[temp,temp1,LSL #2]!
-   DEJITCLEAN
+   DEJITCLEAN 1
    str temp0,[temp,#-4]!
    DEJITCLEANMID
    str temp0,[temp,#-4]!
-   DEJITCLEAN
+   DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
@@ -3018,38 +3024,40 @@ cacheflushloop:
 
 #if 1
 
+
    // this should flush the cache area used in the jitter.
    // even better if we were to work out if full cache fush would be faster
    // especially because of the ARMv6 cache flush errata which can be seen in the
    // Twinhead demo on the Desire screen
 
    // MCRR p15,end,start,cxx
+   mov temp,#0
+   MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
+
    mov r2,r2,LSL #JITLETSHIFT
    add r7,r2,#JITLET
-   mov temp,#0
-   MCRR p15,0,r7,r3,c12 // clean data cache
-      MCR p15, 0, temp, c7, c10, 4 // DSB
-   MCRR p15,0,r7,r3,c5 // invalidate instruction cache
-
-   MCR p15, 0, temp, c7, c10, 4 // DSB
-   MCRR p15,0,r7,r3,c5 // invalidate instruction cache // Do it again ( errata)
-
-   //MCR p15, 0, r0, c7, c5, 1
    sub r4,r3,#JITLET
    mov r4,r4,LSR #(JITLETSHIFT-2)
    mov r2,r2,LSR #(JITLETSHIFT-2)
    add r4,r4,#JITTEDTABLE16
    add r2,r2,#JITTEDTABLE16
 
+   MCRR p15,0,r7,r3,c12 // clean data cache
    MCRR p15,0,r2,r4,c12 // clean data cache
-      MCR p15, 0, temp, c7, c10, 4 // DSB
-   MCRR p15,0,r2,r4,c5 // invalidate instruction cache
-   MCR p15, 0, temp, c7, c10, 4 // DSB
-   MCRR p15,0,r2,r4,c5 // invalidate instruction cache // Do it again ( errata)
 
-   MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
-   MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
+ //  MCRR p15,0,r7,r3,c5 // invalidate instruction cache
+ //  MCRR p15,0,r2,r4,c5 // invalidate instruction cache
+
  //  MCR p15, 0, temp, c7, c10, 4 // DSB
+
+ //  MCRR p15,0,r7,r3,c5 // invalidate instruction cache // Do it again ( errata)
+ //  MCRR p15,0,r2,r4,c5 // invalidate instruction cache // Do it again ( errata)
+   //MCR p15, 0, r0, c7, c5, 1
+
+   MCR p15, 0, temp, c7, c10, 4 // DSB
+   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
+   MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
+   MCR p15, 0, temp, c7, c10, 4 // DSB
 #else
    // clean all the cache
    mov temp,#0
