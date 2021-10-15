@@ -502,28 +502,26 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro DOUBLEBYTESETFIRSTBYTEBLOUT block address offset
 
 .ifc \offset,12
+   ldr temp0,=\address
    COPY3LOAD \block
-   ldr temp0,=\address
-   orr r8,r8,r4
-   COPY3STOREINC
+   BL STOREOPERANDANDBRANCHLINK
+   B jitend2byte
 .else
-   COPY4LOAD \block
    ldr temp0,=\address
+   COPY4LOAD \block
    orr r8,r8,r4
    COPY4STORE
    add r6,r6,#\offset
-.endif
-
    BL MAKEBRANCHLINK
    B jitend2byte
+.endif
 .endm
 
 .macro DOUBLEBYTEBYTET2BLOUT block address
    COPY3LOAD \block
    ldr temp0,=\address
    BL fixuptype2accessquick
-   COPY3STOREINC
-   BL MAKEBRANCHLINK
+   BL COPY3STOREINCMAKEBRANCHLINK
    B jitend2byte
 .endm
 
@@ -559,14 +557,14 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro TRIPLEBYTEABSBLOUT block address offset
 .ifc \offset,20
-   COPY5LOAD \block
    ldr temp0,=\address
+   COPY5LOAD \block
    orr r7,r7,r5
    orr r8,r8,r4
    COPY5STOREINC
 .else
-   COPY6LOAD \block
    ldr temp0,=\address
+   COPY6LOAD \block
    orr r7,r7,r5
    orr r8,r8,r4
    COPY6STORE
@@ -646,8 +644,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    add temp0,temp0,#JITTEDTABLE16
    orr r8,r8,r4
    orr r9,r9,r4
-   COPY3STOREINC
-   BL MAKEBRANCHLINK
+   BL COPY3STOREINCMAKEBRANCHLINK
    b jitend2byte
 .endm
 
@@ -663,8 +660,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    add temp0,temp0,#JITTEDTABLE16
    orr r9,r9,r4
    orr r10,r10,r4
-   COPY3STOREINC
-   BL MAKEBRANCHLINK
+   BL COPY3STOREINCMAKEBRANCHLINK
    b jitend2byte
 .endm
 
@@ -1846,8 +1842,7 @@ opc_C6: // Opcode C6 - DEC $00
    ldr temp0,=tempflags
    orr r8,r8,r4
    orr r10,r10,r4
-   COPY3STOREINC
-   BL MAKEBRANCHLINK
+   BL COPY3STOREINCMAKEBRANCHLINK
    B jitend2byte
 
 opc_C7: // Opcode C7 - SMB4 $00
@@ -2266,8 +2261,7 @@ opc_E6: // Opcode E6 - INC $00
    ldr temp0,=tempflags
    orr r8,r8,r4
    orr r10,r10,r4
-   COPY3STOREINC
-   BL MAKEBRANCHLINK
+   BL COPY3STOREINCMAKEBRANCHLINK
    B jitend2byte
 
 opc_E7: // Opcode E7 - SMB6 $00
@@ -3159,6 +3153,10 @@ MAKEBRANCH:
    str temp0,[r6]
    bx lr
 
+STOREOPERANDANDBRANCHLINK:
+   orr r8,r8,r4
+COPY3STOREINCMAKEBRANCHLINK:
+   COPY3STOREINC
 MAKEBRANCHLINK:
    sub temp0,temp0,r6
    sub temp0,temp0,#8
