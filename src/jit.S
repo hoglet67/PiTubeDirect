@@ -432,7 +432,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro BRANCH type
    sxtb r4,r4
-   ldr temp,B_NOP
+   ldr temp1,B_NOP
 // do jump maths
 // temp0 is where we need to goto NB -2 ie. if we have 6 we goto +8
 // so it look like arm and 6502 jumps are the same so if we load the bit signed
@@ -2830,7 +2830,7 @@ dojit:
         mov     r7, #TEST2_MASK
         str     r7, [r8]
    sub temp2,R14,#JITLET
-   mov temp3,R14 // return address
+   mov temp3,R14 // return address ( first address of jitted code)
    mov temp2,temp2,LSR#JITLETSHIFT
    b jitentry
 
@@ -2930,10 +2930,9 @@ opcode_table:
 .ltorg
 
 branchsavewords:
-   str temp0,[r6]
-   str temp,[r6,#4]
-   str temp,[r6,#8]
-   str temp,[r6,#12]
+   STRD temp0,temp1,[R6]
+   str temp1,[r6,#8]
+   str temp1,[r6,#12]
 
 jitend2byteexit:
    FILLINJITTEDTABLES dejit16bit21
