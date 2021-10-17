@@ -45,13 +45,13 @@ then return to our secret stack This relies on instructions being re entrant , b
 // used for scope debug
 #include "tube-defs.h"
 
-// Registers
+// Registers used in 6502 world
 
-#define temp0     r0
-#define temp1     r1
-#define temp2     r2
-#define temp3     r3
-#define temp4     r4
+#define reg0     r0
+#define reg1      r1
+#define reg2      r2
+#define reg3      r3
+#define reg4      r4
 #define jittedtable16ptr     r5
 #define ram6502   r6
 
@@ -61,7 +61,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define regA      r10
 #define regX      r11
 
-#define temp      r12
+#define reg12      r12
+
+#define temp0 r0
+#define temp1 r1
+#define temp2 r2
+#define temp r12
 
 #define JITLETSHIFT 3
 
@@ -92,7 +97,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define MOVR1CONST     .word 0xe3a01400
 #define CMPREGXCONST   .word 0xe35b0400
 #define CMPREGYCONST   .word 0xe3580400
-//   mov temp1,#0xFF<<8
+//   mov reg1,#0xFF<<8
 #define MOVR0HIGH      .word 0xe3a00C00
 #define MOVR1HIGH      .word 0xe3a01C00
 
@@ -129,36 +134,36 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro DEJITCLEAN count=0
 
 #if defined(RPI4)|| defined(RPI3)
-  // bic temp,temp,#0x3f // hack
-      MCR p15, 0, temp, c7, c11, 1 // clean data cache line
+  // bic reg12,reg12,#0x3f // hack
+      MCR p15, 0, reg12, c7, c11, 1 // clean data cache line
       DSB
-      MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line
-      MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
+      MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line
+      MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
       DSB
 #else
    #if defined(RPI2)
       DSB
    #endif
-   MCR p15, 0, temp, c7, c10, 1 // clean data cache line
+   MCR p15, 0, reg12, c7, c10, 1 // clean data cache line
 
    #if defined(RPI2)
-      MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line
-      MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
+      MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line
+      MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
       DSB
    #else
    .ifc \count,0
-      MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
-      MCR p15, 0, temp3, c7, c10, 4 // DSB
+      MCR p15, 0, reg12, c7, c5, 0 //; invalidate I cache and BTB
+      MCR p15, 0, reg3, c7, c10, 4 // DSB
    .endif
-     // MCR p15, 0, temp3, c7, c10, 4 // DSB
-     // MCR p15, 0, temp, c7, c5, 1 // invalidate I cache line // errata
+     // MCR p15, 0, reg3, c7, c10, 4 // DSB
+     // MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line // errata
    #endif
 #endif
 .endm
 
 .macro DEJITCLEANMID
    #if defined(RPI4)|| defined(RPI3) || defined(RPI2)
-      MCR p15, 0, temp, c7, c5, 7 // invalidate BTB entry
+      MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
    #endif
 .endm
 
@@ -302,49 +307,49 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITINDX
    ADDR1REGXZP
-   mov temp1,temp1,LSR #24
-   ldrh temp1,[temp1]
+   mov reg1,reg1,LSR #24
+   ldrh reg1,[reg1]
 .endm
 
 .macro JITINDXLOGICAL inst
    ADDR1REGXZP
-   mov temp1,temp1,LSR #24
+   mov reg1,reg1,LSR #24
    BL .+8 // BL ldrhldrsb
-   \inst regA,regA,temp
+   \inst regA,regA,reg0
 .endm
 
 .macro JITINDYLOGICAL inst
-   ldrh temp,[ram6502,#0x00]
-   mov temp1,regY,LSR #24
-   ldrsb temp,[temp,temp1]
-   \inst regA,regA,temp
+   ldrh reg0,[ram6502,#0x00]
+   mov reg1,regY,LSR #24
+   ldrsb reg0,[reg0,reg1]
+   \inst regA,regA,reg0
 .endm
 
 .macro JITINDLOGICAL inst
-   ldrh temp,[ram6502,#0x00]
+   ldrh reg0,[ram6502,#0x00]
    nop
-   ldrsb temp,[temp]
-   \inst regA,regA,temp
+   ldrsb reg0,[reg0]
+   \inst regA,regA,reg0
 .endm
 
 .macro JITZPLOGICAL inst
-   ldrsb temp,[ram6502,#0x00]
+   ldrsb reg0,[ram6502,#0x00]
    nop
    nop
-   \inst regA,regA,temp
+   \inst regA,regA,reg0
 .endm
 
 .macro JITZPXLOGICAL inst
    ADDR1REGXZP
-   mov temp1,temp1,LSR#24
-   ldrsb temp,[temp1]
-   \inst regA,regA,temp
+   mov reg1,reg1,LSR#24
+   ldrsb reg0,[reg1]
+   \inst regA,regA,reg0
 .endm
 
 .macro IMMLOAD block
-   adr temp1,\block
+   adr reg1,\block
    ldr r7,=immediatesignextenedtable
-   LDMIA temp1,{r8,r9}
+   LDMIA reg1,{r8,r9}
    ldr r7,[r7,r4,LSL #2]
    strd  r8,r9,[r6,#8]
    STMIA r6,{r7,r8}
@@ -353,7 +358,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITIMMLOGICAL inst
    nop
-   \inst regA,regA,temp
+   \inst regA,regA,reg0
 .endm
 
 .macro JITABSLOGICAL inst
@@ -361,73 +366,73 @@ then return to our secret stack This relies on instructions being re entrant , b
    nop
    nop
    nop
-   \inst regA,regA,temp
+   \inst regA,regA,reg0
 .endm
 
 .macro JITABSYLOGICAL inst
    JITABS
-   mov temp,regY,LSR #24
-   ldrsb temp,[temp1,temp]
+   mov reg0,regY,LSR #24
+   ldrsb reg0,[reg1,reg0]
    nop
-   \inst regA,regA,temp
+   \inst regA,regA,reg0
 .endm
 
 .macro JITABSXLOGICAL inst
    JITABS
-   mov temp,regX, LSR #24
-   ldrsb temp,[temp1,temp]
+   mov reg0,regX, LSR #24
+   ldrsb reg0,[reg1,reg0]
    nop
-   \inst regA,regA,temp
+   \inst regA,regA,reg0
 .endm
 
 .macro JITRMB bitnum
-   ldrb temp,[ram6502,#00]
+   ldrb reg0,[ram6502,#00]
    nop
-   bic  temp, #(1 << \bitnum)
-   strb temp,[ram6502,#00]
+   bic  reg0, #(1 << \bitnum)
+   strb reg0,[ram6502,#00]
 .endm
 
 .macro JITSMB bitnum
-   ldrb temp,[ram6502,#00]
+   ldrb reg0,[ram6502,#00]
    nop
-   orr  temp, #(1 << \bitnum)
-   strb temp,[ram6502,#00]
+   orr  reg0, #(1 << \bitnum)
+   strb reg0,[ram6502,#00]
 .endm
 
 .macro BBRS block blout
    ldr r0,=\blout
-   adr temp1,\block
+   adr r1,\block
 
    // fill in BL
    B  jitend3byteexitBBRS
 .endm
 
 .macro JITBBR bitnum
-   ldrb temp,[ram6502,#0x00]
-   mrs     temp1, CPSR
-   tst     temp, #(1 << \bitnum)
+   ldrb    reg0,[ram6502,#0x00]
+   mrs     reg1, CPSR
+   tst     reg0, #(1 << \bitnum)
    BL .+8
 
    //   addne pc,r14,#4 // return to jit
-   //   msr     CPSR_flg, temp1
+   //   msr     CPSR_flg, reg1
    //   mov pc,r14
 
    B .+8  // taken
-   msr     CPSR_flg, temp1
+   msr     CPSR_flg, reg1
 .endm
 
 .macro JITBBS bitnum
-   ldrb temp,[ram6502,#0x00]
-   mrs     temp1, CPSR
-   tst     temp, #(1 << \bitnum)
+   ldrb    reg0,[ram6502,#0x00]
+   mrs     reg1, CPSR
+   tst     reg0, #(1 << \bitnum)
    BL .+8
 
    //   addne pc,r14,#4 // return to jit
-   //   msr     CPSR_flg, temp1
+   //   msr     CPSR_flg, reg1
    //   mov pc,r14
 
    B .+8  // taken
-   msr     CPSR_flg, temp1
+   msr     CPSR_flg, reg1
 .endm
 
 .macro BRANCH type
@@ -466,7 +471,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro JITBRANCHVCS
-   msr     CPSR_flg, temp1
+   msr     CPSR_flg, reg1
 .endm
 
 .macro SINGLEOPCODEBLOUT block address
@@ -591,11 +596,11 @@ then return to our secret stack This relies on instructions being re entrant , b
 .ifc \reg,regA
    nop
    nop
-   strb regA,[temp1,#0]!
+   strb regA,[reg1,#0]!
 .else
-   mov temp0,\reg,LSR #24
+   mov reg0,\reg,LSR #24
    nop
-   strb temp0,[temp1,#0]!
+   strb reg0,[reg1,#0]!
 .endif
 .endm
 
@@ -613,8 +618,8 @@ then return to our secret stack This relies on instructions being re entrant , b
    B jitend1byte
 .endm
 
-.macro JITABS reg=temp1
-.ifc \reg,temp1
+.macro JITABS reg=reg1
+.ifc \reg,reg1
    MOVR1HIGH
 .else
    MOVR0HIGH
@@ -624,17 +629,17 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITABSLDRB
    MOVR1HIGH
-   ldrb temp,[temp1,#0x00]
+   ldrb reg12,[reg1,#0x00]
 .endm
 
 .macro JITABSLDRBWB
    MOVR1HIGH
-   ldrb temp,[temp1,#0x00]!
+   ldrb reg12,[reg1,#0x00]!
 .endm
 
 .macro JITABSLDRSB
    MOVR1HIGH
-   ldrsb temp,[temp1,#0x00]
+   ldrsb reg0,[reg1,#0x00]
 .endm
 
 .macro ZPSTAZ block
@@ -649,7 +654,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITZPSTAZ reg
    strb  \reg,[ram6502,#0x00]
-   mov temp1,#00
+   mov reg1,#00
    nop
 .endm
 
@@ -664,40 +669,40 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro JITZPST reg
-   mov temp,\reg,LSR #24
-   mov temp1,#00
-   strb temp,[ram6502,#0x00]
+   mov reg0,\reg,LSR #24
+   mov reg1,#00
+   strb reg0,[ram6502,#0x00]
 .endm
 
 .macro JITABSXYST reg index
    JITABS
-   strb \reg,[temp1,\index,LSR#24]!
+   strb \reg,[reg1,\index,LSR#24]!
    nop
-   add temp,jittedtable16ptr,temp1,LSL#2
-   blx temp
+   add reg0,jittedtable16ptr,reg1,LSL#2
+   blx reg0
 .endm
 
 .macro ASL
-   add   temp, temp, temp
-   strb  temp,[temp1]
-   movs  temp, temp, lsl #24
+   add   reg12, reg12, reg12
+   strb  reg12,[reg1]
+   movs  reg12, reg12, lsl #24
 .endm
 
 .macro ROL6
-   adc  temp, temp, temp
-   strb temp,[temp1]
-   lsls    temp, temp, #24
+   adc  reg12, reg12, reg12
+   strb reg12,[reg1]
+   lsls    reg12, reg12, #24
 .endm
 
 .macro LSR
-   lsrs temp, temp, #1
-   strb temp,[temp1]
+   lsrs reg12, reg12, #1
+   strb reg12,[reg1]
 .endm
 
 .macro ROR6
-   orrcs   temp, temp, #0x100
-   rrxs    temp, temp
-   strb temp,[temp1]
+   orrcs   reg12, reg12, #0x100
+   rrxs    reg12, reg12
+   strb reg12,[reg1]
 .endm
 
 .macro JITADCSBCABS
@@ -709,46 +714,46 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITADCSBCABSX
    JITABS
-   ldrb    temp,[temp1, regX, lsr #24]
+   ldrb    reg12,[reg1, regX, lsr #24]
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
 .endm
 
 .macro JITADCSBCABSY
    JITABS
-   ldrb    temp,[temp1, regY, lsr #24]
+   ldrb    reg12,[reg1, regY, lsr #24]
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
 .endm
 
 .macro JITADCSBCZP
-   ldrb    temp,[ram6502,#0x00]
+   ldrb    reg12,[ram6502,#0x00]
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
 .endm
 
 .macro JITADCSBCIMM
-   mov     temp,#00 // NB could save a cycle later on
+   mov     reg12,#00 // NB could save a cycle later on
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
 .endm
 
 .macro JITADCSBCINDY
-   ldrh    temp1,[ram6502,#0x00]
+   ldrh    reg1,[ram6502,#0x00]
    tst     flags, #D_FLAG6502
-   ldrb    temp,[temp1,regY,LSR #24]
+   ldrb    reg12,[reg1,regY,LSR #24]
 .endm
 
 .macro JITADCSBCIND
-   ldrh    temp1,[ram6502,#0x00]
+   ldrh    reg1,[ram6502,#0x00]
    tst     flags, #D_FLAG6502
-   ldrb    temp,[temp1]
+   ldrb    reg12,[reg1]
 .endm
 
 .macro JITADCSBCZPX
    ADDR1REGXZP
    tst     flags, #D_FLAG6502
-   ldrb    temp,[ram6502,temp1,LSR#24]
+   ldrb    reg12,[ram6502,reg1,LSR#24]
 .endm
 
 
@@ -793,20 +798,20 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro  PLP
-   uadd8 temp2,regSP,temp
-   ldrb  temp2, [temp2]
-   uadd8 regSP,regSP,temp
+   uadd8 reg2,regSP,reg12
+   ldrb  reg2, [reg2]
+   uadd8 regSP,regSP,reg12
 
-   and  temp, flags, #0xffffff00
-   orr  temp, temp, temp2        // preserve the other bits in flags, e.g. the slowdown bit
-   bic  flags, temp, #N_FLAG6502+X_FLAG6502+B_FLAG6502+Z_FLAG6502+C_FLAG6502
-   and  temp, temp2, #N_FLAG6502
-   and  temp2, temp2, #Z_FLAG6502+C_FLAG6502
-   mov  temp, temp, lsl #24
-   orr  temp, temp, temp2, lsl #29
-   //   Need to update the ARM flags later with  msr     CPSR_flg, temp
-   // temp1 return address
-   // temp has 6502 flags to be restored to the ARM
+   and  reg12, flags, #0xffffff00
+   orr  reg12, reg12, reg2        // preserve the other bits in flags, e.g. the slowdown bit
+   bic  flags, reg12, #N_FLAG6502+X_FLAG6502+B_FLAG6502+Z_FLAG6502+C_FLAG6502
+   and  reg12, reg2, #N_FLAG6502
+   and  reg2, reg2, #Z_FLAG6502+C_FLAG6502
+   mov  reg12, reg12, lsl #24
+   orr  reg12, reg12, reg2, lsl #29
+   //   Need to update the ARM flags later with  msr     CPSR_flg, reg12
+   // reg1 return address
+   // reg12 has 6502 flags to be restored to the ARM
 .endm
 
 
@@ -1033,20 +1038,20 @@ Bopc_01:
    JITINDXLOGICAL orrs
 Bopc_04:
 Bopc_14:
-   mov temp1,#0x00
-   ldrb temp,[temp1]
-   mrs temp0, CPSR
+   mov reg1,#0x00
+   ldrb reg12,[reg1]
+   mrs reg0, CPSR
 Bopc_05:
    JITZPLOGICAL orrs
 Bopc_06:
-   ldrb temp,[ram6502,#00]
-   add   temp, temp, temp
-   strb  temp,[ram6502,#00]
-   movs  temp, temp, lsl #24
+   ldrb reg12,[ram6502,#00]
+   add   reg12, reg12, reg12
+   strb  reg12,[ram6502,#00]
+   movs  reg12, reg12, lsl #24
 Bopc_07:
    JITRMB 0
 Bopc_08:
-   orr   temp, flags, #X_FLAG6502+B_FLAG6502
+   orr   reg12, flags, #X_FLAG6502+B_FLAG6502
 Bopc_09:
    JITIMMLOGICAL orrs
 Bopc_0A:
@@ -1055,9 +1060,9 @@ Bopc_0A:
 Bopc_0C:
 Bopc_1C:
    JITABSLDRBWB
-   mrs temp0, CPSR
-   bic temp0, temp0, #Z_FLAG
-   tst temp, regA
+   mrs reg0, CPSR
+   bic reg0, reg0, #Z_FLAG
+   tst reg12, regA
 Bopc_0D:
    JITABSLOGICAL orrs
 Bopc_0E:
@@ -1075,8 +1080,8 @@ Bopc_15:
    JITZPXLOGICAL orrs
 Bopc_16:
    ADDR1REGXZP
-   ldrb temp,[ram6502,temp1,LSR #24]
-   mov temp1,temp1,LSR #24  // can save a cycle here
+   ldrb reg12,[ram6502,reg1,LSR #24]
+   mov reg1,reg1,LSR #24  // can save a cycle here
 Bopc_17:
    JITRMB 1
 Bopc_19:
@@ -1088,7 +1093,7 @@ Bopc_1D:
    JITABSXLOGICAL orrs
 Bopc_1E:
    JITABS
-   ldrb  temp,[temp1, regX, lsr #24]!
+   ldrb  reg12,[reg1, regX, lsr #24]!
    ASL
 Bopc_1F:
    JITBBR 1
@@ -1096,26 +1101,27 @@ Bopc_1F:
 Bopc_20:
    JITABS
    sub  regSP, regSP, #2
-   strh temp1,[regSP,#1]
+   strh reg1,[regSP,#1]
    orr  regSP, #0x0100
 
 Bopc_21:
    JITINDXLOGICAL ands
 Bopc_24:
-   ldrb temp,[ram6502,#0x00]
+   ldrb reg12,[ram6502,#0x00]
    bic     flags, flags, #V_FLAG6502
-   tst     temp, regA
+   tst     reg12, regA
 Bopc_25:
    JITZPLOGICAL ands
 Bopc_26:
-   ldrb temp,[ram6502,#00]
-   adc   temp, temp, temp
-   strb  temp,[ram6502,#00]
-   movs  temp, temp, lsl #24
+   ldrb reg12,[ram6502,#00]
+   adc   reg12, reg12, reg12
+   strb  reg12,[ram6502,#00]
+   movs  reg12, reg12, lsl #24
 Bopc_27:
    JITRMB 2
 Bopc_28:
-   mov   temp,#1
+Bopc_40:
+   mov   reg12,#1
 Bopc_29:
    JITIMMLOGICAL ands
 Bopc_2A:
@@ -1138,14 +1144,14 @@ Bopc_32:
    JITINDLOGICAL ands
 Bopc_34:
    ADDR1REGXZP
-   ldrb temp,[ram6502,temp1,LSR #24]
+   ldrb reg12,[ram6502,reg1,LSR #24]
    bic  flags, flags, #V_FLAG6502
 Bopc_35:
    JITZPXLOGICAL ands
 Bopc_36:
    ADDR1REGXZP
-   mov temp1,temp1,LSR #24 // can save a cycle here
-   ldrb temp,[temp1]
+   mov reg1,reg1,LSR #24 // can save a cycle here
+   ldrb reg12,[reg1]
 Bopc_37:
    JITRMB 3
 Bopc_39:
@@ -1154,14 +1160,14 @@ Bopc_3A:
    sub     regA, regA, #0x1
 Bopc_3C:
    JITABS
-   ldrb  temp,[temp1, regX, lsr #24]
+   ldrb  reg12,[reg1, regX, lsr #24]
    bic     flags, flags, #V_FLAG6502
-   tst     temp, regA
+   tst     reg12, regA
 Bopc_3D:
    JITABSXLOGICAL ands
 Bopc_3E:
    JITABS
-   ldrb  temp,[temp1, regX, lsr #24]!
+   ldrb  reg12,[reg1, regX, lsr #24]!
    ROL6
 Bopc_3F:
    JITBBR 3
@@ -1171,10 +1177,10 @@ Bopc_41:
 Bopc_45:
    JITZPLOGICAL eors
 Bopc_46:
-   ldrb temp,[ram6502,#00]
+   ldrb reg0,[ram6502,#00]
    nop
-   lsrs temp, temp, #1
-   strb  temp,[ram6502,#00]
+   lsrs reg0, reg0, #1
+   strb  reg0,[ram6502,#00]
 Bopc_47:
    JITRMB 4
 Bopc_48:
@@ -1191,7 +1197,6 @@ Bopc_4E:
    nop
 B_NOP:
 Bopc_00:
-Bopc_40:
    nop
    LSR
 Bopc_4F:
@@ -1206,9 +1211,9 @@ Bopc_55:
    JITZPXLOGICAL eors
 Bopc_56:
    ADDR1REGXZP
-   ldrb temp,[ram6502,temp1,LSR #24]
-   lsrs temp, temp, #1
-   strb temp,[ram6502,temp1,LSR #24]
+   ldrb reg0,[ram6502,reg1,LSR #24]
+   lsrs reg0, reg0, #1
+   strb reg0,[ram6502,reg1,LSR #24]
 Bopc_57:
    JITRMB 5
 Bopc_58:
@@ -1216,12 +1221,12 @@ Bopc_58:
 Bopc_59:
    JITABSYLOGICAL eors
 Bopc_5A:
-   mov  temp, regY,LSR  #24
+   mov  reg12, regY,LSR  #24
 Bopc_5D:
    JITABSXLOGICAL eors
 Bopc_5E:
    JITABS
-   ldrb  temp,[temp1, regX, lsr #24]!
+   ldrb  reg12,[reg1, regX, lsr #24]!
    nop
    LSR
 Bopc_5F:
@@ -1430,7 +1435,7 @@ opc_7F: // Opcode 7F - BBR7
    BBRS Bopc_7F bbrreturn
 
 Bopc_60:
-   ldrh temp0,[regSP,#1]
+   ldrh reg0,[regSP,#1]
 Bopc_61:
    JITINDX
 Bopc_64:
@@ -1438,26 +1443,26 @@ Bopc_64:
 Bopc_65:
    JITADCSBCZP
 Bopc_66:
-   ldrb temp,[ram6502,#00]
-   orrcs   temp, temp, #0x100
-   rrxs    temp, temp
-   strb temp,[ram6502,#00]
+   ldrb reg12,[ram6502,#00]
+   orrcs   reg12, reg12, #0x100
+   rrxs    reg12, reg12
+   strb reg12,[ram6502,#00]
 Bopc_67:
    JITRMB 6
 Bopc_68:
 Bopc_7A:
-   mov temp,#1
+   mov reg1,#1
 Bopc_69:
    JITADCSBCIMM
 Bopc_6A:
    and     regA, regA, #0xFF    // isolate lower byte
 Bopc_6C:
    MOVR1HIGH
-   ldrh temp,[temp1,#0x00]
+   ldrh reg12,[reg1,#0x00]
    nop
-   mov temp0,#JITLET
-   add temp0,temp0,temp,LSL #JITLETSHIFT
-   bx temp0
+   mov reg0,#JITLET
+   add reg0,reg0,reg12,LSL #JITLETSHIFT
+   bx reg0
 Bopc_6D:
    JITADCSBCABS
 Bopc_6E:
@@ -1475,16 +1480,16 @@ Bopc_72:
    JITADCSBCIND
 Bopc_74:
    ADDR1REGXZP
-   strb ram6502,[ram6502,temp1,LSR #24]
-   add temp,jittedtable16ptr, temp1,LSR #24-2
-   BLX temp
+   strb ram6502,[ram6502,reg1,LSR #24]
+   add reg0,jittedtable16ptr, reg1,LSR #24-2
+   BLX reg0
 
 Bopc_75:
    JITADCSBCZPX
 Bopc_76:
    ADDR1REGXZP
-   mov temp1,temp1,LSR #24
-   ldrb temp,[temp1]
+   mov reg1,reg1,LSR #24
+   ldrb reg12,[reg1]
 Bopc_77:
    JITRMB 7
 Bopc_78:
@@ -1495,15 +1500,15 @@ Bopc_79:
 
 Bopc_7C:
    JITABS
-   mov temp, regX, LSR #24
-   ldrh temp,[temp, temp1]
-   mov temp0,#JITLET
-   add pc,temp0,temp,LSL #JITLETSHIFT
+   mov reg0, regX, LSR #24
+   ldrh reg1,[reg0, reg1]
+   mov reg0,#JITLET
+   add pc,reg0,reg1,LSL #JITLETSHIFT
 Bopc_7D:
    JITADCSBCABSX
 Bopc_7E:
    JITABS
-   ldrb  temp,[temp1, regX, lsr #24]!
+   ldrb  reg12,[reg1, regX, lsr #24]!
    ROR6
 Bopc_7F:
    JITBBR 7
@@ -1512,8 +1517,8 @@ Bopc_7F:
 
 Bopc_81:
    ADDR1REGXZP
-   mov temp1,temp1,LSR #24
-   ldrh temp1,[temp1]
+   mov reg1,reg1,LSR #24
+   ldrh reg1,[reg1]
 Bopc_84:
    JITZPST regY
 Bopc_85:
@@ -1526,61 +1531,61 @@ Bopc_88:
    sub     regY, regY, #0x1000000
    teq     regY, #0
 Bopc_89:
-   mov temp,#0x00
-   mrs     temp1, CPSR
-   tst     regA, temp // *** can save a cycle here
+   mrs     reg1, CPSR
+   tst     regA, #00
+   bicne   reg1, reg1, #Z_FLAG
 Bopc_8A:
    sxtb    regA, regX, ror #24
    TEQ     regA, #0
 Bopc_8C:
    JITABSSTORE regY
 Bopc_8C_io:
-   JITABS
-   mov r0,temp1 // could save a cycle
-   mov r1,regY,LSR #24
+   JITABS r0
+   nop
+   mov reg1,regY,LSR #24
    nop
 Bopc_8D:
    JITABSSTORE regA
 Bopc_8D_io:
-   JITABS
-   mov r0,temp1 // could save a cycle
-   and r1,regA,#0xFF
+   JITABS r0
+   nop
+   and reg1,regA,#0xFF
    nop
 Bopc_8E:
    JITABSSTORE regX
 Bopc_8E_io:
-   JITABS
-   mov r0,temp1 // could save a cycle
-   mov r1,regX,LSR #24
+   JITABS r0
+   nop
+   mov reg1,regX,LSR #24
    nop
 Bopc_8F:
    JITBBS 0
 Bopc_91:
-   ldrh temp1,[ram6502,#00]
-   strb regA,[temp1,regY,LSR #24]!
-   add temp,jittedtable16ptr, temp1,LSL #2
-   BLX temp
+   ldrh reg1,[ram6502,#00]
+   strb regA,[reg1,regY,LSR #24]!
+   add reg0,jittedtable16ptr, reg1,LSL #2
+   BLX reg0
 
 Bopc_92:
-   ldrh temp1,[ram6502,#00]
-   strb regA,[temp1]
-   add temp,jittedtable16ptr, temp1,LSL #2
-   BLX temp
+   ldrh reg1,[ram6502,#00]
+   strb regA,[reg1]
+   add reg0,jittedtable16ptr, reg1,LSL #2
+   BLX reg0
 
 Bopc_94:
    ADDR1REGXZP
-   mov temp,regY,LSR #24
-   strb temp,[ram6502,temp1,LSR #24]
+   mov reg0,regY,LSR #24
+   strb reg0,[ram6502,reg1,LSR #24]
 Bopc_95:
    ADDR1REGXZP
-   strb regA,[ram6502,temp1,LSR #24]
-   add temp,jittedtable16ptr, temp1,LSR #24-2
-   BLX temp
+   strb regA,[ram6502,reg1,LSR #24]
+   add reg0,jittedtable16ptr, reg1,LSR #24-2
+   BLX reg0
 
 Bopc_96:
    ADDR1REGYCONST
-   mov temp,regX,LSR #24
-   strb temp,[ram6502,temp1,LSR #24]
+   mov reg0,regX,LSR #24
+   strb reg0,[ram6502,reg1,LSR #24]
 Bopc_97:
    JITSMB 1
 Bopc_98:
@@ -1622,7 +1627,12 @@ opc_88: // Opcode 88 - DEY
    SINGLEBYTE Bopc_88
 
 opc_89: // Opcode 89 - BIT #$00
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_89 bitimm 12
+   ldr temp0,=bitimm
+   COPY3LOAD Bopc_89
+   orr r9,r9,r4
+   BL COPY3STOREINCMAKEBRANCHLINK
+   B jitend2byte
+
 
 opc_8A: // Opcode 8A - TXA
    SINGLEBYTE Bopc_8A
@@ -1735,7 +1745,6 @@ opc_A9: // Opcode A9 - LDA #$00
    str r8,[r6,#12]
    ldr temp,[r11,r4,LSL #2]
    orr temp,temp,#1<<20// S FLAG
-   bic temp,temp,#0xF000
    orr temp,temp,#0xA000 // regA
    str temp,[r6]
    B jitend2byte
@@ -1877,8 +1886,8 @@ Bopc_A0:
    nop
 Bopc_A1:
    ADDR1REGXZP
-   mov temp1,temp1,LSR#24
-   ldrh temp,[temp1]
+   mov reg1,reg1,LSR#24
+   ldrh reg12,[reg1]
 Bopc_A2:
    MOVREGXCONST
    nop
@@ -1911,7 +1920,7 @@ Bopc_AC:
    JITABSLDRB
    nop
    nop
-   mov regY,temp, LSL #24
+   mov regY,reg12, LSL #24
    teq regY,#0
 Bopc_AC_io:
    JITABS r0
@@ -1921,7 +1930,7 @@ Bopc_AC_io:
    teq regY,#0
 Bopc_AD:
    MOVR1HIGH
-   ldrsb regA,[temp1,#0x00]
+   ldrsb regA,[reg1,#0x00]
    nop
    nop
    nop
@@ -1936,7 +1945,7 @@ Bopc_AE:
    JITABSLDRB
    nop
    nop
-   mov regX,temp, LSL #24
+   mov regX,reg12, LSL #24
    teq regX,#0
 Bopc_AE_io:
    JITABS r0
@@ -1948,29 +1957,29 @@ Bopc_AF:
    JITBBS 2
 
 Bopc_B1:
-   ldrh temp,[ram6502,#0x00]
-   mov temp1,regY,LSR #24
-   ldrsb regA,[temp1,temp]
+   ldrh reg0,[ram6502,#0x00]
+   mov reg1,regY,LSR #24
+   ldrsb regA,[reg1,reg0]
    teq   regA,#0
 Bopc_B2:
-   ldrh temp,[ram6502,#0x00]
+   ldrh reg0,[ram6502,#0x00]
    nop
-   ldrsb regA,[temp]
+   ldrsb regA,[reg0]
    teq   regA,#0
 Bopc_B4:
    ADDR1REGXZP
-   ldrb temp,[ram6502,temp1,LSR#24]
-   mov regY,temp,LSL #24
+   ldrb regY,[ram6502,reg1,LSR#24]
+   mov regY,regY,LSL #24
    teq   regY,#0
 Bopc_B5:
    ADDR1REGXZP
-   mov temp1,temp1,LSR#24
-   ldrsb regA,[temp1]
+   mov reg1,reg1,LSR#24
+   ldrsb regA,[reg1]
    teq   regA,#0
 Bopc_B6:
    ADDR1REGYCONST
-   ldrb temp,[ram6502,temp1,LSR#24]
-   mov regX,temp,LSL #24
+   ldrb reg12,[ram6502,reg1,LSR#24]
+   mov regX,reg12,LSL #24
    teq   regX,#0
 Bopc_B7:
    JITSMB 3
@@ -1979,8 +1988,8 @@ Bopc_B8:
    bic     flags, #V_FLAG6502
 Bopc_B9:
    JITABS
-   mov  temp, regY, lsr #24
-   ldrsb regA,[temp1, temp]
+   mov  regA, regY, lsr #24
+   ldrsb regA,[reg1, regA]
    nop
    teq  regA, #0
 Bopc_BA:
@@ -1988,19 +1997,19 @@ Bopc_BA:
    teq     regX, #0
 Bopc_BC:
    JITABS
-   ldrb regY,[temp1, regX, lsr #24]
+   ldrb regY,[reg1, regX, lsr #24]
    nop
    mov  regY,regY, lsl #24
    teq  regY, #0
 Bopc_BD:
    JITABS
-   mov  temp, regX, lsr #24
-   ldrsb regA,[temp1, temp]
+   mov  regA, regX, lsr #24
+   ldrsb regA,[reg1, regA]
    nop
    teq  regA, #0
 Bopc_BE:
    JITABS
-   ldrb regX,[temp1, regY, lsr #24]
+   ldrb regX,[reg1, regY, lsr #24]
    nop
    mov  regX,regX, lsl #24
    teq  regX, #0
@@ -2013,22 +2022,22 @@ Bopc_C0:
    nop
 Bopc_C1:
    ADDR1REGXZP
-   mov temp1,temp1,LSR#24
-   ldrh temp1,[temp1]
+   mov reg1,reg1,LSR#24
+   ldrh reg1,[reg1]
 Bopc_C4:
-   ldrb temp,[ram6502,#0x00]
+   ldrb reg0,[ram6502,#0x00]
    nop
    nop
-   cmp regY, temp, lsl #24
+   cmp regY, reg0, lsl #24
 Bopc_C5:
-   ldrb temp,[ram6502,#0x00]
-   mov temp1,regA,LSL #24
+   ldrb reg0,[ram6502,#0x00]
+   mov reg1,regA,LSL #24
    nop
-   cmp temp1, temp, LSL #24
+   cmp reg1, reg0, LSL #24
 Bopc_C6:
-   ldrb temp,[ram6502,#0]
-   sub  temp, temp, #1
-   strb temp,[ram6502,#0]
+   ldrb reg0,[ram6502,#0]
+   sub  reg0, reg0, #1
+   strb reg0,[ram6502,#0]
 Bopc_C7:
    JITSMB 4
 Bopc_C8:
@@ -2037,7 +2046,7 @@ Bopc_C8:
 Bopc_C9:
    MOVR1CONST
    nop
-   rsbs temp1,temp1,regA,LSL #24
+   rsbs reg1,reg1,regA,LSL #24
    nop
 Bopc_CA:
    sub     regX, regX, #0x1000000
@@ -2047,40 +2056,40 @@ Bopc_CC:
    nop
    nop
    nop
-   cmp regY,temp, lsl #24
+   cmp regY,reg12, lsl #24
 Bopc_CD:
    JITABSLDRB
    nop
-   mov temp1,regA,LSL #24
+   mov reg1,regA,LSL #24
    nop
-   cmp temp1,temp,LSL #24
+   cmp reg1,reg12,LSL #24
 Bopc_CE:
    JITABSLDRBWB
-   sub  temp, temp, #1
-   strb temp,[temp1]
-   sxtb temp, temp
-   teq  temp, #0
+   sub  reg12, reg12, #1
+   strb reg12,[reg1]
+   sxtb reg12, reg12
+   teq  reg12, #0
 Bopc_CF:
    JITBBS 4
 Bopc_D1:
-   ldrh temp,[ram6502,#0x00]
-   ldrb temp,[temp,regY, LSR #24]
-   mov temp1,regA, LSL #24
-   cmp temp1,temp,LSL #24
+   ldrh reg0,[ram6502,#0x00]
+   ldrb reg0,[reg0,regY, LSR #24]
+   mov reg1,regA, LSL #24
+   cmp reg1,reg0,LSL #24
 Bopc_D2:
-   ldrh temp,[ram6502,#0x00]
-   ldrb temp,[temp]
-   mov temp1,regA, LSL #24
-   cmp temp1,temp,LSL #24
+   ldrh reg0,[ram6502,#0x00]
+   ldrb reg0,[reg0]
+   mov reg1,regA, LSL #24
+   cmp reg1,reg0,LSL #24
 Bopc_D5:
    ADDR1REGXZP
-   ldrb temp,[ram6502,temp1,LSR#24]
-   mov temp1,regA,LSL #24
-   cmp temp1,temp,LSL #24
+   ldrb reg0,[ram6502,reg1,LSR#24]
+   mov reg1,regA,LSL #24
+   cmp reg1,reg0,LSL #24
 Bopc_D6:
    ADDR1REGXZP
-   ldrb temp,[ram6502,temp1,LSR#24]
-   sub  temp, temp, #1
+   ldrb reg0,[ram6502,reg1,LSR#24]
+   sub  reg0, reg0, #1
 Bopc_D7:
    JITSMB 5
 Bopc_D8:
@@ -2088,23 +2097,23 @@ Bopc_D8:
    bic     flags, flags, #D_FLAG6502
 Bopc_D9:
    JITABS
-   ldrb temp,[temp1,regY,LSR #24]
+   ldrb reg0,[reg1,regY,LSR #24]
    nop
-   mov temp1,regA,LSL #24
-   cmp temp1,temp,LSL #24
+   mov reg1,regA,LSL #24
+   cmp reg1,reg0,LSL #24
 Bopc_DA:
-   mov     temp, regX, LSR #24
+   mov     reg12, regX, LSR #24
 Bopc_DD:
    JITABS
-   ldrb temp,[temp1,regX,LSR #24]
+   ldrb reg0,[reg1,regX,LSR #24]
    nop
-   mov temp1,regA, LSL #24
-   cmp temp1,temp,LSL #24
+   mov reg1,regA, LSL #24
+   cmp reg1,reg0,LSL #24
 Bopc_DE:
    JITABS
-   ldrb temp,[temp1, regX, lsr #24]!
-   sub  temp, temp, #1
-   strb temp,[temp1]
+   ldrb reg0,[reg1, regX, lsr #24]!
+   sub  reg0, reg0, #1
+   strb reg0,[reg1]
 Bopc_DF:
    JITBBS 5
 Bopc_E0:
@@ -2114,19 +2123,17 @@ Bopc_E0:
    nop
 Bopc_E1:
    JITINDX
-Bopc_E3:
-   mov temp,#1
 Bopc_E4:
-   ldrb temp,[ram6502,#0x00]
+   ldrb reg0,[ram6502,#0x00]
    nop
    nop
-   cmp regX, temp, lsl #24
+   cmp regX, reg0, lsl #24
 Bopc_E5:
    JITADCSBCZP
 Bopc_E6:
-   ldrb temp,[ram6502,#0]
-   add  temp, temp, #1
-   strb temp,[ram6502,#0]
+   ldrb reg0,[ram6502,#0]
+   add  reg0, reg0, #1
+   strb reg0,[ram6502,#0]
 Bopc_E7:
    JITSMB 6
 Bopc_E8:
@@ -2137,11 +2144,11 @@ Bopc_E9:
 Bopc_EB:
 #if defined(TIMING_INSTRUCTION)
 #if defined(RPI2)|| defined(RPI3) || defined(RPI4)
-   mrc     p15, 0, temp0, c9, c13, 0
+   mrc     p15, 0, reg0, c9, c13, 0
 #else
-   MRC     p15, 0, temp0, c15, c12, 1    // Read Cycle Counter Register
+   MRC     p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
 #endif
-   str     temp0,[ram6502,#0xE0]
+   str     reg0,[ram6502,#0xE0]
 #else
    nop
    nop
@@ -2151,14 +2158,14 @@ Bopc_EC:
    nop
    nop
    nop
-   cmp regX,temp, lsl #24
+   cmp regX,reg12, lsl #24
 Bopc_ED:
    JITADCSBCABS
 Bopc_EE:
    JITABSLDRBWB
    BL .+8
-   sxtb temp, temp
-   teq  temp, #0
+   sxtb reg12, reg12
+   teq  reg12, #0
 Bopc_EF:
    JITBBS 6
 Bopc_F1:
@@ -2171,8 +2178,8 @@ Bopc_F5:
    JITADCSBCZPX
 Bopc_F6:
    ADDR1REGXZP
-   ldrb temp,[ram6502,temp1,LSR#24]
-   add  temp, temp, #1
+   ldrb reg0,[ram6502,reg1,LSR#24]
+   add  reg0, reg0, #1
 Bopc_F7:
    JITSMB 7
 Bopc_F8:
@@ -2181,15 +2188,16 @@ Bopc_F8:
 Bopc_F9:
    JITADCSBCABSY
 Bopc_FA:
-   mov temp,#1
+Bopc_E3:
+   mov reg1,#1
 Bopc_FB:
 #if defined(TIMING_INSTRUCTION)
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
-   mrc     p15, 0, temp0, c9, c13, 0
+   mrc     p15, 0, reg0, c9, c13, 0
 #else
-   MRC     p15, 0, temp0, c15, c12, 1    // Read Cycle Counter Register
+   MRC     p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
 #endif
-   str     temp0,[ram6502,#0xE4]
+   str     reg0,[ram6502,#0xE4]
 #else
    nop
    nop
@@ -2198,10 +2206,10 @@ Bopc_FD:
    JITADCSBCABSX
 Bopc_FE:
    JITABS
-   ldrb temp,[temp1, regX, lsr #24]!
+   ldrb reg12,[reg1, regX, lsr #24]!
    BL .+8
-   sxtb temp, temp
-   teq  temp, #0
+   sxtb reg12, reg12
+   teq  reg12, #0
 Bopc_FF:
    JITBBS 7
 
@@ -2610,12 +2618,12 @@ noirq:
    subs    pc, lr, #4             // Return from ISR
 
 CHECK_IRQ:
-   ldr     temp0, =tube_irq             // Get IRQ status
-   ldr     temp0, [temp0]
-   //mrs     temp, CPSR                  // Preserve the 6502 flags
+   ldr     reg0, =tube_irq             // Get IRQ status
+   ldr     reg0, [reg0]
+   //mrs     reg12, CPSR                  // Preserve the 6502 flags
    tst     flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
-   eoreq   temp0, temp0, #1
-   tsteq   temp0, #1                    // Test for IRQ
+   eoreq   reg0, reg0, #1
+   tsteq   reg0, #1                    // Test for IRQ
    beq     handle_irq
    msr     CPSR_flg, temp              // Restore the 6502 flags
    mov     temp1,temp1,LSL #JITLETSHIFT
@@ -2649,23 +2657,23 @@ handle_nmi:
 // B dojit.
 // the JITTEDTABLE16 entries can be replaced with bx lr
 // the caches need to be flushed
-// temp1 is the memory location that has been unjitted
+// reg1 is the memory location that has been unjitted
 
 
 // one byte instruction
-dejit16bit1: //temp1 pointer to address to dejit
-   ldr temp2,=dojit-JITLET-8
-   ldr temp0,=MOVPCR14INSTRUCTION
-   mov temp,#JITLET
-   sub temp2,temp2,temp1,LSL # JITLETSHIFT
-   mov temp3,#0 // only used in Armv6 DSB
-   mov temp2,temp2,LSR#2
-   add temp2,temp2,#BLINSTRUCTION
+dejit16bit1: //reg1 pointer to address to dejit
+   ldr reg2,=dojit-JITLET-8
+   ldr reg0,=MOVPCR14INSTRUCTION
+   mov reg12,#JITLET
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   mov reg3,#0 // only used in Armv6 DSB
+   mov reg2,reg2,LSR#2
+   add reg2,reg2,#BLINSTRUCTION
 
-   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
    DEJITCLEAN 1
-   mov temp,#JITTEDTABLE16
-   str temp0,[temp,temp1,LSL #2]!
+   mov reg12,#JITTEDTABLE16
+   str reg0,[reg12,reg1,LSL #2]!
    DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
@@ -2673,51 +2681,51 @@ dejit16bit1: //temp1 pointer to address to dejit
    bx lr
 
 // two byte instruction
-dejit16bit21: // temp1 , temp1+4
+dejit16bit21: // reg1 , reg1+4
 
-   ldr temp2,=dojit-JITLET-8
-   ldr temp0,=MOVPCR14INSTRUCTION
-   mov temp,#JITLET
-   sub temp2,temp2,temp1,LSL # JITLETSHIFT
-   mov temp3,#0 // only used in Armv6 DSB
-   mov temp2,temp2,LSR#2
-   add temp2,temp2,#BLINSTRUCTION
+   ldr reg2,=dojit-JITLET-8
+   ldr reg0,=MOVPCR14INSTRUCTION
+   mov reg12,#JITLET
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   mov reg3,#0 // only used in Armv6 DSB
+   mov reg2,reg2,LSR#2
+   add reg2,reg2,#BLINSTRUCTION
 
-   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
    DEJITCLEAN 1
-   sub temp2,temp2,#(NEXTJITLET>>2)
-   str temp2,[temp,#NEXTJITLET]!
+   sub reg2,reg2,#(NEXTJITLET>>2)
+   str reg2,[reg12,#NEXTJITLET]!
    DEJITCLEAN 1
 
-   mov temp,#JITTEDTABLE16
-   str temp0,[temp,temp1,LSL #2]!
+   mov reg12,#JITTEDTABLE16
+   str reg0,[reg12,reg1,LSL #2]!
    DEJITCLEAN 1
-   str temp0,[temp,#4]!
+   str reg0,[reg12,#4]!
    DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
    bx lr
 
-dejit16bit22: // temp1 , temp1-4
-   ldr temp2,=(dojit-JITLET-8)
-   ldr temp0,=MOVPCR14INSTRUCTION
-   mov temp,#JITLET
-   sub temp2,temp2,temp1,LSL # JITLETSHIFT
-   mov temp3,#0 // only used in Armv6 DSB
-   mov temp2,temp2,LSR#2
-   add temp2,temp2,#BLINSTRUCTION
+dejit16bit22: // reg1 , reg1-4
+   ldr reg2,=(dojit-JITLET-8)
+   ldr reg0,=MOVPCR14INSTRUCTION
+   mov reg12,#JITLET
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   mov reg3,#0 // only used in Armv6 DSB
+   mov reg2,reg2,LSR#2
+   add reg2,reg2,#BLINSTRUCTION
 
-   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
    DEJITCLEAN 1
-   add temp2,temp2,#(NEXTJITLET>>2)
-   str temp2,[temp,#-NEXTJITLET]!
+   add reg2,reg2,#(NEXTJITLET>>2)
+   str reg2,[reg12,#-NEXTJITLET]!
    DEJITCLEAN 1
 
-   mov temp,#JITTEDTABLE16
-   str temp0,[temp,temp1,LSL #2]!
+   mov reg12,#JITTEDTABLE16
+   str reg0,[reg12,reg1,LSL #2]!
    DEJITCLEAN 1
-   str temp0,[temp,#-4]!
+   str reg0,[reg12,#-4]!
    DEJITCLEAN 0
 
 #if defined(RPI4)|| defined(RPI3)
@@ -2726,91 +2734,91 @@ dejit16bit22: // temp1 , temp1-4
    bx lr
 
 // three byte instruction
-dejit16bit31: // temp1 , temp1+4, temp1 + 8
-   ldr temp2,=dojit-JITLET-8
-   ldr temp0,=MOVPCR14INSTRUCTION
-   mov temp,#JITLET
-   sub temp2,temp2,temp1,LSL # JITLETSHIFT
-   mov temp3,#0 // only used in Armv6 DSB
-   mov temp2,temp2,LSR#2
-   add temp2,temp2,#BLINSTRUCTION
+dejit16bit31: // reg1 , reg1+4, reg1 + 8
+   ldr reg2,=dojit-JITLET-8
+   ldr reg0,=MOVPCR14INSTRUCTION
+   mov reg12,#JITLET
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   mov reg3,#0 // only used in Armv6 DSB
+   mov reg2,reg2,LSR#2
+   add reg2,reg2,#BLINSTRUCTION
 
-   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
    DEJITCLEAN 1
-   sub temp2,temp2,#NEXTJITLET>>2
-   str temp2,[temp,#NEXTJITLET]!
+   sub reg2,reg2,#NEXTJITLET>>2
+   str reg2,[reg12,#NEXTJITLET]!
    DEJITCLEANMID
-   sub temp2,temp2,#NEXTJITLET>>2
-   str temp2,[temp,#NEXTJITLET]!
+   sub reg2,reg2,#NEXTJITLET>>2
+   str reg2,[reg12,#NEXTJITLET]!
    DEJITCLEAN 1
 
-   mov temp,#JITTEDTABLE16
-   str temp0,[temp,temp1,LSL #2]!
+   mov reg12,#JITTEDTABLE16
+   str reg0,[reg12,reg1,LSL #2]!
    DEJITCLEAN 1
-   str temp0,[temp,#4]!
+   str reg0,[reg12,#4]!
    DEJITCLEANMID
-   str temp0,[temp,#4]!
+   str reg0,[reg12,#4]!
    DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
    bx lr
 
-dejit16bit32: // temp1 , temp1-4, temp1 + 4
+dejit16bit32: // reg1 , reg1-4, reg1 + 4
 
-   ldr temp2,=dojit-JITLET-8
-   ldr temp0,=MOVPCR14INSTRUCTION
-   mov temp,#JITLET
-   sub temp2,temp2,temp1,LSL # JITLETSHIFT
-   mov temp3,#0 // only used in Armv6 DSB
-   mov temp2,temp2,LSR#2
-   add temp2,temp2,#BLINSTRUCTION
+   ldr reg2,=dojit-JITLET-8
+   ldr reg0,=MOVPCR14INSTRUCTION
+   mov reg12,#JITLET
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   mov reg3,#0 // only used in Armv6 DSB
+   mov reg2,reg2,LSR#2
+   add reg2,reg2,#BLINSTRUCTION
 
-   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
    DEJITCLEANMID
-   sub temp2,temp2,#-(NEXTJITLET>>2)
-   str temp2,[temp,#-NEXTJITLET]!
+   sub reg2,reg2,#-(NEXTJITLET>>2)
+   str reg2,[reg12,#-NEXTJITLET]!
    DEJITCLEAN 1
-   sub temp2,temp2,#(NEXTJITLET>>2)*2
-   str temp2,[temp,#NEXTJITLET*2]!
+   sub reg2,reg2,#(NEXTJITLET>>2)*2
+   str reg2,[reg12,#NEXTJITLET*2]!
    DEJITCLEAN 1
 
-   mov temp,#JITTEDTABLE16
-   str temp0,[temp,temp1,LSL #2]!
+   mov reg12,#JITTEDTABLE16
+   str reg0,[reg12,reg1,LSL #2]!
    DEJITCLEANMID
-   str temp0,[temp,#-4]!
+   str reg0,[reg12,#-4]!
    DEJITCLEAN 1
-   str temp0,[temp,#8]!
+   str reg0,[reg12,#8]!
    DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
 #endif
    bx lr
 
-dejit16bit33: // temp1 , temp1-4, temp1 - 8
-   ldr temp2,=dojit-JITLET-8
-   ldr temp0,=MOVPCR14INSTRUCTION
-   mov temp,#JITLET
-   sub temp2,temp2,temp1,LSL # JITLETSHIFT
-   mov temp3,#0 // only used in Armv6 DSB
-   mov temp2,temp2,LSR#2
-   add temp2,temp2,#BLINSTRUCTION
+dejit16bit33: // reg1 , reg1-4, reg1 - 8
+   ldr reg2,=dojit-JITLET-8
+   ldr reg0,=MOVPCR14INSTRUCTION
+   mov reg12,#JITLET
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   mov reg3,#0 // only used in Armv6 DSB
+   mov reg2,reg2,LSR#2
+   add reg2,reg2,#BLINSTRUCTION
 
-   str temp2,[temp,temp1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
    DEJITCLEAN 1
-   sub temp2,temp2,#-(NEXTJITLET>>2)
-   str temp2,[temp,#-NEXTJITLET]!
+   sub reg2,reg2,#-(NEXTJITLET>>2)
+   str reg2,[reg12,#-NEXTJITLET]!
    DEJITCLEANMID
-   sub temp2,temp2,#-(NEXTJITLET>>2)
-   str temp2,[temp,#-NEXTJITLET]!
+   sub reg2,reg2,#-(NEXTJITLET>>2)
+   str reg2,[reg12,#-NEXTJITLET]!
    DEJITCLEAN 1
 
-   mov temp,#JITTEDTABLE16
-   str temp0,[temp,temp1,LSL #2]!
+   mov reg12,#JITTEDTABLE16
+   str reg0,[reg12,reg1,LSL #2]!
    DEJITCLEAN 1
-   str temp0,[temp,#-4]!
+   str reg0,[reg12,#-4]!
    DEJITCLEANMID
-   str temp0,[temp,#-4]!
+   str reg0,[reg12,#-4]!
    DEJITCLEAN 0
 #if defined(RPI4)|| defined(RPI3)
    ISB
@@ -2830,7 +2838,7 @@ dojit:
         mov     r7, #TEST2_MASK
         str     r7, [r8]
    sub temp2,R14,#JITLET
-   mov temp3,R14 // return address ( first address of jitted code)
+   mov r3,R14 // return address ( first address of jitted code)
    mov temp2,temp2,LSR#JITLETSHIFT
    b jitentry
 
@@ -3179,55 +3187,54 @@ fixuptype2accessquick:
    bx lr
 
 ioload:
-   push    {ram6502,r12,lr}            // ram6502 (r6) is used as a working register
-   mrs     ram6502, CPSR               // Save 6502 flags and current FIQ/IRQ bits
-   CPSID   if                          // Disable FIQ/IRQ at the same time
-   bl      tube_parasite_read          // Call up to C code to handle parasite read
-   msr     CPSR, ram6502               // Restore 6502 flags and FIQ/IRQ bits
-   pop     {ram6502,r12,pc}            // Restore registers and return
+   push    {lr}               // ram6502 (r6) is used as a working register
+   mrs     reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   CPSID   if                 // Disable FIQ/IRQ at the same time
+   bl      tube_parasite_read // Call up to C code to handle parasite read
+   msr     CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
+   pop     {pc}               // Restore registers and return
 
 iostore:
-   push    {ram6502,r12,lr}            // ram6502 (r6) is used as a working register
-   mrs     ram6502, CPSR               // Save 6502 flags and current FIQ/IRQ bits
-   CPSID   if                          // Disable FIQ/IRQ at the same time
+   push    {lr}               // ram6502 (r6) is used as a working register
+   mrs     reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   CPSID   if                 // Disable FIQ/IRQ at the same time
    bl      tube_parasite_write_banksel // Call up to C code to handle parasite write
-   msr     CPSR, ram6502               // Restore 6502 flags and FIQ/IRQ bits
-   pop     {ram6502,r12,pc}            // Restore registers and return
+   msr     CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
+   pop     {pc}               // Restore registers and return
 
 // Jits overflow
 
 brk:
-   sub temp1,r14,#JITLET
-   mov temp1,temp1,LSR#JITLETSHIFT
-   add temp1,temp1,#1
+   sub reg1,r14,#JITLET
+   mov reg1,reg1,LSR#JITLETSHIFT
+   add reg1,reg1,#1
    INTR    -2, 1
 
 rti:
-   mov   temp,#1
    PLP
-   ldrh    temp1, [regSP, #1]
+   ldrh    reg1, [regSP, #1]
 
-   mov     temp2, #2
-   UADD8   regSP, regSP, temp2
+   mov     reg2, #2
+   UADD8   regSP, regSP, reg2
 
-   mov temp2,#0xFF
-   orr temp2,temp2,#0xff<<8
-   cmp temp1,temp2
+   mov reg2,#0xFF
+   orr reg2,reg2,#0xff<<8
+   cmp reg1,reg2
 
    // so we have an irq that happened during execution
    beq noirq
 
-   ldr     temp0, =tube_irq             // Get IRQ status
-   ldr     temp0, [temp0]
-   //mrs     temp, CPSR                  // Preserve the 6502 flags
+   ldr     reg0, =tube_irq             // Get IRQ status
+   ldr     reg0, [reg0]
+   //mrs     reg12, CPSR                  // Preserve the 6502 flags
    tst     flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
-   eoreq   temp0, temp0, #1
-   tsteq   temp0, #1                    // Test for IRQ
+   eoreq   reg0, reg0, #1
+   tsteq   reg0, #1                    // Test for IRQ
    beq     handle_irqrti
-   msr     CPSR_flg, temp              // Restore the 6502 flags
-   mov     temp1,temp1,LSL #JITLETSHIFT
-   add   temp1,temp1,#JITLET
-   bx    temp1
+   msr     CPSR_flg, reg12              // Restore the 6502 flags
+   mov     reg1,reg1,LSL #JITLETSHIFT
+   add   reg1,reg1,#JITLET
+   bx    reg1
 
 handle_irqrti:
 
@@ -3236,137 +3243,132 @@ handle_irqrti:
 
 
 cli:
-   mrs temp,CPSR
+   mrs reg12,CPSR
    B check_irq_plp
 
 plp:
    PLP
 // CHECK_IRQ
 check_irq_plp:
-   ldr     temp0, =tube_irq             // Get IRQ status
-   ldr     temp0, [temp0]
-   //mrs     temp, CPSR                  // Preserve the 6502 flags
+   ldr     reg0, =tube_irq             // Get IRQ status
+   ldr     reg0, [reg0]
+   //mrs     reg12, CPSR                  // Preserve the 6502 flags
    tst     flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
-   eoreq   temp0, temp0, #1
-   tsteq   temp0, #1                    // Test for IRQ
+   eoreq   reg0, reg0, #1
+   tsteq   reg0, #1                    // Test for IRQ
    beq     handle_irqplp
-   msr     CPSR_flg, temp              // Restore the 6502 flags
+   msr     CPSR_flg, reg12              // Restore the 6502 flags
    bx lr
 
 handle_irqplp:
-   sub temp1,r14,#JITLET
-   mov temp1,temp1,LSR#JITLETSHIFT
+   sub reg1,r14,#JITLET
+   mov reg1,reg1,LSR#JITLETSHIFT
 
-   msr  CPSR_flg, temp     // Restore the 6502 flags
+   msr  CPSR_flg, reg12     // Restore the 6502 flags
    INTR -2, 0
 
 putcharopcode:
    push    {regSP, r12,r14}
    mrs     regSP, CPSR               // Save 6502 flags
-   ldr temp,=putchar
+   ldr reg12,=putchar
    mov r0,regA
-   BLX temp
+   BLX reg12
    msr     CPSR_flg, regSP
    pop     {regSP,r12,pc}
 
 debugopcode:
 #if JITDEBUG
-   ldr temp1,=debugflag
-   str temp,[temp1]
+   ldr reg1,=debugflag
+   str reg12,[reg1]
 #endif
    bx lr
 
 invertcarry:
-   mrs   temp0, CPSR
-   eor   temp0, temp0, #C_FLAG
-   msr   CPSR_flg, temp0
+   mrs   reg0, CPSR
+   eor   reg0, reg0, #C_FLAG
+   msr   CPSR_flg, reg0
    bx lr
 
 testvflagC:
-   mrs     temp1, CPSR
+   mrs     reg1, CPSR
    tst     flags, #V_FLAG6502
    addne pc,r14,#8 // return to jit
    bx lr
 
 testvflagS:
-   mrs     temp1, CPSR
+   mrs     reg1, CPSR
    tst     flags, #V_FLAG6502
    addeq pc,r14,#8 // return to jit
    bx lr
 
 bbrreturn:
    addne pc,r14,#4 // return to jit
-   msr     CPSR_flg, temp1
+   msr     CPSR_flg, reg1
    bx lr
 
 bbsreturn:
    addeq pc,r14,#4 // return to jit
-   msr     CPSR_flg, temp1
+   msr     CPSR_flg, reg1
    bx lr
 
 bitimm:
-   bicne   temp1, temp1, #Z_FLAG
-   orreq   temp1, temp1, #Z_FLAG
-   msr     CPSR_flg, temp1
+   bicne   reg1, reg1, #Z_FLAG
+   orreq   reg1, reg1, #Z_FLAG
+   msr     CPSR_flg, reg1
    bx lr
 
 jitstxytable:
-   add temp,jittedtable16ptr,temp1,LSR #24-2
-   BX temp
+   add reg0,jittedtable16ptr,reg1,LSR #24-2
+   BX reg0
 
 jitstatable:
-   strb regA,[temp1]
-   add temp,jittedtable16ptr, temp1,LSL #2
-   BX temp
+   strb regA,[reg1]
+   add reg0,jittedtable16ptr, reg1,LSL #2
+   BX reg0
 
 storeXflags:
-   strb temp,[ram6502,temp1,LSR#24]
+   strb reg0,[ram6502,reg1,LSR#24]
 tempflags:
-   sxtb temp, temp
-   teq  temp, #0
+   sxtb reg0, reg0
+   teq  reg0, #0
    bx lr
 
 incstore:
-   add  temp, temp, #1
-   strb temp,[temp1]
-   bx lr
-
-decstore:
-   sub  temp, temp, #1
-   strb temp,[temp1]
+   add  reg12, reg12, #1
+   strb reg12,[reg1]
    bx lr
 
 plx:
-   uadd8 regX,regSP,temp
+   uadd8 regX,regSP,reg1
    ldrb  regX, [regX]
-   uadd8 regSP,regSP,temp
+   uadd8 regSP,regSP,reg1
    mov   regX, regX, LSL #24
    teq   regX, #0
    bx lr
 
 ply:
-   uadd8 regY,regSP,temp
+   uadd8 regY,regSP,reg1
    ldrb  regY, [regY]
-   uadd8 regSP,regSP,temp
+   uadd8 regSP,regSP,reg1
    mov   regY, regY, LSL #24
    teq   regY, #0
    bx lr
 
 pla:
-   uadd8 regA,regSP,temp
+   uadd8 regA,regSP,reg1
    ldrsb regA, [regA]
-   uadd8 regSP,regSP,temp
+   uadd8 regSP,regSP,reg1
    teq   regA, #0
    bx lr
 
 rts:
-   mov temp1, #2
-   mov temp,#JITLET
-   UADD8 regSP, regSP, temp1
-   add  temp1,temp,#NEXTJITLET
-   add  temp1,temp1,temp0,LSL #JITLETSHIFT
+   mov reg1, #2
+   mov reg12,#JITLET
+   UADD8 regSP, regSP, reg1
+   add  reg1,reg12,#NEXTJITLET
+   add  reg1,reg1,reg0,LSL #JITLETSHIFT
 
-   bx temp1
+   bx reg1
 
 rora:
    subcs   regA, regA, #0x100   // if Carry set all other bits ie sign extend
@@ -3378,13 +3380,13 @@ ror:
    bx lr
 
 rol:
-   adc  temp, temp, temp
-   strb temp,[temp1]
-   lsls    temp, temp, #24
+   adc  reg12, reg12, reg12
+   strb reg12,[reg1]
+   lsls    reg12, reg12, #24
    bx lr
 
 rola:
-   lsls    temp1, regA, #24
+   lsls    reg1, regA, #24
    sxtb    regA, regA
    bx lr
 
@@ -3394,36 +3396,36 @@ bitioload: //2c
    pop  {r14}
 
 bitadjustr14:
-   add temp2,r14,#16
+   add reg2,r14,#16
    bic     flags, flags, #V_FLAG6502
    tst     r0, regA  // This clears N flag and sets up the Z flag
-   mrs     temp, CPSR
-   and     temp1, r0, #N_FLAG6502
+   mrs     reg12, CPSR
+   and     reg1, r0, #N_FLAG6502
    and     r0, r0, #V_FLAG6502
    orr     flags, flags, r0
-   orr     temp, temp, temp1, LSL #24
-   msr     CPSR_flg, temp
-   bx  temp2
+   orr     reg12, reg12, reg1, LSL #24
+   msr     CPSR_flg, reg12
+   bx  reg2
 
 bit: // 34
-   tst     temp, regA  // This clears N flag and sets up the Z flag
+   tst     reg12, regA  // This clears N flag and sets up the Z flag
 bit2: // 24 3c
-   mrs     temp0, CPSR
-   and     temp1, temp, #N_FLAG6502
-   and     temp, temp, #V_FLAG6502
-   orr     flags, flags, temp
-   orr     temp0, temp0, temp1, LSL #24
-   msr     CPSR_flg, temp0
+   mrs     reg0, CPSR
+   and     reg1, reg12, #N_FLAG6502
+   and     reg12, reg12, #V_FLAG6502
+   orr     flags, flags, reg12
+   orr     reg0, reg0, reg1, LSL #24
+   msr     CPSR_flg, reg0
    bx lr
 
 cmpa:
-   ldrb temp,[temp1]
-   mov temp1,regA,LSL #24
-   cmp temp1,temp,LSL#24
+   ldrb reg12,[reg1]
+   mov reg1,regA,LSL #24
+   cmp reg1,reg12,LSL#24
    bx lr
 
 loada:
-   ldrsb regA,[temp]
+   ldrsb regA,[reg12]
    teq regA,#0
    bx lr
 
@@ -3437,39 +3439,39 @@ asl:
    bx lr
 
 php:
-   orrmi temp, temp, #N_FLAG6502
-   orrcs temp, temp, #C_FLAG6502
-   orreq temp, temp, #Z_FLAG6502
+   orrmi reg12, reg12, #N_FLAG6502
+   orrcs reg12, reg12, #C_FLAG6502
+   orreq reg12, reg12, #Z_FLAG6502
 pushtemp:
-   SPUSH temp
+   SPUSH reg12
    bx lr
 
-//   mrs temp0, CPSR
+//   mrs reg0, CPSR
 trb:
-   bic temp0, temp0, #Z_FLAG
-   tst temp, regA
+   bic reg0, reg0, #Z_FLAG
+   tst reg12, regA
 trb2:
-   bic temp, temp, regA
-   strb temp,[temp1]
-   orreq   temp0, temp0, #Z_FLAG
-   msr     CPSR_flg, temp0
+   bic reg12, reg12, regA
+   strb reg12,[reg1]
+   orreq   reg0, reg0, #Z_FLAG
+   msr     CPSR_flg, reg0
    bx lr
 
-//   mrs temp0, CPSR
+//   mrs reg0, CPSR
 tsb:
-   bic temp0, temp0, #Z_FLAG
-   tst temp, regA
+   bic reg0, reg0, #Z_FLAG
+   tst reg12, regA
 tsb2:
-   orr temp, temp, regA
-   strb temp,[temp1]
-   orreq   temp0, temp0, #Z_FLAG
-   msr     CPSR_flg, temp0
+   orr reg12, reg12, regA
+   strb reg12,[reg1]
+   orreq   reg0, reg0, #Z_FLAG
+   msr     CPSR_flg, reg0
    bx lr
 
-//   mov temp1,temp1,LSR #24
+//   mov reg1,reg1,LSR #24
 ldrhldrsb:
-   ldrh temp,[temp1]
-   ldrsb temp,[temp]
+   ldrh reg0,[reg1]
+   ldrsb reg0,[reg0]
    bx lr
 
 //
@@ -3477,7 +3479,7 @@ ldrhldrsb:
 //
 // TODO **** sort out registers *****
 ADCload:
-        ldrb   temp,[temp1]
+        ldrb   reg12,[reg1]
 ADC0:
         tst     flags, #D_FLAG6502
 ADC1:
@@ -3485,38 +3487,38 @@ ADC1:
 ADC2:
         lsl     regA, regA, #24
 ADC3:
-        subcs   temp, temp ,#0x100    // if carry set then set top 24 bits
+        subcs   reg12, reg12 ,#0x100    // if carry set then set top 24 bits
         bne     6f
-        adcs    regA, regA, temp, ror #8
+        adcs    regA, regA, reg12, ror #8
         orrvs   flags, #V_FLAG6502
         SXTB    regA, regA, ROR #24
         bx lr
 6:
 decimal_mode_adc:
-        // if carry is set the upper 24 bits of temp are set too
+        // if carry is set the upper 24 bits of reg12 are set too
 
-        and     temp0, regA, #0x0F<<24
-        and     temp1, temp, #15
+        and     reg0, regA, #0x0F<<24
+        and     reg1, reg12, #15
 
-        adc     temp1, temp1, temp0, lsr #24
-        cmp     temp1, #10
-        subcs   temp1, temp1, #10
-        and     temp1, temp1, #0x0F
-        orrcs   temp, temp ,#0x0F
+        adc     reg1, reg1, reg0, lsr #24
+        cmp     reg1, #10
+        subcs   reg1, reg1, #10
+        and     reg1, reg1, #0x0F
+        orrcs   reg12, reg12 ,#0x0F
         and     regA, regA, #0xF0<<24
         orrcs   regA, regA, #0x0F<<24
-        adcs    regA, regA, temp , ror #8
+        adcs    regA, regA, reg12 , ror #8
         orrvs   flags, #V_FLAG6502
         cmpcc   regA, #10<<28
         subcs   regA, regA, #10<<28
         and     regA, regA, #0xF0<<24
-        orr     regA, regA, temp1, lsl #24
+        orr     regA, regA, reg1, lsl #24
         sxtb    regA, regA, ror #24
         teq     regA, #0
         bx lr
 
 SBCload:
-        ldrb    temp,[temp1]
+        ldrb    reg12,[reg1]
 SBC0:
         tst     flags, #D_FLAG6502
 SBC1:
@@ -3526,21 +3528,21 @@ SBC2:
 SBC3:
         bne     6f
         // probably can remove this with some thought
-        subcc   temp, temp ,#0x100        // if carry set then set top 24 bits
-        sbcs    regA, regA, temp, ror #8
+        subcc   reg12, reg12 ,#0x100        // if carry set then set top 24 bits
+        sbcs    regA, regA, reg12, ror #8
         orrvs   flags, #V_FLAG6502
         SXTB    regA, regA, ROR #24
         bx lr
 6:
 
 decimal_mode_sbc:
-        bic     temp0, temp,# 0xf0
-        and     temp1, regA, #0xf000000
-        sbc     temp1, temp1, temp0, ror #8
-        sbcs    regA, regA, temp, ror #8
+        bic     reg0, reg12,# 0xf0
+        and     reg1, regA, #0xf000000
+        sbc     reg1, reg1, reg0, ror #8
+        sbcs    regA, regA, reg12, ror #8
         orrvs   flags, #V_FLAG6502
         subcc   regA, regA,#0x60<<24
-        teq     temp1,#0
+        teq     reg1,#0
         submi   regA, regA, #0x6<<24
         sxtb    regA, regA, ror #24
         teq     regA, #0
@@ -3551,18 +3553,18 @@ decimal_mode_sbc:
 immediatesignextenedtable:
 .set imm,0
 .rept 128
-   mov temp,#imm
+   mov reg0,#imm
    .set imm,imm+1
 .endr
 .rept 128
-   mov temp,#0xFFFFFF00+imm
+   mov reg0,#0xFFFFFF00+imm
    .set imm,imm+1
 .endr
 
 bitabstable:
 .set imm,0
 .rept 256
-   ldrb temp0,[temp1,#imm]
+   ldrb reg0,[reg1,#imm]
    B bitadjustr14
    .set imm,imm+1
 .endr
