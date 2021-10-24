@@ -3226,7 +3226,7 @@ MAKEBRANCHLINK:
    sub temp0,temp0,r6
    sub temp0,temp0,#8
    mov temp0,temp0,LSR #2
-   BIC temp0,temp0,#0xFF000000
+//   BIC temp0,temp0,#0xFF000000
    ORR temp0,temp0,#BLINSTRUCTION
    str temp0,[r6]
    bx lr
