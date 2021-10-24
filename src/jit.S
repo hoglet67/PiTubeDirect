@@ -497,6 +497,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    B doublebyteend
 .endm
 
+// BL at third instruction -16
 .macro DOUBLEBYTESETFIRSTBYTEBLOUT8 block
    adr temp1,\block
    B jitend2byteBL8
@@ -543,13 +544,15 @@ then return to our secret stack This relies on instructions being re entrant , b
    b jitend3bytestore
 .endm
 
+.macro TRIPLEBYTEABSBLOUT20 block
+   adr temp1,\block
+   B  jitend3byteloadstoreoperandBL
+.endm
+
 .macro TRIPLEBYTEABSBLOUT block address offset
 .ifc \offset,20
-   ldr temp0,=\address
-   COPY5LOAD \block
-   orr r7,r7,r5
-   orr r8,r8,r4
-   COPY5STOREINC
+   adr temp1,\block
+   B  jitend3byteloadstoreoperandBL
 .else
    ldr temp0,=\address
    COPY6LOAD \block
@@ -557,9 +560,10 @@ then return to our secret stack This relies on instructions being re entrant , b
    orr r8,r8,r4
    COPY6STORE
    add r6,r6,#\offset
-.endif
    BL MAKEBRANCHLINK
    B jitend3byte
+.endif
+
 .endm
 
 .macro ABSSTORE block
@@ -588,17 +592,15 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ASSIGNCARRY carry
-   ldr temp0,=invertcarry-8
-   ldr temp1,B_NOP
-   sub temp0,temp0,r6
-   mov temp0,temp0,LSR #2
+   ldrd r8,Bopc_carry
+   sub r8,r8,r6
+   mov r8,r8,LSR #2
 .ifc \carry,clear
-   orr temp0,temp0,#ARMBLCS
+   orr r8,r8,#ARMBLCS
 .else
-   orr temp0,temp0,#ARMBLCC
+   orr r8,r8,#ARMBLCC
 .endif
-   STRD temp0,temp1,[R6]
-   B jitend1byte
+   B jitend1bytestore2
 .endm
 
 .macro JITABS reg=reg1
@@ -1005,8 +1007,17 @@ Bopc_FB:
    nop
 #endif
 
+Bopc_carry:
+   .word invertcarry-8
+   nop
+
 opc_FB: // Opcode FB - NOP6
    SINGLEBYTE Bopc_FB
+opc_18: // Opcode 18 - CLC
+   ASSIGNCARRY clear
+opc_38: // Opcode 38 - SEC
+   ASSIGNCARRY set
+
 
 opc_00: // Opcode 00 - BRK is really a two byte instruction
    SINGLEOPCODEBLEXIT Bopc_00 brk
@@ -1030,7 +1041,7 @@ opc_09: // Opcode 09 - ORA #$00
    IMMLOAD Bopc_09
 
 opc_0C: // Opcode 0C - TSB $0000
-   TRIPLEBYTEABSBLOUT Bopc_0C tsb2 20
+   TRIPLEBYTEABSBLOUT20 Bopc_0C
 
 opc_0D: // Opcode 0D - ORA $0000
    TRIPLEBYTEABST2 Bopc_0D
@@ -1059,8 +1070,7 @@ opc_16: // Opcode 16 - ASL $00, X
 opc_17: // Opcode 17 - RMB1 $00
    DOUBLEBYTESETTWOBYTES Bopc_17 12
 
-opc_18: // Opcode 18 - CLC
-   ASSIGNCARRY clear
+
 
 opc_19: // Opcode 19 - ORA $0000,Y
    TRIPLEBYTEABS Bopc_19
@@ -1068,7 +1078,7 @@ opc_19: // Opcode 19 - ORA $0000,Y
 
 
 opc_1C: // Opcode 1C - TRB $0000
-   TRIPLEBYTEABSBLOUT Bopc_1C trb2 20
+   TRIPLEBYTEABSBLOUT20 Bopc_1C
 
 opc_1D: // Opcode 1D - ORA $0000,X
    TRIPLEBYTEABS Bopc_1D
@@ -1178,11 +1188,17 @@ Bopc_09:
    JITIMMLOGICAL orrs
 
 Bopc_0C:
+   JITABSLDRBWB
+   mrs reg0, CPSR
+   bic reg0, reg0, #Z_FLAG
+   tst reg12, regA
+   .word tsb2-28
 Bopc_1C:
    JITABSLDRBWB
    mrs reg0, CPSR
    bic reg0, reg0, #Z_FLAG
    tst reg12, regA
+   .word trb2-28
 Bopc_0D:
    JITABSLOGICAL orrs
 Bopc_0E:
@@ -1279,6 +1295,7 @@ Bopc_3C:
    ldrb  reg12,[reg1, regX, lsr #24]
    bic     flags, flags, #V_FLAG6502
    tst     reg12, regA
+   .word bit2-28
 Bopc_3D:
    JITABSXLOGICAL ands
 Bopc_3E:
@@ -1374,8 +1391,7 @@ opc_76: // Opcode 76 - ROR $00,X
 opc_37: // Opcode 37 - RMB3 $00
    DOUBLEBYTESETTWOBYTES Bopc_37 12
 
-opc_38: // Opcode 38 - SEC
-   ASSIGNCARRY set
+
 
 opc_39: // Opcode 39 - AND $0000,Y
    TRIPLEBYTEABS Bopc_39
@@ -1383,7 +1399,7 @@ opc_39: // Opcode 39 - AND $0000,Y
 
 
 opc_3C: // Opcode 3C - BIT $0000,X
-   TRIPLEBYTEABSBLOUT Bopc_3C bit2 20
+   TRIPLEBYTEABSBLOUT20 Bopc_3C
 
 opc_3D: // Opcode 3D - AND $0000,X
    TRIPLEBYTEABS Bopc_3D
@@ -1497,9 +1513,9 @@ opc_6C: // Opcode 6C - JMP ($0000)
    b jitend3byteexit
 
 opc_6D: // Opcode 6D - ADC $0000
-   TRIPLEBYTEABSBLOUT Bopc_6D ADC3 20
+   TRIPLEBYTEABSBLOUT20 Bopc_6D
 opc_ED: // Opcode ED - SBC $0000
-   TRIPLEBYTEABSBLOUT Bopc_ED SBC3 20
+   TRIPLEBYTEABSBLOUT20 Bopc_ED
 
 opc_6E: // Opcode 6E - ROR $0000
    TRIPLEBYTEABS Bopc_6E
@@ -1534,9 +1550,9 @@ opc_77: // Opcode 77 - RMB7 $00
 
 
 opc_79: // Opcode 79 - ADC $0000,Y
-   TRIPLEBYTEABSBLOUT Bopc_79 ADC2 20
+   TRIPLEBYTEABSBLOUT20 Bopc_79
 opc_F9: // Opcode F9 - SBC $0000,Y
-   TRIPLEBYTEABSBLOUT Bopc_F9 SBC2 20
+   TRIPLEBYTEABSBLOUT20 Bopc_F9
 
 
 
@@ -1548,9 +1564,9 @@ opc_7C: // Opcode 7C - JMP ($0000,X)
    B  jitend3byteexit
 
 opc_7D: // Opcode 7D - ADC $0000,X
-   TRIPLEBYTEABSBLOUT Bopc_7D ADC2 20
+   TRIPLEBYTEABSBLOUT20 Bopc_7D
 opc_FD: // Opcode FD - SBC $0000,X
-   TRIPLEBYTEABSBLOUT Bopc_FD SBC2 20
+   TRIPLEBYTEABSBLOUT20 Bopc_FD
 
 opc_7E: // Opcode 7E - ROR $0000,X
    TRIPLEBYTEABS Bopc_7E
@@ -1600,11 +1616,17 @@ Bopc_6C:
    add reg0,reg0,reg1,LSL #JITLETSHIFT
    bx reg0
 Bopc_6D:
+   JITABSLDRB
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
+   LSL     regA, regA, #24
+   .word ADC3-28
 Bopc_ED:
    JITABSLDRB
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
    LSL     regA, regA, #24
+   .word SBC3-28
 Bopc_6E:
    JITABSLDRBWB
    nop
@@ -1652,11 +1674,17 @@ Bopc_77:
    JITRMB 7
 
 Bopc_79:
+   JITABS
+   ldrb    reg12,[reg1, regY, lsr #24]
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
+   .word ADC2-28
 Bopc_F9:
    JITABS
    ldrb    reg12,[reg1, regY, lsr #24]
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
+   .word SBC2-28
 
 Bopc_7C:
    JITABS
@@ -1665,11 +1693,17 @@ Bopc_7C:
    mov reg0,#JITLET
    add pc,reg0,reg1,LSL #JITLETSHIFT
 Bopc_7D:
+   JITABS
+   ldrb    reg12,[reg1, regX, lsr #24]
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
+   .word   ADC2-28
 Bopc_FD:
    JITABS
    ldrb    reg12,[reg1, regX, lsr #24]
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
+   .word    SBC2-28
 Bopc_7E:
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]!
@@ -1725,6 +1759,7 @@ Bopc_8C_io:
    nop
    mov reg1,regY,LSR #24
    nop
+   .word iostore-28
 Bopc_8D:
    JITABSSTORE regA
 Bopc_8D_io:
@@ -1732,6 +1767,7 @@ Bopc_8D_io:
    nop
    and reg1,regA,#0xFF
    nop
+   .word iostore-28
 Bopc_8E:
    JITABSSTORE regX
 Bopc_8E_io:
@@ -1739,6 +1775,7 @@ Bopc_8E_io:
    nop
    mov reg1,regX,LSR #24
    nop
+   .word iostore-28
 Bopc_8F:
    JITBBS 0
 Bopc_91:
@@ -1828,7 +1865,7 @@ opc_8C: // Opcode 8C - STY $0000
    BEQ 9f
    ABSSTORE Bopc_8C
 9:
-   TRIPLEBYTEABSBLOUT Bopc_8C_io iostore 20
+   TRIPLEBYTEABSBLOUT20 Bopc_8C_io
 
 opc_8D: // Opcode 8D - STA $0000
    ldrh r12,[temp2,#1]
@@ -1840,7 +1877,7 @@ opc_8D: // Opcode 8D - STA $0000
    ABSSTORE Bopc_8D
 
 9:
-   TRIPLEBYTEABSBLOUT Bopc_8D_io iostore 20
+   TRIPLEBYTEABSBLOUT20 Bopc_8D_io
 
 opc_8E: // Opcode 8E - STX $0000
    ldrh temp,[temp2,#1]
@@ -1851,7 +1888,7 @@ opc_8E: // Opcode 8E - STX $0000
 
    ABSSTORE Bopc_8E
 9:
-   TRIPLEBYTEABSBLOUT Bopc_8E_io iostore 20
+   TRIPLEBYTEABSBLOUT20 Bopc_8E_io
 
 opc_8F: // Opcode 8F - BBS0
    BBRS Bopc_8F bbsreturn
@@ -2260,6 +2297,7 @@ Bopc_DE:
    ldrb reg0,[reg1, regX, lsr #24]!
    sub  reg0, reg0, #1
    strb reg0,[reg1]
+   .word tempflags-20
 Bopc_DF:
    JITBBS 5
 Bopc_E0:
@@ -2346,7 +2384,7 @@ opc_DD: // Opcode DD - CMP $0000,X
    TRIPLEBYTEABS Bopc_DD
 
 opc_DE: // Opcode DE - DEC $0000,X
-   TRIPLEBYTEABSBLOUT Bopc_DE tempflags 20
+   TRIPLEBYTEABSBLOUT20 Bopc_DE
 
 opc_DF: // Opcode DF - BBS5
    BBRS Bopc_DF bbsreturn
@@ -3201,8 +3239,20 @@ jitend1byte:
    add temp2,temp2,#1
    B dojitloop
 
+jitend3byteloadstoreoperandBL:
+   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   orr r7,r7,r5
+   orr r8,r8,r4
+   sub r12,r12,r6
+//   sub r12,r12,#8+20
+   mov r12,r12,LSR #2
+   BIC r12,r12,#0xFF000000
+   ORR r12,r12,#BLINSTRUCTION
+   B jitend3bytestore
+
 jitend3byteloadstoreoperand:
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+jitend3bytestoreoperand:
    orr r7,r7,r5
    orr r8,r8,r4
 jitend3bytestore:
