@@ -305,11 +305,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    B dojitloop
 .endm
 
-.macro JITINDX
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24
-   ldrh reg1,[reg1]
-.endm
 
 .macro JITINDXLOGICAL inst
    ADDR1REGXZP
@@ -705,56 +700,13 @@ then return to our secret stack This relies on instructions being re entrant , b
    strb reg12,[reg1]
 .endm
 
-.macro JITADCSBCABS
-   JITABSLDRB
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   LSL     regA, regA, #24
-.endm
 
-.macro JITADCSBCABSX
-   JITABS
-   ldrb    reg12,[reg1, regX, lsr #24]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-.endm
 
-.macro JITADCSBCABSY
-   JITABS
-   ldrb    reg12,[reg1, regY, lsr #24]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-.endm
 
-.macro JITADCSBCZP
-   ldrb    reg12,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-.endm
 
-.macro JITADCSBCIMM
-   mov     reg12,#00 // NB could save a cycle later on
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-.endm
 
-.macro JITADCSBCINDY
-   ldrh    reg1,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[reg1,regY,LSR #24]
-.endm
 
-.macro JITADCSBCIND
-   ldrh    reg1,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[reg1]
-.endm
 
-.macro JITADCSBCZPX
-   ADDR1REGXZP
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[ram6502,reg1,LSR#24]
-.endm
 
 
 .macro INTR vector setbrk  fake     // vector is -2 for IRQ/BRK or -6 for NMI
@@ -1148,10 +1100,7 @@ Bopc_34:
    bic  flags, flags, #V_FLAG6502
 Bopc_35:
    JITZPXLOGICAL ands
-Bopc_36:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24 // can save a cycle here
-   ldrb reg12,[reg1]
+
 Bopc_37:
    JITRMB 3
 Bopc_39:
@@ -1202,6 +1151,7 @@ Bopc_00:
 Bopc_4F:
    JITBBR 4
 Bopc_50:
+Bopc_70:
    JITBRANCHVCS
 Bopc_51:
    JITINDYLOGICAL eors
@@ -1232,6 +1182,11 @@ Bopc_5E:
 Bopc_5F:
    JITBBR 5
 
+Bopc_36:
+Bopc_76:
+   ADDR1REGXZP
+   mov reg1,reg1,LSR #24 // can save a cycle here
+   ldrb reg12,[reg1]
 opc_31: // Opcode 31 - AND ($00),Y
    DOUBLEBYTET2 Bopc_31
 
@@ -1246,6 +1201,8 @@ opc_35: // Opcode 35 - AND $00,X
 
 opc_36: // Opcode 36 - ROL $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_36 rol 12
+opc_76: // Opcode 76 - ROR $00,X
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_76 ror 12
 
 opc_37: // Opcode 37 - RMB3 $00
    DOUBLEBYTESETTWOBYTES Bopc_37 12
@@ -1347,14 +1304,15 @@ opc_5F: // Opcode 5F - BBR5
 opc_60: // Opcode 60 - RTS
    SINGLEOPCODEEXIT Bopc_60 rts
 
-opc_61: // Opcode 61 - ADC ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_61 ADCload 12
+
 
 opc_64: // Opcode 64 - STZ $00
    ZPSTAZ Bopc_64
 
 opc_65: // Opcode 65 - ADC $00
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_65 ADC2 12
+opc_E5: // Opcode E5 - SBC $00
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_E5 SBC2 12
 
 opc_66: // Opcode 66 - ROR $00
    DOUBLEBYTESETTWOBYTES Bopc_66 12
@@ -1367,6 +1325,8 @@ opc_68: // Opcode 68 - PLA
 
 opc_69: // Opcode 69 - ADC #$00
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_69 ADC2 12
+opc_E9: // Opcode E9 - SBC #$00
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_E9 SBC2 12
 
 opc_6A: // Opcode 6A - ROR A
    SINGLEOPCODEBLOUT Bopc_6A rora
@@ -1382,6 +1342,8 @@ opc_6C: // Opcode 6C - JMP ($0000)
 
 opc_6D: // Opcode 6D - ADC $0000
    TRIPLEBYTEABSBLOUT Bopc_6D ADC3 20
+opc_ED: // Opcode ED - SBC $0000
+   TRIPLEBYTEABSBLOUT Bopc_ED SBC3 20
 
 opc_6E: // Opcode 6E - ROR $0000
    TRIPLEBYTEABS Bopc_6E
@@ -1393,9 +1355,13 @@ opc_70: // Opcode 70 - BVS
 
 opc_71: // Opcode 71 - ADC ($00),Y
    DOUBLEBYTEBYTET2BLOUT Bopc_71 ADC1
+opc_F1: // Opcode F1 - SBC ($00),Y
+   DOUBLEBYTEBYTET2BLOUT Bopc_F1 SBC1
 
 opc_72: // Opcode 72 - ADC ($00)
    DOUBLEBYTEBYTET2BLOUT Bopc_72 ADC1
+opc_F2: // Opcode F2 - SBC ($00)
+   DOUBLEBYTEBYTET2BLOUT Bopc_F2 SBC1
 
 opc_74: // Opcode 74 - STZ $00,X
    DOUBLEBYTESETFIRSTBYTE Bopc_74
@@ -1403,8 +1369,8 @@ opc_74: // Opcode 74 - STZ $00,X
 opc_75: // Opcode 75 - ADC $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_75 ADC1 12
 
-opc_76: // Opcode 76 - ROR $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_76 ror 12
+opc_F5: // Opcode F5 - SBC $00,X
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_F5 SBC1 12
 
 opc_77: // Opcode 77 - RMB7 $00
    DOUBLEBYTESETTWOBYTES Bopc_77 12
@@ -1414,6 +1380,8 @@ opc_78: // Opcode 78 - SEI
 
 opc_79: // Opcode 79 - ADC $0000,Y
    TRIPLEBYTEABSBLOUT Bopc_79 ADC2 20
+opc_F9: // Opcode F9 - SBC $0000,Y
+   TRIPLEBYTEABSBLOUT Bopc_F9 SBC2 20
 
 opc_7A: // Opcode 7A - PLY
    SINGLEOPCODEBLOUT Bopc_7A ply
@@ -1427,6 +1395,8 @@ opc_7C: // Opcode 7C - JMP ($0000,X)
 
 opc_7D: // Opcode 7D - ADC $0000,X
    TRIPLEBYTEABSBLOUT Bopc_7D ADC2 20
+opc_FD: // Opcode FD - SBC $0000,X
+   TRIPLEBYTEABSBLOUT Bopc_FD SBC2 20
 
 opc_7E: // Opcode 7E - ROR $0000,X
    TRIPLEBYTEABS Bopc_7E
@@ -1436,12 +1406,14 @@ opc_7F: // Opcode 7F - BBR7
 
 Bopc_60:
    ldrh reg0,[regSP,#1]
-Bopc_61:
-   JITINDX
+
 Bopc_64:
    JITZPSTAZ ram6502
 Bopc_65:
-   JITADCSBCZP
+Bopc_E5:
+   ldrb    reg12,[ram6502,#0x00]
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
 Bopc_66:
    ldrb reg12,[ram6502,#00]
    orrcs   reg12, reg12, #0x100
@@ -1453,18 +1425,25 @@ Bopc_68:
 Bopc_7A:
    mov reg1,#1
 Bopc_69:
-   JITADCSBCIMM
+Bopc_E9:
+   mov     reg12,#00 // NB could save a cycle later on
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
 Bopc_6A:
    and     regA, regA, #0xFF    // isolate lower byte
 Bopc_6C:
    MOVR1HIGH
-   ldrh reg12,[reg1,#0x00]
+   ldrh reg1,[reg1,#0x00]
    nop
    mov reg0,#JITLET
-   add reg0,reg0,reg12,LSL #JITLETSHIFT
+   add reg0,reg0,reg1,LSL #JITLETSHIFT
    bx reg0
 Bopc_6D:
-   JITADCSBCABS
+Bopc_ED:
+   JITABSLDRB
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
+   LSL     regA, regA, #24
 Bopc_6E:
    JITABSLDRBWB
    nop
@@ -1472,12 +1451,16 @@ Bopc_6E:
 Bopc_6F:
    JITBBR 6
 
-Bopc_70:
-   JITBRANCHVCS
 Bopc_71:
-   JITADCSBCINDY
+Bopc_F1:
+   ldrh    reg1,[ram6502,#0x00]
+   tst     flags, #D_FLAG6502
+   ldrb    reg12,[reg1,regY,LSR #24]
 Bopc_72:
-   JITADCSBCIND
+Bopc_F2:
+   ldrh    reg1,[ram6502,#0x00]
+   tst     flags, #D_FLAG6502
+   ldrb    reg12,[reg1]
 Bopc_74:
    ADDR1REGXZP
    strb ram6502,[ram6502,reg1,LSR #24]
@@ -1485,18 +1468,21 @@ Bopc_74:
    BLX reg0
 
 Bopc_75:
-   JITADCSBCZPX
-Bopc_76:
+Bopc_F5:
    ADDR1REGXZP
-   mov reg1,reg1,LSR #24
-   ldrb reg12,[reg1]
+   tst     flags, #D_FLAG6502
+   ldrb    reg12,[ram6502,reg1,LSR#24]
 Bopc_77:
    JITRMB 7
 Bopc_78:
    orr     flags, flags, #I_FLAG6502
    nop
 Bopc_79:
-   JITADCSBCABSY
+Bopc_F9:
+   JITABS
+   ldrb    reg12,[reg1, regY, lsr #24]
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
 
 Bopc_7C:
    JITABS
@@ -1505,7 +1491,11 @@ Bopc_7C:
    mov reg0,#JITLET
    add pc,reg0,reg1,LSL #JITLETSHIFT
 Bopc_7D:
-   JITADCSBCABSX
+Bopc_FD:
+   JITABS
+   ldrb    reg12,[reg1, regX, lsr #24]
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
 Bopc_7E:
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]!
@@ -1514,8 +1504,11 @@ Bopc_7F:
    JITBBR 7
 
 .ltorg
-
+Bopc_61:
 Bopc_81:
+Bopc_A1:
+Bopc_C1:
+Bopc_E1:
    ADDR1REGXZP
    mov reg1,reg1,LSR #24
    ldrh reg1,[reg1]
@@ -1608,8 +1601,16 @@ Bopc_9F:
 opc_80: // Opcode 80 - BRA
    BRANCH BINSTRUCTION
 
+opc_61: // Opcode 61 - ADC ($00,X)
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_61 ADCload 12
 opc_81: // Opcode 81 - STA ($00,X)
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_81 jitstatable 12
+opc_A1: // Opcode A1 - LDA ($00,X)
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_A1 loada 12
+opc_C1: // Opcode C1 - CMP ($00,X)
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_C1 cmpa 12
+opc_E1: // Opcode E1 - SBC ($00,X)
+   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_E1 SBCload 12
 
 opc_84: // Opcode 84 - STY $00
    ZPST Bopc_84
@@ -1716,8 +1717,7 @@ opc_9F: // Opcode 9F - BBS1
 opc_A0: // Opcode A0 - LDY #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_A0
 
-opc_A1: // Opcode A1 - LDA ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_A1 loada 12
+
 
 opc_A2: // Opcode A2 - LDX #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_A2
@@ -1836,8 +1836,6 @@ opc_BF: // Opcode BF - BBS3
 opc_C0: // Opcode C0 - CPY #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_C0
 
-opc_C1: // Opcode C1 - CMP ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_C1 cmpa 12
 
 opc_C4: // Opcode C4 - CPY $00
    DOUBLEBYTESETFIRSTBYTE Bopc_C4
@@ -1884,10 +1882,7 @@ Bopc_A0:
    nop
    teq regY,#0
    nop
-Bopc_A1:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR#24
-   ldrh reg12,[reg1]
+
 Bopc_A2:
    MOVREGXCONST
    nop
@@ -2020,10 +2015,7 @@ Bopc_C0:
    nop
    nop
    nop
-Bopc_C1:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR#24
-   ldrh reg1,[reg1]
+
 Bopc_C4:
    ldrb reg0,[ram6502,#0x00]
    nop
@@ -2121,15 +2113,13 @@ Bopc_E0:
    nop
    nop
    nop
-Bopc_E1:
-   JITINDX
+
 Bopc_E4:
    ldrb reg0,[ram6502,#0x00]
    nop
    nop
    cmp regX, reg0, lsl #24
-Bopc_E5:
-   JITADCSBCZP
+
 Bopc_E6:
    ldrb reg0,[ram6502,#0]
    add  reg0, reg0, #1
@@ -2139,8 +2129,7 @@ Bopc_E7:
 Bopc_E8:
    add     regX, regX, #0x1000000
    teq     regX, #0
-Bopc_E9:
-   JITADCSBCIMM
+
 Bopc_EB:
 #if defined(TIMING_INSTRUCTION)
 #if defined(RPI2)|| defined(RPI3) || defined(RPI4)
@@ -2159,8 +2148,7 @@ Bopc_EC:
    nop
    nop
    cmp regX,reg12, lsl #24
-Bopc_ED:
-   JITADCSBCABS
+
 Bopc_EE:
    JITABSLDRBWB
    BL .+8
@@ -2168,14 +2156,11 @@ Bopc_EE:
    teq  reg12, #0
 Bopc_EF:
    JITBBS 6
-Bopc_F1:
-   JITADCSBCINDY
-Bopc_F2:
-   JITADCSBCIND
+
+
 Bopc_F3:
    nop
-Bopc_F5:
-   JITADCSBCZPX
+
 Bopc_F6:
    ADDR1REGXZP
    ldrb reg0,[ram6502,reg1,LSR#24]
@@ -2185,8 +2170,7 @@ Bopc_F7:
 Bopc_F8:
    nop
    orr     flags, flags, #D_FLAG6502
-Bopc_F9:
-   JITADCSBCABSY
+
 Bopc_FA:
 Bopc_E3:
    mov reg1,#1
@@ -2202,8 +2186,7 @@ Bopc_FB:
    nop
    nop
 #endif
-Bopc_FD:
-   JITADCSBCABSX
+
 Bopc_FE:
    JITABS
    ldrb reg12,[reg1, regX, lsr #24]!
@@ -2251,8 +2234,6 @@ opc_DF: // Opcode DF - BBS5
 opc_E0: // Opcode E0 - CPX #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_E0
 
-opc_E1: // Opcode E1 - SBC ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_E1 SBCload 12
 
 opc_E3: // Opcode E3 - NOP6
    SINGLEOPCODEBLOUT Bopc_E3 debugopcode
@@ -2260,8 +2241,6 @@ opc_E3: // Opcode E3 - NOP6
 opc_E4: // Opcode E4 - CPX $00
    DOUBLEBYTESETFIRSTBYTE Bopc_E4
 
-opc_E5: // Opcode E5 - SBC $00
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_E5 SBC2 12
 
 opc_E6: // Opcode E6 - INC $00
    COPY3LOAD Bopc_E6
@@ -2277,8 +2256,6 @@ opc_E7: // Opcode E7 - SMB6 $00
 opc_E8: // Opcode E8 - INX
    SINGLEBYTE Bopc_E8
 
-opc_E9: // Opcode E9 - SBC #$00
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_E9 SBC2 12
 
 opc_EB: // Opcode EB - NOP6 ( Borrowed for instruction timing)
    SINGLEBYTE Bopc_EB
@@ -2286,8 +2263,6 @@ opc_EB: // Opcode EB - NOP6 ( Borrowed for instruction timing)
 opc_EC: // Opcode EC - CPX $0000
    TRIPLEBYTEABS Bopc_EC
 
-opc_ED: // Opcode ED - SBC $0000
-   TRIPLEBYTEABSBLOUT Bopc_ED SBC3 20
 
 opc_EE: // Opcode EE - INC $0000
    ldrh r12,[temp2,#1]
@@ -2310,18 +2285,12 @@ opc_EF: // Opcode EF - BBS6
    BBRS Bopc_EF bbsreturn
 
 
-opc_F1: // Opcode F1 - SBC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_F1 SBC1
 
-opc_F2: // Opcode F2 - SBC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_F2 SBC1
 
 opc_F3: // Opcode F3 - NOP6
    //NOP6
    SINGLEOPCODEBLOUT Bopc_F3 putcharopcode
 
-opc_F5: // Opcode F5 - SBC $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_F5 SBC1 12
 
 opc_F6: // Opcode F6 - INC $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_F6 storeXflags 12
@@ -2332,8 +2301,6 @@ opc_F7: // Opcode F7 - SMB7 $00
 opc_F8: // Opcode F8 - SED
    SINGLEBYTE Bopc_F8
 
-opc_F9: // Opcode F9 - SBC $0000,Y
-   TRIPLEBYTEABSBLOUT Bopc_F9 SBC2 20
 
 opc_FA: // Opcode FA - PLX
    SINGLEOPCODEBLOUT Bopc_FA plx
@@ -2341,8 +2308,6 @@ opc_FA: // Opcode FA - PLX
 opc_FB: // Opcode FB - NOP6
    SINGLEBYTE Bopc_FB
 
-opc_FD: // Opcode FD - SBC $0000,X
-   TRIPLEBYTEABSBLOUT Bopc_FD SBC2 20
 
 opc_FE: // Opcode FE - INC $0000,X
    TRIPLEBYTEABSBLOUT Bopc_FE incstore 12
@@ -2436,17 +2401,16 @@ cacheflushloopjittable:
 //   BL CleanDataCache // this may not be correct for Pi4
    DSB
    ISB
+   mov temp,#0
+
+   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
+
+   DSB
+   ISB
 #else
    mov temp,#0
    MCR p15, 0, temp, c7, c10, 0 //; clean data cache
-#endif
-
-   mov temp,#0
    MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
-
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
-   DSB
-   ISB
 #endif
 
    mov   r0, #0x10000
@@ -3214,12 +3178,11 @@ rti:
    PLP
    ldrh    reg1, [regSP, #1]
 
-   mov     reg2, #2
-   UADD8   regSP, regSP, reg2
+   mov     reg0, #2
+   UADD8   regSP, regSP, reg0
 
-   mov reg2,#0xFF
-   orr reg2,reg2,#0xff<<8
-   cmp reg1,reg2
+   add reg0,reg1,#1
+   cmp reg0,#0x10000
 
    // so we have an irq that happened during execution
    beq noirq
@@ -3419,13 +3382,13 @@ bit2: // 24 3c
    bx lr
 
 cmpa:
-   ldrb reg12,[reg1]
+   ldrb reg0,[reg1]
    mov reg1,regA,LSL #24
-   cmp reg1,reg12,LSL#24
+   cmp reg1,reg0,LSL#24
    bx lr
 
 loada:
-   ldrsb regA,[reg12]
+   ldrsb regA,[reg1]
    teq regA,#0
    bx lr
 
