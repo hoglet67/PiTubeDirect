@@ -519,7 +519,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 // last word is the address of the branch-20
 .macro DOUBLEBYTESETFIRSTBYTEBLOUTQ block
-   ldr temp1,=\block
+   adr temp1,\block
    B jitend2byteBLend
 .endm
 
