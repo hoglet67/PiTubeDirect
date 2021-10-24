@@ -308,7 +308,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro JITINDXLOGICAL inst
    ADDR1REGXZP
    mov reg1,reg1,LSR #24
-   BL .+8 // BL ldrhldrsb
+   .word ldrhldrsb-16
    \inst regA,regA,reg0
 .endm
 
@@ -497,22 +497,9 @@ then return to our secret stack This relies on instructions being re entrant , b
    B doublebyteend
 .endm
 
-.macro DOUBLEBYTESETFIRSTBYTEBLOUT block address offset
-
-.ifc \offset,12
-   ldr temp0,=\address
-   COPY3LOAD \block
-   BL STOREOPERANDANDBRANCHLINK
-   B jitend2byte
-.else
-   ldr temp0,=\address
-   COPY4LOAD \block
-   orr r8,r8,r4
-   COPY4STORE
-   add r6,r6,#\offset
-   BL MAKEBRANCHLINK
-   B jitend2byte
-.endif
+.macro DOUBLEBYTESETFIRSTBYTEBLOUT8 block
+   adr temp1,\block
+   B jitend2byteBL8
 .endm
 
 // last word is the address of the branch-20
@@ -522,9 +509,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTEBYTET2BLOUT block
-   COPY4LOAD \block
-   BL fixuptype2accessquick
-   B jitend2byteBLendstore
+   adr temp1,\block
+   B jitendT2byte
 .endm
 
 .macro DOUBLEBYTET2 block
@@ -1026,7 +1012,7 @@ opc_00: // Opcode 00 - BRK is really a two byte instruction
    SINGLEOPCODEBLEXIT Bopc_00 brk
 
 opc_01: // Opcode 01 - ORA ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_01 ldrhldrsb 8
+   DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_01
 
 opc_04: // Opcode 04 - TSB $00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_04
@@ -1107,7 +1093,7 @@ opc_20:// Opcode 20 - JSR $0000
    B jitend3byteexit
 
 opc_21: // Opcode 21 - AND ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_21 ldrhldrsb 8
+   DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_21
 
 opc_24: // Opcode 24 - BIT $00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_24
@@ -1411,7 +1397,7 @@ opc_3F: // Opcode 3F - BBR3
 opc_40: // Opcode 40 - RTI
    SINGLEOPCODEBLEXIT Bopc_40 rti
 opc_41: // Opcode 41 - EOR ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT Bopc_41 ldrhldrsb 8
+   DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_41
 
 opc_45: // Opcode 45 - EOR $00
    DOUBLEBYTET2 Bopc_45
@@ -2927,10 +2913,27 @@ dojit:
    mov temp2,temp2,LSR#JITLETSHIFT
    b jitentry
 
+// NB word -16
+jitend2byteBL8:
+   LDMIA temp1,{r8,r9,r10,r11}
+   sub r10,r10,r6
+   mov r10,r10,LSR #2
+   BIC r10,r10,#0xFF000000
+   ORR r10,r10,#BLINSTRUCTION
+   B jitend2bytestore4operand
+
+jitendT2byte:
+   LDMIA temp1,{r8,r9,r10,r11}
+   and r1,r4,#0xF0
+   and r4,r4,#0x0F
+   orr r8,r8,r1,LSL #4
+   B jitend2byteBLendoperand
+
 jitend2byteBLend:
 
 // NB word -20  ( 8+12)
    LDMIA temp1,{r8,r9,r10,r11}
+jitend2byteBLendoperand:
    orr r8,r8,r4
 jitend2byteBLendstore:
    sub r11,r11,r6
@@ -2942,6 +2945,7 @@ jitend2byteBLendstore:
 
 doublebyteend:
    LDMIA temp1,{r8,r9,r10,r11}
+jitend2bytestore4operand:
    orr r8,r8,r4
 jitend2bytestore4:
    COPY4STORE
