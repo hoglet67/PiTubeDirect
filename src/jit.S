@@ -384,7 +384,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro BBRS block blout
-   ldr r0,=\blout
    adr r1,\block
 
    // fill in BL
@@ -395,7 +394,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ldrb    reg0,[ram6502,#0x00]
    mrs     reg1, CPSR
    tst     reg0, #(1 << \bitnum)
-   BL .+8
+   .word bbrreturn-20
 
    //   addne pc,r14,#4 // return to jit
    //   msr     CPSR_flg, reg1
@@ -409,7 +408,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ldrb    reg0,[ram6502,#0x00]
    mrs     reg1, CPSR
    tst     reg0, #(1 << \bitnum)
-   BL .+8
+   .word bbsreturn-20
 
    //   addne pc,r14,#4 // return to jit
    //   msr     CPSR_flg, reg1
@@ -520,6 +519,11 @@ then return to our secret stack This relies on instructions being re entrant , b
    orr r11,r11,r4
 .endif
    B jitend2bytestore4
+.endm
+
+.macro DOUBLEBYTESETTWOBYTES12 block offset
+   adr temp1,\block
+   B doublebyteendsettwobytes12
 .endm
 
 .macro TRIPLEBYTEABS block
@@ -794,7 +798,8 @@ opc_10: // Opcode 10 - BPL
 
 opc_30: // Opcode 30 - BMI
    BRANCH BMIINSTRUCTION
-
+opc_80: // Opcode 80 - BRA
+   BRANCH BINSTRUCTION
 opc_90: // Opcode 90 - BCC
    BRANCH BCCINSTRUCTION
 opc_B0: // Opcode B0 - BCS
@@ -1015,7 +1020,7 @@ opc_06: // Opcode 06 - ASL $00
    DOUBLEBYTESETTWOBYTES Bopc_06 8
 
 opc_07: // Opcode 07 - RMB0 $00
-   DOUBLEBYTESETTWOBYTES Bopc_07 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_07 12
 
 opc_09: // Opcode 09 - ORA #$00
    IMMLOAD Bopc_09
@@ -1048,7 +1053,7 @@ opc_16: // Opcode 16 - ASL $00, X
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_16
 
 opc_17: // Opcode 17 - RMB1 $00
-   DOUBLEBYTESETTWOBYTES Bopc_17 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_17 12
 
 opc_19: // Opcode 19 - ORA $0000,Y
    TRIPLEBYTEABS Bopc_19
@@ -1091,7 +1096,7 @@ opc_26: // Opcode 26 - ROL $00
    DOUBLEBYTESETTWOBYTES Bopc_26 8
 
 opc_27: // Opcode 27 - RMB2 $00
-   DOUBLEBYTESETTWOBYTES Bopc_27 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_27 12
 
 opc_29: // Opcode 29 - AND #$00
    IMMLOAD Bopc_29
@@ -1360,7 +1365,7 @@ opc_76: // Opcode 76 - ROR $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_76
 
 opc_37: // Opcode 37 - RMB3 $00
-   DOUBLEBYTESETTWOBYTES Bopc_37 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_37 12
 
 opc_39: // Opcode 39 - AND $0000,Y
    TRIPLEBYTEABS Bopc_39
@@ -1386,10 +1391,10 @@ opc_45: // Opcode 45 - EOR $00
    DOUBLEBYTET2 Bopc_45
 
 opc_46: // Opcode 46 - LSR $00
-   DOUBLEBYTESETTWOBYTES Bopc_46 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_46 12
 
 opc_47: // Opcode 47 - RMB4 $00
-   DOUBLEBYTESETTWOBYTES Bopc_47 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_47 12
 
 opc_49: // Opcode 49 - EOR #$00
    IMMLOAD Bopc_49
@@ -1425,7 +1430,7 @@ opc_56: // Opcode 56 - LSR $00,X
    DOUBLEBYTESETFIRSTBYTE Bopc_56
 
 opc_57: // Opcode 57 - RMB5 $00
-   DOUBLEBYTESETTWOBYTES Bopc_57 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_57 12
 
 opc_59: // Opcode 59 - EOR $0000,Y
    TRIPLEBYTEABS Bopc_59
@@ -1450,10 +1455,10 @@ opc_E5: // Opcode E5 - SBC $00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E5
 
 opc_66: // Opcode 66 - ROR $00
-   DOUBLEBYTESETTWOBYTES Bopc_66 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_66 12
 
 opc_67: // Opcode 67 - RMB6 $00
-   DOUBLEBYTESETTWOBYTES Bopc_67 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_67 12
 
 opc_69: // Opcode 69 - ADC #$00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_69
@@ -1502,7 +1507,7 @@ opc_F5: // Opcode F5 - SBC $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_F5
 
 opc_77: // Opcode 77 - RMB7 $00
-   DOUBLEBYTESETTWOBYTES Bopc_77 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_77 12
 
 opc_79: // Opcode 79 - ADC $0000,Y
    TRIPLEBYTEABSBLOUT20 Bopc_79
@@ -1774,9 +1779,6 @@ Bopc_9E:
 Bopc_9F:
    JITBBS 1
 
-opc_80: // Opcode 80 - BRA
-   BRANCH BINSTRUCTION
-
 opc_61: // Opcode 61 - ADC ($00,X)
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_61
 opc_81: // Opcode 81 - STA ($00,X)
@@ -1798,7 +1800,7 @@ opc_86: // Opcode 86 - STX $00
    ZPST Bopc_86
 
 opc_87: // Opcode 87 - SMB0 $00
-   DOUBLEBYTESETTWOBYTES Bopc_87 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_87 12
 
 opc_89: // Opcode 89 - BIT #$00
    COPY4LOAD Bopc_89
@@ -1857,7 +1859,7 @@ opc_96: // Opcode 96 - STX $00,Y
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_96
 
 opc_97: // Opcode 97 - SMB1 $00
-   DOUBLEBYTESETTWOBYTES Bopc_97 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_97 12
 
 opc_99: // Opcode 99 - STA $0000,Y
    TRIPLEBYTEABS Bopc_99
@@ -1891,7 +1893,7 @@ opc_A6: // Opcode A6 - LDX $00
    DOUBLEBYTESETFIRSTBYTE Bopc_A6
 
 opc_A7: // Opcode A7 - SMB2 $00
-   DOUBLEBYTESETTWOBYTES Bopc_A7 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_A7 12
 
 opc_A9: // Opcode A9 - LDA #$00
    LDR r8,B_NOP
@@ -1963,7 +1965,7 @@ opc_B6: // Opcode B6 - LDX $00,Y
    DOUBLEBYTESETFIRSTBYTE Bopc_B6
 
 opc_B7: // Opcode B7 - SMB3 $00
-   DOUBLEBYTESETTWOBYTES Bopc_B7 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_B7 12
 
 opc_B9: // Opcode B9 - LDA $0000,Y
    TRIPLEBYTEABS Bopc_B9
@@ -1995,7 +1997,7 @@ opc_C6: // Opcode C6 - DEC $00
    B jitend2byteBLendstore
 
 opc_C7: // Opcode C7 - SMB4 $00
-   DOUBLEBYTESETTWOBYTES Bopc_C7 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_C7 12
 
 opc_C9: // Opcode C9 - CMP #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_C9
@@ -2295,7 +2297,7 @@ opc_D6: // Opcode D6 - DEC $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_D6
 
 opc_D7: // Opcode D7 - SMB5 $00
-   DOUBLEBYTESETTWOBYTES Bopc_D7 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_D7 12
 
 opc_D9: // Opcode D9 - CMP $0000,Y
    TRIPLEBYTEABS Bopc_D9
@@ -2322,7 +2324,7 @@ opc_E6: // Opcode E6 - INC $00
    B jitend2byteBLendstore
 
 opc_E7: // Opcode E7 - SMB6 $00
-   DOUBLEBYTESETTWOBYTES Bopc_E7 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_E7 12
 
 opc_EC: // Opcode EC - CPX $0000
    TRIPLEBYTEABS Bopc_EC
@@ -2351,7 +2353,7 @@ opc_F6: // Opcode F6 - INC $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_F6
 
 opc_F7: // Opcode F7 - SMB7 $00
-   DOUBLEBYTESETTWOBYTES Bopc_F7 12
+   DOUBLEBYTESETTWOBYTES12 Bopc_F7 12
 
 opc_FE: // Opcode FE - INC $0000,X
    TRIPLEBYTEABSBLOUT Bopc_FE incstore 12
@@ -2879,6 +2881,12 @@ jitend2byteBLendstore:
    ORR r11,r11,#BLINSTRUCTION
    B jitend2bytestore4
 
+doublebyteendsettwobytes12:
+   LDMIA temp1,{r8,r9,r10,r11}
+   orr r8,r8,r4
+   orr r11,r11,r4
+   B jitend2bytestore4
+   
 doublebyteend:
    LDMIA temp1,{r8,r9,r10,r11}
 jitend2bytestore4operand:
@@ -3181,10 +3189,12 @@ jitend3byteexitBBRS:
    BIC r5,r5,#0xFF000000
    orr r11,r5,#BINSTRUCTION
    orr r7,r7,r4
-   STMIA r6,{r7,r8,r9,r10,r11,r12}
-   add r6,r6,#12
+   sub r10,r10,r6
+   mov r10,r10,LSR #2
+   BIC r10,r10,#0xFF000000
+   ORR r10,r10,#BLINSTRUCTION
 
-   BL MAKEBRANCHLINK
+   STMIA r6,{r7,r8,r9,r10,r11,r12}
 
 jitend3byteexit:
    FILLINJITTEDTABLES dejit16bit31
