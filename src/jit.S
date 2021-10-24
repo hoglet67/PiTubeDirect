@@ -123,6 +123,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .text
 .global exec_65tubejit
 
+// **** MACROS ******
+
 .macro FILLINJITTEDTABLES table16
    ldr temp0,=\table16-8-JITTEDTABLE16
    // temp0 is address to goto
@@ -167,9 +169,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    #endif
 .endm
 
-
-// **** MACROS ******
-
 .macro DEBUG_REG reg
    push {r0-r12,r14}
    mrs     regSP, CPSR               // Save 6502 flags
@@ -211,13 +210,11 @@ then return to our secret stack This relies on instructions being re entrant , b
    adr temp1,\start
    LDMIA temp1,{r8,r9,r10}
 .endm
-
 .macro COPY3STORE
    STMIA r6,{r8,r9,r10}
    //strd r8,r9,[r6]
    //str r10,[r6,#8]
 .endm
-
 .macro COPY3STOREINC
    STMIA r6!,{r8,r9,r10}
    //strd r8,r9,[r6]
@@ -230,18 +227,15 @@ then return to our secret stack This relies on instructions being re entrant , b
    //strd r8,r9,[r6]
    //strd r10,r11,[r6,#8]
 .endm
-
 .macro COPY4LOAD start
    adr temp1,\start
    LDMIA temp1,{r8,r9,r10,r11}
 .endm
-
 .macro COPY4STORE
    stmia r6,{r8,r9,r10,r11}
    //strd r8,r9,[r6]
    //strd r10,r11,[r6,#8]
 .endm
-
 .macro COPY5 start
    adr temp1,\start
    LDMIA temp1,{r7,r8,r9,r10,r11}
@@ -254,7 +248,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro COPY5STORE
    STMIA r6,{r7,r8,r9,r10,r11}
 .endm
-
 .macro COPY5STOREINC
    STMIA r6!,{r7,r8,r9,r10,r11}
 .endm
@@ -270,8 +263,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro COPY6STORE
    STMIA r6,{r7,r8,r9,r10,r11,r12}
 .endm
-
-
 
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 256 byte aligned
@@ -303,7 +294,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    add temp2,temp2,#3
    B dojitloop
 .endm
-
 
 .macro JITINDXLOGICAL inst
    ADDR1REGXZP
@@ -690,15 +680,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    strb reg12,[reg1]
 .endm
 
-
-
-
-
-
-
-
-
-
 .macro INTR vector setbrk  fake     // vector is -2 for IRQ/BRK or -6 for NMI
                                 // setbrk should be 1 for BRK, 0 for IRQ/NMI
    sub     regSP, regSP, #2
@@ -755,7 +736,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    // reg1 return address
    // reg12 has 6502 flags to be restored to the ARM
 .endm
-
 
 // **********************************************
 // Start of opcode implementations
@@ -1070,12 +1050,8 @@ opc_16: // Opcode 16 - ASL $00, X
 opc_17: // Opcode 17 - RMB1 $00
    DOUBLEBYTESETTWOBYTES Bopc_17 12
 
-
-
 opc_19: // Opcode 19 - ORA $0000,Y
    TRIPLEBYTEABS Bopc_19
-
-
 
 opc_1C: // Opcode 1C - TRB $0000
    TRIPLEBYTEABSBLOUT20 Bopc_1C
@@ -1117,12 +1093,8 @@ opc_26: // Opcode 26 - ROL $00
 opc_27: // Opcode 27 - RMB2 $00
    DOUBLEBYTESETTWOBYTES Bopc_27 12
 
-
-
 opc_29: // Opcode 29 - AND #$00
    IMMLOAD Bopc_29
-
-
 
 opc_2C: // Opcode 2C - BIT $0000
    ldrh temp0,[temp2,#1]
@@ -1223,7 +1195,6 @@ Bopc_17:
    JITRMB 1
 Bopc_19:
    JITABSYLOGICAL orrs
-
 
 Bopc_1D:
    JITABSXLOGICAL orrs
@@ -1391,12 +1362,8 @@ opc_76: // Opcode 76 - ROR $00,X
 opc_37: // Opcode 37 - RMB3 $00
    DOUBLEBYTESETTWOBYTES Bopc_37 12
 
-
-
 opc_39: // Opcode 39 - AND $0000,Y
    TRIPLEBYTEABS Bopc_39
-
-
 
 opc_3C: // Opcode 3C - BIT $0000,X
    TRIPLEBYTEABSBLOUT20 Bopc_3C
@@ -1424,12 +1391,8 @@ opc_46: // Opcode 46 - LSR $00
 opc_47: // Opcode 47 - RMB4 $00
    DOUBLEBYTESETTWOBYTES Bopc_47 12
 
-
-
 opc_49: // Opcode 49 - EOR #$00
    IMMLOAD Bopc_49
-
-
 
 opc_4C: // Opcode 4C - JMP $0000
    ldrh r12,[temp2,#1]
@@ -1478,8 +1441,6 @@ opc_5F: // Opcode 5F - BBR5
 opc_60: // Opcode 60 - RTS
    SINGLEOPCODEEXIT Bopc_60 rts
 
-
-
 opc_64: // Opcode 64 - STZ $00
    ZPSTAZ Bopc_64
 
@@ -1494,14 +1455,10 @@ opc_66: // Opcode 66 - ROR $00
 opc_67: // Opcode 67 - RMB6 $00
    DOUBLEBYTESETTWOBYTES Bopc_67 12
 
-
-
 opc_69: // Opcode 69 - ADC #$00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_69
 opc_E9: // Opcode E9 - SBC #$00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E9
-
-
 
 opc_6C: // Opcode 6C - JMP ($0000)
    COPY6LOAD Bopc_6C
@@ -1547,14 +1504,10 @@ opc_F5: // Opcode F5 - SBC $00,X
 opc_77: // Opcode 77 - RMB7 $00
    DOUBLEBYTESETTWOBYTES Bopc_77 12
 
-
-
 opc_79: // Opcode 79 - ADC $0000,Y
    TRIPLEBYTEABSBLOUT20 Bopc_79
 opc_F9: // Opcode F9 - SBC $0000,Y
    TRIPLEBYTEABSBLOUT20 Bopc_F9
-
-
 
 opc_7C: // Opcode 7C - JMP ($0000,X)
    COPY6LOAD Bopc_7C
@@ -1847,15 +1800,10 @@ opc_86: // Opcode 86 - STX $00
 opc_87: // Opcode 87 - SMB0 $00
    DOUBLEBYTESETTWOBYTES Bopc_87 12
 
-
-
 opc_89: // Opcode 89 - BIT #$00
    COPY4LOAD Bopc_89
    orr r9,r9,r4
    B jitend2byteBLendstore
-
-
-
 
 opc_8C: // Opcode 8C - STY $0000
    ldrh r12,[temp2,#1]
@@ -1930,8 +1878,6 @@ opc_9F: // Opcode 9F - BBS1
 opc_A0: // Opcode A0 - LDY #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_A0
 
-
-
 opc_A2: // Opcode A2 - LDX #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_A2
 
@@ -1947,8 +1893,6 @@ opc_A6: // Opcode A6 - LDX $00
 opc_A7: // Opcode A7 - SMB2 $00
    DOUBLEBYTESETTWOBYTES Bopc_A7 12
 
-
-
 opc_A9: // Opcode A9 - LDA #$00
    LDR r8,B_NOP
    ldr r11,=immediatesignextenedtable
@@ -1960,8 +1904,6 @@ opc_A9: // Opcode A9 - LDA #$00
    orr temp,temp,#0xA000 // regA
    str temp,[r6]
    B jitend2byte
-
-
 
 opc_AC: // Opcode AC - LDY $0000
    ldrh temp0,[temp2,#1]
@@ -1987,7 +1929,6 @@ opc_AD: // Opcode AD - LDA $0000
    TRIPLEBYTEABST2 Bopc_AD
 
 loadio:
-
    TRIPLEBYTEABSBLOUT Bopc_AD_io ioload 8
 
 opc_AE: // Opcode AE - LDX $0000
@@ -2024,11 +1965,8 @@ opc_B6: // Opcode B6 - LDX $00,Y
 opc_B7: // Opcode B7 - SMB3 $00
    DOUBLEBYTESETTWOBYTES Bopc_B7 12
 
-
-
 opc_B9: // Opcode B9 - LDA $0000,Y
    TRIPLEBYTEABS Bopc_B9
-
 
 opc_BC: // Opcode BC - LDY $0000,X
    TRIPLEBYTEABS Bopc_BC
@@ -2043,7 +1981,6 @@ opc_BF: // Opcode BF - BBS3
    BBRS Bopc_BF bbsreturn
 opc_C0: // Opcode C0 - CPY #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_C0
-
 
 opc_C4: // Opcode C4 - CPY $00
    DOUBLEBYTESETFIRSTBYTE Bopc_C4
@@ -2060,12 +1997,8 @@ opc_C6: // Opcode C6 - DEC $00
 opc_C7: // Opcode C7 - SMB4 $00
    DOUBLEBYTESETTWOBYTES Bopc_C7 12
 
-
-
 opc_C9: // Opcode C9 - CMP #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_C9
-
-
 
 opc_CC: // Opcode CC - CPY $0000
    TRIPLEBYTEABS Bopc_CC
@@ -2078,8 +2011,6 @@ opc_CE: // Opcode CE - DEC $0000
 
 opc_CF: // Opcode CF - BBS4
    BBRS Bopc_CF bbsreturn
-
-
 
 Bopc_A0:
    MOVREGYCONST
@@ -2109,7 +2040,6 @@ Bopc_A6:
    teq regX,#0
 Bopc_A7:
    JITSMB 2
-
 
 Bopc_AC:
    JITABSLDRB
@@ -2320,8 +2250,6 @@ Bopc_E6:
 Bopc_E7:
    JITSMB 6
 
-
-
 Bopc_EC:
    JITABSLDRB
    nop
@@ -2345,8 +2273,6 @@ Bopc_F6:
 Bopc_F7:
    JITSMB 7
 
-
-
 Bopc_FE:
    JITABS
    ldrb reg12,[reg1, regX, lsr #24]!
@@ -2355,8 +2281,6 @@ Bopc_FE:
    teq  reg12, #0
 Bopc_FF:
    JITBBS 7
-
-
 
 opc_D1: // Opcode D1 - CMP ($00),Y
    DOUBLEBYTET2 Bopc_D1
@@ -2373,12 +2297,8 @@ opc_D6: // Opcode D6 - DEC $00,X
 opc_D7: // Opcode D7 - SMB5 $00
    DOUBLEBYTESETTWOBYTES Bopc_D7 12
 
-
-
 opc_D9: // Opcode D9 - CMP $0000,Y
    TRIPLEBYTEABS Bopc_D9
-
-
 
 opc_DD: // Opcode DD - CMP $0000,X
    TRIPLEBYTEABS Bopc_DD
@@ -2392,12 +2312,8 @@ opc_DF: // Opcode DF - BBS5
 opc_E0: // Opcode E0 - CPX #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_E0
 
-
-
-
 opc_E4: // Opcode E4 - CPX $00
    DOUBLEBYTESETFIRSTBYTE Bopc_E4
-
 
 opc_E6: // Opcode E6 - INC $00
    COPY4LOAD Bopc_E6
@@ -2408,11 +2324,8 @@ opc_E6: // Opcode E6 - INC $00
 opc_E7: // Opcode E7 - SMB6 $00
    DOUBLEBYTESETTWOBYTES Bopc_E7 12
 
-
-
 opc_EC: // Opcode EC - CPX $0000
    TRIPLEBYTEABS Bopc_EC
-
 
 opc_EE: // Opcode EE - INC $0000
    ldrh r12,[temp2,#1]
@@ -2434,25 +2347,11 @@ opc_EE: // Opcode EE - INC $0000
 opc_EF: // Opcode EF - BBS6
    BBRS Bopc_EF bbsreturn
 
-
-
-
-
-
-
 opc_F6: // Opcode F6 - INC $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_F6
 
 opc_F7: // Opcode F7 - SMB7 $00
    DOUBLEBYTESETTWOBYTES Bopc_F7 12
-
-
-
-
-
-
-
-
 
 opc_FE: // Opcode FE - INC $0000,X
    TRIPLEBYTEABSBLOUT Bopc_FE incstore 12
@@ -2754,7 +2653,6 @@ handle_nmi:
    msr     CPSR_flg, r2   // Restore the 6502 flags
    INTR    -6, 0, FAKE
 .ltorg
-
 
 // **** dejit functions
 
@@ -3164,7 +3062,6 @@ cacheflushloop:
 
 #if 1
 
-
    // this should flush the cache area used in the jitter.
    // even better if we were to work out if full cache fush would be faster
    // especially because of the ARMv6 cache flush errata which can be seen in the
@@ -3275,8 +3172,6 @@ jitend3byte:
    str temp0,[temp1,#4]
    add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
    str temp0,[temp1,#8]
-   //FILLINJITTEDTABLES dejit16bit32
-   //FILLINJITTEDTABLES dejit16bit33
    B dojitloop
 
 jitend3byteexitBBRS:
@@ -3298,8 +3193,6 @@ jitend3byteexit:
    str temp0,[temp1,#4]
    add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
    str temp0,[temp1,#8]
-   //FILLINJITTEDTABLES dejit16bit32
-   //FILLINJITTEDTABLES dejit16bit33
    B dojitexit
 
 MAKEBRANCHFILLINJITTEDTABLES:
@@ -3327,8 +3220,6 @@ MAKEBRANCH:
    str temp0,[r6]
    bx lr
 
-STOREOPERANDANDBRANCHLINK:
-   orr r8,r8,r4
 COPY3STOREINCMAKEBRANCHLINK:
    COPY3STOREINC
 MAKEBRANCHLINK:
@@ -3409,7 +3300,6 @@ handle_irqrti:
 
    msr  CPSR_flg, temp     // Restore the 6502 flags
    INTR -2, 0
-
 
 cli:
    mrs reg12,CPSR
@@ -3536,7 +3426,6 @@ rts:
    UADD8 regSP, regSP, reg1
    add  reg1,reg12,#NEXTJITLET
    add  reg1,reg1,reg0,LSL #JITLETSHIFT
-
    bx reg1
 
 rora:
