@@ -682,7 +682,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    blx reg0
 .endm
 
-.macro ASL
+.macro ASL6
    add   reg12, reg12, reg12
    strb  reg12,[reg1]
    movs  reg12, reg12, lsl #24
@@ -694,7 +694,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    lsls    reg12, reg12, #24
 .endm
 
-.macro LSR
+.macro LSR6
    lsrs reg12, reg12, #1
    strb reg12,[reg1]
 .endm
@@ -1068,7 +1068,7 @@ Bopc_0D:
 Bopc_0E:
    JITABSLDRBWB
    nop
-   ASL
+   ASL6
 Bopc_0F:
    JITBBR 0
 Bopc_11:
@@ -1094,7 +1094,7 @@ Bopc_1D:
 Bopc_1E:
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]!
-   ASL
+   ASL6
 Bopc_1F:
    JITBBR 1
 
@@ -1198,7 +1198,7 @@ Bopc_4E:
 B_NOP:
 Bopc_00:
    nop
-   LSR
+   LSR6
 Bopc_4F:
    JITBBR 4
 Bopc_50:
@@ -1228,7 +1228,7 @@ Bopc_5E:
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]!
    nop
-   LSR
+   LSR6
 Bopc_5F:
    JITBBR 5
 
@@ -3435,7 +3435,7 @@ aflags:
    bx lr
 
 asl:
-   ASL
+   ASL6
    bx lr
 
 php:
