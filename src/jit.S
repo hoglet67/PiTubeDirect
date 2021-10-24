@@ -1018,6 +1018,7 @@ Bopc_FB:
    nop
    nop
 #endif
+
 opc_FB: // Opcode FB - NOP6
    SINGLEBYTE Bopc_FB
 
