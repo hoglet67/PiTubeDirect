@@ -281,10 +281,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro NOP6
-   ldr temp,B_NOP
-   str temp,[r6]
-   str temp,[r6,#4]
-   B jitend1byte
+   ldr r8,B_NOP
+   mov r9,r8
+   B jitend1bytestore2
 .endm
 
 .macro NOP6_1
@@ -469,10 +468,9 @@ then return to our secret stack This relies on instructions being re entrant , b
    msr     CPSR_flg, reg1
 .endm
 
-.macro SINGLEOPCODEBLOUT block address
-   ldr temp,\block
-   ldr temp0,=\address
-   B singleopcodeend
+.macro SINGLEOPCODEBLOUT block
+   ldrd r8,\block
+   B singleopcodeBLend
 .endm
 
 .macro SINGLEOPCODEEXIT block address
@@ -490,8 +488,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro SINGLEBYTE block
-   COPY2 \block
-   B jitend1byte
+   ldrd r8,\block
+   B jitend1bytestore2
 .endm
 
 .macro DOUBLEBYTESETFIRSTBYTE block
@@ -838,6 +836,191 @@ opc_D0: // Opcode D0 - BNE
 opc_F0: // Opcode F0 - BEQ
    BRANCH BEQINSTRUCTION
 
+.balign 8
+opc_08: // Opcode 08 - PHP
+   SINGLEOPCODEBLOUT Bopc_08
+opc_0A: // Opcode 0A - ASL A
+   SINGLEBYTE Bopc_0A
+opc_1A: // Opcode 1A - INC A
+   SINGLEOPCODEBLOUT Bopc_1A
+opc_28:// Opcode 28 - PLP
+   SINGLEOPCODEBLOUT Bopc_28
+opc_2A: // Opcode 2A - ROL A
+   SINGLEOPCODEBLOUT Bopc_2A
+opc_3A: // Opcode 3A - DEC A
+   SINGLEOPCODEBLOUT Bopc_3A
+opc_48: // Opcode 48 - PHA
+   SINGLEBYTE Bopc_48
+opc_4A: // Opcode 4A - LSR A
+   SINGLEBYTE Bopc_4A
+opc_58: // Opcode 58 - CLI
+   SINGLEOPCODEBLOUT Bopc_58
+opc_5A: // Opcode 5A - PHY
+   SINGLEOPCODEBLOUT Bopc_5A
+opc_68: // Opcode 68 - PLA
+   SINGLEOPCODEBLOUT Bopc_68
+opc_6A: // Opcode 6A - ROR A
+   SINGLEOPCODEBLOUT Bopc_6A
+opc_78: // Opcode 78 - SEI
+   SINGLEBYTE Bopc_78
+opc_7A: // Opcode 7A - PLY
+   SINGLEOPCODEBLOUT Bopc_7A
+opc_88: // Opcode 88 - DEY
+   SINGLEBYTE Bopc_88
+opc_8A: // Opcode 8A - TXA
+   SINGLEBYTE Bopc_8A
+opc_98: // Opcode 98 - TYA
+   SINGLEBYTE Bopc_98
+opc_9A: // Opcode 9A - TXS
+   SINGLEBYTE Bopc_9A
+opc_A8: // Opcode A8 - TAY
+   SINGLEBYTE Bopc_A8
+opc_AA: // Opcode AA - TAX
+   SINGLEBYTE Bopc_AA
+opc_B8: // Opcode B8 - CLV
+   SINGLEBYTE Bopc_B8
+opc_BA: // Opcode BA - TSX
+   SINGLEBYTE Bopc_BA
+opc_C8: // Opcode C8 - INY
+   SINGLEBYTE Bopc_C8
+opc_CA: // Opcode CA - DEX
+   SINGLEBYTE Bopc_CA
+opc_D8: // Opcode D8 - CLD
+   SINGLEBYTE Bopc_D8
+opc_DA: // Opcode DA - PHX
+   SINGLEOPCODEBLOUT Bopc_DA
+opc_E3: // Opcode E3 - NOP6
+   SINGLEOPCODEBLOUT Bopc_E3
+opc_E8: // Opcode E8 - INX
+   SINGLEBYTE Bopc_E8
+opc_EB: // Opcode EB - NOP6 ( Borrowed for instruction timing)
+   SINGLEBYTE Bopc_EB
+opc_F3: // Opcode F3 - NOP6
+   SINGLEOPCODEBLOUT Bopc_F3
+opc_F8: // Opcode F8 - SED
+   SINGLEBYTE Bopc_F8
+opc_FA: // Opcode FA - PLX
+   SINGLEOPCODEBLOUT Bopc_FA
+.balign 8
+Bopc_08:
+   orr      reg12, flags, #X_FLAG6502+B_FLAG6502
+   .word    php-12
+Bopc_0A:
+   lsls     regA, regA, #25
+   sxtb     regA, regA , ror #24
+Bopc_1A:
+   add      regA, regA, #0x1
+   .word    aflags-12
+Bopc_28:
+   mov      reg12,#1
+   .word    plp-12
+Bopc_2A:
+   adc      regA, regA, regA
+   .word    rola-12
+Bopc_3A:
+   sub      regA, regA, #0x1
+   .word    aflags-12
+Bopc_48:
+   SPUSH regA
+Bopc_4A:
+   lsrs     regA, regA, #1
+   and      regA, regA, #0x7F
+Bopc_58:
+   bic      flags, flags, #I_FLAG6502
+   .word    cli-12
+Bopc_5A:
+   mov      reg12, regY,LSR  #24
+   .word    pushtemp-12
+Bopc_68:
+   mov      reg1,#1
+   .word    pla-12
+Bopc_6A:
+   and      regA, regA, #0xFF    // isolate lower byte
+   .word    rora-12
+Bopc_78:
+   orr      flags, flags, #I_FLAG6502
+   nop
+Bopc_7A:
+   mov      reg1,#1
+   .word    ply-12
+Bopc_88:
+   sub      regY, regY, #0x1000000
+   teq      regY, #0
+Bopc_8A:
+   sxtb     regA, regX, ror #24
+   TEQ      regA, #0
+Bopc_98:
+   sxtb     regA, regY, ror #24
+   TEQ      regA, #0
+Bopc_9A:
+   bic      regSP, regSP, #0xFF             // clear lower nibble
+   orr      regSP, regSP, regX, lsr #24     // put X in lower nibble
+Bopc_A8:
+   lsl      regY, regA, #24
+   TEQ      regA, #0
+Bopc_AA:
+   lsl      regX, regA, #24
+   TEQ      regA, #0
+Bopc_B8:
+   nop
+   bic      flags, #V_FLAG6502
+Bopc_BA:
+   lsl      regX, regSP, #24
+   teq      regX, #0
+Bopc_C8:
+   add      regY, regY, #0x1000000
+   teq      regY, #0
+Bopc_CA:
+   sub      regX, regX, #0x1000000
+   teq      regX, #0
+Bopc_D8:
+   nop
+   bic      flags, flags, #D_FLAG6502
+Bopc_DA:
+   mov      reg12, regX, LSR #24
+   .word    pushtemp-12
+Bopc_E3:
+   mov      reg1,#1
+   .word    debugopcode-12
+Bopc_E8:
+   add      regX, regX, #0x1000000
+   teq      regX, #0
+Bopc_EB:
+#if defined(TIMING_INSTRUCTION)
+#if defined(RPI2)|| defined(RPI3) || defined(RPI4)
+   mrc     p15, 0, reg0, c9, c13, 0
+#else
+   MRC     p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
+#endif
+   str     reg0,[ram6502,#0xE0]
+#else
+   nop
+   nop
+#endif
+Bopc_F3:
+   nop
+   .word putcharopcode-12
+Bopc_F8:
+   nop
+   orr      flags, flags, #D_FLAG6502
+Bopc_FA:
+   mov      reg1,#1
+   .word    plx-12
+Bopc_FB:
+#if defined(TIMING_INSTRUCTION)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+   mrc     p15, 0, reg0, c9, c13, 0
+#else
+   MRC     p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
+#endif
+   str     reg0,[ram6502,#0xE4]
+#else
+   nop
+   nop
+#endif
+opc_FB: // Opcode FB - NOP6
+   SINGLEBYTE Bopc_FB
+
 opc_00: // Opcode 00 - BRK is really a two byte instruction
    SINGLEOPCODEBLEXIT Bopc_00 brk
 
@@ -856,14 +1039,8 @@ opc_06: // Opcode 06 - ASL $00
 opc_07: // Opcode 07 - RMB0 $00
    DOUBLEBYTESETTWOBYTES Bopc_07 12
 
-opc_08: // Opcode 08 - PHP
-   SINGLEOPCODEBLOUT Bopc_08 php
-
 opc_09: // Opcode 09 - ORA #$00
    IMMLOAD Bopc_09
-
-opc_0A: // Opcode 0A - ASL A
-   SINGLEBYTE Bopc_0A
 
 opc_0C: // Opcode 0C - TSB $0000
    TRIPLEBYTEABSBLOUT Bopc_0C tsb2 20
@@ -901,8 +1078,7 @@ opc_18: // Opcode 18 - CLC
 opc_19: // Opcode 19 - ORA $0000,Y
    TRIPLEBYTEABS Bopc_19
 
-opc_1A: // Opcode 1A - INC A
-   SINGLEOPCODEBLOUT Bopc_1A aflags
+
 
 opc_1C: // Opcode 1C - TRB $0000
    TRIPLEBYTEABSBLOUT Bopc_1C trb2 20
@@ -944,14 +1120,12 @@ opc_26: // Opcode 26 - ROL $00
 opc_27: // Opcode 27 - RMB2 $00
    DOUBLEBYTESETTWOBYTES Bopc_27 12
 
-opc_28:// Opcode 28 - PLP
-   SINGLEOPCODEBLOUT Bopc_28 plp
+
 
 opc_29: // Opcode 29 - AND #$00
    IMMLOAD Bopc_29
 
-opc_2A: // Opcode 2A - ROL A
-   SINGLEOPCODEBLOUT Bopc_2A rola
+
 
 opc_2C: // Opcode 2C - BIT $0000
    ldrh temp0,[temp2,#1]
@@ -1012,13 +1186,10 @@ Bopc_06:
    movs  reg12, reg12, lsl #24
 Bopc_07:
    JITRMB 0
-Bopc_08:
-   orr   reg12, flags, #X_FLAG6502+B_FLAG6502
+
 Bopc_09:
    JITIMMLOGICAL orrs
-Bopc_0A:
-   lsls    regA, regA, #25
-   sxtb    regA, regA , ror #24
+
 Bopc_0C:
 Bopc_1C:
    JITABSLDRBWB
@@ -1049,8 +1220,7 @@ Bopc_17:
    JITRMB 1
 Bopc_19:
    JITABSYLOGICAL orrs
-Bopc_1A:
-   add     regA, regA, #0x1
+
 
 Bopc_1D:
    JITABSXLOGICAL orrs
@@ -1083,13 +1253,11 @@ Bopc_26:
    movs  reg12, reg12, lsl #24
 Bopc_27:
    JITRMB 2
-Bopc_28:
 Bopc_40:
    mov   reg12,#1
 Bopc_29:
    JITIMMLOGICAL ands
-Bopc_2A:
-   adc     regA, regA, regA
+
 Bopc_2C:
    MOVR1HIGH
 Bopc_2C_io:
@@ -1118,8 +1286,7 @@ Bopc_37:
    JITRMB 3
 Bopc_39:
    JITABSYLOGICAL ands
-Bopc_3A:
-   sub     regA, regA, #0x1
+
 Bopc_3C:
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]
@@ -1145,13 +1312,10 @@ Bopc_46:
    strb  reg0,[ram6502,#00]
 Bopc_47:
    JITRMB 4
-Bopc_48:
-   SPUSH regA
+
 Bopc_49:
    JITIMMLOGICAL eors
-Bopc_4A:
-   lsrs regA, regA, #1
-   and  regA, regA, #0x7F
+
 Bopc_4D:
    JITABSLOGICAL eors
 Bopc_4E:
@@ -1179,12 +1343,10 @@ Bopc_56:
    strb reg0,[ram6502,reg1,LSR #24]
 Bopc_57:
    JITRMB 5
-Bopc_58:
-   bic     flags, flags, #I_FLAG6502
+
 Bopc_59:
    JITABSYLOGICAL eors
-Bopc_5A:
-   mov  reg12, regY,LSR  #24
+
 Bopc_5D:
    JITABSXLOGICAL eors
 Bopc_5E:
@@ -1231,8 +1393,7 @@ opc_38: // Opcode 38 - SEC
 opc_39: // Opcode 39 - AND $0000,Y
    TRIPLEBYTEABS Bopc_39
 
-opc_3A: // Opcode 3A - DEC A
-   SINGLEOPCODEBLOUT Bopc_3A aflags
+
 
 opc_3C: // Opcode 3C - BIT $0000,X
    TRIPLEBYTEABSBLOUT Bopc_3C bit2 20
@@ -1260,14 +1421,12 @@ opc_46: // Opcode 46 - LSR $00
 opc_47: // Opcode 47 - RMB4 $00
    DOUBLEBYTESETTWOBYTES Bopc_47 12
 
-opc_48: // Opcode 48 - PHA
-   SINGLEBYTE Bopc_48
+
 
 opc_49: // Opcode 49 - EOR #$00
    IMMLOAD Bopc_49
 
-opc_4A: // Opcode 4A - LSR A
-   SINGLEBYTE Bopc_4A
+
 
 opc_4C: // Opcode 4C - JMP $0000
    ldrh r12,[temp2,#1]
@@ -1302,14 +1461,8 @@ opc_56: // Opcode 56 - LSR $00,X
 opc_57: // Opcode 57 - RMB5 $00
    DOUBLEBYTESETTWOBYTES Bopc_57 12
 
-opc_58: // Opcode 58 - CLI
-   SINGLEOPCODEBLOUT Bopc_58 cli
-
 opc_59: // Opcode 59 - EOR $0000,Y
    TRIPLEBYTEABS Bopc_59
-
-opc_5A: // Opcode 5A - PHY
-   SINGLEOPCODEBLOUT Bopc_5A pushtemp
 
 opc_5D: // Opcode 5D - EOR $0000,X
    TRIPLEBYTEABS Bopc_5D
@@ -1338,16 +1491,14 @@ opc_66: // Opcode 66 - ROR $00
 opc_67: // Opcode 67 - RMB6 $00
    DOUBLEBYTESETTWOBYTES Bopc_67 12
 
-opc_68: // Opcode 68 - PLA
-   SINGLEOPCODEBLOUT Bopc_68 pla
+
 
 opc_69: // Opcode 69 - ADC #$00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_69
 opc_E9: // Opcode E9 - SBC #$00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E9
 
-opc_6A: // Opcode 6A - ROR A
-   SINGLEOPCODEBLOUT Bopc_6A rora
+
 
 opc_6C: // Opcode 6C - JMP ($0000)
    COPY6LOAD Bopc_6C
@@ -1393,16 +1544,14 @@ opc_F5: // Opcode F5 - SBC $00,X
 opc_77: // Opcode 77 - RMB7 $00
    DOUBLEBYTESETTWOBYTES Bopc_77 12
 
-opc_78: // Opcode 78 - SEI
-   SINGLEBYTE Bopc_78
+
 
 opc_79: // Opcode 79 - ADC $0000,Y
    TRIPLEBYTEABSBLOUT Bopc_79 ADC2 20
 opc_F9: // Opcode F9 - SBC $0000,Y
    TRIPLEBYTEABSBLOUT Bopc_F9 SBC2 20
 
-opc_7A: // Opcode 7A - PLY
-   SINGLEOPCODEBLOUT Bopc_7A ply
+
 
 opc_7C: // Opcode 7C - JMP ($0000,X)
    COPY6LOAD Bopc_7C
@@ -1444,9 +1593,7 @@ Bopc_66:
    strb reg12,[ram6502,#00]
 Bopc_67:
    JITRMB 6
-Bopc_68:
-Bopc_7A:
-   mov reg1,#1
+
 Bopc_69:
    mov     reg12,#00 // NB could save a cycle later on
    tst     flags, #D_FLAG6502
@@ -1457,8 +1604,7 @@ Bopc_E9:
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
    .word SBC2-20
-Bopc_6A:
-   and     regA, regA, #0xFF    // isolate lower byte
+
 Bopc_6C:
    MOVR1HIGH
    ldrh reg1,[reg1,#0x00]
@@ -1517,9 +1663,7 @@ Bopc_F5:
    .word SBC1-20
 Bopc_77:
    JITRMB 7
-Bopc_78:
-   orr     flags, flags, #I_FLAG6502
-   nop
+
 Bopc_79:
 Bopc_F9:
    JITABS
@@ -1580,17 +1724,13 @@ Bopc_86:
    JITZPST regX
 Bopc_87:
    JITSMB 0
-Bopc_88:
-   sub     regY, regY, #0x1000000
-   teq     regY, #0
+
 Bopc_89:
    mrs     reg1, CPSR
    tst     regA, #00
    bicne   reg1, reg1, #Z_FLAG
    .word bitimm-20
-Bopc_8A:
-   sxtb    regA, regX, ror #24
-   TEQ     regA, #0
+
 Bopc_8C:
    JITABSSTORE regY
 Bopc_8C_io:
@@ -1644,14 +1784,10 @@ Bopc_96:
    .word jitstxytable-20
 Bopc_97:
    JITSMB 1
-Bopc_98:
-   sxtb    regA, regY, ror #24
-   TEQ     regA, #0
+
 Bopc_99:
    JITABSXYST regA regY
-Bopc_9A:
-   bic     regSP, regSP, #0xFF             // clear lower nibble
-   orr     regSP, regSP, regX, lsr #24     // put X in lower nibble
+
 Bopc_9C:
    JITABSSTORE ram6502
 Bopc_9D:
@@ -1687,8 +1823,7 @@ opc_86: // Opcode 86 - STX $00
 opc_87: // Opcode 87 - SMB0 $00
    DOUBLEBYTESETTWOBYTES Bopc_87 12
 
-opc_88: // Opcode 88 - DEY
-   SINGLEBYTE Bopc_88
+
 
 opc_89: // Opcode 89 - BIT #$00
    COPY4LOAD Bopc_89
@@ -1696,8 +1831,7 @@ opc_89: // Opcode 89 - BIT #$00
    B jitend2byteBLendstore
 
 
-opc_8A: // Opcode 8A - TXA
-   SINGLEBYTE Bopc_8A
+
 
 opc_8C: // Opcode 8C - STY $0000
    ldrh r12,[temp2,#1]
@@ -1753,14 +1887,8 @@ opc_96: // Opcode 96 - STX $00,Y
 opc_97: // Opcode 97 - SMB1 $00
    DOUBLEBYTESETTWOBYTES Bopc_97 12
 
-opc_98: // Opcode 98 - TYA
-   SINGLEBYTE Bopc_98
-
 opc_99: // Opcode 99 - STA $0000,Y
    TRIPLEBYTEABS Bopc_99
-
-opc_9A: // Opcode 9A - TXS
-   SINGLEBYTE Bopc_9A
 
 opc_9C: // Opcode 9C - STZ $0000
    ldrh r12,[temp2,#1]
@@ -1795,8 +1923,7 @@ opc_A6: // Opcode A6 - LDX $00
 opc_A7: // Opcode A7 - SMB2 $00
    DOUBLEBYTESETTWOBYTES Bopc_A7 12
 
-opc_A8: // Opcode A8 - TAY
-   SINGLEBYTE Bopc_A8
+
 
 opc_A9: // Opcode A9 - LDA #$00
    LDR r8,B_NOP
@@ -1810,8 +1937,7 @@ opc_A9: // Opcode A9 - LDA #$00
    str temp,[r6]
    B jitend2byte
 
-opc_AA: // Opcode AA - TAX
-   SINGLEBYTE Bopc_AA
+
 
 opc_AC: // Opcode AC - LDY $0000
    ldrh temp0,[temp2,#1]
@@ -1874,14 +2000,11 @@ opc_B6: // Opcode B6 - LDX $00,Y
 opc_B7: // Opcode B7 - SMB3 $00
    DOUBLEBYTESETTWOBYTES Bopc_B7 12
 
-opc_B8: // Opcode B8 - CLV
-   SINGLEBYTE Bopc_B8
+
 
 opc_B9: // Opcode B9 - LDA $0000,Y
    TRIPLEBYTEABS Bopc_B9
 
-opc_BA: // Opcode BA - TSX
-   SINGLEBYTE Bopc_BA
 
 opc_BC: // Opcode BC - LDY $0000,X
    TRIPLEBYTEABS Bopc_BC
@@ -1913,14 +2036,12 @@ opc_C6: // Opcode C6 - DEC $00
 opc_C7: // Opcode C7 - SMB4 $00
    DOUBLEBYTESETTWOBYTES Bopc_C7 12
 
-opc_C8: // Opcode C8 - INY
-   SINGLEBYTE Bopc_C8
+
 
 opc_C9: // Opcode C9 - CMP #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_C9
 
-opc_CA: // Opcode CA - DEX
-   SINGLEBYTE Bopc_CA
+
 
 opc_CC: // Opcode CC - CPY $0000
    TRIPLEBYTEABS Bopc_CC
@@ -1964,12 +2085,8 @@ Bopc_A6:
    teq regX,#0
 Bopc_A7:
    JITSMB 2
-Bopc_A8:
-   lsl   regY, regA, #24
-   TEQ   regA, #0
-Bopc_AA:
-   lsl    regX, regA, #24
-   TEQ    regA, #0
+
+
 Bopc_AC:
    JITABSLDRB
    nop
@@ -2037,18 +2154,14 @@ Bopc_B6:
    teq   regX,#0
 Bopc_B7:
    JITSMB 3
-Bopc_B8:
-   nop
-   bic     flags, #V_FLAG6502
+
 Bopc_B9:
    JITABS
    mov  regA, regY, lsr #24
    ldrsb regA,[reg1, regA]
    nop
    teq  regA, #0
-Bopc_BA:
-   lsl     regX, regSP, #24
-   teq     regX, #0
+
 Bopc_BC:
    JITABS
    ldrb regY,[reg1, regX, lsr #24]
@@ -2092,17 +2205,13 @@ Bopc_C6:
    .word tempflags-20
 Bopc_C7:
    JITSMB 4
-Bopc_C8:
-   add     regY, regY, #0x1000000
-   teq     regY, #0
+
 Bopc_C9:
    MOVR1CONST
    nop
    rsbs reg1,reg1,regA,LSL #24
    nop
-Bopc_CA:
-   sub     regX, regX, #0x1000000
-   teq     regX, #0
+
 Bopc_CC:
    JITABSLDRB
    nop
@@ -2145,17 +2254,14 @@ Bopc_D6:
    .word storeXflags-20
 Bopc_D7:
    JITSMB 5
-Bopc_D8:
-   nop
-   bic     flags, flags, #D_FLAG6502
+
 Bopc_D9:
    JITABS
    ldrb reg0,[reg1,regY,LSR #24]
    nop
    mov reg1,regA,LSL #24
    cmp reg1,reg0,LSL #24
-Bopc_DA:
-   mov     reg12, regX, LSR #24
+
 Bopc_DD:
    JITABS
    ldrb reg0,[reg1,regX,LSR #24]
@@ -2188,22 +2294,9 @@ Bopc_E6:
    .word tempflags-20
 Bopc_E7:
    JITSMB 6
-Bopc_E8:
-   add     regX, regX, #0x1000000
-   teq     regX, #0
 
-Bopc_EB:
-#if defined(TIMING_INSTRUCTION)
-#if defined(RPI2)|| defined(RPI3) || defined(RPI4)
-   mrc     p15, 0, reg0, c9, c13, 0
-#else
-   MRC     p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
-#endif
-   str     reg0,[ram6502,#0xE0]
-#else
-   nop
-   nop
-#endif
+
+
 Bopc_EC:
    JITABSLDRB
    nop
@@ -2219,10 +2312,6 @@ Bopc_EE:
 Bopc_EF:
    JITBBS 6
 
-
-Bopc_F3:
-   nop
-
 Bopc_F6:
    ADDR1REGXZP
    ldrb reg0,[ram6502,reg1,LSR#24]
@@ -2230,25 +2319,8 @@ Bopc_F6:
    .word storeXflags-20
 Bopc_F7:
    JITSMB 7
-Bopc_F8:
-   nop
-   orr     flags, flags, #D_FLAG6502
 
-Bopc_FA:
-Bopc_E3:
-   mov reg1,#1
-Bopc_FB:
-#if defined(TIMING_INSTRUCTION)
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
-   mrc     p15, 0, reg0, c9, c13, 0
-#else
-   MRC     p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
-#endif
-   str     reg0,[ram6502,#0xE4]
-#else
-   nop
-   nop
-#endif
+
 
 Bopc_FE:
    JITABS
@@ -2276,14 +2348,12 @@ opc_D6: // Opcode D6 - DEC $00,X
 opc_D7: // Opcode D7 - SMB5 $00
    DOUBLEBYTESETTWOBYTES Bopc_D7 12
 
-opc_D8: // Opcode D8 - CLD
-   SINGLEBYTE Bopc_D8
+
 
 opc_D9: // Opcode D9 - CMP $0000,Y
    TRIPLEBYTEABS Bopc_D9
 
-opc_DA: // Opcode DA - PHX
-   SINGLEOPCODEBLOUT Bopc_DA pushtemp
+
 
 opc_DD: // Opcode DD - CMP $0000,X
    TRIPLEBYTEABS Bopc_DD
@@ -2298,8 +2368,7 @@ opc_E0: // Opcode E0 - CPX #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_E0
 
 
-opc_E3: // Opcode E3 - NOP6
-   SINGLEOPCODEBLOUT Bopc_E3 debugopcode
+
 
 opc_E4: // Opcode E4 - CPX $00
    DOUBLEBYTESETFIRSTBYTE Bopc_E4
@@ -2314,12 +2383,7 @@ opc_E6: // Opcode E6 - INC $00
 opc_E7: // Opcode E7 - SMB6 $00
    DOUBLEBYTESETTWOBYTES Bopc_E7 12
 
-opc_E8: // Opcode E8 - INX
-   SINGLEBYTE Bopc_E8
 
-
-opc_EB: // Opcode EB - NOP6 ( Borrowed for instruction timing)
-   SINGLEBYTE Bopc_EB
 
 opc_EC: // Opcode EC - CPX $0000
    TRIPLEBYTEABS Bopc_EC
@@ -2348,9 +2412,7 @@ opc_EF: // Opcode EF - BBS6
 
 
 
-opc_F3: // Opcode F3 - NOP6
-   //NOP6
-   SINGLEOPCODEBLOUT Bopc_F3 putcharopcode
+
 
 
 opc_F6: // Opcode F6 - INC $00,X
@@ -2359,15 +2421,12 @@ opc_F6: // Opcode F6 - INC $00,X
 opc_F7: // Opcode F7 - SMB7 $00
    DOUBLEBYTESETTWOBYTES Bopc_F7 12
 
-opc_F8: // Opcode F8 - SED
-   SINGLEBYTE Bopc_F8
 
 
-opc_FA: // Opcode FA - PLX
-   SINGLEOPCODEBLOUT Bopc_FA plx
 
-opc_FB: // Opcode FB - NOP6
-   SINGLEBYTE Bopc_FB
+
+
+
 
 
 opc_FE: // Opcode FE - INC $0000,X
@@ -3124,9 +3183,14 @@ jitend1byteexit:
    add temp2,temp2,#1
    B dojitexit
 
-singleopcodeend:
-   str temp,[r6],#4
-   BL MAKEBRANCHLINK
+singleopcodeBLend:
+   sub r9,r9,r6
+//   sub r9,r9,#8+4
+   mov r9,r9,LSR #2
+   BIC r9,r9,#0xFF000000
+   ORR r9,r9,#BLINSTRUCTION
+jitend1bytestore2:
+   strd r8,[r6]
 jitend1byte:
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#1
