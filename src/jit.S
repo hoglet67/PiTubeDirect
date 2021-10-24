@@ -550,9 +550,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro TRIPLEBYTEABSBLOUT block address offset
-.ifc \offset,20
+.ifc \offset,8
    adr temp1,\block
-   B  jitend3byteloadstoreoperandBL
+   B  jitend3byteloadstoreoperandBL8
 .else
    ldr temp0,=\address
    COPY6LOAD \block
@@ -2119,7 +2119,7 @@ Bopc_AC:
    teq regY,#0
 Bopc_AC_io:
    JITABS r0
-   BL ioload
+   .word ioload-16
    mov regY,r0,LSL #24
    nop
    teq regY,#0
@@ -2132,7 +2132,7 @@ Bopc_AD:
    teq regA,#0
 Bopc_AD_io:
    JITABS r0
-   BL ioload
+   .word ioload-16
    sxtb regA,r0
    nop
    teq regA,#0
@@ -2144,7 +2144,7 @@ Bopc_AE:
    teq regX,#0
 Bopc_AE_io:
    JITABS r0
-   BL ioload
+   .word ioload-16
    mov regX,r0,LSL #24
    nop
    teq regX,#0
@@ -3238,6 +3238,17 @@ jitend1byte:
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#1
    B dojitloop
+
+jitend3byteloadstoreoperandBL8:
+   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   orr r7,r7,r5
+   orr r8,r8,r4
+   sub r9,r9,r6
+//   sub r9,r9,#8+20
+   mov r9,r9,LSR #2
+   BIC r9,r9,#0xFF000000
+   ORR r9,r9,#BLINSTRUCTION
+   B jitend3bytestore
 
 jitend3byteloadstoreoperandBL:
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
