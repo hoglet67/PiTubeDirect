@@ -523,12 +523,10 @@ then return to our secret stack This relies on instructions being re entrant , b
    B jitend2byteBLend
 .endm
 
-.macro DOUBLEBYTEBYTET2BLOUT block address
-   ldr temp0,=\address
-   COPY3LOAD \block
+.macro DOUBLEBYTEBYTET2BLOUT block
+   COPY4LOAD \block
    BL fixuptype2accessquick
-   BL COPY3STOREINCMAKEBRANCHLINK
-   B jitend2byte
+   B jitend2byteBLendstore
 .endm
 
 .macro DOUBLEBYTET2 block
@@ -1374,14 +1372,14 @@ opc_70: // Opcode 70 - BVS
    BRANCHVCS Bopc_70 testvflagS
 
 opc_71: // Opcode 71 - ADC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_71 ADC1
+   DOUBLEBYTEBYTET2BLOUT Bopc_71
 opc_F1: // Opcode F1 - SBC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_F1 SBC1
+   DOUBLEBYTEBYTET2BLOUT Bopc_F1
 
 opc_72: // Opcode 72 - ADC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_72 ADC1
+   DOUBLEBYTEBYTET2BLOUT Bopc_72
 opc_F2: // Opcode F2 - SBC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_F2 SBC1
+   DOUBLEBYTEBYTET2BLOUT Bopc_F2
 
 opc_74: // Opcode 74 - STZ $00,X
    DOUBLEBYTESETFIRSTBYTE Bopc_74
@@ -1482,15 +1480,25 @@ Bopc_6F:
    JITBBR 6
 
 Bopc_71:
+   ldrh    reg1,[ram6502,#0x00]
+   tst     flags, #D_FLAG6502
+   ldrb    reg12,[reg1,regY,LSR #24]
+   .word ADC1-20
 Bopc_F1:
    ldrh    reg1,[ram6502,#0x00]
    tst     flags, #D_FLAG6502
    ldrb    reg12,[reg1,regY,LSR #24]
+   .word SBC1-20
 Bopc_72:
+   ldrh    reg1,[ram6502,#0x00]
+   tst     flags, #D_FLAG6502
+   ldrb    reg12,[reg1]
+   .word ADC1-20
 Bopc_F2:
    ldrh    reg1,[ram6502,#0x00]
    tst     flags, #D_FLAG6502
    ldrb    reg12,[reg1]
+   .word SBC1-20
 Bopc_74:
    ADDR1REGXZP
    strb ram6502,[ram6502,reg1,LSR #24]
@@ -1579,6 +1587,7 @@ Bopc_89:
    mrs     reg1, CPSR
    tst     regA, #00
    bicne   reg1, reg1, #Z_FLAG
+   .word bitimm-20
 Bopc_8A:
    sxtb    regA, regX, ror #24
    TEQ     regA, #0
@@ -1682,11 +1691,9 @@ opc_88: // Opcode 88 - DEY
    SINGLEBYTE Bopc_88
 
 opc_89: // Opcode 89 - BIT #$00
-   ldr temp0,=bitimm
-   COPY3LOAD Bopc_89
+   COPY4LOAD Bopc_89
    orr r9,r9,r4
-   BL COPY3STOREINCMAKEBRANCHLINK
-   B jitend2byte
+   B jitend2byteBLendstore
 
 
 opc_8A: // Opcode 8A - TXA
@@ -1898,12 +1905,10 @@ opc_C5: // Opcode C5 - CMP $00
    DOUBLEBYTESETFIRSTBYTE Bopc_C5
 
 opc_C6: // Opcode C6 - DEC $00
-   COPY3LOAD Bopc_C6
-   ldr temp0,=tempflags
+   COPY4LOAD Bopc_C6
    orr r8,r8,r4
    orr r10,r10,r4
-   BL COPY3STOREINCMAKEBRANCHLINK
-   B jitend2byte
+   B jitend2byteBLendstore
 
 opc_C7: // Opcode C7 - SMB4 $00
    DOUBLEBYTESETTWOBYTES Bopc_C7 12
@@ -2084,6 +2089,7 @@ Bopc_C6:
    ldrb reg0,[ram6502,#0]
    sub  reg0, reg0, #1
    strb reg0,[ram6502,#0]
+   .word tempflags-20
 Bopc_C7:
    JITSMB 4
 Bopc_C8:
@@ -2179,6 +2185,7 @@ Bopc_E6:
    ldrb reg0,[ram6502,#0]
    add  reg0, reg0, #1
    strb reg0,[ram6502,#0]
+   .word tempflags-20
 Bopc_E7:
    JITSMB 6
 Bopc_E8:
@@ -2299,12 +2306,10 @@ opc_E4: // Opcode E4 - CPX $00
 
 
 opc_E6: // Opcode E6 - INC $00
-   COPY3LOAD Bopc_E6
-   ldr temp0,=tempflags
+   COPY4LOAD Bopc_E6
    orr r8,r8,r4
    orr r10,r10,r4
-   BL COPY3STOREINCMAKEBRANCHLINK
-   B jitend2byte
+   B jitend2byteBLendstore
 
 opc_E7: // Opcode E7 - SMB6 $00
    DOUBLEBYTESETTWOBYTES Bopc_E7 12
@@ -2867,7 +2872,7 @@ jitend2byteBLend:
 // NB word -20  ( 8+12)
    LDMIA temp1,{r8,r9,r10,r11}
    orr r8,r8,r4
-
+jitend2byteBLendstore:
    sub r11,r11,r6
 //   sub r11,r11,#8-12
    mov r11,r11,LSR #2
