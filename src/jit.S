@@ -1470,9 +1470,7 @@ opc_6C: // Opcode 6C - JMP ($0000)
 
    BL fixuptype2accessquick
    orr r7,r7,r5
-   COPY6STORE
-
-   b jitend3byteexit
+   b jitend3byteexitstore6
 
 opc_6D: // Opcode 6D - ADC $0000
    TRIPLEBYTEABSBLOUT20 Bopc_6D
@@ -1518,8 +1516,7 @@ opc_7C: // Opcode 7C - JMP ($0000,X)
    COPY6LOAD Bopc_7C
    orr r7,r7,r5
    orr r8,r8,r4
-   COPY6STORE
-   B  jitend3byteexit
+   B  jitend3byteexitstore6
 
 opc_7D: // Opcode 7D - ADC $0000,X
    TRIPLEBYTEABSBLOUT20 Bopc_7D
@@ -3193,7 +3190,7 @@ jitend3byteexitBBRS:
    mov r10,r10,LSR #2
    BIC r10,r10,#0xFF000000
    ORR r10,r10,#BLINSTRUCTION
-
+jitend3byteexitstore6:
    STMIA r6,{r7,r8,r9,r10,r11,r12}
 
 jitend3byteexit:
