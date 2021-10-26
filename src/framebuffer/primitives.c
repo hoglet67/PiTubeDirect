@@ -301,6 +301,11 @@ static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t co
 }
 
 static void draw_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+   // Deal with the trivial case of single point
+   if (width == 0 && height == 0) {
+      set_pixel(screen, xc, yc, colour);
+      return;
+   }
    // Draw the ellipse
    int a2 = width * width;
    int b2 = height * height;
@@ -432,8 +437,13 @@ static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 #endif
 
 static void fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
-   int a2 = width * width;
+   // Deal with the trivial case of single point
+   if (width == 0 && height == 0) {
+      set_pixel(screen, xc, yc, colour);
+      return;
+   }
    // Fill the ellipse
+   int a2 = width * width;
    int b2 = height * height;
    int fa2 = 4 * a2, fb2 = 4 * b2;
    int x, y, sigma;
