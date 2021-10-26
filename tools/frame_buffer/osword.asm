@@ -29,6 +29,10 @@ org &0300
 
 .init
 
+;; Leave cursor in col 1
+    LDA #32
+    JSR oswrch
+
 ;; Copy minimal OSWRCH to host at 0900
     LDA #page
     STA osword6_addr_hi
@@ -36,19 +40,17 @@ org &0300
 .oswloop1
     STY osword6_addr_lo
     LDA host_oswrch_start,Y
+    PHY
     JSR osword6
+    PLY
     DEY
     BPL oswloop1
+    INY
 
-;; Revector Host OSWRCH to &0900
-    LDA #HI(wrcvec)
-    STA osword6_addr_hi
-    LDA #LO(wrcvec)
-    STA osword6_addr_lo
-    LDA #&00
-    JSR osword6
-    LDA #page
-    JSR osword6
+;; *FX 4,1 to disable cursor editing
+    LDA #4
+    LDX #1
+    JSR osbyte
 
 ;; Revector Parasite OSWRCH
     LDA #LO(parasite_oswrch)
@@ -66,23 +68,23 @@ org &0300
     LDA #HI(newosword)
     STA wordvec+1
 
-;; *FX 4,1 to disable cursor editing
-    LDA #4
-    LDX #1
-    LDY #0
-    JMP osbyte
+;; Revector Host OSWRCH to &0900
+    LDA #HI(wrcvec)
+    STA osword6_addr_hi
+    LDA #LO(wrcvec)
+    STA osword6_addr_lo
+    LDA #&00
+    JSR osword6
+    LDA #page
+    ;; fall through to osword6
 
 .osword6
     STA osword6_data
-    PHX
-    PHY
     LDA #6
     LDX #LO(osword6_param)
     LDY #HI(osword6_param)
     JSR osword
     INC osword6_addr_lo
-    PLY
-    PLX
     RTS
 
 .host_oswrch_start
@@ -98,14 +100,15 @@ org &0300
     STA &FEF8
     RTS
 
-.oldosword
-    NOP
-    NOP
-
 .newosword
     CMP #0
     BEQ osword0
-    JMP (oldosword)
+
+    EQUB &4C ; JMP
+
+.oldosword
+    NOP
+    NOP
 
 ;; X/Y Param Block points to
 ;;
