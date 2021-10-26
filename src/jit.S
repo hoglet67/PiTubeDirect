@@ -331,8 +331,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro IMMLOAD block
-   adr reg1,\block
    ldr r7,=immediatesignextenedtable
+   adr reg1,\block
    LDMIA reg1,{r8,r9}
    ldr r7,[r7,r4,LSL #2]
    strd  r8,r9,[r6,#8]
@@ -2345,7 +2345,6 @@ opc_FE: // Opcode FE - INC $0000,X
 opc_FF: // Opcode FF - BBS7
    BBRS Bopc_FF bbsreturn
 
-.ltorg
 // **********************************************
 // End of opcode implementations
 // **********************************************
@@ -3185,9 +3184,8 @@ jitend3byteexit:
    B dojitexit
 
 fillinjittedtable:
-   sub temp0,temp0,temp2,LSL #2
    mov temp1,#JITTEDTABLE16
-   mov temp0,temp0,LSR #2
+   RSB temp0,temp2,temp0,LSR #2
    ORR temp0,temp0,#BINSTRUCTION
    str temp0,[temp1,temp2,LSL #2]!
    bx lr
