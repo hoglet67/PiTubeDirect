@@ -15,6 +15,9 @@
 #include "v3d.h"
 #endif
 
+// Align frame buffer of a 64KB boundary (mostly for OCD reasons!)
+#define FB_ALIGNMENT 0x10000
+
 // Registers to read the physical screen size
 #ifdef RPI4
 #define PIXELVALVE2_HORZB (volatile uint32_t *)(PERIPHERAL_BASE + 0x20A010)
@@ -950,9 +953,18 @@ void default_init_screen(screen_mode_t *screen) {
     printf("display overscan: %d x %d\r\n", h_overscan, v_overscan);
 #endif
 
-    /* Initialise a framebuffer... */
+    // Work-around for issue #134 (Certain mode changes trigger incorrectly sized framebuffer)
+    // Allocate an 8x8 framebuffer first, then allocate the size we actually need
     RPI_PropertyInit();
-    RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER);
+    RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER, FB_ALIGNMENT);
+    RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, 64, 64 );
+    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  64, 64 );
+    RPI_PropertyAddTag(TAG_SET_DEPTH, 1 << screen->log2bpp);
+    RPI_PropertyProcess();
+
+    // Initialise the framebuffer for real...
+    RPI_PropertyInit();
+    RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER, FB_ALIGNMENT);
     RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, screen->width, screen->height );
     RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height );
     RPI_PropertyAddTag(TAG_SET_DEPTH, (1 << screen->log2bpp));
