@@ -954,7 +954,7 @@ void default_init_screen(screen_mode_t *screen) {
     RPI_PropertyInit();
     RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER);
     RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, screen->width, screen->height );
-    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height * 2 ); // TODO: FIX ME (remove the * 2)
+    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height );
     RPI_PropertyAddTag(TAG_SET_DEPTH, (1 << screen->log2bpp));
     RPI_PropertyAddTag(TAG_GET_PITCH );
     RPI_PropertyAddTag(TAG_GET_PHYSICAL_SIZE );
