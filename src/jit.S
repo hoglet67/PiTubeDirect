@@ -130,7 +130,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    // temp0 is address to goto
    // temp1 is location for store
 
-   BL MAKEBRANCHFILLINJITTEDTABLES
+   BL fillinjittedtable
 .endm
 
 .macro DEJITCLEAN count=0
@@ -793,7 +793,7 @@ opc_FC: // Opcode FC - NOP6 $0000
 opc_10: // Opcode 10 - BPL
    BRANCH BPLINSTRUCTION
 
-opc_30:  BRANCH BMIINSTRUCTION // Opcode 30 - BMI
+opc_30: BRANCH BMIINSTRUCTION // Opcode 30 - BMI
 
 opc_80: // Opcode 80 - BRA
    BRANCH BINSTRUCTION
@@ -1107,7 +1107,7 @@ opc_20:// Opcode 20 - JSR $0000
    orr r7,r7,temp0,LSR #8
    orr r8,r8,temp1
    COPY5STOREINC
-   B MAKEBRANCHTOJITLET
+   B createbranchtojitlet
 
 opc_21: // Opcode 21 - AND ($00,X)
    DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_21
@@ -1214,7 +1214,7 @@ opc_49: // Opcode 49 - EOR #$00
 opc_4C: // Opcode 4C - JMP $0000
    ldrh r12,[temp2,#1]
 
-   B MAKEBRANCHTOJITLET
+   B createbranchtojitlet
 
 opc_4D: // Opcode 4D - EOR $0000
    TRIPLEBYTEABST2 Bopc_4D
@@ -3112,7 +3112,6 @@ cacheflushloop:
 singleopcodeexit:
    sub r9,r9,r6
    mov r9,r9,LSR #2
-//   BIC r9,r9,#0xFF000000
    ORR r9,r9,#BLINSTRUCTION
 singleopcodeexitstore:
    strd r8,[r6]
@@ -3122,9 +3121,7 @@ singleopcodeexitstore:
 
 singleopcodeBLend:
    sub r9,r9,r6
-//   sub r9,r9,#8+4
    mov r9,r9,LSR #2
-//   BIC r9,r9,#0xFF000000
    ORR r9,r9,#BLINSTRUCTION
 jitend1bytestore2:
    strd r8,[r6]
@@ -3138,21 +3135,18 @@ jitend3byteloadstoreoperandBL8:
    orr r7,r7,r5
    orr r8,r8,r4
    sub r9,r9,r6
-//   sub r9,r9,#8+20
    mov r9,r9,LSR #2
-//   BIC r9,r9,#0xFF000000
    ORR r9,r9,#BLINSTRUCTION
    B jitend3bytestore
 
+// .word address-28
 jitend3byteloadstoreoperandBL:
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
    orr r7,r7,r5
    orr r8,r8,r4
 jitend3bytestoreoperandBL:
    sub r12,r12,r6
-//   sub r12,r12,#8+20
    mov r12,r12,LSR #2
-//   BIC r12,r12,#0xFF000000
    ORR r12,r12,#BLINSTRUCTION
    B jitend3bytestore
 
@@ -3181,7 +3175,6 @@ jitend3byteexitBBRS:
    orr r7,r7,r4
    sub r10,r10,r6
    mov r10,r10,LSR #2
-//   BIC r10,r10,#0xFF000000
    ORR r10,r10,#BLINSTRUCTION
 jitend3byteexitstore6:
    STMIA r6,{r7,r8,r9,r10,r11,r12}
@@ -3195,11 +3188,10 @@ jitend3byteexit:
    str temp0,[temp1,#8]
    B dojitexit
 
-MAKEBRANCHFILLINJITTEDTABLES:
+fillinjittedtable:
    sub temp0,temp0,temp2,LSL #2
    mov temp1,#JITTEDTABLE16
    mov temp0,temp0,LSR #2
-   //BIC temp0,temp0,#0xFF000000  // branch should be forward
    ORR temp0,temp0,#BINSTRUCTION
    str temp0,[temp1,temp2,LSL #2]!
    bx lr
@@ -3207,7 +3199,7 @@ MAKEBRANCHFILLINJITTEDTABLES:
 // entry temp0 address to goto (JITLET)
 //       r6 address to place the branch
 
-MAKEBRANCHTOJITLET:
+createbranchtojitlet:
    mov temp0,r12,LSL#JITLETSHIFT
    add temp0,temp0,#JITLET
 
@@ -3223,7 +3215,6 @@ MAKEBRANCHLINK:
    sub temp0,temp0,r6
    sub temp0,temp0,#8
    mov temp0,temp0,LSR #2
-//   BIC temp0,temp0,#0xFF000000
    ORR temp0,temp0,#BLINSTRUCTION
    str temp0,[r6]
    bx lr
