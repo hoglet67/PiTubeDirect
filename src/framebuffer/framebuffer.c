@@ -1036,7 +1036,7 @@ static void vdu_20(uint8_t *buf) {
 }
 
 static void vdu_22(uint8_t *buf) {
-   uint8_t mode = buf[1];
+   uint8_t mode = buf[1] & 0x7F; // Map MODE 128 to MODE 0, etc
    screen_mode_t *new_screen = get_screen_mode(mode);
    if (new_screen != NULL) {
       change_mode(new_screen);
