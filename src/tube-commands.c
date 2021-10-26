@@ -5,6 +5,7 @@
 #include "swi.h"
 #include "tube-swi.h"
 #include "tube-client.h"
+#include "tube-lib.h"
 #include "tube-commands.h"
 #include "darm/darm.h"
 #include "tube-defs.h"
@@ -338,6 +339,24 @@ static void write_host_word(uint16_t address, uint16_t data) {
    write_host_byte(address + 1,(unsigned char) (data >> 8) & 0xff);
 }
 
+// Beeb-side VDU
+static void beeb_vdu(uint8_t c) {
+   sendByte(R1_ID, c);
+}
+
+// Manage the Beeb-side cursor
+static void beeb_cursor(uint8_t on) {
+   beeb_vdu(23);
+   beeb_vdu(1);
+   beeb_vdu(on);
+   beeb_vdu(0);
+   beeb_vdu(0);
+   beeb_vdu(0);
+   beeb_vdu(0);
+   beeb_vdu(0);
+   beeb_vdu(0);
+   beeb_vdu(0);
+}
 
 int doCmdPiVDU(const char *params) {
    int device = atoi(params);
@@ -366,24 +385,36 @@ int doCmdPiVDU(const char *params) {
    // Re-run the module init code, in case any handlers need to change
    swi_modules_init(device & VDU_PI);
 
+   // Restore the original host OSWRCH, so we can manage the cursor
+   uint16_t default_vector_table = read_host_word(0xffb7);
+   uint16_t default_oswrch = read_host_word(default_vector_table + (WRCVEC & 0xff));
+   write_host_word(WRCVEC, default_oswrch);
+
    if (device & VDU_BEEB) {
-      // Restore the original host OSWRCH
-      uint16_t default_vector_table = read_host_word(0xffb7);
-      uint16_t default_oswrch = read_host_word(default_vector_table + (WRCVEC & 0xff));
-      write_host_word(WRCVEC, default_oswrch);
+      // restore the cursor
+      beeb_cursor(1);
+      // leave it in column 0
+      beeb_vdu(13);
    } else {
-      // Install a host oswrch redirector (for output of OSCLI commands)
-      // PHA        48
-      // LDA #&03   A9 03
-      // STA &FEE2  8D E2 FE
-      // PLA        68
-      // STA &FEE4  8D E4 FE
-      // RTS        60
-      uint8_t data[] = { 0x48, 0xa9, 0x03, 0x8d, 0xe2, 0xfe, 0x68, 0x8d, 0xe4, 0xfe, 0x60} ;
-      for (uint16_t i = 0; i < sizeof(data); i++) {
-         write_host_byte(WRCHANDLER + i, data[i]);
+      // hide the cursor
+      beeb_cursor(0);
+      // leave it in column 1 so we can work around the ADFS formatting bug (#130)
+      beeb_vdu(13);
+      beeb_vdu(32);
+      if (device & VDU_PI) {
+         // Install a host oswrch redirector (for output of OSCLI commands)
+         // PHA        48
+         // LDA #&03   A9 03
+         // STA &FEE2  8D E2 FE
+         // PLA        68
+         // STA &FEE4  8D E4 FE
+         // RTS        60
+         uint8_t data[] = { 0x48, 0xa9, 0x03, 0x8d, 0xe2, 0xfe, 0x68, 0x8d, 0xe4, 0xfe, 0x60} ;
+         for (uint16_t i = 0; i < sizeof(data); i++) {
+            write_host_byte(WRCHANDLER + i, data[i]);
+         }
+         write_host_word(WRCVEC, WRCHANDLER);
       }
-      write_host_word(WRCVEC, WRCHANDLER);
    }
    return 0;
 }
