@@ -438,11 +438,11 @@ then return to our secret stack This relies on instructions being re entrant , b
 //      B xx // branch taken
 //      msr CPSR_flg,temp1
 
-   ldr r0,=\branch
+   ldr r0,=\branch-8
    LDR r9,\block
    sxtb r4,r4
    // fill in BL
-   BL MAKEBRANCHLINK
+   BL createbranchlinkm8
 
    mov temp0,r4,LSL #1
    str r9,[R6,#4]
@@ -1136,21 +1136,21 @@ opc_2C: // Opcode 2C - BIT $0000
    BEQ bitabsio
 
    ldr r7,Bopc_2C
-   ldr temp0,=bitabstable
-   str r7,[r6]
-   strb r5,[r6],#4
+   ldr temp0,=bitabstable-8
+   orr r7,r7,r5
+   str r7,[r6],#4
    add temp0,temp0,r4,LSL #3
-   BL MAKEBRANCHLINK
+   BL createbranchlinkm8
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#3
    B dojitloop
 
 bitabsio:
    ldr r7,Bopc_2C_io
-   ldr temp0,=bitioload
+   ldr temp0,=bitioload-8
    orr r7,r7,r4
    str r7,[r6],#4
-   BL MAKEBRANCHLINK
+   BL createbranchlinkm8
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#3
    B dojitloop
@@ -2247,7 +2247,7 @@ Bopc_EC:
 
 Bopc_EE:
    JITABSLDRBWB
-   BL .+8
+   .word incstore-16
    sxtb reg12, reg12
    teq  reg12, #0
 Bopc_EF:
@@ -2317,20 +2317,18 @@ opc_EC: // Opcode EC - CPX $0000
 
 opc_EE: // Opcode EE - INC $0000
    ldrh r12,[temp2,#1]
-   LDR temp0,=incstore
    COPY5LOAD Bopc_EE
    orr r7,r7,r5
    orr r8,r8,r4
-   COPY5STORE
+   sub r9,r9,r6
+   mov r9,r9,LSR #2
+   ORR r9,r9,#BLINSTRUCTION
 
-   add r6,r6,#8
-   BL MAKEBRANCHLINK
+   mov r12,r12, LSL #2
+   add r12,r12,#JITTEDTABLE16
+   sub r12,r12,#8+20
 
-   add r6,r6,#20-8
-   mov temp0,r12, LSL #2
-   add temp0,temp0,#JITTEDTABLE16
-   BL MAKEBRANCHLINK
-   B  jitend3byte
+   B  jitend3bytestoreoperandBL
 
 opc_EF: // Opcode EF - BBS6
    BBRS Bopc_EF bbsreturn
@@ -3211,9 +3209,8 @@ createbranchtojitlet:
    str temp0,[r6]
    B jitend3byteexit
 
-MAKEBRANCHLINK:
+createbranchlinkm8:
    sub temp0,temp0,r6
-   sub temp0,temp0,#8
    mov temp0,temp0,LSR #2
    ORR temp0,temp0,#BLINSTRUCTION
    str temp0,[r6]
