@@ -462,17 +462,16 @@ then return to our secret stack This relies on instructions being re entrant , b
    B singleopcodeBLend
 .endm
 
-.macro SINGLEOPCODEEXIT block address
-   ldr temp,\block
-   ldr temp0,=\address
-   str temp,[r6],#4
-   BL MAKEBRANCH
-   B jitend1byteexit
+.macro SINGLEOPCODEEXIT block
+   ldrd r8,\block
+   sub r9,r9,r6
+   mov r9,r9,LSR #2
+   ORR r9,r9,#BINSTRUCTION
+   B singleopcodeexitstore
 .endm
 
-.macro SINGLEOPCODEBLEXIT block address
-   ldr temp,\block
-   ldr temp0,=\address
+.macro SINGLEOPCODEBLEXIT block
+   ldrd r8,\block
    B singleopcodeexit
 .endm
 
@@ -548,27 +547,25 @@ then return to our secret stack This relies on instructions being re entrant , b
    adr temp1,\block
    B  jitend3byteloadstoreoperandBL8
 .else
-   ldr temp0,=\address
    COPY6LOAD \block
    orr r7,r7,r5
    orr r8,r8,r4
-   COPY6STORE
-   add r6,r6,#\offset
-   BL MAKEBRANCHLINK
-   B jitend3byte
+   sub r10,r10,r6
+   mov r10,r10,LSR #2
+   ORR r10,r10,#BLINSTRUCTION
+   B jitend3bytestore
 .endif
 
 .endm
 
 .macro ABSSTORE block
    COPY5LOAD \block
-   mov temp0,r12, LSL #2
-   add temp0,temp0,#JITTEDTABLE16
+   mov r12,r12, LSL #2
+   add r12,r12,#JITTEDTABLE16
    orr r7,r7,r5
    orr r11,r11,r4
-   COPY5STOREINC
-   BL MAKEBRANCHLINK
-   B  jitend3byte
+   sub r12,r12,#8
+   B  jitend3bytestoreoperandBL
 .endm
 
 .macro JITABSSTORE reg
@@ -623,12 +620,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro ZPSTAZ block
    COPY3LOAD \block
-   mov temp0,r4,LSL #2
-   add temp0,temp0,#JITTEDTABLE16
+   mov r11,r4,LSL #2
+   add r11,r11,#JITTEDTABLE16
    orr r8,r8,r4
    orr r9,r9,r4
-   BL COPY3STOREINCMAKEBRANCHLINK
-   b jitend2byte
+   sub r11,r11,#8
+   b jitend2byteBLendstore
 .endm
 
 .macro JITZPSTAZ reg
@@ -639,12 +636,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro ZPST block
    COPY3LOAD \block
-   mov temp0,r4,LSL #2
-   add temp0,temp0,#JITTEDTABLE16
+   mov r11,r4,LSL #2
+   add r11,r11,#JITTEDTABLE16
    orr r9,r9,r4
    orr r10,r10,r4
-   BL COPY3STOREINCMAKEBRANCHLINK
-   b jitend2byte
+   sub r11,r11,#8
+   b jitend2byteBLendstore
 .endm
 
 .macro JITZPST reg
@@ -796,8 +793,8 @@ opc_FC: // Opcode FC - NOP6 $0000
 opc_10: // Opcode 10 - BPL
    BRANCH BPLINSTRUCTION
 
-opc_30: // Opcode 30 - BMI
-   BRANCH BMIINSTRUCTION
+opc_30:  BRANCH BMIINSTRUCTION // Opcode 30 - BMI
+
 opc_80: // Opcode 80 - BRA
    BRANCH BINSTRUCTION
 opc_90: // Opcode 90 - BCC
@@ -808,7 +805,7 @@ opc_D0: // Opcode D0 - BNE
    BRANCH BNEINSTRUCTION
 opc_F0: // Opcode F0 - BEQ
    BRANCH BEQINSTRUCTION
-
+.ltorg
 .balign 8
 opc_08: // Opcode 08 - PHP
    SINGLEOPCODEBLOUT Bopc_08
@@ -995,6 +992,45 @@ Bopc_FB:
 Bopc_carry:
    .word invertcarry-8
    nop
+Bopc_00:
+   nop
+   .word brk-12
+Bopc_40:
+   mov   reg12,#1
+   .word rti-12
+Bopc_60:
+   ldrh reg0,[regSP,#1]
+   .word rts-12
+Bopc_01:
+   JITINDXLOGICAL orrs
+Bopc_04:
+   mov reg1,#0x00
+   ldrb reg12,[reg1]
+   mrs reg0, CPSR
+   .word tsb-20
+Bopc_05:
+   JITZPLOGICAL orrs
+Bopc_06:
+   ldrb reg12,[ram6502,#00]
+   add   reg12, reg12, reg12
+   strb  reg12,[ram6502,#00]
+   movs  reg12, reg12, lsl #24
+Bopc_07:
+   JITRMB 0
+Bopc_09:
+   JITIMMLOGICAL orrs
+Bopc_0C:
+   JITABSLDRBWB
+   mrs reg0, CPSR
+   bic reg0, reg0, #Z_FLAG
+   tst reg12, regA
+   .word tsb2-28
+Bopc_0D:
+   JITABSLOGICAL orrs
+Bopc_0E:
+   JITABSLDRBWB
+   nop
+   ASL6
 
 opc_FB: // Opcode FB - NOP6
    SINGLEBYTE Bopc_FB
@@ -1002,38 +1038,30 @@ opc_18: // Opcode 18 - CLC
    ASSIGNCARRY clear
 opc_38: // Opcode 38 - SEC
    ASSIGNCARRY set
-
-
 opc_00: // Opcode 00 - BRK is really a two byte instruction
-   SINGLEOPCODEBLEXIT Bopc_00 brk
-
+   SINGLEOPCODEBLEXIT Bopc_00
+opc_40: // Opcode 40 - RTI
+   SINGLEOPCODEBLEXIT Bopc_40
+opc_60: // Opcode 60 - RTS
+   SINGLEOPCODEEXIT Bopc_60
 opc_01: // Opcode 01 - ORA ($00,X)
    DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_01
-
 opc_04: // Opcode 04 - TSB $00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_04
-
 opc_05: // Opcode 05 - ORA $00
    DOUBLEBYTET2 Bopc_05
-
 opc_06: // Opcode 06 - ASL $00
    DOUBLEBYTESETTWOBYTES Bopc_06 8
-
 opc_07: // Opcode 07 - RMB0 $00
    DOUBLEBYTESETTWOBYTES12 Bopc_07 12
-
 opc_09: // Opcode 09 - ORA #$00
    IMMLOAD Bopc_09
-
 opc_0C: // Opcode 0C - TSB $0000
    TRIPLEBYTEABSBLOUT20 Bopc_0C
-
 opc_0D: // Opcode 0D - ORA $0000
    TRIPLEBYTEABST2 Bopc_0D
-
 opc_0E: // Opcode 0E - ASL $0000
    TRIPLEBYTEABS Bopc_0E
-
 opc_0F: // Opcode 0F - BBR0
    BBRS Bopc_0F bbrreturn
 
@@ -1079,9 +1107,7 @@ opc_20:// Opcode 20 - JSR $0000
    orr r7,r7,temp0,LSR #8
    orr r8,r8,temp1
    COPY5STOREINC
-   BL MAKEBRANCHTOJITLET
-
-   B jitend3byteexit
+   B MAKEBRANCHTOJITLET
 
 opc_21: // Opcode 21 - AND ($00,X)
    DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_21
@@ -1137,58 +1163,115 @@ opc_2E: // Opcode 2E - ROL $0000
 
 opc_2F: // Opcode 2F - BBR2
    BBRS Bopc_2F bbrreturn
+opc_31: // Opcode 31 - AND ($00),Y
+   DOUBLEBYTET2 Bopc_31
 
-Bopc_01:
-   JITINDXLOGICAL orrs
-Bopc_04:
-   mov reg1,#0x00
-   ldrb reg12,[reg1]
-   mrs reg0, CPSR
-   .word tsb-20
-Bopc_14:
-   mov reg1,#0x00
-   ldrb reg12,[reg1]
-   mrs reg0, CPSR
-   .word trb-20
+opc_32: // Opcode 32 - AND ($00)
+   DOUBLEBYTET2 Bopc_32
 
-Bopc_05:
-   JITZPLOGICAL orrs
-Bopc_06:
-   ldrb reg12,[ram6502,#00]
-   add   reg12, reg12, reg12
-   strb  reg12,[ram6502,#00]
-   movs  reg12, reg12, lsl #24
-Bopc_07:
-   JITRMB 0
+opc_34: // Opcode 34 - BIT $00,X
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_34
 
-Bopc_09:
-   JITIMMLOGICAL orrs
+opc_35: // Opcode 35 - AND $00,X
+   DOUBLEBYTESETFIRSTBYTE Bopc_35
 
-Bopc_0C:
-   JITABSLDRBWB
-   mrs reg0, CPSR
-   bic reg0, reg0, #Z_FLAG
-   tst reg12, regA
-   .word tsb2-28
-Bopc_1C:
-   JITABSLDRBWB
-   mrs reg0, CPSR
-   bic reg0, reg0, #Z_FLAG
-   tst reg12, regA
-   .word trb2-28
-Bopc_0D:
-   JITABSLOGICAL orrs
-Bopc_0E:
-   JITABSLDRBWB
-   nop
-   ASL6
+opc_36: // Opcode 36 - ROL $00,X
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_36
+
+opc_37: // Opcode 37 - RMB3 $00
+   DOUBLEBYTESETTWOBYTES12 Bopc_37 12
+
+opc_39: // Opcode 39 - AND $0000,Y
+   TRIPLEBYTEABS Bopc_39
+
+opc_3C: // Opcode 3C - BIT $0000,X
+   TRIPLEBYTEABSBLOUT20 Bopc_3C
+
+opc_3D: // Opcode 3D - AND $0000,X
+   TRIPLEBYTEABS Bopc_3D
+
+opc_3E: // Opcode 3E - ROL $0000,X
+   TRIPLEBYTEABS Bopc_3E
+
+opc_3F: // Opcode 3F - BBR3
+   BBRS Bopc_3F bbrreturn
+
+opc_41: // Opcode 41 - EOR ($00,X)
+   DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_41
+
+opc_45: // Opcode 45 - EOR $00
+   DOUBLEBYTET2 Bopc_45
+
+opc_46: // Opcode 46 - LSR $00
+   DOUBLEBYTESETTWOBYTES12 Bopc_46 12
+
+opc_47: // Opcode 47 - RMB4 $00
+   DOUBLEBYTESETTWOBYTES12 Bopc_47 12
+
+opc_49: // Opcode 49 - EOR #$00
+   IMMLOAD Bopc_49
+
+opc_4C: // Opcode 4C - JMP $0000
+   ldrh r12,[temp2,#1]
+
+   B MAKEBRANCHTOJITLET
+
+opc_4D: // Opcode 4D - EOR $0000
+   TRIPLEBYTEABST2 Bopc_4D
+
+opc_4E: // Opcode 4E - LSR $0000
+   TRIPLEBYTEABS Bopc_4E
+
+opc_4F: // Opcode 4F - BBR4
+   BBRS Bopc_4F bbrreturn
+
+opc_50: // Opcode 50 - BVC
+   BRANCHVCS Bopc_50 testvflagC
+
+opc_51: // Opcode 51 - EOR ($00),Y
+   DOUBLEBYTET2 Bopc_51
+
+opc_52: // Opcode 52 - EOR ($00)
+   DOUBLEBYTET2 Bopc_52
+
+opc_55: // Opcode 55 - EOR $00,X
+   DOUBLEBYTESETFIRSTBYTE Bopc_55
+
+opc_56: // Opcode 56 - LSR $00,X
+   DOUBLEBYTESETFIRSTBYTE Bopc_56
+
+opc_57: // Opcode 57 - RMB5 $00
+   DOUBLEBYTESETTWOBYTES12 Bopc_57 12
+
+opc_59: // Opcode 59 - EOR $0000,Y
+   TRIPLEBYTEABS Bopc_59
+
+opc_5D: // Opcode 5D - EOR $0000,X
+   TRIPLEBYTEABS Bopc_5D
+
+opc_5E: // Opcode 5E - LSR $0000,X
+   TRIPLEBYTEABS Bopc_5E
+
+opc_5F: // Opcode 5F - BBR5
+   BBRS Bopc_5F bbrreturn
+opc_61: // Opcode 61 - ADC ($00,X)
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_61
+opc_64: // Opcode 64 - STZ $00
+   ZPSTAZ Bopc_64
+
+opc_65: // Opcode 65 - ADC $00
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_65
 Bopc_0F:
    JITBBR 0
 Bopc_11:
    JITINDYLOGICAL orrs
 Bopc_12:
    JITINDLOGICAL orrs
-
+Bopc_14:
+   mov reg1,#0x00
+   ldrb reg12,[reg1]
+   mrs reg0, CPSR
+   .word trb-20
 Bopc_15:
    JITZPXLOGICAL orrs
 Bopc_16:
@@ -1200,7 +1283,12 @@ Bopc_17:
    JITRMB 1
 Bopc_19:
    JITABSYLOGICAL orrs
-
+Bopc_1C:
+   JITABSLDRBWB
+   mrs reg0, CPSR
+   bic reg0, reg0, #Z_FLAG
+   tst reg12, regA
+   .word trb2-28
 Bopc_1D:
    JITABSXLOGICAL orrs
 Bopc_1E:
@@ -1215,7 +1303,6 @@ Bopc_20:
    sub  regSP, regSP, #2
    strh reg1,[regSP,#1]
    orr  regSP, #0x0100
-
 Bopc_21:
    JITINDXLOGICAL ands
 Bopc_24:
@@ -1232,8 +1319,7 @@ Bopc_26:
    movs  reg12, reg12, lsl #24
 Bopc_27:
    JITRMB 2
-Bopc_40:
-   mov   reg12,#1
+
 Bopc_29:
    JITIMMLOGICAL ands
 
@@ -1260,7 +1346,11 @@ Bopc_34:
    .word bit-20
 Bopc_35:
    JITZPXLOGICAL ands
-
+Bopc_36:
+   ADDR1REGXZP
+   mov reg1,reg1,LSR #24 // can save a cycle here
+   ldrb reg12,[reg1]
+   .word rol-20
 Bopc_37:
    JITRMB 3
 Bopc_39:
@@ -1302,7 +1392,6 @@ Bopc_4E:
    JITABSLDRBWB
    nop
 B_NOP:
-Bopc_00:
    nop
    LSR6
 Bopc_4F:
@@ -1336,202 +1425,11 @@ Bopc_5E:
    LSR6
 Bopc_5F:
    JITBBR 5
-
-Bopc_36:
+Bopc_61:
    ADDR1REGXZP
-   mov reg1,reg1,LSR #24 // can save a cycle here
-   ldrb reg12,[reg1]
-   .word rol-20
-Bopc_76:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24 // can save a cycle here
-   ldrb reg12,[reg1]
-   .word ror-20
-opc_31: // Opcode 31 - AND ($00),Y
-   DOUBLEBYTET2 Bopc_31
-
-opc_32: // Opcode 32 - AND ($00)
-   DOUBLEBYTET2 Bopc_32
-
-opc_34: // Opcode 34 - BIT $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_34
-
-opc_35: // Opcode 35 - AND $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_35
-
-opc_36: // Opcode 36 - ROL $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_36
-opc_76: // Opcode 76 - ROR $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_76
-
-opc_37: // Opcode 37 - RMB3 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_37 12
-
-opc_39: // Opcode 39 - AND $0000,Y
-   TRIPLEBYTEABS Bopc_39
-
-opc_3C: // Opcode 3C - BIT $0000,X
-   TRIPLEBYTEABSBLOUT20 Bopc_3C
-
-opc_3D: // Opcode 3D - AND $0000,X
-   TRIPLEBYTEABS Bopc_3D
-
-opc_3E: // Opcode 3E - ROL $0000,X
-   TRIPLEBYTEABS Bopc_3E
-
-opc_3F: // Opcode 3F - BBR3
-   BBRS Bopc_3F bbrreturn
-
-opc_40: // Opcode 40 - RTI
-   SINGLEOPCODEBLEXIT Bopc_40 rti
-opc_41: // Opcode 41 - EOR ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_41
-
-opc_45: // Opcode 45 - EOR $00
-   DOUBLEBYTET2 Bopc_45
-
-opc_46: // Opcode 46 - LSR $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_46 12
-
-opc_47: // Opcode 47 - RMB4 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_47 12
-
-opc_49: // Opcode 49 - EOR #$00
-   IMMLOAD Bopc_49
-
-opc_4C: // Opcode 4C - JMP $0000
-   ldrh r12,[temp2,#1]
-
-   BL MAKEBRANCHTOJITLET
-   B jitend3byteexit
-
-opc_4D: // Opcode 4D - EOR $0000
-   TRIPLEBYTEABST2 Bopc_4D
-
-opc_4E: // Opcode 4E - LSR $0000
-   TRIPLEBYTEABS Bopc_4E
-
-opc_4F: // Opcode 4F - BBR4
-   BBRS Bopc_4F bbrreturn
-
-opc_50: // Opcode 50 - BVC
-   BRANCHVCS Bopc_50 testvflagC
-
-opc_51: // Opcode 51 - EOR ($00),Y
-   DOUBLEBYTET2 Bopc_51
-
-opc_52: // Opcode 52 - EOR ($00)
-   DOUBLEBYTET2 Bopc_52
-
-opc_55: // Opcode 55 - EOR $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_55
-
-opc_56: // Opcode 56 - LSR $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_56
-
-opc_57: // Opcode 57 - RMB5 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_57 12
-
-opc_59: // Opcode 59 - EOR $0000,Y
-   TRIPLEBYTEABS Bopc_59
-
-opc_5D: // Opcode 5D - EOR $0000,X
-   TRIPLEBYTEABS Bopc_5D
-
-opc_5E: // Opcode 5E - LSR $0000,X
-   TRIPLEBYTEABS Bopc_5E
-
-opc_5F: // Opcode 5F - BBR5
-   BBRS Bopc_5F bbrreturn
-opc_60: // Opcode 60 - RTS
-   SINGLEOPCODEEXIT Bopc_60 rts
-
-opc_64: // Opcode 64 - STZ $00
-   ZPSTAZ Bopc_64
-
-opc_65: // Opcode 65 - ADC $00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_65
-opc_E5: // Opcode E5 - SBC $00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E5
-
-opc_66: // Opcode 66 - ROR $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_66 12
-
-opc_67: // Opcode 67 - RMB6 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_67 12
-
-opc_69: // Opcode 69 - ADC #$00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_69
-opc_E9: // Opcode E9 - SBC #$00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E9
-
-opc_6C: // Opcode 6C - JMP ($0000)
-   COPY6LOAD Bopc_6C
-
-   BL fixuptype2accessquick
-   orr r7,r7,r5
-   b jitend3byteexitstore6
-
-opc_6D: // Opcode 6D - ADC $0000
-   TRIPLEBYTEABSBLOUT20 Bopc_6D
-opc_ED: // Opcode ED - SBC $0000
-   TRIPLEBYTEABSBLOUT20 Bopc_ED
-
-opc_6E: // Opcode 6E - ROR $0000
-   TRIPLEBYTEABS Bopc_6E
-
-opc_6F: // Opcode 6F - BBR6
-   BBRS Bopc_6F bbrreturn
-opc_70: // Opcode 70 - BVS
-   BRANCHVCS Bopc_70 testvflagS
-
-opc_71: // Opcode 71 - ADC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_71
-opc_F1: // Opcode F1 - SBC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_F1
-
-opc_72: // Opcode 72 - ADC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_72
-opc_F2: // Opcode F2 - SBC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_F2
-
-opc_74: // Opcode 74 - STZ $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_74
-
-opc_75: // Opcode 75 - ADC $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_75
-
-opc_F5: // Opcode F5 - SBC $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_F5
-
-opc_77: // Opcode 77 - RMB7 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_77 12
-
-opc_79: // Opcode 79 - ADC $0000,Y
-   TRIPLEBYTEABSBLOUT20 Bopc_79
-opc_F9: // Opcode F9 - SBC $0000,Y
-   TRIPLEBYTEABSBLOUT20 Bopc_F9
-
-opc_7C: // Opcode 7C - JMP ($0000,X)
-   COPY6LOAD Bopc_7C
-   orr r7,r7,r5
-   orr r8,r8,r4
-   B  jitend3byteexitstore6
-
-opc_7D: // Opcode 7D - ADC $0000,X
-   TRIPLEBYTEABSBLOUT20 Bopc_7D
-opc_FD: // Opcode FD - SBC $0000,X
-   TRIPLEBYTEABSBLOUT20 Bopc_FD
-
-opc_7E: // Opcode 7E - ROR $0000,X
-   TRIPLEBYTEABS Bopc_7E
-
-opc_7F: // Opcode 7F - BBR7
-   BBRS Bopc_7F bbrreturn
-
-Bopc_60:
-   ldrh reg0,[regSP,#1]
-
+   mov reg1,reg1,LSR #24
+   ldrh reg1,[reg1]
+   .word ADCload-20
 Bopc_64:
    JITZPSTAZ ram6502
 Bopc_65:
@@ -1594,21 +1492,11 @@ Bopc_71:
    tst     flags, #D_FLAG6502
    ldrb    reg12,[reg1,regY,LSR #24]
    .word ADC1-20
-Bopc_F1:
-   ldrh    reg1,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[reg1,regY,LSR #24]
-   .word SBC1-20
 Bopc_72:
    ldrh    reg1,[ram6502,#0x00]
    tst     flags, #D_FLAG6502
    ldrb    reg12,[reg1]
    .word ADC1-20
-Bopc_F2:
-   ldrh    reg1,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[reg1]
-   .word SBC1-20
 Bopc_74:
    ADDR1REGXZP
    strb ram6502,[ram6502,reg1,LSR #24]
@@ -1620,11 +1508,11 @@ Bopc_75:
    tst     flags, #D_FLAG6502
    ldrb    reg12,[ram6502,reg1,LSR#24]
    .word ADC1-20
-Bopc_F5:
+Bopc_76:
    ADDR1REGXZP
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[ram6502,reg1,LSR#24]
-   .word SBC1-20
+   mov reg1,reg1,LSR #24 // can save a cycle here
+   ldrb reg12,[reg1]
+   .word ror-20
 Bopc_77:
    JITRMB 7
 
@@ -1634,13 +1522,6 @@ Bopc_79:
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
    .word ADC2-28
-Bopc_F9:
-   JITABS
-   ldrb    reg12,[reg1, regY, lsr #24]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word SBC2-28
-
 Bopc_7C:
    JITABS
    mov reg0, regX, LSR #24
@@ -1653,12 +1534,6 @@ Bopc_7D:
    tst     flags, #D_FLAG6502
    bic     flags, #V_FLAG6502
    .word   ADC2-28
-Bopc_FD:
-   JITABS
-   ldrb    reg12,[reg1, regX, lsr #24]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word    SBC2-28
 Bopc_7E:
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]!
@@ -1666,12 +1541,6 @@ Bopc_7E:
 Bopc_7F:
    JITBBR 7
 
-.ltorg
-Bopc_61:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24
-   ldrh reg1,[reg1]
-   .word ADCload-20
 Bopc_81:
    ADDR1REGXZP
    mov reg1,reg1,LSR #24
@@ -1776,8 +1645,128 @@ Bopc_9E:
 Bopc_9F:
    JITBBS 1
 
-opc_61: // Opcode 61 - ADC ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_61
+
+
+opc_E5: // Opcode E5 - SBC $00
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E5
+
+opc_66: // Opcode 66 - ROR $00
+   DOUBLEBYTESETTWOBYTES12 Bopc_66 12
+
+opc_67: // Opcode 67 - RMB6 $00
+   DOUBLEBYTESETTWOBYTES12 Bopc_67 12
+
+opc_69: // Opcode 69 - ADC #$00
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_69
+opc_E9: // Opcode E9 - SBC #$00
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E9
+
+opc_6C: // Opcode 6C - JMP ($0000)
+   COPY6LOAD Bopc_6C
+
+   BL fixuptype2accessquick
+   orr r7,r7,r5
+   b jitend3byteexitstore6
+
+opc_6D: // Opcode 6D - ADC $0000
+   TRIPLEBYTEABSBLOUT20 Bopc_6D
+opc_ED: // Opcode ED - SBC $0000
+   TRIPLEBYTEABSBLOUT20 Bopc_ED
+
+opc_6E: // Opcode 6E - ROR $0000
+   TRIPLEBYTEABS Bopc_6E
+
+opc_6F: // Opcode 6F - BBR6
+   BBRS Bopc_6F bbrreturn
+opc_70: // Opcode 70 - BVS
+   BRANCHVCS Bopc_70 testvflagS
+
+opc_71: // Opcode 71 - ADC ($00),Y
+   DOUBLEBYTEBYTET2BLOUT Bopc_71
+opc_F1: // Opcode F1 - SBC ($00),Y
+   DOUBLEBYTEBYTET2BLOUT Bopc_F1
+
+opc_72: // Opcode 72 - ADC ($00)
+   DOUBLEBYTEBYTET2BLOUT Bopc_72
+opc_F2: // Opcode F2 - SBC ($00)
+   DOUBLEBYTEBYTET2BLOUT Bopc_F2
+
+opc_74: // Opcode 74 - STZ $00,X
+   DOUBLEBYTESETFIRSTBYTE Bopc_74
+
+opc_75: // Opcode 75 - ADC $00,X
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_75
+opc_76: // Opcode 76 - ROR $00,X
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_76
+opc_F5: // Opcode F5 - SBC $00,X
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_F5
+
+opc_77: // Opcode 77 - RMB7 $00
+   DOUBLEBYTESETTWOBYTES12 Bopc_77 12
+
+opc_79: // Opcode 79 - ADC $0000,Y
+   TRIPLEBYTEABSBLOUT20 Bopc_79
+opc_F9: // Opcode F9 - SBC $0000,Y
+   TRIPLEBYTEABSBLOUT20 Bopc_F9
+
+opc_7C: // Opcode 7C - JMP ($0000,X)
+   COPY6LOAD Bopc_7C
+   orr r7,r7,r5
+   orr r8,r8,r4
+   B  jitend3byteexitstore6
+
+opc_7D: // Opcode 7D - ADC $0000,X
+   TRIPLEBYTEABSBLOUT20 Bopc_7D
+opc_FD: // Opcode FD - SBC $0000,X
+   TRIPLEBYTEABSBLOUT20 Bopc_FD
+
+opc_7E: // Opcode 7E - ROR $0000,X
+   TRIPLEBYTEABS Bopc_7E
+
+opc_7F: // Opcode 7F - BBR7
+   BBRS Bopc_7F bbrreturn
+
+
+
+
+Bopc_F1:
+   ldrh    reg1,[ram6502,#0x00]
+   tst     flags, #D_FLAG6502
+   ldrb    reg12,[reg1,regY,LSR #24]
+   .word SBC1-20
+
+Bopc_F2:
+   ldrh    reg1,[ram6502,#0x00]
+   tst     flags, #D_FLAG6502
+   ldrb    reg12,[reg1]
+   .word SBC1-20
+
+Bopc_F5:
+   ADDR1REGXZP
+   tst     flags, #D_FLAG6502
+   ldrb    reg12,[ram6502,reg1,LSR#24]
+   .word SBC1-20
+
+Bopc_F9:
+   JITABS
+   ldrb    reg12,[reg1, regY, lsr #24]
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
+   .word SBC2-28
+
+
+Bopc_FD:
+   JITABS
+   ldrb    reg12,[reg1, regX, lsr #24]
+   tst     flags, #D_FLAG6502
+   bic     flags, #V_FLAG6502
+   .word    SBC2-28
+
+
+.ltorg
+
+
+
 opc_81: // Opcode 81 - STA ($00,X)
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_81
 opc_A1: // Opcode A1 - LDA ($00,X)
@@ -2275,7 +2264,7 @@ Bopc_F7:
 Bopc_FE:
    JITABS
    ldrb reg12,[reg1, regX, lsr #24]!
-   BL .+8
+   .word incstore-20
    sxtb reg12, reg12
    teq  reg12, #0
 Bopc_FF:
@@ -2853,7 +2842,7 @@ jitend2byteBL8:
    LDMIA temp1,{r8,r9,r10,r11}
    sub r10,r10,r6
    mov r10,r10,LSR #2
-   BIC r10,r10,#0xFF000000
+//   BIC r10,r10,#0xFF000000
    ORR r10,r10,#BLINSTRUCTION
    B jitend2bytestore4operand
 
@@ -2874,7 +2863,7 @@ jitend2byteBLendstore:
    sub r11,r11,r6
 //   sub r11,r11,#8-12
    mov r11,r11,LSR #2
-   BIC r11,r11,#0xFF000000
+//   BIC r11,r11,#0xFF000000
    ORR r11,r11,#BLINSTRUCTION
    B jitend2bytestore4
 
@@ -2883,7 +2872,7 @@ doublebyteendsettwobytes12:
    orr r8,r8,r4
    orr r11,r11,r4
    B jitend2bytestore4
-   
+
 doublebyteend:
    LDMIA temp1,{r8,r9,r10,r11}
 jitend2bytestore4operand:
@@ -3121,9 +3110,12 @@ cacheflushloop:
    bx r14
 
 singleopcodeexit:
-   str temp,[r6],#4
-   BL MAKEBRANCHLINK
-jitend1byteexit:
+   sub r9,r9,r6
+   mov r9,r9,LSR #2
+//   BIC r9,r9,#0xFF000000
+   ORR r9,r9,#BLINSTRUCTION
+singleopcodeexitstore:
+   strd r8,[r6]
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#1
    B dojitexit
@@ -3132,7 +3124,7 @@ singleopcodeBLend:
    sub r9,r9,r6
 //   sub r9,r9,#8+4
    mov r9,r9,LSR #2
-   BIC r9,r9,#0xFF000000
+//   BIC r9,r9,#0xFF000000
    ORR r9,r9,#BLINSTRUCTION
 jitend1bytestore2:
    strd r8,[r6]
@@ -3148,7 +3140,7 @@ jitend3byteloadstoreoperandBL8:
    sub r9,r9,r6
 //   sub r9,r9,#8+20
    mov r9,r9,LSR #2
-   BIC r9,r9,#0xFF000000
+//   BIC r9,r9,#0xFF000000
    ORR r9,r9,#BLINSTRUCTION
    B jitend3bytestore
 
@@ -3156,10 +3148,11 @@ jitend3byteloadstoreoperandBL:
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
    orr r7,r7,r5
    orr r8,r8,r4
+jitend3bytestoreoperandBL:
    sub r12,r12,r6
 //   sub r12,r12,#8+20
    mov r12,r12,LSR #2
-   BIC r12,r12,#0xFF000000
+//   BIC r12,r12,#0xFF000000
    ORR r12,r12,#BLINSTRUCTION
    B jitend3bytestore
 
@@ -3188,7 +3181,7 @@ jitend3byteexitBBRS:
    orr r7,r7,r4
    sub r10,r10,r6
    mov r10,r10,LSR #2
-   BIC r10,r10,#0xFF000000
+//   BIC r10,r10,#0xFF000000
    ORR r10,r10,#BLINSTRUCTION
 jitend3byteexitstore6:
    STMIA r6,{r7,r8,r9,r10,r11,r12}
@@ -3218,17 +3211,14 @@ MAKEBRANCHTOJITLET:
    mov temp0,r12,LSL#JITLETSHIFT
    add temp0,temp0,#JITLET
 
-MAKEBRANCH:
    sub temp0,temp0,r6
    sub temp0,temp0,#8
    mov temp0,temp0,LSR #2
    BIC temp0,temp0,#0xFF000000
    ORR temp0,temp0,#BINSTRUCTION
    str temp0,[r6]
-   bx lr
+   B jitend3byteexit
 
-COPY3STOREINCMAKEBRANCHLINK:
-   COPY3STOREINC
 MAKEBRANCHLINK:
    sub temp0,temp0,r6
    sub temp0,temp0,#8
