@@ -356,7 +356,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro JITABSYLOGICAL inst
    JITABS
    mov reg0,regY,LSR #24
-   ldrsb reg0,[reg1,reg0]
+   ldrsb reg0,[reg1,reg0] // can save a cycle be reordering the above
    nop
    \inst regA,regA,reg0
 .endm
@@ -2111,9 +2111,9 @@ Bopc_BC:
    mov  regY,regY, lsl #24
    teq  regY, #0
 Bopc_BD:
-   JITABS
-   mov  regA, regX, lsr #24
-   ldrsb regA,[reg1, regA]
+   JITABS                    // mov r1,regx,LSL#24
+   mov  regA, regX, lsr #24  // ADD r1,r1,#MSB<<8
+   ldrsb regA,[reg1, regA]   // ldrsb regA,[reg1,#LSB] // Should be fast
    nop
    teq  regA, #0
 Bopc_BE:
@@ -2840,7 +2840,6 @@ jitend2byteBL8:
    LDMIA temp1,{r8,r9,r10,r11}
    sub r10,r10,r6
    mov r10,r10,LSR #2
-//   BIC r10,r10,#0xFF000000
    ORR r10,r10,#BLINSTRUCTION
    B jitend2bytestore4operand
 
@@ -2861,7 +2860,6 @@ jitend2byteBLendstore:
    sub r11,r11,r6
 //   sub r11,r11,#8-12
    mov r11,r11,LSR #2
-//   BIC r11,r11,#0xFF000000
    ORR r11,r11,#BLINSTRUCTION
    B jitend2bytestore4
 
