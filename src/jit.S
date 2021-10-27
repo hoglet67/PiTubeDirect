@@ -564,7 +564,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    add r12,r12,#JITTEDTABLE16
    orr r7,r7,r5
    orr r11,r11,r4
-   sub r12,r12,#8
+   sub r12,r12,#28
    B  jitend3bytestoreoperandBL
 .endm
 
@@ -624,7 +624,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    add r11,r11,#JITTEDTABLE16
    orr r8,r8,r4
    orr r9,r9,r4
-   sub r11,r11,#8
+   sub r11,r11,#20
    b jitend2byteBLendstore
 .endm
 
@@ -640,7 +640,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    add r11,r11,#JITTEDTABLE16
    orr r9,r9,r4
    orr r10,r10,r4
-   sub r11,r11,#8
+   sub r11,r11,#20
    b jitend2byteBLendstore
 .endm
 
