@@ -2384,18 +2384,16 @@ exec_65tubejit:
 #endif
 
 // setup table JITLET ( 64K x bl JITLET)
-
-   ldr   temp2,=dojit-JITLET-8
-   mov   temp2,temp2,LSR#2
-   add   temp2,temp2,#BLINSTRUCTION
-   mov   r0,#JITLET
-
 // setup JITTEDTABLE16 with 64K x mov pc,r14
-
+   ldr   temp2,=dojit-JITLET-8
+   mov   r0,#JITLET
    ldr   temp,=MOVPCR14INSTRUCTION
    mov   r4,#JITTEDTABLE16
 
    mov   r3,#0x10000 // 64K
+   mov   temp2,temp2,LSR#2
+   add   temp2,temp2,#BLINSTRUCTION
+
 loopdejitsetup:
    subs  r3,r3,#1
    str   temp2,[r0],#NEXTJITLET
@@ -2874,15 +2872,12 @@ jitend2bytestore4operand:
    orr r8,r8,r4
 jitend2bytestore4:
    COPY4STORE
-   //strd r8,r9,[r6]
-   //strd r10,r11,[r6,#8]
 
 jitend2byte:
    FILLINJITTEDTABLES dejit16bit21
    add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
    add temp2,temp2,#2
    str temp0,[temp1,#4]
-  // FILLINJITTEDTABLES dejit16bit22
 
 dojitloop:
 #ifdef JITDEBUG
@@ -3194,12 +3189,11 @@ fillinjittedtable:
 //       r6 address to place the branch
 
 createbranchtojitlet:
-   mov temp0,r12,LSL#JITLETSHIFT
-   add temp0,temp0,#JITLET
+   mov temp0,r12,LSL#JITLETSHIFT-2
+   add temp0,temp0,#JITLET>>2
 
-   sub temp0,temp0,r6
-   sub temp0,temp0,#8
-   mov temp0,temp0,LSR #2
+   sub temp0,temp0,r6,LSR #2
+   sub temp0,temp0,#8>>2
    BIC temp0,temp0,#0xFF000000
    ORR temp0,temp0,#BINSTRUCTION
    str temp0,[r6]
