@@ -2945,7 +2945,6 @@ opcode_table:
 .word opc_F0,opc_F1,opc_F2,opc_F3,opc_F4,opc_F5,opc_F6,opc_F7
 .word opc_F8,opc_F9,opc_FA,opc_FB,opc_FC,opc_FD,opc_FE,opc_FF
 
-.ltorg
 
 branchsavewords:
    STRD temp0,temp1,[R6]
