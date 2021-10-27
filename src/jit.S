@@ -79,7 +79,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define BMIINSTRUCTION 0x4A000000
 #define BPLINSTRUCTION 0x5A000000
 #define BINSTRUCTION   0xEA000000
-#define BLINSTRUCTION 0xEB000000
+#define BLINSTRUCTION  0xEB000000
 // bx lr      0xe12fff1e
 // mov pc,r14 0xe1a0f00e  // This is very slow on Pi3B+
 #define MOVPCR14INSTRUCTION 0xe12fff1e
@@ -264,6 +264,12 @@ then return to our secret stack This relies on instructions being re entrant , b
    STMIA r6,{r7,r8,r9,r10,r11,r12}
 .endm
 
+.macro MAKEBRANCHLINK reg
+   mov \reg,\reg,LSR #2
+   sub \reg,\reg,r6,LSR #2
+   ORR \reg,\reg,#BLINSTRUCTION
+.endm
+
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 256 byte aligned
 .macro SPUSH reg
@@ -356,7 +362,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro JITABSYLOGICAL inst
    JITABS
    mov reg0,regY,LSR #24
-   ldrsb reg0,[reg1,reg0] // can save a cycle be reordering the above
+   ldrsb reg0,[reg1,reg0] // can save a cycle by reordering the above
    nop
    \inst regA,regA,reg0
 .endm
@@ -364,7 +370,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro JITABSXLOGICAL inst
    JITABS
    mov reg0,regX, LSR #24
-   ldrsb reg0,[reg1,reg0]
+   ldrsb reg0,[reg1,reg0] // can save a cycle by reordering the above
    nop
    \inst regA,regA,reg0
 .endm
@@ -550,9 +556,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    COPY6LOAD \block
    orr r7,r7,r5
    orr r8,r8,r4
-   sub r10,r10,r6
-   mov r10,r10,LSR #2
-   ORR r10,r10,#BLINSTRUCTION
+   MAKEBRANCHLINK r10
    B jitend3bytestore
 .endif
 
@@ -1390,8 +1394,8 @@ Bopc_4D:
    JITABSLOGICAL eors
 Bopc_4E:
    JITABSLDRBWB
-   nop
 B_NOP:
+   nop
    nop
    LSR6
 Bopc_4F:
@@ -2208,14 +2212,14 @@ Bopc_DD:
    JITABS
    ldrb reg0,[reg1,regX,LSR #24]
    nop
-   mov reg1,regA, LSL #24
+   mov reg1,regA,LSL #24
    cmp reg1,reg0,LSL #24
 Bopc_DE:
    JITABS
    ldrb reg0,[reg1, regX, lsr #24]!
    sub  reg0, reg0, #1
    strb reg0,[reg1]
-   .word tempflags-20
+   .word tempflags-28
 Bopc_DF:
    JITBBS 5
 Bopc_E0:
@@ -2320,9 +2324,7 @@ opc_EE: // Opcode EE - INC $0000
    COPY5LOAD Bopc_EE
    orr r7,r7,r5
    orr r8,r8,r4
-   sub r9,r9,r6
-   mov r9,r9,LSR #2
-   ORR r9,r9,#BLINSTRUCTION
+   MAKEBRANCHLINK r9
 
    mov r12,r12, LSL #2
    add r12,r12,#JITTEDTABLE16
@@ -2835,9 +2837,7 @@ dojit:
 // NB word -16
 jitend2byteBL8:
    LDMIA temp1,{r8,r9,r10,r11}
-   sub r10,r10,r6
-   mov r10,r10,LSR #2
-   ORR r10,r10,#BLINSTRUCTION
+   MAKEBRANCHLINK r10
    B jitend2bytestore4operand
 
 jitendT2byte:
@@ -2854,10 +2854,7 @@ jitend2byteBLend:
 jitend2byteBLendoperand:
    orr r8,r8,r4
 jitend2byteBLendstore:
-   sub r11,r11,r6
-//   sub r11,r11,#8-12
-   mov r11,r11,LSR #2
-   ORR r11,r11,#BLINSTRUCTION
+   MAKEBRANCHLINK r11
    B jitend2bytestore4
 
 doublebyteendsettwobytes12:
@@ -3100,9 +3097,7 @@ cacheflushloop:
    bx r14
 
 singleopcodeexit:
-   sub r9,r9,r6
-   mov r9,r9,LSR #2
-   ORR r9,r9,#BLINSTRUCTION
+   MAKEBRANCHLINK r9
 singleopcodeexitstore:
    strd r8,[r6]
    FILLINJITTEDTABLES dejit16bit1
@@ -3110,9 +3105,7 @@ singleopcodeexitstore:
    B dojitexit
 
 singleopcodeBLend:
-   sub r9,r9,r6
-   mov r9,r9,LSR #2
-   ORR r9,r9,#BLINSTRUCTION
+   MAKEBRANCHLINK r9
 jitend1bytestore2:
    strd r8,[r6]
 jitend1byte:
@@ -3124,9 +3117,7 @@ jitend3byteloadstoreoperandBL8:
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
    orr r7,r7,r5
    orr r8,r8,r4
-   sub r9,r9,r6
-   mov r9,r9,LSR #2
-   ORR r9,r9,#BLINSTRUCTION
+   MAKEBRANCHLINK r9
    B jitend3bytestore
 
 // .word address-28
@@ -3135,9 +3126,7 @@ jitend3byteloadstoreoperandBL:
    orr r7,r7,r5
    orr r8,r8,r4
 jitend3bytestoreoperandBL:
-   sub r12,r12,r6
-   mov r12,r12,LSR #2
-   ORR r12,r12,#BLINSTRUCTION
+   MAKEBRANCHLINK r12
    B jitend3bytestore
 
 jitend3byteloadstoreoperand:
@@ -3163,9 +3152,7 @@ jitend3byteexitBBRS:
    BIC r5,r5,#0xFF000000
    orr r11,r5,#BINSTRUCTION
    orr r7,r7,r4
-   sub r10,r10,r6
-   mov r10,r10,LSR #2
-   ORR r10,r10,#BLINSTRUCTION
+   MAKEBRANCHLINK r10
 jitend3byteexitstore6:
    STMIA r6,{r7,r8,r9,r10,r11,r12}
 
@@ -3200,9 +3187,7 @@ createbranchtojitlet:
    B jitend3byteexit
 
 createbranchlinkm8:
-   sub temp0,temp0,r6
-   mov temp0,temp0,LSR #2
-   ORR temp0,temp0,#BLINSTRUCTION
+   MAKEBRANCHLINK temp0
    str temp0,[r6]
    bx lr
 
