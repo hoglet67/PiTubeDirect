@@ -793,87 +793,86 @@ opc_5C: // Opcode 5C - NOP6 $0000
 opc_DC: // Opcode DC - NOP6 $0000
 opc_FC: // Opcode FC - NOP6 $0000
    NOP6_2
-opc_10: // Opcode 10 - BPL
-   BRANCH BPLINSTRUCTION
+opc_10: BRANCH BPLINSTRUCTION // Opcode 10 - BPL
 
 opc_30: BRANCH BMIINSTRUCTION // Opcode 30 - BMI
 
-opc_80: // Opcode 80 - BRA
-   BRANCH BINSTRUCTION
-opc_90: // Opcode 90 - BCC
-   BRANCH BCCINSTRUCTION
-opc_B0: // Opcode B0 - BCS
-   BRANCH BCSINSTRUCTION
-opc_D0: // Opcode D0 - BNE
-   BRANCH BNEINSTRUCTION
-opc_F0: // Opcode F0 - BEQ
-   BRANCH BEQINSTRUCTION
+opc_80: BRANCH BINSTRUCTION   // Opcode 80 - BRA
+
+opc_90: BRANCH BCCINSTRUCTION // Opcode 90 - BCC
+
+opc_B0: BRANCH BCSINSTRUCTION // Opcode B0 - BCS
+
+opc_D0: BRANCH BNEINSTRUCTION // Opcode D0 - BNE
+
+opc_F0: BRANCH BEQINSTRUCTION // Opcode F0 - BEQ
+
 .ltorg
 .balign 8
-opc_08: // Opcode 08 - PHP
-   SINGLEOPCODEBLOUT Bopc_08
-opc_0A: // Opcode 0A - ASL A
-   SINGLEBYTE Bopc_0A
-opc_1A: // Opcode 1A - INC A
-   SINGLEOPCODEBLOUT Bopc_1A
-opc_28:// Opcode 28 - PLP
-   SINGLEOPCODEBLOUT Bopc_28
-opc_2A: // Opcode 2A - ROL A
-   SINGLEOPCODEBLOUT Bopc_2A
-opc_3A: // Opcode 3A - DEC A
-   SINGLEOPCODEBLOUT Bopc_3A
-opc_48: // Opcode 48 - PHA
-   SINGLEBYTE Bopc_48
-opc_4A: // Opcode 4A - LSR A
-   SINGLEBYTE Bopc_4A
-opc_58: // Opcode 58 - CLI
-   SINGLEOPCODEBLOUT Bopc_58
-opc_5A: // Opcode 5A - PHY
-   SINGLEOPCODEBLOUT Bopc_5A
-opc_68: // Opcode 68 - PLA
-   SINGLEOPCODEBLOUT Bopc_68
-opc_6A: // Opcode 6A - ROR A
-   SINGLEOPCODEBLOUT Bopc_6A
-opc_78: // Opcode 78 - SEI
-   SINGLEBYTE Bopc_78
-opc_7A: // Opcode 7A - PLY
-   SINGLEOPCODEBLOUT Bopc_7A
-opc_88: // Opcode 88 - DEY
-   SINGLEBYTE Bopc_88
-opc_8A: // Opcode 8A - TXA
-   SINGLEBYTE Bopc_8A
-opc_98: // Opcode 98 - TYA
-   SINGLEBYTE Bopc_98
-opc_9A: // Opcode 9A - TXS
-   SINGLEBYTE Bopc_9A
-opc_A8: // Opcode A8 - TAY
-   SINGLEBYTE Bopc_A8
-opc_AA: // Opcode AA - TAX
-   SINGLEBYTE Bopc_AA
-opc_B8: // Opcode B8 - CLV
-   SINGLEBYTE Bopc_B8
-opc_BA: // Opcode BA - TSX
-   SINGLEBYTE Bopc_BA
-opc_C8: // Opcode C8 - INY
-   SINGLEBYTE Bopc_C8
-opc_CA: // Opcode CA - DEX
-   SINGLEBYTE Bopc_CA
-opc_D8: // Opcode D8 - CLD
-   SINGLEBYTE Bopc_D8
-opc_DA: // Opcode DA - PHX
-   SINGLEOPCODEBLOUT Bopc_DA
-opc_E3: // Opcode E3 - NOP6
-   SINGLEOPCODEBLOUT Bopc_E3
-opc_E8: // Opcode E8 - INX
-   SINGLEBYTE Bopc_E8
-opc_EB: // Opcode EB - NOP6 ( Borrowed for instruction timing)
-   SINGLEBYTE Bopc_EB
-opc_F3: // Opcode F3 - NOP6
-   SINGLEOPCODEBLOUT Bopc_F3
-opc_F8: // Opcode F8 - SED
-   SINGLEBYTE Bopc_F8
-opc_FA: // Opcode FA - PLX
-   SINGLEOPCODEBLOUT Bopc_FA
+opc_08: SINGLEOPCODEBLOUT Bopc_08 // Opcode 08 - PHP
+
+opc_0A: SINGLEBYTE Bopc_0A        // Opcode 0A - ASL A
+
+opc_1A: SINGLEOPCODEBLOUT Bopc_1A // Opcode 1A - INC A
+
+opc_28: SINGLEOPCODEBLOUT Bopc_28 // Opcode 28 - PLP
+
+opc_2A: SINGLEOPCODEBLOUT Bopc_2A // Opcode 2A - ROL A
+
+opc_3A: SINGLEOPCODEBLOUT Bopc_3A // Opcode 3A - DEC A
+
+opc_48: SINGLEBYTE Bopc_48        // Opcode 48 - PHA
+
+opc_4A: SINGLEBYTE Bopc_4A        // Opcode 4A - LSR A
+
+opc_58: SINGLEOPCODEBLOUT Bopc_58 // Opcode 58 - CLI
+
+opc_5A: SINGLEOPCODEBLOUT Bopc_5A // Opcode 5A - PHY
+
+opc_68: SINGLEOPCODEBLOUT Bopc_68 // Opcode 68 - PLA
+
+opc_6A: SINGLEOPCODEBLOUT Bopc_6A // Opcode 6A - ROR A
+
+opc_78: SINGLEBYTE Bopc_78        // Opcode 78 - SEI
+
+opc_7A: SINGLEOPCODEBLOUT Bopc_7A // Opcode 7A - PLY
+
+opc_88: SINGLEBYTE Bopc_88        // Opcode 88 - DEY
+
+opc_8A: SINGLEBYTE Bopc_8A        // Opcode 8A - TXA
+
+opc_98: SINGLEBYTE Bopc_98        // Opcode 98 - TYA
+
+opc_9A: SINGLEBYTE Bopc_9A        // Opcode 9A - TXS
+
+opc_A8: SINGLEBYTE Bopc_A8        // Opcode A8 - TAY
+
+opc_AA: SINGLEBYTE Bopc_AA        // Opcode AA - TAX
+
+opc_B8: SINGLEBYTE Bopc_B8        // Opcode B8 - CLV
+
+opc_BA: SINGLEBYTE Bopc_BA        // Opcode BA - TSX
+
+opc_C8: SINGLEBYTE Bopc_C8        // Opcode C8 - INY
+
+opc_CA: SINGLEBYTE Bopc_CA        // Opcode CA - DEX
+
+opc_D8: SINGLEBYTE Bopc_D8        // Opcode D8 - CLD
+
+opc_DA: SINGLEOPCODEBLOUT Bopc_DA // Opcode DA - PHX
+
+opc_E3: SINGLEOPCODEBLOUT Bopc_E3 // Opcode E3 - NOP6
+
+opc_E8: SINGLEBYTE Bopc_E8        // Opcode E8 - INX
+
+opc_EB: SINGLEBYTE Bopc_EB        // Opcode EB - NOP6 ( Used for instruction timing)
+
+opc_F3: SINGLEOPCODEBLOUT Bopc_F3 // Opcode F3 - NOP6
+
+opc_F8: SINGLEBYTE Bopc_F8        // Opcode F8 - SED
+
+opc_FA: SINGLEOPCODEBLOUT Bopc_FA // Opcode FA - PLX
+
 .balign 8
 Bopc_08:
    orr      reg12, flags, #X_FLAG6502+B_FLAG6502
