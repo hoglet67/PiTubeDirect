@@ -537,9 +537,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro TRIPLEBYTEABST2 block
-   COPY6LOAD \block
+   adr temp1,\block
    BL fixuptype2accessquick
-   orr r7,r7,r5
    b jitend3bytestore
 .endm
 
@@ -1666,10 +1665,8 @@ opc_E9: // Opcode E9 - SBC #$00
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E9
 
 opc_6C: // Opcode 6C - JMP ($0000)
-   COPY6LOAD Bopc_6C
-
+   adr   r1,Bopc_6C
    BL fixuptype2accessquick
-   orr r7,r7,r5
    b jitend3byteexitstore6
 
 opc_6D: // Opcode 6D - ADC $0000
@@ -3201,8 +3198,10 @@ fixuptype2accessstore4:
    B jitend2bytestore4
 
 fixuptype2accessquick:
+   LDM r1,{r7,r8,r9,r10,r11,r12}
    and r1,r4,#0xF0
    and r4,r4,#0x0F
+   orr r7,r7,r5
    orr r8,r8,r1,LSL #4
    orr r8,r8,r4
    bx lr
