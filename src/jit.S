@@ -1763,11 +1763,6 @@ Bopc_FD:
    bic     flags, #V_FLAG6502
    .word    SBC2-28
 
-
-.ltorg
-
-
-
 opc_81: // Opcode 81 - STA ($00,X)
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_81
 opc_A1: // Opcode A1 - LDA ($00,X)
@@ -2000,7 +1995,7 @@ opc_CE: // Opcode CE - DEC $0000
 
 opc_CF: // Opcode CF - BBS4
    BBRS Bopc_CF bbsreturn
-
+.ltorg
 Bopc_A0:
    MOVREGYCONST
    nop
