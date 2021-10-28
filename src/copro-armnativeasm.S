@@ -199,8 +199,15 @@ _user_exec:
     mov      r0, r1               // Copy the params
     mov      r1, r2
     mov      r2, r3
+
+    stmfd    sp!, {ip,lr}         // Preserve the existing user mode link register
+                                  // otherwise SYS "OS_CLI","TEST" hangs on return (#136)
+                                  // ip is saved as well to maintain 8-byte stack allignment
+
     blx      r4                   // Call the address of the user program
                                   // On return, the exit code is now in R0
+
+    ldmfd    sp!, {ip,lr}         // Restore the existing user mode link register
 
     svc      0x000016             // Change back to supervisor mode (OS_EnterOS)
 
