@@ -114,26 +114,36 @@ static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t col
 }
 
 static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   float invslope1 = ((float) (x2 - x1)) / ((float) (y1 - y2));
-   float invslope2 = ((float) (x3 - x1)) / ((float) (y1 - y3));
-   float curx1 = 0.5f + (float)x1;
-   float curx2 = curx1;
-   for (int scanlineY = y1; scanlineY >= y2; scanlineY--) {
-      draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
-      curx1 += invslope1;
-      curx2 += invslope2;
+   // Note: y2 and y3 are the same, so the below test is slightly redundant
+   if (y1 == y2 || y1 == y3) {
+      draw_hline(screen, (int)x2, (int)x3, y1, colour);
+   } else {
+      float invslope1 = ((float) (x2 - x1)) / ((float) (y1 - y2));
+      float invslope2 = ((float) (x3 - x1)) / ((float) (y1 - y3));
+      float curx1 = 0.5f + (float)x1;
+      float curx2 = curx1;
+      for (int scanlineY = y1; scanlineY >= y2; scanlineY--) {
+         draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
+         curx1 += invslope1;
+         curx2 += invslope2;
+      }
    }
 }
 
 static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
-   float invslope1 = ((float) (x3 - x1)) / ((float) (y1 - y3));
-   float invslope2 = ((float) (x3 - x2)) / ((float) (y2 - y3));
-   float curx1 = 0.5f + (float)x3;
-   float curx2 = curx1;
-   for (int scanlineY = y3; scanlineY <= y1; scanlineY++) {
-      draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
-      curx1 -= invslope1;
-      curx2 -= invslope2;
+   // Note: y1 and y2 are the same, so the below test is slightly redundant
+   if (y1 == y3 || y2 == y3) {
+      draw_hline(screen, (int)x1, (int)x2, y3, colour);
+   } else {
+      float invslope1 = ((float) (x3 - x1)) / ((float) (y1 - y3));
+      float invslope2 = ((float) (x3 - x2)) / ((float) (y2 - y3));
+      float curx1 = 0.5f + (float)x3;
+      float curx2 = curx1;
+      for (int scanlineY = y3; scanlineY <= y1; scanlineY++) {
+         draw_hline(screen, (int)curx1, (int)curx2, scanlineY, colour);
+         curx1 -= invslope1;
+         curx2 -= invslope2;
+      }
    }
 }
 
