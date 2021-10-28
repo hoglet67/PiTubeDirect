@@ -142,9 +142,6 @@ then return to our secret stack This relies on instructions being re entrant , b
       MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line
       MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
       DSB
-      .ifc \count,0
-         ISB
-      .endif
 #else
    #if defined(RPI2)
       DSB
@@ -2661,6 +2658,9 @@ dejit16bit1: //reg1 pointer to address to dejit
    mov reg12,#JITTEDTABLE16
    str reg0,[reg12,reg1,LSL #2]!
    DEJITCLEAN 0
+#if defined(RPI4)|| defined(RPI3)
+   ISB
+#endif
    bx lr
 
 // two byte instruction
@@ -2685,6 +2685,9 @@ dejit16bit21: // reg1 , reg1+4
    DEJITCLEAN 1
    str reg0,[reg12,#4]!
    DEJITCLEAN 0
+#if defined(RPI4)|| defined(RPI3)
+   ISB
+#endif
    bx lr
 
 dejit16bit22: // reg1 , reg1-4
@@ -2707,6 +2710,10 @@ dejit16bit22: // reg1 , reg1-4
    DEJITCLEAN 1
    str reg0,[reg12,#-4]!
    DEJITCLEAN 0
+
+#if defined(RPI4)|| defined(RPI3)
+   ISB
+#endif
    bx lr
 
 // three byte instruction
@@ -2735,6 +2742,9 @@ dejit16bit31: // reg1 , reg1+4, reg1 + 8
    DEJITCLEANMID
    str reg0,[reg12,#4]!
    DEJITCLEAN 0
+#if defined(RPI4)|| defined(RPI3)
+   ISB
+#endif
    bx lr
 
 dejit16bit32: // reg1 , reg1-4, reg1 + 4
@@ -2763,6 +2773,9 @@ dejit16bit32: // reg1 , reg1-4, reg1 + 4
    DEJITCLEAN 1
    str reg0,[reg12,#8]!
    DEJITCLEAN 0
+#if defined(RPI4)|| defined(RPI3)
+   ISB
+#endif
    bx lr
 
 dejit16bit33: // reg1 , reg1-4, reg1 - 8
@@ -2790,6 +2803,9 @@ dejit16bit33: // reg1 , reg1-4, reg1 - 8
    DEJITCLEANMID
    str reg0,[reg12,#-4]!
    DEJITCLEAN 0
+#if defined(RPI4)|| defined(RPI3)
+   ISB
+#endif
    bx lr
 
 // *************
