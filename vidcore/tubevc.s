@@ -371,7 +371,7 @@ led_type3:
    mov    r7, (1<<LED_TYPE3_BIT)
    btst   r20, 0
    not    r20, r20
-   bne    led_type1_set
+   bne    led_type3_set
    st     r7,GPCLR0_offset(r6)
    rts
 led_type3_set:

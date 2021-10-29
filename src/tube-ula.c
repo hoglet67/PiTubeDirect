@@ -854,6 +854,7 @@ void tube_init_hardware()
 
    case 0x0e0 : // RPI 3A+
    case 0x0d0 : // RPI 3B+
+   case 0x120 : // RPI Zero 2 W
       led_type = 3;
       RPI_GpioBase-> GPFSEL[2] |= 1<<27; // LED is GPIO 29
       break;
