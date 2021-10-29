@@ -2977,20 +2977,22 @@ dojitexit :
 
 cacheflushloop:
    mcr p15,0,r3,cr7,cr11,1 // data JITLET (NB 2xJITLET compared to table)
-   MCR p15,0,r3, c7, c5, 1 // instruction
+ //  MCR p15,0,r3, c7, c5, 1 // instruction
    add r3,r3,r12
    mcr p15,0,r3,cr7,cr11,1 // data JITLET
-   MCR p15,0,r3, c7, c5, 1 // instruction
+ //  MCR p15,0,r3, c7, c5, 1 // instruction
    add r3,r3,r12
    mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16
-   MCR p15,0,r4, c7, c5, 1 // instruction
+ //  MCR p15,0,r4, c7, c5, 1 // instruction
    add r4,r4,r12
    cmp r3,r2
    blt cacheflushloop
 
    DSB
-   mov temp0,#0
-   MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB
+   //mov temp0,#0
+   //MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB
+   // Why the above of only flushing accessed cache locations doesn't work
+   // isn't understood. So we flush the the I cache to fix the issue.
    MCR p15, 0, reg12, c7, c5, 0 // invalidate I&BTB cache
 
    DSB
