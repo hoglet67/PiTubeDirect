@@ -47,7 +47,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 // Registers used in 6502 world
 
-#define reg0     r0
+#define reg0      r0
 #define reg1      r1
 #define reg2      r2
 #define reg3      r3
@@ -136,7 +136,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro DEJITCLEAN count=0
 
 #if defined(RPI4)|| defined(RPI3)
-  // bic reg12,reg12,#0x3f // hack
+   //bic reg3,reg12,#0x3f // hack
       MCR p15, 0, reg12, c7, c11, 1 // clean data cache line
       DSB
       MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line
@@ -2799,13 +2799,12 @@ dojit:
 // r14 has address of instruction
    mrs r4, CPSR                   // Save interrupt state (restored by dojitexit)
    CPSID   if                     // Disable ARM FIQ and IRQ interrupts
-   sub r14,r14,#4
-   push {r0-r12,r14}
-        ldr     r8, =GPSET0
+   sub r3,r14,#4                  // return address ( first address of jitted code)
+   push {r3-r11}
+        ldr     r8, =GPSET0     // timing debug code
         mov     r7, #TEST2_MASK
         str     r7, [r8]
-   sub temp2,R14,#JITLET
-   mov r3,R14 // return address ( first address of jitted code)
+   sub temp2,R3,#JITLET
    mov temp2,temp2,LSR#JITLETSHIFT
    b jitentry
 
@@ -2964,7 +2963,7 @@ dojitexit :
 
    // Clean data cache both JITLET
    // r3 has the first address of JITLET instruction
-   // r2 has last address
+   // r2 has last address+1
    ldr r12,cacheline
    mov r2,r2,LSL #JITLETSHIFT
    sub r4,r3,#JITLET
@@ -2977,7 +2976,7 @@ dojitexit :
    bic  r4,r4,r0  // and it was being flushed for the second time !!!!
 
 cacheflushloop:
-   mcr p15,0,r3,cr7,cr11,1 // data JITLET (NB 2xJITLET compared to tables)
+   mcr p15,0,r3,cr7,cr11,1 // data JITLET (NB 2xJITLET compared to table)
    MCR p15,0,r3, c7, c5, 1 // instruction
    add r3,r3,r12
    mcr p15,0,r3,cr7,cr11,1 // data JITLET
@@ -2986,12 +2985,14 @@ cacheflushloop:
    mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16
    MCR p15,0,r4, c7, c5, 1 // instruction
    add r4,r4,r12
-   cmp r2,r3
-   bhi cacheflushloop
+   cmp r3,r2
+   blt cacheflushloop
 
    DSB
    mov temp0,#0
    MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB
+   MCR p15, 0, reg12, c7, c5, 0 // invalidate I&BTB cache
+
    DSB
    ISB
 
@@ -3065,10 +3066,10 @@ cacheflushloop:
 
 #endif
 
-   pop {r0-r12,r14}
+   pop {r3-r11}
    msr CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
 
-   bx r14
+   bx r3  // don't use r14 as it is slow on A72
 
 singleopcodeexit:
    MAKEBRANCHLINK r9
