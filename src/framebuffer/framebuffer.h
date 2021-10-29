@@ -5,7 +5,7 @@
 
 #include "screen_modes.h"
 
-#define DEBUG_VDU
+// #define DEBUG_VDU
 
 #define FALSE 0
 #define TRUE  1
