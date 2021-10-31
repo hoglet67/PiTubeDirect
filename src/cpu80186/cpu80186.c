@@ -1123,40 +1123,51 @@ static void op_div8(uint16_t valdiv, uint8_t divisor)
 
 static void op_idiv8(uint16_t valdiv, uint8_t divisor)
 {
-
   uint16_t s1;
   uint16_t s2;
   uint16_t d1;
   uint16_t d2;
-  int sign;
-
+  int sign1;
+  int sign2;
+  // Check for division by zero
   if (divisor == 0)
   {
     intcall86(0);
     return;
   }
-
+  // Dividend is 16 bits
   s1 = valdiv;
+  sign1 = (s1 & 0x8000) != 0;
+  // Divisor is 8 bits
   s2 = divisor;
-  sign = (((s1 ^ s2) & 0x8000) != 0);
-  s1 = (uint16_t)((s1 < 0x8000u) ? s1 : (((uint16_t)~s1 + 1) & 0xffffu));
-  //s2 = (s2 < 0x8000) ? s2 : ((~s2 + 1) & 0xffff); //always true
+  sign2 = (s2 & 0x80) != 0;
+  // Sign-extend divisor to 16 bits
+  s2 = sign2 ? (s2 | 0xff00) : s2;
+  // Make divisor and dividend both positive
+  s1 = (uint16_t)(sign1 ? (((uint16_t)~s1 + 1) & 0xffffu) : s1);
+  s2 = (uint16_t)(sign2 ? (((uint16_t)~s2 + 1) & 0xffffu) : s2);
+  // Calculate the quotient and remainder
   d1 = s1 / s2;
   d2 = s1 % s2;
+  // Check for overflow in the 8-bit quotient
   if (d1 & 0xFF00)
   {
     intcall86(0);
     return;
   }
-
-  if (sign)
+  // Correct the sign of the 8-bit quotient
+  if (sign1 ^ sign2)
   {
     d1 = (~d1 + 1) & 0xff;
+  }
+  // Correct the sign of the 8-bit remainder
+  if (sign1)
+  {
     d2 = (~d2 + 1) & 0xff;
   }
-
-  regs.byteregs[regah] = (uint8_t) d2;
-  regs.byteregs[regal] = (uint8_t) d1;
+  // Update the result registers
+  regs.byteregs[regal] = (uint8_t) d1; // quotient
+  regs.byteregs[regah] = (uint8_t) d2; // remainder
 }
 
 static void op_grp3_8()
@@ -1268,41 +1279,51 @@ static void op_div16(uint32_t valdiv, uint16_t divisor)
 
 static void op_idiv16(uint32_t valdiv, uint16_t divisor)
 {
-
   uint32_t d1;
   uint32_t d2;
   uint32_t s1;
   uint32_t s2;
-  int sign;
-
+  int sign1;
+  int sign2;
+  // Check for division by zero
   if (divisor == 0)
   {
     intcall86(0);
     return;
   }
-
+  // Dividend is 32 bits
   s1 = valdiv;
+  sign1 = (s1 & 0x80000000u) != 0;
+  // Divisor is 16 bits
   s2 = divisor;
-  s2 = (s2 & 0x8000) ? (s2 | 0xffff0000) : s2;
-  sign = (((s1 ^ s2) & 0x80000000) != 0);
-  s1 = (s1 < 0x80000000) ? s1 : (~s1 + 1);
-  s2 = (s2 < 0x80000000) ? s2 : (~s2 + 1);
+  sign2 = (s2 & 0x8000u) != 0;
+  // Sign-extend divisor to 32 bits
+  s2 = sign2 ? (s2 | 0xffff0000u) : s2;
+  // Make divisor and dividend both positive
+  s1 = sign1 ? (~s1 + 1) : s1;
+  s2 = sign2 ? (~s2 + 1) : s2;
+  // Calculate the quotient and remainder
   d1 = s1 / s2;
   d2 = s1 % s2;
+  // Check for overflow in the 16-bit quotient
   if (d1 & 0xFFFF0000)
   {
     intcall86(0);
     return;
   }
-
-  if (sign)
+  // Correct the sign of the 16-bit quotient
+  if (sign1 ^ sign2)
   {
     d1 = (~d1 + 1) & 0xffff;
+  }
+  // Correct the sign of the 16-bit remainder
+  if (sign1)
+  {
     d2 = (~d2 + 1) & 0xffff;
   }
-
-  putreg16(regax, (uint16_t)d1);
-  putreg16(regdx, (uint16_t)d2);
+  // Update the result registers
+  putreg16(regax, (uint16_t)d1); // quotient
+  putreg16(regdx, (uint16_t)d2); // remainder
 }
 
 static void op_grp3_16()
