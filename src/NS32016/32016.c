@@ -371,13 +371,13 @@ static void GetGenPhase2(RegLKU gen, int c)
             break;
 
             case SinglePrecision:
-            {
+            {  // cppcheck-suppress portability
                genreg[c] = (uint32_t *) &FR.fr32[IndexLKUP[gen.OpType]];
             }
             break;
 
             case DoublePrecision:
-            {
+            {  // cppcheck-suppress portability
                genreg[c] = (uint32_t *) &FR.fr64[gen.OpType];
             }
             break;
