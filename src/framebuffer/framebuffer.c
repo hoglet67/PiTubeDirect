@@ -894,6 +894,7 @@ static void vdu23_19(uint8_t *buf) {
       }
    }
 #ifdef DEBUG_VDU
+   // cppcheck-suppress nullPointerRedundantCheck
    printf("    Font name: %s\r\n",    font->get_name(font));
    printf("  Font number: %"PRId32"\r\n",    font->get_number(font));
    printf("   Font scale: %d,%d\r\n", font->get_scale_w(font),   font->get_scale_h(font));
