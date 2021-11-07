@@ -50,6 +50,8 @@ __attribute__((aligned(64))) static uint32_t palette1_base[PROP_BUFFER_SIZE];
 // Screen Mode Definitions
 // ==========================================================================
 
+#define BBC_GAP_COL 0x02
+
 static screen_mode_t screen_modes[] = {
    {
       .mode_num      = 0,
@@ -1040,8 +1042,10 @@ void default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, p
    to_rectangle(screen, text_window, &r);
    // Clear to the background colour
    for (int y = r.y1; y <= r.y2; y++) {
+      // Special case the black lines in BBC Gap Modes
+      pixel_t col = (screen->mode_flags & F_BBC_GAP) && (y % 10 < 2) ? BBC_GAP_COL : bg_col;
       for (int x = r.x1; x <= r.x2; x++) {
-         screen->set_pixel(screen, x, y, bg_col);
+         screen->set_pixel(screen, x, y, col);
       }
    }
 }
@@ -1060,21 +1064,21 @@ void default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, 
          bg_col = bg_col | (bg_col << 16);
       }
       _fast_scroll(fb, fb + font_height * screen->pitch, (screen->height - font_height) * screen->pitch);
-      _fast_clear(fb + (screen->height - font_height) * screen->pitch, bg_col, font_height * screen->pitch);
    } else {
       // Scroll from top to bottom
-      int y = r.y2;
-      for ( ; y >= r.y1 + font_height; y--) {
+      for (int y = r.y2 ; y >= r.y1 + font_height; y--) {
          int z = y - font_height;
          for (int x = r.x1; x <= r.x2; x++) {
             screen->set_pixel(screen, x, y, screen->get_pixel(screen, x, z));
          }
       }
-      // Blank the bottom line
-      for ( ; y >= r.y1; y--) {
-         for (int x = r.x1; x <= r.x2; x++) {
-            screen->set_pixel(screen, x, y, bg_col);
-         }
+   }
+   // Blank the bottom line
+   for (int y = r.y1 + font_height - 1 ; y >= r.y1; y--) {
+      // Special case the black lines in BBC Gap Modes
+      pixel_t col = (screen->mode_flags & F_BBC_GAP) && (y % 10 < 2) ? BBC_GAP_COL : bg_col;
+      for (int x = r.x1; x <= r.x2; x++) {
+         screen->set_pixel(screen, x, y, col);
       }
    }
 }
