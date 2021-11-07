@@ -1032,7 +1032,7 @@ void default_reset_screen(screen_mode_t *screen) {
 
     /* Initialize the font */
     font_t *font = get_font_by_number(DEFAULT_FONT);
-    font->set_spacing_h(font, (screen->mode_flags & F_BBC_GAP) ? 2 : 0);
+    font->set_spacing_h(font, (screen->mode_flags & (F_BBC_GAP | F_GAP)) ? 2 : 0);
     screen->font = font;
 }
 
