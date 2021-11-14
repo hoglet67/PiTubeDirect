@@ -1149,8 +1149,8 @@ static void op_idiv8(uint16_t valdiv, uint8_t divisor)
   // Calculate the quotient and remainder
   d1 = s1 / s2;
   d2 = s1 % s2;
-  // Check for overflow in the 8-bit quotient
-  if (d1 & 0xFF00)
+  // Check for overflow in the 8-bit quotient (-128 to +127)
+  if (d1 > (127 + (sign1 ^ sign2)))
   {
     intcall86(0);
     return;
@@ -1305,8 +1305,8 @@ static void op_idiv16(uint32_t valdiv, uint16_t divisor)
   // Calculate the quotient and remainder
   d1 = s1 / s2;
   d2 = s1 % s2;
-  // Check for overflow in the 16-bit quotient
-  if (d1 & 0xFFFF0000)
+  // Check for overflow in the 16-bit quotient (-32678 to 32767)
+  if (d1 > (32767 + (sign1 ^ sign2)))
   {
     intcall86(0);
     return;
