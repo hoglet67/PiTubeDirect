@@ -569,7 +569,7 @@ plotmode_t prim_get_bg_plotmode() {
    return g_bg_plotmode;
 }
 
-void prim_set_dot_pattern(uint8_t *pattern) {
+void prim_set_dot_pattern(screen_mode_t *screen, uint8_t *pattern) {
    // Expand the pattern into one byte per pixel for efficient access
    uint8_t *ptr = pattern;
    uint8_t mask = 0x80;
@@ -591,14 +591,14 @@ void prim_set_dot_pattern(uint8_t *pattern) {
    // Note: this is non-standard behaviour
    last_dot++;
    if (last_dot > g_dot_pattern_len) {
-      prim_set_dot_pattern_len(last_dot);
+      prim_set_dot_pattern_len(screen, last_dot);
    }
 }
 
-void prim_set_dot_pattern_len(int len) {
+void prim_set_dot_pattern_len(screen_mode_t *screen, int len) {
    printf("prim_set_dot_pattern_len = %d\r\n", len);
    if (len == 0) {
-      prim_set_dot_pattern(DEFAULT_DOT_PATTERN);
+      prim_set_dot_pattern(screen, DEFAULT_DOT_PATTERN);
       g_dot_pattern_len = 8;
    } else if (len <= 64) {
       g_dot_pattern_len = len;

@@ -311,7 +311,7 @@ static void init_variables() {
    g_fg_tint = 0xFF;
 
    // Reset dot pattern and pattern length to defaults
-   prim_set_dot_pattern_len(0);
+   prim_set_dot_pattern_len(screen, 0);
 
    // Sprites
    current_sprite = 0;
@@ -763,7 +763,7 @@ static void vdu23_1(uint8_t *buf) {
 
 static void vdu23_6(uint8_t *buf) {
    // VDU 23,6: Set Dot Pattern
-   prim_set_dot_pattern(buf + 1);
+   prim_set_dot_pattern(screen, buf + 1);
 }
 
 static void vdu23_9(uint8_t *buf) {
