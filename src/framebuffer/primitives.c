@@ -18,6 +18,12 @@ static int16_t g_y_min;
 static int16_t g_x_max;
 static int16_t g_y_max;
 
+// Dot Patterns
+static uint8_t DEFAULT_DOT_PATTERN[] = {0xAA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static uint8_t g_dot_pattern[64];
+static int     g_dot_pattern_len;
+static int     g_dot_pattern_index;
+
 #define FLOOD_QUEUE_SIZE 16384
 
 static int16_t flood_queue_x[FLOOD_QUEUE_SIZE];
@@ -563,6 +569,43 @@ plotmode_t prim_get_bg_plotmode() {
    return g_bg_plotmode;
 }
 
+void prim_set_dot_pattern(uint8_t *pattern) {
+   // Expand the pattern into one byte per pixel for efficient access
+   uint8_t *ptr = pattern;
+   uint8_t mask = 0x80;
+   int last_dot = -1;
+   for (int i = 0; i < sizeof(g_dot_pattern); i++) {
+      if (*ptr & mask) {
+         g_dot_pattern[i] = 1;
+         last_dot = i;
+      } else {
+         g_dot_pattern[i] = 0;
+      }
+      mask >>= 1;
+      if (!mask) {
+         mask = 0x80;
+         ptr++;
+      }
+   }
+   // Extend the pattern length if necessary
+   // Note: this is non-standard behaviour
+   last_dot++;
+   if (last_dot > g_dot_pattern_len) {
+      prim_set_dot_pattern_len(last_dot);
+   }
+}
+
+void prim_set_dot_pattern_len(int len) {
+   printf("prim_set_dot_pattern_len = %d\r\n", len);
+   if (len == 0) {
+      prim_set_dot_pattern(DEFAULT_DOT_PATTERN);
+      g_dot_pattern_len = 8;
+   } else if (len <= 64) {
+      g_dot_pattern_len = len;
+   }
+   g_dot_pattern_index = 0;
+}
+
 void prim_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
    // Reject illegal windows (this is what OS 1.20 does)
    if (x1 < 0 || x1 >= screen->width || y1 < 0 || y1 >= screen->height) {
@@ -642,13 +685,22 @@ void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel
       longest--;
    }
    int start = 0;
-   if (omit_first) {
-      start++;
+   // restart the dot pattern if the first point is plotted
+   if (!omit_first) {
+      g_dot_pattern_index = 0;
    }
    for (int i = start; i <= longest; i++) {
-      // TODO: Use Dot Pattern set by VDU 23,6
-      if ((dotted == 0) || (i & 1)) {
-         set_pixel(screen, x, y, colour);
+      if (i > start || !omit_first) {
+         if (dotted) {
+            if (g_dot_pattern[g_dot_pattern_index++]) {
+               set_pixel(screen, x, y, colour);
+            }
+            if (g_dot_pattern_index == g_dot_pattern_len) {
+               g_dot_pattern_index = 0;
+            }
+         } else {
+            set_pixel(screen, x, y, colour);
+         }
       }
       numerator += shortest;
       if (!(numerator < longest)) {

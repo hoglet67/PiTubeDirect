@@ -25,6 +25,8 @@ void       prim_set_fg_plotmode      (plotmode_t plotmode);
 plotmode_t prim_get_fg_plotmode      ();
 void       prim_set_bg_plotmode      (plotmode_t plotmode);
 plotmode_t prim_get_bg_plotmode      ();
+void       prim_set_dot_pattern      (uint8_t *pattern);
+void       prim_set_dot_pattern_len  (int len);
 void       prim_set_graphics_area    (screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 void       prim_clear_graphics_area  (screen_mode_t *screen, pixel_t colour);
 void       prim_set_pixel            (screen_mode_t *screen, int x, int y, pixel_t colour);

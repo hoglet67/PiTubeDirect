@@ -310,6 +310,9 @@ static void init_variables() {
    g_fg_gcol = white_gcol;
    g_fg_tint = 0xFF;
 
+   // Reset dot pattern and pattern length to defaults
+   prim_set_dot_pattern_len(0);
+
    // Sprites
    current_sprite = 0;
 
@@ -758,6 +761,11 @@ static void vdu23_1(uint8_t *buf) {
    update_cursors();
 }
 
+static void vdu23_6(uint8_t *buf) {
+   // VDU 23,6: Set Dot Pattern
+   prim_set_dot_pattern(buf + 1);
+}
+
 static void vdu23_9(uint8_t *buf) {
    // VDU 23,9: Set flash mark (on) time
    flash_mark_time = buf[1];
@@ -1059,6 +1067,7 @@ static void vdu_23(uint8_t *buf) {
    } else {
       switch (buf[1]) {
       case  1: vdu23_1 (buf + 1); break;
+      case  6: vdu23_6 (buf + 1); break;
       case  9: vdu23_9 (buf + 1); break;
       case 10: vdu23_10(buf + 1); break;
       case 17: vdu23_17(buf + 1); break;
