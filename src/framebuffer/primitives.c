@@ -21,6 +21,39 @@ static int16_t g_y_min;
 static int16_t g_x_max;
 static int16_t g_y_max;
 
+// ECF Patterns
+static uint8_t ECF1_DEFAULT_2COLS_A[] = {0xCC, 0x00, 0xCC, 0x00, 0xCC, 0x00, 0xCC, 0x00};
+static uint8_t ECF2_DEFAULT_2COLS_A[] = {0xCC, 0x33, 0xCC, 0x33, 0xCC, 0x33, 0xCC, 0x33};
+static uint8_t ECF3_DEFAULT_2COLS_A[] = {0xFF, 0x33, 0xFF, 0x33, 0xFF, 0x33, 0xFF, 0x33};
+static uint8_t ECF4_DEFAULT_2COLS_A[] = {0x03, 0x0C, 0x30, 0xC0, 0x03, 0x0C, 0x30, 0xC0};
+
+static uint8_t ECF1_DEFAULT_2COLS_B[] = {0xAA, 0x00, 0xAA, 0x00, 0xAA, 0x00, 0xAA, 0x00};
+static uint8_t ECF2_DEFAULT_2COLS_B[] = {0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55};
+static uint8_t ECF3_DEFAULT_2COLS_B[] = {0xFF, 0x55, 0xFF, 0x55, 0xFF, 0x55, 0xFF, 0x55};
+static uint8_t ECF4_DEFAULT_2COLS_B[] = {0x11, 0x22, 0x44, 0x88, 0x11, 0x22, 0x44, 0x88};
+
+static uint8_t ECF1_DEFAULT_4COLS[] = {0xA5, 0x0F, 0xA5, 0x0F, 0xA5, 0x0F, 0xA5, 0x0F};
+static uint8_t ECF2_DEFAULT_4COLS[] = {0xA5, 0x5A, 0xA5, 0x5A, 0xA5, 0x5A, 0xA5, 0x5A};
+static uint8_t ECF3_DEFAULT_4COLS[] = {0xF0, 0x5A, 0xF0, 0x5A, 0xF0, 0x5A, 0xF0, 0x5A};
+static uint8_t ECF4_DEFAULT_4COLS[] = {0xF5, 0xFA, 0xF5, 0xFA, 0xF5, 0xFA, 0xF5, 0xFA};
+
+static uint8_t ECF1_DEFAULT_16COLS[] = {0x0B, 0x07, 0x0B, 0x07, 0x0B, 0x07, 0x0B, 0x07};
+static uint8_t ECF2_DEFAULT_16COLS[] = {0x23, 0x13, 0x23, 0x13, 0x23, 0x13, 0x23, 0x13};
+static uint8_t ECF3_DEFAULT_16COLS[] = {0x0E, 0x0D, 0x0E, 0x0D, 0x0E, 0x0D, 0x0E, 0x0D};
+static uint8_t ECF4_DEFAULT_16COLS[] = {0x1F, 0x2F, 0x1F, 0x2F, 0x1F, 0x2F, 0x1F, 0x2F};
+
+// TODO: Use correct values from RISCOS
+static uint8_t ECF1_DEFAULT_256COLS[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
+static uint8_t ECF2_DEFAULT_256COLS[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
+static uint8_t ECF3_DEFAULT_256COLS[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
+static uint8_t ECF4_DEFAULT_256COLS[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
+
+static pixel_t  g_ecf_pattern[4][64];
+static int16_t  g_ecf_origin_x;
+static int16_t  g_ecf_origin_y;
+static int16_t  g_ecf_mask;
+static int      g_ecf_mode;
+
 // Dot Patterns
 static uint8_t DEFAULT_DOT_PATTERN[] = {0xAA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static uint8_t g_dot_pattern[64];
@@ -102,6 +135,11 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
    default:
       plotmode = g_bg_plotmode;
       colour   = g_bg_col;
+   }
+   if (plotmode >= PM_ECF) {
+      int ecfnum = (plotmode >> 4) - 1;
+      colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
+      plotmode &= 0x0F;
    }
    if (plotmode != PM_NORMAL) {
       pixel_t existing = screen->get_pixel(screen, x, y);
@@ -599,6 +637,121 @@ plotmode_t prim_get_bg_plotmode() {
 
 pixel_t prim_get_bg_col() {
    return g_bg_col;
+}
+
+void prim_set_ecf_mode(screen_mode_t *screen, int ecf_mode) {
+   g_ecf_mode = ecf_mode;
+}
+
+void prim_set_ecf_origin(screen_mode_t *screen, int16_t x, int16_t y) {
+   g_ecf_origin_x = x;
+   g_ecf_origin_y = y;
+}
+
+void prim_set_ecf_pattern(screen_mode_t *screen, int num, uint8_t *pattern) {
+   // The pattern start with the top row, which has the largest Y valie
+   pixel_t *ptr = g_ecf_pattern[num] + 8 * 7;
+   // Expand pattern into array of pixels_t values
+   for (int i = 0; i < 8; i++) {
+      uint8_t p = *pattern++;
+      //   2-colour modes: 7,6,5,4,3,2,1,0 (BBC) 0,1,2,3,4,5,6,7 (RISC OS)
+      //   4-colour modes: 73,62,51,40     (BBC) 10,32,54,76     (RISC OS)
+      //  16-colour modes: 7531,6420       (BBC) 3210,7654       (RISC OS)
+      // 256-colour modes: 76543210        (BBC) 76543210        (RISC OS)
+      if (!g_ecf_mode) {
+         // BBC Mode
+         switch (screen->ncolour) {
+         case 1:
+            for (int j = 0; j < 8; j++) {
+               ptr[j] = (pixel_t)((p & 0x80) >> 7);
+               p <<= 1;
+            }
+            break;
+         case 3:
+            for (int j = 0; j < 4; j++) {
+               ptr[j] = (pixel_t)((p & 0x80) >> 6) | ((p & 0x08) >> 3);
+               p <<= 1;
+            }
+            break;
+         case 15:
+            for (int j = 0; j < 2; j++) {
+               ptr[j] = (pixel_t)((p & 0x80) >> 4) | ((p & 0x20) >> 3) | ((p & 0x08) >> 2) | ((p & 0x02) >> 1);
+               p <<= 1;
+            }
+            break;
+         default:
+            ptr[0] = (pixel_t)p;
+         }
+      } else {
+         // RISCOS Mode
+         switch (screen->ncolour) {
+         case 1:
+            for (int j = 0; j < 8; j++) {
+               ptr[j] = (pixel_t)(p & 0x01);
+               p >>= 1;
+            }
+            break;
+         case 3:
+            for (int j = 0; j < 4; j++) {
+               ptr[j] = (pixel_t)(p & 0x03);
+               p >>= 2;
+            }
+            break;
+         case 15:
+            for (int j = 0; j < 2; j++) {
+               ptr[j] = (pixel_t)(p & 0x0F);
+               p >>= 4;
+            }
+            break;
+         default:
+            ptr[0] = (pixel_t)p;
+         }
+      }
+      ptr -= 8;
+   }
+}
+
+
+void prim_set_ecf_default(screen_mode_t *screen) {
+   g_ecf_mode = 0;
+   g_ecf_origin_x = 0;
+   g_ecf_origin_y = 0;
+   switch (screen->ncolour) {
+   case 1:
+      if (screen->width > 320) {
+         prim_set_ecf_pattern(screen, 0, ECF1_DEFAULT_2COLS_A);
+         prim_set_ecf_pattern(screen, 1, ECF2_DEFAULT_2COLS_A);
+         prim_set_ecf_pattern(screen, 2, ECF3_DEFAULT_2COLS_A);
+         prim_set_ecf_pattern(screen, 3, ECF4_DEFAULT_2COLS_A);
+      } else {
+         prim_set_ecf_pattern(screen, 0, ECF1_DEFAULT_2COLS_B);
+         prim_set_ecf_pattern(screen, 1, ECF2_DEFAULT_2COLS_B);
+         prim_set_ecf_pattern(screen, 2, ECF3_DEFAULT_2COLS_B);
+         prim_set_ecf_pattern(screen, 3, ECF4_DEFAULT_2COLS_B);
+      }
+      g_ecf_mask = 7;
+      break;
+   case 3:
+      prim_set_ecf_pattern(screen, 0, ECF1_DEFAULT_4COLS);
+      prim_set_ecf_pattern(screen, 1, ECF2_DEFAULT_4COLS);
+      prim_set_ecf_pattern(screen, 2, ECF3_DEFAULT_4COLS);
+      prim_set_ecf_pattern(screen, 3, ECF4_DEFAULT_4COLS);
+      g_ecf_mask = 3;
+      break;
+   case 15:
+      prim_set_ecf_pattern(screen, 0, ECF1_DEFAULT_16COLS);
+      prim_set_ecf_pattern(screen, 1, ECF2_DEFAULT_16COLS);
+      prim_set_ecf_pattern(screen, 2, ECF3_DEFAULT_16COLS);
+      prim_set_ecf_pattern(screen, 3, ECF4_DEFAULT_16COLS);
+      g_ecf_mask = 1;
+      break;
+   default:
+      prim_set_ecf_pattern(screen, 0, ECF1_DEFAULT_256COLS);
+      prim_set_ecf_pattern(screen, 1, ECF2_DEFAULT_256COLS);
+      prim_set_ecf_pattern(screen, 2, ECF3_DEFAULT_256COLS);
+      prim_set_ecf_pattern(screen, 3, ECF4_DEFAULT_256COLS);
+      g_ecf_mask = 0;
+   }
 }
 
 void prim_set_dot_pattern(screen_mode_t *screen, uint8_t *pattern) {

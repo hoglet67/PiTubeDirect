@@ -311,6 +311,9 @@ static void init_variables() {
    // Reset dot pattern and pattern length to defaults
    prim_set_dot_pattern_len(screen, 0);
 
+   // Reset ECF patterns to defaults
+   prim_set_ecf_default(screen);
+
    // Sprites
    current_sprite = 0;
 
@@ -758,6 +761,27 @@ static void vdu23_1(uint8_t *buf) {
    update_cursors();
 }
 
+static void vdu23_2(uint8_t *buf) {
+   // VDU 23,2: Set ECF1 Pattern
+   prim_set_ecf_pattern(screen, 0, buf + 1);
+}
+
+static void vdu23_3(uint8_t *buf) {
+   // VDU 23,2: Set ECF1 Pattern
+   prim_set_ecf_pattern(screen, 1, buf + 1);
+}
+
+static void vdu23_4(uint8_t *buf) {
+   // VDU 23,2: Set ECF1 Pattern
+   prim_set_ecf_pattern(screen, 2, buf + 1);
+}
+
+static void vdu23_5(uint8_t *buf) {
+   // VDU 23,2: Set ECF1 Pattern
+   prim_set_ecf_pattern(screen, 3, buf + 1);
+}
+
+
 static void vdu23_6(uint8_t *buf) {
    // VDU 23,6: Set Dot Pattern
    prim_set_dot_pattern(screen, buf + 1);
@@ -771,6 +795,11 @@ static void vdu23_9(uint8_t *buf) {
 static void vdu23_10(uint8_t *buf) {
    // VDU 23,10: Set flash space (off) time
    flash_space_time = buf[1];
+}
+
+static void vdu23_11(uint8_t *buf) {
+   // VDU 23,11: Set Default ECF Patterns
+   prim_set_ecf_default(screen);
 }
 
 static void vdu23_17(uint8_t *buf) {
@@ -797,7 +826,8 @@ static void vdu23_17(uint8_t *buf) {
       prim_set_bg_gcol(screen, prim_get_bg_plotmode(), calculate_colour(g_bg_gcol, g_bg_tint));
       break;
    case 4:
-      // TODO: VDU 23,17,4 - Select colour patterns
+      // VDU 23,17,4 - Select colour patterns mode
+      prim_set_ecf_mode(screen, buf[2] & 1);
       break;
    case 5:
       // VDU 23,17,5 - Swap text colours
@@ -1062,9 +1092,14 @@ static void vdu_23(uint8_t *buf) {
    } else {
       switch (buf[1]) {
       case  1: vdu23_1 (buf + 1); break;
+      case  2: vdu23_2 (buf + 1); break;
+      case  3: vdu23_3 (buf + 1); break;
+      case  4: vdu23_4 (buf + 1); break;
+      case  5: vdu23_5 (buf + 1); break;
       case  6: vdu23_6 (buf + 1); break;
       case  9: vdu23_9 (buf + 1); break;
       case 10: vdu23_10(buf + 1); break;
+      case 11: vdu23_11(buf + 1); break;
       case 17: vdu23_17(buf + 1); break;
       case 19: vdu23_19(buf + 1); break;
       case 22: vdu23_22(buf + 1); break;
