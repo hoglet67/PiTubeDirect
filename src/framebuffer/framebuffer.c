@@ -64,8 +64,6 @@ static int16_t f_y_pos;
 static int16_t f_visible;
 
 // Graphics colour / cursor position
-static pixel_t g_bg_col;
-static pixel_t g_fg_col;
 static pixel_t white_col;
 
 static uint8_t g_bg_gcol;
@@ -303,10 +301,10 @@ static void init_variables() {
    e_enabled = 0;
 
    // Graphics colour / cursor position
-   g_bg_col  = 0;          // Black is always 0
+   prim_set_bg_gcol(screen, PM_NORMAL, 0);         // Black is always 0
    g_bg_gcol = 0;
    g_bg_tint = 0;
-   g_fg_col  = white_col;  // White depends on the screen bit depth
+   prim_set_fg_gcol(screen, PM_NORMAL, white_col); // White depends on the screen bit depth
    g_fg_gcol = white_gcol;
    g_fg_tint = 0xFF;
 
@@ -338,9 +336,6 @@ static void reset_areas() {
    // (left, bottom, right, top)
    g_clip_window_t default_graphics_window = {0, 0, (int16_t)((screen->width << screen->xeigfactor) - 1), (int16_t)((screen->height << screen->yeigfactor) - 1)};
    set_graphics_area(screen, &default_graphics_window);
-   // Initialize the default plot mode to normal plotting
-   prim_set_fg_plotmode(0);
-   prim_set_bg_plotmode(0);
    // Home the text cursor
    c_x_pos = t_window.left;
    c_y_pos = t_window.top;
@@ -537,6 +532,8 @@ static void change_mode(screen_mode_t *new_screen) {
       flash_mark_time  = 25;
       flash_space_time = 25;
    }
+   // initialize the primitives
+   prim_init(screen);
    // initialise VDU variable
    init_variables();
    // clear screen
@@ -737,14 +734,14 @@ static void graphics_cursor_tab(uint8_t *buf) {
 static void graphics_area_clear() {
    g_x_pos = g_window.left;
    g_y_pos = g_window.top;
-   prim_clear_graphics_area(screen, g_bg_col);
+   prim_clear_graphics_area(screen);
 }
 
 static void graphics_delete() {
    graphics_cursor_left();
    int x = g_x_pos >> screen->xeigfactor;
    int y = g_y_pos >> screen->yeigfactor;
-   prim_fill_rectangle(screen, x, y, x + (font_width - 1), y - (font_height - 1), g_bg_col);
+   prim_fill_rectangle(screen, x, y, x + (font_width - 1), y - (font_height - 1), PC_BG);
 }
 
 // ==========================================================================
@@ -792,21 +789,21 @@ static void vdu23_17(uint8_t *buf) {
    case 2:
       // VDU 23,17,2 - sets tint for graphics foreground colour
       g_fg_tint = buf[2];
-      g_fg_col = calculate_colour(g_fg_gcol, g_fg_tint);
+      prim_set_fg_gcol(screen, prim_get_fg_plotmode(), calculate_colour(g_fg_gcol, g_fg_tint));
       break;
    case 3:
       // VDU 23,17,3 - sets tint for graphics background colour
       g_bg_tint = buf[2];
-      g_bg_col = calculate_colour(g_bg_gcol, g_bg_tint);
+      prim_set_bg_gcol(screen, prim_get_bg_plotmode(), calculate_colour(g_bg_gcol, g_bg_tint));
       break;
    case 4:
       // TODO: VDU 23,17,4 - Select colour patterns
       break;
    case 5:
-      // TODO: VDU 23,17,5 - Swap text colours
+      // VDU 23,17,5 - Swap text colours
       {
          pixel_t tmp = c_fg_col;
-         c_fg_col = g_bg_col;
+         c_fg_col = c_bg_col;
          c_bg_col = tmp;
          break;
       }
@@ -973,7 +970,7 @@ static void vdu_5(uint8_t *buf) {
 }
 
 static void vdu_16(uint8_t *buf) {
-   prim_clear_graphics_area(screen, g_bg_col);
+   prim_clear_graphics_area(screen);
 }
 
 static void vdu_17(uint8_t *buf) {
@@ -998,12 +995,10 @@ static void vdu_18(uint8_t *buf) {
    uint8_t col = (uint8_t)(buf[2] & COLOUR_MASK & screen->ncolour);
    if (buf[1] & 128) {
       g_bg_gcol = col & COLOUR_MASK;
-      g_bg_col = calculate_colour(g_bg_gcol, g_bg_tint);
-      prim_set_bg_plotmode(mode);
+      prim_set_bg_gcol(screen, mode, calculate_colour(g_bg_gcol, g_bg_tint));
    } else {
       g_fg_gcol = col & COLOUR_MASK;
-      g_fg_col = calculate_colour(g_fg_gcol, g_fg_tint);
-      prim_set_fg_plotmode(mode);
+      prim_set_fg_gcol(screen, mode, calculate_colour(g_fg_gcol, g_fg_tint));
    }
 }
 
@@ -1127,14 +1122,14 @@ static void vdu_25(uint8_t *buf) {
 
    if (g_mode & 0x03) {
 
-      pixel_t colour;
+      plotcol_t colour;
 
       if ((g_mode & 0x03) == 1) {
-         colour = g_fg_col;
+         colour = PC_FG;
       } else if ((g_mode & 3) == 2) {
-         colour = white_col - g_fg_col;
+         colour = PC_FG_INV;
       } else {
-         colour = g_bg_col;
+         colour = PC_BG;
       }
 
       switch (g_mode & 0xF8) {
@@ -1309,7 +1304,7 @@ static void vdu_default(uint8_t *buf) {
       int x = g_x_pos >> screen->xeigfactor;
       int y = g_y_pos >> screen->yeigfactor;
       // Only draw the foreground pixels
-      prim_draw_character(screen, c, x, y, g_fg_col);
+      prim_draw_character(screen, c, x, y, PC_FG);
       // Advance the drawing position
       graphics_cursor_right();
    } else {
@@ -1412,14 +1407,15 @@ static void owl(int x0, int y0, int r, int col) {
    };
 
    // Save graphics colour
-   pixel_t old_g_fg_col = g_fg_col;
+   pixel_t old_col = prim_get_fg_col();
+   plotmode_t old_mode = prim_get_fg_plotmode();
    for (unsigned int i = 0; i < sizeof(data) / sizeof(int); i++) {
       int x = data[i];
       if (x >= 0) {
          int xc = x0 + x * r;
          int yc = y0 - y * r;
          int d = y / 3;
-         g_fg_col = screen->get_colour(screen, cols[d]);
+         prim_set_fg_gcol(screen, PM_NORMAL, screen->get_colour(screen, cols[d]));
          plot(  4, xc, yc);
          plot(157, xc, yc + r * 5 / 7);
       } else {
@@ -1427,7 +1423,7 @@ static void owl(int x0, int y0, int r, int col) {
       }
    }
    // Restore graphics colour
-   g_fg_col = old_g_fg_col;
+   prim_set_fg_gcol(screen, old_mode, old_col);
 }
 
 static void help_message() {
@@ -1683,14 +1679,6 @@ int fb_get_text_cursor_char() {
    return read_character(c_x_pos, c_y_pos);
 }
 
-pixel_t fb_get_g_bg_col() {
-   return g_bg_col;
-}
-
-pixel_t fb_get_g_fg_col() {
-   return g_fg_col;
-}
-
 void fb_wait_for_vsync() {
 
    // Wait for the VSYNC flag to be set by the IRQ handler
@@ -1908,14 +1896,12 @@ int fb_point(int16_t x, int16_t y, pixel_t *colour) {
 
 // Set the foreground graphics colour directly, bypassing the colour/tint VDU variables
 void fb_set_g_fg_col(uint8_t action, pixel_t colour) {
-   g_fg_col = colour;
-   prim_set_fg_plotmode(action);
+   prim_set_fg_gcol(screen, action, colour);
 }
 
 // Set the background graphics colour directly, bypassing the colour/tint VDU variables
 void fb_set_g_bg_col(uint8_t action, pixel_t colour) {
-   g_bg_col = colour;
-   prim_set_bg_plotmode(action);
+   prim_set_bg_gcol(screen, action, colour);
 }
 
 // Set the foreground text colour directly, bypassing the colour/tint VDU variables

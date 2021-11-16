@@ -10,8 +10,11 @@
 #include "v3d.h"
 #endif
 
+static pixel_t    white_col;
 static plotmode_t g_fg_plotmode;
+static pixel_t    g_fg_col;
 static plotmode_t g_bg_plotmode;
+static pixel_t    g_bg_col;
 
 static int16_t g_x_min;
 static int16_t g_y_min;
@@ -75,19 +78,34 @@ static int calc_radius(int x1, int y1, int x2, int y2) {
 static pixel_t get_pixel(screen_mode_t *screen, int x, int y) {
    if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
       // Return the graphics background colour if off the screen
-      return fb_get_g_bg_col();
+      return g_bg_col;
    } else {
       return screen->get_pixel(screen, x, y);
    }
 }
 
-static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
+static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
+   plotmode_t plotmode;
+   pixel_t colour;
    if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
       return;
    }
-   if (g_fg_plotmode != PM_NORMAL) {
+   switch (col) {
+   case PC_FG:
+      plotmode = g_fg_plotmode;
+      colour   = g_fg_col;
+      break;
+   case PC_FG_INV:
+      plotmode = g_fg_plotmode;
+      colour   = white_col - g_fg_col;
+      break;
+   default:
+      plotmode = g_bg_plotmode;
+      colour   = g_bg_col;
+   }
+   if (plotmode != PM_NORMAL) {
       pixel_t existing = screen->get_pixel(screen, x, y);
-      switch (g_fg_plotmode) {
+      switch (plotmode) {
       case PM_OR:
          colour |= existing;
          break;
@@ -98,9 +116,8 @@ static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
          colour ^= existing;
          break;
       case PM_INVERT:
-         colour = existing ^ 0xFF;
+         colour = white_col - existing;
          break;
-      case PM_NORMAL : break;
       default:
          break;
       }
@@ -108,7 +125,7 @@ static void set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
    screen->set_pixel(screen, x, y, colour);
 }
 
-static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t colour) {
+static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, plotcol_t colour) {
    if (x1 > x2) {
       int tmp = x1;
       x1 = x2;
@@ -119,7 +136,7 @@ static void draw_hline(screen_mode_t *screen, int x1, int x2, int y, pixel_t col
    }
 }
 
-static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, plotcol_t colour) {
    // Note: y2 and y3 are the same, so the below test is slightly redundant
    if (y1 == y2 || y1 == y3) {
       draw_hline(screen, (int)x2, (int)x3, y1, colour);
@@ -136,7 +153,7 @@ static void fill_bottom_flat_triangle(screen_mode_t *screen, int x1, int y1, int
    }
 }
 
-static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, plotcol_t colour) {
    // Note: y1 and y2 are the same, so the below test is slightly redundant
    if (y1 == y3 || y2 == y3) {
       draw_hline(screen, (int)x1, (int)x2, y3, colour);
@@ -258,7 +275,7 @@ static int arc_point(unsigned int q, quadrant_t state, int x, int y, int xs, int
    return FALSE;
 }
 
-static void draw_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
+static void draw_circle(screen_mode_t *screen, int xc, int yc, int r, plotcol_t colour) {
    int x = 0;
    int y = r;
    int p = 3 - (2 * r);
@@ -290,7 +307,7 @@ static void draw_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t co
    }
 }
 
-static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t colour) {
+static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, plotcol_t colour) {
    int x = 0;
    int y = r;
    int p = 3 - (2 * r);
@@ -316,7 +333,7 @@ static void fill_circle(screen_mode_t *screen, int xc, int yc, int r, pixel_t co
    }
 }
 
-static void draw_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+static void draw_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, plotcol_t colour) {
    // Deal with the trivial case of single point
    if (width == 0 && height == 0) {
       set_pixel(screen, xc, yc, colour);
@@ -357,7 +374,7 @@ static void draw_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width
    }
 }
 
-static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, plotcol_t colour) {
    // Draw the ellipse
    if (height == 0) {
       draw_hline(screen, xc - width, xc + width, yc, colour);
@@ -413,7 +430,7 @@ static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 }
 
 #if 0
-static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, plotcol_t colour) {
    // Draw the ellipse
    int a2 = width * width;
    int b2 = height * height;
@@ -452,7 +469,7 @@ static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 }
 #endif
 
-static void fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, pixel_t colour) {
+static void fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, plotcol_t colour) {
    // Deal with the trivial case of single point
    if (width == 0 && height == 0) {
       set_pixel(screen, xc, yc, colour);
@@ -487,7 +504,7 @@ static void fill_normal_ellipse(screen_mode_t *screen, int xc, int yc, int width
    }
 }
 
-static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, plotcol_t colour) {
    // Fill the ellipse
    if (height == 0) {
       draw_hline(screen, xc - width, xc + width, yc, colour);
@@ -516,7 +533,7 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 }
 
 #if 0
-static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, plotcol_t colour) {
    int a2 = width * width;
    // Fill the ellipse
    int b2 = height * height;
@@ -553,20 +570,35 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 // Public methods
 // ==========================================================================
 
-void prim_set_fg_plotmode(plotmode_t plotmode) {
+void prim_init (screen_mode_t *screen) {
+   uint8_t white_gcol = screen->white;
+   white_col = screen->get_colour(screen, white_gcol);
+}
+
+void prim_set_fg_gcol(screen_mode_t *screen, plotmode_t plotmode, pixel_t colour) {
    g_fg_plotmode = plotmode;
+   g_fg_col      = colour;
 }
 
 plotmode_t prim_get_fg_plotmode() {
    return g_fg_plotmode;
 }
 
-void prim_set_bg_plotmode(plotmode_t plotmode) {
+pixel_t prim_get_fg_col() {
+   return g_fg_col;
+}
+
+void prim_set_bg_gcol(screen_mode_t *screen, plotmode_t plotmode, pixel_t colour) {
    g_bg_plotmode = plotmode;
+   g_bg_col      = colour;
 }
 
 plotmode_t prim_get_bg_plotmode() {
    return g_bg_plotmode;
+}
+
+pixel_t prim_get_bg_col() {
+   return g_bg_col;
 }
 
 void prim_set_dot_pattern(screen_mode_t *screen, uint8_t *pattern) {
@@ -624,11 +656,11 @@ void prim_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16
    g_y_max = y2;
 }
 
-void prim_clear_graphics_area(screen_mode_t *screen, pixel_t colour) {
-   prim_fill_rectangle(screen, g_x_min, g_y_min, g_x_max, g_y_max, colour);
+void prim_clear_graphics_area(screen_mode_t *screen) {
+   prim_fill_rectangle(screen, g_x_min, g_y_min, g_x_max, g_y_max, PC_BG);
 }
 
-void prim_set_pixel(screen_mode_t *screen, int x, int y, pixel_t colour) {
+void prim_set_pixel(screen_mode_t *screen, int x, int y, plotcol_t colour) {
    set_pixel(screen, x, y, colour);
 }
 
@@ -643,7 +675,7 @@ int prim_on_screen(screen_mode_t *screen, int x, int y) {
 // Rodders: Line mode support
 // Implementation of Bresenham's line drawing algorithm from here:
 // http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/
-void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour, uint8_t linemode) {
+void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, plotcol_t colour, uint8_t linemode) {
    int w = x2 - x1;
    int h = y2 - y1;
    int mask = (linemode & 0x38);
@@ -714,14 +746,28 @@ void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel
    }
 }
 
-void prim_flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixel_t ref_col, int c) {
+static pixel_t lookup_colour(plotcol_t col) {
+   switch (col) {
+   case PC_FG:
+      return g_fg_col;
+   case PC_FG_INV:
+      return white_col - g_fg_col;
+   default:
+      return g_bg_col;
+   }
+}
+
+static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill, plotcol_t ref, int c) {
 #ifdef DEBUG_VDU
    int maxq = 0;
-   printf("Flood fill @ %d,%d with col %"PRIx32"; initial pixel %"PRIx32"\r\n", x, y, fill_col, get_pixel(screen, x, y));
+   pixel_t fill_col = lookup_colour(fill);
+   printf("Flood fill @ %d,%d with plotcol %"PRIx32"; initial pixel %"PRIx32"\r\n", x, y, fill_col, get_pixel(screen, x, y));
 #endif
-   if (c && (fill_col == ref_col)) {
+   if (c && (fill == ref)) {
       return;
    }
+   // Convert the reference plotcol_t (FG, FG_INV, BG) into a pixel_t colour
+   pixel_t ref_col = lookup_colour(ref);
    if (((get_pixel(screen, x, y) == ref_col) ? !c : c)) {
       return;
    }
@@ -749,7 +795,7 @@ void prim_flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixe
          xr++;
       }
       for (x = xl; x <= xr; x++) {
-         set_pixel(screen, x, y, fill_col);
+         set_pixel(screen, x, y, fill);
          if (y > g_y_min && ((get_pixel(screen, x, y - 1) == ref_col) ? c : !c)) {
             flood_queue_x[flood_queue_wr] = (int16_t)x;
             flood_queue_y[flood_queue_wr] = (int16_t)(y - 1);
@@ -785,15 +831,15 @@ void prim_flood_fill(screen_mode_t *screen, int x, int y, pixel_t fill_col, pixe
 #endif
 }
 
-void prim_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t mode) {
+void prim_fill_area(screen_mode_t *screen, int x, int y, plotcol_t colour, fill_t mode) {
    int x_left = x;
    int x_right = x;
 
    // printf("Plot (%d,%d), colour %d, mode %d\r\n", x, y, colour, mode);
    // printf("g_bg_col = %d, g_fg_col = %d\n\r", g_bg_col, g_fg_col);
 
-   pixel_t fg_col = fb_get_g_fg_col();
-   pixel_t bg_col = fb_get_g_bg_col();
+   pixel_t fg_col = g_fg_col;
+   pixel_t bg_col = g_bg_col;
 
    if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
       return;
@@ -847,11 +893,11 @@ void prim_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t 
       break;
 
    case AF_NONBG:
-      prim_flood_fill(screen, x, y, colour, bg_col, 1);
+      prim_flood_fill(screen, x, y, colour, PC_BG, 1);
       break;
 
    case AF_TOFGD:
-      prim_flood_fill(screen, x, y, colour, fg_col, 0);
+      prim_flood_fill(screen, x, y, colour, PC_FG, 0);
       break;
 
    default:
@@ -861,7 +907,7 @@ void prim_fill_area(screen_mode_t *screen, int x, int y, pixel_t colour, fill_t 
 }
 
 
-void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, plotcol_t colour) {
    int tmp;
 #ifdef USE_V3D
    if (screen->log2bpp > 3) {
@@ -912,7 +958,7 @@ void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, i
 
 // TODO: Update this to work with non-square pixels
 
-void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
+void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
    // Draw arc using modified Bresenham algorithm
    // Finds start and end quadrants and masks plotting of points
    int radius = calc_radius(xc, yc, x1, y1);
@@ -1027,7 +1073,7 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
 }
 
 
-void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
+void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
    // Draw the arc that bounds the chord
    prim_draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
    // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
@@ -1036,7 +1082,7 @@ void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
    prim_flood_fill(screen, arc_fill_x, arc_fill_y, colour, colour, 0);
 }
 
-void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, pixel_t colour) {
+void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
    // Draw the arc that bounds the sector
    prim_draw_arc(screen, xc, yc, x1, y1, x2, y2, colour);
    // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
@@ -1085,7 +1131,7 @@ void prim_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int
    }
 }
 
-void prim_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, pixel_t colour) {
+void prim_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, plotcol_t colour) {
    // Ensure y1 < y2
    if (y1 > y2) {
       int tmp = y1;
@@ -1097,7 +1143,7 @@ void prim_fill_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, 
    }
 }
 
-void prim_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, pixel_t colour) {
+void prim_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, plotcol_t colour) {
    int x4 = x3 - x2 + x1;
    int y4 = y3 - y2 + y1;
    // Fill the parallelogram
@@ -1106,7 +1152,7 @@ void prim_fill_parallelogram(screen_mode_t *screen, int x1, int y1, int x2, int 
 }
 
 
-void prim_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
+void prim_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, plotcol_t colour) {
    // Draw the circle
    if (screen->xeigfactor == screen->yeigfactor) {
       // Square pixels
@@ -1121,7 +1167,7 @@ void prim_draw_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pix
    }
 }
 
-void prim_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pixel_t colour) {
+void prim_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, plotcol_t colour) {
    // Fill the circle
    if (screen->xeigfactor == screen->yeigfactor) {
       // Square pixels
@@ -1136,7 +1182,7 @@ void prim_fill_circle(screen_mode_t *screen, int xc, int yc, int xr, int yr, pix
    }
 }
 
-void prim_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+void prim_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, plotcol_t colour) {
    // Draw the ellipse
    if (shear) {
       draw_sheared_ellipse(screen, xc, yc, width, height, shear, colour);
@@ -1145,7 +1191,7 @@ void prim_draw_ellipse(screen_mode_t *screen, int xc, int yc, int width, int hei
    }
 }
 
-void prim_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, pixel_t colour) {
+void prim_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int height, int shear, plotcol_t colour) {
    // Fill the ellipse
    if (shear) {
       fill_sheared_ellipse(screen, xc, yc, width, height, shear, colour);
@@ -1154,7 +1200,7 @@ void prim_fill_ellipse(screen_mode_t *screen, int xc, int yc, int width, int hei
    }
 }
 
-void prim_draw_character(screen_mode_t *screen, int c, int x_pos, int y_pos, pixel_t colour) {
+void prim_draw_character(screen_mode_t *screen, int c, int x_pos, int y_pos, plotcol_t colour) {
    // Draw the character
    font_t *font = screen->font;
    int x = x_pos;

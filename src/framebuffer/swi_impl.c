@@ -6,7 +6,6 @@
 #include "../tube-lib.h"
 #include "../tube-swi.h"
 
-#include "primitives.h"
 #include "framebuffer.h"
 #include "screen_modes.h"
 

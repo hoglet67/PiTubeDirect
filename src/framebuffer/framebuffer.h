@@ -98,10 +98,6 @@ int fb_get_text_cursor_y();
 
 int fb_get_text_cursor_char();
 
-pixel_t fb_get_g_bg_col();
-
-pixel_t fb_get_g_fg_col();
-
 void fb_wait_for_vsync();
 
 screen_mode_t *fb_get_current_screen_mode();
