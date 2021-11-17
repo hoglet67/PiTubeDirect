@@ -767,24 +767,33 @@ static void vdu23_2(uint8_t *buf) {
 }
 
 static void vdu23_3(uint8_t *buf) {
-   // VDU 23,2: Set ECF1 Pattern
+   // VDU 23,3: Set ECF2 Pattern
    prim_set_ecf_pattern(screen, 1, buf + 1);
 }
 
 static void vdu23_4(uint8_t *buf) {
-   // VDU 23,2: Set ECF1 Pattern
+   // VDU 23,4: Set ECF3 Pattern
    prim_set_ecf_pattern(screen, 2, buf + 1);
 }
 
 static void vdu23_5(uint8_t *buf) {
-   // VDU 23,2: Set ECF1 Pattern
+   // VDU 23,5: Set ECF4 Pattern
    prim_set_ecf_pattern(screen, 3, buf + 1);
 }
-
 
 static void vdu23_6(uint8_t *buf) {
    // VDU 23,6: Set Dot Pattern
    prim_set_dot_pattern(screen, buf + 1);
+}
+
+static void vdu23_7(uint8_t *buf) {
+   // VDU 23,7,extent,direction,movement,0,0,0,0,0 (Scroll rectangle)
+   // TODO
+}
+
+static void vdu23_8(uint8_t *buf) {
+   // VDU 23,8,t1,t2,x1,y1,x2,x2,0,0 (Clear Block)
+   // TODO
 }
 
 static void vdu23_9(uint8_t *buf) {
@@ -800,6 +809,28 @@ static void vdu23_10(uint8_t *buf) {
 static void vdu23_11(uint8_t *buf) {
    // VDU 23,11: Set Default ECF Patterns
    prim_set_ecf_default(screen);
+   // Also sets the ECF Mode back to legacy BBC/Master
+   prim_set_ecf_mode(screen, 0);
+}
+
+static void vdu23_12(uint8_t *buf) {
+   // VDU 23,12: Set ECF1 Pattern to a simple 2x4 pattern
+   prim_set_ecf_simple(screen, 0, buf + 1);
+}
+
+static void vdu23_13(uint8_t *buf) {
+   // VDU 23,13: Set ECF2 Pattern to a simple 2x4 pattern
+   prim_set_ecf_simple(screen, 1, buf + 1);
+}
+
+static void vdu23_14(uint8_t *buf) {
+   // VDU 23,14: Set ECF3 Pattern to a simple 2x4 pattern
+   prim_set_ecf_simple(screen, 2, buf + 1);
+}
+
+static void vdu23_15(uint8_t *buf) {
+   // VDU 23,15: Set ECF4 Pattern to a simple 2x4 pattern
+   prim_set_ecf_simple(screen, 3, buf + 1);
 }
 
 static void vdu23_17(uint8_t *buf) {
@@ -838,8 +869,13 @@ static void vdu23_17(uint8_t *buf) {
          break;
       }
    case 6:
-      // TODO: VDU 23,17,6 - Set ECF origin
-      break;
+      // VDU 23,17,6,x;y;0,0,0 - Set ECF origin
+      {
+         int16_t x = (int16_t)(buf[2] + (buf[3] << 8));
+         int16_t y = (int16_t)(buf[4] + (buf[5] << 8));
+         prim_set_ecf_origin(screen, x, y);
+         break;
+      }
    case 7:
       // TODO VDU 23,17,7 - Set character size and spacing
       // VDU 23,17,7,flags,xsize;ysize;0,0
@@ -1012,7 +1048,7 @@ static void vdu_17(uint8_t *buf) {
       printf("bg = %lx\r\n", c_bg_col);
 #endif
    } else {
-      c_fg_gcol = col & COLOUR_MASK;
+      c_fg_gcol = col;             ;
       c_fg_col = calculate_colour(c_fg_gcol, c_fg_tint);
 #ifdef DEBUG_VDU
       printf("fg = %lx\r\n", c_fg_col);
@@ -1023,11 +1059,11 @@ static void vdu_17(uint8_t *buf) {
 static void vdu_18(uint8_t *buf) {
    uint8_t mode = buf[1];
    uint8_t col = (uint8_t)(buf[2] & COLOUR_MASK & screen->ncolour);
-   if (buf[1] & 128) {
-      g_bg_gcol = col & COLOUR_MASK;
+   if (buf[2] & 128) {
+      g_bg_gcol = col;
       prim_set_bg_gcol(screen, mode, calculate_colour(g_bg_gcol, g_bg_tint));
    } else {
-      g_fg_gcol = col & COLOUR_MASK;
+      g_fg_gcol = col;
       prim_set_fg_gcol(screen, mode, calculate_colour(g_fg_gcol, g_fg_tint));
    }
 }
@@ -1097,9 +1133,15 @@ static void vdu_23(uint8_t *buf) {
       case  4: vdu23_4 (buf + 1); break;
       case  5: vdu23_5 (buf + 1); break;
       case  6: vdu23_6 (buf + 1); break;
+      case  7: vdu23_7 (buf + 1); break;
+      case  8: vdu23_8 (buf + 1); break;
       case  9: vdu23_9 (buf + 1); break;
       case 10: vdu23_10(buf + 1); break;
       case 11: vdu23_11(buf + 1); break;
+      case 12: vdu23_12(buf + 1); break;
+      case 13: vdu23_13(buf + 1); break;
+      case 14: vdu23_14(buf + 1); break;
+      case 15: vdu23_15(buf + 1); break;
       case 17: vdu23_17(buf + 1); break;
       case 19: vdu23_19(buf + 1); break;
       case 22: vdu23_22(buf + 1); break;

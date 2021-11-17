@@ -39,6 +39,7 @@ pixel_t    prim_get_bg_col           ();
 void       prim_set_ecf_mode         (screen_mode_t *screen, int ecf_mode);
 void       prim_set_ecf_origin       (screen_mode_t *screen, int16_t x, int16_t y);
 void       prim_set_ecf_pattern      (screen_mode_t *screen, int num, uint8_t *pattern);
+void       prim_set_ecf_simple       (screen_mode_t *screen, int num, uint8_t *pattern);
 void       prim_set_ecf_default      (screen_mode_t *screen);
 void       prim_set_dot_pattern      (screen_mode_t *screen, uint8_t *pattern);
 void       prim_set_dot_pattern_len  (screen_mode_t *screen, int len);

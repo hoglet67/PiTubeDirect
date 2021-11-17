@@ -21,41 +21,48 @@ static int16_t g_y_min;
 static int16_t g_x_max;
 static int16_t g_y_max;
 
-// ECF Patterns
+// Default ECF Patterns for 2 colour modes variant A (used only in mode 0)
 static uint8_t ECF1_DEFAULT_2COLS_A[] = {0xCC, 0x00, 0xCC, 0x00, 0xCC, 0x00, 0xCC, 0x00};
 static uint8_t ECF2_DEFAULT_2COLS_A[] = {0xCC, 0x33, 0xCC, 0x33, 0xCC, 0x33, 0xCC, 0x33};
 static uint8_t ECF3_DEFAULT_2COLS_A[] = {0xFF, 0x33, 0xFF, 0x33, 0xFF, 0x33, 0xFF, 0x33};
 static uint8_t ECF4_DEFAULT_2COLS_A[] = {0x03, 0x0C, 0x30, 0xC0, 0x03, 0x0C, 0x30, 0xC0};
 
+// Default ECF Patterns for 2 colour modes variant B (used in all other 2 colour modes)
 static uint8_t ECF1_DEFAULT_2COLS_B[] = {0xAA, 0x00, 0xAA, 0x00, 0xAA, 0x00, 0xAA, 0x00};
 static uint8_t ECF2_DEFAULT_2COLS_B[] = {0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55};
 static uint8_t ECF3_DEFAULT_2COLS_B[] = {0xFF, 0x55, 0xFF, 0x55, 0xFF, 0x55, 0xFF, 0x55};
 static uint8_t ECF4_DEFAULT_2COLS_B[] = {0x11, 0x22, 0x44, 0x88, 0x11, 0x22, 0x44, 0x88};
 
+// Default ECF Patterns for 4 colour modes
 static uint8_t ECF1_DEFAULT_4COLS[] = {0xA5, 0x0F, 0xA5, 0x0F, 0xA5, 0x0F, 0xA5, 0x0F};
 static uint8_t ECF2_DEFAULT_4COLS[] = {0xA5, 0x5A, 0xA5, 0x5A, 0xA5, 0x5A, 0xA5, 0x5A};
 static uint8_t ECF3_DEFAULT_4COLS[] = {0xF0, 0x5A, 0xF0, 0x5A, 0xF0, 0x5A, 0xF0, 0x5A};
 static uint8_t ECF4_DEFAULT_4COLS[] = {0xF5, 0xFA, 0xF5, 0xFA, 0xF5, 0xFA, 0xF5, 0xFA};
 
+// Default ECF Patterns for 16 colour modes
 static uint8_t ECF1_DEFAULT_16COLS[] = {0x0B, 0x07, 0x0B, 0x07, 0x0B, 0x07, 0x0B, 0x07};
 static uint8_t ECF2_DEFAULT_16COLS[] = {0x23, 0x13, 0x23, 0x13, 0x23, 0x13, 0x23, 0x13};
 static uint8_t ECF3_DEFAULT_16COLS[] = {0x0E, 0x0D, 0x0E, 0x0D, 0x0E, 0x0D, 0x0E, 0x0D};
 static uint8_t ECF4_DEFAULT_16COLS[] = {0x1F, 0x2F, 0x1F, 0x2F, 0x1F, 0x2F, 0x1F, 0x2F};
 
-// TODO: Use correct values from RISCOS
-static uint8_t ECF1_DEFAULT_256COLS[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
-static uint8_t ECF2_DEFAULT_256COLS[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
-static uint8_t ECF3_DEFAULT_256COLS[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
-static uint8_t ECF4_DEFAULT_256COLS[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
+// Default ECF Patterns for 256 colour modes (RISCOS 3.11)
+static uint8_t ECF1_DEFAULT_256COLS[] = {0xFC, 0xFD, 0xFE, 0xFF, 0xFC, 0xFD, 0xFE, 0xFF};
+static uint8_t ECF2_DEFAULT_256COLS[] = {0x03, 0x02, 0x01, 0x00, 0x03, 0x02, 0x01, 0x00};
+static uint8_t ECF3_DEFAULT_256COLS[] = {0x23, 0x22, 0x21, 0x20, 0x23, 0x22, 0x21, 0x20};
+static uint8_t ECF4_DEFAULT_256COLS[] = {0xDC, 0xDD, 0xDE, 0xDF, 0xDC, 0xDD, 0xDE, 0xDF};
 
+// ECF Pattern state
 static pixel_t  g_ecf_pattern[4][64];
 static int16_t  g_ecf_origin_x;
 static int16_t  g_ecf_origin_y;
-static int16_t  g_ecf_mask;
+static int      g_ecf_giant_shift;
+static int      g_ecf_mask;
 static int      g_ecf_mode;
 
-// Dot Patterns
+// Default Dot Patterns
 static uint8_t DEFAULT_DOT_PATTERN[] = {0xAA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+// Dot Pattern state
 static uint8_t g_dot_pattern[64];
 static int     g_dot_pattern_len;
 static int     g_dot_pattern_index;
@@ -138,6 +145,10 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
    }
    if (plotmode >= PM_ECF) {
       int ecfnum = (plotmode >> 4) - 1;
+      // Giant ECF
+      if (ecfnum > 3) {
+         ecfnum = ((x - g_ecf_origin_x) >> g_ecf_giant_shift) & 3;
+      }
       colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
       plotmode &= 0x0F;
    }
@@ -649,7 +660,7 @@ void prim_set_ecf_origin(screen_mode_t *screen, int16_t x, int16_t y) {
 }
 
 void prim_set_ecf_pattern(screen_mode_t *screen, int num, uint8_t *pattern) {
-   // The pattern start with the top row, which has the largest Y valie
+   // The pattern starts with the top row, which has the largest Y value
    pixel_t *ptr = g_ecf_pattern[num] + 8 * 7;
    // Expand pattern into array of pixels_t values
    for (int i = 0; i < 8; i++) {
@@ -711,6 +722,21 @@ void prim_set_ecf_pattern(screen_mode_t *screen, int num, uint8_t *pattern) {
    }
 }
 
+void prim_set_ecf_simple(screen_mode_t *screen, int num, uint8_t *pattern) {
+   // The pattern starts with the top row, which has the largest Y value
+   // p0 p1
+   // p2 p3
+   // p4 p5
+   // p6 p7
+   pixel_t *ptr = g_ecf_pattern[num] + 8 * 7;
+   // Expand pattern into array of 8x8 pixels_t values, repeating as necessary
+   for (int i = 0; i < 8; i++) {
+      for (int j = 0; j < 8; j++) {
+         ptr[j] = pattern[((j & 3) << 1) + (i & 1)];
+      }
+      ptr -= 8;
+   }
+}
 
 void prim_set_ecf_default(screen_mode_t *screen) {
    g_ecf_mode = 0;
@@ -718,7 +744,7 @@ void prim_set_ecf_default(screen_mode_t *screen) {
    g_ecf_origin_y = 0;
    switch (screen->ncolour) {
    case 1:
-      if (screen->width > 320) {
+      if (screen->mode_num == 0) {
          prim_set_ecf_pattern(screen, 0, ECF1_DEFAULT_2COLS_A);
          prim_set_ecf_pattern(screen, 1, ECF2_DEFAULT_2COLS_A);
          prim_set_ecf_pattern(screen, 2, ECF3_DEFAULT_2COLS_A);
@@ -730,6 +756,7 @@ void prim_set_ecf_default(screen_mode_t *screen) {
          prim_set_ecf_pattern(screen, 3, ECF4_DEFAULT_2COLS_B);
       }
       g_ecf_mask = 7;
+      g_ecf_giant_shift = 3;
       break;
    case 3:
       prim_set_ecf_pattern(screen, 0, ECF1_DEFAULT_4COLS);
@@ -737,6 +764,7 @@ void prim_set_ecf_default(screen_mode_t *screen) {
       prim_set_ecf_pattern(screen, 2, ECF3_DEFAULT_4COLS);
       prim_set_ecf_pattern(screen, 3, ECF4_DEFAULT_4COLS);
       g_ecf_mask = 3;
+      g_ecf_giant_shift = 2;
       break;
    case 15:
       prim_set_ecf_pattern(screen, 0, ECF1_DEFAULT_16COLS);
@@ -744,6 +772,7 @@ void prim_set_ecf_default(screen_mode_t *screen) {
       prim_set_ecf_pattern(screen, 2, ECF3_DEFAULT_16COLS);
       prim_set_ecf_pattern(screen, 3, ECF4_DEFAULT_16COLS);
       g_ecf_mask = 1;
+      g_ecf_giant_shift = 1;
       break;
    default:
       prim_set_ecf_pattern(screen, 0, ECF1_DEFAULT_256COLS);
@@ -751,6 +780,7 @@ void prim_set_ecf_default(screen_mode_t *screen) {
       prim_set_ecf_pattern(screen, 2, ECF3_DEFAULT_256COLS);
       prim_set_ecf_pattern(screen, 3, ECF4_DEFAULT_256COLS);
       g_ecf_mask = 0;
+      g_ecf_giant_shift = 0;
    }
 }
 
