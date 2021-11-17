@@ -624,9 +624,12 @@ void prim_init (screen_mode_t *screen) {
    white_col = screen->get_colour(screen, white_gcol);
 }
 
-void prim_set_fg_gcol(screen_mode_t *screen, plotmode_t plotmode, pixel_t colour) {
+void prim_set_fg_col(screen_mode_t *screen, pixel_t colour) {
+   g_fg_col = colour;
+}
+
+void prim_set_fg_plotmode(screen_mode_t *screen, plotmode_t plotmode) {
    g_fg_plotmode = plotmode;
-   g_fg_col      = colour;
 }
 
 plotmode_t prim_get_fg_plotmode() {
@@ -637,9 +640,12 @@ pixel_t prim_get_fg_col() {
    return g_fg_col;
 }
 
-void prim_set_bg_gcol(screen_mode_t *screen, plotmode_t plotmode, pixel_t colour) {
+void prim_set_bg_col(screen_mode_t *screen, pixel_t colour) {
+   g_bg_col = colour;
+}
+
+void prim_set_bg_plotmode(screen_mode_t *screen, plotmode_t plotmode) {
    g_bg_plotmode = plotmode;
-   g_bg_col      = colour;
 }
 
 plotmode_t prim_get_bg_plotmode() {
