@@ -7,6 +7,7 @@
 #include "../tube-swi.h"
 
 #include "framebuffer.h"
+#include "primitives.h"
 #include "screen_modes.h"
 
 static SWIHandler_Type base_handler[NUM_SWI_HANDLERS];
@@ -432,6 +433,12 @@ static void OS_SetColour_impl(unsigned int *reg) {
    }
 }
 
+static void OS_SetECFOrigin_impl(unsigned int *reg) {
+   int16_t x = (int16_t)reg[0];
+   int16_t y = (int16_t)reg[1];
+   prim_set_ecf_origin(fb_get_current_screen_mode(), x, y);
+}
+
 // ==========================================================================
 // Public methods
 // ==========================================================================
@@ -466,6 +473,7 @@ void fb_add_swi_handlers() {
    os_table[SWI_OS_ReadModeVariable].handler = OS_ReadModeVariable_impl;
    os_table[SWI_OS_ReadVduVariables].handler = OS_ReadVduVariables_impl;
    os_table[SWI_OS_SetColour].handler        = OS_SetColour_impl;
+   os_table[SWI_OS_SetECFOrigin].handler     = OS_SetECFOrigin_impl;
 
 }
 
