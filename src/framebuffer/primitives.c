@@ -146,7 +146,7 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
    if (plotmode >= PM_ECF) {
       int ecfnum = (plotmode >> 4) - 1;
       // Giant ECF
-      if (ecfnum > 3) {
+      if (ecfnum >= 4) {
          ecfnum = ((x - g_ecf_origin_x) >> g_ecf_giant_shift) & 3;
       }
       colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
@@ -166,6 +166,15 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
          break;
       case PM_INVERT:
          colour = white_col - existing;
+         break;
+      case PM_UNCHANGED:
+         colour = existing;
+         break;
+      case PM_AND_INVERTED:
+         colour = existing & (white_col - colour);
+         break;
+      case PM_OR_INVERTED:
+         colour = existing & (white_col - colour);
          break;
       default:
          break;

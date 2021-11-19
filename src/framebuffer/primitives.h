@@ -15,12 +15,15 @@ typedef enum {
 } fill_t;
 
 typedef enum {
-   PM_NORMAL = 0,
-   PM_OR     = 1,
-   PM_AND    = 2,
-   PM_XOR    = 3,
-   PM_INVERT = 4,
-   PM_ECF    = 16,
+   PM_NORMAL       = 0,
+   PM_OR           = 1,
+   PM_AND          = 2,
+   PM_XOR          = 3,
+   PM_INVERT       = 4,
+   PM_UNCHANGED    = 5,
+   PM_AND_INVERTED = 6,
+   PM_OR_INVERTED  = 7,
+   PM_ECF          = 16,
 } plotmode_t;
 
 typedef enum {
