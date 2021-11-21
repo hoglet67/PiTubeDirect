@@ -747,7 +747,7 @@ void prim_set_ecf_simple(screen_mode_t *screen, int num, uint8_t *pattern) {
    // Expand pattern into array of 8x8 pixels_t values, repeating as necessary
    for (int i = 0; i < 8; i++) {
       for (int j = 0; j < 8; j++) {
-         ptr[j] = pattern[((j & 3) << 1) + (i & 1)];
+         ptr[j] = pattern[((i & 3) << 1) + (j & 1)];
       }
       ptr -= 8;
    }
