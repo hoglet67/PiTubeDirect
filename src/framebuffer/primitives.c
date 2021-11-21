@@ -943,30 +943,45 @@ void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, plotc
    }
 }
 
-static pixel_t lookup_colour(plotcol_t col) {
+// This could be made more efficient by having several versions of test_pixel and using function pointers
+// but we'll save the optimisation for later
+
+static int test_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
+   plotmode_t plotmode;
+   pixel_t colour;
    switch (col) {
    case PC_FG:
-      return g_fg_col;
+      plotmode = g_fg_plotmode;
+      colour   = g_fg_col;
+      break;
    case PC_BG:
-      return g_bg_col;
+      plotmode = g_bg_plotmode;
+      colour   = g_bg_col;
+      break;
    default:
-      // We'll get rid of this in the next commit!
-      return 0;
+      // this case should never by used as the ref colour can only be PC_FG or PC_BG
+      return -1;
    }
+   if (plotmode >= PM_ECF) {
+      int ecfnum = (plotmode >> 4) - 1;
+      // Giant ECF
+      if (ecfnum >= 4) {
+         ecfnum = ((x - g_ecf_origin_x) >> g_ecf_giant_shift) & 3;
+      }
+      colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
+   }
+   return get_pixel(screen, x, y) == colour;
 }
 
 static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill, plotcol_t ref, int c) {
 #ifdef DEBUG_VDU
    int maxq = 0;
-   pixel_t fill_col = lookup_colour(fill);
-   printf("Flood fill @ %d,%d with plotcol %"PRIx32"; initial pixel %"PRIx32"\r\n", x, y, fill_col, get_pixel(screen, x, y));
+   printf("Flood fill @ %d,%d with fill %d; ref %d, initial pixel %"PRIx32"\r\n", x, y, fill, ref, get_pixel(screen, x, y));
 #endif
    if (c && (fill == ref)) {
       return;
    }
-   // Convert the reference plotcol_t (FG, FG_INV, BG) into a pixel_t colour
-   pixel_t ref_col = lookup_colour(ref);
-   if (((get_pixel(screen, x, y) == ref_col) ? !c : c)) {
+   if (test_pixel(screen, x, y, ref) != c) {
       return;
    }
    flood_queue_x[0] = (int16_t)x;
@@ -980,21 +995,21 @@ static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill,
       flood_queue_rd ++;
       flood_queue_rd &= FLOOD_QUEUE_SIZE - 1;
 
-      if ((get_pixel(screen, x, y) == ref_col) ? !c : c) {
+      if (test_pixel(screen, x, y, ref) != c) {
          continue;
       }
 
       int xl = x;
       int xr = x;
-      while (xl > g_x_min && ((get_pixel(screen, xl - 1, y) == ref_col) ? c : !c)) {
+      while (xl > g_x_min && test_pixel(screen, xl - 1, y, ref) == c) {
          xl--;
       }
-      while (xr < g_x_max && ((get_pixel(screen, xr + 1, y) == ref_col) ? c : !c)) {
+      while (xr < g_x_max && test_pixel(screen, xr + 1, y, ref) == c) {
          xr++;
       }
       for (x = xl; x <= xr; x++) {
          set_pixel(screen, x, y, fill);
-         if (y > g_y_min && ((get_pixel(screen, x, y - 1) == ref_col) ? c : !c)) {
+         if (y > g_y_min && test_pixel(screen, x, y - 1, ref) == c) {
             flood_queue_x[flood_queue_wr] = (int16_t)x;
             flood_queue_y[flood_queue_wr] = (int16_t)(y - 1);
             flood_queue_wr ++;
@@ -1005,7 +1020,7 @@ static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill,
             }
 #endif
          }
-         if (y < g_y_max && ((get_pixel(screen, x, y + 1) == ref_col) ? c : !c)) {
+         if (y < g_y_max && test_pixel(screen, x, y + 1, ref) == c) {
             flood_queue_x[flood_queue_wr] = (int16_t)x;
             flood_queue_y[flood_queue_wr] = (int16_t)(y + 1);
             flood_queue_wr ++;
@@ -1277,6 +1292,7 @@ void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
    // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
    prim_draw_line(screen, x1, y1, arc_end_x, arc_end_y, colour, 0);
    // Fill the interior
+   // TODO: check refcol!
    prim_flood_fill(screen, arc_fill_x, arc_fill_y, colour, colour, 0);
 }
 
@@ -1287,6 +1303,7 @@ void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int
    prim_draw_line(screen, arc_end_x, arc_end_y, xc, yc, colour, 0);
    prim_draw_line(screen, xc, yc, x1, y1, colour, 0);
    // Fill the interior
+   // TODO: check refcol!
    prim_flood_fill(screen, arc_fill_x, arc_fill_y, colour, colour, 0);
 }
 
