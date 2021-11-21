@@ -28,7 +28,7 @@ typedef enum {
 
 typedef enum {
    PC_FG      = 1,
-   PC_FG_INV  = 2,
+   PC_INV     = 2,
    PC_BG      = 3
 } plotcol_t;
 

@@ -10,7 +10,7 @@
 #include "v3d.h"
 #endif
 
-static pixel_t    white_col;
+static pixel_t    max_col;
 static plotmode_t g_fg_plotmode;
 static pixel_t    g_fg_col;
 static plotmode_t g_bg_plotmode;
@@ -135,13 +135,13 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
       plotmode = g_fg_plotmode;
       colour   = g_fg_col;
       break;
-   case PC_FG_INV:
-      plotmode = g_fg_plotmode;
-      colour   = white_col - g_fg_col;
-      break;
-   default:
+   case PC_BG:
       plotmode = g_bg_plotmode;
       colour   = g_bg_col;
+      break;
+   default:
+      plotmode = PM_INVERT;
+      colour   = 0; // not used
    }
    if (plotmode >= PM_ECF) {
       int ecfnum = (plotmode >> 4) - 1;
@@ -165,16 +165,16 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
          colour ^= existing;
          break;
       case PM_INVERT:
-         colour = white_col - existing;
+         colour = max_col - existing;
          break;
       case PM_UNCHANGED:
          colour = existing;
          break;
       case PM_AND_INVERTED:
-         colour = existing & (white_col - colour);
+         colour = existing & (max_col - colour);
          break;
       case PM_OR_INVERTED:
-         colour = existing & (white_col - colour);
+         colour = existing & (max_col - colour);
          break;
       default:
          break;
@@ -629,8 +629,7 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 // ==========================================================================
 
 void prim_init (screen_mode_t *screen) {
-   uint8_t white_gcol = screen->white;
-   white_col = screen->get_colour(screen, white_gcol);
+   max_col = (pixel_t) screen->ncolour;
 }
 
 void prim_set_fg_col(screen_mode_t *screen, pixel_t colour) {
@@ -948,10 +947,11 @@ static pixel_t lookup_colour(plotcol_t col) {
    switch (col) {
    case PC_FG:
       return g_fg_col;
-   case PC_FG_INV:
-      return white_col - g_fg_col;
-   default:
+   case PC_BG:
       return g_bg_col;
+   default:
+      // We'll get rid of this in the next commit!
+      return 0;
    }
 }
 

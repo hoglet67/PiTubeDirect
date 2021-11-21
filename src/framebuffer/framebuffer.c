@@ -1216,10 +1216,10 @@ static void vdu_25(uint8_t *buf) {
 
       if ((g_mode & 0x03) == 1) {
          colour = PC_FG;
-      } else if ((g_mode & 3) == 2) {
-         colour = PC_FG_INV;
-      } else {
+      } else if ((g_mode & 3) == 3) {
          colour = PC_BG;
+      } else {
+         colour = PC_INV;
       }
 
       switch (g_mode & 0xF8) {
