@@ -1242,6 +1242,8 @@ void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, i
          int y4 = y2;
          fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x4, y4, colour);
          fill_top_flat_triangle(screen, x2, y2, x4, y4, x3, y3, colour);
+         // draw the overlapping line again, incase we are XOR plotting
+         draw_hline(screen, x2, x4, y4, colour);
       }
 #ifdef USE_V3D
    }
