@@ -943,45 +943,57 @@ void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, plotc
    }
 }
 
-// This could be made more efficient by having several versions of test_pixel and using function pointers
-// but we'll save the optimisation for later
 
-static int test_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
-   plotmode_t plotmode;
-   pixel_t colour;
-   switch (col) {
-   case PC_FG:
-      plotmode = g_fg_plotmode;
-      colour   = g_fg_col;
-      break;
-   case PC_BG:
-      plotmode = g_bg_plotmode;
-      colour   = g_bg_col;
-      break;
-   default:
-      // this case should never by used as the ref colour can only be PC_FG or PC_BG
-      return -1;
+typedef int (*fill_test_fn)(screen_mode_t *, int, int);
+
+static int test_pixel_bg_col(screen_mode_t *screen, int x, int y) {
+   return get_pixel(screen, x, y) == g_bg_col;
+}
+
+static int test_pixel_not_bg_col(screen_mode_t *screen, int x, int y) {
+   return get_pixel(screen, x, y) != g_bg_col;
+}
+
+static int test_pixel_bg_ecf(screen_mode_t *screen, int x, int y) {
+   int ecfnum = (g_bg_plotmode >> 4) - 1;
+   // Giant ECF
+   if (ecfnum >= 4) {
+      ecfnum = ((x - g_ecf_origin_x) >> g_ecf_giant_shift) & 3;
    }
-   if (plotmode >= PM_ECF) {
-      int ecfnum = (plotmode >> 4) - 1;
-      // Giant ECF
-      if (ecfnum >= 4) {
-         ecfnum = ((x - g_ecf_origin_x) >> g_ecf_giant_shift) & 3;
-      }
-      colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
-   }
+   pixel_t colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
    return get_pixel(screen, x, y) == colour;
 }
 
-static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill, plotcol_t ref, int c) {
+static int test_pixel_not_bg_ecf(screen_mode_t *screen, int x, int y) {
+   int ecfnum = (g_bg_plotmode >> 4) - 1;
+   // Giant ECF
+   if (ecfnum >= 4) {
+      ecfnum = ((x - g_ecf_origin_x) >> g_ecf_giant_shift) & 3;
+   }
+   pixel_t colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
+   return get_pixel(screen, x, y) != colour;
+}
+
+static int test_pixel_fg_col(screen_mode_t *screen, int x, int y) {
+   return get_pixel(screen, x, y) == g_fg_col;
+}
+
+static int test_pixel_fg_ecf(screen_mode_t *screen, int x, int y) {
+   int ecfnum = (g_fg_plotmode >> 4) - 1;
+   // Giant ECF
+   if (ecfnum >= 4) {
+      ecfnum = ((x - g_ecf_origin_x) >> g_ecf_giant_shift) & 3;
+   }
+   pixel_t colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
+   return get_pixel(screen, x, y) == colour;
+}
+
+static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill, fill_test_fn test_pixel) {
 #ifdef DEBUG_VDU
    int maxq = 0;
-   printf("Flood fill @ %d,%d with fill %d; ref %d, initial pixel %"PRIx32"\r\n", x, y, fill, ref, get_pixel(screen, x, y));
+   printf("Flood fill @ %d,%d with fill %d; initial pixel %"PRIx32"\r\n", x, y, fill, get_pixel(screen, x, y));
 #endif
-   if (c && (fill == ref)) {
-      return;
-   }
-   if (test_pixel(screen, x, y, ref) != c) {
+   if ((*test_pixel)(screen, x, y)) {
       return;
    }
    flood_queue_x[0] = (int16_t)x;
@@ -995,21 +1007,21 @@ static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill,
       flood_queue_rd ++;
       flood_queue_rd &= FLOOD_QUEUE_SIZE - 1;
 
-      if (test_pixel(screen, x, y, ref) != c) {
+      if ((*test_pixel)(screen, x, y)) {
          continue;
       }
 
       int xl = x;
       int xr = x;
-      while (xl > g_x_min && test_pixel(screen, xl - 1, y, ref) == c) {
+      while (xl > g_x_min && !(*test_pixel)(screen, xl - 1, y)) {
          xl--;
       }
-      while (xr < g_x_max && test_pixel(screen, xr + 1, y, ref) == c) {
+      while (xr < g_x_max && !(*test_pixel)(screen, xr + 1, y)) {
          xr++;
       }
       for (x = xl; x <= xr; x++) {
          set_pixel(screen, x, y, fill);
-         if (y > g_y_min && test_pixel(screen, x, y - 1, ref) == c) {
+         if (y > g_y_min && !(*test_pixel)(screen, x, y - 1)) {
             flood_queue_x[flood_queue_wr] = (int16_t)x;
             flood_queue_y[flood_queue_wr] = (int16_t)(y - 1);
             flood_queue_wr ++;
@@ -1020,7 +1032,7 @@ static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill,
             }
 #endif
          }
-         if (y < g_y_max && test_pixel(screen, x, y + 1, ref) == c) {
+         if (y < g_y_max && !(*test_pixel)(screen, x, y + 1)) {
             flood_queue_x[flood_queue_wr] = (int16_t)x;
             flood_queue_y[flood_queue_wr] = (int16_t)(y + 1);
             flood_queue_wr ++;
@@ -1106,11 +1118,19 @@ void prim_fill_area(screen_mode_t *screen, int x, int y, plotcol_t colour, fill_
       break;
 
    case AF_NONBG:
-      prim_flood_fill(screen, x, y, colour, PC_BG, 1);
+      if (g_bg_plotmode < PM_ECF) {
+         prim_flood_fill(screen, x, y, colour, test_pixel_not_bg_col);
+      } else {
+         prim_flood_fill(screen, x, y, colour, test_pixel_not_bg_ecf);
+      }
       break;
 
    case AF_TOFGD:
-      prim_flood_fill(screen, x, y, colour, PC_FG, 0);
+      if (g_fg_plotmode < PM_ECF) {
+         prim_flood_fill(screen, x, y, colour, test_pixel_fg_col);
+      } else {
+         prim_flood_fill(screen, x, y, colour, test_pixel_fg_ecf);
+      }
       break;
 
    default:
@@ -1285,6 +1305,24 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    arc_fill_y = (int16_t)yf;
 }
 
+// Common to prim_fill_chord and prim_fill_sector
+static void prim_fill_interior(screen_mode_t *screen, int x, int y, plotcol_t colour) {
+   fill_test_fn test_pixel;
+   if (colour == PC_BG) {
+      if (g_bg_plotmode < PM_ECF) {
+         test_pixel = test_pixel_bg_col;
+      } else {
+         test_pixel = test_pixel_bg_ecf;
+      }
+   } else {
+      if (g_fg_plotmode < PM_ECF) {
+         test_pixel = test_pixel_fg_col;
+      } else {
+         test_pixel = test_pixel_fg_ecf;
+      }
+   }
+   prim_flood_fill(screen, arc_fill_x, arc_fill_y, colour, test_pixel);
+}
 
 void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
    // Draw the arc that bounds the chord
@@ -1292,8 +1330,7 @@ void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
    // The arc drawing sets the arc_end_x/y to the arc endpoint (in screen coordinates)
    prim_draw_line(screen, x1, y1, arc_end_x, arc_end_y, colour, 0);
    // Fill the interior
-   // TODO: check refcol!
-   prim_flood_fill(screen, arc_fill_x, arc_fill_y, colour, colour, 0);
+   prim_fill_interior(screen, arc_fill_x, arc_fill_y, colour);
 }
 
 void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
@@ -1303,8 +1340,7 @@ void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int
    prim_draw_line(screen, arc_end_x, arc_end_y, xc, yc, colour, 0);
    prim_draw_line(screen, xc, yc, x1, y1, colour, 0);
    // Fill the interior
-   // TODO: check refcol!
-   prim_flood_fill(screen, arc_fill_x, arc_fill_y, colour, colour, 0);
+   prim_fill_interior(screen, arc_fill_x, arc_fill_y, colour);
 }
 
 // Rodders: Bit Blit
