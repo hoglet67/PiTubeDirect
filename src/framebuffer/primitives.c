@@ -11,6 +11,7 @@
 #endif
 
 static pixel_t    max_col;
+static pixel_t    marker;
 static plotmode_t g_fg_plotmode;
 static pixel_t    g_fg_col;
 static plotmode_t g_bg_plotmode;
@@ -153,7 +154,8 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
       plotmode &= 0x0F;
    }
    if (plotmode != PM_NORMAL) {
-      pixel_t existing = screen->get_pixel(screen, x, y);
+      // Make sure the marker bits are clear; this is safe in all modes
+      pixel_t existing = screen->get_pixel(screen, x, y) & ~marker;
       switch (plotmode) {
       case PM_OR:
          colour |= existing;
@@ -629,7 +631,10 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 // ==========================================================================
 
 void prim_init (screen_mode_t *screen) {
+   // max_col is used when calculating the logical inverse of the existing pixel
    max_col = (pixel_t) screen->ncolour;
+   // marker is used when flood filling, if there are spare bits in the frame buffer
+   marker = (pixel_t) (screen->ncolour + 1);
 }
 
 void prim_set_fg_col(screen_mode_t *screen, pixel_t colour) {
@@ -950,9 +955,6 @@ static int test_pixel_bg_col(screen_mode_t *screen, int x, int y) {
    return get_pixel(screen, x, y) == g_bg_col;
 }
 
-static int test_pixel_not_bg_col(screen_mode_t *screen, int x, int y) {
-   return get_pixel(screen, x, y) != g_bg_col;
-}
 
 static int test_pixel_bg_ecf(screen_mode_t *screen, int x, int y) {
    int ecfnum = (g_bg_plotmode >> 4) - 1;
@@ -964,7 +966,13 @@ static int test_pixel_bg_ecf(screen_mode_t *screen, int x, int y) {
    return get_pixel(screen, x, y) == colour;
 }
 
+static int test_pixel_not_bg_col(screen_mode_t *screen, int x, int y) {
+   // No need to explicitely test for the marker as the test succeed fail on marked bits anyway
+   return get_pixel(screen, x, y) != g_bg_col;
+}
+
 static int test_pixel_not_bg_ecf(screen_mode_t *screen, int x, int y) {
+   // No need to explicitely test for the marker as the test succeed fail on marked bits anyway
    int ecfnum = (g_bg_plotmode >> 4) - 1;
    // Giant ECF
    if (ecfnum >= 4) {
@@ -975,17 +983,31 @@ static int test_pixel_not_bg_ecf(screen_mode_t *screen, int x, int y) {
 }
 
 static int test_pixel_fg_col(screen_mode_t *screen, int x, int y) {
-   return get_pixel(screen, x, y) == g_fg_col;
+   pixel_t px = get_pixel(screen, x, y);
+   if (px & marker) {
+      // terminate the fill if a marked pixel is found
+      return 1;
+   } else {
+      // or at a FG pixel
+      return px == g_fg_col;
+   }
 }
 
 static int test_pixel_fg_ecf(screen_mode_t *screen, int x, int y) {
-   int ecfnum = (g_fg_plotmode >> 4) - 1;
-   // Giant ECF
-   if (ecfnum >= 4) {
-      ecfnum = ((x - g_ecf_origin_x) >> g_ecf_giant_shift) & 3;
+   pixel_t px = get_pixel(screen, x, y);
+   if (px & marker) {
+      // terminate the fill if a marked pixel is found
+      return 1;
+   } else {
+      int ecfnum = (g_fg_plotmode >> 4) - 1;
+      // Giant ECF
+      if (ecfnum >= 4) {
+         ecfnum = ((x - g_ecf_origin_x) >> g_ecf_giant_shift) & 3;
+      }
+      pixel_t colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
+      // of at a pixel that matches the ECF pattern
+      return (px == colour);
    }
-   pixel_t colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
-   return get_pixel(screen, x, y) == colour;
 }
 
 static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill, fill_test_fn test_pixel) {
@@ -1056,6 +1078,55 @@ static void prim_flood_fill(screen_mode_t *screen, int x, int y, plotcol_t fill,
 #endif
 }
 
+// Return false for pixels that are marked
+static int test_pixel_marker(screen_mode_t *screen, int x, int y) {
+   return !(get_pixel(screen, x, y) & marker);
+}
+
+static void prim_flood_fill_wrapper(screen_mode_t *screen, int x, int y, plotcol_t colour, fill_t mode) {
+
+   // Are we in a low colour mode, with a spare bit in the frame buffer?
+   if (screen->ncolour < 128) {
+
+      // Yes, then we can use a two pass fill, using a marker bit, that is much better
+      // at dealing with patterns that contain colours that are themselves fillable
+
+      // Pass 1: Fill the region with a marker
+      if (mode == AF_TOFGD) {
+         // Use the BG colour to fill, because the test_pixel fn uses the FG colour
+         pixel_t old_col = g_bg_col;
+         plotmode_t old_plotmode = g_bg_plotmode;
+         g_bg_col = marker;
+         g_bg_plotmode = PM_XOR;
+         prim_flood_fill(screen, x, y, PC_BG, g_fg_plotmode < PM_ECF ? test_pixel_fg_col : test_pixel_fg_ecf);
+         g_bg_col = old_col;
+         g_bg_plotmode = old_plotmode;
+      } else {
+         // Use the FG colour to fill, because the test_pixel fn uses the BG colour
+         pixel_t old_col = g_fg_col;
+         plotmode_t old_plotmode = g_fg_plotmode;
+         g_fg_col = marker;
+         g_fg_plotmode = PM_XOR;
+         prim_flood_fill(screen, x, y, PC_FG, g_bg_plotmode < PM_ECF ? test_pixel_not_bg_col : test_pixel_not_bg_ecf);
+         g_fg_col = old_col;
+         g_fg_plotmode = old_plotmode;
+      }
+
+      // Pass 2: Replace the marker with the required colour/pattern
+      prim_flood_fill(screen, x, y, colour, test_pixel_marker);
+
+   } else {
+
+      // No, then well do our best...
+
+      if (mode == AF_TOFGD) {
+         prim_flood_fill(screen, x, y, colour, g_fg_plotmode < PM_ECF ? test_pixel_fg_col : test_pixel_fg_ecf);
+      } else {
+         prim_flood_fill(screen, x, y, colour, g_bg_plotmode < PM_ECF ? test_pixel_not_bg_col : test_pixel_not_bg_ecf);
+      }
+   }
+}
+
 void prim_fill_area(screen_mode_t *screen, int x, int y, plotcol_t colour, fill_t mode) {
    int x_left = x;
    int x_right = x;
@@ -1118,19 +1189,11 @@ void prim_fill_area(screen_mode_t *screen, int x, int y, plotcol_t colour, fill_
       break;
 
    case AF_NONBG:
-      if (g_bg_plotmode < PM_ECF) {
-         prim_flood_fill(screen, x, y, colour, test_pixel_not_bg_col);
-      } else {
-         prim_flood_fill(screen, x, y, colour, test_pixel_not_bg_ecf);
-      }
+      prim_flood_fill_wrapper(screen, x, y, colour, AF_NONBG);
       break;
 
    case AF_TOFGD:
-      if (g_fg_plotmode < PM_ECF) {
-         prim_flood_fill(screen, x, y, colour, test_pixel_fg_col);
-      } else {
-         prim_flood_fill(screen, x, y, colour, test_pixel_fg_ecf);
-      }
+      prim_flood_fill_wrapper(screen, x, y, colour, AF_TOFGD);
       break;
 
    default:
@@ -1138,7 +1201,6 @@ void prim_fill_area(screen_mode_t *screen, int x, int y, plotcol_t colour, fill_
       break;
    }
 }
-
 
 void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, plotcol_t colour) {
    int tmp;
