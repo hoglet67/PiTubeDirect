@@ -1405,12 +1405,10 @@ void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int
    prim_fill_interior(screen, arc_fill_x, arc_fill_y, colour);
 }
 
-// Rodders: Bit Blit
-// TODO: implement move (the current code only does copy)
+// Block Copy/Move
 void prim_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move) {
-   uint8_t *src;
-   uint8_t *dst;
-   // Make x1, y1 the bottom left, and x2, y2 the top right
+
+   // Make x1, y1 the bottom left and x2, y2 the top right of the source
    if (x1 > x2) {
       int tmp = x1;
       x1 = x2;
@@ -1421,26 +1419,41 @@ void prim_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int
       y1 = y2;
       y2 = tmp;
    }
-   // Calculate the rectangle dimensions
-   int len = (x2 - x1) + 1;
-   int rows = (y2 - y1) + 1;
-   // Handle the case where part of the destination rectangle is off screen
-   // TODO: there are more cases than this
-   if (x3 + len > screen->width) {
-      len = screen->width - x3;
-   }
-   // Convert row length from pixels to bytes
-   len *= (1 << (screen->log2bpp - 3));
-   uint8_t *fb = (uint8_t *)get_fb_address();
-   for (int y = 0; y < rows; y++) {
-      if (y3 < y1) {
-         src = fb + (screen->height - (y1 + y) - 1) * screen->pitch + x1;
-         dst = fb + (screen->height - (y3 + y) - 1) * screen->pitch + x3;
-      } else {
-         src = fb + (screen->height - (y2 - y) - 1) * screen->pitch + x1;
-         dst = fb + (screen->height - (y3 + rows - 1 - y) - 1) * screen->pitch + x3;
+
+   // Work out direction to copy in taking account of overlap of source and destination rectangles
+   int x_overlap = x3 >= x1 && x3 <= x2;
+   int y_overlap = y3 >= y1 && y3 <= y2;
+   int xstart = x_overlap ?     x2 :     x1;
+   int ystart = y_overlap ?     y2 :     y1;
+   int xend   = x_overlap ? x1 - 1 : x2 + 1;
+   int yend   = y_overlap ? y1 - 1 : y2 + 1;
+   int xstep  = x_overlap ?     -1 :      1;
+   int ystep  = y_overlap ?     -1 :      1;
+
+   // Work out the offset between the source and destination rectangles
+   int ox = x3 - x1;
+   int oy = y3 - y1;
+
+   // Copy/Move a pixel at a time (slow.......)
+   int dy = ystart + oy;
+   for (int sy = ystart; sy != yend; sy += ystep, dy += ystep) {
+      int dx = xstart + ox;
+      for (int sx = xstart; sx != xend; sx += xstep, dx += xstep) {
+         // Default to a background colour pixel
+         pixel_t px = g_bg_col;
+         // Read source pixel, clipping if necessary
+         if (sx >= g_x_min && sx <= g_x_max && sy >= g_y_min && sy <= g_y_max) {
+            px = screen->get_pixel(screen, sx, sy);
+            // If moving, set the source pixal back to the background colour
+            if (move) {
+               set_pixel(screen, sx, sy, PC_BG);
+            }
+         }
+         // Write destination pixel, clipping if necessary
+         if (dx >= g_x_min && dx <= g_x_max && dy >= g_y_min && dy <= g_y_max) {
+            screen->set_pixel(screen, dx, dy, px);
+         }
       }
-      memmove(dst, src, (size_t)len);
    }
 }
 
