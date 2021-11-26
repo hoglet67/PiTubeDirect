@@ -2403,14 +2403,10 @@ loopdejitsetup:
    DSB
 // this would be faster to flush the cache by way instead of VA
    mrc p15, 0,r12,cr0,cr0,1
-   and r0,r12,#0xF
-   mov r1,#4
-   lsl r1,r1,r0
-   str r1,cachelineI
    ubfx r1,r12,#16,#4
    mov r12,#4
    lsl r12,r12,r1
-   str r12,cachelineD
+   str r12,cacheline
 
    mov r5,#JITLET
    mov r0,#JITTEDTABLE16
@@ -2504,7 +2500,6 @@ exec_65tube_exit:     // We get here from the Event handler when RST is detected
    str temp0,[temp]
    ldr r13,stackptr  // Hack to ensure the stack ptr is on the right place
    pop {r4-r11,pc}
-
 .ltorg
 debugflag:
    .word 0
@@ -2516,14 +2511,10 @@ fiq_spsr_temp:
    .word 0
 stackptr:
    .word 0
+cacheline:
+   .word 0
 ram6502store:
    .word 0
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
-cachelineD:
-   .word 0
-cachelineI:
-   .word 0
-#endif
 
 CACHELINE_ALIGN = 5
 .equ    CPSR_MODE_USER,         0x10
@@ -2973,53 +2964,36 @@ dojitexit :
    // Clean data cache both JITLET
    // r3 has the first address of JITLET instruction
    // r2 has last address+1
-   ldr r12,cachelineD
+   ldr r12,cacheline
    mov r2,r2,LSL #JITLETSHIFT
    sub r4,r3,#JITLET
    add r2,r2,#JITLET
    mov r4,r4,LSR #(JITLETSHIFT-2)
    add r4,r4,#JITTEDTABLE16
 
-   mov r6,r3
-   mov r7,r4
-
    sub r0,r12,#1  // this appears to fix an A72 issue where the cache wasn't being
    bic  r3,r3,r0  // flushed if the address was the last word in a cache line
    bic  r4,r4,r0  // and it was being flushed for the second time !!!!
 
-   add r5,r5,r12
-
-cacheflushloopD:
+cacheflushloop:
    mcr p15,0,r3,cr7,cr11,1 // data JITLET (NB 2xJITLET compared to table)
+ //  MCR p15,0,r3, c7, c5, 1 // instruction
    add r3,r3,r12
-   mcr p15,0,r3,cr7,cr11,1 // data JITLET (DCCMVAU)
+   mcr p15,0,r3,cr7,cr11,1 // data JITLET
+ //  MCR p15,0,r3, c7, c5, 1 // instruction
    add r3,r3,r12
    mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16
+ //  MCR p15,0,r4, c7, c5, 1 // instruction
    add r4,r4,r12
-   cmp r3,r5
-   blt cacheflushloopD
-   DSB
-
-   ldr r12,cachelineI
-   sub r0,r12,#1  // this appears to fix an A72 issue where the cache wasn't being
-   bic  r6,r6,r0  // flushed if the address was the last word in a cache line
-   bic  r7,r7,r0  // and it was being flushed for the second time !!!!
-   add r2,r2,r12
-cacheflushloopI:
-   MCR p15,0,r6, c7, c5, 1 // instruction (ICIMVAU)
-   Nop  // why are these needed ?? ( see Twinhead vortex )
-   add r6,r6,r12
-   MCR p15,0,r6, c7, c5, 1 // instruction
-   nop  // why are these needed ?? ( see Twinhead vortex )
-   add r6,r6,r12
-   MCR p15,0,r7, c7, c5, 1 // instruction
-   nop  // why are these needed ?? ( see Twinhead vortex )
-   add r7,r7,r12
-   cmp r6,r2
-   blt cacheflushloopI
+   cmp r3,r2
+   blt cacheflushloop
 
    DSB
-   MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
+   //mov temp0,#0
+   //MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB
+   // Why the above of only flushing accessed cache locations doesn't work
+   // isn't understood. So we flush the the I cache to fix the issue.
+   MCR p15, 0, reg12, c7, c5, 0 // invalidate I&BTB cache
 
    DSB
    ISB
