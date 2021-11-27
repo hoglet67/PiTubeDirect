@@ -727,7 +727,7 @@ static void graphics_cursor_home() {
    g_y_pos = g_window.top;
 }
 
-static void graphics_cursor_tab(uint8_t *buf) {
+static void graphics_cursor_tab(const uint8_t *buf) {
    uint8_t x = buf[1];
    uint8_t y = buf[2];
 #ifdef DEBUG_VDU
@@ -761,7 +761,7 @@ static void graphics_delete() {
 // VDU 23 commands
 // ==========================================================================
 
-static void vdu23_1(uint8_t *buf) {
+static void vdu23_1(const uint8_t *buf) {
    // VDU 23,1: Enable/Disable cursor
    if (buf[1] & 1) {
       enable_cursors();
@@ -806,12 +806,12 @@ static void vdu23_8(uint8_t *buf) {
    // TODO
 }
 
-static void vdu23_9(uint8_t *buf) {
+static void vdu23_9(const uint8_t *buf) {
    // VDU 23,9: Set flash mark (on) time
    flash_mark_time = buf[1];
 }
 
-static void vdu23_10(uint8_t *buf) {
+static void vdu23_10(const uint8_t *buf) {
    // VDU 23,10: Set flash space (off) time
    flash_space_time = buf[1];
 }
@@ -986,7 +986,7 @@ static void vdu23_19(uint8_t *buf) {
    update_text_area();
 }
 
-static void vdu23_22(uint8_t *buf) {
+static void vdu23_22(const uint8_t *buf) {
    // VDU 23,22,xpixels;ypixels;xchars,ychars,colours,flags
    // User Defined Screen Mode
    int x_pixels = buf[1] | (buf[2] << 8);
