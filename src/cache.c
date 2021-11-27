@@ -98,6 +98,12 @@ void CleanDataCache (void)
       }
    }
 }
+#else
+
+void CleanDataCache (void) {
+   _clean_invalidate_dcache();
+}
+
 #endif
 
 void _clean_cache_area(void * start, unsigned int length)
@@ -279,7 +285,7 @@ void enable_MMU_and_IDCaches(void)
   }
   // 6502 jitter needs a second level page table
   PageTable[(JITTEDTABLE16>>20)] = (unsigned int) (&PageTable3[0]) + 1;
-   
+
   // populate the second level page tables
   for (base = 0; base < 256; base++)
   {
