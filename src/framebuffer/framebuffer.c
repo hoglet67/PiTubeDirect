@@ -727,7 +727,7 @@ static void graphics_cursor_home() {
    g_y_pos = g_window.top;
 }
 
-static void graphics_cursor_tab(const uint8_t *buf) {
+static void graphics_cursor_tab(uint8_t *buf) {
    uint8_t x = buf[1];
    uint8_t y = buf[2];
 #ifdef DEBUG_VDU

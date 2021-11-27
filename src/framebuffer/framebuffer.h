@@ -120,13 +120,13 @@ uint8_t fb_get_flash_space_time();
 
 int fb_point(int16_t x, int16_t y, pixel_t *colour);
 
-void fb_set_g_fg_col(uint8_t action, pixel_t gcol);
+void fb_set_g_fg_col(uint8_t action, pixel_t colour);
 
-void fb_set_g_bg_col(uint8_t action, pixel_t gcol);
+void fb_set_g_bg_col(uint8_t action, pixel_t colour);
 
-void fb_set_c_fg_col(pixel_t gcol);
+void fb_set_c_fg_col(pixel_t colour);
 
-void fb_set_c_bg_col(pixel_t gcol);
+void fb_set_c_bg_col(pixel_t colour);
 
 uint8_t fb_get_gcol_from_colnum(uint8_t colnum);
 
