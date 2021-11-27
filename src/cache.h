@@ -20,6 +20,7 @@ void enable_MMU_and_IDCaches(void);
 
 void _clean_cache_area(void * start, unsigned int length);
 void _invalidate_cache_area(void * start, unsigned int length);
+void CleanDataCache (void);
 
 #endif
 

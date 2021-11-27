@@ -35,6 +35,7 @@
 #include "tube-swi.h"
 #include "tube-isr.h"
 #include "swi.h"
+#include "cache.h"
 
 #include "framebuffer/module_colourtrans.h"
 
@@ -90,7 +91,7 @@ static const unsigned char osword_out_len[] = {
 
 // Basic 135 uses the following on startup
 //   SWI 00000010 // OS_GetEnv
-//   SWI 0002006e // OS_SynchroniseCodeAreas *** Not Implemented ***
+//   SWI 0002006e // OS_SynchroniseCodeAreas
 //   SWI 00020040 // OS_ChangeEnvironment
 //   SWI 00020040 // OS_ChangeEnvironment
 //   SWI 00020040 // OS_ChangeEnvironment
@@ -1255,6 +1256,7 @@ static void tube_WriteN(unsigned int *reg) {
 }
 
 static void tube_SynchroniseCodeAreas(unsigned int *reg) {
+   CleanDataCache();
    _invalidate_icache();
 }
 
