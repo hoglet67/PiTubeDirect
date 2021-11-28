@@ -72,8 +72,6 @@ static const char *prompt = "arm>*";
 
 Environment_type *env = &defaultEnvironment;
 
-static int reset_sent = 0;
-
 /***********************************************************
  * Default Handlers
  ***********************************************************/
@@ -218,7 +216,6 @@ static void tube_Reset() {
   }
   sendString(R1_ID, 0x00, banner);
   sendByte(R1_ID, 0x00);
-  reset_sent = 1;
   if (DEBUG_ARM) {
     printf( "Banner sent, awaiting response\r\n" );
   }
@@ -316,20 +313,11 @@ void copro_armnative_emulator() {
   // (this is harmless if the VDU is disabled)
   fb_set_vdu_device(VDU_BEEB);
 
-  // Always copy ARM Basic into memory (in case it's been corrupted)
-  copy_armbasic();
-
   // Create the startup banner
   sprintf(banner, "Native ARM Co Processor %"PRId32"MHz\r\n\n", get_speed());
 
   // Initialize the environment structure
   initEnv();
-
-  // Flag to ensure the reset message is only sent once
-  reset_sent = 0;
-
-  // When the default exit handler is called, we return here
-  setjmp(enterOS);
 
   // Enable interrupts!
   _enable_interrupts();
@@ -337,22 +325,29 @@ void copro_armnative_emulator() {
   // Inhibit the language transfer to avoid any BASIC programs getting trashed
   set_ignore_transfer(1);
 
-  if (!reset_sent) {
-     // Log ARM performance counters
-     tube_log_performance_counters();
+  // Log ARM performance counters
+  tube_log_performance_counters();
 
-     // Wait for rst become inactive before continuing to execute
-     tube_wait_for_rst_release();
+  // Wait for rst become inactive before continuing to execute
+  tube_wait_for_rst_release();
 
-     // Reset ARM performance counters
-     tube_reset_performance_counters();
+  // Reset ARM performance counters
+  tube_reset_performance_counters();
 
-     // Send reset message
-     tube_Reset();
-  }
+  // Send reset message
+  tube_Reset();
 
   // Re-enable the language transfer
   set_ignore_transfer(0);
+
+  // Always copy ARM Basic into memory (in case it's been corrupted)
+  copy_armbasic();
+
+  // When the default exit handler is called, we return here
+  setjmp(enterOS);
+
+  // Make sure interrupts are enabled!
+  _enable_interrupts();
 
   // Read the last break type
   OS_Byte(0xfd, 0x00, 0xFF, &last_break, NULL);
