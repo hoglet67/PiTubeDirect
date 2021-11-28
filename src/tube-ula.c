@@ -664,24 +664,20 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 int tube_io_handler(uint32_t mail)
 {
-   unsigned int addr;
-   if ((mail >> 12) & 1)        // Check for Reset
-   {
+   // Check for Reset
+   if (mail & (1 << 12)) {
       tube_irq |= RESET_BIT;
-      return tube_irq;      // Set reset Flag
-   }
-   else
-   {
-      addr = (mail>>8) & 7;
-      if ( ( (mail >>11 ) & 1) == 0) {  // Check read write flag
-         tube_host_write(addr, (mail >> 16) & 0xFF);
-      } else {
+   } else {
+      unsigned int addr = (mail >> 8) & 7;
+      // Check read write flag
+      if (mail & (1 << 11)) {
          tube_host_read(addr);
+      } else {
+         tube_host_write(addr, (mail >> 16) & 0xFF);
       }
-      return tube_irq ;
    }
+   return tube_irq;
 }
-
 
 void tube_init_hardware()
 {
