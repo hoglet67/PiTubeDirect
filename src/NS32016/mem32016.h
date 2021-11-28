@@ -1,6 +1,6 @@
 #define IO_BASE         0xFFFFF0
 
-//#define PANDORA_BASE    0xF00000
+#define PANDORA_BASE    0xF00000
 
 //#define TEST_SUITE
 #ifdef TEST_SUITE
