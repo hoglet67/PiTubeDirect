@@ -55,14 +55,14 @@ static uint32_t led_type=0;
 static volatile uint32_t *tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
 static uint32_t host_addr_bus;
 
-#define HBIT_7 (1 << 25)
-#define HBIT_6 (1 << 24)
-#define HBIT_5 (1 << 23)
-#define HBIT_4 (1 << 22)
-#define HBIT_3 (1 << 11)
-#define HBIT_2 (1 << 10)
-#define HBIT_1 (1 << 9)
-#define HBIT_0 (1 << 8)
+#define HBIT_7 ((uint32_t)(1 << 25))
+#define HBIT_6 ((uint32_t)(1 << 24))
+#define HBIT_5 ((uint32_t)(1 << 23))
+#define HBIT_4 ((uint32_t)(1 << 22))
+#define HBIT_3 ((uint32_t)(1 << 11))
+#define HBIT_2 ((uint32_t)(1 << 10))
+#define HBIT_1 ((uint32_t)(1 << 9))
+#define HBIT_0 ((uint32_t)(1 << 8))
 
 #define BYTE_TO_WORD(data) ((uint32_t)((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18)))
 #define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) >> 18) & 0xF0))
@@ -664,6 +664,25 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 int tube_io_handler(uint32_t mail)
 {
+   // 23..16 -> D7..D0
+   // 12     -> RST (active high)
+   // 11     -> RnW
+   // 10..8  -> A2..A0
+   //
+   // Shortcut writes of 0x81 or 0x01 to the tube control register bit 0
+   // This is used for tube detection by the MOS
+   // Writes need to be visible within three 6502 bus cycles (1.5us)
+   //
+   //         D D D D  D D D D  - - - R  R A A A  - - - -  - - - -
+   //  mask:  0 1 1 1  1 1 1 1  0 0 0 1  1 1 1 1  0 0 0 0  0 0 0 0 = 0x7F1F00
+   // value:  0 0 0 0  0 0 0 1  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0 = 0x010000
+   if ((mail & 0x7F1F00) == 0x010000) {
+      if (tube_irq & TUBE_ENABLE_BIT) {
+         HSTAT1 = (HSTAT1 & ~HBIT_0) ^ ((mail & (1 << 23)) ? HBIT_0 : 0);
+         // then process the request as normal
+      }
+   }
+
    // Check for Reset
    if (mail & (1 << 12)) {
       tube_irq |= RESET_BIT;
