@@ -25,10 +25,6 @@
 
 #endif
 
-#define USE_GPU
-
-#define USE_HW_MAILBOX
-
 // If defined, the doorbell is used rather then the mailbox
 #define USE_DOORBELL
 

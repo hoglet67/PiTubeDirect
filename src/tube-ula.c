@@ -665,22 +665,6 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 int tube_io_handler(uint32_t mail)
 {
    unsigned int addr;
-#ifndef USE_GPU
-   int data;
-   int rnw;
-   int ntube;
-   int nrst;
-
-#ifdef USE_HW_MAILBOX
-   // Sequence numbers are currently 4 bits, and are stored in bits 12..15
-   int act_seq_num;
-   static int exp_seq_num = -1;
-   act_seq_num = (mail >> 12) & 15;
-#endif
-#endif
-
-#ifdef USE_GPU
-
    if ((mail >> 12) & 1)        // Check for Reset
    {
       tube_irq |= RESET_BIT;
@@ -696,73 +680,6 @@ int tube_io_handler(uint32_t mail)
       }
       return tube_irq ;
    }
-#else
-   addr = 0;
-   if (mail & A0_MASK) {
-      addr += 1;
-   }
-   if (mail & A1_MASK) {
-      addr += 2;
-   }
-   if (mail & A2_MASK) {
-      addr += 4;
-   }
-   data  = ((mail >> D0_BASE) & 0xF) | (((mail >> D4_BASE) & 0xF) << 4);
-   rnw   = (mail >> RNW_PIN) & 1;
-   ntube = (mail >> NTUBE_PIN) & 1;
-   nrst  = (mail >> NRST_PIN) & 1;
-
-   // Only report OVERRUNs that occur when nRST is high
-#ifdef USE_HW_MAILBOX
-   if (exp_seq_num < 0) {
-      // A resync is being forces
-      exp_seq_num = act_seq_num;
-   } else {
-      // Increment the expected sequence number
-      exp_seq_num = (exp_seq_num + 1) & 15;
-   }
-   if ((exp_seq_num != act_seq_num) && (mail & NRST_MASK)) {
-      LOG_WARN("OVERRUN: exp=%X act=%X A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", exp_seq_num, act_seq_num, addr, data, rnw, ntube, nrst);
-   }
-   if (mail & NRST_MASK) {
-      // Not reset: sync to the last received sequence number
-      exp_seq_num = act_seq_num;
-   } else {
-      // Reset: Force a resync as mailbox overflow is very likely here
-      exp_seq_num = -1;
-   }
-#else
-   if ((mail & OVERRUN_MASK) && (mail & NRST_MASK)) {
-      LOG_WARN("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-   }
-#endif
-
-
-   if (mail & GLITCH_MASK) {
-      LOG_WARN("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-   } else if (nrst == 1) {
-
-      if (ntube == 0) {
-         if (rnw == 0) {
-            tube_host_write(addr, data);
-         } else {
-            tube_host_read(addr);
-         }
-      } else {
-         LOG_WARN("LATE: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-      }
-   }
-
-#if TEST_MODE
-   LOG_INFO("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-#endif
-
-   if (nrst == 0 || (tube_enabled && (HSTAT1 & HBIT_5))) {
-      return tube_irq | 4;
-   } else {
-      return tube_irq & 3;
-   }
-#endif
 }
 
 
