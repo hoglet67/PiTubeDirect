@@ -12,6 +12,7 @@
 #include "gitversion.h"
 #include "copro-defs.h"
 #include "utils.h"
+#include "programs.h"
 
 static int doCmdHelp(const char *params);
 static int doCmdTest(const char *params);
@@ -402,16 +403,9 @@ int doCmdPiVDU(const char *params) {
       beeb_vdu(13);
       beeb_vdu(32);
       if (device & VDU_PI) {
-         // Install a host oswrch redirector (for output of OSCLI commands)
-         // PHA        48
-         // LDA #&03   A9 03
-         // STA &FEE2  8D E2 FE
-         // PLA        68
-         // STA &FEE4  8D E4 FE
-         // RTS        60
-         uint8_t data[] = { 0x48, 0xa9, 0x03, 0x8d, 0xe2, 0xfe, 0x68, 0x8d, 0xe4, 0xfe, 0x60} ;
-         for (uint16_t i = 0; i < sizeof(data); i++) {
-            write_host_byte(WRCHANDLER + i, data[i]);
+         // Install the same host oswrch redirector used by the 6502
+         for (uint16_t i = 0; i < 0x40; i++) {
+            write_host_byte(WRCHANDLER + i, host_oswrch_redirector[i]);
          }
          write_host_word(WRCVEC, WRCHANDLER);
       }

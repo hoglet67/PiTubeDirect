@@ -23,15 +23,58 @@ osword6_addr_lo = osword6_param + 0
 osword6_addr_hi = osword6_param + 1
 osword6_data    = osword6_param + 4
 
-org &0300
+org &02C0
+guard &300
 
 .start
 
-.init
+;; Host-side OSWRCH Redirector
+;;
+;; This redirects OSWRCH calls on the host back over to the Pi VDU driver
+;;
+;; It's used for the output of MOS command (like *CAT, *HELP, etc)
 
-;; Leave cursor in col 1
-    LDA #32
-    JSR oswrch
+.host_oswrch_start
+    ;; Stack the character to be printed
+    PHA
+    ;; Emulate the POS VDU variable at &0318
+    ;; This is used directly by *HELP MOS for padding and also by *CAT in ADFS
+    CMP #12         ; Clear screen returns cursor to POS=0
+    BEQ zero_pos
+    CMP #13         ; So does carriage return
+    BEQ zero_pos
+    CMP #30         ; So does home cursor
+    BEQ zero_pos
+    ;; There are other cases we ignore for now (VDU 8; VDU 9; VDU 31,x,y; VDU 127)
+    ;; as these are very unlikely to be emitted by the POS commands that read back POS
+    CMP #32         ; Set C=1 if printable char (i.e. space or greater)
+    BCC write_fifo
+    INC &0318       ; printable char, so increment POS by one
+    LDA &0318       ; compare POS to the window width
+    CLC
+    ADC &0308       ; plus Window Left
+    CMP &030A       ; compare to Window Right
+    BCC write_fifo  ; Still within window?
+.zero_pos
+    ;; Zero pos (cursor in left most columb)
+    LDA #&00
+    STA &0318
+.write_fifo
+    ;; Select the VDU FIFO at &FEE4
+    LDA #&03
+    STA &FEE2
+    ;; Restore the character to be printed
+    PLA
+    ;; Write character to the VDU FIFO
+    STA &FEE4
+    RTS
+.host_oswrch_end
+
+org &0300
+clear &300,&3ff
+guard &400
+
+.init
 
 ;; Copy minimal OSWRCH to host at 0900
     LDA #page
@@ -86,15 +129,6 @@ org &0300
     JSR osword
     INC osword6_addr_lo
     RTS
-
-.host_oswrch_start
-    PHA
-    LDA #&03
-    STA &FEE2
-    PLA
-    STA &FEE4
-    RTS
-.host_oswrch_end
 
 .parasite_oswrch
     STA &FEF8
