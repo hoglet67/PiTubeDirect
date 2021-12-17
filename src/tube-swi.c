@@ -1298,7 +1298,7 @@ static void tube_SWI_NumberFromString(unsigned int *reg) {
 
    // Copy the base part of the name, stopping at the first _ or an illegal character
    i = 0;
-   while (i < SWI_NAME_LEN - 1 && *ptr >= 0x20 && *ptr < 0x7F && *ptr != '_') {
+   while (i < SWI_NAME_LEN - 1 && *ptr > 0x20 && *ptr < 0x7F && *ptr != '_') {
       mod_name[i++] = *ptr++;
    }
    mod_name[i] = 0;
@@ -1308,7 +1308,7 @@ static void tube_SWI_NumberFromString(unsigned int *reg) {
       ptr++;
 
       i = 0;
-      while (i < SWI_NAME_LEN - 1 && *ptr >= 0x20 && *ptr < 0x7F) {
+      while (i < SWI_NAME_LEN - 1 && *ptr > 0x20 && *ptr < 0x7F) {
          swi_name[i++] = *ptr++;
       }
       swi_name[i] = 0;
