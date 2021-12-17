@@ -1330,8 +1330,14 @@ static void tube_SWI_NumberFromString(unsigned int *reg) {
       }
 
       // Special case OS_WriteI as they are not in the handler table
+      //
+      // To be consistent with Risc OS, the following forms are not recognised:
+      //   OS_WriteI+13
+      //   OS_WriteI+" "
+      //   OS_WriteI+"A"
+      // i.e. Only OS_WriteI -> 0x100 is handled
       if (!strcmp(mod_name, "OS") && !strcmp(swi_name, "WriteI")) {
-         reg[0] = x_flag + 0x100 + i;
+         reg[0] = x_flag + 0x100;
          return;
       }
    }
