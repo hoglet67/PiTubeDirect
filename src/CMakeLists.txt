@@ -48,9 +48,10 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fanalyzer" )
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto" )
 
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wredundant-decls -Wno-maybe-uninitialized -Wno-long-long -Wpacked -Wundef -Wno-shadow  -Wno-missing-braces -Wno-sign-compare -Wno-multichar -Wnarrowing -Woverflow -Wconversion -Wjump-misses-init -Wlogical-not-parentheses -Wnull-dereference -Winit-self -Wpointer-arith  -Wwrite-strings -Wunreachable-code -Wshadow -Wdouble-promotion  -Wformat-truncation -fstack-usage -Wconversion" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wredundant-decls -Wno-maybe-uninitialized -Wno-long-long -Wpacked -Wundef -Wno-shadow  -Wno-missing-braces -Wno-sign-compare -Wno-multichar -Wnarrowing -Woverflow -Wconversion -Wjump-misses-init -Wlogical-not-parentheses -Wnull-dereference -Winit-self -Wpointer-arith  -Wwrite-strings -Wunreachable-code -Wshadow -Wdouble-promotion  -Wformat-truncation -fstack-usage" )
 
 # other options to try which fail currently :
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion")
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-declarations")
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat=2")
