@@ -64,7 +64,8 @@ boot_delay=0
 # Memory map to stay compatible with 256MB Pi Models
 #
 # 0x00000000   0MB - Start of RAM
-# 0x0D800000 216MB - ARM Basic (allow 4MB)
+# 0x0C800000 200MB - ARM Basic (allow 4MB)
+# 0x0CC00000 204MB - Heap space (allow 16MB)
 # 0x0DC00000 220MB - Stack space (allow 16 x 0.5MB)
 # 0x0E400000 228MB - Pi Kernel (allow 4MB)
 # 0x0E800000 232MB - Frame Buffer (allow 8MB)

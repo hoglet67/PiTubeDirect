@@ -199,8 +199,8 @@ static void initEnv() {
   env->handler[                 UPCALL_HANDLER].handler = defaultUpcallHandler;
 
   // Handlers where the handler is just data
-  env->handler[           MEMORY_LIMIT_HANDLER].handler = (EnvironmentHandler_type) (216 * 1024 * 1024); // 216MB
-  env->handler[      APPLICATION_SPACE_HANDLER].handler = (EnvironmentHandler_type) (216 * 1024 * 1024); // 216MB
+  env->handler[           MEMORY_LIMIT_HANDLER].handler = (EnvironmentHandler_type) (200 * 1024 * 1024); // 200MB
+  env->handler[      APPLICATION_SPACE_HANDLER].handler = (EnvironmentHandler_type) (200 * 1024 * 1024); // 200MB
   env->handler[CURRENTLY_ACTIVE_OBJECT_HANDLER].handler = (EnvironmentHandler_type) (0);
 }
 

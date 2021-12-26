@@ -12,7 +12,7 @@
 
 // #define BAS135H_ROM
 
-#define ARM_BASIC_START (0x0D800000)
+#define ARM_BASIC_START (0x0C800000)
 
 // Note, the two version have slightly different start addresses
 #ifdef BAS135H_ROM
