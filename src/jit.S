@@ -7,22 +7,22 @@
 // 0x00010000 - 0x010FFF 4K ram doubly mapped by the mmu
 // 0x00010000 - 0x0FFFFF 1MByte for extra RAM we won't support code in this area
 
-// we use the ram at 0x0D000000 for code as that
+// we use the ram at 0x0C000000 for code as that
 // is within jump range of the kernel
-// we have up to 0x0DC00000 to use
-// 0x0D000000 - 0x0D07FFFF 256K 8 bytes for JIT code for each 65c02 byte
+// we have up to 0x0CC00000 to use
+// 0x0C000000 - 0x0C07FFFF 512K 8 bytes of JIT code for each 65c02 byte
 
-#define JITLET 0x0D000000
+#define JITLET 0x0C000000
 
-// 0x0D100000 - 0x0D13FFFF 256K 4 bytes for each byte
+// 0x0C100000 - 0x0C13FFFF 256K 4 bytes for each byte
 //                                to signal if byte has been jitted
 //                      either mov pc,r14 or B dejit16bit 1,21,22,31,32,33
 // This table also needs to wrap at 256K to cope with 65535 wrapping
 // This is done with the MMU just like the RAM
 
-#define JITTEDTABLE16 0x0d100000
+#define JITTEDTABLE16 0x0C100000
 
-// NB this code starts 0x0e400000 + xxx
+// NB this code starts 0x0D400000 + xxx so the above tables are close enough to jump to
 
 //#define JITDEBUG 1
 //#define DORMANN_TEST 1
