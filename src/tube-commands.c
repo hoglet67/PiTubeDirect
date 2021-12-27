@@ -360,7 +360,18 @@ static void beeb_cursor(uint8_t on) {
 }
 
 int doCmdPiVDU(const char *params) {
-   int device = atoi(params);
+   int device;
+   int nargs = sscanf(params, "%d", &device);
+
+   if (nargs != 1 || device < 0 || device > 3) {
+      OS_Write0("Usage: *PIVDU 0..3\r\n");
+      OS_Write0("       0 = no output\r\n");
+      OS_Write0("       1 = Beeb only\r\n");
+      OS_Write0("       2 = Pi Only\r\n");
+      OS_Write0("       3 = Beeb and Pi\r\n");
+      return 0;
+   }
+
    OS_Write0("Beeb VDU:");
    if (device & VDU_BEEB) {
       OS_Write0("enabled\r\n");
