@@ -1439,7 +1439,7 @@ static char* handle_param(char* s, uint32_t param)
 			if( address_size ) {
 				s += sprintf( s, "[$%08" PRIX32 "]", FETCHD32() );
 			} else {
-				s += sprintf( s, "[$%08" PRIX32 "]", FETCHD32() );
+				s += sprintf( s, "[$%04" PRIX16 "]", FETCHD16() );
 			}
 			break;
 
