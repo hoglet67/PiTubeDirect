@@ -56,9 +56,6 @@
 #undef errno
 extern int errno;
 
-/* Place the heap at a fixed location, rather than after the code space */
-#define DEFAULT_HEAP ((char *)0x0CC00000)
-
 /* Required include for fstat() */
 #include <sys/stat.h>
 
@@ -177,12 +174,12 @@ int _read(int file, char *ptr, int len)
  GNU linker. */
 caddr_t _sbrk(int incr)
 {
-// extern char _end;
+  extern char _end;
   static char* heap_end = 0;
   char* prev_heap_end;
 
   if (heap_end == 0)
-    heap_end = DEFAULT_HEAP;
+    heap_end = &_end;
 
   prev_heap_end = heap_end;
   heap_end += incr;

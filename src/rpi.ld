@@ -8,8 +8,8 @@ SECTIONS
 {
   /* Read-only sections, merged into text segment: */
 
-  /* Change segment to 0x0E400000 to relocate kernel to 228MB */
-  PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x0E400000)); . = SEGMENT_START("text-segment", 0x0E400000);
+  /* Change segment to 0x0D400000 to relocate kernel to 212MB */
+  PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x0D400000)); . = SEGMENT_START("text-segment", 0x0D400000);
   .interp         : { *(.interp) }
   .note.gnu.build-id : { *(.note.gnu.build-id) }
   .hash           : { *(.hash) }
