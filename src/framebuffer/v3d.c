@@ -219,6 +219,7 @@ static void addfloat(uint8_t **list, float f) {
   *((*list)++) = (uint8_t)(d >> 16);
   *((*list)++) = (uint8_t)(d >> 24);
 #endif
+// cppcheck-suppress invalidPointerCast
   uint8_t *d = (uint8_t *)&f;
   *((*list)++) = *d++;
   *((*list)++) = *d++;
