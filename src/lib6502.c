@@ -34,6 +34,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "lib6502.h"
 static void   M6502_dump(M6502 *mpu, char buffer[124]);
@@ -1104,15 +1105,19 @@ M6502 *M6502_new(M6502_Registers *registers, M6502_Memory memory, M6502_Callback
   if (!mpu) {outOfMemory(); return NULL;}
 
   if (!registers)  { registers = (M6502_Registers *)calloc(1, sizeof(M6502_Registers));  mpu->flags |= M6502_RegistersAllocated; }
+  if (!registers) outOfMemory();
 #ifdef USE_MEMORY_POINTER
   if (!memory   )  { memory    = (uint8_t         *)calloc(1, sizeof(M6502_Memory   ));  mpu->flags |= M6502_MemoryAllocated;    }
   if (!memory) outOfMemory();
-#else
-   { memory    = 0;    }
-#endif
   if (!callbacks)  { callbacks = (M6502_Callbacks *)calloc(1, sizeof(M6502_Callbacks));  mpu->flags |= M6502_CallbacksAllocated; }
-
-  if (!registers || !callbacks) outOfMemory();
+  if (!callbacks) outOfMemory();
+#else
+   {
+      memory    = 0;
+      callbacks = (M6502_Callbacks *)0x00100000; // + 1MB
+      memset(callbacks, 0, sizeof(M6502_Callbacks));
+   }
+#endif
 
   mpu->registers = registers;
   mpu->memory    = memory;
