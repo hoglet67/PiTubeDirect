@@ -830,7 +830,9 @@ void prim_set_dot_pattern(screen_mode_t *screen, uint8_t *pattern) {
 }
 
 void prim_set_dot_pattern_len(screen_mode_t *screen, int len) {
+#ifdef DEBUG_VDU
    printf("prim_set_dot_pattern_len = %d\r\n", len);
+#endif
    if (len == 0) {
       prim_set_dot_pattern(screen, DEFAULT_DOT_PATTERN);
       g_dot_pattern_len = 8;
@@ -1587,7 +1589,9 @@ void prim_define_sprite(screen_mode_t *screen, int n, int x1, int y1, int x2, in
       y2 = tmp;
    }
 
+#ifdef DEBUG_VDU
    printf("defining sprite %d (%d,%d to %d,%d)\r\n", n, x1, y1, x2, y2);
+#endif
 
    // Memory allocation
    sprite->width = x2 - x1 + 1;
@@ -1633,23 +1637,33 @@ void prim_draw_sprite(screen_mode_t *screen, int n, int x, int y) {
    sprite_t *sprite = sprites + n;
    // Return if sprite is not properly defined
    if (sprite->width == 0) {
+#ifdef DEBUG_VDU
       printf("prim_draw_sprite: %d: width zero\n", n);
+#endif
       return;
    }
    if (sprite->height == 0) {
+#ifdef DEBUG_VDU
       printf("prim_draw_sprite: %d: height zero\n", n);
+#endif
       return;
    }
    if (sprite->data == NULL) {
+#ifdef DEBUG_VDU
       printf("prim_draw_sprite: %d: data null\n", n);
+#endif
       return;
    }
    if (sprite->data_size == 0) {
+#ifdef DEBUG_VDU
       printf("prim_draw_sprite: %d: data_size zero\n", n);
+#endif
       return;
    }
 
+#ifdef DEBUG_VDU
    printf("drawing sprite %d at %d,%d\r\n", n, x, y);
+#endif
 
    // Write the sprite, allowing clipping to take care of off-screen pixels
    if (screen->log2bpp == 4) {
