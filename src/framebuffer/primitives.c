@@ -1667,24 +1667,42 @@ void prim_draw_sprite(screen_mode_t *screen, int n, int x, int y) {
 
    // Write the sprite, allowing clipping to take care of off-screen pixels
    if (screen->log2bpp == 4) {
-      uint16_t *data = sprite->data;
+      uint16_t data;
+      uint16_t *datap = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
+         int yy = y + yp;
          for (int xp = 0; xp < sprite->width; xp++) {
-            set_pixel(screen, x + xp, y + yp, *data++);
+            int xx = x + xp;
+            data = *datap++;
+            if (xx >= g_x_min && xx <= g_x_max && yy >= g_y_min && yy <= g_y_max) {
+               screen->set_pixel(screen, xx, yy, data);
+            }
          }
       }
    } else if (screen->log2bpp == 5)  {
-      uint32_t *data = sprite->data;
+      uint32_t data;
+      uint32_t *datap = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
+         int yy = y + yp;
          for (int xp = 0; xp < sprite->width; xp++) {
-            set_pixel(screen, x + xp, y + yp, *data++);
+            int xx = x + xp;
+            data = *datap++;
+            if (xx >= g_x_min && xx <= g_x_max && yy >= g_y_min && yy <= g_y_max) {
+               screen->set_pixel(screen, xx, yy, data);
+            }
          }
       }
    } else {
-      uint8_t *data   = sprite->data;
+      uint8_t data;
+      uint8_t *datap = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
+         int yy = y + yp;
          for (int xp = 0; xp < sprite->width; xp++) {
-            set_pixel(screen, x + xp, y + yp, *data++);
+            int xx = x + xp;
+            data = *datap++;
+            if (xx >= g_x_min && xx <= g_x_max && yy >= g_y_min && yy <= g_y_max) {
+               screen->set_pixel(screen, xx, yy, data);
+            }
          }
       }
    }
