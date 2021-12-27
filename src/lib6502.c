@@ -1115,7 +1115,11 @@ M6502 *M6502_new(M6502_Registers *registers, M6502_Memory memory, M6502_Callback
    {
       memory    = 0;
       callbacks = (M6502_Callbacks *)0x00100000; // + 1MB
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
       memset(callbacks, 0, sizeof(M6502_Callbacks));
+#pragma GCC diagnostic pop
    }
 #endif
 
