@@ -118,8 +118,6 @@ file( GLOB core_files
     framebuffer/fonts.h
     framebuffer/teletext.c
     framebuffer/teletext.h
-    framebuffer/v3d.c
-    framebuffer/v3d.h
     framebuffer/module.h
     framebuffer/module_colourtrans.c
     framebuffer/module_colourtrans.h

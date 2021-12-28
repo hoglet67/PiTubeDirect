@@ -20,7 +20,6 @@
 #include "info.h"
 #include "performance.h"
 #include "framebuffer/framebuffer.h"
-#include "framebuffer/v3d.h"
 
 // For predictable timing (i.e. stalling to to cache or memory contention)
 // we need to find somewhere in I/O space to place the tube registers.
@@ -831,9 +830,6 @@ void tube_init_hardware()
    if (vdu_enabled) {
       fb_initialize();
    }
-
-   // This is broken in 8-BPP mode
-   // v3d_initialize();
 
    // Initialize performance counters
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)

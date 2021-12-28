@@ -6,10 +6,6 @@
 #include "framebuffer.h"
 #include "fonts.h"
 
-#ifdef USE_V3D
-#include "v3d.h"
-#endif
-
 static pixel_t    max_col;
 static pixel_t    marker;
 static plotmode_t g_fg_plotmode;
@@ -1206,50 +1202,37 @@ void prim_fill_area(screen_mode_t *screen, int x, int y, plotcol_t colour, fill_
 
 void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, plotcol_t colour) {
    int tmp;
-#ifdef USE_V3D
-   if (screen->log2bpp > 3) {
-      // Flip y axis
-      y1 = screen->height - 1 - y1;
-      y2 = screen->height - 1 - y2;
-      y3 = screen->height - 1 - y3;
-      // Draw the triangle
-      v3d_draw_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-   } else {
-#endif
-      // Use Standard Triangle Fill
-      // http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
-      // sort the three vertices by y-coordinate ascending so v1 is the topmost vertice
-      if (y2 > y1) {
-         tmp = x1; x1 = x2; x2 = tmp;
-         tmp = y1; y1 = y2; y2 = tmp;
-      }
-      if (y3 > y1) {
-         tmp = x1; x1 = x3; x3 = tmp;
-         tmp = y1; y1 = y3; y3 = tmp;
-      }
-      if (y3 > y2) {
-         tmp = x2; x2 = x3; x3 = tmp;
-         tmp = y2; y2 = y3; y3 = tmp;
-      }
-      // here we know that y1 >= y2 >= y3
-      if (y2 == y3) {
-         // trivial case of bottom-flat triangle
-         fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-      } else if (y1 == y2) {
-         // trivial case of top-flat triangle
-         fill_top_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
-      } else {
-         // general case - split the triangle in a topflat and bottom-flat one
-         int x4 = (int)((float)x1 + ((float)(y1 - y2) / (float)(y1 - y3)) * (float)(x3 - x1));
-         int y4 = y2;
-         fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x4, y4, colour);
-         fill_top_flat_triangle(screen, x2, y2, x4, y4, x3, y3, colour);
-         // draw the overlapping line again, incase we are XOR plotting
-         draw_hline(screen, x2, x4, y4, colour);
-      }
-#ifdef USE_V3D
+   // Use Standard Triangle Fill
+   // http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
+   // sort the three vertices by y-coordinate ascending so v1 is the topmost vertice
+   if (y2 > y1) {
+      tmp = x1; x1 = x2; x2 = tmp;
+      tmp = y1; y1 = y2; y2 = tmp;
    }
-#endif
+   if (y3 > y1) {
+      tmp = x1; x1 = x3; x3 = tmp;
+      tmp = y1; y1 = y3; y3 = tmp;
+   }
+   if (y3 > y2) {
+      tmp = x2; x2 = x3; x3 = tmp;
+      tmp = y2; y2 = y3; y3 = tmp;
+   }
+   // here we know that y1 >= y2 >= y3
+   if (y2 == y3) {
+      // trivial case of bottom-flat triangle
+      fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
+   } else if (y1 == y2) {
+      // trivial case of top-flat triangle
+      fill_top_flat_triangle(screen, x1, y1, x2, y2, x3, y3, colour);
+   } else {
+      // general case - split the triangle in a topflat and bottom-flat one
+      int x4 = (int)((float)x1 + ((float)(y1 - y2) / (float)(y1 - y3)) * (float)(x3 - x1));
+      int y4 = y2;
+      fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x4, y4, colour);
+      fill_top_flat_triangle(screen, x2, y2, x4, y4, x3, y3, colour);
+      // draw the overlapping line again, incase we are XOR plotting
+      draw_hline(screen, x2, x4, y4, colour);
+   }
 }
 
 // Rodders: Draw arc using modified Bresenham algorithm

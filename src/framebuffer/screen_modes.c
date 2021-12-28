@@ -11,10 +11,6 @@
 #include "teletext.h"
 #include "framebuffer.h"
 
-#ifdef USE_V3D
-#include "v3d.h"
-#endif
-
 // Align frame buffer of a 64KB boundary (mostly for OCD reasons!)
 #define FB_ALIGNMENT 0x10000
 
@@ -1015,12 +1011,6 @@ void default_init_screen(screen_mode_t *screen) {
 
     /* Clear the screen to the background colour */
     screen->clear(screen, NULL, 0);
-
-#ifdef USE_V3D
-    if (screen->bpp > 8) {
-       v3d_initialize(NULL);
-    }
-#endif
 }
 
 void default_reset_screen(screen_mode_t *screen) {
