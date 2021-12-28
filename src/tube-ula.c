@@ -961,13 +961,17 @@ static void start_vc_ula()
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_LAUNCH_VPU1, func, r0, r1, r2, r3, r4, r5);
    RPI_PropertyProcess();
+   
+#ifdef DEBUG
    rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_LAUNCH_VPU1);
    if (buf) {
       LOG_DEBUG("TAG_LAUNCH_VPU1 returned %08"PRIx32"\r\n", buf->data.buffer_32[0]);
    } else {
       LOG_DEBUG("TAG_LAUNCH_VPU1 ?\r\n");
    }
-
+#else
+   RPI_PropertyGet(TAG_LAUNCH_VPU1);
+#endif
 // for (r0 = 0x7E002000; r0 < 0x7E003000; r0+= 4) {
 //    rpi_mailbox_property_t *buf;
 //    RPI_PropertyInit();
