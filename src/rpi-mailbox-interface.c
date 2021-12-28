@@ -6,7 +6,7 @@
 #include "cache.h"
 #include "rpi-mailbox.h"
 #include "rpi-mailbox-interface.h"
-#include "tube-defs.h"
+#include "tube-debug.h"
 
 /* Make sure the property tag buffer is aligned to a 16-byte boundary because
    we only have 28-bits available in the property interface protocol to pass

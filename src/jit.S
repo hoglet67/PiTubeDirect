@@ -43,8 +43,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 // NOP6s &00
 
 // used for scope debug
-#include "tube-defs.h"
-
+#include "tube-pins.h"
+#include "rpi-mailboxregs.h"
+#include "tube-irqbits.h"
 // Registers used in 6502 world
 
 #define reg0      r0
@@ -117,8 +118,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .equ    I_FLAG6502,  0x04
 .equ    Z_FLAG6502,  0x02
 .equ    C_FLAG6502,  0x01
-
-#include "tube-defs.h"
 
 .text
 .global exec_65tubejit

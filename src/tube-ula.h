@@ -5,7 +5,6 @@
 
 #include <inttypes.h>
 #include "tube.h"
-#include "tube-defs.h"
 
 // Uncomment to checksum tube transfers
 // #define DEBUG_TRANSFERS

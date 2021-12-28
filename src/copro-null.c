@@ -7,7 +7,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
 #include "copro-null.h"

@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include "rpi-base.h"
 #include "rpi-armtimer.h"
 #include "startup.h"
 

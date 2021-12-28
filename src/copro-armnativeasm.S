@@ -1,5 +1,7 @@
+#include "rpi-base.h"
 #include "tube-defs.h"
 #include "copro-armnative.h"
+#include "rpi-mailboxregs.h"
 
 .global copro_armnative_enable_mailbox
 .global copro_armnative_disable_mailbox

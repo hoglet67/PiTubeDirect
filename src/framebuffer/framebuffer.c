@@ -12,7 +12,6 @@
 #include "../rpi-interrupts.h"
 #include "../startup.h"
 #include "../tube-defs.h"
-
 #include "screen_modes.h"
 #include "framebuffer.h"
 #include "primitives.h"

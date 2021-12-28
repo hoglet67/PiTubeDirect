@@ -5,7 +5,6 @@
  */
 #include <stdio.h>
 
-#include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
 #include "yaze/mem_mmu.h"

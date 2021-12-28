@@ -11,8 +11,6 @@
 // can play tricks with banks selection
 #define NUM_4K_PAGES 512
 
-#ifndef __ASSEMBLER__
-
 void map_4k_page(unsigned int logical, unsigned int physical);
 void map_4k_pageJIT(unsigned int logical, unsigned int physical);
 
@@ -21,7 +19,5 @@ void enable_MMU_and_IDCaches(void);
 void _clean_cache_area(void * start, unsigned int length);
 void _invalidate_cache_area(void * start, unsigned int length);
 void CleanDataCache (void);
-
-#endif
 
 #endif

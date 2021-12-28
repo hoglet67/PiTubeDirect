@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "startup.h"
+#include "tube-debug.h"
 #include "rpi-base.h"
 #include "cache.h"
 #include "copro-65tubejit.h"

@@ -3,7 +3,6 @@
 #include "copro-armnative.h"
 
 #include "startup.h"
-#include "rpi-base.h"
 #include "tube-lib.h"
 #include "tube-isr.h"
 #include "tube-ula.h"

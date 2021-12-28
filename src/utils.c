@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "tube-defs.h"
+#include "tube-debug.h"
 #include "info.h"
 
 /*

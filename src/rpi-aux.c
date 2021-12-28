@@ -4,6 +4,7 @@
 #include "rpi-gpio.h"
 #include "info.h"
 #include "startup.h"
+#include "tube-pins.h"
 #include "stdlib.h"
 #include "rpi-systimer.h"
 #include "framebuffer/framebuffer.h"

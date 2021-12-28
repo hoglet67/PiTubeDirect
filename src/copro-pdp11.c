@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "tube-defs.h"
 #include "tube-client.h"
 #include "tube-ula.h"
 #include "pdp11/pdp11.h"

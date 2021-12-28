@@ -1,6 +1,6 @@
 #include "rpi-base.h"
-#include "tube-defs.h"
-
+#include "rpi-mailboxregs.h"
+#include "tube-irqbits.h"
 #include "copro-65tubeasm.h"
 
 .text

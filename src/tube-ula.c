@@ -10,11 +10,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
-#include "tube-defs.h"
+#include "tube-pins.h"
+#include "tube-debug.h"
 #include "tube.h"
 #include "tube-ula.h"
 #include "rpi-gpio.h"
-#include "rpi-aux.h"
 #include "rpi-interrupts.h"
 #include "cache.h"
 #include "info.h"

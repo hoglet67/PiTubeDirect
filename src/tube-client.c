@@ -3,6 +3,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include "tube-defs.h"
+#include "tube-debug.h"
 #include "tube.h"
 #include "tube-ula.h"
 #include "startup.h"
@@ -11,6 +12,7 @@
 #include "performance.h"
 #include "info.h"
 #include "rpi-gpio.h"
+#include "rpi-mailboxregs.h"
 #include "rpi-interrupts.h"
 
 #ifdef INCLUDE_DEBUGGER
@@ -119,7 +121,7 @@ static void init_emulator() {
    _enable_interrupts();
 }
 
-#ifdef HAS_MULTICORE
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
 #if 0
 
@@ -256,7 +258,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
   benchmark();
 #endif
 
-#ifdef HAS_MULTICORE
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
   LOG_DEBUG("main running on core %u\r\n", _get_core());
   start_core(1, _spin_core);
   start_core(2, _spin_core);

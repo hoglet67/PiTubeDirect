@@ -2,7 +2,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include "info.h"
-#include "tube-defs.h"
+#include "tube-debug.h"
 
 static char cmdline[PROP_SIZE];
 

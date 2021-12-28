@@ -38,7 +38,7 @@
 
 #include "rpi-aux.h"
 #include "rpi-armtimer.h"
-#include "rpi-gpio.h"
+
 #include "rpi-interrupts.h"
 #include "rpi-systimer.h"
 

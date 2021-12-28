@@ -78,9 +78,13 @@ file( GLOB core_files
     copro-defs.h
     tube-client.c
     tube-defs.h
+    tube-pins.h
+    tube-irqbits.h
+    tube-debug.h
     tube-exception.c
     cache.c
     cache.h
+    rpi-base.h
     rpi-gpio.c
     rpi-gpio.h
     rpi-aux.c
@@ -89,6 +93,7 @@ file( GLOB core_files
     rpi-interrupts.h
     rpi-mailbox.c
     rpi-mailbox.h
+    rpi-mailboxregs.h
     rpi-mailbox-interface.c
     rpi-mailbox-interface.h
     rpi-systimer.c

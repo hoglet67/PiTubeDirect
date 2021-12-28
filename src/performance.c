@@ -265,14 +265,6 @@ int benchmark() {
    read_performance_counters(&pct);
    print_performance_counters(&pct);
 
-#ifdef HAS_40PINS
-   printf("benchmarking io toggling....\r\n");
-   reset_performance_counters(&pct);
-   _toggle_test_pin(1000000);
-   read_performance_counters(&pct);
-   print_performance_counters(&pct);
-#endif
-
    for (i = 0; i <= 10; i++) {
       size = 1 << i;
       printf("benchmarking %dKB memory copy....\r\n", size);

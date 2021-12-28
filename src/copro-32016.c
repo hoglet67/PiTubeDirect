@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
 #include "NS32016/32016.h"

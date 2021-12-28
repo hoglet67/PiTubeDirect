@@ -12,6 +12,7 @@
 #include "../tube-client.h"
 
 #ifdef INCLUDE_DEBUGGER
+#include "../tube-debug.h"
 #include "65816_debug.h"
 #endif
 

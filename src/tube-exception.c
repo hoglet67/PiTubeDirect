@@ -1,8 +1,5 @@
 #include "rpi-base.h"
 #include "rpi-aux.h"
-#include "rpi-gpio.h"
-#include "rpi-interrupts.h"
-#include "tube-defs.h"
 #include "tube-ula.h"
 #include "startup.h"
 
@@ -20,7 +17,7 @@ static void reboot_now(void)
   while(1);
 }
 
-#ifdef HAS_MULTICORE
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 static void dump_digit(unsigned int c) {
    c &= 15;
    if (c < 10) {
@@ -75,7 +72,7 @@ static void dump_info(unsigned int *context, int offset, const char *type) {
   // The stacked LR points one or two words after the exception address
   addr = (unsigned int *)((reg[13] & ~3u) - (uint32_t)offset);
   dump_hex((unsigned int)addr);
-#ifdef HAS_MULTICORE
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
   dump_string(" on core ");
   dump_digit(_get_core());
 #endif

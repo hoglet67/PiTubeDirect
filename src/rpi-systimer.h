@@ -32,10 +32,7 @@
 
 #include <stdint.h>
 
-#include "rpi-base.h"
-
 #define RPI_SYSTIMER_BASE       ( PERIPHERAL_BASE + 0x3000 )
-
 
 typedef struct {
     volatile uint32_t control_status;

@@ -75,14 +75,10 @@
 .global _interrupt_vector_h
 .global _fast_interrupt_vector_h
 
-#ifdef HAS_MULTICORE
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 .global _get_core
 .global _init_core
 .global _spin_core
-#endif
-
-#if defined(HAS_40PINS)
-.global _toggle_test_pin
 #endif
 
 .global _fast_scroll
@@ -142,7 +138,7 @@ _reset_:
 	str r2,[r1]		// disable GIC on rpi4
 #endif
        BL _enable_l1_cache
-#ifdef HAS_MULTICORE
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
 #ifdef KERNEL_OLD
 
@@ -236,7 +232,7 @@ _reset_continue:
 
     // Enable VFP ------------------------------------------------------------
 
-#ifdef HAS_MULTICORE
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
 
 #else
@@ -466,7 +462,7 @@ _init_continue:
     bl      run_core
 #endif
 
-#ifdef HAS_MULTICORE
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 .section ".text._spin_core"
     // If main does return for some reason, just catch it and stay here.
 _spin_core:
@@ -498,22 +494,6 @@ _get_core:
     bx      lr
 
 #endif
-
-#ifdef HAS_40PINS
-.section ".text._toggle_test_pin"
-_toggle_test_pin:
-        mov     r1, #TEST_MASK
-_toggle_test_pin_loop:
-        ldr     r2, =GPSET0
-        str     r1, [r2]
-        ldr     r2, =GPCLR0
-        str     r1, [r2]
-        subs    r0, r0, #1
-        bne     _toggle_test_pin_loop
-        bx      lr
-#endif
-
-
 
 .section ".text._fast_scroll"
 // R0 = dst

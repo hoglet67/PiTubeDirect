@@ -4,7 +4,7 @@
 #define TUBE_H
 
 #include <inttypes.h>
-#include "tube-defs.h"
+#include "tube-irqbits.h"
 
 extern volatile unsigned int copro;
 
