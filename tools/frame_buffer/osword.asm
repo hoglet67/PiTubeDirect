@@ -51,13 +51,11 @@ guard &300
     BCC write_fifo
     INC &0318       ; printable char, so increment POS by one
     LDA &0318       ; compare POS to the window width
-    CLC
-    ADC &0308       ; plus Window Left
     CMP &030A       ; compare to Window Right
     BCC write_fifo  ; Still within window?
 .zero_pos
-    ;; Zero pos (cursor in left most columb)
-    LDA #&00
+    ;; Zero pos (cursor in left most column)
+    LDA &0308
     STA &0318
 .write_fifo
     ;; Select the VDU FIFO at &FEE4
