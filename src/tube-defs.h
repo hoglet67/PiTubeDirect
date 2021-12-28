@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Hognose-rc1"
+#define RELEASENAME "Indigo-dev"
 
 #define NDEBUG
 
