@@ -12,15 +12,11 @@
 // we have up to 0x0CC00000 to use
 // 0x0C000000 - 0x0C07FFFF 512K 8 bytes of JIT code for each 65c02 byte
 
-#define JITLET 0x0C000000
-
 // 0x0C100000 - 0x0C13FFFF 256K 4 bytes for each byte
 //                                to signal if byte has been jitted
 //                      either mov pc,r14 or B dejit16bit 1,21,22,31,32,33
 // This table also needs to wrap at 256K to cope with 65535 wrapping
 // This is done with the MMU just like the RAM
-
-#define JITTEDTABLE16 0x0C100000
 
 // NB this code starts 0x0D400000 + xxx so the above tables are close enough to jump to
 
@@ -48,6 +44,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 #include "tube-irqbits.h"
 
 #include "tube-defs.h"
+
+#include "copro-65tubejit.h"
+
 // Registers used in 6502 world
 
 #define reg0      r0
