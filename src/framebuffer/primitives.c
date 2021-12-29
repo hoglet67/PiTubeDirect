@@ -91,7 +91,6 @@ typedef struct {
    int width;
    int height;
    void *data;
-   size_t data_size;
 } sprite_t;
 
 static sprite_t sprites[NUM_SPRITES];
@@ -1550,7 +1549,6 @@ void prim_reset_sprites(screen_mode_t *screen) {
          free(sprites[i].data);
       }
       sprites[i].data = 0;
-      sprites[i].data_size = 0;
    }
 }
 
@@ -1580,13 +1578,13 @@ void prim_define_sprite(screen_mode_t *screen, int n, int x1, int y1, int x2, in
    sprite->width = x2 - x1 + 1;
    sprite->height = y2 - y1 + 1;
    size_t size = (size_t)sprite->width * (size_t)sprite->height * (1 << (screen->log2bpp - 3));
-   if (sprite->data == NULL || sprite->data_size < size) {
-      if (sprite->data != NULL) {
+   if  (sprite->data != NULL) 
          free(sprite->data);
-      }
-      sprite->data = malloc(size);
-      sprite->data_size = size;
-   }
+
+   sprite->data = malloc(size);
+   
+   if  (sprite->data == NULL)
+      return;
 
    // Read the sprite
    if (screen->log2bpp == 4) {
@@ -1637,13 +1635,6 @@ void prim_draw_sprite(screen_mode_t *screen, int n, int x, int y) {
 #endif
       return;
    }
-   if (sprite->data_size == 0) {
-#ifdef DEBUG_VDU
-      printf("prim_draw_sprite: %d: data_size zero\n", n);
-#endif
-      return;
-   }
-
 #ifdef DEBUG_VDU
    printf("drawing sprite %d at %d,%d\r\n", n, x, y);
 #endif
