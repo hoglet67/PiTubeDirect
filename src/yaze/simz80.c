@@ -448,9 +448,6 @@ simz80_execute(int tube_cycles)
     FASTREG IY = iy;
     FASTWORK temp, acu, sum, cbits;
     FASTWORK op, adr;
-#ifdef MMU
-    FASTREG tmp2;
-#endif
 
  do {
 #ifdef INCLUDE_DEBUGGER
