@@ -43,7 +43,7 @@ POSSIBILITY OF SUCH DAMAGE.
 // rotation value by two, so instead of right shifting by eight, we do a
 // right shift of seven, effectively avoiding the left shift of one
 #define ARMExpandImm(imm12) ROR((imm12) & 0xff, ((imm12) >> 7) & b11110)
-
+/*
 static struct {
     const char *mnemonic_extension;
     const char *meaning_integer;
@@ -70,6 +70,32 @@ static struct {
     {"HS", "Carry Set", "Greater than, equal, or unordered"},
     // alias for CC
     {"LO", "Carry Clear", "Less than"},
+};
+*/
+static struct {
+    const char *mnemonic_extension;
+} g_condition_codes[] = {
+    {"EQ"},
+    {"NE"},
+    {"CS"},
+    {"CC"},
+    {"MI"},
+    {"PL"},
+    {"VS"},
+    {"VC"},
+    {"HI"},
+    {"LS"},
+    {"GE"},
+    {"LT"},
+    {"GT"},
+    {"LE"},
+    {"AL"},
+    {""},
+
+    // alias for CS
+    {"HS"},
+    // alias for CC
+    {"LO"},
 };
 
 static const char *shift_types[] = {
