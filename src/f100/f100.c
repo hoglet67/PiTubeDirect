@@ -1,9 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
+
 #include <stdint.h>
 #include <stdbool.h>
-#include <ctype.h>
-#include <unistd.h>
 
 #ifdef INCLUDE_DEBUGGER
 #include "f100_debug.h"
