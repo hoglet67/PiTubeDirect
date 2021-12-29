@@ -451,8 +451,15 @@ int doCmdPiLIFE(const char *params) {
    int yeigfactor = OS_ReadModeVariable(mode, 5);
 
    uint8_t *a = calloc(sx * sy, 1);
+   if (  a == NULL )
+      return 0;
    uint8_t *b = calloc(sx * sy, 1);
 
+   if ( b == NULL )
+   {
+      free(a);
+      return 0;
+   }
    // Randomize interior
    for (unsigned int y = 1; y < sy - 1; y++) {
       uint8_t *p = a + y * sx + 1;
