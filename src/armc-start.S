@@ -131,20 +131,20 @@ _fast_interrupt_vector_h:           .word   arm_fiq_handler
 .section ".text._reset_"
 _reset_:
 #if defined(RPI4)
-	ldr	r1,=0xff842000
-    mov  r2,#0
-	str r2,[r1]		// disable GIC on rpi4
+	ldr	    r4,=0xff842000
+    mov     r5,#0
+	str     r5,[r4]		// disable GIC on rpi4
 #endif
-       BL _enable_l1_cache
+    BL _enable_l1_cache
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
     //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
-    ldr     r0, =(0xf << 20)
-    mcr     p15, 0, r0, c1, c0, 2
+    ldr     r4, =(0xf << 20)
+    mcr     p15, 0, r4, c1, c0, 2
 
     // 2. Set the FPEXC EN bit to enable the NEON MPE:
-    mov     r0, #0x40000000
-    vmsr    fpexc, r0
+    mov     r4, #0x40000000
+    vmsr    fpexc, r4
 
     // if kernel_old=0 enter in HYP mode and need to force a switch to SVC mode
     //
@@ -153,19 +153,19 @@ _reset_:
     // The logs show:
     // SVC mode: cpsr ends with 1d3
     // HYP mode: cpsr ends with 1a3
-    mrs     r0, cpsr
-    eor     r0, r0, #CPSR_MODE_HYP
-    tst     r0, #CPSR_MODE_MASK
-    bic     r0 , r0 , #CPSR_MODE_MASK
-    orr     r0 , r0 , #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVR
+    mrs     r4, cpsr
+    eor     r4, r4, #CPSR_MODE_HYP
+    tst     r4, #CPSR_MODE_MASK
+    bic     r4 , r4 , #CPSR_MODE_MASK
+    orr     r4 , r4 , #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVR
     bne     _not_in_hyp_mode
-    orr     r0, r0, #CPSR_A_BIT
+    orr     r4, r4, #CPSR_A_BIT
     adr     lr, _reset_continue
-    msr     spsr_cxsf, r0
+    msr     spsr_cxsf, r4
     .word 0xE12EF30E  // msr_elr_hyp lr
     .word 0xE160006E  // eret
 _not_in_hyp_mode:
-    msr    cpsr_c, r0
+    msr    cpsr_c, r4
 _reset_continue:
 
 #endif
@@ -216,19 +216,19 @@ _reset_continue:
 
 #else
     // r1 = Access Control Register
-    MRC p15, #0, r1, c1, c0, #2
+    MRC p15, #0, r4, c1, c0, #2
     // enable full access for p10,11
-    ORR r1, r1, #(0xf << 20)
+    ORR r4, r4, #(0xf << 20)
     // ccess Control Register = r1
-    MCR p15, #0, r1, c1, c0, #2
-    MOV r1, #0
+    MCR p15, #0, r4, c1, c0, #2
+    MOV r4, #0
     // flush prefetch buffer because of FMXR below
-    MCR p15, #0, r1, c7, c5, #4
+    MCR p15, #0, r4, c7, c5, #4
     // and CP 10 & 11 were only just enabled
     // Enable VFP itself
-    MOV r0,#0x40000000
+    MOV r4,#0x40000000
     // FPEXC = r0
-    FMXR FPEXC, r0
+    FMXR FPEXC, r4
 #endif
 
     // The c-startup function which we never return from. This function will
@@ -317,15 +317,15 @@ _enable_unaligned_access:
 _enable_l1_cache:
 
     // R0 = System Control Register
-    mrc p15,0,r0,c1,c0,0
+    mrc p15,0,r4,c1,c0,0
 
     // Enable caches and branch prediction
-    orr r0,#SCTLR_ENABLE_BRANCH_PREDICTION
-    orr r0,#SCTLR_ENABLE_DATA_CACHE
-    orr r0,#SCTLR_ENABLE_INSTRUCTION_CACHE
+    orr r4,#SCTLR_ENABLE_BRANCH_PREDICTION
+    orr r4,#SCTLR_ENABLE_DATA_CACHE
+    orr r4,#SCTLR_ENABLE_INSTRUCTION_CACHE
 
     // System Control Register = R0
-    mcr p15,0,r0,c1,c0,0
+    mcr p15,0,r4,c1,c0,0
 
     bx      lr
 
