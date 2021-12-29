@@ -138,24 +138,6 @@ _reset_:
        BL _enable_l1_cache
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
-#ifdef KERNEL_OLD
-
-    // if kernel_old=1 all cores are running and we need to sleep 1-3
-    // if kernel_old=0 then just core0 is running, and core 1-3 are waiting
-    // on a mailbox write to be woken up.
-    //
-    // Test which core we are running on
-    mrc     p15, 0, r0, c0, c0, 5
-    ands    r0, #3
-    beq     _core_continue
-    // Put cores 1-3 into a tight loop
-_core_loop:
-    wfi
-    b       _core_loop
-_core_continue:
-
-#else
-
     //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
     ldr     r0, =(0xf << 20)
     mcr     p15, 0, r0, c1, c0, 2
@@ -185,7 +167,6 @@ _core_continue:
 _not_in_hyp_mode:
     msr    cpsr_c, r0
 _reset_continue:
-#endif
 
 #endif
 
