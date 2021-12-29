@@ -408,7 +408,7 @@ static void OS_ReadPoint_impl(unsigned int *reg) {
 //        bit 5 = 0:r1 = colour number, 1:r1 = ECF pattern (ignored)
 //        bit 6 = 0:graphics, 1:text
 //        bit 7 = 0:write, 1:read (ginored)
-
+// cppcheck-suppress constParameter
 static void OS_SetColour_impl(unsigned int *reg) {
    unsigned int flags = reg[0];
    pixel_t colour     = reg[1];
