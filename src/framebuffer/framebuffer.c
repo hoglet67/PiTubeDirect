@@ -105,26 +105,26 @@ static uint8_t vdu_queue[VDU_QSIZE];
 
 typedef struct {
    int len;
-   void (*handler)(uint8_t *buf);
+   void (*handler)(const uint8_t *buf);
 } vdu_operation_t;
 
-static void vdu_4(uint8_t *buf);
-static void vdu_5(uint8_t *buf);
-static void vdu_16(uint8_t *buf);
-static void vdu_17(uint8_t *buf);
-static void vdu_18(uint8_t *buf);
-static void vdu_19(uint8_t *buf);
-static void vdu_20(uint8_t *buf);
-static void vdu_22(uint8_t *buf);
-static void vdu_23(uint8_t *buf);
-static void vdu_24(uint8_t *buf);
-static void vdu_25(uint8_t *buf);
-static void vdu_26(uint8_t *buf);
-static void vdu_27(uint8_t *buf);
-static void vdu_28(uint8_t *buf);
-static void vdu_29(uint8_t *buf);
-static void vdu_nop(uint8_t *buf);
-static void vdu_default(uint8_t *buf);
+static void vdu_4(const uint8_t *buf);
+static void vdu_5(const uint8_t *buf);
+static void vdu_16(const uint8_t *buf);
+static void vdu_17(const uint8_t *buf);
+static void vdu_18(const uint8_t *buf);
+static void vdu_19(const uint8_t *buf);
+static void vdu_20(const uint8_t *buf);
+static void vdu_22(const uint8_t *buf);
+static void vdu_23(const uint8_t *buf);
+static void vdu_24(const uint8_t *buf);
+static void vdu_25(const uint8_t *buf);
+static void vdu_26(const uint8_t *buf);
+static void vdu_27(const uint8_t *buf);
+static void vdu_28(const uint8_t *buf);
+static void vdu_29(const uint8_t *buf);
+static void vdu_nop(const uint8_t *buf);
+static void vdu_default(const uint8_t *buf);
 
 static vdu_operation_t vdu_operation_table[256] = {
    // Entries 8-13,30,31,127 are filled in by VDU 4/5
@@ -641,7 +641,7 @@ static void text_cursor_home() {
    update_cursors();
 }
 
-static void text_cursor_tab(uint8_t *buf) {
+static void text_cursor_tab(const uint8_t *buf) {
    uint8_t x = buf[1];
    uint8_t y = buf[2];
 #ifdef DEBUG_VDU
@@ -726,7 +726,7 @@ static void graphics_cursor_home() {
    g_y_pos = g_window.top;
 }
 
-static void graphics_cursor_tab(uint8_t *buf) {
+static void graphics_cursor_tab(const uint8_t *buf) {
    uint8_t x = buf[1];
    uint8_t y = buf[2];
 #ifdef DEBUG_VDU
@@ -770,37 +770,37 @@ static void vdu23_1(const uint8_t *buf) {
    update_cursors();
 }
 
-static void vdu23_2(uint8_t *buf) {
+static void vdu23_2(const uint8_t *buf) {
    // VDU 23,2: Set ECF1 Pattern
    prim_set_ecf_pattern(screen, 0, buf + 1);
 }
 
-static void vdu23_3(uint8_t *buf) {
+static void vdu23_3(const uint8_t *buf) {
    // VDU 23,3: Set ECF2 Pattern
    prim_set_ecf_pattern(screen, 1, buf + 1);
 }
 
-static void vdu23_4(uint8_t *buf) {
+static void vdu23_4(const uint8_t *buf) {
    // VDU 23,4: Set ECF3 Pattern
    prim_set_ecf_pattern(screen, 2, buf + 1);
 }
 
-static void vdu23_5(uint8_t *buf) {
+static void vdu23_5(const uint8_t *buf) {
    // VDU 23,5: Set ECF4 Pattern
    prim_set_ecf_pattern(screen, 3, buf + 1);
 }
 
-static void vdu23_6(uint8_t *buf) {
+static void vdu23_6(const uint8_t *buf) {
    // VDU 23,6: Set Dot Pattern
    prim_set_dot_pattern(screen, buf + 1);
 }
 
-static void vdu23_7(uint8_t *buf) {
+static void vdu23_7(const uint8_t *buf) {
    // VDU 23,7,extent,direction,movement,0,0,0,0,0 (Scroll rectangle)
    // TODO
 }
 
-static void vdu23_8(uint8_t *buf) {
+static void vdu23_8(const uint8_t *buf) {
    // VDU 23,8,t1,t2,x1,y1,x2,x2,0,0 (Clear Block)
    // TODO
 }
@@ -815,34 +815,34 @@ static void vdu23_10(const uint8_t *buf) {
    flash_space_time = buf[1];
 }
 
-static void vdu23_11(uint8_t *buf) {
+static void vdu23_11(const uint8_t *buf) {
    // VDU 23,11: Set Default ECF Patterns
    prim_set_ecf_default(screen);
    // Also sets the ECF Mode back to legacy BBC/Master
    prim_set_ecf_mode(screen, 0);
 }
 
-static void vdu23_12(uint8_t *buf) {
+static void vdu23_12(const uint8_t *buf) {
    // VDU 23,12: Set ECF1 Pattern to a simple 2x4 pattern
    prim_set_ecf_simple(screen, 0, buf + 1);
 }
 
-static void vdu23_13(uint8_t *buf) {
+static void vdu23_13(const uint8_t *buf) {
    // VDU 23,13: Set ECF2 Pattern to a simple 2x4 pattern
    prim_set_ecf_simple(screen, 1, buf + 1);
 }
 
-static void vdu23_14(uint8_t *buf) {
+static void vdu23_14(const uint8_t *buf) {
    // VDU 23,14: Set ECF3 Pattern to a simple 2x4 pattern
    prim_set_ecf_simple(screen, 2, buf + 1);
 }
 
-static void vdu23_15(uint8_t *buf) {
+static void vdu23_15(const uint8_t *buf) {
    // VDU 23,15: Set ECF4 Pattern to a simple 2x4 pattern
    prim_set_ecf_simple(screen, 3, buf + 1);
 }
 
-static void vdu23_17(uint8_t *buf) {
+static void vdu23_17(const uint8_t *buf) {
    // vdu 23,17: Set subsidiary colour effects
    switch (buf[1]) {
    case 0:
@@ -894,7 +894,7 @@ static void vdu23_17(uint8_t *buf) {
    }
 }
 
-static void vdu23_19(uint8_t *buf) {
+static void vdu23_19(const uint8_t *buf) {
    // Select Custom Font and/or Custom Font Metrics
    // VDU 23,19,0,<font number>,0,0,0,0,0,0
    // VDU 23,19,0,<font number>,<h scale>,<v_scale>,<h_spacing>,<v_spacing>,<rounding>,0
@@ -915,7 +915,6 @@ static void vdu23_19(uint8_t *buf) {
 
    if (buf[0] >= 'A' && buf[0] <= 'Z') {
       // Select the font by name (up to 8 upper case characters)
-      buf[8] = 0;
       font = get_font_by_name((char *)buf);
       if (font != NULL) {
          screen->font = font;
@@ -999,7 +998,7 @@ static void vdu23_22(const uint8_t *buf) {
    fb_custom_mode(x_pixels, y_pixels, n_colours);
 }
 
-static void vdu23_27(uint8_t *buf) {
+static void vdu23_27(const uint8_t *buf) {
    // VDU 23,27,0,N,0,0,0,0,0,0 - select sprite to be plotted
    // VDU 23,27,1,N,0,0,0,0,0,0 - define sprite
    if (buf[1] == 0) {
@@ -1018,7 +1017,7 @@ static void vdu23_27(uint8_t *buf) {
 // VDU commands
 // ==========================================================================
 
-static void vdu_4(uint8_t *buf) {
+static void vdu_4(const uint8_t *buf) {
    text_at_g_cursor = 0;
    vdu_operation_table[  8].handler = text_cursor_left;
    vdu_operation_table[  9].handler = text_cursor_right;
@@ -1032,7 +1031,7 @@ static void vdu_4(uint8_t *buf) {
    enable_cursors();
 }
 
-static void vdu_5(uint8_t *buf) {
+static void vdu_5(const uint8_t *buf) {
    disable_cursors();
    vdu_operation_table[  8].handler = graphics_cursor_left;
    vdu_operation_table[  9].handler = graphics_cursor_right;
@@ -1046,11 +1045,11 @@ static void vdu_5(uint8_t *buf) {
    text_at_g_cursor = 1;
 }
 
-static void vdu_16(uint8_t *buf) {
+static void vdu_16(const uint8_t *buf) {
    prim_clear_graphics_area(screen);
 }
 
-static void vdu_17(uint8_t *buf) {
+static void vdu_17(const uint8_t *buf) {
    uint8_t col = (uint8_t)(buf[1] & COLOUR_MASK & screen->ncolour);
    if (buf[1] & 128) {
       c_bg_gcol = col;
@@ -1067,7 +1066,7 @@ static void vdu_17(uint8_t *buf) {
    }
 }
 
-static void vdu_18(uint8_t *buf) {
+static void vdu_18(const uint8_t *buf) {
    uint8_t mode = buf[1];
    uint8_t col = (uint8_t)(buf[2] & COLOUR_MASK & screen->ncolour);
    if (buf[2] & 128) {
@@ -1081,7 +1080,7 @@ static void vdu_18(uint8_t *buf) {
    }
 }
 
-static void vdu_19(uint8_t *buf) {
+static void vdu_19(const uint8_t *buf) {
    uint8_t l = buf[1];
    uint8_t p = buf[2];
    uint8_t r = buf[3];
@@ -1114,12 +1113,12 @@ static void vdu_19(uint8_t *buf) {
    screen->update_palette(screen, -1);
 }
 
-static void vdu_20(uint8_t *buf) {
+static void vdu_20(const uint8_t *buf) {
    screen->reset(screen);
    set_default_colours();
 }
 
-static void vdu_22(uint8_t *buf) {
+static void vdu_22(const uint8_t *buf) {
    uint8_t mode = buf[1] & 0x7F; // Map MODE 128 to MODE 0, etc
    screen_mode_t *new_screen = get_screen_mode(mode);
    if (new_screen != NULL) {
@@ -1129,7 +1128,7 @@ static void vdu_22(uint8_t *buf) {
    }
 }
 
-static void vdu_23(uint8_t *buf) {
+static void vdu_23(const uint8_t *buf) {
 #ifdef DEBUG_VDU
    for (int i = 0; i < 10; i++) {
       printf("%X", buf[i]);
@@ -1165,7 +1164,7 @@ static void vdu_23(uint8_t *buf) {
    }
 }
 
-static void vdu_24(uint8_t *buf) {
+static void vdu_24(const uint8_t *buf) {
    g_clip_window_t window;
    window.left   = (int16_t)(buf[1] + (buf[2] << 8));
    window.bottom = (int16_t)(buf[3] + (buf[4] << 8));
@@ -1185,7 +1184,7 @@ static void vdu_24(uint8_t *buf) {
 }
 
 
-static void vdu_25(uint8_t *buf) {
+static void vdu_25(const uint8_t *buf) {
    int skew;
    uint8_t g_mode = buf[1];
    int16_t x = (int16_t)(buf[2] + (buf[3] << 8));
@@ -1342,11 +1341,11 @@ static void vdu_25(uint8_t *buf) {
    }
 }
 
-static void vdu_26(uint8_t *buf) {
+static void vdu_26(const uint8_t *buf) {
    reset_areas();
 }
 
-static void vdu_27(uint8_t *buf) {
+static void vdu_27(const uint8_t *buf) {
    uint8_t c = buf[1];
    switch (c) {
    case 136:
@@ -1366,7 +1365,7 @@ static void vdu_27(uint8_t *buf) {
    }
 }
 
-static void vdu_28(uint8_t *buf) {
+static void vdu_28(const uint8_t *buf) {
    // left, bottom, right, top
    t_clip_window_t window = {buf[1], buf[2], buf[3], buf[4]};
    set_text_area(&window);
@@ -1376,7 +1375,7 @@ static void vdu_28(uint8_t *buf) {
 #endif
 }
 
-static void vdu_29(uint8_t *buf) {
+static void vdu_29(const uint8_t *buf) {
    g_x_origin = (int16_t)(buf[1] + (buf[2] << 8));
    g_y_origin = (int16_t)(buf[3] + (buf[4] << 8));
 #ifdef DEBUG_VDU
@@ -1385,10 +1384,10 @@ static void vdu_29(uint8_t *buf) {
 }
 
 
-static void vdu_nop(uint8_t *buf) {
+static void vdu_nop(const uint8_t *buf) {
 }
 
-static void vdu_default(uint8_t *buf) {
+static void vdu_default(const uint8_t *buf) {
    uint8_t c = buf[0];
    if (text_at_g_cursor) {
       // Draw the character at the graphics cursor (VDU 5 mode)

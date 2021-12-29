@@ -72,7 +72,7 @@ static void tt_clear          (screen_mode_t *screen, t_clip_window_t *text_wind
 static void tt_scroll         (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
 static void tt_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
 static int  tt_read_character (screen_mode_t *screen, int col, int row, pixel_t bg_col);
-static void tt_unknown_vdu    (screen_mode_t *screen, uint8_t *buf);
+static void tt_unknown_vdu    (screen_mode_t *screen, const uint8_t *buf);
 
 // Screen Mode Definition
 static screen_mode_t teletext_screen_modes[] = {
@@ -572,7 +572,7 @@ static void set_reveal(screen_mode_t *screen, int mode, int mask) {
    }
 }
 
-static void tt_unknown_vdu(screen_mode_t *screen, uint8_t *buf) {
+static void tt_unknown_vdu(screen_mode_t *screen, const uint8_t *buf) {
    if (buf[0] == 23 && buf[1] == 18) {
       switch (buf[2]) {
       case 2:

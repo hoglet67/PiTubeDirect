@@ -127,7 +127,7 @@ static inline uint16_t combine_rows(uint16_t a, uint16_t b) {
     return (uint16_t)(a | ((a >> 1) & b & ~(b >> 1)) | ((a << 1) & b & ~(b << 1)));
 }
 
-static void copy_font_character(font_t *font, uint8_t *src, int c, int is_graphics) {
+static void copy_font_character(font_t *font, const  uint8_t *src, int c, int is_graphics) {
    if (c > font->num_chars) {
       return;
    }
@@ -370,7 +370,7 @@ font_t *get_font_by_number(uint32_t num) {
 font_t *get_font_by_name(char *name) {
    uint32_t num = DEFAULT_FONT;
    for (uint32_t i = 0; i < NUM_FONTS; i++) {
-      if (!strcasecmp(name, font_catalog[i].name)) {
+      if (!strncasecmp(name, font_catalog[i].name, 8)) {
          num = i;
          break;
       }
@@ -379,6 +379,6 @@ font_t *get_font_by_name(char *name) {
    return initialize_font(font, num);
 }
 
-void define_character(font_t *font, uint8_t c, uint8_t *data) {
+void define_character(font_t *font, uint8_t c, const  uint8_t *data) {
    copy_font_character(font, data, c, 0);
 }

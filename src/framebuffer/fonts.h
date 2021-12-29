@@ -58,6 +58,6 @@ font_t *get_font_by_number(uint32_t num);
 
 font_t *get_font_by_name(char *name);
 
-void define_character(font_t *font, uint8_t c, uint8_t *data);
+void define_character(font_t *font, uint8_t c, const uint8_t *data);
 
 #endif

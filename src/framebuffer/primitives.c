@@ -674,7 +674,7 @@ void prim_set_ecf_origin(screen_mode_t *screen, int16_t x, int16_t y) {
    g_ecf_origin_y = y;
 }
 
-void prim_set_ecf_pattern(screen_mode_t *screen, int num, uint8_t *pattern) {
+void prim_set_ecf_pattern(screen_mode_t *screen, int num, const  uint8_t *pattern) {
    // The pattern starts with the top row, which has the largest Y value
    pixel_t *ptr = g_ecf_pattern[num] + 8 * 7;
    // Expand pattern into array of pixels_t values
@@ -737,7 +737,7 @@ void prim_set_ecf_pattern(screen_mode_t *screen, int num, uint8_t *pattern) {
    }
 }
 
-void prim_set_ecf_simple(screen_mode_t *screen, int num, uint8_t *pattern) {
+void prim_set_ecf_simple(screen_mode_t *screen, int num, const uint8_t *pattern) {
    // The pattern starts with the top row, which has the largest Y value
    // p0 p1
    // p2 p3
@@ -799,9 +799,9 @@ void prim_set_ecf_default(screen_mode_t *screen) {
    }
 }
 
-void prim_set_dot_pattern(screen_mode_t *screen, uint8_t *pattern) {
+void prim_set_dot_pattern(screen_mode_t *screen, const uint8_t *pattern) {
    // Expand the pattern into one byte per pixel for efficient access
-   uint8_t *ptr = pattern;
+   const uint8_t *ptr = pattern;
    uint8_t mask = 0x80;
    int last_dot = -1;
    for (int i = 0; i < sizeof(g_dot_pattern); i++) {
