@@ -11,8 +11,8 @@
 // transfer.
 
 // #define BAS135H_ROM
-
-#define ARM_BASIC_START (0x0C800000)
+extern unsigned int _start ;
+#define ARM_BASIC_START (_start-0x00C00000)
 
 // Note, the two version have slightly different start addresses
 #ifdef BAS135H_ROM
