@@ -5,4 +5,7 @@
 
 #define RELEASENAME "Indigo-dev"
 
+// If defined, the doorbell is used rather then the mailbox
+#define USE_DOORBELL
+
 #endif
