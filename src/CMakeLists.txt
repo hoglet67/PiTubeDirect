@@ -71,7 +71,6 @@ set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.
 
 
 file( GLOB core_files
-    armc-cstartup.c
     armc-cstubs.c
     armc-start.S
     copro-defs.c

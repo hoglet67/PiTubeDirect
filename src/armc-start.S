@@ -52,6 +52,8 @@
 .section ".text.startup"
 
 .global _start
+.global __bss_start__
+.global __bss_end__
 .global _get_cpsr
 .global _get_stack_pointer
 .global _exception_table
@@ -236,7 +238,17 @@ _reset_continue:
     // declaration) and initialise the bss section variables to 0 (generally
     // known as automatics). It'll then call main
 
-    b      _cstartup
+    // clear bss section here using fast clear otherwise C will use 
+    // memset which uses byte writes
+    // As _fast_clear round lengths down to 64 byte boundarys we need to
+    // round up. It doesn't matter if we go too far as we just zero part of the heap. 
+    push    {r0-r3}
+    ldr     r0,=__bss_start__
+    ldr     r1,=__bss_end__+64
+    sub     r1,r1,r0
+    BL      _fast_clear
+    pop     {r0-r3}
+    b       kernel_main
 
 
 .section ".text._get_stack_pointer"
