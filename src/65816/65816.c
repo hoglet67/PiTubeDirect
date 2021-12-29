@@ -5,6 +5,7 @@
   Originally from Snem, with some bugfixes*/
 
 #include <stdio.h>
+#include <inttypes.h>
 #include "65816.h"
 
 #include "../tube-ula.h"

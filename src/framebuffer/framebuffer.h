@@ -1,7 +1,7 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 
-#include <inttypes.h>
+#include <stdint.h>
 
 #include "screen_modes.h"
 

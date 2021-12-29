@@ -3,7 +3,7 @@
 
 // Use this to enable full 64KWord addressing rather than F100's limited 64KWords
 //#define F200
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include "../tube.h"
 #include "../copro-f100.h"

@@ -24,8 +24,6 @@
 #define M6809_H
 
 #include <stdio.h>
-//#include <stdlib.h>
-//#include <string.h>
 #include <stdint.h>
 
 typedef uint16_t target_addr_t;

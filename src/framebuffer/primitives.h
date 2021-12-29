@@ -1,7 +1,7 @@
 #ifndef _PRIMITIVES_H
 #define _PRIMITIVES_H
 
-#include <inttypes.h>
+#include <stdint.h>
 #include "screen_modes.h"
 
 typedef enum {

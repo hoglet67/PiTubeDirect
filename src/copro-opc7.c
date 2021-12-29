@@ -8,6 +8,7 @@
 #include <string.h>
 #include "tube-client.h"
 #include "tube-ula.h"
+#include "tube.h"
 #include "opc7/opc7.h"
 #include "opc7/tuberom.h"
 #include "copro-opc7.h"

@@ -3,7 +3,7 @@
 #ifndef OPC6_H
 #define OPC6_H
 
-#include <inttypes.h>
+#include <stdint.h>
 
 void opc6_init(uint16_t *memory, uint16_t pc_rst, uint16_t pc_irq0, uint16_t pc_irq1);
 void opc6_execute();

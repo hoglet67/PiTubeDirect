@@ -26,8 +26,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
-#include <stdio.h>
-#include <stdint.h>
+
 #include "darm-tbl.h"
 const char *darm_mnemonics[] = {
     "INVLD", "ADC", "ADD", "ADDW", "ADR", "AND", "ASR", "B", "BFC", "BFI",

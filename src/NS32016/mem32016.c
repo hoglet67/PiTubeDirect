@@ -28,6 +28,7 @@ static uint8_t ns32016ram[MEG16];
 
 #include "../tube-client.h"
 #include "../tube-ula.h"
+#include "../tube.h"
 static uint8_t * ns32016ram;
 
 #endif

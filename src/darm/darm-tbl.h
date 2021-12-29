@@ -28,7 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #ifndef __DARM_TBL__
 #define __DARM_TBL__
-#include <stdint.h>
 typedef enum _darm_enctype_t {
     // info:
     // Invalid or non-existent type

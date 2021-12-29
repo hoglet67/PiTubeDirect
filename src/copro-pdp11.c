@@ -8,6 +8,7 @@
 #include <string.h>
 #include "tube-client.h"
 #include "tube-ula.h"
+#include "tube.h"
 #include "pdp11/pdp11.h"
 #include "pdp11/tuberom.h"
 #include "copro-pdp11.h"

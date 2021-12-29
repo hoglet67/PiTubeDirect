@@ -1,7 +1,7 @@
 #ifndef _SCREEN_MODE_H
 #define _SCREEN_MODE_H
 
-#include <inttypes.h>
+#include <stdint.h>
 
 // Default screen mode
 // 640x512 256 colours (80x64 text)

@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <setjmp.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "copro-armnative.h"
 #include "armbasic.h"

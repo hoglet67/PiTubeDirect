@@ -3,7 +3,7 @@
 #ifndef OPC5LS_H
 #define OPC5LS_H
 
-#include <inttypes.h>
+#include <stdint.h>
 
 void opc5ls_init(uint16_t *memory, uint16_t pc_rst, uint16_t pc_irq);
 void opc5ls_execute();

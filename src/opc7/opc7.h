@@ -3,7 +3,7 @@
 #ifndef OPC7_H
 #define OPC7_H
 
-#include <inttypes.h>
+#include <stdint.h>
 
 void opc7_init(uint32_t *memory, uint32_t pc_rst, uint32_t pc_irq0, uint32_t pc_irq1);
 void opc7_execute();

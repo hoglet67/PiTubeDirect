@@ -1,7 +1,6 @@
 #ifndef __m6502_h
 #define __m6502_h
 
-#include <stdio.h>
 #include <stdint.h>
 
 // Define TURBO to compile in Acorn "6502 turbo" extensions

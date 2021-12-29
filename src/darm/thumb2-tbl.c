@@ -26,8 +26,6 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
-#include <stdio.h>
-#include <stdint.h>
 #include "thumb2-tbl.h"
 darm_instr_t thumb2_instr_labels[] = {
     I_ADC, I_ADC, I_WFE, I_WFI, I_SEV, I_NOP, I_SUB, I_LDR, I_ROR, I_LSR,
