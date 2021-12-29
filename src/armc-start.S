@@ -503,10 +503,10 @@ _fast_scroll:
         bic     r2, r2, #0x4F
 _fast_scroll_loop:
         ldmia   r1!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        subs    r2, r2, #64
         stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
         ldmia   r1!,{r3, r4, r5, r6, r8, r9, r10, r11}
         stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
-        subs    r2, r2, #64
         bne     _fast_scroll_loop
         pop     {r4, r5, r6, r8, r9, r10, r11, pc}
 
@@ -528,8 +528,8 @@ _fast_clear:
         bic     r2, r2, #0x3F
 _fast_clear_loop:
         stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
-        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
         subs    r2, r2, #64
+        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
         bne     _fast_clear_loop
         pop     {r4, r5, r6, r8, r9, r10, r11, pc}
 
