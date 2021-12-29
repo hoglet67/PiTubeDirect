@@ -3,7 +3,6 @@
 #ifndef TUBE_H
 #define TUBE_H
 
-#include <inttypes.h>
 #include "tube-irqbits.h"
 
 extern volatile unsigned int copro;
@@ -31,6 +30,5 @@ extern volatile int tube_irq;
 //#define tubeUseCycles(n)  tube_cycles -= n
 //
 //}
-
 
 #endif
