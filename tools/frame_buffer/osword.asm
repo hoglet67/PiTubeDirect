@@ -49,14 +49,14 @@ guard &300
     ;; as these are very unlikely to be emitted by the POS commands that read back POS
     CMP #32         ; Set C=1 if printable char (i.e. space or greater)
     BCC write_fifo
-    INC &0318       ; printable char, so increment POS by one
-    LDA &0318       ; compare POS to the window width
-    CMP &030A       ; compare to Window Right
-    BCC write_fifo  ; Still within window?
+    INC &0318       ; printable char, so increment Xcursor (which is absolute)
+    LDA &030A       ; load window right
+    CMP &0318       ; compare with Xcussor
+    BCS write_fifo  ; Still within window? (i.e. window right >= Xcursor)
 .zero_pos
-    ;; Zero pos (cursor in left most column)
-    LDA &0308
-    STA &0318
+    ;; Zero pos (put X cursor in left most column)
+    LDA &0308       ; load window left
+    STA &0318       ; store in Xcursor
 .write_fifo
     ;; Select the VDU FIFO at &FEE4
     LDA #&03
