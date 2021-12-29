@@ -8,7 +8,7 @@
 #include "../info.h"
 #include "../rpi-armtimer.h"
 #include "../rpi-aux.h"
-#include "../rpi-gpio.h"
+#include "../rpi-base.h"
 #include "../rpi-interrupts.h"
 #include "../startup.h"
 #include "../tube-defs.h"
@@ -974,12 +974,14 @@ static void vdu23_19(uint8_t *buf) {
       }
    }
 #ifdef DEBUG_VDU
-   // cppcheck-suppress nullPointerRedundantCheck
+   if (font != NULL)
+   {
    printf("    Font name: %s\r\n",    font->get_name(font));
    printf("  Font number: %"PRId32"\r\n",    font->get_number(font));
    printf("   Font scale: %d,%d\r\n", font->get_scale_w(font),   font->get_scale_h(font));
    printf(" Font spacing: %d,%d\r\n", font->get_spacing_w(font), font->get_spacing_h(font));
    printf("Font rounding: %d\r\n",    font->get_rounding(font));
+   }
 #endif
    // As the font metrics have changed, update text area
    update_text_area();
