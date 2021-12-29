@@ -404,7 +404,8 @@ SWIDescriptor_Type os_table[] = {
    {NULL,                      NULL},                         // &FC
    {NULL,                      NULL},                         // &FD
    {NULL,                      NULL},                         // &FE
-   {NULL,                      NULL}                          // &FF
+   {NULL,                      NULL},                         // &FF
+   {NULL,                      "WriteI"}                      // 0x100
 };
 
 SWIDescriptor_Type basictrans_table[] = {
@@ -715,6 +716,7 @@ static char *write_string(char *ptr) {
 // OSFILE   R2: &14 block string &0D A            A block
 // OSGBPB   R2: &16 block A                       block Cy A
 
+// cppcheck-suppress constParameter
 static void tube_WriteC(unsigned int *reg) {
   sendByte(R1_ID, (unsigned char)((reg[0]) & 0xff));
 }
@@ -1282,8 +1284,7 @@ static void tube_BASICTrans_Message(unsigned int *reg) {
 }
 
 static void tube_SWI_NumberFromString(unsigned int *reg) {
-   char mod_name[SWI_NAME_LEN];
-   char swi_name[SWI_NAME_LEN];
+   char name[SWI_NAME_LEN];
    unsigned int i;
    unsigned int x_flag = 0;
 
@@ -1299,47 +1300,42 @@ static void tube_SWI_NumberFromString(unsigned int *reg) {
    // Copy the base part of the name, stopping at the first _ or an illegal character
    i = 0;
    while (i < SWI_NAME_LEN - 1 && *ptr > 0x20 && *ptr < 0x7F && *ptr != '_') {
-      mod_name[i++] = *ptr++;
+      name[i++] = *ptr++;
    }
-   mod_name[i] = 0;
+   name[i] = 0;
 
    if (*ptr == '_') {
 
       ptr++;
 
-      i = 0;
-      while (i < SWI_NAME_LEN - 1 && *ptr > 0x20 && *ptr < 0x7F) {
-         swi_name[i++] = *ptr++;
-      }
-      swi_name[i] = 0;
-
       for (unsigned int m = 0; m < NUM_MODULES; m++) {
          module_t *module = module_list[m];
 
          // Check i fthe module name (OS, ColourTrans, ...) matches
-         if (!strcmp(mod_name, module->name)) {
+         if (!strcmp(name, module->name)) {
+
+            i = 0;
+            while (i < SWI_NAME_LEN - 1 && *ptr > 0x20 && *ptr < 0x7F) {
+              name[i++] = *ptr++;
+            }
+            name[i] = 0;
 
             // Search for the swi name in the module's swi handler table
             for (i = 0; i <= module->swi_num_max - module->swi_num_min; i++) {
-               if (!strcmp(swi_name, module->swi_table[i].name)) {
+               if (!strcmp(name, module->swi_table[i].name)) {
                   reg[0] = x_flag + module->swi_num_min + i;
                   return;
                }
             }
+            break;
          }
       }
 
-      // Special case OS_WriteI as they are not in the handler table
-      //
       // To be consistent with Risc OS, the following forms are not recognised:
       //   OS_WriteI+13
       //   OS_WriteI+" "
       //   OS_WriteI+"A"
       // i.e. Only OS_WriteI -> 0x100 is handled
-      if (!strcmp(mod_name, "OS") && !strcmp(swi_name, "WriteI")) {
-         reg[0] = x_flag + 0x100;
-         return;
-      }
    }
 
    // Generate an error if name not found
