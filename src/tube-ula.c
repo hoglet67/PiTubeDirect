@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include "tube-pins.h"
+#include "tube-defs.h"
 #include "tube-debug.h"
 #include "tube.h"
 #include "tube-ula.h"

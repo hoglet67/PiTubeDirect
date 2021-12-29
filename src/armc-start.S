@@ -27,8 +27,6 @@
 
 //  Relocate to 228MB
 
-#include "tube-defs.h"
-
 .equ    STACK_SIZE,           0x00080000
 
 .equ    C0_SVR_STACK,        0

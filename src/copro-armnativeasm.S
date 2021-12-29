@@ -1,4 +1,4 @@
-#include "rpi-base.h"
+#include "rpi-base-asm.h"
 #include "tube-defs.h"
 #include "copro-armnative.h"
 #include "rpi-mailboxregs.h"

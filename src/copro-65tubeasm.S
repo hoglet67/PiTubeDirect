@@ -141,8 +141,6 @@
 // Check for IRQs enabled ( R4)
 // if so check if we have an IRQ
 
-#include "tube-defs.h"
-
 .text
 .global exec_65tube
 

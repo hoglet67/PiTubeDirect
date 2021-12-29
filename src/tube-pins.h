@@ -1,7 +1,7 @@
 // If defined, the doorbell is used rather then the mailbox
 #define USE_DOORBELL
 
-#include "rpi-base.h"
+#include "rpi-base-asm.h"
 
 #ifdef __ASSEMBLER__
 

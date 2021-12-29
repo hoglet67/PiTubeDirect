@@ -46,6 +46,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 #include "tube-pins.h"
 #include "rpi-mailboxregs.h"
 #include "tube-irqbits.h"
+
+#include "tube-defs.h"
 // Registers used in 6502 world
 
 #define reg0      r0

@@ -31,32 +31,7 @@
 #ifndef RPI_BASE_H
 #define RPI_BASE_H
 
-#ifdef __ASSEMBLER__
-
-#if defined(RPI2) || defined(RPI3)
-    #define PERIPHERAL_BASE     0x3F000000
-#else
-
-#if defined(RPI4)
-    #define PERIPHERAL_BASE     0xFE000000
-#else
-
-    #define PERIPHERAL_BASE     0x20000000
-#endif
-#endif
-
-#else
-
-#if defined(RPI2) || defined(RPI3)
-    #define PERIPHERAL_BASE     0x3F000000UL
-#else
-#if defined(RPI4)
-    #define PERIPHERAL_BASE     0xFE000000UL
-#else
-
-    #define PERIPHERAL_BASE     0x20000000UL
-#endif
-#endif
+#include "rpi-base-asm.h"
 
 #include <stdint.h>
 
@@ -66,7 +41,5 @@ typedef volatile uint32_t rpi_reg_wo_t;
 
 typedef volatile uint64_t rpi_wreg_rw_t;
 typedef volatile const uint64_t rpi_wreg_ro_t;
-
-#endif
 
 #endif
