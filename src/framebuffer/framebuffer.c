@@ -1054,13 +1054,13 @@ static void vdu_17(uint8_t *buf) {
       c_bg_gcol = col;
       c_bg_col = calculate_colour(c_bg_gcol, c_bg_tint);
 #ifdef DEBUG_VDU
-      printf("bg = %lx\r\n", c_bg_col);
+      printf("bg = "PRIx32"\r\n", c_bg_col);
 #endif
    } else {
       c_fg_gcol = col;             ;
       c_fg_col = calculate_colour(c_fg_gcol, c_fg_tint);
 #ifdef DEBUG_VDU
-      printf("fg = %lx\r\n", c_fg_col);
+      printf("fg ="PRIx32"\r\n", c_fg_col);
 #endif
    }
 }
