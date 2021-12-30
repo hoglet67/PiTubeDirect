@@ -367,7 +367,7 @@ font_t *get_font_by_number(uint32_t num) {
    return initialize_font(font, num);
 }
 
-font_t *get_font_by_name(char *name) {
+font_t *get_font_by_name(const char *name) {
    uint32_t num = DEFAULT_FONT;
    for (uint32_t i = 0; i < NUM_FONTS; i++) {
       if (!strncasecmp(name, font_catalog[i].name, 8)) {

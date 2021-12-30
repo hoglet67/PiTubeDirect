@@ -915,7 +915,7 @@ static void vdu23_19(const uint8_t *buf) {
 
    if (buf[0] >= 'A' && buf[0] <= 'Z') {
       // Select the font by name (up to 8 upper case characters)
-      font = get_font_by_name((char *)buf);
+      font = get_font_by_name((const char *)buf);
       if (font != NULL) {
          screen->font = font;
       }
