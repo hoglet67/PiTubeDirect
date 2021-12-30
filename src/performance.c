@@ -124,9 +124,9 @@ static const char * type_names[] = {
 
 #endif
 
-static const char *type_lookup(int type) {
+static const char *type_lookup(unsigned int type) {
    int num_types = sizeof(type_names) / sizeof(type_names[0]);
-   if (type >= 0 && type < num_types) {
+   if (type < num_types) {
       return type_names[type];
    } else {
       return "UNKNOWN";
@@ -246,8 +246,6 @@ int benchmark() {
    pct.type[0] = PERF_TYPE_I_CACHE_MISS;
    pct.type[1] = PERF_TYPE_D_CACHE_MISS;
 #endif
-   pct.type[0] = PERF_TYPE_I_CACHE_MISS;
-   pct.type[1] = PERF_TYPE_D_CACHE_MISS;
    printf("benchmarking core....\r\n");
    reset_performance_counters(&pct);
    // These only work on Pi 1
