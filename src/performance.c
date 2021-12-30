@@ -140,19 +140,17 @@ void reset_performance_counters(perf_counters_t *pct) {
    // bit 2 = 1 means reset cycle counter to zero
    // bit 1 = 1 means reset counters to zero
    // bit 0 = 1 enable counters
-   unsigned ctrl = 0x0F;
-
+   unsigned int ctrl = 0x0F;
 
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
-   int i;
-   unsigned cntenset = (1U << 31);
+   unsigned int cntenset = (1U << 31);
 
-   unsigned type_impl;
+   unsigned int type_impl;
 
    // Read the common event identification register to see test whether the requested event is implemented
    asm volatile ("mrc p15,0,%0,c9,c12,6" : "=r" (type_impl));
 
-   for (i = 0; i < pct->num_counters; i++) {
+   for (unsigned int i = 0; i < pct->num_counters; i++) {
       if ((type_impl >> pct->type[i]) & 1) {
          // Select the event count/type via the event type selection register
          asm volatile ("mcr p15,0,%0,c9,c12,5" :: "r" (i) : "memory");
@@ -170,17 +168,17 @@ void reset_performance_counters(perf_counters_t *pct) {
    // Enable the counters
    asm volatile ("mcr p15,0,%0,c9,c12,1" :: "r" (cntenset) : "memory");
 #else
+
    // Only two counters (0 and 1) are supported on the arm11
-   ctrl |= (uint32_t)(pct->type[0] << 20);
-   ctrl |= (uint32_t)(pct->type[1] << 12);
+   ctrl |= pct->type[0] << 20;
+   ctrl |= pct->type[1] << 12;
    asm volatile ("mcr p15,0,%0,c15,c12,0" :: "r" (ctrl) : "memory");
 #endif
 }
 
 void read_performance_counters(perf_counters_t *pct) {
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
-   int i;
-   for (i = 0; i < pct->num_counters; i++) {
+   for( unsigned int i = 0; i < pct->num_counters; i++) {
       // Select the event count/type via the event type selection register
       asm volatile ("mcr p15,0,%0,c9,c12,5" :: "r" (i) : "memory");
       // Read the required event count
@@ -226,11 +224,12 @@ int benchmark() {
    int total;
    int size;
    perf_counters_t pct;
-   unsigned char * mem1 = ( char* )1024*1024; //[1024*1024];
-   unsigned char * mem2 = ( char* )2048*1024; //[1024*1024];
+   unsigned char * mem1 = ( char* )1024*1024;
+   unsigned char * mem2 = ( char* )2048*1024;
    mem2[0]=0;
+   pct.num_counters = MAX_COUNTERS;
+
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
-   pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
    pct.type[1] = PERF_TYPE_L1I_CACHE_REFILL;
    pct.type[2] = PERF_TYPE_L1D_CACHE;
@@ -244,11 +243,11 @@ int benchmark() {
    pct.counter[4] = 104;
    pct.counter[5] = 105;
 #else
-   pct.num_counters = 2;
    pct.type[0] = PERF_TYPE_I_CACHE_MISS;
    pct.type[1] = PERF_TYPE_D_CACHE_MISS;
 #endif
-
+   pct.type[0] = PERF_TYPE_I_CACHE_MISS;
+   pct.type[1] = PERF_TYPE_D_CACHE_MISS;
    printf("benchmarking core....\r\n");
    reset_performance_counters(&pct);
    // These only work on Pi 1

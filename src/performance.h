@@ -75,10 +75,10 @@
 #endif
 
 typedef struct {
-   unsigned cycle_counter;
-   int num_counters;
-   int type[MAX_COUNTERS];
-   unsigned counter[MAX_COUNTERS];
+   unsigned int cycle_counter;
+   unsigned int num_counters;
+   unsigned int type[MAX_COUNTERS];
+   unsigned int counter[MAX_COUNTERS];
 } perf_counters_t;
 
 extern void reset_performance_counters(perf_counters_t *pct);
