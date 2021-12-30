@@ -219,9 +219,3 @@ void RPI_AuxMiniUartWrite(char c)
 #endif
 }
 
-extern void RPI_EnableUart(const char* pMessage)
-{
-  RPI_AuxMiniUartInit(115200, 8);          // Initialise the UART
-
-  printf(pMessage);
-}
