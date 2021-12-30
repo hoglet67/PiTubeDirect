@@ -218,4 +218,3 @@ void RPI_AuxMiniUartWrite(char c)
   auxiliary->MU_IO = c;
 #endif
 }
-
