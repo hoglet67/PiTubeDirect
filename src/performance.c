@@ -226,8 +226,8 @@ int benchmark() {
    int total;
    int size;
    perf_counters_t pct;
-   unsigned char mem1[1024*1024];
-   unsigned char mem2[1024*1024];
+   unsigned char * mem1 = ( char* )1024*1024; //[1024*1024];
+   unsigned char * mem2 = ( char* )2048*1024; //[1024*1024];
    mem2[0]=0;
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
    pct.num_counters = 6;
