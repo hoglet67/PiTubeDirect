@@ -24,11 +24,10 @@ typedef enum {
 
 /* These defines come from the Broadcom Videocode driver source code, see:
    brcm_usrlib/dag/vmcsx/vcinclude/bcm2708_chip/arm_control.h */
-enum mailbox_status_reg_bits {
-    ARM_MS_FULL  = 0x80000000,
-    ARM_MS_EMPTY = 0x40000000,
-    ARM_MS_LEVEL = 0x400000FF,
-};
+
+#define ARM_MS_FULL   0x80000000
+#define ARM_MS_EMPTY  0x40000000
+#define ARM_MS_LEVEL  0x400000FF
 
 /* Define a structure which defines the register access to a mailbox.
    Not all mailboxes support the full register set! */
