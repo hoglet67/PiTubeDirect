@@ -114,7 +114,7 @@ unsigned long int count_p = 0;
 unsigned int tube_index;
 unsigned int tube_buffer[0x10000];
 
-void tube_dump_buffer() {
+static void tube_dump_buffer() {
    int i;
    LOG_INFO("tube_index = %u\r\n", tube_index);
    for (i = 0; i < tube_index; i++) {
@@ -133,7 +133,7 @@ void tube_dump_buffer() {
    }
 }
 
-void tube_reset_buffer() {
+static void tube_reset_buffer() {
    int i;
    tube_index = 0;
    for (i = 0; i < 0x10000; i++) {
