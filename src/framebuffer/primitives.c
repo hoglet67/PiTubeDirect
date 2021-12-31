@@ -135,7 +135,7 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
       plotmode = g_bg_plotmode;
       colour   = g_bg_col;
       break;
-   default:
+   case PC_INV:
       plotmode = PM_INVERT;
       colour   = 0; // not used
    }
