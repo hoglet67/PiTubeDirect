@@ -2801,7 +2801,7 @@ dojit:
    CPSID   if                     // Disable ARM FIQ and IRQ interrupts
    sub r3,r14,#4                  // return address ( first address of jitted code)
    push {r3-r11}
-        ldr     r8, =GPSET0     // timing debug code
+        ldr     r8, =ASS_GPSET0     // timing debug code
         mov     r7, #TEST2_MASK
         str     r7, [r8]
    sub temp2,R3,#JITLET
@@ -3061,7 +3061,7 @@ cacheflushloop:
    MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
    MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
 #endif
-        ldr     r8, =GPCLR0
+        ldr     r8, =ASS_GPCLR0
         mov     r7, #TEST2_MASK
         str     r7, [r8]
 #endif
