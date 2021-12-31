@@ -12,8 +12,8 @@
 #include "tube-isr.h"
 
 volatile unsigned char *tube_address;
-static volatile unsigned int count;
-static volatile unsigned int signature;
+static unsigned int count;
+static unsigned int signature;
 
 static ErrorBlock_type isrErrorBlock;
 
@@ -320,7 +320,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
 
 
 // single byte parasite -> host (e.g. *SAVE)
-void type_0_data_transfer(void) {
+static void type_0_data_transfer(void) {
   uint32_t mailbox, intr;
   // Terminate the data transfer if IRQ falls (e.g. interrupt from tube release)
   while (1) {
@@ -346,7 +346,7 @@ void type_0_data_transfer(void) {
 }
 
 // single byte host -> parasite (e.g. *LOAD)
-void type_1_data_transfer(void) {
+static void type_1_data_transfer(void) {
   uint32_t mailbox, intr;
   // Terminate the data transfer if IRQ falls (e.g. interrupt from tube release)
   while (1) {
@@ -371,7 +371,7 @@ void type_1_data_transfer(void) {
   }
 }
 
-void type_2_data_transfer(void) {
+static void type_2_data_transfer(void) {
   uint32_t mailbox, intr;
   // Terminate the data transfer if IRQ falls (e.g. interrupt from tube release)
   while (1) {
@@ -401,7 +401,7 @@ void type_2_data_transfer(void) {
   }
 }
 
-void type_3_data_transfer(void) {
+static void type_3_data_transfer(void) {
   uint32_t mailbox, intr;
   // Terminate the data transfer if IRQ falls (e.g. interrupt from tube release)
   while (1) {
@@ -431,7 +431,7 @@ void type_3_data_transfer(void) {
   }
 }
 
-void type_6_data_transfer(void) {
+static void type_6_data_transfer(void) {
   uint32_t mailbox, intr;
   int i;
   for (i = 0; i < 256; i++) {
@@ -452,7 +452,7 @@ void type_6_data_transfer(void) {
   }
 }
 
-void type_7_data_transfer(void) {
+static void type_7_data_transfer(void) {
   uint32_t mailbox, intr;
   int i;
   for (i = 0; i < 256; i++) {
