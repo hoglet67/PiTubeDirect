@@ -115,9 +115,8 @@ unsigned int tube_index;
 unsigned int tube_buffer[0x10000];
 
 static void tube_dump_buffer() {
-   int i;
    LOG_INFO("tube_index = %u\r\n", tube_index);
-   for (i = 0; i < tube_index; i++) {
+   for (unsigned int i = 0; i < tube_index; i++) {
       if (tube_buffer[i] & (TUBE_READ_MARKER | TUBE_WRITE_MARKER)) {
          if (tube_buffer[i] & TUBE_READ_MARKER) {
             LOG_INFO("Rd R");
@@ -134,9 +133,8 @@ static void tube_dump_buffer() {
 }
 
 static void tube_reset_buffer() {
-   int i;
    tube_index = 0;
-   for (i = 0; i < 0x10000; i++) {
+   for (unsigned int i = 0; i < 0x10000; i++) {
       tube_buffer[i] = 0;
    }
 }
