@@ -1,18 +1,14 @@
 
 #include "rpi-base-asm.h"
 
-#ifdef __ASSEMBLER__
-
-#define GPFSEL0 (PERIPHERAL_BASE + 0x200000)  // controls GPIOs 0..9
-#define GPFSEL1 (PERIPHERAL_BASE + 0x200004)  // controls GPIOs 10..19
-#define GPFSEL2 (PERIPHERAL_BASE + 0x200008)  // controls GPIOs 20..29
-#define GPSET0  (PERIPHERAL_BASE + 0x20001C)
-#define GPCLR0  (PERIPHERAL_BASE + 0x200028)
-#define GPLEV0  (PERIPHERAL_BASE + 0x200034)
-#define GPEDS0  (PERIPHERAL_BASE + 0x200040)
-#define FIQCTRL (PERIPHERAL_BASE + 0x00B20C)
-
-#endif // __ASSEMBLER__
+#define ASS_GPFSEL0 (PERIPHERAL_BASE + 0x200000)  // controls GPIOs 0..9
+#define ASS_GPFSEL1 (PERIPHERAL_BASE + 0x200004)  // controls GPIOs 10..19
+#define ASS_GPFSEL2 (PERIPHERAL_BASE + 0x200008)  // controls GPIOs 20..29
+#define ASS_GPSET0  (PERIPHERAL_BASE + 0x20001C)
+#define ASS_GPCLR0  (PERIPHERAL_BASE + 0x200028)
+#define ASS_GPLEV0  (PERIPHERAL_BASE + 0x200034)
+#define ASS_GPEDS0  (PERIPHERAL_BASE + 0x200040)
+#define ASS_FIQCTRL (PERIPHERAL_BASE + 0x00B20C)
 
 //    A2 – Green  - Pin 5  – GPIO1  (GPIO3 on later models)
 //    A1 – Blue   - Pin 3  – GPIO0  (GPIO2 on later models)
