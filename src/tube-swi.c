@@ -608,7 +608,10 @@ int user_exec_fn(FunctionPtr_Type f, unsigned int param ) {
   // setTubeLibDebug(1);
   // The machine code version in copro-armnativeasm.S does the real work
   // of dropping down to user mode
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
   ret = _user_exec((unsigned char *)f, param, 0, 0);
+#pragma GCC diagnostic pop
   if (DEBUG_ARM) {
     printf("Execution returned from %08x ret = %08x cpsr = %08x\r\n", (unsigned int)f, ret, _get_cpsr());
   }
