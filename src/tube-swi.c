@@ -618,7 +618,6 @@ int user_exec_fn(FunctionPtr_Type f, unsigned int param ) {
 void user_exec_raw(volatile unsigned char *address) {
   unsigned int off;
   unsigned int carry = 0, r0 = 0, r1 = 0, r12 = 0; // Entry parameters
-
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x\r\n", (unsigned int)address, _get_cpsr());
   }
@@ -638,7 +637,10 @@ void user_exec_raw(volatile unsigned char *address) {
   if (address[off+0]==0 && address[off+1]=='(' && address[off+2]=='C' && address[off+3]==')') {
     // BBC header
     if ((address[6] & 0x4F) != 0x4D) {
+      #pragma GCC diagnostic push
+      #pragma GCC diagnostic ignored "-Wcast-qual"
       generate_error((void *) address, 249, "This is not ARM code");
+      #pragma GCC diagnostic pop
       return;
     } else {
       r0 = 1;       // Entering code with a BBC header
@@ -753,7 +755,7 @@ static void tube_ReadC(unsigned int *reg) {
 
 static void tube_CLI(unsigned int *reg) {
 
-  // Keep a copy of the original command, so it's not perturbed when we fake the environmeny
+  // Keep a copy of the original command, so it's not perturbed when we fake the environment
   char command[256];
   char *ptr = (char *)(*reg);
   char c;
