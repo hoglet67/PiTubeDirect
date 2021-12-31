@@ -383,14 +383,26 @@ static uint8_t tt_process_controls(int c, int col, int row) {
 // Process control characters that are "Set After"
 static void tt_process_controls_after(int c, int col, int row) {
    switch(c & 0x7f) {
-   case TT_A_RED ... TT_A_WHITE:
+   case TT_A_RED:
+   case TT_A_GREEN:
+   case TT_A_YELLOW:
+   case TT_A_BLUE:
+   case TT_A_MAGENTA:
+   case TT_A_CYAN:
+   case TT_A_WHITE:
       tt.graphics = FALSE;
       tt.concealed = FALSE;
       set_foreground(c - TT_A_BLACK);
       // A change from graphics back to text, even when held, will reset the held character
       tt.held_char = TT_SPACE;
       break;
-   case TT_G_RED ... TT_G_WHITE:
+   case TT_G_RED:
+   case TT_G_GREEN:
+   case TT_G_YELLOW:
+   case TT_G_BLUE:
+   case TT_G_MAGENTA:
+   case TT_G_CYAN:
+   case TT_G_WHITE:
       tt.graphics = TRUE;
       tt.concealed = FALSE;
       set_foreground(c - TT_G_BLACK);
