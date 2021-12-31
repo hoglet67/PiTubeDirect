@@ -13,10 +13,10 @@
 
 #define NUM_OPERAND_TYPES 80
 
-uint32_t Frequencies[InstructionCount][NUM_OPERAND_TYPES][NUM_OPERAND_TYPES];
+static uint32_t Frequencies[InstructionCount][NUM_OPERAND_TYPES][NUM_OPERAND_TYPES];
 
 
-const char operandStrings[NUM_OPERAND_TYPES][20] =
+static const char operandStrings[NUM_OPERAND_TYPES][20] =
 {
    "--none--"        ,  //  0
    "--error--"       ,  //  1
@@ -41,7 +41,7 @@ void ProfileInit(void)
    memset(Frequencies, 0, sizeof(Frequencies));
 }
 
-uint16_t processOperand(uint16_t operand)
+static uint16_t processOperand(uint16_t operand)
 {
    // Mask off bits 15..8 which carry the base mode in indexed modes
    if (operand == 0xFFFF)
@@ -80,7 +80,7 @@ void ProfileAdd(uint32_t Function, uint16_t Regs0, uint16_t Regs1)
    }
 }
 
-char *operandText(uint16_t Reg)
+static char *operandText(uint16_t Reg)
 {
    static char result[80];
    if (Reg < 16)
