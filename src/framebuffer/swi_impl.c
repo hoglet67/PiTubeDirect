@@ -362,8 +362,8 @@ static void OS_ReadVduVariables_impl(unsigned int *reg) {
 // ==========================================================================
 
 // Entry
-//   R0	X co-ordinate
-//   R1	Y co-ordinate
+//   R0	X coordinate
+//   R1	Y coordinate
 // Exit
 //   R0	Preserved
 //   R1	Preserved

@@ -7,7 +7,7 @@
 // version. This was needed at one point because the original
 // PAGE=&8F00 version would end up with a corrupted BASIC programs on
 // Ctrl-BREAK dure to the language transfer. But there were
-// compatibility issues. So instead we supressed the language
+// compatibility issues. So instead we suppressed the language
 // transfer.
 
 // #define BAS135H_ROM

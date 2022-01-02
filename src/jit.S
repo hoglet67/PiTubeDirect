@@ -2636,7 +2636,7 @@ handle_nmi:
 // **** dejit functions
 
 // so we get here by storing data to a location that has already been jitted
-// Normaly we having branched with link to the JITTEDTABLE16. which contains BX LR
+// Normally we having branched with link to the JITTEDTABLE16. which contains BX LR
 // if that location has been jitted then the bx lr will have been replaced b dejit
 //
 // so now we need to replace all the jitted code for that instruction with

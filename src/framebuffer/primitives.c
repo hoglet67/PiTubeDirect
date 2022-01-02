@@ -964,12 +964,12 @@ static int test_pixel_bg_ecf(screen_mode_t *screen, int x, int y) {
 }
 
 static int test_pixel_not_bg_col(screen_mode_t *screen, int x, int y) {
-   // No need to explicitely test for the marker as the test succeed fail on marked bits anyway
+   // No need to explicitly test for the marker as the test succeed fail on marked bits anyway
    return get_pixel(screen, x, y) != g_bg_col;
 }
 
 static int test_pixel_not_bg_ecf(screen_mode_t *screen, int x, int y) {
-   // No need to explicitely test for the marker as the test succeed fail on marked bits anyway
+   // No need to explicitly test for the marker as the test succeed fail on marked bits anyway
    int ecfnum = (g_bg_plotmode >> 4) - 1;
    // Giant ECF
    if (ecfnum >= 4) {
@@ -1229,7 +1229,7 @@ void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, i
       int y4 = y2;
       fill_bottom_flat_triangle(screen, x1, y1, x2, y2, x4, y4, colour);
       fill_top_flat_triangle(screen, x2, y2, x4, y4, x3, y3, colour);
-      // draw the overlapping line again, incase we are XOR plotting
+      // draw the overlapping line again, in case we are XOR plotting
       draw_hline(screen, x2, x4, y4, colour);
    }
 }

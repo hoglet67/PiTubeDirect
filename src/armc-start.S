@@ -240,7 +240,7 @@ _reset_continue:
 
     // clear bss section here using fast clear otherwise C will use 
     // memset which uses byte writes
-    // As _fast_clear round lengths down to 64 byte boundarys we need to
+    // As _fast_clear round lengths down to 64 byte boundaries we need to
     // round up. It doesn't matter if we go too far as we just zero part of the heap. 
     push    {r0-r3}
     ldr     r0,=__bss_start__

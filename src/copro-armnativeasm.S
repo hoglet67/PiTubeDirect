@@ -204,7 +204,7 @@ _user_exec:
 
     stmfd    sp!, {ip,lr}         // Preserve the existing user mode link register
                                   // otherwise SYS "OS_CLI","TEST" hangs on return (#136)
-                                  // ip is saved as well to maintain 8-byte stack allignment
+                                  // ip is saved as well to maintain 8-byte stack alignment
 
     blx      r4                   // Call the address of the user program
                                   // On return, the exit code is now in R0
