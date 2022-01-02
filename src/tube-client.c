@@ -44,7 +44,7 @@ unsigned char * copro_mem_reset(unsigned int length)
      // Wipe memory
      // Memory starts at zero now vectors have moved.
    unsigned char * mpu_memory = 0;
-#pragma GCC diagnostic push   
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnonnull"
 #pragma GCC diagnostic ignored "-Wanalyzer-null-argument"
      // cppcheck-suppress nullPointer

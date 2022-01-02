@@ -115,7 +115,7 @@ static void n32016_reset()
 {
    n32016_reset_addr(0xF00000);
 }
-#endif 
+#endif
 void n32016_reset_addr(uint32_t StartAddress)
 {
    n32016_build_matrix();

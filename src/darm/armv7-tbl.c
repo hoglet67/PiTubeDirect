@@ -29,12 +29,12 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include "armv7-tbl.h"
 darm_enctype_t armv7_instr_types[] = {
-    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    0-3 
+    T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    0-3
     T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    4-7
     T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    8-0xB
     T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //  0xC-0xF
     T_ARM_SM, T_ARM_CMP_OP, T_ARM_BRNCHMISC, T_ARM_CMP_OP,                       // 0x10-0x13
-    T_ARM_SM, T_ARM_CMP_OP, T_ARM_MISC, T_ARM_CMP_OP,                            // 0x14-0x17 
+    T_ARM_SM, T_ARM_CMP_OP, T_ARM_MISC, T_ARM_CMP_OP,                            // 0x14-0x17
     T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_DST_SRC, T_ARM_DST_SRC,          // 0x18-0x1B
     T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_MISC, T_ARM_MISC,                // 0x1C-0x1F
     T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_ARITH_IMM,          // 0x20-0x23
@@ -44,8 +44,8 @@ darm_enctype_t armv7_instr_types[] = {
     T_ARM_MOV_IMM, T_ARM_CMP_IMM, T_ARM_OPLESS, T_ARM_CMP_IMM,                   // 0x30-0x33
     T_ARM_MOV_IMM, T_ARM_CMP_IMM, T_INVLD, T_ARM_CMP_IMM,                        // 0x34-0x37
     T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_MOV_IMM, T_ARM_MOV_IMM,              // 0x38-0x3B
-    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_MOV_IMM, T_ARM_MOV_IMM,              // 0x3C-0x3F   
-    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x40-0x43   
+    T_ARM_ARITH_IMM, T_ARM_ARITH_IMM, T_ARM_MOV_IMM, T_ARM_MOV_IMM,              // 0x3C-0x3F
+    T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x40-0x43
     T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x44-0x47
     T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x48-0x4B
     T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x4C-0x4F
@@ -55,8 +55,8 @@ darm_enctype_t armv7_instr_types[] = {
     T_INVLD, T_INVLD, T_INVLD, T_INVLD,                                          // 0x5C-0x5f
     T_INVLD, T_ARM_PAS, T_ARM_PAS, T_ARM_PAS,                                    // 0x60-0x63
     T_INVLD, T_ARM_PAS, T_ARM_PAS, T_ARM_PAS,                                    // 0x64-0x67
-    T_ARM_MISC, T_INVLD, T_INVLD, T_ARM_BITREV,                                  // 0x68-0x6B   
-    T_INVLD, T_INVLD, T_INVLD, T_ARM_BITREV,                                     // 0x6c-0x6f   
+    T_ARM_MISC, T_INVLD, T_INVLD, T_ARM_BITREV,                                  // 0x68-0x6B
+    T_INVLD, T_INVLD, T_INVLD, T_ARM_BITREV,                                     // 0x6c-0x6f
     T_ARM_SM, T_INVLD, T_INVLD, T_INVLD,                                         // 0x70-0x73
     T_ARM_SM, T_ARM_SM, T_INVLD, T_INVLD,                                        // 0x74-0x77
     T_INVLD, T_INVLD, T_ARM_BITS, T_ARM_BITS,                                    // 0x78-0x7b
@@ -95,13 +95,13 @@ darm_enctype_t armv7_instr_types[] = {
     T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC                   // 0xFC-0xFf
 };
 
-darm_instr_t armv7_instr_labels[] = {                                            
-    I_AND, I_AND, I_EOR, I_EOR,           //    0-3 
+darm_instr_t armv7_instr_labels[] = {
+    I_AND, I_AND, I_EOR, I_EOR,           //    0-3
     I_SUB, I_SUB, I_RSB, I_RSB,           //    4-7
     I_ADD, I_ADD, I_ADC, I_ADC,           //    8-0xB
     I_SBC, I_SBC, I_RSC, I_RSC,           //  0xC-0xF
     I_SMLA, I_TST, I_SMULW, I_TEQ,        // 0x10-0x13
-    I_SMLAL, I_CMP, I_SMC, I_CMN,         // 0x14-0x17 
+    I_SMLAL, I_CMP, I_SMC, I_CMN,         // 0x14-0x17
     I_ORR, I_ORR, I_STREXD, I_RRX,        // 0x18-0x1B
     I_BIC, I_BIC, I_MVN, I_MVN,           // 0x1C-0x1F
     I_AND, I_AND, I_EOR, I_EOR,           // 0x20-0x23
@@ -111,8 +111,8 @@ darm_instr_t armv7_instr_labels[] = {
     I_MOVW, I_TST, I_YIELD, I_TEQ,        // 0x30-0x33
     I_MOVT, I_CMP, I_INVLD, I_CMN,        // 0x34-0x37
     I_ORR, I_ORR, I_MOV, I_MOV,           // 0x38-0x3B
-    I_BIC, I_BIC, I_MVN, I_MVN,           // 0x3C-0x3F 
-    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x40-0x43 
+    I_BIC, I_BIC, I_MVN, I_MVN,           // 0x3C-0x3F
+    I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x40-0x43
     I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x44-0x47
     I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x48-0x4B
     I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x4C-0x4F
@@ -122,8 +122,8 @@ darm_instr_t armv7_instr_labels[] = {
     I_INVLD, I_INVLD, I_INVLD, I_INVLD,   // 0x5C-0x5f
     I_INVLD, I_SSUB8, I_QSUB8, I_SHSUB8,  // 0x60-0x63
     I_INVLD, I_USUB8, I_UQSUB8, I_UHSUB8, // 0x64-0x67
-    I_SEL, I_INVLD, I_INVLD, I_REV16,     // 0x68-0x6B 
-    I_INVLD, I_INVLD, I_INVLD, I_REVSH,   // 0x6c-0x6f 
+    I_SEL, I_INVLD, I_INVLD, I_REV16,     // 0x68-0x6B
+    I_INVLD, I_INVLD, I_INVLD, I_REVSH,   // 0x6c-0x6f
     I_SMUSD, I_INVLD, I_INVLD, I_INVLD,   // 0x70-0x73
     I_SMLSLD, I_SMMUL, I_INVLD, I_INVLD,  // 0x74-0x77
     I_INVLD, I_INVLD, I_SBFX, I_SBFX,     // 0x78-0x7b

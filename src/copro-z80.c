@@ -308,7 +308,7 @@ void copro_z80_write_mem(unsigned int addr, unsigned char data) {
 #endif
 #ifdef USE_MEMORY_POINTER
    copro_z80_ram[addr & 0xffff] = data;
-#else 
+#else
    *(unsigned char *)(addr & 0xffff) = data;
 #endif
 }

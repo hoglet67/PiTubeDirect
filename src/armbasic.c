@@ -2,7 +2,7 @@
 #include "armbasic.h"
 
 int armbasic = 0;
-   
+
 #ifndef BAS135H_ROM
 //  BAS135 (C) Acorn - with PAGE at &8F00
 

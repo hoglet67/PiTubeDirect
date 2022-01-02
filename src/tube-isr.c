@@ -128,7 +128,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
     static unsigned char a2;
     static unsigned char a1;
     static char *emsg;
-    
+
     switch (r4_state) {
 
     case IDLE_R4:

@@ -106,7 +106,7 @@ void dump_ram(void)
 uint8_t read_x8(uint32_t addr)
 #ifdef INCLUDE_DEBUGGER
 {
-   uint8_t val = read_x8_internal(addr);   
+   uint8_t val = read_x8_internal(addr);
    if (n32016_debug_enabled)
    {
       debug_memread(&n32016_cpu_debug, addr, val, 1);
@@ -223,7 +223,7 @@ void write_x8(uint32_t addr, uint8_t val)
    {
       debug_memwrite(&n32016_cpu_debug, addr, val, 1);
    }
-   write_x8_internal(addr, val);   
+   write_x8_internal(addr, val);
 }
 void write_x8_internal(uint32_t addr, uint8_t val)
 #endif
@@ -351,9 +351,9 @@ void write_Arbitary(uint32_t addr, void* pData, uint32_t Size)
 
 #ifdef NS_FAST_RAM
 #ifdef INCLUDE_DEBUGGER
-   if ((addr + Size) <= RAM_SIZE && !n32016_debug_enabled) 
+   if ((addr + Size) <= RAM_SIZE && !n32016_debug_enabled)
 #else
-   if ((addr + Size) <= RAM_SIZE) 
+   if ((addr + Size) <= RAM_SIZE)
 #endif
    {
       memcpy(ns32016ram + addr, pData, Size);

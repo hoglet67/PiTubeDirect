@@ -23,9 +23,9 @@ typedef struct {
 } intr;
 
 typedef struct {
-   
+
    // Architecturally visible state
-   uint16_t R[8];      // signed integer registers   
+   uint16_t R[8];      // signed integer registers
    uint16_t PS;       // processor status
    bool curuser;
    bool prevuser;
@@ -37,7 +37,7 @@ typedef struct {
    uint16_t clkcounter;
    uint16_t halted;   // flag set to indicate halted
    intr itab[ITABN];
-   
+
 } pdp11_state;
 
 extern pdp11_state *m_pdp11;

@@ -36,7 +36,7 @@ typedef enum _darm_enctype_t {
     // I_INVLD
     //
     // affects:
-    // 
+    //
     T_INVLD,
 
     // info:
@@ -138,7 +138,7 @@ typedef enum _darm_enctype_t {
     // Bit field magic
     //
     // encodings:
-    // 
+    //
     //
     // affects:
     // BFC, BFI, SBFX, UBFX
@@ -259,7 +259,7 @@ typedef enum _darm_enctype_t {
     // Various signed multiply instructions
     //
     // encodings:
-    // 
+    //
     //
     // affects:
     // SMLA, SMLAD, SMLAL, SMLALD, SMLSD, SMLSLD, SMMLA, SMMLS, SMMUL, SMUAD,
@@ -598,310 +598,310 @@ typedef enum _darm_enctype_t {
     // Instructions that do not operate on a register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_NO_REG,
 
     // info:
     // Instructions that operate on Rt register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RT_REG,
 
     // info:
     // Instructions that operate on Rt and Rt2 register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RT_RT2_REG,
 
     // info:
     // Instructions that operate on the Rm register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RM_REG,
 
     // info:
     // Instructions that operate on the Rd register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RD_REG,
 
     // info:
     // Instructions that operate on the Rd and Rm register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RD_RM_REG,
 
     // info:
     // Instructions that operate on the Rn register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_REG,
 
     // info:
     // Instructions that operate on the Rn and Rt register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_RT_REG,
 
     // info:
     // Instructions that operate on the Rn, Rt and Rt2 register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_RT_RT2_REG,
 
     // info:
     // Instructions that operate on the Rn and Rm register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_RM_REG,
 
     // info:
     // Instructions that operate on the Rn, Rm and Rt register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_RM_RT_REG,
 
     // info:
     // Instructions that operate on the Rn and Rd register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_RD_REG,
 
     // info:
     // Instructions that operate on the Rn, Rd and Rt register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_RD_RT_REG,
 
     // info:
     // Instructions that operate on the Rn, Rd, Rt and Rt2 register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_RD_RT_RT2_REG,
 
     // info:
     // Instructions that operate on the Rn, Rd and Rm register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_RD_RM_REG,
 
     // info:
     // Instructions that operate on the Rn, Rd, Rm and Ra register
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_RN_RD_RM_RA_REG,
 
     // info:
     // Instructions that do not operate on an immediate
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_NO_IMM,
 
     // info:
     // Instructions that use a 12 bit immediate
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_IMM12,
 
     // info:
     // Instructions that use an 8 bit immediate
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_IMM8,
 
     // info:
     // Instructions that use a 2 bit immediate
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_IMM2,
 
     // info:
     // Instructions that use a 2 and 3 bit immediate
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_IMM2_IMM3,
 
     // info:
     // Instructions that use a 1, 3 and 8 bit immediate
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_IMM1_IMM3_IMM8,
 
     // info:
     // Instructions that have no flags
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_NO_FLAG,
 
     // info:
     // Instructions that use the rotate flag
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_ROTATE_FLAG,
 
     // info:
     // Instructions that use the U flag
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_U_FLAG,
 
     // info:
     // Instructions that use the WUP flags
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_WUP_FLAG,
 
     // info:
     // Instructions that use the shift type flag
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_TYPE_FLAG,
 
     // info:
     // Instructions that use the register list
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_REGLIST_FLAG,
 
     // info:
     // Instructions that use the WP flags and register list
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_WP_REGLIST_FLAG,
 
     // info:
     // Instructions that use the S flag
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_S_FLAG,
 
     // info:
     // Instructions that use the S flag and shift type flag
     //
     // encodings:
-    // 
+    //
     //
     // affects:
-    // 
+    //
     T_THUMB2_S_TYPE_FLAG,
 } darm_enctype_t;
 

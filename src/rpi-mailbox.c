@@ -35,7 +35,7 @@ int RPI_Mailbox0Read( mailbox0_channel_t channel )
     unsigned int value ;
 
     /* Keep reading the register until the desired channel gives us a value */
-   
+
     do {
         /* Wait while the mailbox is empty because otherwise there's no value
            to read! */

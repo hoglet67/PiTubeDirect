@@ -354,7 +354,7 @@ static inline uint32_t pfx_ireg(uint32_t addr, uint8_t a, const char **ptr, char
     }
     return addr;
 }
-    
+
 static uint32_t unp_misc2(uint32_t addr, uint8_t a, uint8_t d, uint8_t e, const char **ptr, char *ibuf) {
     uint16_t opaddr;
 

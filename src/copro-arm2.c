@@ -2,7 +2,7 @@
  * Arm2 Co Pro Emulation
  *
  * (c) 2015 David Banks
- * 
+ *
  * based on code by from MAME
  */
 
@@ -211,13 +211,13 @@ void copro_arm2_emulator() {
             }
             copro_arm2_reset();
          }
-         
+
          // NMI is edge sensitive, so only check after mailbox activity
          if (tube_irq_copy & NMI_BIT) {
             arm2_execute_set_input(ARM_FIRQ_LINE, 1);
             tube_ack_nmi();
          }
-         
+
          // IRQ is level sensitive, so check between every instruction
          arm2_execute_set_input(ARM_IRQ_LINE, tube_irq_copy & IRQ_BIT);
       }

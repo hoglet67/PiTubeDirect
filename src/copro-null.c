@@ -2,7 +2,7 @@
  * Null Co Processor Emulation
  *
  * (c) 2016 David Banks
- * 
+ *
  */
 
 #include <stdio.h>

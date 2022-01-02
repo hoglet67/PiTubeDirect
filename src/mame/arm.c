@@ -1027,7 +1027,7 @@ static unsigned int storeDec(UINT32 pat, UINT32 rbv)
 {
   unsigned int result;
   int i;
-  
+
   result = 0;
   for (i = 15; i >= 0; i--)
   {

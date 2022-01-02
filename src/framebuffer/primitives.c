@@ -1578,11 +1578,11 @@ void prim_define_sprite(screen_mode_t *screen, int n, int x1, int y1, int x2, in
    sprite->width = x2 - x1 + 1;
    sprite->height = y2 - y1 + 1;
    size_t size = (size_t)sprite->width * (size_t)sprite->height * (1 << (screen->log2bpp - 3));
-   if  (sprite->data != NULL) 
+   if  (sprite->data != NULL)
          free(sprite->data);
 
    sprite->data = malloc(size);
-   
+
    if  (sprite->data == NULL)
       return;
 

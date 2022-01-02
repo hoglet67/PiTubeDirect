@@ -960,7 +960,7 @@ static void start_vc_ula()
    RPI_PropertyInit();
    RPI_PropertyAddTag(TAG_LAUNCH_VPU1, func, r0, r1, r2, r3, r4, r5);
    RPI_PropertyProcess();
-   
+
 #ifdef DEBUG
    rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_LAUNCH_VPU1);
    if (buf) {

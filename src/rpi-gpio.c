@@ -37,7 +37,7 @@ rpi_gpio_value_t RPI_GetGpioValue(rpi_gpio_pin_t gpio)
       if (RPI_GpioBase->GPLEV1 & (1 << (gpio - 32)))
          return RPI_IO_HI;
       else
-         return RPI_IO_LO;      
+         return RPI_IO_LO;
 
     default:
       return RPI_IO_UNKNOWN;

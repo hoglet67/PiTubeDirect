@@ -1190,7 +1190,7 @@ static INLINE uint8_t FETCH(void)
 	pc++;
 	return cpu_readop(pc-1);
 }
-#if 0 
+#if 0
 static INLINE uint16_t FETCH16(void)
 {
 	uint16_t d;
