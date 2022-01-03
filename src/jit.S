@@ -2397,6 +2397,24 @@ loopdejitsetup:
    str   temp,[r4],#4   // JITTEDTABLE16
    bne   loopdejitsetup
 
+// Setup IO region in JITTEDTABLE16
+// When a store occurs for the IO locations
+// we assume the data to store is in regA 
+// This fixes ?&FEF7 = xx ; and other STA indirect instructions ( STZ still broken)
+// it doesn't fix P.?&FEF7
+
+   mov   r3,#32
+   sub   r4,r4,#(0x10000-0xFEE0)<<2
+
+   ldr   temp,=indirectiostore-8-JITTEDTABLE16+0xFEE0
+   mov   temp,temp,LSR#2
+   add   temp,temp,#BINSTRUCTION
+loopioregion:
+   subs  r3,r3,#1
+   str   temp,[r4],#4
+   sub   temp,temp,#1
+   bne   loopioregion
+
 // flush caches
 
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
@@ -3193,6 +3211,11 @@ ioload:
    bl      tube_parasite_read // Call up to C code to handle parasite read
    msr     CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
    pop     {pc}               // Restore registers and return
+
+indirectiostore:
+   sub     reg0,reg0,jittedtable16ptr 
+   and     reg1,regA,#0xFF    // This is an assumption that the value is in regA
+   mov     reg0,reg0,LSR #2
 
 iostore:
    push    {lr}               // ram6502 (r6) is used as a working register
