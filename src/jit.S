@@ -2406,7 +2406,7 @@ loopdejitsetup:
    mov   r3,#32
    sub   r4,r4,#(0x10000-0xFEE0)<<2
 
-   ldr   temp,=indirectiostore-8-JITTEDTABLE16+0xFEE0
+   ldr   temp,=indirectiostore-8-JITTEDTABLE16+(0xFEE0<<2)
    mov   temp,temp,LSR#2
    add   temp,temp,#BINSTRUCTION
 loopioregion:
