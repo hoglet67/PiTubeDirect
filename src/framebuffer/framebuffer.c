@@ -130,7 +130,7 @@ static vdu_operation_t vdu_operation_table[256] = {
    // Entries 8-13,30,31,127 are filled in by VDU 4/5
    // remaining entries >=32 are filled in by fb_initialize
    { 0, vdu_nop }, // 0 -  Does nothing
-   { 0, vdu_nop }, // 1 -  Send next character to printer only (do nothing)
+   { 1, vdu_nop }, // 1 -  Send next character to printer only (do nothing)
    { 0, vdu_nop }, // 2 -  Enable printer (do nothing)
    { 0, vdu_nop }, // 3 -  Disable printer (do nothing)
    { 0, vdu_4   }, // 4 -  Write text at text cursor
