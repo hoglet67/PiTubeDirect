@@ -72,6 +72,8 @@ typedef enum {
 
 void fb_initialize();
 
+void fb_show_splash_screen();
+
 void fb_destroy();
 
 void fb_custom_mode(int x_pixels, int y_pixels, unsigned int n_colours);

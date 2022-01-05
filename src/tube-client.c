@@ -12,6 +12,7 @@
 #include "info.h"
 #include "rpi-gpio.h"
 #include "rpi-interrupts.h"
+#include "framebuffer/framebuffer.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "cpu_debug.h"
@@ -117,6 +118,10 @@ static void init_emulator() {
 #endif
 
    _enable_interrupts();
+
+   if (vdu_enabled) {
+      fb_show_splash_screen();
+   }
 }
 
 #ifdef HAS_MULTICORE

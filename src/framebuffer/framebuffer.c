@@ -11,6 +11,8 @@
 #include "../rpi-gpio.h"
 #include "../rpi-interrupts.h"
 #include "../startup.h"
+#include "../tube.h"
+#include "../copro-defs.h"
 #include "../tube-defs.h"
 
 #include "screen_modes.h"
@@ -1518,8 +1520,12 @@ static void owl(int x0, int y0, int r, int col) {
    prim_set_fg_col(screen, old_col);
 }
 
-static void help_message() {
+void fb_show_splash_screen() {
    char buffer[256];
+
+   // Select the default screen mode
+   fb_writec(22);
+   fb_writec(DEFAULT_SCREEN_MODE);
 
    // Turn of the cursor (as there are some bugs when changing fonts)
    cursor(0);
@@ -1534,17 +1540,20 @@ static void help_message() {
    fb_writec(31);
    fb_writec(0);
    fb_writec(3);
-   fb_writes("  Release: "RELEASENAME"\r\n");
-   fb_writes(" Pi Model: ");
+   fb_writes("Release: "RELEASENAME"\r\n");
+   fb_writes(" Commit: "GITVERSION"\r\n");
+   sprintf(buffer, " Co Pro: %d/%s\r\n", copro, get_copro_name(copro, 24));
+   fb_writes(buffer);
+   fb_writes("Pi Info: ");
    fb_writes(get_info_string());
-   fb_writes("\r\n");
-   fb_writes("Commit ID: "GITVERSION"\r\n\n");
-   fb_writes("On the 6502 Co Processor:\r\n");
-   fb_writes("  CALL &300 to install OSWRCH redirector\r\n\n");
+   fb_writes("\r\n\n\n");
+
    fb_writes("On the Native ARM Co Processor:\r\n");
    fb_writes("  *PIVDU 2 to install OSWRCH redirector\r\n");
    fb_writes("  *ARMBASIC to run built-in ARM BASIC\r\n");
    fb_writes("  See also *HELP ARM\r\n\n");
+   fb_writes("On the 6502 Co Processor:\r\n");
+   fb_writes("  CALL &300 to install OSWRCH redirector\r\n\n");
 
    sprintf(buffer, "This is mode %d: %dx%d with %d colours",
            screen->mode_num, screen->width, screen->height, screen->ncolour + 1);
@@ -1581,9 +1590,6 @@ void fb_initialize() {
 #ifdef DEBUG_VDU
    fb_writes("DEBUG_VDU is enabled, execution might be slow!\r\n\r\n");
 #endif
-
-   // Show a help message
-   help_message();
 
    // Make vsync visible
    // Enable smi_int which is IRQ 48

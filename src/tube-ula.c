@@ -77,7 +77,7 @@ static uint8_t ph1rdpos,ph1wrpos,ph1len;
 volatile int tube_irq;
 
 // Default value of the VDU property is 0 (off)
-static int vdu_enabled = 0;
+int vdu_enabled = 0;
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
