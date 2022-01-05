@@ -1,8 +1,9 @@
+#include <stdio.h>
 #include <stdint.h>
 
 #include "copro-defs.h"
-
 #include "copro-65tube.h"
+#include "tube-client.h"
 
 #ifndef MINIMAL_BUILD
 
@@ -151,25 +152,25 @@ copro_def_t copro_defs[] = {
       NO_DEBUGGER
    },
    {
-      "65C02 (lib6502)",        // 16
+      "LIB65C02",               // 16
       copro_lib6502_emulator,
       TYPE_GENERIC,
       DEBUGGER(&lib6502_cpu_debug)
    },
    {
-      "65C02 Turbo (lib6502)",  // 17
+      "LIB65C02 Turbo",         // 17
       copro_lib6502_emulator,
       TYPE_TURBO,
       DEBUGGER(&lib6502_cpu_debug)
    },
    {
-      "65C816 (Dominic Beesley)", // 18
+      "65C816 (Dossy)",         // 18
       copro_65816_emulator,
       TYPE_GENERIC,
       DEBUGGER(&w65816_cpu_debug)
    },
    {
-      "65C816 (ReCo)",           // 19
+      "65C816 (ReCo)",          // 19
       copro_65816_emulator,
       TYPE_GENERIC,
       DEBUGGER(&w65816_cpu_debug)
@@ -256,4 +257,16 @@ unsigned int default_copro() {
 
 unsigned int num_copros() {
    return sizeof(copro_defs) / sizeof(copro_def_t);
+}
+
+char *get_copro_name(unsigned int i, unsigned int maxlen) {
+   static char name[256];
+   if (i == 1u || i == 3u) {
+      sprintf(name, "%s (%uMHz)", copro_defs[i].name, get_copro_mhz(i));
+   } else {
+      sprintf(name, "%s", copro_defs[i].name);
+   }
+   // Make sure name doesn't exceed the required length
+   name[maxlen] = '\0';
+   return name;
 }
