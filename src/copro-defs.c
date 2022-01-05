@@ -152,13 +152,13 @@ copro_def_t copro_defs[] = {
       NO_DEBUGGER
    },
    {
-      "LIB65C02",               // 16
+      "LIB65C02 64K",           // 16
       copro_lib6502_emulator,
       TYPE_GENERIC,
       DEBUGGER(&lib6502_cpu_debug)
    },
    {
-      "LIB65C02 Turbo",         // 17
+      "LIB65C02 256K Turbo",    // 17
       copro_lib6502_emulator,
       TYPE_TURBO,
       DEBUGGER(&lib6502_cpu_debug)

@@ -2853,7 +2853,7 @@ void copy_test_programs(uint8_t *memory) {
 
    strcpy ((char *)memory + 0x805,                    " Release:"RELEASENAME);
    strcpy ((char *)memory + 0x805 + REM_LINE_LEN,     "  Commit:"GITVERSION);
-   sprintf((char *)memory + 0x805 + REM_LINE_LEN * 2, "  Co Pro:%d/%s", copro, get_copro_name(copro, 20));
+   sprintf((char *)memory + 0x805 + REM_LINE_LEN * 2, "  Co Pro:%d/%s", copro, get_copro_name(copro, 19));
    sprintf((char *)memory + 0x805 + REM_LINE_LEN * 3, " Pi:%s", get_info_string());
 
    memcpy(memory + 0x1000, clocksp, sizeof(clocksp));
