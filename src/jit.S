@@ -2667,39 +2667,40 @@ handle_nmi:
 // one byte instruction
 dejit16bit1: //reg1 pointer to address to dejit
    ldr reg2,=dojit-JITLET-8
+   sub reg1,reg0,#JITTEDTABLE16
    ldr reg0,=MOVPCR14INSTRUCTION
    mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT -2
    mov reg3,#0 // only used in Armv6 DSB
    mov reg2,reg2,LSR#2
    add reg2,reg2,#BLINSTRUCTION
 
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT -2]!
    DEJITCLEAN 1
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+   str reg0,[reg12,reg1]!
    DEJITCLEAN 0
    bx lr
 
 // two byte instruction
 dejit16bit21: // reg1 , reg1+4
-
    ldr reg2,=dojit-JITLET-8
+   sub reg1,reg0,#JITTEDTABLE16
    ldr reg0,=MOVPCR14INSTRUCTION
    mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT -2
    mov reg3,#0 // only used in Armv6 DSB
    mov reg2,reg2,LSR#2
    add reg2,reg2,#BLINSTRUCTION
 
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT -2]!
    DEJITCLEAN 1
    sub reg2,reg2,#(NEXTJITLET>>2)
    str reg2,[reg12,#NEXTJITLET]!
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+   str reg0,[reg12,reg1]!
    DEJITCLEAN 1
    str reg0,[reg12,#4]!
    DEJITCLEAN 0
@@ -2707,6 +2708,7 @@ dejit16bit21: // reg1 , reg1+4
 
 dejit16bit22: // reg1 , reg1-4
    ldr reg2,=(dojit-JITLET-8)
+   sub reg1,reg0,#JITTEDTABLE16
    ldr reg0,=MOVPCR14INSTRUCTION
    mov reg12,#JITLET
    sub reg2,reg2,reg1,LSL # JITLETSHIFT
@@ -2714,14 +2716,14 @@ dejit16bit22: // reg1 , reg1-4
    mov reg2,reg2,LSR#2
    add reg2,reg2,#BLINSTRUCTION
 
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT -2]!
    DEJITCLEAN 1
    add reg2,reg2,#(NEXTJITLET>>2)
-   str reg2,[reg12,#-NEXTJITLET]!
+   str reg2,[reg12,#-NEXTJITLET -2]!
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+   str reg0,[reg12,reg1]!
    DEJITCLEAN 1
    str reg0,[reg12,#-4]!
    DEJITCLEAN 0
@@ -2730,14 +2732,15 @@ dejit16bit22: // reg1 , reg1-4
 // three byte instruction
 dejit16bit31: // reg1 , reg1+4, reg1 + 8
    ldr reg2,=dojit-JITLET-8
+   sub reg1,reg0,#JITTEDTABLE16
    ldr reg0,=MOVPCR14INSTRUCTION
    mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT -2
    mov reg3,#0 // only used in Armv6 DSB
    mov reg2,reg2,LSR#2
    add reg2,reg2,#BLINSTRUCTION
 
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT -2]!
    DEJITCLEAN 1
    sub reg2,reg2,#NEXTJITLET>>2
    str reg2,[reg12,#NEXTJITLET]!
@@ -2747,7 +2750,7 @@ dejit16bit31: // reg1 , reg1+4, reg1 + 8
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+   str reg0,[reg12,reg1]!
    DEJITCLEAN 1
    str reg0,[reg12,#4]!
    DEJITCLEANMID
@@ -2756,16 +2759,16 @@ dejit16bit31: // reg1 , reg1+4, reg1 + 8
    bx lr
 
 dejit16bit32: // reg1 , reg1-4, reg1 + 4
-
    ldr reg2,=dojit-JITLET-8
+   sub reg1,reg0,#JITTEDTABLE16
    ldr reg0,=MOVPCR14INSTRUCTION
    mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT -2
    mov reg3,#0 // only used in Armv6 DSB
    mov reg2,reg2,LSR#2
    add reg2,reg2,#BLINSTRUCTION
 
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT -2]!
    DEJITCLEANMID
    sub reg2,reg2,#-(NEXTJITLET>>2)
    str reg2,[reg12,#-NEXTJITLET]!
@@ -2775,7 +2778,7 @@ dejit16bit32: // reg1 , reg1-4, reg1 + 4
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+   str reg0,[reg12,reg1]!
    DEJITCLEANMID
    str reg0,[reg12,#-4]!
    DEJITCLEAN 1
@@ -2785,14 +2788,15 @@ dejit16bit32: // reg1 , reg1-4, reg1 + 4
 
 dejit16bit33: // reg1 , reg1-4, reg1 - 8
    ldr reg2,=dojit-JITLET-8
+   sub reg1,reg0,#JITTEDTABLE16
    ldr reg0,=MOVPCR14INSTRUCTION
    mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
+   sub reg2,reg2,reg1,LSL # JITLETSHIFT -2
    mov reg3,#0 // only used in Armv6 DSB
    mov reg2,reg2,LSR#2
    add reg2,reg2,#BLINSTRUCTION
 
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   str reg2,[reg12,reg1,LSL #JITLETSHIFT -2]!
    DEJITCLEAN 1
    sub reg2,reg2,#-(NEXTJITLET>>2)
    str reg2,[reg12,#-NEXTJITLET]!
@@ -2802,7 +2806,7 @@ dejit16bit33: // reg1 , reg1-4, reg1 - 8
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+   str reg0,[reg12,reg1]!
    DEJITCLEAN 1
    str reg0,[reg12,#-4]!
    DEJITCLEANMID
