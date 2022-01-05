@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include "swi.h"
 #include "tube-swi.h"
+#include "tube.h"
 #include "tube-client.h"
 #include "tube-lib.h"
 #include "tube-commands.h"
@@ -145,7 +146,6 @@ static int doCmdTest(const char *params) {
 }
 
 static int doCmdHelp(const char *params) {
-  char buff[10];
   if (*params == 0x00 || *params == 0x0a || *params == 0x0d) {
     // *HELP without any parameters
     OS_Write0(help);
@@ -173,7 +173,7 @@ static int doCmdHelp(const char *params) {
      // *HELP COP.
      // *HELP CO.
      // *HELP C.
-     OS_Write0(" n Processor - *FX ");
+     OS_Write0(" n   Processor - *FX ");
      OS_Write0(get_elk_mode() ? "147" : "151");
      OS_Write0(",230,n\r\n");
      for (unsigned char i = 0; i < num_copros(); i++) {
@@ -191,12 +191,13 @@ static int doCmdHelp(const char *params) {
         }
         OS_WriteC('0' + i % 10);
         OS_WriteC(' ');
-        OS_Write0(copro_def->name);
-        if (i == 1 || i == 3) {
-          if (snprintf(buff, 10, " (%uMHz)", get_copro_mhz(i)) < 10) {
-            OS_Write0(buff);
-          }
+        if (i == copro) {
+           OS_WriteC('*');
+        } else {
+           OS_WriteC(' ');
         }
+        OS_WriteC(' ');
+        OS_Write0(get_copro_name(i, 32));
         OS_Write0("\r\n");
      }
   }
