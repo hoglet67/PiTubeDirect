@@ -46,4 +46,6 @@ extern unsigned int num_copros();
 
 extern unsigned int default_copro();
 
+char *get_copro_name(unsigned int i, unsigned int maxlen);
+
 #endif

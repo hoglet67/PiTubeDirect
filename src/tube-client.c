@@ -14,6 +14,7 @@
 #include "rpi-gpio.h"
 #include "rpi-mailboxregs.h"
 #include "rpi-interrupts.h"
+#include "framebuffer/framebuffer.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "cpu_debug.h"
@@ -121,6 +122,10 @@ static void init_emulator() {
 #endif
 
    _enable_interrupts();
+
+   if (vdu_enabled) {
+      fb_show_splash_screen();
+   }
 }
 
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
