@@ -244,8 +244,10 @@ _reset_continue:
     // round up. It doesn't matter if we go too far as we just zero part of the heap. 
     push    {r0-r3}
     ldr     r0,=__bss_start__
-    ldr     r1,=__bss_end__+64
-    sub     r1,r1,r0
+    ldr     r2,=__bss_end__+64
+    mov     r1,#0
+    sub     r2,r2,r0
+
     BL      _fast_clear
     pop     {r0-r3}
     b       kernel_main
