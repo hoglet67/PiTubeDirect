@@ -1506,7 +1506,7 @@ Bopc_74:
    ADDR1REGXZP
    strb ram6502,[ram6502,reg1,LSR #24]
    add reg0,jittedtable16ptr, reg1,LSR #24-2
-   BLX reg0
+   .word jittablezp-20
 
 Bopc_75:
    ADDR1REGXZP
@@ -1628,7 +1628,7 @@ Bopc_95:
    ADDR1REGXZP
    strb regA,[ram6502,reg1,LSR #24]
    add reg0,jittedtable16ptr, reg1,LSR #24-2
-   BLX reg0
+   .word jittablezp-20
 
 Bopc_96:
    ADDR1REGYCONST
@@ -1695,7 +1695,7 @@ opc_F2: // Opcode F2 - SBC ($00)
    DOUBLEBYTEBYTET2BLOUT Bopc_F2
 
 opc_74: // Opcode 74 - STZ $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_74
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_74
 
 opc_75: // Opcode 75 - ADC $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_75
@@ -1837,7 +1837,7 @@ opc_94: // Opcode 94 - STY $00,X
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_94
 
 opc_95: // Opcode 95 - STA $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_95
+   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_95
 
 opc_96: // Opcode 96 - STX $00,Y
    DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_96
@@ -3340,6 +3340,8 @@ bitimm:
 
 jitstxytable:
    add reg0,jittedtable16ptr,reg1,LSR #24-2
+jittablezp:
+   mov reg1,reg1,LSR #24
    BX reg0
 
 jitstatable:
