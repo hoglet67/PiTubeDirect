@@ -167,6 +167,7 @@ void _invalidate_cache_area(void * start, unsigned int length)
 void map_4k_page(unsigned int logical, unsigned int physical) {
   // Invalidate the data TLB before changing mapping
   _invalidate_dtlb_mva((void *)(logical << 12));
+  _data_synchronization_barrier();
   // Setup the 4K page table entry
   // Second level descriptors use extended small page format so inner/outer caching can be controlled
   // Pi 0/1:
@@ -185,6 +186,7 @@ void map_4k_page(unsigned int logical, unsigned int physical) {
 void map_4k_pageJIT(unsigned int logical, unsigned int physical) {
   // Invalidate the data TLB before changing mapping
   _invalidate_dtlb_mva((void *)(logical << 12));
+  _data_synchronization_barrier();
   // Setup the 4K page table entry
   // Second level descriptors use extended small page format so inner/outer caching can be controlled
   // Pi 0/1:
