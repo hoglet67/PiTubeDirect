@@ -2424,6 +2424,9 @@ loopioregion:
    ubfx r1,r12,#16,#4
    mov r12,#4
    lsl r12,r12,r1
+
+   mov r12,#32 // Hack to fix A72 cache line size
+   
    str r12,cacheline
 
    mov r5,#JITLET
@@ -2890,7 +2893,7 @@ jitentry:
    BEQ 1f
 
    push {r0-r12}
-   mov r0,temp2,
+   mov r0,temp2
    BL dis6502
    pop {r0-r12}
 1:
@@ -3004,7 +3007,7 @@ cacheflushloop:
  //  MCR p15,0,r4, c7, c5, 1 // instruction
    add r4,r4,r12
    cmp r3,r2
-   blt cacheflushloop
+   ble cacheflushloop
 
    DSB
    //mov temp0,#0
