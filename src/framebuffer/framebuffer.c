@@ -1542,7 +1542,7 @@ void fb_show_splash_screen() {
    fb_writec(3);
    fb_writes("Release: "RELEASENAME"\r\n");
    fb_writes(" Commit: "GITVERSION"\r\n");
-   sprintf(buffer, " Co Pro: %d/%s\r\n", copro, get_copro_name(copro, 24));
+   sprintf(buffer, " Co Pro: %ud/%s\r\n", copro, get_copro_name(copro, 24));
    fb_writes(buffer);
    fb_writes("Pi Info: ");
    fb_writes(get_info_string());
