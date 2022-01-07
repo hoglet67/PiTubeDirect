@@ -375,9 +375,6 @@ _clean_invalidate_dcache_mva:
 _invalidate_tlb_mva:
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
     dsb
-#else
-    mov     r1, #0
-    mcr     p15, 0, r1, c7, c10, 4  // dsb
 #endif
 
     mcr     p15, 0, r0, c8, c7, 1  // invalidate tlb
@@ -386,8 +383,6 @@ _invalidate_tlb_mva:
     MCR p15, 0, r0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
     dsb
     isb
-#else
-    mcr     p15, 0, r1, c7, c10, 4
 #endif
     bx      lr
 
