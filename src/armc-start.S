@@ -70,6 +70,7 @@
 .global _invalidate_dtlb
 .global _invalidate_dtlb_mva
 .global _data_memory_barrier
+.global _data_synchronization_barrier
 
 .global _software_interrupt_vector_h
 .global _interrupt_vector_h
@@ -391,6 +392,17 @@ _data_memory_barrier:
     mcr     p15, 0, r0, c7, c10, 5
 #endif
     bx      lr
+
+.section ".text._data_synchronization_barrier"
+_data_synchronization_barrier:
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+    dsb
+#else
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c10, 4
+#endif
+    bx      lr
+
 
 #ifdef USE_MULTICORE
 +.section ".text._init_core"
