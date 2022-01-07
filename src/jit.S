@@ -2421,6 +2421,10 @@ loopioregion:
    DSB
 // this would be faster to flush the cache by way instead of VA
    mrc p15, 0,r12,cr0,cr0,1
+   and r0,r12,#0xF
+   mov r1,#4
+   lsl r1,r1,r0
+   str r1,cachelineI
    ubfx r1,r12,#16,#4
    mov r12,#4
    lsl r12,r12,r1
@@ -2530,6 +2534,8 @@ fiq_spsr_temp:
 stackptr:
    .word 0
 cachelineD:
+   .word 0
+cachelineI:
    .word 0
 ram6502store:
    .word 0
@@ -2983,35 +2989,45 @@ dojitexit :
    // r3 has the first address of JITLET instruction
    // r2 has last address+1
    ldr r12,cachelineD
+   ldr r11,cachelineI
    mov r2,r2,LSL #2
    sub r4,r3,#JITLET
    add r2,r2,#JITTEDTABLE16
    mov r4,r4,LSR #(JITLETSHIFT-2)
    add r4,r4,#JITTEDTABLE16
 
+   mov r5,r2
+   mov r6,r3
+   mov r7,r4
+
    add r2,r2,r12
 
-cacheflushloop:
-   mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16
+cacheflushloopD:
+   mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16 (DCCMVAU)
    add r4,r4,r12
    mcr p15,0,r3,cr7,cr11,1 // data JITLET (NB 2xJITLET compared to table)
    cmp r4,r2
    add r3,r3,r12
    mcr p15,0,r3,cr7,cr11,1 // data JITLET
    add r3,r3,r12
-   blt cacheflushloop
+   blt cacheflushloopD
 
    DSB
 
- //  MCR p15,0,r4, c7, c5, 1 // instruction
-//  MCR p15,0,r3, c7, c5, 1 // instruction
- //  MCR p15,0,r3, c7, c5, 1 // instruction
+   add r5,r5,r11
 
-   //mov temp0,#0
-   //MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB
-   // Why the above of only flushing accessed cache locations doesn't work
-   // isn't understood. So we flush the the I cache to fix the issue.
-   MCR p15, 0, reg12, c7, c5, 0 // invalidate I&BTB cache
+cacheflushloopI:
+   MCR p15,0,r7, c7, c5, 1 // instruction (ICIMVAU)
+   add r7,r7,r11
+   MCR p15,0,r6, c7, c5, 1 // instruction
+   cmp r7,r5
+   add r6,r6,r11
+   MCR p15,0,r6, c7, c5, 1 // instruction
+   add r6,r6,r11
+   blt cacheflushloopI
+
+   MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
+   //MCR p15, 0, reg12, c7, c5, 0 // invalidate I&BTB cache
 
    DSB
    ISB
