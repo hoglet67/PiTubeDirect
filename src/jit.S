@@ -2424,9 +2424,6 @@ loopioregion:
    ubfx r1,r12,#16,#4
    mov r12,#4
    lsl r12,r12,r1
-
-   mov r12,#32 // Hack to fix A72 cache line size
-   
    str r12,cacheline
 
    mov r5,#JITLET
@@ -2986,15 +2983,13 @@ dojitexit :
    // r3 has the first address of JITLET instruction
    // r2 has last address+1
    ldr r12,cacheline
-   mov r2,r2,LSL #JITLETSHIFT
+   mov r2,r2,LSL #2
    sub r4,r3,#JITLET
-   add r2,r2,#JITLET
+   add r2,r2,#JITTEDTABLE16
    mov r4,r4,LSR #(JITLETSHIFT-2)
    add r4,r4,#JITTEDTABLE16
 
-   sub r0,r12,#1  // this appears to fix an A72 issue where the cache wasn't being
-   bic  r3,r3,r0  // flushed if the address was the last word in a cache line
-   bic  r4,r4,r0  // and it was being flushed for the second time !!!!
+   add r2,r2,r12
 
 cacheflushloop:
    mcr p15,0,r3,cr7,cr11,1 // data JITLET (NB 2xJITLET compared to table)
@@ -3006,7 +3001,7 @@ cacheflushloop:
    mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16
  //  MCR p15,0,r4, c7, c5, 1 // instruction
    add r4,r4,r12
-   cmp r3,r2
+   cmp r4,r2
    ble cacheflushloop
 
    DSB
