@@ -522,7 +522,7 @@ static byte tmpr;
     unsigned int i= B << 1;                     \
     putMemory(ea, (uint8_t)i);				\
     fetch();					\
-    setNZC(i & 0x80, !i, i >> 8);		\
+    setNZC(i & 0x80, !(i & 0xFF), i >> 8);      \
   }						\
   next();
 
