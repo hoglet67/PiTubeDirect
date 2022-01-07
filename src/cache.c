@@ -164,10 +164,7 @@ void _invalidate_cache_area(void * start, unsigned int length)
 // 1      1
 // 0      1
 
-void map_4k_page(unsigned int logical, unsigned int physical) {
-  // Invalidate the data TLB before changing mapping
-  _invalidate_dtlb_mva((void *)(logical << 12));
-  _data_synchronization_barrier();
+static void map_4k_page_quick(unsigned int logical, unsigned int physical) {
   // Setup the 4K page table entry
   // Second level descriptors use extended small page format so inner/outer caching can be controlled
   // Pi 0/1:
@@ -175,7 +172,7 @@ void map_4k_page(unsigned int logical, unsigned int physical) {
   // Pi 2/3:
   //   XP (bit 23) in SCTRL no longer exists, and we see to be using ARMv6 table formats
   //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
-  //   (this was the cause of issue #27)
+  //   (this was the cause of issue #27)  
 #if defined(RPI2) || defined (RPI3) || defined(RPI4)
   PageTable2[logical] = (physical<<12) | 0x132u | (bb << 6) | (aa << 2);
 #else
@@ -183,18 +180,12 @@ void map_4k_page(unsigned int logical, unsigned int physical) {
 #endif
 }
 
-void map_4k_pageJIT(unsigned int logical, unsigned int physical) {
-  // Invalidate the data TLB before changing mapping
-  _invalidate_dtlb_mva((void *)(logical << 12));
-  _data_synchronization_barrier();
-  // Setup the 4K page table entry
-  // Second level descriptors use extended small page format so inner/outer caching can be controlled
-  // Pi 0/1:
-  //   XP (bit 23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
-  // Pi 2/3:
-  //   XP (bit 23) in SCTRL no longer exists, and we see to be using ARMv6 table formats
-  //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
-  //   (this was the cause of issue #27)
+void map_4k_page(unsigned int logical, unsigned int physical) {
+   map_4k_page_quick(logical,physical);
+   _invalidate_tlb_mva((void *)(logical << 12));
+}
+
+static void map_4k_pageJIT_quick(unsigned int logical, unsigned int physical) {
 #if defined(RPI2) || defined (RPI3) || defined(RPI4)
   PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x132u | (bb << 6) | (aa << 2);
 #else
@@ -202,9 +193,13 @@ void map_4k_pageJIT(unsigned int logical, unsigned int physical) {
 #endif
 }
 
+void map_4k_pageJIT(unsigned int logical, unsigned int physical) {
+  map_4k_pageJIT_quick(logical,physical);
+  _invalidate_tlb_mva((void *)(logical << 12));
+}
+
 void enable_MMU_and_IDCaches(void)
 {
-
   LOG_DEBUG("enable_MMU_and_IDCaches\r\n");
   //LOG_DEBUG("cpsr    = %08x\r\n", _get_cpsr());
 
@@ -282,17 +277,14 @@ void enable_MMU_and_IDCaches(void)
 
   // populate the second level page tables
   for (base = 0; base < NUM_4K_PAGES; base++)
-  {
-    map_4k_page(base, base);
-  }
+    map_4k_page_quick(base, base);
+
   // 6502 jitter needs a second level page table
   PageTable[(JITTEDTABLE16>>20)] = (unsigned int) (&PageTable3[0]) + 1;
 
   // populate the second level page tables
   for (base = 0; base < 256; base++)
-  {
-    map_4k_pageJIT((JITTEDTABLE16>>12)+base, (JITTEDTABLE16>>12)+base);
-  }
+    map_4k_pageJIT_quick((JITTEDTABLE16>>12)+base, (JITTEDTABLE16>>12)+base);
 
 #if defined(RPI3)||defined(RPI4)
   //unsigned cpuextctrl0, cpuextctrl1;

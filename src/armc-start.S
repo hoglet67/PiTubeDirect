@@ -67,8 +67,7 @@
 .global _clean_invalidate_dcache
 .global _invalidate_dcache_mva
 .global _clean_invalidate_dcache_mva
-.global _invalidate_dtlb
-.global _invalidate_dtlb_mva
+.global _invalidate_tlb_mva
 .global _data_memory_barrier
 .global _data_synchronization_barrier
 
@@ -383,15 +382,24 @@ _clean_invalidate_dcache_mva:
     mcr     p15, 0, r0, c7, c14, 1
     bx      lr
 
-.section ".text._invalidate_dtlb"
-_invalidate_dtlb:
-    mov     r0, #0
-    mcr     p15, 0, r0, c8, c6, 0
-    bx      lr
+.section ".text._invalidate_tlb_mva"
+_invalidate_tlb_mva:
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+    dsb
+#else
+    mov     r1, #0
+    mcr     p15, 0, r1, c7, c10, 4  // dsb
+#endif
 
-.section ".text._invalidate_dtlb_mva"
-_invalidate_dtlb_mva:
-    mcr     p15, 0, r0, c8, c6, 1
+    mcr     p15, 0, r0, c8, c7, 1  // invalidate tlb
+
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+    MCR p15, 0, r0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
+    dsb
+    isb
+#else
+    mcr     p15, 0, r1, c7, c10, 4
+#endif
     bx      lr
 
 .section ".text._data_memory_barrier"
@@ -400,7 +408,7 @@ _data_memory_barrier:
     dmb
 #else
     mov     r0, #0
-    mcr     p15, 0, r0, c7, c10, 5
+    mcr     p15, 0, r0, c7, c10, 5 // DMB
 #endif
     bx      lr
 
@@ -413,7 +421,6 @@ _data_synchronization_barrier:
     mcr     p15, 0, r0, c7, c10, 4
 #endif
     bx      lr
-
 
 #ifdef USE_MULTICORE
 +.section ".text._init_core"
