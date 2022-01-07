@@ -2424,7 +2424,7 @@ loopioregion:
    ubfx r1,r12,#16,#4
    mov r12,#4
    lsl r12,r12,r1
-   str r12,cacheline
+   str r12,cachelineD
 
    mov r5,#JITLET
    mov r0,#JITTEDTABLE16
@@ -2529,7 +2529,7 @@ fiq_spsr_temp:
    .word 0
 stackptr:
    .word 0
-cacheline:
+cachelineD:
    .word 0
 ram6502store:
    .word 0
@@ -2982,7 +2982,7 @@ dojitexit :
    // Clean data cache both JITLET
    // r3 has the first address of JITLET instruction
    // r2 has last address+1
-   ldr r12,cacheline
+   ldr r12,cachelineD
    mov r2,r2,LSL #2
    sub r4,r3,#JITLET
    add r2,r2,#JITTEDTABLE16
@@ -2992,19 +2992,21 @@ dojitexit :
    add r2,r2,r12
 
 cacheflushloop:
+   mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16
+   add r4,r4,r12
    mcr p15,0,r3,cr7,cr11,1 // data JITLET (NB 2xJITLET compared to table)
- //  MCR p15,0,r3, c7, c5, 1 // instruction
+   cmp r4,r2
    add r3,r3,r12
    mcr p15,0,r3,cr7,cr11,1 // data JITLET
- //  MCR p15,0,r3, c7, c5, 1 // instruction
    add r3,r3,r12
-   mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16
- //  MCR p15,0,r4, c7, c5, 1 // instruction
-   add r4,r4,r12
-   cmp r4,r2
-   ble cacheflushloop
+   blt cacheflushloop
 
    DSB
+
+ //  MCR p15,0,r4, c7, c5, 1 // instruction
+//  MCR p15,0,r3, c7, c5, 1 // instruction
+ //  MCR p15,0,r3, c7, c5, 1 // instruction
+
    //mov temp0,#0
    //MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB
    // Why the above of only flushing accessed cache locations doesn't work
