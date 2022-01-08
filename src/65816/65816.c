@@ -20,7 +20,8 @@
 #define W65816_ROM_SIZE 0x008000
 #define W65816_RAM_SIZE 0x080000
 
-static uint8_t *w65816ram, *w65816rom;
+static uint8_t *w65816ram;
+static const uint8_t *w65816rom;
 
 // The bank number to load any native vectors from
 static uint32_t w65816nvb = 0x00;
@@ -5734,7 +5735,7 @@ static void w65816_loadstate(ZFILE * zfp)
 
 #endif
 
-uint8_t *w65816_init(void *rom, uint32_t nativeVectBank)
+uint8_t *w65816_init(const void *rom, uint32_t nativeVectBank)
 {
     w65816ram = copro_mem_reset(W65816_RAM_SIZE);
     w65816rom = rom;
