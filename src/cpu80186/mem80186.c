@@ -148,6 +148,6 @@ void RomCopy(void)
 
    for (Base = MirrorBase; Base < ONE_MEG; Base += sizeof(Client86_v1_01))
    {
-      memcpy((void*)&RAM[Base], (void*)Client86_v1_01, sizeof(Client86_v1_01));
+      memcpy((void*)&RAM[Base], (const void*)Client86_v1_01, sizeof(Client86_v1_01));
    }
 }
