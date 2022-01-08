@@ -116,10 +116,7 @@ void _clean_cache_area(void * start, unsigned int length)
    asm volatile ("mrc p15, 0, %0, c0, c0,  1" : "=r" (cachelinesize));
    cachelinesize = (cachelinesize>> 16 ) & 0xF;
    cachelinesize = 4<<cachelinesize;
-   endptr = startptr + length;
-
-   // round down start address
-   startptr = (char *)(((uint32_t)start) & ~(cachelinesize - 1));
+   endptr = startptr + length + cachelinesize;
 
    do{
       asm volatile ("mcr     p15, 0, %0, c7, c14, 1" : : "r" (startptr));
@@ -140,10 +137,7 @@ void _invalidate_cache_area(void * start, unsigned int length)
    asm volatile ("mrc p15, 0, %0, c0, c0,  1" : "=r" (cachelinesize));
    cachelinesize = (cachelinesize>> 16 ) & 0xF;
    cachelinesize = 4<<cachelinesize;
-   endptr = startptr + length;
-
-   // round down start address
-   startptr = (char *)(((uint32_t)start) & ~(cachelinesize - 1));
+   endptr = startptr + length + cachelinesize;
 
    do{
       asm volatile ("mcr     p15, 0, %0, c7, c6, 1" : : "r" (startptr));
