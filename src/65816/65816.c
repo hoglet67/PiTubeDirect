@@ -5734,7 +5734,7 @@ static void w65816_loadstate(ZFILE * zfp)
 
 #endif
 
-void w65816_init(void *rom, uint32_t nativeVectBank)
+uint8_t *w65816_init(void *rom, uint32_t nativeVectBank)
 {
     w65816ram = copro_mem_reset(W65816_RAM_SIZE);
     w65816rom = rom;
@@ -5748,6 +5748,7 @@ void w65816_init(void *rom, uint32_t nativeVectBank)
     tube_proc_loadstate = w65816_loadstate;
 #endif
     w65816_reset();
+    return w65816ram;
 }
 
 static void nmi65816(void)
