@@ -2879,6 +2879,25 @@ static const unsigned char osword_driver[] = {
 
 const unsigned char *host_oswrch_redirector = osword_driver;
 
+int search_bin(const uint8_t *pattern, unsigned int psize, const uint8_t *data, unsigned int dsize) {
+   const uint8_t *dptr = data;
+   const uint8_t *dend = data + dsize - psize;
+   while (dptr < dend) {
+      int i = 0;
+      while (i < psize && dptr[i] == pattern[i]) {
+         i++;
+      }
+      if (i == psize) {
+         return dptr - data;
+      }
+      dptr++;
+   }
+   return -1;
+}
+
+#define D6502_START  0x3400
+#define D65C02_START 0xC000
+
 void copy_test_programs(uint8_t *memory) {
    memcpy(memory + 0x2C0, osword_driver, sizeof(osword_driver));
 
@@ -2923,6 +2942,86 @@ void copy_test_programs(uint8_t *memory) {
    }
    *list_end = '\0';   // end of text marker
 
-   memcpy(memory + 0x3400, dormann_d6502, sizeof(dormann_d6502));
-   memcpy(memory + 0xC000, dormann_d65c02, sizeof(dormann_d65c02));
+   // DORMANN TESTS
+
+   // Copy original tests into memory
+
+   memcpy(memory + D6502_START, dormann_d6502, sizeof(dormann_d6502));
+   memcpy(memory + D65C02_START, dormann_d65c02, sizeof(dormann_d65c02));
+
+   // Build a small 6502 program at &3000 to allow running of both
+   //
+   // When run, this program patches the two dormann binaries to point to each other and
+   // updates the message so it's clear which is the 6502 and which is the 65c02 version
+   //
+   // This may seem complicated, but I really don't want to make changes like this to my
+   // upstread Dormann repository
+   //
+   // It also allows the original (unpatched) versions to be run seperately
+
+   const char *start_message = "Started testing";
+
+   unsigned int    base[]  = {          D6502_START,           D65C02_START};
+   const char *    title[] = {           "6502\r\n",            "65c02\r\n"};
+   const uint8_t * data[]  = {        dormann_d6502,         dormann_d65c02};
+   unsigned int    dsize[] = {sizeof(dormann_d6502), sizeof(dormann_d65c02)};
+
+   // jmp[0] will be the address of the JMP start at the end of the 6502 tests
+   // jmp[1] will be the address of the JMP start at the end of the 65C02 tests
+   // msg[0] witl be the "Start testing" message in the 6502 tests
+   // msg[1] witl be the "Start testing" message in the 65C02 tests
+
+   int jmp[2];
+   int msg[2];
+
+   for (int i = 0; i < 2; i++) {
+      uint8_t jmp_pattern[] = { 0x4C, (base[i] & 0xFF), ((base[i] >> 8) & 0xFF) };
+      jmp[i] = search_bin(jmp_pattern, sizeof(jmp_pattern), data[i], dsize[i]);
+      if (jmp[i] < 0) {
+         printf("Failed to find jmp start in Dormann %s binary\r\n", i ? "65C02" : "6502");
+      }
+      msg[i] = search_bin((uint8_t *)start_message, strlen(start_message), data[i], dsize[i]);
+      if (msg[i] < 0) {
+         printf("Failed to find start message in Dormann %s binary\r\n", i ? "65C02" : "6502");
+      }
+   }
+   if ((jmp[0] < 0) || (jmp[1] < 0) || (msg[0] < 0) || (msg[1] < 0)) {
+      return;
+   }
+   // Convert to absolute addresses
+   for (int i = 0; i < 2; i++) {
+      jmp[i] += (int) base[i];
+      msg[i] += (int) base[i];
+   }
+   // Construct the program that allows both to be run
+   unsigned int p = 0x3000;
+   // i = 0: Patch D6502 to JMP to D65C02
+   // i = 1: Patch D65C02 to JMP to D6502
+   // A9 = LDA #immediate
+   // 8D = STA absolute
+   // 4C = JMP
+   for (int i = 0; i < 2; i++) {
+      memory[p++] = (uint8_t)(0xA9);
+      memory[p++] = (uint8_t)(base[1 - i] & 0xff);
+      memory[p++] = (uint8_t)(0x8D);
+      memory[p++] = (uint8_t)((jmp[i] + 1) & 0xff);
+      memory[p++] = (uint8_t)(((jmp[i] + 1) >> 8) & 0xff);
+      memory[p++] = (uint8_t)(0xA9);
+      memory[p++] = (uint8_t)((base[1 - i] >> 8) & 0xff);
+      memory[p++] = (uint8_t)(0x8D);
+      memory[p++] = (uint8_t)((jmp[i] + 2) & 0xff);
+      memory[p++] = (uint8_t)(((jmp[i] + 2) >> 8) & 0xff);
+      // Patch the report title (including terminating zero)
+      for (int j = 0; j <= strlen(title[i]); j++) {
+         memory[p++] = (uint8_t)(0xA9);
+         memory[p++] = (uint8_t)(title[i][j]);
+         memory[p++] = (uint8_t)(0x8D);
+         memory[p++] = (uint8_t)((msg[i] + 8 + j) & 0xff);
+         memory[p++] = (uint8_t)(((msg[i] + 8 + j) >> 8) & 0xff);
+      }
+   }
+   // Jmp to 6502 tests
+   memory[p++] = (uint8_t)(0x4c);
+   memory[p++] = (uint8_t)(base[0] & 0xff);
+   memory[p++] = (uint8_t)((base[0] >> 8) & 0xff);
 }
