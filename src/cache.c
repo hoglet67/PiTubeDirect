@@ -12,10 +12,10 @@
 // At that point, the stack appears to vanish and the data read back is 0x55555555
 // Reason turned out to be failure to correctly invalidate the entire data cache
 
-static volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
-static volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
+static volatile __attribute__ ((aligned (0x4000)))  __attribute__ ((section (".noinit"))) unsigned int PageTable[4096];
+static volatile __attribute__ ((aligned (0x4000)))  __attribute__ ((section (".noinit"))) unsigned int PageTable2[NUM_4K_PAGES];
 
-static volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable3[256];
+static volatile __attribute__ ((aligned (0x4000)))  __attribute__ ((section (".noinit"))) unsigned int PageTable3[256];
 
 static const unsigned int aa = 1u;
 static const unsigned int bb = 1u;
