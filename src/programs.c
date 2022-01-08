@@ -2879,7 +2879,7 @@ static const unsigned char osword_driver[] = {
 
 const unsigned char *host_oswrch_redirector = osword_driver;
 
-int search_bin(const uint8_t *pattern, unsigned int psize, const uint8_t *data, unsigned int dsize) {
+static int search_bin(const uint8_t *pattern, unsigned int psize, const uint8_t *data, unsigned int dsize) {
    const uint8_t *dptr = data;
    const uint8_t *dend = data + dsize - psize;
    while (dptr < dend) {
@@ -2980,7 +2980,7 @@ void copy_test_programs(uint8_t *memory) {
       if (jmp[i] < 0) {
          printf("Failed to find jmp start in Dormann %s binary\r\n", i ? "65C02" : "6502");
       }
-      msg[i] = search_bin((uint8_t *)start_message, strlen(start_message), data[i], dsize[i]);
+      msg[i] = search_bin((const uint8_t *)start_message, strlen(start_message), data[i], dsize[i]);
       if (msg[i] < 0) {
          printf("Failed to find start message in Dormann %s binary\r\n", i ? "65C02" : "6502");
       }
