@@ -2944,11 +2944,6 @@ void copy_test_programs(uint8_t *memory) {
 
    // DORMANN TESTS
 
-   // Copy original tests into memory
-
-   memcpy(memory + D6502_START, dormann_d6502, sizeof(dormann_d6502));
-   memcpy(memory + D65C02_START, dormann_d65c02, sizeof(dormann_d65c02));
-
    // Build a small 6502 program at &3000 to allow running of both
    //
    // When run, this program patches the two dormann binaries to point to each other and
@@ -2969,10 +2964,8 @@ void copy_test_programs(uint8_t *memory) {
    // jmp[1] will be the address of the JMP start at the end of the 65C02 tests
    // msg[0] witl be the "Start testing" message in the 6502 tests
    // msg[1] witl be the "Start testing" message in the 65C02 tests
-
    int jmp[2];
    int msg[2];
-
    for (int i = 0; i < 2; i++) {
       uint8_t jmp_pattern[] = { 0x4C, (base[i] & 0xFF), ((base[i] >> 8) & 0xFF) };
       jmp[i] = search_bin(jmp_pattern, sizeof(jmp_pattern), data[i], dsize[i]);
@@ -2984,40 +2977,61 @@ void copy_test_programs(uint8_t *memory) {
          printf("Failed to find start message in Dormann %s binary\r\n", i ? "65C02" : "6502");
       }
    }
-   if ((jmp[0] < 0) || (jmp[1] < 0) || (msg[0] < 0) || (msg[1] < 0)) {
+
+   // Copy D6502 tests into memory
+   memcpy(memory + D6502_START, dormann_d6502, sizeof(dormann_d6502));
+   // Patch the test suite name, if found
+   if (msg[0] >= 0) {
+      // Convert to absolute addresses
+      msg[0] += (int) base[0];
+      // Patch string
+      strcpy((char *)memory + msg[0], "Dormann 6502\r\n");
+   }
+
+   // The Dossy 65916 Co Pro (18) and ReCo 65816 Co Pro (19) both
+   // allow for a 32KB ROM (0x8000-0xFFFF), so skip 65C02 tests on these
+   if (copro == 18 || copro == 19) {
       return;
    }
-   // Convert to absolute addresses
-   for (int i = 0; i < 2; i++) {
-      jmp[i] += (int) base[i];
-      msg[i] += (int) base[i];
-   }
 
-   // Patch the program titles
-   strcpy((char *)memory + msg[0], "Dormann 6502\r\n");
-   strcpy((char *)memory + msg[1], "Dormann 65C02\r\n");
+   // Copy D6502 tests into memory
+   memcpy(memory + D65C02_START, dormann_d65c02, sizeof(dormann_d65c02));
+   // Patch the test suite name, if found
+   if (msg[1] >= 0) {
+      // Convert to absolute address
+      msg[1] += (int) base[1];
+      // Patch string
+      strcpy((char *)memory + msg[1], "Dormann 65C02\r\n");
+   }
 
    // Construct the program that allows both to be run
-   unsigned int p = 0x3000;
-   // i = 0: Patch D6502 to JMP to D65C02
-   // i = 1: Patch D65C02 to JMP to D6502
-   // A9 = LDA #immediate
-   // 8D = STA absolute
-   for (int i = 0; i < 2; i++) {
-      memory[p++] = (uint8_t)(0xA9);
-      memory[p++] = (uint8_t)(base[1 - i] & 0xff);
-      memory[p++] = (uint8_t)(0x8D);
-      memory[p++] = (uint8_t)((jmp[i] + 1) & 0xff);
-      memory[p++] = (uint8_t)(((jmp[i] + 1) >> 8) & 0xff);
-      memory[p++] = (uint8_t)(0xA9);
-      memory[p++] = (uint8_t)((base[1 - i] >> 8) & 0xff);
-      memory[p++] = (uint8_t)(0x8D);
-      memory[p++] = (uint8_t)((jmp[i] + 2) & 0xff);
-      memory[p++] = (uint8_t)(((jmp[i] + 2) >> 8) & 0xff);
+   if (jmp[0] >= 0 && jmp[1] >= 0) {
+      unsigned int p = 0x3000;
+      // Convert to absolute addresses
+      for (int i = 0; i < 2; i++) {
+         jmp[i] += (int) base[i];
+      }
+      // i = 0: Patch D6502 to JMP to D65C02
+      // i = 1: Patch D65C02 to JMP to D6502
+      // A9 = LDA #immediate
+      // 8D = STA absolute
+      for (int i = 0; i < 2; i++) {
+         memory[p++] = (uint8_t)(0xA9);
+         memory[p++] = (uint8_t)(base[1 - i] & 0xff);
+         memory[p++] = (uint8_t)(0x8D);
+         memory[p++] = (uint8_t)((jmp[i] + 1) & 0xff);
+         memory[p++] = (uint8_t)(((jmp[i] + 1) >> 8) & 0xff);
+         memory[p++] = (uint8_t)(0xA9);
+         memory[p++] = (uint8_t)((base[1 - i] >> 8) & 0xff);
+         memory[p++] = (uint8_t)(0x8D);
+         memory[p++] = (uint8_t)((jmp[i] + 2) & 0xff);
+         memory[p++] = (uint8_t)(((jmp[i] + 2) >> 8) & 0xff);
+      }
+      // Jmp to 6502 tests
+      // 4C = JMP
+      memory[p++] = (uint8_t)(0x4c);
+      memory[p++] = (uint8_t)(base[0] & 0xff);
+      memory[p++] = (uint8_t)((base[0] >> 8) & 0xff);
    }
-   // Jmp to 6502 tests
-   // 4C = JMP
-   memory[p++] = (uint8_t)(0x4c);
-   memory[p++] = (uint8_t)(base[0] & 0xff);
-   memory[p++] = (uint8_t)((base[0] >> 8) & 0xff);
+
 }

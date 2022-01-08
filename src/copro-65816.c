@@ -14,13 +14,17 @@
 #include "65816/65816.h"
 #include "65816/tuberom_65816.h"
 #include "startup.h"
+#include "programs.h"
 
 static void copro_65816_poweron_reset(int romset) {
+   uint8_t *ram;
    if (romset) {
-      w65816_init(tuberom_reco65816_bin, 0x00);
+      ram = w65816_init(tuberom_reco65816_bin, 0x00);
    } else {
-      w65816_init(tuberom_dominic65816_bin, 0x01); // TODO: Should raise this in the client ROM
+      ram = w65816_init(tuberom_dominic65816_bin, 0x01); // TODO: Should raise this in the client ROM
    }
+  // Install test programs (like sphere)
+  copy_test_programs(ram);
 }
 
 static void copro_65816_reset() {

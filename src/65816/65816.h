@@ -20,7 +20,7 @@ typedef struct
 
 extern w65816p_t w65816p;
 
-void w65816_init(void *rom, uint32_t nativeVectBank);
+uint8_t *w65816_init(void *rom, uint32_t nativeVectBank);
 void w65816_reset(void);
 void w65816_exec(int tubecycles);
 void w65816_close(void);
