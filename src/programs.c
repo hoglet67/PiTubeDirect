@@ -2962,7 +2962,6 @@ void copy_test_programs(uint8_t *memory) {
    const char *start_message = "Started testing";
 
    unsigned int    base[]  = {          D6502_START,           D65C02_START};
-   const char *    title[] = {           "6502\r\n",            "65c02\r\n"};
    const uint8_t * data[]  = {        dormann_d6502,         dormann_d65c02};
    unsigned int    dsize[] = {sizeof(dormann_d6502), sizeof(dormann_d65c02)};
 
@@ -2993,13 +2992,17 @@ void copy_test_programs(uint8_t *memory) {
       jmp[i] += (int) base[i];
       msg[i] += (int) base[i];
    }
+
+   // Patch the program titles
+   strcpy((char *)memory + msg[0], "Dormann 6502\r\n");
+   strcpy((char *)memory + msg[1], "Dormann 65C02\r\n");
+
    // Construct the program that allows both to be run
    unsigned int p = 0x3000;
    // i = 0: Patch D6502 to JMP to D65C02
    // i = 1: Patch D65C02 to JMP to D6502
    // A9 = LDA #immediate
    // 8D = STA absolute
-   // 4C = JMP
    for (int i = 0; i < 2; i++) {
       memory[p++] = (uint8_t)(0xA9);
       memory[p++] = (uint8_t)(base[1 - i] & 0xff);
@@ -3011,16 +3014,9 @@ void copy_test_programs(uint8_t *memory) {
       memory[p++] = (uint8_t)(0x8D);
       memory[p++] = (uint8_t)((jmp[i] + 2) & 0xff);
       memory[p++] = (uint8_t)(((jmp[i] + 2) >> 8) & 0xff);
-      // Patch the report title (including terminating zero)
-      for (int j = 0; j <= strlen(title[i]); j++) {
-         memory[p++] = (uint8_t)(0xA9);
-         memory[p++] = (uint8_t)(title[i][j]);
-         memory[p++] = (uint8_t)(0x8D);
-         memory[p++] = (uint8_t)((msg[i] + 8 + j) & 0xff);
-         memory[p++] = (uint8_t)(((msg[i] + 8 + j) >> 8) & 0xff);
-      }
    }
    // Jmp to 6502 tests
+   // 4C = JMP
    memory[p++] = (uint8_t)(0x4c);
    memory[p++] = (uint8_t)(base[0] & 0xff);
    memory[p++] = (uint8_t)((base[0] >> 8) & 0xff);
