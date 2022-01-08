@@ -3,6 +3,6 @@
 
 #include <stdint.h>
 
-extern uint32_t tuberom_opc7[0x800];
+extern const uint32_t tuberom_opc7[0x800];
 
 #endif

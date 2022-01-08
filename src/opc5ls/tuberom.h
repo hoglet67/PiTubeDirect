@@ -3,6 +3,6 @@
 
 #include <stdint.h>
 
-extern uint16_t tuberom_opc5ls[0x1000];
+extern const uint16_t tuberom_opc5ls[0x1000];
 
 #endif

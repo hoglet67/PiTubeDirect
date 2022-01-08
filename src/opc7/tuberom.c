@@ -1,5 +1,5 @@
 #include "tuberom.h"
-uint32_t tuberom_opc7[0x800] = {
+const uint32_t tuberom_opc7[0x800] = {
 0x00f00416,
 0x00000000,
 0x00f00774,

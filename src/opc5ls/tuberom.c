@@ -1,5 +1,5 @@
 #include "tuberom.h"
-uint16_t tuberom_opc5ls[0x1000] = {
+const uint16_t tuberom_opc5ls[0x1000] = {
 0x10ee,
 0xffff,
 0x16e2,

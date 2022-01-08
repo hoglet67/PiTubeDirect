@@ -55,7 +55,7 @@ unsigned char * copro_mem_reset(unsigned int length)
    return mpu_memory;
 }
 
-void copro_memcpy(unsigned char * dst,unsigned char * src,unsigned int length)
+void copro_memcpy(unsigned char * dst,const unsigned char * src,unsigned int length)
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstringop-overflow="

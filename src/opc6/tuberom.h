@@ -3,6 +3,6 @@
 
 #include <stdint.h>
 
-extern uint16_t tuberom_opc6[0x800];
+extern const uint16_t tuberom_opc6[0x800];
 
 #endif

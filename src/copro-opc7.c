@@ -75,7 +75,7 @@ static void copro_opc7_poweron_reset() {
    opc7_init(memory, 0x0000, 0x0002, 0x0000);
 
    // Copy over client ROM
-   copro_memcpy((void *) (memory + 0x0000), (void *)tuberom_opc7, sizeof(tuberom_opc7));
+   copro_memcpy((void *) (memory + 0x0000), (const void *)tuberom_opc7, sizeof(tuberom_opc7));
 }
 
 static void copro_opc7_reset() {

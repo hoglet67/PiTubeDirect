@@ -1,5 +1,5 @@
 #include "tuberom.h"
-uint16_t tuberom_opc6[0x800] = {
+const uint16_t tuberom_opc6[0x800] = {
 0x28e2,
 0x28ed,
 0x0012,

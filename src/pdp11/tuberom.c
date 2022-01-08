@@ -1,6 +1,6 @@
 #include "tuberom.h"
 
-uint16_t tuberom_pdp11[0x400] = {
+const uint16_t tuberom_pdp11[0x400] = {
    0x0077,
    0x0018,
    0x500d,
