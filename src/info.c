@@ -100,7 +100,6 @@ char *get_info_string() {
 static char *get_cmdline() {
    static int read = 0;
    if (!read) {
-      memset(cmdline, 0, PROP_SIZE);
       rpi_mailbox_property_t *buf;
       RPI_PropertyInit();
       RPI_PropertyAddTag(TAG_GET_COMMAND_LINE, 0);

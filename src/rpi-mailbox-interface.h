@@ -1,9 +1,8 @@
 #ifndef RPI_MAILBOX_INTERFACE_H
 #define RPI_MAILBOX_INTERFACE_H
 
-#define PROP_BUFFER_SIZE 8192
 #define PROP_SIZE        1024
-
+#define PROP_BUFFER_SIZE ((PROP_SIZE>>2)+2)
 
 /**
     @brief An enum of the RPI->Videocore firmware mailbox property interface

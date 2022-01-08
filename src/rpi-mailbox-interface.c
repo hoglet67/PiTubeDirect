@@ -19,19 +19,8 @@ static unsigned int pt_index ;
 
 void RPI_PropertyInit( void )
 {
-   memset(pt, 0, (size_t)64);
-
-    /* Fill in the size on-the-fly */
-    pt[PT_OSIZE] = 12;
-
-    /* Process request (All other values are reserved!) */
-    pt[PT_OREQUEST_OR_RESPONSE] = 0;
-
     /* First available data slot */
     pt_index = 2;
-
-    /* NULL tag to terminate tag list */
-    pt[pt_index] = 0;
 }
 
 /**
@@ -234,9 +223,6 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             break;
     }
 
-    /* Make sure the tags are 0 terminated to end the list and update the buffer size */
-    pt[pt_index] = 0;
-
     va_end( vl );
 }
 
@@ -252,6 +238,8 @@ static int RPI_PropertyProcessInternal(int debug)
     /* Fill in the size of the buffer */
     pt[PT_OSIZE] = (uint32_t)(( pt_index + 1 ) << 2);
     pt[PT_OREQUEST_OR_RESPONSE] = 0;
+    /* Make sure the tags are 0 terminated to end the list and update the buffer size */
+    pt[pt_index] = 0;
 
     if (debug) {
        for (unsigned int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
