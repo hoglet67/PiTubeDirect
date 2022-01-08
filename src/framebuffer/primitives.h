@@ -42,7 +42,7 @@ pixel_t    prim_get_bg_col           ();
 plotmode_t prim_get_bg_plotmode      ();
 void       prim_set_ecf_mode         (screen_mode_t *screen, int ecf_mode);
 void       prim_set_ecf_origin       (screen_mode_t *screen, int16_t x, int16_t y);
-void       prim_set_ecf_pattern      (screen_mode_t *screen, int num, const  uint8_t *pattern);
+void       prim_set_ecf_pattern      (screen_mode_t *screen, int num, const uint8_t *pattern);
 void       prim_set_ecf_simple       (screen_mode_t *screen, int num, const uint8_t *pattern);
 void       prim_set_ecf_default      (screen_mode_t *screen);
 void       prim_set_dot_pattern      (screen_mode_t *screen, const uint8_t *pattern);
