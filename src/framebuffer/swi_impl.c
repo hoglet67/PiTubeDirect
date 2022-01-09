@@ -10,7 +10,7 @@
 #include "primitives.h"
 #include "screen_modes.h"
 
-static SWIHandler_Type base_handler[NUM_SWI_HANDLERS];
+__attribute__ ((section (".noinit"))) static SWIHandler_Type base_handler[NUM_SWI_HANDLERS];
 
 static vdu_device_t vdu_device = 1;
 

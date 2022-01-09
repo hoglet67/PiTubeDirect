@@ -49,7 +49,7 @@ static const uint8_t ECF3_DEFAULT_256COLS[] = {0x23, 0x22, 0x21, 0x20, 0x23, 0x2
 static const uint8_t ECF4_DEFAULT_256COLS[] = {0xDC, 0xDD, 0xDE, 0xDF, 0xDC, 0xDD, 0xDE, 0xDF};
 
 // ECF Pattern state
-static pixel_t  g_ecf_pattern[4][64];
+__attribute__ ((section (".noinit"))) static pixel_t  g_ecf_pattern[4][64];
 static int16_t  g_ecf_origin_x;
 static int16_t  g_ecf_origin_y;
 static int      g_ecf_giant_shift;
@@ -60,7 +60,7 @@ static int      g_ecf_mode;
 static const uint8_t DEFAULT_DOT_PATTERN[] = {0xAA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 // Dot Pattern state
-static uint8_t g_dot_pattern[64];
+__attribute__ ((section (".noinit"))) static uint8_t g_dot_pattern[64];
 static int     g_dot_pattern_len;
 static int     g_dot_pattern_index;
 

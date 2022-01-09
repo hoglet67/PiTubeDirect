@@ -40,8 +40,6 @@ static const char *help_key = "ARM";
 
 static const char *copro_key = "COPROS";
 
-static char line[256];
-
 #define WRCVEC 0x020E
 
 #define WRCHANDLER 0x0900
@@ -231,6 +229,7 @@ static int doCmdMem(const char *params) {
   char *ptr;
   unsigned int flags;
   unsigned int memAddr;
+  char line[256];
   sscanf(params, "%x", &memAddr);
   do {
     for (unsigned int i = 0; i < 16; i++) {
@@ -267,6 +266,7 @@ static int doCmdDis(const char *params) {
   unsigned int flags;
   unsigned int opcode;
   unsigned int memAddr;
+  char line[256];
   sscanf(params, "%x", &memAddr);
   memAddr &= ~3u;
   do {
@@ -296,6 +296,7 @@ static int doCmdCrc(const char *params) {
   unsigned int end;
   unsigned int data;
   unsigned long crc = 0;
+  char line[256];
   sscanf(params, "%x %x %x", &start, &end, &data);
   for (i = start; i <= end; i++) {
     data = *((unsigned char *)i);

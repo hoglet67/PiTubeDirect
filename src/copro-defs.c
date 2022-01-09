@@ -260,7 +260,7 @@ unsigned int num_copros() {
 }
 
 char *get_copro_name(unsigned int i, unsigned int maxlen) {
-   static char name[256];
+   __attribute__ ((section (".noinit"))) static char name[256];
    if (i == 1u || i == 3u) {
       sprintf(name, "%s (%uMHz)", copro_defs[i].name, get_copro_mhz(i));
    } else {

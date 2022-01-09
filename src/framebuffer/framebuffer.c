@@ -1654,7 +1654,7 @@ static void writec(char ch) {
 
    static int vdu_index = 0;
    static vdu_operation_t *vdu_op = NULL;
-   static uint8_t vdu_buf[VDU_BUF_LEN];
+   __attribute__ ((section (".noinit")))  static uint8_t vdu_buf[VDU_BUF_LEN];
 
    uint8_t c = (uint8_t) ch;
 

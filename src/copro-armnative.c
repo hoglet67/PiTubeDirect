@@ -57,17 +57,17 @@
 
 static unsigned int last_copro;
 
-static jmp_buf reboot;
+__attribute__ ((section (".noinit"))) static jmp_buf reboot;
 
-static jmp_buf enterOS;
+__attribute__ ((section (".noinit"))) static jmp_buf enterOS;
 
 static unsigned int defaultEscapeFlag;
 
-static Environment_type defaultEnvironment;
+__attribute__ ((section (".noinit"))) static Environment_type defaultEnvironment;
 
 static ErrorBuffer_type defaultErrorBuffer;
 
-static char banner[80];
+__attribute__ ((section (".noinit"))) static char banner[80];
 
 static const char *prompt = "arm>*";
 

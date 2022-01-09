@@ -52,7 +52,7 @@
 #include "fonts/saa5057.fnt.h"
 
 
-static font_t current_font;
+__attribute__ ((section (".noinit"))) static font_t current_font;
 
 // ==========================================================================
 // Font Definitions

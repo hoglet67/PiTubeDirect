@@ -4,10 +4,6 @@
 #include "info.h"
 #include "tube-debug.h"
 
-static char cmdline[PROP_SIZE];
-
-static char info_string[PROP_SIZE];
-
 static void print_tag_value(const char *name, const rpi_mailbox_property_t *buf, int hex) {
    LOG_INFO("%20s : ", name);
    if (buf == NULL) {
@@ -89,6 +85,7 @@ uint32_t get_speed() {
 }
 
 char *get_info_string() {
+   __attribute__ ((section (".noinit"))) static char info_string[PROP_SIZE];
    static int read = 0;
    if (!read) {
       sprintf(info_string, "%"PRIx32" %04"PRId32"/%03"PRId32"MHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, (double)get_temp());
@@ -98,6 +95,7 @@ char *get_info_string() {
 }
 
 static char *get_cmdline() {
+   __attribute__ ((section (".noinit"))) static char cmdline[PROP_SIZE];
    static int read = 0;
    if (!read) {
       rpi_mailbox_property_t *buf;
@@ -117,7 +115,7 @@ static char *get_cmdline() {
 }
 
 char *get_cmdline_prop(const char *prop) {
-   static char ret[PROP_SIZE];
+   __attribute__ ((section (".noinit"))) static char ret[PROP_SIZE];
    char *retptr = ret;
    char *cmdptr = get_cmdline();
    uint32_t proplen = strlen(prop);

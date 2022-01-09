@@ -27,7 +27,8 @@ static aux_t* auxiliary = (aux_t*) AUX_BASE;
 #include "rpi-interrupts.h"
 
 #ifdef USE_IRQ
-static char *tx_buffer;
+__attribute__ ((section (".noinit"))) static char tx_buffer[TX_BUFFER_SIZE];
+//static char *tx_buffer;
 static volatile int tx_head;
 static volatile int tx_tail;
 #endif // USE_IRQ
@@ -163,7 +164,6 @@ void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits)
 
 #ifdef USE_IRQ
   {
-    tx_buffer = malloc(TX_BUFFER_SIZE);
     tx_head = tx_tail = 0;
     _data_memory_barrier();
     RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);

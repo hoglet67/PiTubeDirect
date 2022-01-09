@@ -32,7 +32,7 @@
 #define MAX_ROWS    32
 
 // Main structure holding Teletext state
-struct {
+__attribute__ ((section (".noinit"))) struct {
 
    // Current line state
    pixel_t fgd_colour;
