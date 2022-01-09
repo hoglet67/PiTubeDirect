@@ -25,7 +25,7 @@ static int overlay_rom = 0;
 
 static unsigned char *copro_mc6809_ram;
 
-static unsigned char *copro_mc6809_rom = tuberom_6809_jgh_1_0;
+static const unsigned char *copro_mc6809_rom = tuberom_6809_jgh_1_0;
 
 void copro_mc6809nc_write(uint16_t addr, uint8_t data) {
 #ifdef INCLUDE_DEBUGGER

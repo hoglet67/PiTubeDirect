@@ -61,7 +61,7 @@ UINT8 copro_arm2_read8(unsigned int addr) {
          result = tube_parasite_read((addr >> 2) & 7);
          break;
       case 3:
-         result = *(UINT8*) (TUBE_ROM_ARM+(addr & ROM_MASK8));
+         result = *(const UINT8*) (TUBE_ROM_ARM+(addr & ROM_MASK8));
          break;
       default:
          result = 0;
@@ -99,7 +99,7 @@ UINT32 copro_arm2_read32(unsigned int addr)
          result = tube_parasite_read((addr >> 2) & 7);
          break;
       case 3:
-         result = *(UINT32*) (TUBE_ROM_ARM+(addr & ROM_MASK32));
+         result = *(const UINT32*) (TUBE_ROM_ARM+(addr & ROM_MASK32));
          break;
       default:
          result = 0;
