@@ -57,7 +57,7 @@ static int      g_ecf_mask;
 static int      g_ecf_mode;
 
 // Default Dot Patterns
-static uint8_t DEFAULT_DOT_PATTERN[] = {0xAA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static const uint8_t DEFAULT_DOT_PATTERN[] = {0xAA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 // Dot Pattern state
 static uint8_t g_dot_pattern[64];
@@ -66,8 +66,8 @@ static int     g_dot_pattern_index;
 
 #define FLOOD_QUEUE_SIZE 16384
 
-static int16_t flood_queue_x[FLOOD_QUEUE_SIZE];
-static int16_t flood_queue_y[FLOOD_QUEUE_SIZE];
+__attribute__ ((section (".noinit"))) static int16_t flood_queue_x[FLOOD_QUEUE_SIZE];
+__attribute__ ((section (".noinit"))) static int16_t flood_queue_y[FLOOD_QUEUE_SIZE];
 static int flood_queue_wr;
 static int flood_queue_rd;
 
@@ -93,7 +93,7 @@ typedef struct {
    void *data;
 } sprite_t;
 
-static sprite_t sprites[NUM_SPRITES];
+__attribute__ ((section (".noinit"))) static sprite_t sprites[NUM_SPRITES];
 
 // ==========================================================================
 // Static methods (operate at screen resolution)
