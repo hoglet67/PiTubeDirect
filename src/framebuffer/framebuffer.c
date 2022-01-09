@@ -1530,7 +1530,18 @@ void fb_show_splash_screen() {
    // Turn of the cursor (as there are some bugs when changing fonts)
    cursor(0);
    select_font(12, 2, 2, 0); // Computer Font
-   fb_writes("PiTubeDirect VDU Driver");
+   fb_writes("PiTubeDirect VDU Driver\r\n");
+
+   fb_writec(17);
+#ifdef DEBUG
+   fb_writec(3); // Red in MODE 21
+   fb_writes("      DEBUG Kernel\r\n");
+#else
+   fb_writec(12); // Green in MODE 21
+   fb_writes("      NORMAL Kernel\r\n");
+#endif
+   fb_writec(17);
+   fb_writec(63); // White in MODE 21
 
    // Draw a green owl
    owl(944, 1008, 20, 12);
@@ -1539,7 +1550,7 @@ void fb_show_splash_screen() {
    fb_writec(26);
    fb_writec(31);
    fb_writec(0);
-   fb_writec(3);
+   fb_writec(4);
    fb_writes("Release: "RELEASENAME"\r\n");
    fb_writes(" Commit: "GITVERSION"\r\n");
    sprintf(buffer, " Co Pro: %d/%s\r\n", copro, get_copro_name(copro, 24));
@@ -1563,7 +1574,7 @@ void fb_show_splash_screen() {
    fb_writec(26);
    fb_writec(31);
    fb_writec(0);
-   fb_writec(47);
+   fb_writec(49);
 
    cursor(1);
 }
