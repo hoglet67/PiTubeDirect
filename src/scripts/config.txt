@@ -1,5 +1,12 @@
+#
 # config.txt for PiTubeDirect (https://github.com/hoglet67/PiTubeDirect)
 #
+
+# Debug Kernel (needs a 115200 serial connection)
+# (interactive co pro debuggers and debug logging)
+#
+# Uncomment to use debug kernel
+#os_prefix=debug/
 
 #
 # Pi VDU Settings
@@ -28,10 +35,6 @@ disable_overscan=1
 # PiTubeDirect Settings
 #
 
-# Settings PiZero/PiZeroW/Pi1
-# Debug kernel (needs a 115200 serial connection)
-#kernel=debug/kernel.img
-
 # Pi1 requires the core over clocking
 [pi1]
 core_freq=350
@@ -41,25 +44,23 @@ core_freq_min=350
 [pi2]
 core_freq=400
 core_freq_min=400
-# Debug kernel (needs a 115200 serial connection)
-#kernel=debug/kernel7.img
 
-# Settings for Pi 3B/3A+/3B+/CM3
-[pi3]
-# Debug kernel (needs a 115200 serial connection)
-#kernel=debug/kernel8-32.img
+# Settings for Pi 3A+/3B+
+[pi3+]
+arm_freq=1200
+#temp_soft_limit=70
 
 # Settings for Pi4B/Pi400/CM4
 [pi4]
 kernel=kernelrpi4.img
-# Debug kernel (needs a 115200 serial connection)
-#kernel=debug/kernelrpi4.img
 
 # Global settings
 [all]
 force_turbo=1
 force_eeprom_read=0
 boot_delay=0
+kernel_address=0x0D400000
+gpu_mem=16
 
 # Memory map to stay compatible with 256MB Pi Models
 #
@@ -72,10 +73,3 @@ boot_delay=0
 # 0x0E800000 232MB - Top of cached RAM
 # 0x0F000000 240MB - Start of GPU Memory
 # 0x10000000 256MB - Top of physical RAM on 256MB Pi Model
-
-kernel_address=0x0D400000
-gpu_mem=16
-
-# See fully annotated config.txt at
-# https://raw.githubusercontent.com/Evilpaul/RPi-config/master/config.txt
-# (via http://elinux.org/RPiconfig)
