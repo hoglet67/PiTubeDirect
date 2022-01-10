@@ -700,7 +700,10 @@ void tube_init_hardware()
 {
    uint32_t revision = get_revision();
 
-   // uuuu uuuu FMMM CCCC PPPP TTTT TTTT RRRR
+   // uuuu uuWw FMMM CCCC PPPP TTTT TTTT RRRR
+   //
+   // W = Warranty bit (Pi 2 and later)
+   // w = Warranty bit (Pi 1)
    //
    // F = new revision code flags
    // M = memory
