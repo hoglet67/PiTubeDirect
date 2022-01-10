@@ -37,7 +37,7 @@ extern void tube_init_hardware();
 
 extern int tube_is_rst_active();
 
-//extern void tube_wait_for_rst_active();
+extern void tube_wait_for_rst_active();
 
 extern void tube_wait_for_rst_release();
 
