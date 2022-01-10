@@ -142,7 +142,7 @@ copro_def_t copro_defs[] = {
    {
       "Disable",                // 14 - same as Null but we want it in the list
       copro_null_emulator,
-      TYPE_GENERIC,
+      TYPE_DISABLED,
       NO_DEBUGGER
    },
    {
@@ -199,13 +199,12 @@ copro_def_t copro_defs[] = {
       TYPE_HIDDEN,
       NO_DEBUGGER
    },
-      {
+   {
       "65C02 (JIT)",            // 24
       copro_65tubejit_emulator,
       TYPE_65TUBE_0,
       NO_DEBUGGER
    },
-
    {
       "Null",                   // 25
       copro_null_emulator,

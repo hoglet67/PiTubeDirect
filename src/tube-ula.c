@@ -220,7 +220,6 @@ static void copro_command_excute(unsigned char copro_comm,unsigned char val)
 
 static void tube_reset()
 {
-   tube_irq |= TUBE_ENABLE_BIT;
    tube_irq &= ~(RESET_BIT + NMI_BIT + IRQ_BIT);
    hp3pos = 0;
    ph1rdpos = ph1wrpos = ph1len = 0;
@@ -700,7 +699,10 @@ void tube_init_hardware()
 {
    uint32_t revision = get_revision();
 
-   // uuuu uuuu FMMM CCCC PPPP TTTT TTTT RRRR
+   // uuuu uuWw FMMM CCCC PPPP TTTT TTTT RRRR
+   //
+   // W = Warranty bit (Pi 2 and later)
+   // w = Warranty bit (Pi 1)
    //
    // F = new revision code flags
    // M = memory

@@ -1562,9 +1562,11 @@ void fb_show_splash_screen() {
    fb_writes("On the Native ARM Co Processor:\r\n");
    fb_writes("  *PIVDU 2 to install OSWRCH redirector\r\n");
    fb_writes("  *ARMBASIC to run built-in ARM BASIC\r\n");
+   fb_writes("  *HELP COPROS to list available Co Pros\r\n");
    fb_writes("  See also *HELP ARM\r\n\n");
    fb_writes("On the 6502 Co Processor:\r\n");
-   fb_writes("  CALL &300 to install OSWRCH redirector\r\n\n");
+   fb_writes("  CALL &300 to install OSWRCH redirector\r\n");
+   fb_writes("  CALL &2000 to list available Co Pros\r\n\n");
 
    sprintf(buffer, "This is mode %d: %dx%d with %d colours",
            screen->mode_num, screen->width, screen->height, screen->ncolour + 1);
@@ -1574,7 +1576,7 @@ void fb_show_splash_screen() {
    fb_writec(26);
    fb_writec(31);
    fb_writec(0);
-   fb_writec(49);
+   fb_writec(56);
 
    cursor(1);
 }

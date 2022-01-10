@@ -77,18 +77,14 @@ static float get_voltage(int component_id) {
 // Temp
 
 uint32_t get_speed() {
-   static uint32_t speed = 0;
-   if (!speed) {
-     speed = get_clock_rate(ARM_CLK_ID) / 1000000;
-   }
-   return speed;
+   return get_clock_rate(ARM_CLK_ID) / 1000000;
 }
 
 char *get_info_string() {
    __attribute__ ((section (".noinit"))) static char info_string[PROP_SIZE];
    static int read = 0;
    if (!read) {
-      sprintf(info_string, "%"PRIx32" %04"PRId32"/%03"PRId32"MHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, (double)get_temp());
+      sprintf(info_string, "%"PRIx32" %"PRId32"/%"PRId32"MHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, (double)get_temp());
       read = 1;
    }
    return info_string;

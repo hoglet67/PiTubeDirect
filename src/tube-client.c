@@ -77,8 +77,13 @@ static void init_emulator() {
 
    LOG_DEBUG("Raspberry Pi Direct %u %s Client\r\n", copro, copro_def->name);
 
+   // Clear all old interrupts, and set tube_enable appropriately
+   if (copro_def->type == TYPE_HIDDEN || copro_def->type == TYPE_DISABLED) {
+      tube_irq = 0;
+   } else {
+      tube_irq = TUBE_ENABLE_BIT;
+   }
 
-   tube_irq = 0; // Make sure everything is clear
    // Set up FIQ handler
 
    FIQ_VECTOR = (uint32_t) arm_fiq_handler_flag1;
