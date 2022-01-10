@@ -35,15 +35,15 @@ disable_overscan=1
 # PiTubeDirect Settings
 #
 
-# Pi1 requires the core over clocking
+# Settings for Pi 1 - overclocking no longer required
 [pi1]
-core_freq=350
-core_freq_min=350
+#core_freq=350
+#core_freq_min=350
 
-# Settings for Pi 2B
+# Settings for Pi 2B  - overclocking no longer required
 [pi2]
-core_freq=400
-core_freq_min=400
+#core_freq=400
+#core_freq_min=400
 
 # Settings for Pi 3A+/3B+
 [pi3+]
