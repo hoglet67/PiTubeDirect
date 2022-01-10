@@ -85,7 +85,7 @@ uint32_t get_speed() {
 }
 
 char *get_info_string() {
-   sprintf(info_string, "%"PRIx32" %04"PRId32"/%03"PRId32"MHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, (double)get_temp());
+   sprintf(info_string, "%"PRIx32" %"PRId32"/%"PRId32"MHz %2.1fC", get_revision(), get_clock_rate(ARM_CLK_ID) / 1000000, get_clock_rate(CORE_CLK_ID) / 1000000, (double)get_temp());
    return info_string;
 }
 
