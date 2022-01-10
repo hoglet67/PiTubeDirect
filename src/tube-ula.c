@@ -221,7 +221,6 @@ static void copro_command_excute(unsigned char copro_comm,unsigned char val)
 
 static void tube_reset()
 {
-   tube_irq |= TUBE_ENABLE_BIT;
    tube_irq &= ~(RESET_BIT + NMI_BIT + IRQ_BIT);
    hp3pos = 0;
    ph1rdpos = ph1wrpos = ph1len = 0;

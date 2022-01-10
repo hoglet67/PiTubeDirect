@@ -11,7 +11,8 @@ typedef void (*func_ptr)();
 
 typedef enum types {
    TYPE_GENERIC,  // Catch-all for everything else
-   TYPE_HIDDEN,   // Don't include in the Co Pro listing
+   TYPE_DISABLED, // Disable tube but include in the Co Pro listing
+   TYPE_HIDDEN,   // Disable tube and don't include in the Co Pro listing
    TYPE_65TUBE_0,
    TYPE_65TUBE_1,
    TYPE_65TUBE_2,
