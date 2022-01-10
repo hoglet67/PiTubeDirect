@@ -99,7 +99,12 @@
 .equ RW_MAILBOX_BIT, 11
 
 .org 0
-
+	B entry
+# irq code lives here
+		
+	
+	
+entry:	
 # code entry point
 #  ld r0, (r0)
 #  rts

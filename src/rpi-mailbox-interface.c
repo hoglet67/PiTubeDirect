@@ -101,7 +101,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             break;
 
         case TAG_ALLOCATE_MEMORY:
-            pt[pt_index++] = 4;
+            pt[pt_index++] = 12;
             pt[pt_index++] = 0; /* Request */
             pt[pt_index++] = va_arg( vl, uint32_t ); /* u32: size      */
             pt[pt_index++] = va_arg( vl, uint32_t ); /* u32: alignment */
