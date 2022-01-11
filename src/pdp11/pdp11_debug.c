@@ -29,7 +29,8 @@ enum register_numbers {
    i_PS,
    i_PREVUSER,
    i_CURUSER,
-   i_INTQUEUE
+   i_INTQUEUE,
+   i_HALTED
 };
 
 // NULL pointer terminated list of register names.
@@ -46,6 +47,7 @@ static const char *dbg_reg_names[] = {
    "PREVUSER",
    "CURRUSER",
    "INTQUEUE",
+   "HALTED",
    NULL
 };
 
@@ -153,6 +155,8 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
          sprintf(buf + i * 5, "%02x:%d ", m_pdp11->itab[i].vec,  m_pdp11->itab[i].pri);
       }
       return strlen(buf);
+   } else if (which == i_HALTED) {
+      return (size_t)snprintf(buf, bufsize, "%d", m_pdp11->halted);
    } else {
       return (size_t)snprintf(buf, bufsize, "%06"PRIo32" (%04"PRIx32")", dbg_reg_get(which), dbg_reg_get(which));
    }
