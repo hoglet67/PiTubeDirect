@@ -1589,9 +1589,6 @@ void fb_initialize() {
       vdu_operation_table[i].handler = vdu_default;
    }
 
-   // Add the frame buffer specific SW calls to the SWI handler table
-   fb_add_swi_handlers();
-
    // Select the default screen mode
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
@@ -1618,9 +1615,6 @@ void fb_destroy() {
 
    // Disable the timer interrupts (flashing colours, cursor, etc)
    RPI_GetIrqController()->Disable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
-
-   // Remove the frame buffer specific SW calls from the SWI handler table
-   fb_remove_swi_handlers();
 
    // Disable the frame buffer
    RPI_PropertyInit();

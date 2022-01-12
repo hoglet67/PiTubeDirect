@@ -12,8 +12,6 @@
 
 static SWIHandler_Type base_handler[NUM_SWI_HANDLERS];
 
-static vdu_device_t vdu_device = 1;
-
 // ==========================================================================
 // Static methods
 // ==========================================================================
@@ -30,23 +28,13 @@ static void write_string(char *ptr) {
 // ==========================================================================
 
 static void OS_WriteC_impl(unsigned int *reg) {
-   if (vdu_device & VDU_PI) {
-      fb_writec((char)(reg[0] & 0xff));
-   }
-   if (vdu_device & VDU_BEEB) {
-      base_handler[SWI_OS_WriteC](reg);
-   }
+   fb_writec((char)(reg[0] & 0xff));
 }
 
 static void OS_WriteS_impl(unsigned int *reg) {
    // On exit, the link register should point to the byte after the terminator
    uint32_t r13 = reg[13];
-   if (vdu_device & VDU_PI) {
-      write_string((char *)reg[13]);
-   }
-   if (vdu_device & VDU_BEEB) {
-      base_handler[SWI_OS_WriteS](reg);
-   }
+   write_string((char *)reg[13]);
    // Reg 13 is the stacked link register which points to the string
    reg[13] = r13 + strlen((char *)r13) + 1;
    // Make sure new value of link register is word aligned to the next word boundary
@@ -57,50 +45,30 @@ static void OS_WriteS_impl(unsigned int *reg) {
 static void OS_Write0_impl(unsigned int *reg) {
    // On exit, R0 should point to the byte after the terminator
    uint32_t r0 = reg[0];
-   if (vdu_device & VDU_PI) {
-      write_string((char *)reg[0]);
-   }
-   if (vdu_device & VDU_BEEB) {
-      base_handler[SWI_OS_Write0](reg);
-   }
+   write_string((char *)reg[0]);
    reg[0] = r0 + strlen((char *)r0) + 1;
 }
 
 
 static void OS_NewLine_impl(unsigned int *reg) {
-   if (vdu_device & VDU_PI) {
-      fb_writec(0x0A);
-      fb_writec(0x0D);
-   }
-   if (vdu_device & VDU_BEEB) {
-      base_handler[SWI_OS_NewLine](reg);
-   }
+   fb_writec(0x0A);
+   fb_writec(0x0D);
 }
 
 static void OS_Plot_impl(unsigned int *reg) {
-   if (vdu_device & VDU_PI) {
-      fb_writec(25);
-      fb_writec((char)reg[0]);
-      fb_writec((char)reg[1]);
-      fb_writec((char)(reg[1] >> 8));
-      fb_writec((char)reg[2]);
-      fb_writec((char)(reg[2] >> 8));
-   }
-   if (vdu_device & VDU_BEEB) {
-      base_handler[SWI_OS_Plot](reg);
-   }
+   fb_writec(25);
+   fb_writec((char)reg[0]);
+   fb_writec((char)reg[1]);
+   fb_writec((char)(reg[1] >> 8));
+   fb_writec((char)reg[2]);
+   fb_writec((char)(reg[2] >> 8));
 }
 
 static void OS_WriteN_impl(unsigned int *reg) {
-   if (vdu_device & VDU_PI) {
-      char *ptr = (char *)reg[0];
-      uint32_t len = reg[1];
-      while (len-- > 0) {
-         fb_writec(*ptr++);
-      }
-   }
-   if (vdu_device & VDU_BEEB) {
-      base_handler[SWI_OS_WriteN](reg);
+   char *ptr = (char *)reg[0];
+   uint32_t len = reg[1];
+   while (len-- > 0) {
+      fb_writec(*ptr++);
    }
 }
 
@@ -110,49 +78,46 @@ static void OS_WriteN_impl(unsigned int *reg) {
 
 static void OS_Byte_impl(unsigned int *reg) {
 #ifdef DEBUG_VDU
-    printf("%08x %08x %08x\r\n", reg[0], reg[1], reg[2]);
+   printf("%08x %08x %08x\r\n", reg[0], reg[1], reg[2]);
 #endif
 
-  if (vdu_device & VDU_PI) {
+   // Override certain VDU-related OSBYTEs
 
-     // Handle VDU Specific OSBYTEs if the Pi VDU is enabled
+   switch (reg[0] & 0xff) {
+   case 9:
+      // Set the flash mark time
+      reg[2] = fb_get_flash_mark_time();
+      fb_set_flash_mark_time(reg[1] & 0xff);
+      break; // pass through to host
 
-     switch (reg[0] & 0xff) {
-     case 9:
-        // Set the flash mark time
-        reg[2] = fb_get_flash_mark_time();
-        fb_set_flash_mark_time(reg[1] & 0xff);
-        break; // pass through to host
+   case 10:
+      // Set the flash mark time
+      reg[2] = fb_get_flash_space_time();
+      fb_set_flash_space_time(reg[1] & 0xff);
+      break; // pass through to host
 
-     case 10:
-        // Set the flash mark time
-        reg[2] = fb_get_flash_space_time();
-        fb_set_flash_space_time(reg[1] & 0xff);
-        break; // pass through to host
+   case 19:
+      // Wait for VSYNC
+      _enable_interrupts(); // re-enable interrupts or we'll hang fr ever
+      fb_wait_for_vsync();  // wait for the vsync flag to be set by the ISR
+      return; // parasite only
 
-     case 19:
-        // Wait for VSYNC
-        _enable_interrupts(); // re-enable interrupts or we'll hang fr ever
-        fb_wait_for_vsync();  // wait for the vsync flag to be set by the ISR
-        return;
+   case 134:
+      // Read text cursor position
+      reg[1] = (uint32_t)fb_get_text_cursor_x();
+      reg[2] = (uint32_t)fb_get_text_cursor_y();
+      return; // parasite only
 
-     case 134:
-        // Read text cursor position
-        reg[1] = (uint32_t)fb_get_text_cursor_x();
-        reg[2] = (uint32_t)fb_get_text_cursor_y();
-        return;
+   case 135:
+      // Read character at text cursor position
+      reg[1] = (uint32_t)fb_get_text_cursor_char();
+      // Also returns current screen mode
+      reg[2] = (uint32_t)fb_get_current_screen_mode()->mode_num;
+      return; // parasite only
+   }
 
-     case 135:
-        // Read character at text cursor position
-        reg[1] = (uint32_t)fb_get_text_cursor_char();
-        // Also returns current screen mode
-        reg[2] = (uint32_t)fb_get_current_screen_mode()->mode_num;
-        return;
-     }
-  }
-
-  // Otherwise pass call to the old handler
-  base_handler[SWI_OS_Byte](reg);
+   // Otherwise pass call to the old handler
+   base_handler[SWI_OS_Byte](reg);
 
 }
 
@@ -160,117 +125,109 @@ static void OS_Byte_impl(unsigned int *reg) {
 // Implementation of OS_ReadLine SWI
 // ==========================================================================
 
-static inline void writeVDU(unsigned int c) {
-   OS_WriteC_impl(&c);
+static inline void writeVDU(uint8_t c) {
+   OS_WriteC((char) c);
 }
 
 static void OS_ReadLine_impl(unsigned int *reg) {
 
-   if (vdu_device & VDU_PI) {
+   // Handle ReadLine if the Pi VDU is enabled
 
-      // Handle ReadLine if the Pi VDU is enabled
+   uint32_t ptr = 0;
+   unsigned char esc;
 
-      uint32_t ptr = 0;
-      unsigned char esc;
+   uint32_t buf_size  = reg[1];
+   int min_ascii = reg[2] & 0xff;
+   int max_ascii = reg[3] & 0xff;
 
-      uint32_t buf_size  = reg[1];
-      int min_ascii = reg[2] & 0xff;
-      int max_ascii = reg[3] & 0xff;
+   while (1) {
 
-      while (1) {
+      // OSRDCH R2: &00 Cy A
+      sendByte(R2_ID, 0x00);
+      esc = receiveByte(R2_ID) & 0x80;
+      unsigned char c = receiveByte(R2_ID);
 
-         // OSRDCH R2: &00 Cy A
-         sendByte(R2_ID, 0x00);
-         esc = receiveByte(R2_ID) & 0x80;
-         unsigned char c = receiveByte(R2_ID);
-
-         // Handle escape
-         if (esc) {
-            break;
-         }
-
-         // Handle delete
-         if (c == 127) {
-            if (ptr > 0) {
-               writeVDU(127);
-               ptr--;
-            }
-            continue;
-         }
-
-         // Handle delete line
-         if (c == 0x15) {
-            while (ptr > 0) {
-               writeVDU(127);
-               ptr--;
-            }
-            continue;
-         }
-
-         // Handle copy
-         if (c == 0x87) {
-            c = (uint8_t)fb_get_edit_cursor_char();
-            // Invalid?
-            if (c == 0) {
-               continue;
-            }
-            // Delete? replace with square block
-            if (c == 0x7f) {
-               c = 0xff;
-            }
-            // move the editing cursor to the right
-            writeVDU(0x15);
-            writeVDU(0x1B);
-            writeVDU(0x89);
-            writeVDU(0x06);
-         } else if (c >= 0x88 && c <= 0x8b) {
-            // Handle cursor keys just by echoing them, but not storing them
-            writeVDU(0x15);
-            writeVDU(0x1B);
-            writeVDU(c);
-            writeVDU(0x06);
-            continue;
-         }
-
-         // Store the character in the buffer
-         *(((char *)reg[0]) + ptr) = c;
-
-         // Handle return
-         if (c == 13) {
-            writeVDU(10);
-            writeVDU(13);
-            break;
-         }
-
-         // Handle the buffer being full
-         if (ptr >= buf_size) {
-            writeVDU(7);
-            continue;
-         }
-
-         // Echo the character
-         writeVDU(c);
-
-         // Handle invalid characters
-         if (c < min_ascii || c > max_ascii) {
-            continue;
-         }
-
-         // Move to next location in the buffer
-         ptr++;
+      // Handle escape
+      if (esc) {
+         break;
       }
 
-      // Exit with reg[1] to the length (excluding the terminator)
-      // and with the carry indicatingthe escape condition
-      reg[1] = ptr;
-      updateCarry(esc, reg);
+      // Handle delete
+      if (c == 127) {
+         if (ptr > 0) {
+            writeVDU(127);
+            ptr--;
+         }
+         continue;
+      }
 
-   } else {
+      // Handle delete line
+      if (c == 0x15) {
+         while (ptr > 0) {
+            writeVDU(127);
+            ptr--;
+         }
+         continue;
+      }
 
-      // Otherwise pass call to the old handler
-      base_handler[SWI_OS_ReadLine](reg);
+      // Handle copy
+      if (c == 0x87) {
+         c = (uint8_t)fb_get_edit_cursor_char();
+         // Invalid?
+         if (c == 0) {
+            continue;
+         }
+         // Delete? replace with square block
+         if (c == 0x7f) {
+            c = 0xff;
+         }
+         // move the editing cursor to the right
+         writeVDU(0x15);
+         writeVDU(0x1B);
+         writeVDU(0x89);
+         writeVDU(0x06);
+      } else if (c >= 0x88 && c <= 0x8b) {
+         // Handle cursor keys just by echoing them, but not storing them
+         writeVDU(0x15);
+         writeVDU(0x1B);
+         writeVDU(c);
+         writeVDU(0x06);
+         continue;
+      }
 
+      // Store the character in the buffer
+      *(((char *)reg[0]) + ptr) = c;
+
+      // Handle return
+      if (c == 13) {
+         writeVDU(10);
+         writeVDU(13);
+         break;
+      }
+
+      // Handle the buffer being full
+      if (ptr >= buf_size) {
+         writeVDU(7);
+         continue;
+      }
+
+      // Echo the character
+      writeVDU(c);
+
+      // Handle invalid characters
+      if (c < min_ascii || c > max_ascii) {
+         continue;
+      }
+
+      // Move to next location in the buffer
+      ptr++;
    }
+
+   // Exit with reg[1] to the length (excluding the terminator)
+   // and with the carry indicatingthe escape condition
+   reg[1] = ptr;
+   updateCarry(esc, reg);
+
 }
 
 // ==========================================================================
@@ -444,13 +401,8 @@ static void OS_SetECFOrigin_impl(unsigned int *reg) {
 // ==========================================================================
 
 void fb_set_vdu_device(vdu_device_t device) {
-   vdu_device = device;
-}
 
-
-static int initialized = 0;
-
-void fb_add_swi_handlers() {
+   static int initialized = 0;
 
    // Only need to setup the base handlers once
    if (!initialized) {
@@ -460,27 +412,33 @@ void fb_add_swi_handlers() {
       initialized = 1;
    }
 
-   os_table[SWI_OS_WriteC].handler           = OS_WriteC_impl;
-   os_table[SWI_OS_WriteS].handler           = OS_WriteS_impl;
-   os_table[SWI_OS_Write0].handler           = OS_Write0_impl;
-   os_table[SWI_OS_NewLine].handler          = OS_NewLine_impl;
-   os_table[SWI_OS_Plot].handler             = OS_Plot_impl;
-   os_table[SWI_OS_WriteN].handler           = OS_WriteN_impl;
-   os_table[SWI_OS_Byte].handler             = OS_Byte_impl;
-   os_table[SWI_OS_ReadLine].handler         = OS_ReadLine_impl;
-   os_table[SWI_OS_ScreenMode].handler       = OS_ScreenMode_impl;
-   os_table[SWI_OS_ReadPoint].handler        = OS_ReadPoint_impl;
-   os_table[SWI_OS_ReadModeVariable].handler = OS_ReadModeVariable_impl;
-   os_table[SWI_OS_ReadVduVariables].handler = OS_ReadVduVariables_impl;
-   os_table[SWI_OS_SetColour].handler        = OS_SetColour_impl;
-   os_table[SWI_OS_SetECFOrigin].handler     = OS_SetECFOrigin_impl;
-
-}
-
-void fb_remove_swi_handlers() {
-   if (initialized) {
-      for (int i = 0; i < NUM_SWI_HANDLERS; i++) {
-         os_table[i].handler = base_handler[i];
-      }
+   // Reset all handlers to defaults
+   for (int i = 0; i < NUM_SWI_HANDLERS; i++) {
+      os_table[i].handler = base_handler[i];
    }
+
+   // In VDU_BOTH these handler are not needed because the VDU stream is
+   // redirected to the host (and then back again)
+   if (device == VDU_PI) {
+      os_table[SWI_OS_WriteC].handler           = OS_WriteC_impl;
+      os_table[SWI_OS_WriteS].handler           = OS_WriteS_impl;
+      os_table[SWI_OS_Write0].handler           = OS_Write0_impl;
+      os_table[SWI_OS_NewLine].handler          = OS_NewLine_impl;
+      os_table[SWI_OS_Plot].handler             = OS_Plot_impl;
+      os_table[SWI_OS_WriteN].handler           = OS_WriteN_impl;
+   }
+
+   // In VDU_BOTH the Pi implementation takes precedence
+   if (device == VDU_PI || device == VDU_BOTH) {
+      os_table[SWI_OS_Byte].handler             = OS_Byte_impl;
+      os_table[SWI_OS_ReadLine].handler         = OS_ReadLine_impl;
+      os_table[SWI_OS_ScreenMode].handler       = OS_ScreenMode_impl;
+      os_table[SWI_OS_ReadPoint].handler        = OS_ReadPoint_impl;
+      os_table[SWI_OS_ReadModeVariable].handler = OS_ReadModeVariable_impl;
+      os_table[SWI_OS_ReadVduVariables].handler = OS_ReadVduVariables_impl;
+      os_table[SWI_OS_SetColour].handler        = OS_SetColour_impl;
+      os_table[SWI_OS_SetECFOrigin].handler     = OS_SetECFOrigin_impl;
+   }
+
+
 }
