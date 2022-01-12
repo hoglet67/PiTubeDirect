@@ -117,6 +117,20 @@ guard &400
     LDA #&00
     JSR osword6
     LDA #page
+    JSR osword6
+
+;; force the beeb text window left/right window limits to 0/79
+;; to work around the ADFS formatting bug (#130)
+
+    LDA #&03
+    STA osword6_addr_hi
+    LDA #&08
+    STA osword6_addr_lo
+    LDA #0      ;; 0308 (window left) = 0
+    JSR osword6
+    INC osword6_addr_lo
+    LDA #79     ;; 030a (window right) = 79
+
     ;; fall through to osword6
 
 .osword6

@@ -110,7 +110,7 @@ static void panic() {
    cpu.halted = 1;
 #ifndef TEST_MODE
    printstate();
-   while (1);
+   while (tubeContinueRunning());
 #endif
 }
 
