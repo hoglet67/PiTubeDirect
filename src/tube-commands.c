@@ -361,6 +361,7 @@ static void beeb_cursor(uint8_t on) {
 }
 
 int doCmdPiVDU(const char *params) {
+   static int saved_state = -1;
    int device;
    int nargs = sscanf(params, "%d", &device);
 
@@ -406,14 +407,22 @@ int doCmdPiVDU(const char *params) {
    if (device & VDU_BEEB) {
       // restore the cursor
       beeb_cursor(1);
-      // leave it in column 0
-      beeb_vdu(13);
+      // restore the original beeb text window left/right window limits
+      if (saved_state > 0) {
+         write_host_byte(0x0308, (uint8_t)(saved_state & 0xff));
+         write_host_byte(0x030A, (uint8_t)((saved_state >> 8) & 0xff));
+         saved_state = -1;
+      }
    } else {
       // hide the cursor
       beeb_cursor(0);
-      // leave it in column 1 so we can work around the ADFS formatting bug (#130)
-      beeb_vdu(13);
-      beeb_vdu(32);
+      // force the beeb text window left/right window limits to 0/79
+      // to work around the ADFS formatting bug (#130)
+      if (saved_state < 0) {
+         saved_state = read_host_byte(0x0308) | (read_host_byte(0x030A) << 8);
+         write_host_byte(0x0308,  0);
+         write_host_byte(0x030A, 79);
+      }
       if (device & VDU_PI) {
          // Install the same host oswrch redirector used by the 6502
          for (uint16_t i = 0; i < 0x40; i++) {
