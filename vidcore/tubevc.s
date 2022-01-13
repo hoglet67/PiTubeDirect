@@ -34,8 +34,13 @@
 # r16 - A0 GPIO bit number
 # r17 - A1 GPIO bit number
 # r18 - A2 GPIO bit number
-# r19 - LEDTYPE
-# r20 - led_state
+# r19 - LED BIT
+# r20 - LED address
+# r21 - LED Toggle number
+# r22 - doorbell
+
+# r25 - (SP)
+# r26 - (LR)
 
 # GPIO registers
 .equ GPFSEL0,       0x7e200000
@@ -98,6 +103,12 @@
 .equ RESET_MAILBOX_BIT, 12
 .equ RW_MAILBOX_BIT, 11
 
+
+.macro TOGGLE_LED
+   st     r19,(r20)
+   eor    r20,r21
+.endm
+
 .org 0
 	B entry
 # irq code lives here
@@ -139,8 +150,6 @@ entry:
 #  mov r9, 0x00000010
 #  st  r9, (r8)
 
-   mov    r19, r1      # save LEDTYPE
-   mov    r20, 0       # clear led_state
    mov    r9, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
    or     r9, r5       # add in test pin so that it is cleared at the end of the access
    lsr    r16, r3, 0   # Extract GPIO number of A0
@@ -150,13 +159,9 @@ entry:
    lsr    r18, r3, 16  # Extract GPIO number of A2
    and    r18, 31
 
-
-
-# r1, r3, r4 now free
-
 .if USE_DOORBELL
    mov    r3, GPU_ARM_DBELL
-   mov    r21, GPU_ARM_DBELLDATA
+   mov    r22, GPU_ARM_DBELLDATA
 .else
    mov    r3, GPU_ARM_MBOX
 .endif
@@ -175,6 +180,53 @@ entry:
    or     r13, r10
    or     r14, r11
    or     r15, r12
+   
+# setup the LED toggling
+
+setupLEDToggle:
+   add    r20,r6,GPCLR0_offset
+   
+   cmp    r1, 0
+   beq    led_type0
+   cmp    r1, 1
+   beq    led_type1
+   cmp    r1, 3
+   beq    led_type3
+   cmp    r1, 4
+   beq    led_type4
+
+   # must be led_type2
+   # only on raspberry pi 3
+   mov    r19,0 # 0 zero as writing a zero won't be dsitructive
+   mov    r21,0
+   B setupLEDToggledone
+
+# led_type 0 found on 26 pin raspberry pis
+led_type0:
+   mov    r19, (1<<LED_TYPE0_BIT)
+   mov    r21,GPCLR0_offset^GPSET0_offset 
+   B setupLEDToggledone
+
+# led_type 1 found on most 40 pin raspberry pis
+led_type1:
+   mov    r19, (1<<LED_TYPE1_BIT)
+   B setupLEDToggledbank1
+   
+# led_type 3 found on rpi3b+ GPIO29
+led_type3:
+   mov    r19, (1<<LED_TYPE3_BIT)
+   mov    r21,GPCLR0_offset^GPSET0_offset 
+   B setupLEDToggledone
+
+# led_type 4 found on the Pi 4
+led_type4:
+   mov    r19, (1<<LED_TYPE4_BIT)
+setupLEDToggledbank1:
+   add    r20,GPCLR1_offset-GPCLR0_offset
+   mov    r21,GPCLR1_offset^GPSET1_offset 
+
+setupLEDToggledone:
+
 
 # enable interrupts
 #  ei
@@ -242,10 +294,10 @@ rd_wait_for_clk_high1:
    bset   r7, RW_MAILBOX_BIT    # set read bit
    and    r7, 0xFFFFFFF0        # clear the channel bits
 .if USE_DOORBELL
-   st     r7, (r21)             # store in register we are using for doorbell data
+   st     r7, (r22)             # store in register we are using for doorbell data
 .endif
    st     r7, (r3)              # store in mail box
-   bl     toggle_led
+   TOGGLE_LED
 
 # spin waiting for clk low
 rd_wait_for_clk_low:
@@ -309,20 +361,20 @@ wr_wait_for_clk_low:
 
    and    r7, 0xFFFFFFF0       # clear the channel bits
 .if USE_DOORBELL
-   st     r7, (r21)             # store in register we are using for doorbell data
+   st     r7, (r22)             # store in register we are using for doorbell data
 .endif
    st     r7, (r3)      # post mail
-   bl     toggle_led
+   TOGGLE_LED
    b      Poll_loop
 
 # Post a message to indicate a reset
 post_reset:
    mov    r7, 1<<RESET_MAILBOX_BIT
 .if USE_DOORBELL
-   st     r7, (r21)             # store in register we are using for doorbell data
+   st     r7, (r22)             # store in register we are using for doorbell data
 .endif
    st     r7, (r3)
-   bl     toggle_led
+   TOGGLE_LED
 # Wait for reset to be released (so we don't overflow the mailbox)
 post_reset_loop:
    ld     r7, GPLEV0_offset(r6)
@@ -330,70 +382,9 @@ post_reset_loop:
    beq    post_reset_loop
    b      Poll_loop
 
-#### Toggle LED
-toggle_led:
 
-   cmp    r19, 0
-   beq    led_type0
-   cmp    r19, 1
-   beq    led_type1
-   cmp    r19, 3
-   beq    led_type3
-   cmp    r19, 4
-   beq    led_type4
 
-   # must be led_type2
-   # only on raspberry pi 3
 
-   rts
-
-# led_type 0 found on 26 pin raspberry pis
-led_type0:
-   mov    r7, (1<<LED_TYPE0_BIT)
-   btst   r20, 0
-   not    r20, r20
-   bne    led_type0_set
-   st     r7,GPCLR0_offset(r6)
-   rts
-led_type0_set:
-   st     r7,GPSET0_offset(r6)
-   rts
-
-# led_type 1 found on most 40 pin raspberry pis
-led_type1:
-   mov    r7, (1<<LED_TYPE1_BIT)
-   btst   r20, 0
-   not    r20, r20
-   bne    led_type1_set
-   st     r7,GPCLR1_offset(r6)
-   rts
-led_type1_set:
-   st     r7,GPSET1_offset(r6)
-   rts
-
-# led_type 3 found on rpi3b+ GPIO29
-led_type3:
-   mov    r7, (1<<LED_TYPE3_BIT)
-   btst   r20, 0
-   not    r20, r20
-   bne    led_type3_set
-   st     r7,GPCLR0_offset(r6)
-   rts
-led_type3_set:
-   st     r7,GPSET0_offset(r6)
-   rts
-
-# led_type 4 found on the Pi 4
-led_type4:
-   mov    r7, (1<<LED_TYPE4_BIT)
-   btst   r20, 0
-   not    r20, r20
-   bne    led_type4_set
-   st     r7,GPCLR1_offset(r6)
-   rts
-led_type4_set:
-   st     r7,GPSET1_offset(r6)
-   rts
 
 # This code is not currently used
 
