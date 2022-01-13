@@ -67,8 +67,8 @@ cmd_type cmds[] = {
   { "HELP",     "[ <command> ]",                               doCmdHelp,     MODE_USER, 0 },
   { "GO",       "<address>",                                   doCmdGo,       MODE_USER, 0 },
   { "MEM",      "<address>",                                   doCmdMem,      MODE_USER, 0 },
-  { "PILIFE",   "[ <generations> [ <x size> [ <y size> ] ] ]", doCmdPiLIFE,   MODE_USER, 1 },
   { "PIVDU",    "<device: 0..3>",                              doCmdPiVDU,    MODE_USER, 1 },
+  { "PILIFE",   "[ <generations> [ <x size> [ <y size> ] ] ]", doCmdPiLIFE,   MODE_USER, 1 },
   { "TEST",     "",                                            doCmdTest,     MODE_USER, 0 },
 };
 
