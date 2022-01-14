@@ -5,7 +5,6 @@
 #include "info.h"
 #include "startup.h"
 #include "stdlib.h"
-#include "rpi-systimer.h"
 #include "framebuffer/framebuffer.h"
 
 #ifdef INCLUDE_DEBUGGER
@@ -118,14 +117,8 @@ void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits)
   RPI_SetGpioPinFunction(RPI_GPIO14, FS_ALT5);
   RPI_SetGpioPinFunction(RPI_GPIO15, FS_ALT5);
 
-  // Enable weak pullups
-  RPI_GpioBase->GPPUD = 2;
-  RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
-
-  RPI_GpioBase->GPPUDCLK0 = (1 << 14) | (1 << 15);
-  RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
-
-  RPI_GpioBase->GPPUDCLK0 = 0;
+  RPI_SetGpioPull(RPI_GPIO14, PULL_UP);
+  RPI_SetGpioPull(RPI_GPIO15, PULL_UP);
 
   _data_memory_barrier();
 
