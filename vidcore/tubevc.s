@@ -16,15 +16,15 @@
 
 # Intenal register allocation
 #  r0 - pointer to shared memory ( VC address) of tube registers
-#  r1 - unused
-#  r2 - unused
+#  r1 - scratch
+#  r2 - tube_delay
 #  r3 - ARM_GPU_MAILBOX constant
 #  r4 - scratch
 #  r5 - debug pin mask (0 = no debug  xx= debug pin e.g 1<<21)
 #  r6 - GPFSEL0 constant
 #  r7 - scratch register
-#  r8 - scratch register
-#  r9 - (0xF<<D0D3_shift) + (0xF<<D4D7_shift) constant
+#  r8 - A1 GPIO bit number
+#  r9 - A2 GPIO bit number
 # r10 - data bus driving values idle
 # r11 - data bus driving values idle
 # r12 - data bus driving values idle
@@ -32,8 +32,8 @@
 # r14 - data bus driving values
 # r15 - data bus driving values
 # r16 - A0 GPIO bit number
-# r17 - A1 GPIO bit number
-# r18 - A2 GPIO bit number
+# r17 - spare
+# r18 - spare
 # r19 - LED BIT
 # r20 - LED address
 # r21 - LED Toggle number
@@ -89,7 +89,7 @@
 .equ D1_PIN,       (9)      # C0
 .equ D0_PIN,       (8)      # C0
 
-.equ MAGIC_C0,     ((1 << (D0_PIN * 3)) | (1 << (D1_PIN * 3)))
+.equ MAGIC_C0,     ((1 << ( D0_PIN       * 3)) | (1 << ( D1_PIN       * 3)))
 .equ MAGIC_C1,     ((1 << ((D2_PIN - 10) * 3)) | (1 << ((D3_PIN - 10) * 3)))
 .equ MAGIC_C2,     ((1 << ((D4_PIN - 20) * 3)) | (1 << ((D5_PIN - 20) * 3)))
 .equ MAGIC_C3,     ((1 << ((D6_PIN - 20) * 3)) | (1 << ((D7_PIN - 20) * 3)))
@@ -109,15 +109,17 @@
 
 .org 0
   di
-
-   mov    r9, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
-   or     r9, r5       # add in test pin so that it is cleared at the end of the access
+   mov    r6, GPFSEL0
+ 
+   mov    r7, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
+   st     r7, GPCLR0_offset(r6) # clear databus
+   
    lsr    r16, r3, 0   # Extract GPIO number of A0
    and    r16, 31
-   lsr    r17, r3, 8   # Extract GPIO number of A1
-   and    r17, 31
-   lsr    r18, r3, 16  # Extract GPIO number of A2
-   and    r18, 31
+   lsr    r8, r3, 8   # Extract GPIO number of A1
+   and    r8, 31
+   lsr    r9, r3, 16  # Extract GPIO number of A2
+   and    r9, 31
 
 .if USE_DOORBELL
    mov    r3, GPU_ARM_DBELL
@@ -126,9 +128,7 @@
    mov    r3, GPU_ARM_MBOX
 .endif
 
-   mov    r6, GPFSEL0
-
-   # read GPIO registers to capture the bus idle state
+   # read GPIO function registers to capture the bus idle state
 
    ld     r10,  (r6)
    ld     r11, 4(r6)
@@ -187,48 +187,42 @@ setupLEDToggledbank1:
 
 setupLEDToggledone:
 
-
-# enable interrupts
-#  ei
    rsb    r2, 40
-   nop           #nop to align loop for speed
-# poll for nTube being low
+   B Poll_loop
+# poll for nTube being low ( aligned to word boundary
+.align 2
 Poll_loop:
-   mov    r1, r2
-   mov    r7, r0
+   
 Poll_tube_low:
-   ld     r8, GPLEV0_offset(r6)
-   btst   r8, nRST
+   ld     r1, GPLEV0_offset(r6)
+# hide some code in the stall    
+   mov    r4, r2
+   mov    r7, r0
+   btst   r1, nRST
    beq    post_reset
-   btst   r8, nTUBE
+   btst   r1, nTUBE
    bne    Poll_tube_low
 
 .rept 40
-   addcmpbeq r1,1,41,delay_done
+   addcmpbeq r4,1,41,delay_done
 .endr
 
 delay_done:
-   ld     r8, GPLEV0_offset(r6)  # check ntube again to remove glitches
-
-   # we now know nTube is low
- # Extra read with might possible help with rnw on slow machines
- #  ld     r8, GPLEV0_offset(r6)  # read bus again to ensure we have the correct address
+   ld     r1, GPLEV0_offset(r6)  # check ntube again to remove glitches
 
    # sort out the address bus
 
-   btst   r8, r16
-
+   btst   r1, r16
    orne   r7, 4
-   btst   r8, r17
-
+   btst   r1, r8
    orne   r7, 8
-   btst   r8, r18
-
+   btst   r1, r9
    orne   r7, 16
+   
    ld     r4, (r7)               # Read word from tube register
-   btst   r8, nTUBE
+   btst   r1, nTUBE
    bne    Poll_loop
-   btst   r8, RnW
+   btst   r1, RnW
    beq    wr_cycle
 
    # So we are in a read cycle
@@ -236,21 +230,21 @@ delay_done:
    st     r13, (r6)              # Drive data bus
    st     r14, 4(r6)             # Drive data bus
    st     r15, 8(r6)             # Drive data bus
-   or     r4,r5
+   or     r4, r5				 # add debug pin 
    st     r4, GPSET0_offset(r6)  # Write word to data bus
-
-   #st     r5, GPSET0_offset(r6)  # DEBUG pin
 
   # spin waiting for clk high
 rd_wait_for_clk_high1:
-   ld     r8, GPLEV0_offset(r6)
-   btst   r8, CLK
+   ld     r1, GPLEV0_offset(r6)
+   btst   r1, CLK
    beq    rd_wait_for_clk_high1
-# we now have half a cycle to do post mail
-   btst   r7, 2               # no need to post mail if A0 = 0
+# we now have half a cycle to do post mail 
+
+   btst   r7, 2                 # no need to post mail if A0 = 0
    beq    rd_wait_for_clk_low
    sub    r7, r0                # just get the address bits
-   lsl    r7, 6                 # put address bits in correct place
+   lsl    r7, 6                 # put address bits in correct place   
+
    bset   r7, RW_MAILBOX_BIT    # set read bit
 
 .if USE_DOORBELL
@@ -269,7 +263,7 @@ rd_wait_for_clk_low:
    st     r10, (r6)  # Stop Driving data bus
    st     r11, 4(r6)
    st     r12, 8(r6)
-   st     r9, GPCLR0_offset(r6) #clear databus ready for next time and debug pin
+   st     r4, GPCLR0_offset(r6) #clear databus ready for next time and debug pin
 
 # detect dummy read
 # spin waiting for clk high
@@ -292,7 +286,7 @@ wr_wait_for_clk_high1:
 
 # spin waiting for clk low
 wr_wait_for_clk_low:
-   mov    r8, r7
+   mov    r1, r7
    ld     r7, GPLEV0_offset(r6)
    btst   r7, CLK
    bne    wr_wait_for_clk_low
@@ -300,23 +294,23 @@ wr_wait_for_clk_low:
 # Post a message to indicate a tube register write
 
 #  move databus to correct position to D23..D16
-   lsl    r7,r8, 16 - D0D3_shift
-   lsr    r4,r8, D4D7_shift - 20
+   lsl    r7,r1, 16 - D0D3_shift
+   lsr    r4,r1, D4D7_shift - 20
    and    r7, 0x000F0000
    and    r4, 0x00F00000
    or     r7, r4
 
 #  move address bit to correct position
-   btst   r8, r16
+   btst   r1, r16
    bsetne r7, 8
-   btst   r8, r17
+   btst   r1, r8
    bsetne r7, 9
-   btst   r8, r18
+   btst   r1, r9
    bsetne r7, 10
 
 #check clock is still low this filters out clock glitches
-   ld     r8, GPLEV0_offset(r6)
-   btst   r8, CLK
+   ld     r1, GPLEV0_offset(r6)
+   btst   r1, CLK
    bne    wr_wait_for_clk_low
 
 .if USE_DOORBELL
