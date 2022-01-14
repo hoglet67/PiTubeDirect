@@ -252,7 +252,7 @@ rd_wait_for_clk_high1:
    sub    r7, r0                # just get the address bits
    lsl    r7, 6                 # put address bits in correct place
    bset   r7, RW_MAILBOX_BIT    # set read bit
-   and    r7, 0xFFFFFFF0        # clear the channel bits
+
 .if USE_DOORBELL
    st     r7, (r22)             # store in register we are using for doorbell data
 .endif
@@ -319,7 +319,6 @@ wr_wait_for_clk_low:
    btst   r8, CLK
    bne    wr_wait_for_clk_low
 
-   and    r7, 0xFFFFFFF0       # clear the channel bits
 .if USE_DOORBELL
    st     r7, (r22)             # store in register we are using for doorbell data
 .endif
