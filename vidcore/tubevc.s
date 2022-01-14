@@ -69,7 +69,7 @@
 
 .equ GPU_ARM_MBOX, 0x7E00B880
 .equ GPU_ARM_DBELL, 0x7E00B844       # Doorbell1
-.equ GPU_ARM_DBELLDATA, 0x7E20C014   # Hijack PWM_DAT1 for Doorbell1 Data
+.equ GPU_ARM_DBELLDATA, 0x7E20C014   # Hijack PWM_DAT1 for Doorbel1 Data
 
 
 # fixed pin bit positions (A2..0, TEST passed in dynamically)
