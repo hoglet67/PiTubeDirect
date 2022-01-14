@@ -71,8 +71,6 @@
 .equ GPU_ARM_DBELL, 0x7E00B844       # Doorbell1
 .equ GPU_ARM_DBELLDATA, 0x7E20C014   # Hijack PWM_DAT1 for Doorbell1 Data
 
-#.equ IC0_MASK,     0x7e002010
-#.equ IC1_MASK,     0x7e002810
 
 # fixed pin bit positions (A2..0, TEST passed in dynamically)
 .equ nRST,          4
@@ -110,45 +108,7 @@
 .endm
 
 .org 0
-	B entry
-# irq code lives here
-		
-	
-	
-entry:	
-# code entry point
-#  ld r0, (r0)
-#  rts
-
-# disable interrupts
   di
-
-# Setup interrupt vector
-# 0x1EC01E00 looks like the interrupt table
-# Vector 113 = 49 + 64 = GPIO0
-
-#  mov r8, (0x40000000 + 0x1EC01E00 + (113 << 2))
-#  lea r9, irq_handler(pc)
-#  st  r9, (r8)
-
-# mask ARM interrupts
-#  mov r8, IC0_MASK
-#  mov r9, IC1_MASK
-#  mov r10, 0x0
-#  mov r11, 8
-#mask_all:
-#  st r10, (r8)
-#  st r10, (r9)
-#  add r8, 4
-#  add r9, 4
-#  sub r11, 1
-#  cmp r11, 0
-#  bne mask_all
-
-# enable the interupt (49 + 64 = 113)
-#  mov r8, IC0_MASK + 0x18
-#  mov r9, 0x00000010
-#  st  r9, (r8)
 
    mov    r9, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
    or     r9, r5       # add in test pin so that it is cleared at the end of the access
@@ -381,42 +341,3 @@ post_reset_loop:
    btst   r7, nRST
    beq    post_reset_loop
    b      Poll_loop
-
-
-
-
-
-# This code is not currently used
-
-.if 0
-
-# The interrupt handler just deals with nRST being pressed
-# This saves two instructions in Poll_loop
-irq_handler:
-
-   # Clear the interrupt condition
-   mov    r8, 0xffffffff
-   st     r8, GPEDS0_offset(r6)
-
-   ld     r8, GPLEV0_offset(r6)
-   btst   r8, nRST
-   bne    irq_handler_exit
-
-   bl     do_post_mailbox
-
-irq_handler_exit:
-   rti
-
-demo_irq_handler:
-
-   mov    r6, GPFSEL0
-
-   mov    r5, 0xffffffff
-   st     r5, GPEDS0_offset(r6)
-
-   mov    r5, (1<<20)
-   st     r5, GPSET0_offset(r6) #DEBUG pin
-   st     r5, GPCLR0_offset(r6) #DEBUG pin
-
-   rti
-.endif
