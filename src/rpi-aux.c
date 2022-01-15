@@ -94,7 +94,7 @@ void RPI_AuxMiniUartIRQHandler() {
   _data_memory_barrier();
 }
 
-void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits)
+void RPI_AuxMiniUartInit(uint32_t baud)
 {
   // Data memory barrier need to be places between accesses to different peripherals
   //
@@ -136,11 +136,8 @@ void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits)
   /* Disable flow control,enable transmitter and receiver! */
   auxiliary->MU_CNTL = 0;
 
-  /* Decide between seven or eight-bit mode */
-  if (bits == 8)
-    auxiliary->MU_LCR = AUX_MULCR_8BIT_MODE;
-  else
-    auxiliary->MU_LCR = 0;
+  /* Eight-bit mode */
+  auxiliary->MU_LCR = AUX_MULCR_8BIT_MODE;
 
   auxiliary->MU_MCR = 0;
 

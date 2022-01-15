@@ -254,8 +254,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
    unsigned int last_copro;
 
-     // Initialise the UART to 57600 baud
-   RPI_AuxMiniUartInit( 115200, 8 );
+   RPI_AuxMiniUartInit( 115200 );
    enable_MMU_and_IDCaches();
    _enable_unaligned_access();
    tube_init_hardware();

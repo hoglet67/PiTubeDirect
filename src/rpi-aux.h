@@ -140,7 +140,7 @@ typedef struct
   rpi_reg_ro_t SPI1_PEEK;
 } aux_t;
 
-extern void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits);
+extern void RPI_AuxMiniUartInit(uint32_t baud);
 extern void RPI_AuxMiniUartWrite(char c);
 
 #endif
