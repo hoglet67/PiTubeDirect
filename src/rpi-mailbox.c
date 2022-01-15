@@ -1,7 +1,4 @@
-#include <stdint.h>
-
 #include "cache.h"
-#include "rpi-gpio.h"
 #include "rpi-mailbox.h"
 
 /* Mailbox 0 mapped to it's base address */
