@@ -1,11 +1,4 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
 
-#include "startup.h"
-
-#include "rpi-base.h"
-#include "rpi-gpio.h"
 #include "rpi-interrupts.h"
 
 /** @brief The BCM2835/6 Interrupt controller peripheral at it's base address */

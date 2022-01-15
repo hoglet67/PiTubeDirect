@@ -31,7 +31,7 @@
 #ifndef RPI_INTERRUPTS_H
 #define RPI_INTERRUPTS_H
 
-#include <stdint.h>
+#include "rpi-base.h"
 
 /** @brief See Section 7.5 of the BCM2836 ARM Peripherals documentation, the base
     address of the controller is actually xxxxB000, but there is a 0x200 offset
