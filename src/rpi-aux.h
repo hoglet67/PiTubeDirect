@@ -31,6 +31,8 @@
 #ifndef RPI_AUX_H
 #define RPI_AUX_H
 
+#include "rpi-base.h"
+
 /* Although these values were originally from the BCM2835 Arm peripherals PDF
  it's clear that was rushed and has some glaring errors - so these values
  may appear to be different. These values have been changed due to data on
@@ -92,102 +94,50 @@
 #define AUX_MUIIR_INT_IS_TX         ( 1 << 1 )
 #define AUX_MUIIR_INT_IS_RX         ( 1 << 2 )
 
-
-
-#define FSEL0(x)        ( (x) )
-#define FSEL1(x)        ( (x) << 3 )
-#define FSEL2(x)        ( (x) << 6 )
-#define FSEL3(x)        ( (x) << 9 )
-#define FSEL4(x)        ( (x) << 12 )
-#define FSEL5(x)        ( (x) << 15 )
-#define FSEL6(x)        ( (x) << 18 )
-#define FSEL7(x)        ( (x) << 21 )
-#define FSEL8(x)        ( (x) << 24 )
-#define FSEL9(x)        ( (x) << 27 )
-
-#define FSEL10(x)       ( (x) )
-#define FSEL11(x)       ( (x) << 3 )
-#define FSEL12(x)       ( (x) << 6 )
-#define FSEL13(x)       ( (x) << 9 )
-#define FSEL14(x)       ( (x) << 12 )
-#define FSEL15(x)       ( (x) << 15 )
-#define FSEL16(x)       ( (x) << 18 )
-#define FSEL17(x)       ( (x) << 21 )
-#define FSEL18(x)       ( (x) << 24 )
-#define FSEL19(x)       ( (x) << 27 )
-
-#define FSEL20(x)       ( (x) )
-#define FSEL21(x)       ( (x) << 3 )
-#define FSEL22(x)       ( (x) << 6 )
-#define FSEL23(x)       ( (x) << 9 )
-#define FSEL24(x)       ( (x) << 12 )
-#define FSEL25(x)       ( (x) << 15 )
-#define FSEL26(x)       ( (x) << 18 )
-#define FSEL27(x)       ( (x) << 21 )
-#define FSEL28(x)       ( (x) << 24 )
-#define FSEL29(x)       ( (x) << 27 )
-
-#define FSEL30(x)       ( (x) )
-#define FSEL31(x)       ( (x) << 3 )
-#define FSEL32(x)       ( (x) << 6 )
-#define FSEL33(x)       ( (x) << 9 )
-#define FSEL34(x)       ( (x) << 12 )
-#define FSEL35(x)       ( (x) << 15 )
-#define FSEL36(x)       ( (x) << 18 )
-#define FSEL37(x)       ( (x) << 21 )
-#define FSEL38(x)       ( (x) << 24 )
-#define FSEL39(x)       ( (x) << 27 )
-
-#define FSEL40(x)       ( (x) )
-#define FSEL41(x)       ( (x) << 3 )
-#define FSEL42(x)       ( (x) << 6 )
-#define FSEL43(x)       ( (x) << 9 )
-#define FSEL44(x)       ( (x) << 12 )
-#define FSEL45(x)       ( (x) << 15 )
-#define FSEL46(x)       ( (x) << 18 )
-#define FSEL47(x)       ( (x) << 21 )
-#define FSEL48(x)       ( (x) << 24 )
-#define FSEL49(x)       ( (x) << 27 )
-
-#define FSEL50(x)       ( (x) )
-#define FSEL51(x)       ( (x) << 3 )
-#define FSEL52(x)       ( (x) << 6 )
-#define FSEL53(x)       ( (x) << 9 )
-
 typedef struct
 {
-  volatile unsigned int IRQ;
-  volatile unsigned int ENABLES;
+  rpi_reg_byte_ro_t IRQ;
+  rpi_reg_byte_ro_t r1[3];
+  rpi_reg_byte_rw_t ENABLES;
+  rpi_reg_byte_ro_t r2[3];
+  rpi_reg_ro_t reserved1[((0x40 - 0x04) / 4) - 1];
 
-  volatile unsigned int reserved1[((0x40 - 0x04) / 4) - 1];
+  rpi_reg_byte_rw_t MU_IO;
+  rpi_reg_byte_ro_t r3[3];
+  rpi_reg_byte_rw_t MU_IER;
+  rpi_reg_byte_ro_t r4[3];
+  rpi_reg_byte_rw_t MU_IIR;
+  rpi_reg_byte_ro_t r5[3];
+  rpi_reg_byte_rw_t MU_LCR;
+  rpi_reg_byte_ro_t r6[3];
+  rpi_reg_byte_rw_t MU_MCR;
+  rpi_reg_byte_ro_t r7[3];
+  rpi_reg_byte_ro_t MU_LSR;
+  rpi_reg_byte_ro_t r8[3];
+  rpi_reg_byte_ro_t MU_MSR;
+  rpi_reg_byte_ro_t r9[3];
+  rpi_reg_byte_rw_t MU_SCRATCH;
+  rpi_reg_byte_ro_t r10[3];
+  rpi_reg_byte_rw_t MU_CNTL;
+  rpi_reg_byte_ro_t r11[3];
+  rpi_reg_ro_t MU_STAT;
+  rpi_reg_rw_t MU_BAUD;
 
-  volatile unsigned int MU_IO;
-  volatile unsigned int MU_IER;
-  volatile unsigned int MU_IIR;
-  volatile unsigned int MU_LCR;
-  volatile unsigned int MU_MCR;
-  volatile unsigned int MU_LSR;
-  volatile unsigned int MU_MSR;
-  volatile unsigned int MU_SCRATCH;
-  volatile unsigned int MU_CNTL;
-  volatile unsigned int MU_STAT;
-  volatile unsigned int MU_BAUD;
+  rpi_reg_ro_t reserved2[(0x80 - 0x68) / 4];
 
-  volatile unsigned int reserved2[(0x80 - 0x68) / 4];
+  rpi_reg_rw_t SPI0_CNTL0;
+  rpi_reg_rw_t SPI0_CNTL1;
+  rpi_reg_rw_t SPI0_STAT;
+  rpi_reg_rw_t SPI0_IO;
+  rpi_reg_ro_t SPI0_PEEK;
 
-  volatile unsigned int SPI0_CNTL0;
-  volatile unsigned int SPI0_CNTL1;
-  volatile unsigned int SPI0_STAT;
-  volatile unsigned int SPI0_IO;
-  volatile unsigned int SPI0_PEEK;
+  rpi_reg_ro_t reserved3[(0xC0 - 0x94) / 4];
 
-  volatile unsigned int reserved3[(0xC0 - 0x94) / 4];
-
-  volatile unsigned int SPI1_CNTL0;
-  volatile unsigned int SPI1_CNTL1;
-  volatile unsigned int SPI1_STAT;
-  volatile unsigned int SPI1_IO;
-  volatile unsigned int SPI1_PEEK;
+  rpi_reg_rw_t SPI1_CNTL0;
+  rpi_reg_rw_t SPI1_CNTL1;
+  rpi_reg_rw_t SPI1_STAT;
+  rpi_reg_rw_t SPI1_IO;
+  rpi_reg_ro_t SPI1_PEEK;
 } aux_t;
 
 extern void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits);

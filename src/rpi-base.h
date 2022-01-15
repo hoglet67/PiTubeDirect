@@ -35,6 +35,10 @@
 
 #include <stdint.h>
 
+typedef volatile uint8_t rpi_reg_byte_rw_t;
+typedef volatile const uint8_t rpi_reg_byte_ro_t;
+typedef volatile uint8_t rpi_reg_byte_wo_t;
+
 typedef volatile uint32_t rpi_reg_rw_t;
 typedef volatile const uint32_t rpi_reg_ro_t;
 typedef volatile uint32_t rpi_reg_wo_t;

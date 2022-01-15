@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "rpi-aux.h"
-#include "rpi-base.h"
 #include "rpi-gpio.h"
 #include "info.h"
 #include "startup.h"
@@ -79,7 +78,7 @@ void RPI_AuxMiniUartIRQHandler() {
         auxiliary->MU_IO = tx_buffer[tx_tail];
       } else {
         /* Disable TxEmpty interrupt */
-        auxiliary->MU_IER &= (uint32_t)~AUX_MUIER_TX_INT;
+        auxiliary->MU_IER &= (rpi_reg_byte_rw_t)~AUX_MUIER_TX_INT;
       }
     }
   }
