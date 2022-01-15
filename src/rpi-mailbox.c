@@ -1,9 +1,28 @@
 #include "cache.h"
 #include "rpi-mailbox.h"
+#include "rpi-base.h"
+
+/* Define a structure which defines the register access to a mailbox.
+   Not all mailboxes support the full register set! */
+typedef struct {
+    rpi_reg_rw_t Data;
+    rpi_reg_ro_t reserved1[3];
+    rpi_reg_ro_t Poll;
+    rpi_reg_ro_t Sender;
+    rpi_reg_ro_t Status;
+    rpi_reg_rw_t Configuration;
+    } mailbox_t;
 
 /* Mailbox 0 mapped to it's base address */
-static mailbox_t* rpiMailbox0 = (mailbox_t*)RPI_MAILBOX0_BASE;
-static mailbox_t* rpiMailbox1 = (mailbox_t*)RPI_MAILBOX1_BASE;
+static mailbox_t* rpiMailbox0 = (mailbox_t*)( PERIPHERAL_BASE + 0xB880 );
+static mailbox_t* rpiMailbox1 = (mailbox_t*)( PERIPHERAL_BASE + 0xB8A0 );
+
+/* These defines come from the Broadcom Videocode driver source code, see:
+   brcm_usrlib/dag/vmcsx/vcinclude/bcm2708_chip/arm_control.h */
+
+#define ARM_MS_FULL   0x80000000
+#define ARM_MS_EMPTY  0x40000000
+#define ARM_MS_LEVEL  0x400000FF
 
 void RPI_Mailbox0Write( mailbox0_channel_t channel, uint32_t *ptr )
 {
