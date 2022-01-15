@@ -115,12 +115,6 @@ void RPI_SetGpioPull(rpi_gpio_pin_t gpio, rpi_gpio_pull pull)
   pull_copy |= (pull << ((gpio % 16) * 2));
   *pull_reg = pull_copy;
 #else
-  switch (pull)
-  {
-    case PULL_NONE : break;
-    case PULL_DOWN : pull = PULL_UP ;  break;
-    case PULL_UP   : pull = PULL_DOWN; break; 
-  }
   RPI_GpioBase->GPPUD = pull;
   RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
 

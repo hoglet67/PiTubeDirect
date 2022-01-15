@@ -65,14 +65,21 @@ typedef enum
     FS_ALT2,
     FS_ALT3,
 } rpi_gpio_alt_function_t;
-
+#if defined(RPI4)
+typedef enum
+{ 
+    PULL_NONE = 0,
+    PULL_UP,
+    PULL_DOWN,
+} rpi_gpio_pull;
+#else
 typedef enum
 { 
     PULL_NONE = 0,
     PULL_DOWN,
     PULL_UP,
 } rpi_gpio_pull;
-
+#endif
 /* A mask to be able to clear the bits in the register before setting the value we require */
 #define FS_MASK     (7)
 
