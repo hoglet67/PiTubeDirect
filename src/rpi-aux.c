@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "rpi-aux.h"
+#include "rpi-auxreg.h"
 #include "rpi-gpio.h"
 #include "info.h"
 #include "startup.h"
@@ -22,14 +22,52 @@
 
 static aux_t* auxiliary = (aux_t*) AUX_BASE;
 
-#include "rpi-interrupts.h"
-
 #ifdef USE_IRQ
+
+#include "rpi-interrupts.h"
 __attribute__ ((section (".noinit"))) static char tx_buffer[TX_BUFFER_SIZE];
 //static char *tx_buffer;
 static volatile int tx_head;
 static volatile int tx_tail;
 #endif // USE_IRQ
+
+void RPI_AuxMiniUartWrite(char c)
+{
+#ifdef USE_IRQ
+  int tmp_head = (tx_head + 1) & (TX_BUFFER_SIZE - 1);
+
+  /* Test if the buffer is full */
+  if (tmp_head == tx_tail) {
+     uint32_t cpsr = _get_cpsr();
+     if (cpsr & 0x80) {
+        /* IRQ disabled: drop the character to avoid deadlock */
+        return;
+     } else {
+        /* IRQ enabled: wait for space in buffer */
+        while (tmp_head == tx_tail) {
+        }
+     }
+  }
+  /* Buffer the character */
+  tx_buffer[tmp_head] = c;
+  tx_head = tmp_head;
+
+  _data_memory_barrier();
+
+  /* Enable TxEmpty interrupt */
+  auxiliary->MU_IER |= AUX_MUIER_TX_INT;
+
+  _data_memory_barrier();
+
+#else
+  /* Wait until the UART has an empty space in the FIFO */
+  while ((auxiliary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)
+  {
+  }
+  /* Write the character to the FIFO for transmission */
+  auxiliary->MU_IO = c;
+#endif
+}
 
 // There is a GCC bug with __attribute__((interrupt("IRQ"))) in that it
 // does not respect registers reserved with -ffixed-reg.
@@ -93,6 +131,8 @@ void RPI_AuxMiniUartIRQHandler() {
 
   _data_memory_barrier();
 }
+
+
 
 void RPI_AuxMiniUartInit(uint32_t baud)
 {
@@ -170,40 +210,3 @@ void RPI_AuxMiniUartInit(uint32_t baud)
 
 }
 
-void RPI_AuxMiniUartWrite(char c)
-{
-#ifdef USE_IRQ
-  int tmp_head = (tx_head + 1) & (TX_BUFFER_SIZE - 1);
-
-  /* Test if the buffer is full */
-  if (tmp_head == tx_tail) {
-     uint32_t cpsr = _get_cpsr();
-     if (cpsr & 0x80) {
-        /* IRQ disabled: drop the character to avoid deadlock */
-        return;
-     } else {
-        /* IRQ enabled: wait for space in buffer */
-        while (tmp_head == tx_tail) {
-        }
-     }
-  }
-  /* Buffer the character */
-  tx_buffer[tmp_head] = c;
-  tx_head = tmp_head;
-
-  _data_memory_barrier();
-
-  /* Enable TxEmpty interrupt */
-  auxiliary->MU_IER |= AUX_MUIER_TX_INT;
-
-  _data_memory_barrier();
-
-#else
-  /* Wait until the UART has an empty space in the FIFO */
-  while ((auxiliary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)
-  {
-  }
-  /* Write the character to the FIFO for transmission */
-  auxiliary->MU_IO = c;
-#endif
-}
