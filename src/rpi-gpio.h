@@ -69,8 +69,8 @@ typedef enum
 typedef enum
 { 
     PULL_NONE = 0,
-    PULL_UP,
     PULL_DOWN,
+    PULL_UP,
 } rpi_gpio_pull;
 
 /* A mask to be able to clear the bits in the register before setting the value we require */
