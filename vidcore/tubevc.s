@@ -144,6 +144,7 @@
 # setup the LED toggling
 
 setupLEDToggle:
+   mov    r19,0 # 0 zero as writing a zero won't be dsitructive
    add    r20,r6,GPCLR0_offset
 
    tbb r1
@@ -158,30 +159,30 @@ ledswitchtable:
 led_type2:
    # must be led_type2
    # only on raspberry pi 3
-   mov    r19,0 # 0 zero as writing a zero won't be dsitructive
+
    mov    r21,0
    B setupLEDToggledone
 
 # led_type 0 found on 26 pin raspberry pis
 led_type0:
-   mov    r19, (1<<LED_TYPE0_BIT)
+   bset   r19, LED_TYPE0_BIT
    mov    r21,GPCLR0_offset^GPSET0_offset 
    B setupLEDToggledone
 
 # led_type 1 found on most 40 pin raspberry pis
 led_type1:
-   mov    r19, (1<<LED_TYPE1_BIT)
+   bset    r19, LED_TYPE1_BIT
    B setupLEDToggledbank1
    
 # led_type 3 found on rpi3b+ GPIO29
 led_type3:
-   mov    r19, (1<<LED_TYPE3_BIT)
+   bset    r19, LED_TYPE3_BIT
    mov    r21,GPCLR0_offset^GPSET0_offset 
    B setupLEDToggledone
 
 # led_type 4 found on the Pi 4
 led_type4:
-   mov    r19, (1<<LED_TYPE4_BIT)
+   bset    r19, LED_TYPE4_BIT
 setupLEDToggledbank1:
    add    r20,GPCLR1_offset-GPCLR0_offset
    mov    r21,GPCLR1_offset^GPSET1_offset 
