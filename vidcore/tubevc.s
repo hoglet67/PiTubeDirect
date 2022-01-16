@@ -145,16 +145,17 @@
 
 setupLEDToggle:
    add    r20,r6,GPCLR0_offset
-   
-   cmp    r1, 0
-   beq    led_type0
-   cmp    r1, 1
-   beq    led_type1
-   cmp    r1, 3
-   beq    led_type3
-   cmp    r1, 4
-   beq    led_type4
 
+   tbb r1
+ledswitchtable:      
+.byte (led_type0-ledswitchtable)/2
+.byte (led_type1-ledswitchtable)/2
+.byte (led_type2-ledswitchtable)/2
+.byte (led_type3-ledswitchtable)/2
+.byte (led_type4-ledswitchtable)/2
+.align 1
+
+led_type2:
    # must be led_type2
    # only on raspberry pi 3
    mov    r19,0 # 0 zero as writing a zero won't be dsitructive
