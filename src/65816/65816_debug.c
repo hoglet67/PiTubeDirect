@@ -64,7 +64,7 @@ static const char op_names[117][4] = {
     "WDM", "XBA", "XCE", "RMB", "SMB", "BBR", "BBS"
 };
 
-static const uint8_t op_816[256] =
+static const op_t op_816[256] =
 {
 /*       0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F */
 /*00*/  BRK,  ORA,  COP,  ORA,  TSB,  ORA,  ASL,  ORA,  PHP,  ORA,  ASL,  PHD,  TSB,  ORA,  ASL,  ORA,
@@ -85,7 +85,7 @@ static const uint8_t op_816[256] =
 /*F0*/  BEQ,  SBC,  SBC,  SBC,  PEA,  SBC,  INC,  SBC,  SED,  SBC,  PLX,  XCE,  JSR,  SBC,  INC,  SBC
 };
 
-static const uint8_t am_816[256]=
+static const addr_mode_t am_816[256]=
 {
 /*       0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F */
 /*00*/  IMP,  INDX, IMM,  SR,   ZP,   ZP,   ZP,   INDL, IMP,  IMV,  IMPA, IMP,  ABS,  ABS,  ABS,  ABSL,
