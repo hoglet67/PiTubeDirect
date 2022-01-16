@@ -367,7 +367,7 @@ static uint16_t disasm(char *buf, uint16_t a) {
    // Lookup the instruction in table
    D l = disamtable[(sizeof(disamtable) / sizeof(disamtable[0])) - 1];
    uint8_t i;
-   for (i = 0; disamtable[i].inst; i++) {
+   for (i = 0; i< ((sizeof(disamtable) / sizeof(disamtable[0]))); i++) {
       l = disamtable[i];
       if ((ins & l.inst) == l.arg) {
          break;
