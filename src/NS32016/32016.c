@@ -42,7 +42,7 @@ static uint32_t startpc;
 RegLKU Regs[2];
 static uint32_t genaddr[2];
 static uint32_t *genreg[2];
-static int gentype[2];
+static enum OpTypes gentype[2];
 static OperandSizeType OpSize;
 
 static const uint32_t IndexLKUP[8] = { 0x0, 0x1, 0x4, 0x5, 0x8, 0x9, 0xC, 0xD };                    // See Page 2-3 of the manual!
