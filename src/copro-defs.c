@@ -22,6 +22,7 @@
 #include "copro-pdp11.h"
 #include "copro-armnative.h"
 #include "copro-65tubejit.h"
+#include "copro-osd.h"
 
 #endif
 
@@ -206,9 +207,9 @@ copro_def_t copro_defs[] = {
       NO_DEBUGGER
    },
    {
-      "Null",                   // 25
-      copro_null_emulator,
-      TYPE_HIDDEN,
+      "OS/D",                   // 25
+      copro_osd_emulator,
+      TYPE_GENERIC,
       NO_DEBUGGER
    },
    {

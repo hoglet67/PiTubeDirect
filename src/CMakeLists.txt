@@ -256,6 +256,13 @@ file( GLOB copro_f100_files
     f100/tuberom.c
 )
 
+# OS/D
+file( GLOB copro_osd_files
+    copro-osd.h
+    copro-osd.c
+    osd/osd.c
+    osd/osd.h
+)
 
 # PDP 11
 file( GLOB copro_pdp11_files
@@ -405,6 +412,7 @@ else()
             ${copro_pdp11_files}
             ${copro_null_files}
             ${copro_arm_files}
+            ${copro_osd_files}
             ${debugger_files}
         )
 
@@ -431,6 +439,7 @@ else()
             ${copro_pdp11_files}
             ${copro_null_files}
             ${copro_arm_files}
+            ${copro_osd_files}
         )
 
     endif()
