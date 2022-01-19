@@ -1,12 +1,18 @@
-#include <stdio.h>
 #include "osd.h"
-#include "../tube.h"
-#include "../tube-lib.h"
+#include "osd-tube.h"
+#include "osd-vdu.h"
 
-void osd_reset() {
+void osd_welcome()
+{
+	VDUClg();
+	TubeWriteString("OS/D 0.1 (daryl@dariclang.com)\r\n\r\n# ");
 }
 
-int osd_execute(int tube_cycles) {
-    sendByte(1, 'a');
-    return 1;
+void osd_reset()
+{
+}
+
+int osd_execute(int tube_cycles)
+{
+	return 1;
 }

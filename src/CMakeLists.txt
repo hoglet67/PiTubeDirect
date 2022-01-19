@@ -262,6 +262,10 @@ file( GLOB copro_osd_files
     copro-osd.c
     osd/osd.c
     osd/osd.h
+    osd/osd-tube.h
+    osd/osd-tube.c
+    osd/osd-vdu.h
+    osd/osd-vdu.c
 )
 
 # PDP 11
