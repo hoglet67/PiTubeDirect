@@ -3,16 +3,21 @@
  *
  * (c) 2022 Daryl Dudey
  */
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include "tube-defs.h"
 #include "tube.h"
 #include "tube-ula.h"
+#include "copro-osd.h"
 #include "osd/osd.h"
+
+static uint8_t* osd_ram;
 
 static void copro_osd_poweron_reset()
 {
+	osd_ram = (uint8_t*)malloc(K128);
 }
 
 static void copro_osd_reset()
