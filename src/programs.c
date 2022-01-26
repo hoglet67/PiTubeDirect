@@ -360,6 +360,8 @@ static const unsigned char clocksp[] = {
 
 //  CO-PROCESSOR LIST
 //  Displays a list of co-processor options
+//
+// https://github.com/mincebert/PiTubeDirect-CoProList
 
 static const unsigned char coprolist[] = {
   0xa9, 0x00, 0xa2, 0x01, 0x20, 0xf4, 0xff, 0xe0, 0x00, 0xd0, 0x0a, 0xa9,
