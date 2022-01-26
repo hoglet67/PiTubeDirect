@@ -1312,7 +1312,8 @@ static void trapat(uint16_t vec) { // , msg string) {
       printf("Thou darst calling trapat() with an odd vector number?\r\n");
       panic();
    }
-   printf("trap: %x\r\n", vec);
+   printf("trap: %x at PC=%04x\r\n", vec, cpu.PC);
+   printstate();
 
    /*var prev uint16
      defer func() {
