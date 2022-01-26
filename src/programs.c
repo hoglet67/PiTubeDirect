@@ -2966,8 +2966,8 @@ void copy_test_programs(uint8_t *memory) {
 
    // jmp[0] will be the address of the JMP start at the end of the 6502 tests
    // jmp[1] will be the address of the JMP start at the end of the 65C02 tests
-   // msg[0] witl be the "Start testing" message in the 6502 tests
-   // msg[1] witl be the "Start testing" message in the 65C02 tests
+   // msg[0] will be the "Start testing" message in the 6502 tests
+   // msg[1] will be the "Start testing" message in the 65C02 tests
    int jmp[2];
    int msg[2];
    for (int i = 0; i < 2; i++) {
@@ -2998,7 +2998,7 @@ void copy_test_programs(uint8_t *memory) {
       return;
    }
 
-   // Copy D6502 tests into memory
+   // Copy D65C02 tests into memory
    memcpy(memory + D65C02_START, dormann_d65c02, sizeof(dormann_d65c02));
    // Patch the test suite name, if found
    if (msg[1] >= 0) {
