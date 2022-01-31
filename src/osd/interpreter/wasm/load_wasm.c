@@ -4,6 +4,7 @@
 #include "leb128.h"
 #include <string.h>
 #include <memory.h>
+#include "../wasm_shared.h"
 
 const char* read_string(buffer_t* fp)
 {
@@ -51,7 +52,8 @@ uint32_t read_uint_simple(uint8_t* buffer)
 {
 	uint32_t* b = (uint32_t*)buffer;
 	uint32_t i = *b;
-//	printf("RU = %d %d %d %d = %d\n", buffer[0], buffer[1], buffer[2], buffer[3], i);
+	if (trace>=LogTrace)
+		print("RU = %d %d %d %d = %d\n", buffer[0], buffer[1], buffer[2], buffer[3], i);
 	return i;
 }
 
@@ -59,7 +61,8 @@ int32_t read_int_simple(uint8_t* buffer)
 {
 	int32_t* b = (int32_t*)buffer;
 	int32_t i = *b;
-//	printf("RS = %d %d %d %d = %d\n", buffer[0], buffer[1], buffer[2], buffer[3], i);
+	if (trace>=LogTrace)
+		print("RS = %d %d %d %d = %d\n", buffer[0], buffer[1], buffer[2], buffer[3], i);
 	return i;
 }
 
@@ -67,14 +70,16 @@ void write_uint_simple(uint8_t* buffer, uint32_t v)
 {
 	uint32_t* b = (uint32_t*)buffer;
 	*b = v;
-//	printf("WU = %d %d %d %d = %d\n", buffer[0], buffer[1], buffer[2], buffer[3], v);
+	if (trace>=LogTrace)
+		print("WU = %d %d %d %d = %d\n", buffer[0], buffer[1], buffer[2], buffer[3], v);
 }
 
 void write_int_simple(uint8_t* buffer, int32_t v)
 {
 	int32_t* b = (int32_t*)buffer;
 	*b = v;
-//	printf("WS = %d %d %d %d = %d\n", buffer[0], buffer[1], buffer[2], buffer[3], v);
+	if (trace>=LogTrace)
+		print("WS = %d %d %d %d = %d\n", buffer[0], buffer[1], buffer[2], buffer[3], v);
 }
 
 uint32_t read_leb128_32(buffer_t* fp)
@@ -82,7 +87,7 @@ uint32_t read_leb128_32(buffer_t* fp)
 	uint64_t r;
 	size_t rd = read_uleb128_to_uint64(&fp->buffer[fp->pos], &fp->buffer[fp->len-1], &r);
 	if (rd==0) {
-		fprintf(stderr, "Total fail reading leb128\n");
+		print("Total fail reading leb128\n");
 		exit(1);
 	}
 	fp->pos += rd;
@@ -112,7 +117,7 @@ void validate_type(uint32_t type, wasm_t* wat)
 			return;
 		default: {
 			if (type>wat->num_types) {
-				fprintf(stderr, "Type is invalid\n");
+				print("Type is invalid\n");
 				exit(1);
 			}
 			break;

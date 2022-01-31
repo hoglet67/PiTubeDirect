@@ -1,5 +1,6 @@
 #include "load_wasm.h"
 #include <stdlib.h>
+#include "../wasm_shared.h"
 
 /*void process_block(buffer_t* bf, buffer_t* code)
 {
@@ -8,7 +9,8 @@
 
 void debug_instruction(const char* name, uint8_t opcode, uint32_t location)
 {
-//	printf("    Opcode [0X%02X %s] at 0X%07X\n", opcode, name, location);
+	if (trace>=LogTrace)
+		print("    Opcode [0X%02X %s] at 0X%07X\n", opcode, name, location);
 }
 
 uint8_t process_instruction(list code, buffer_t* bf)
@@ -127,7 +129,7 @@ uint8_t process_instruction(list code, buffer_t* bf)
 		case INSTRUCTION_I32_REM_U:
 			break;*/
 		default:
-			fprintf(stderr, "Unknown opcode %X\n", instruction.opcode);
+			print("Unknown opcode %X\n", instruction.opcode);
 			exit(1);
 	}
 	list_add_last(code, &instruction);

@@ -1,24 +1,26 @@
-#include "../osd-tube.h"
 #include "wasm/load_wasm.h"
+#include "wasm_shared.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 size_t SP;
-static uint8_t *RAM;
+static uint8_t *OSD_RAM;
 
 static inline void push_int_stack(int32_t v)
 {
     SP -= 8;
-    write_uint_simple(&RAM[SP], v);
-    //	printf("Stack push: %d\n", v);
+    write_uint_simple(&OSD_RAM[SP], v);
+    if (trace >= LogTrace)
+        print("Stack push: %d\n", v);
 }
 
 static inline int32_t pop_int_stack()
 {
-    int32_t v = read_int_simple(&RAM[SP]);
+    int32_t v = read_int_simple(&OSD_RAM[SP]);
     SP += 8;
-    //	printf("Stack pop: %d\n", v);
+    if (trace >= LogTrace)
+        print("Stack pop: %d\n", v);
     return v;
 }
 
@@ -29,11 +31,11 @@ void API_Call()
     switch (p1)
     {
     case 0:
-        TubeWriteString(&RAM[p2]);
-        TubeWriteString("\r");
+        print(&OSD_RAM[p2]);
         break;
     default:
-        printf("CALL API %d %d\n", p1, p2);
+        if (trace >= LogTrace)
+            print("Call API %d %d\n", p1, p2);
         break;
     }
     push_int_stack(0);
@@ -54,7 +56,7 @@ void get_local(local_t *locals, wasm_t *wat, instruction_t *t)
                 case TYPE_F64:
                     break;*/
     default:
-        fprintf(stderr, "Unsupported");
+        print("Unsupported");
         exit(1);
     }
 }
@@ -94,7 +96,7 @@ void get_global(wasm_t *wat, instruction_t *t)
                 case TYPE_F64:
                     break;*/
     default:
-        fprintf(stderr, "Unsupported");
+        print("Unsupported");
         exit(1);
     }
 }
@@ -114,7 +116,7 @@ void set_global(wasm_t *wat, instruction_t *t)
                 case TYPE_F64:
                     break;*/
     default:
-        fprintf(stderr, "Unsupported");
+        print("Unsupported");
         exit(1);
     }
 }
@@ -136,19 +138,21 @@ void run_function(wasm_t *wat, section_code_t *func)
         size_t index = 0;
 
         // Params
-        for (int i = 0; i < func->num_params; i++)
+        for (uint32_t i = 0; i < func->num_params; i++)
         {
-            //			printf("P %d/%d - %d\n", i, index, func->params[i]);
+            if (trace >= LogTrace)
+                print("P %d/%d - %d\n", i, index, func->params[i]);
             locals[index++].type = func->params[i];
         }
 
         // Real locals
-        for (int i = 0; i < func->num_locals; i++)
+        for (uint32_t i = 0; i < func->num_locals; i++)
         {
             section_code_locals_t *locals_def = &func->locals[i];
-            for (int j = 0; j < locals_def->count; j++)
+            for (uint32_t j = 0; j < locals_def->count; j++)
             {
-                //				printf("%d/%d - %d\n", j, index, locals_def->type);
+                if (trace >= LogTrace)
+                    print("%d/%d - %d\n", j, index, locals_def->type);
                 locals[index++].type = locals_def->type;
             }
         }
@@ -171,7 +175,8 @@ void run_function(wasm_t *wat, section_code_t *func)
                 free(locals);
             return;
         case INSTRUCTION_RETURN:
-            //				printf("Stack pointer on exit: %ld\n", SP);
+            if (trace >= LogTrace)
+                print("Stack pointer on exit: %ld\n", SP);
             break;
         case INSTRUCTION_CALL: {
             uint32_t index = t->index;
@@ -182,29 +187,33 @@ void run_function(wasm_t *wat, section_code_t *func)
                 switch (it->type)
                 {
                 case API_CALL:
-                    //							printf("Stack pointer on entry: %ld\n", SP);
+                    if (trace >= LogTrace)
+                        print("Stack pointer on entry: %ld\n", SP);
                     API_Call();
-                    //							printf("Stack pointer on exit: %ld\n", SP);
+                    if (trace >= LogTrace)
+                        print("Stack pointer on exit: %ld\n", SP);
                     break;
                 default:
-                    fprintf(stderr, "Unknown API call index\n");
+                    print("Unknown API call index\n");
                     exit(1);
                 }
             }
             else
             {
                 // Real
-                //					printf("Stack pointer on entry CALL: %ld\n", SP);
+                if (trace >= LogTrace)
+                    print("Stack pointer on entry CALL: %ld\n", SP);
                 index = index - wat->num_import_functions;
                 run_function(wat, &wat->section_codes[index]);
-                //					printf("Stack pointer on exit CALL: %ld\n", SP);
+                if (trace >= LogTrace)
+                    print("Stack pointer on exit CALL: %ld\n", SP);
             }
-            int a = 1;
             break;
         }
         case INSTRUCTION_DROP:
             SP += 8;
-            //				printf("Stack pointer after drop: %ld\n", SP);
+            if (trace >= LogTrace)
+                print("Stack pointer after drop: %ld\n", SP);
             break;
         case INSTRUCTION_GLOBAL_GET:
             get_global(wat, t);
@@ -220,14 +229,14 @@ void run_function(wasm_t *wat, section_code_t *func)
             break;
         case INSTRUCTION_I32_LOAD: {
             int32_t addr = pop_int_stack() + t->offset;
-            int32_t v = read_int_simple(&RAM[addr]);
+            int32_t v = read_int_simple(&OSD_RAM[addr]);
             push_int_stack(v);
             break;
         }
         case INSTRUCTION_I32_STORE: {
             int32_t v = pop_int_stack();
             int32_t addr = pop_int_stack() + t->offset;
-            write_int_simple(&RAM[addr], v);
+            write_int_simple(&OSD_RAM[addr], v);
             break;
         }
         case INSTRUCTION_I32_CONST:
@@ -254,7 +263,7 @@ void run_function(wasm_t *wat, section_code_t *func)
                             break;
                         }*/
         default:
-            fprintf(stderr, "Unknown opcode 0x%X\n", t->opcode);
+            print("Unknown opcode 0x%X\n", t->opcode);
             exit(1);
         }
     }
@@ -263,12 +272,16 @@ void run_function(wasm_t *wat, section_code_t *func)
 void run_vm(wasm_t *wat, uint8_t *_RAM, size_t RAM_size, uint32_t heap_start)
 {
     // Reset state
-    RAM = _RAM;
+    OSD_RAM = _RAM;
     SP = heap_start;
-    // printf("Stack pointer at start: %ld\n", SP);
-    printf("Calling global constructors...\n");
+    if (trace >= LogTrace)
+        print("Stack pointer at start: %ld\n", SP);
+    if (trace >= LogInfo)
+        print("Calling global constructors...\n");
     run_function(wat, &wat->section_codes[wat->ctors_function]);
-    printf("Calling start...\n");
+    if (trace >= LogInfo)
+        print("Calling start...\n");
     run_function(wat, &wat->section_codes[wat->start_function]);
-    printf("Finished\n");
+    if (trace >= LogInfo)
+        print("Finished\n");
 }

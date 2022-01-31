@@ -7,7 +7,7 @@
 #include "buffer.h"
 #include "wasm.h"
 
-instruction_t * load_expression(buffer_t* bf);
+instruction_t* load_expression(buffer_t* bf);
 
 #define TYPE_NONE 0x0
 #define TYPE_I32 0x7F

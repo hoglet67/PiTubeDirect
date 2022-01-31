@@ -1,6 +1,7 @@
 {
   "files.associations": {
     "copro-arm2.h": "c",
-    "osd-tube.h": "c"
+    "osd-tube.h": "c",
+    "stdio.h": "c"
   }
 }

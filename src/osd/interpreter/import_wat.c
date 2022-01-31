@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "wasm/load_wasm.h"
 #include "wasm/sections/sections.h"
+#include "wasm_shared.h"
 
 void section_type(buffer_t* bf, uint32_t size, wasm_t* wat);
 void section_function(buffer_t* bf, uint32_t size, wasm_t* wat);
@@ -48,7 +49,7 @@ void import_wat(wasm_t* wat, buffer_t* bf)
 				section_data(bf, sz, wat);
 				break;
 			default:
-				printf("Unhandled section: %d %u\n", section, sz);
+				print("Unhandled section: %d %u\n", section, sz);
 				exit(1);
 		}
 	}

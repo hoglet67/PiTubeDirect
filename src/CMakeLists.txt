@@ -267,7 +267,7 @@ file( GLOB copro_osd_files
     osd/osd-vdu.h
     osd/osd-vdu.c
 
-    osd/interpreter/main.c osd/interpreter/build_vm.c osd/interpreter/run_vm.c
+    osd/interpreter/wasm.c osd/interpreter/build_vm.c osd/interpreter/run_vm.c osd/interpreter/kernel.c osd/interpreter/wasm_shared.h osd/interpreter/printf.c
 
     osd/interpreter/wasm/sections/sections.h
     osd/interpreter/wasm/sections/section_type.c osd/interpreter/wasm/sections/section_function.c osd/interpreter/wasm/sections/section_memory.c 
