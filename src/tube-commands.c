@@ -26,6 +26,7 @@ static int doCmdCrc     (const char *params);
 static int doCmdArmBasic(const char *params);
 static int doCmdPiVDU   (const char *params);
 static int doCmdPiLIFE  (const char *params);
+static int doCmdFX      (const char *params);
 
 // Include ARM Basic
 #include "armbasic.h"
@@ -64,6 +65,7 @@ cmd_type cmds[] = {
   { "CRC",      "<start> <end>",                               doCmdCrc,      MODE_USER, 0 },
   { "DIS",      "<address>",                                   doCmdDis,      MODE_USER, 0 },
   { "FILL",     "<start> <end> <data>",                        doCmdFill,     MODE_USER, 0 },
+  { "FX",       "<a>, <x>, <y>",                               doCmdFX,       MODE_USER, 1 },
   { "HELP",     "[ <command> ]",                               doCmdHelp,     MODE_USER, 0 },
   { "GO",       "<address>",                                   doCmdGo,       MODE_USER, 0 },
   { "MEM",      "<address>",                                   doCmdMem,      MODE_USER, 0 },
@@ -251,6 +253,16 @@ static int doCmdGo(const char *params) {
   // Cast address to a generic function pointer
   f = (FunctionPtr_Type) address;
   f();
+  return 0;
+}
+
+static int doCmdFX(const char *params) {
+  unsigned int a = 0;
+  unsigned int x = 0;
+  unsigned int y = 0;
+  params = copy_string(params);
+  sscanf(params, "%d%*c%d%*c%d", &a, &x, &y);
+  OS_Byte(a, x, y, &x, &y);
   return 0;
 }
 
