@@ -114,6 +114,41 @@ static void OS_Byte_impl(unsigned int *reg) {
       // Also returns current screen mode
       reg[2] = (uint32_t)fb_get_current_screen_mode()->mode_num;
       return; // parasite only
+
+   case 163:
+      // GXR Set Pattern Length
+      if ((reg[1] & 0xff) == 242) {
+         int y = reg[2] & 0xff;
+         if (y <= 64) {
+            // On entry:
+            //   Y=0     resets the dot-dash pattern and length to defaults
+            //   Y=1..64 set dot dash pattern repeat length
+            prim_set_dot_pattern_len(fb_get_current_screen_mode(), y);
+            return; // parasite only
+         } else if (y == 65) {
+            // On entry:
+            //   Y=65    return status returns
+            // On exit:
+            //   if X=Y=0 then the ROM is fitted but disabled
+            //   X=b0..5 current dot dash pattern repeat length (0 means 64)
+            //     b6    if set flood fill is turned on
+            //     b7    if set GXR ROM is turned on
+            //   Y=number of pages allocated to sprites
+
+            // TODO
+            return; // parasite only
+         } else if (y == 66) {
+            // On entry:
+            //   Y=66    return info on currently selected sprite
+            // On exit:
+            //   if X=Y=0 then the ROM is fitted but disabled, or no sprite is selected
+            //   X=pixel width
+            //   Y=pixel height
+
+            // TODO
+            return; // parasite only
+         }
+      }
    }
 
    // Otherwise pass call to the old handler
