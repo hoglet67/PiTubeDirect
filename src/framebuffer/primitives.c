@@ -802,11 +802,9 @@ void prim_set_dot_pattern(screen_mode_t *screen, const uint8_t *pattern) {
    // Expand the pattern into one byte per pixel for efficient access
    const uint8_t *ptr = pattern;
    uint8_t mask = 0x80;
-   int last_dot = -1;
    for (int i = 0; i < sizeof(g_dot_pattern); i++) {
       if (*ptr & mask) {
          g_dot_pattern[i] = 1;
-         last_dot = i;
       } else {
          g_dot_pattern[i] = 0;
       }
@@ -815,12 +813,6 @@ void prim_set_dot_pattern(screen_mode_t *screen, const uint8_t *pattern) {
          mask = 0x80;
          ptr++;
       }
-   }
-   // Extend the pattern length if necessary
-   // Note: this is non-standard behaviour
-   last_dot++;
-   if (last_dot > g_dot_pattern_len) {
-      prim_set_dot_pattern_len(screen, last_dot);
    }
 }
 

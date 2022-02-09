@@ -26,14 +26,13 @@ static int doCmdCrc     (const char *params);
 static int doCmdArmBasic(const char *params);
 static int doCmdPiVDU   (const char *params);
 static int doCmdPiLIFE  (const char *params);
+static int doCmdFX      (const char *params);
 
 // Include ARM Basic
 #include "armbasic.h"
 
 // For fb_set_vdu_device (used by *PIVDU)
 #include "framebuffer/framebuffer.h"
-
-// Include the framebuffer for fb_set_vdu_device
 
 static const char *help = "Native ARM Tube Client ("RELEASENAME"/"GITVERSION")\r\n";
 
@@ -64,11 +63,12 @@ cmd_type cmds[] = {
   { "CRC",      "<start> <end>",                               doCmdCrc,      MODE_USER, 0 },
   { "DIS",      "<address>",                                   doCmdDis,      MODE_USER, 0 },
   { "FILL",     "<start> <end> <data>",                        doCmdFill,     MODE_USER, 0 },
+  { "FX",       "<a>, <x>, <y>",                               doCmdFX,       MODE_USER, 1 },
   { "HELP",     "[ <command> ]",                               doCmdHelp,     MODE_USER, 0 },
   { "GO",       "<address>",                                   doCmdGo,       MODE_USER, 0 },
   { "MEM",      "<address>",                                   doCmdMem,      MODE_USER, 0 },
-  { "PILIFE",   "[ <generations> [ <x size> [ <y size> ] ] ]", doCmdPiLIFE,   MODE_USER, 1 },
   { "PIVDU",    "<device: 0..3>",                              doCmdPiVDU,    MODE_USER, 1 },
+  { "PILIFE",   "[ <generations> [ <x size> [ <y size> ] ] ]", doCmdPiLIFE,   MODE_USER, 1 },
   { "TEST",     "",                                            doCmdTest,     MODE_USER, 0 },
 };
 
@@ -254,6 +254,16 @@ static int doCmdGo(const char *params) {
   return 0;
 }
 
+static int doCmdFX(const char *params) {
+  unsigned int a = 0;
+  unsigned int x = 0;
+  unsigned int y = 0;
+  params = copy_string(params);
+  sscanf(params, "%d%*c%d%*c%d", &a, &x, &y);
+  OS_Byte(a, x, y, &x, &y);
+  return 0;
+}
+
 static int doCmdFill(const char *params) {
   unsigned int start;
   unsigned int end;
@@ -402,16 +412,16 @@ static void write_host_word(uint16_t address, uint16_t data) {
    write_host_byte(address + 1,(unsigned char) (data >> 8) & 0xff);
 }
 
-// Beeb-side VDU
+// Forced Beeb-side VDU output (independent of vdu_device)
 static void beeb_vdu(uint8_t c) {
    sendByte(R1_ID, c);
 }
 
 // Manage the Beeb-side cursor
-static void beeb_cursor(uint8_t on) {
+static void beeb_cursor(int on) {
    beeb_vdu(23);
    beeb_vdu(1);
-   beeb_vdu(on);
+   beeb_vdu(on ? 1 : 0);
    beeb_vdu(0);
    beeb_vdu(0);
    beeb_vdu(0);
@@ -421,12 +431,31 @@ static void beeb_cursor(uint8_t on) {
    beeb_vdu(0);
 }
 
+// Forced Pi-side VDU output (independent of vdu_device)
+static void pi_vdu(uint8_t c) {
+   fb_writec(c);
+}
+
+// Manage the Pi-side cursor
+static void pi_cursor(int on) {
+   pi_vdu(23);
+   pi_vdu(1);
+   pi_vdu(on ? 1 : 0);
+   pi_vdu(0);
+   pi_vdu(0);
+   pi_vdu(0);
+   pi_vdu(0);
+   pi_vdu(0);
+   pi_vdu(0);
+   pi_vdu(0);
+}
+
 int doCmdPiVDU(const char *params) {
    static int saved_state = -1;
-   int device;
+   int d;
    params = copy_string(params);
-   int nargs = sscanf(params, "%d", &device);
-   if (nargs != 1 || device < 0 || device > 3) {
+   int nargs = sscanf(params, "%d", &d);
+   if (nargs != 1 || d < 0 || d > 3) {
       usage();
       OS_Write0("       0 = no output\r\n");
       OS_Write0("       1 = Beeb only\r\n");
@@ -434,20 +463,21 @@ int doCmdPiVDU(const char *params) {
       OS_Write0("       3 = Beeb and Pi\r\n");
       return 0;
    }
+   vdu_device_t device = (vdu_device_t) d;
 
    OS_Write0("Beeb VDU:");
-   if (device & VDU_BEEB) {
+   if (device == VDU_BEEB || device == VDU_BOTH) {
       OS_Write0("enabled\r\n");
    } else {
       OS_Write0("disabled\r\n");
    }
    OS_Write0("  Pi VDU:");
-   if (device & VDU_PI) {
+   if (device == VDU_PI || device == VDU_BOTH) {
       OS_Write0("enabled\r\n");
    } else {
       OS_Write0("disabled\r\n");
    }
-   if (device & VDU_PI) {
+   if (device == VDU_PI || device == VDU_BOTH) {
       // *FX 4,1 to disable cursor editing
       OS_Byte(4, 1, 0, NULL, NULL);
    } else {
@@ -455,42 +485,83 @@ int doCmdPiVDU(const char *params) {
       OS_Byte(4, 0, 0, NULL, NULL);
    }
 
+   // Set the VDU device variable
    fb_set_vdu_device(device);
 
    // Re-run the module init code, in case any handlers need to change
-   swi_modules_init(device & VDU_PI);
+   swi_modules_init(device == VDU_PI || device == VDU_BOTH);
 
    // Restore the original host OSWRCH, so we can manage the cursor
    uint16_t default_vector_table = read_host_word(0xffb7);
    uint16_t default_oswrch = read_host_word(default_vector_table + (WRCVEC & 0xff));
    write_host_word(WRCVEC, default_oswrch);
 
-   if (device & VDU_BEEB) {
-      // restore the cursor
-      beeb_cursor(1);
+   // Enable/disable beeb-side cursor
+   beeb_cursor(device == VDU_BEEB || device == VDU_BOTH);
+
+   // Enable/disable pi-side cursor
+   pi_cursor(device == VDU_PI || device == VDU_BOTH);
+
+   // Work around for ADFS formatting bug (#130) and *HELP MOS bug (#143)
+   if (device == VDU_BEEB || device == VDU_BOTH) {
       // restore the original beeb text window left/right window limits
       if (saved_state > 0) {
          write_host_byte(0x0308, (uint8_t)(saved_state & 0xff));
          write_host_byte(0x030A, (uint8_t)((saved_state >> 8) & 0xff));
          saved_state = -1;
       }
-   } else {
-      // hide the cursor
-      beeb_cursor(0);
+   } else if (device == VDU_PI) {
       // force the beeb text window left/right window limits to 0/79
-      // to work around the ADFS formatting bug (#130)
       if (saved_state < 0) {
          saved_state = read_host_byte(0x0308) | (read_host_byte(0x030A) << 8);
          write_host_byte(0x0308,  0);
          write_host_byte(0x030A, 79);
       }
-      if (device & VDU_PI) {
-         // Install the same host oswrch redirector used by the 6502
-         for (uint16_t i = 0; i < 0x40; i++) {
-            write_host_byte(WRCHANDLER + i, host_oswrch_redirector[i]);
-         }
+   }
+
+   // Install the appropriate Host OSWRCH driver
+   switch (device) {
+   case VDU_NONE:
+      // Replace Host OSWRCH with RTS to swallow everything
+      write_host_byte(WRCHANDLER, 0x60);
+      write_host_word(WRCVEC, WRCHANDLER);
+      break;
+   case VDU_BEEB:
+      // Leave Host OSWRCH at default_oswrch
+      break;
+   case VDU_PI:
+      // Replace Host OSWRCH with the redirector from the 6502 Co Pro (which fakes POS)
+      for (uint16_t i = 0; i < 0x40; i++) {
+         write_host_byte(WRCHANDLER + i, host_oswrch_redirector[i]);
+      }
+      write_host_word(WRCVEC, WRCHANDLER);
+      break;
+   case VDU_BOTH:
+      // Replace Host OSWRCH with:
+      // PHA
+      // LDA #&03
+      // STA &FEE2
+      // PLA
+      // STA &FEE4
+      // JMP default_oswrch
+      {
+         uint16_t i = WRCHANDLER;
+         write_host_byte(i++, 0x48);
+         write_host_byte(i++, 0xA9);
+         write_host_byte(i++, 0x03);
+         write_host_byte(i++, 0x8D);
+         write_host_byte(i++, 0xE2);
+         write_host_byte(i++, 0xFE);
+         write_host_byte(i++, 0x68);
+         write_host_byte(i++, 0x8D);
+         write_host_byte(i++, 0xE4);
+         write_host_byte(i++, 0xFE);
+         write_host_byte(i++, 0x4C);
+         write_host_byte(i++, (uint8_t)(default_oswrch & 0xff));
+         write_host_byte(i++, (uint8_t)((default_oswrch >> 8) & 0xff));
          write_host_word(WRCVEC, WRCHANDLER);
       }
+      break;
    }
    return 0;
 }

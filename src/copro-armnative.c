@@ -310,9 +310,11 @@ void copro_armnative_emulator() {
 
   swi_modules_init(0);
 
-  // Reset the VDU device back to the default
-  // (this is harmless if the VDU is disabled)
-  fb_set_vdu_device(VDU_BEEB);
+  // If vdu=1 in cmdline.txt
+  if (vdu_enabled) {
+     // Reset all the SWI handlers to the default versions
+     fb_set_vdu_device(VDU_BEEB);
+  }
 
   // Create the startup banner
   sprintf(banner, "Native ARM Co Processor %"PRId32"MHz\r\n\n", get_speed());
