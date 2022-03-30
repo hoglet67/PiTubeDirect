@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "copro-armnative.h"
 
@@ -900,11 +901,16 @@ static void tube_Byte(unsigned int *reg) {
   }
 }
 
+static int bcd_to_dec(unsigned char i) {
+  return (i >> 4) * 10 + (i & 15);
+}
+
 static void tube_Word(unsigned int *reg) {
   unsigned char in_len;
   unsigned char out_len;
   unsigned char a = reg[0] & 0xff;
   unsigned char *block;
+
   // Note that call with R0b=0 (Acorn MOS RDLN) does nothing, the ReadLine call should be used instead.
   // Ref: http://chrisacorns.computinghistory.org.uk/docs/Acorn/OEM/AcornOEM_ARMUtilitiesRM.pdf
   if (a == 0) {
@@ -939,9 +945,52 @@ static void tube_Word(unsigned int *reg) {
       //
       // ARM BASIC uses this to include the date in a files load/exec address in SAVE
       // If we don't emulate this, a buffer overflow occurs. See #36.
-      for (int i = 0; i < 5; i++) {
-        block[i] = 0xFF;
+      //
+      // We emulate this by making a request for the time in BCD format. A seperate
+      // block is used, so we don't clobber bytes 5-7 of the original block.
+      unsigned char *block2;
+      block2[0] = 0x01;   // request sub reason 0x01 = Read Clock in BCS format
+      block2[1] = 0xff;   // a marker byte to see if a valid response is present
+      in_len    = 2;      // request length 2
+      out_len   = 7;      // response length 7
+      sendByte(R2_ID, 0x08);
+      sendByte(R2_ID, a);
+      sendByte(R2_ID, in_len);
+      sendBlock(R2_ID, in_len, block2);
+      sendByte(R2_ID, out_len);
+      receiveBlock(R2_ID, out_len, block2);
+
+      // If there is no RTC present, default to 2022/01/01 00:00:00
+      time_t centiseconds = 0x263517F600;
+
+      // Check for a valid response (only the Master has a RTC)
+      if (block2[1] != 0xff) {
+
+        struct tm t;
+        t.tm_year  = bcd_to_dec(block2[0]);
+        t.tm_mon   = bcd_to_dec(block2[1]) - 1; // Month 0..11
+        t.tm_mday  = bcd_to_dec(block2[2]);
+        t.tm_hour  = bcd_to_dec(block2[4]);
+        t.tm_min   = bcd_to_dec(block2[5]);
+        t.tm_sec   = bcd_to_dec(block2[6]);
+        t.tm_isdst = 0;  // Is DST on? 1 = yes, 0 = no, -1 = unknown
+
+        // tm_year is years since 1900
+        if (t.tm_year < 70) {
+          t.tm_year += 100;
+        }
+
+        // Centiseconds since 1970
+        centiseconds = mktime(&t) * 100;
       }
+
+      // Update parameter block with the 5-byte result (LSB first)
+      for (unsigned i = 0; i < 5; i++) {
+        block[i] = (unsigned char)(centiseconds & 0xff);
+        centiseconds >>= 8;
+      }
+
+      // All done, so return
       return;
     }
   }
