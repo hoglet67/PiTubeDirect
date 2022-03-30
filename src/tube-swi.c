@@ -933,10 +933,13 @@ static void tube_Word(unsigned int *reg) {
 
   // Implement sub-reason codes of OSWORD A=&0E (Read CMOS Clock)
   if (a == 0x0e) {
-    if (block[0] != 0x00) {
-      printf("OSWORD A=&0E sub-reason %d not implemented\r\n", block[0]);
-      // Return something, as this gets used in a files load/exec address on SAVE in Basic
-      for (int i = 0; i < 8; i++) {
+    if (block[0] == 0x03) {
+      // Sub Reason Code 3:
+      //     Return 5-byte centisecond clock value (where supported)
+      //
+      // ARM BASIC uses this to include the date in a files load/exec address in SAVE
+      // If we don't emulate this, a buffer overflow occurs. See #36.
+      for (int i = 0; i < 5; i++) {
         block[i] = 0xFF;
       }
       return;
