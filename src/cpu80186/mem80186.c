@@ -131,9 +131,9 @@ void Cleari80186Ram(void)
          // Minimum is 64KB
          RAM_LIMIT = 0x10000;
       }
-      if (RAM_LIMIT > 0xF0000) {
-         // Maximum is 960KB
-         RAM_LIMIT = 0xF0000;
+      if (RAM_LIMIT > 0x100000) {
+         // Maximum is 1024KB
+         RAM_LIMIT = 0x100000;
       }
    } else {
       // Default is 896KB
