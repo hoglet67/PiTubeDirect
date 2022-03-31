@@ -960,34 +960,32 @@ static void tube_Word(unsigned int *reg) {
       sendByte(R2_ID, out_len);
       receiveBlock(R2_ID, out_len, block2);
 
-      // If there is no RTC present, default to 2022/01/01 00:00:00
-      time_t centiseconds = 0x263517F600;
-
       // Check for a valid response (only the Master has a RTC)
       if (block2[1] != 0xff) {
 
-        struct tm t;
-        t.tm_year  = bcd_to_dec(block2[0]);
-        t.tm_mon   = bcd_to_dec(block2[1]) - 1; // Month 0..11
-        t.tm_mday  = bcd_to_dec(block2[2]);
-        t.tm_hour  = bcd_to_dec(block2[4]);
-        t.tm_min   = bcd_to_dec(block2[5]);
-        t.tm_sec   = bcd_to_dec(block2[6]);
-        t.tm_isdst = 0;  // Is DST on? 1 = yes, 0 = no, -1 = unknown
+         struct tm t;
+         t.tm_year  = bcd_to_dec(block2[0]);
+         t.tm_mon   = bcd_to_dec(block2[1]) - 1; // Month 0..11
+         t.tm_mday  = bcd_to_dec(block2[2]);
+         t.tm_hour  = bcd_to_dec(block2[4]);
+         t.tm_min   = bcd_to_dec(block2[5]);
+         t.tm_sec   = bcd_to_dec(block2[6]);
+         t.tm_isdst = 0;  // Is DST on? 1 = yes, 0 = no, -1 = unknown
 
-        // tm_year is years since 1900
-        if (t.tm_year < 70) {
-          t.tm_year += 100;
-        }
+         // tm_year is years since 1900
+         if (t.tm_year < 70) {
+            t.tm_year += 100;
+         }
 
-        // Centiseconds since 1970
-        centiseconds = mktime(&t) * 100;
-      }
+         // Centiseconds since 1970
+         time_t centiseconds = mktime(&t) * 100;
 
-      // Update parameter block with the 5-byte result (LSB first)
-      for (unsigned i = 0; i < 5; i++) {
-        block[i] = (unsigned char)(centiseconds & 0xff);
-        centiseconds >>= 8;
+         // Update parameter block with the 5-byte result (LSB first)
+         for (unsigned i = 0; i < 5; i++) {
+            block[i] = (unsigned char)(centiseconds & 0xff);
+            centiseconds >>= 8;
+         }
+
       }
 
       // All done, so return
