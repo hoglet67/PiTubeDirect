@@ -949,9 +949,9 @@ static void tube_Word(unsigned int *reg) {
       // We emulate this by making a request for the time in BCD format. A seperate
       // block is used, so we don't clobber bytes 5-7 of the original block.
       unsigned char block2[8];
-      block2[0] = 0x01;   // request sub reason 0x01 = Read Clock in BCS format
+      block2[0] = 0x01;   // request sub reason 0x01 = Read Clock in BCD format
       block2[1] = 0xff;   // a marker byte to see if a valid response is present
-      in_len    = 2;      // request length 2
+      in_len    = 2;      // request length 2 (including marker)
       out_len   = 7;      // response length 7
       sendByte(R2_ID, 0x08);
       sendByte(R2_ID, a);
@@ -978,8 +978,9 @@ static void tube_Word(unsigned int *reg) {
          }
 
          // Centiseconds since 1900
-         // (being careful to avoid 32-bit integer overflow)
-         time_t centiseconds = 365 * 70 + 17; // Days    from 1/1/1900 to 1/1/1970
+         //
+         // This is built up progressively to avoid 32-bit integer overflow.
+         time_t centiseconds = 365 * 70 + 17; // Days    from 1/1/1900 to 1/1/1970 (17 leap years)
          centiseconds *= 24 * 60 * 60;        // Seconds from 1/1/1900 to 1/1/1970
          centiseconds += mktime(&t);          // Seconds from 1/1/1900 to t
          centiseconds *= 100;                 // Centiseconds from 1/1/1900 to t
@@ -989,7 +990,6 @@ static void tube_Word(unsigned int *reg) {
             block[i] = (unsigned char)(centiseconds & 0xff);
             centiseconds >>= 8;
          }
-
       }
 
       // All done, so return
