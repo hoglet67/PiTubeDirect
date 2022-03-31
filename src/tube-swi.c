@@ -977,8 +977,12 @@ static void tube_Word(unsigned int *reg) {
             t.tm_year += 100;
          }
 
-         // Centiseconds since 1970
-         time_t centiseconds = mktime(&t) * 100;
+         // Centiseconds since 1900
+         // (being careful to avoid 32-bit integer overflow)
+         time_t centiseconds = (365 * 70 + 17); // Days    from 1/1/1900 to 1/1/1970
+         centiseconds *= (24 * 60 * 60);        // Seconds from 1/1/1900 to 1/1/1970
+         centiseconds += mktime(&t);            // Seconds from 1/1/1900 to t
+         centiseconds *= 100;                   // Centiseconds from 1/1/1900 to t
 
          // Update parameter block with the 5-byte result (LSB first)
          for (unsigned i = 0; i < 5; i++) {
