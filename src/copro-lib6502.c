@@ -53,11 +53,11 @@ static void copro_lib6502_reset(M6502 *mpu) {
   if (mpu->flags & M6502_Turbo) {
     copro_memcpy(mpu->memory + 0xf800, tuberom_6502_turbo, 0x800);
   } else {
-    copro_memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
+    copro_memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_20, 0x800);
   }
   turbo = 0;
 #else
-  copro_memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
+  copro_memcpy(mpu->memory + 0xf800, tuberom_6502_extern_1_20, 0x800);
 #endif
   // Reset lib6502
   M6502_reset(mpu);
