@@ -40,7 +40,7 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" )
 # Add any C compiler flags here. The C flags concerned with processor tuning
 # are in the toolchain files toolchain-arm-none-eabi-bcm2835.cmake, etc.
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-r7" )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fomit-frame-pointer " )
@@ -199,6 +199,8 @@ file( GLOB copro_32016_files
 file( GLOB copro_z80_files
     copro-z80.h
     copro-z80.c
+    tuberom_z80.h
+    tuberom_z80.c
     yaze/simz80.h
     yaze/simz80.c
     yaze/mem_mmu.h
