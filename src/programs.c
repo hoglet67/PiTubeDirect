@@ -2954,9 +2954,9 @@ void copy_test_programs(uint8_t *memory) {
    // updates the message so it's clear which is the 6502 and which is the 65c02 version
    //
    // This may seem complicated, but I really don't want to make changes like this to my
-   // upstread Dormann repository
+   // upstream Dormann repository
    //
-   // It also allows the original (unpatched) versions to be run seperately
+   // It also allows the original (unpatched) versions to be run separately
 
    const char *start_message = "Started testing";
 

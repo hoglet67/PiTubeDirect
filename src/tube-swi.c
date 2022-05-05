@@ -953,7 +953,7 @@ static void tube_Word(unsigned int *reg) {
       // ARM BASIC uses this to include the date in a files load/exec address in SAVE
       // If we don't emulate this, a buffer overflow occurs. See #36.
       //
-      // We emulate this by making a request for the time in BCD format. A seperate
+      // We emulate this by making a request for the time in BCD format. A separate
       // block is used, so we don't clobber bytes 5-7 of the original block.
       unsigned char block2[8];
       block2[0] = 0x01;   // request sub reason 0x01 = Read Clock in BCD format
