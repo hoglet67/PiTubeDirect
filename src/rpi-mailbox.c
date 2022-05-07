@@ -26,7 +26,7 @@ static mailbox_t* rpiMailbox1 = (mailbox_t*)( PERIPHERAL_BASE + 0xB8A0 );
 
 void RPI_Mailbox0Write( mailbox0_channel_t channel, uint32_t *ptr )
 {
-    _clean_cache_area(ptr, ptr[0]);
+    _clean_invalidate_dcache_area(ptr, ptr[0]);
     /* For information about accessing mailboxes, see:
        https://github.com/raspberrypi/firmware/wiki/Accessing-mailboxes */
 

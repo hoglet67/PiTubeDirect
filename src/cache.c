@@ -107,7 +107,7 @@ void CleanDataCache (void) {
 
 #endif
 
-void _clean_cache_area(void * start, unsigned int length)
+void _clean_invalidate_dcache_area(void * start, unsigned int length)
 {
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
    uint32_t cachelinesize;

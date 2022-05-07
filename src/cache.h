@@ -16,7 +16,7 @@ void map_4k_pageJIT(unsigned int logical, unsigned int physical);
 
 void enable_MMU_and_IDCaches(void);
 
-void _clean_cache_area(void * start, unsigned int length);
+void _clean_invalidate_dcache_area(void * start, unsigned int length);
 void _invalidate_cache_area(void * start, unsigned int length);
 void CleanDataCache (void);
 
