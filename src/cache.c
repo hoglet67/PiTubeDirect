@@ -102,7 +102,7 @@ void CleanDataCache (void)
 #else
 
 void CleanDataCache (void) {
-   _clean_invalidate_dcache();
+     asm volatile ("mcr     p15, 0, %0, c7, c14, 0": :"r" 0);
 }
 
 #endif

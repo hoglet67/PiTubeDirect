@@ -64,9 +64,6 @@
 .global _enable_l1_cache
 .global _invalidate_icache
 .global _invalidate_dcache
-.global _clean_invalidate_dcache
-.global _invalidate_dcache_mva
-.global _clean_invalidate_dcache_mva
 .global _invalidate_tlb_mva
 .global _data_memory_barrier
 .global _data_synchronization_barrier
@@ -353,22 +350,6 @@ _invalidate_icache:
 _invalidate_dcache:
     mov     r0, #0
     mcr     p15, 0, r0, c7, c6, 0
-    bx      lr
-
-.section ".text._clean_invalidate_dcache"
-_clean_invalidate_dcache:
-    mov     r0, #0
-    mcr     p15, 0, r0, c7, c14, 0
-    bx      lr
-
-.section ".text._invalidate_dcache_mva"
-_invalidate_dcache_mva:
-    mcr     p15, 0, r0, c7, c6, 1
-    bx      lr
-
-.section ".text._clean_invalidate_dcache_mva"
-_clean_invalidate_dcache_mva:
-    mcr     p15, 0, r0, c7, c14, 1
     bx      lr
 
 .section ".text._invalidate_tlb_mva"
