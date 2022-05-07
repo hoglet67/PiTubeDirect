@@ -49,7 +49,10 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wredundant-decls -Wno-maybe-uninitialized 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat=2")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wcast-qual")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-conversion")
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-conversion ")
+
+#turn off array bounds checking as gcc12 give false positive in mailbox code.
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Warray-bounds=0")
 # other options to try which fail currently :
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wswitch-enum")
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wstrict-overflow=5")
