@@ -127,6 +127,7 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
       return;
    }
    switch (col) {
+   default :
    case PC_FG:
       plotmode = g_fg_plotmode;
       colour   = g_fg_col;
@@ -138,6 +139,7 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
    case PC_INV:
       plotmode = PM_INVERT;
       colour   = 0; // not used
+      break;
    }
    if (plotmode >= PM_ECF) {
       int ecfnum = (plotmode >> 4) - 1;

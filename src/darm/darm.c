@@ -336,7 +336,7 @@ static int darm_str(const darm_t *d, darm_str_t *str)
             continue;
 
         case '!':
-            if(d->W == B_SET) {
+            if((d->W == B_SET)&&(arg !=0)) { // NB arg !=0 should always be true but helps static analyser
                 *args[arg-1]++ = '!';
             }
             continue;
