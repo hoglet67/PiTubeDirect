@@ -2980,27 +2980,28 @@ dojitexit :
 
 1:
 #endif
-
+   sub r2,r2,#1   // move end pointer to the last byte
 // flush BTB icache dcache it might be better to just invalidate a few lines
-#if defined(RPI4)|| defined(RPI3)
+#if defined(RPI4)|| defined(RPI3)||defined(RPI2)
    DSB // might not be needed
 
    // Clean data cache both JITLET
    // r3 has the first address of JITLET instruction
-   // r2 has last address+1
+   // r2 has last address
+   
    ldr r12,cachelineD
    ldr r11,cachelineI
-   mov r2,r2,LSL #2
+   mov r2,r2,LSL #2        // change to words
    sub r4,r3,#JITLET
-   add r2,r2,#JITTEDTABLE16
+   add r2,r2,#JITTEDTABLE16   // 
    mov r4,r4,LSR #(JITLETSHIFT-2)
    add r4,r4,#JITTEDTABLE16
 
-   mov r5,r2
-   mov r6,r3
+   mov r5,r2   // end address needs to flushed (JITTEDTABLE16)
+   mov r6,r3   // start address
    mov r7,r4
-
-   add r2,r2,r12
+   sub r10,r12,#1
+   bic r4,r4,r10           // round down to the begin of the line
 
 cacheflushloopD:
    mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16 (DCCMVAU)
@@ -3014,7 +3015,8 @@ cacheflushloopD:
 
    DSB
 
-   add r5,r5,r11
+   sub r10,r11,#1
+   bic r7,r7,r10           // round down the begin of the line
 
 cacheflushloopI:
    MCR p15,0,r7, c7, c5, 1 // instruction (ICIMVAU)
@@ -3033,23 +3035,6 @@ cacheflushloopI:
    ISB
 
 #else
-#if defined(RPI2)
-   // Clean data cache both JITLET
-   // r3 has the first address of JITLET instruction
-   // r6 has last address ( possibly needs to be +8
-   mov r0,r3
-   mov r2,r2,LSL #JITLETSHIFT
-   add r1,r2,#JITLET
-   sub r1,r1,r0
-   BL _clean_cache_area
-
-   DSB
-   mov temp,#0
-   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache
-   MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
-   DSB
-   ISB
-#else
 // Pizero Cache flush code
 
 #if 1
@@ -3061,7 +3046,7 @@ cacheflushloopI:
 
    // MCRR p15,end,start,cxx
    mov temp,#0
-   MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTB
+   //MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTC
 
    mov r2,r2,LSL #JITLETSHIFT
    add r7,r2,#JITLET
@@ -3084,7 +3069,7 @@ cacheflushloopI:
    //MCR p15, 0, r0, c7, c5, 1
 
    MCR p15, 0, temp, c7, c10, 4 // DSB
-   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
+   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTC BTAC
    MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
    MCR p15, 0, temp, c7, c10, 4 // DSB
 #else
@@ -3098,8 +3083,6 @@ cacheflushloopI:
         ldr     r8, =ASS_GPCLR0
         mov     r7, #TEST2_MASK
         str     r7, [r8]
-#endif
-
 #endif
 
    pop {r3-r11}
