@@ -256,7 +256,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    RPI_AuxMiniUartInit( 115200 );
    enable_MMU_and_IDCaches();
-   _enable_unaligned_access();
    tube_init_hardware();
 
    arm_speed = get_clock_rate(ARM_CLK_ID);

@@ -60,7 +60,6 @@
 .global _enable_interrupts
 .global _set_interrupts
 .global _disable_interrupts
-.global _enable_unaligned_access
 .global _enable_l1_cache
 .global _invalidate_icache
 .global _invalidate_dcache
@@ -314,14 +313,6 @@ _swi_handler_:
     stmfd    sp!, {r0}            // Store spsr onto stack.
     mov      r0, sp
     bl       swi_handler
-
-.section ".text._enable_unaligned_access"
-_enable_unaligned_access:
-    mrc      p15, 0, r0, c1, c0, 0   // read SCTLR
-    bic      r0, r0, #2              // A (no unaligned access fault)
-    orr      r0, r0, #1 << 22        // U (v6 unaligned access model)
-    mcr      p15, 0, r0, c1, c0, 0   // write SCTLR
-    bx       lr
 
     // Enable L1 Cache -------------------------------------------------------
 .section ".text._enable_l1_cache"

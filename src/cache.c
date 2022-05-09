@@ -351,6 +351,7 @@ void enable_MMU_and_IDCaches(void)
   // The L1 data cache will one be enabled if the MMU is enabled
 
   sctrl |= 0x00001805;
+  sctrl |= 1<<22;  // U (v6 unaligned access model)
   asm volatile ("mcr p15,0,%0,c1,c0,0" :: "r" (sctrl) : "memory");
   //asm volatile ("mrc p15,0,%0,c1,c0,0" : "=r" (sctrl));
   //LOG_DEBUG("sctrl   = %08x\r\n", sctrl);
