@@ -289,7 +289,8 @@ void enable_MMU_and_IDCaches(void)
   //unsigned cpuextctrl0, cpuextctrl1;
   //asm volatile ("mrrc p15, 1, %0, %1, c15" : "=r" (cpuextctrl0), "=r" (cpuextctrl1));
   //LOG_DEBUG("extctrl = %08x %08x\r\n", cpuextctrl1, cpuextctrl0);
-#else
+#endif
+#if (__ARM_ARCH == 7 )
   // RPI:  bit 6 of auxctrl is restrict cache size to 16K (no page coloring)
   // RPI2: bit 6 of auxctrl is set SMP bit, otherwise all caching disabled
   unsigned auxctrl;
