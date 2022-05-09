@@ -21,7 +21,7 @@ static const unsigned int aa = 1u;
 static const unsigned int bb = 1u;
 static const unsigned int shareable = 1u;
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
 
 #define SETWAY_LEVEL_SHIFT          1
 
@@ -109,7 +109,7 @@ void CleanDataCache (void) {
 
 void _clean_invalidate_dcache_area(void * start, unsigned int length)
 {
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
    uint32_t cachelinesize;
    char * startptr = start;
    char * endptr;
@@ -132,7 +132,7 @@ void _clean_invalidate_dcache_area(void * start, unsigned int length)
 
 void _invalidate_cache_area(void * start, unsigned int length)
 {
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
    uint32_t cachelinesize;
    char * startptr = start;
    char * endptr;
@@ -172,7 +172,7 @@ static void map_4k_page_quick(unsigned int logical, unsigned int physical) {
   //   XP (bit 23) in SCTRL no longer exists, and we see to be using ARMv6 table formats
   //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
   //   (this was the cause of issue #27)  
-#if defined(RPI2) || defined (RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
   PageTable2[logical] = (physical<<12) | 0x132u | (bb << 6) | (aa << 2);
 #else
   PageTable2[logical] = (physical<<12) | 0x133u | (bb << 6) | (aa << 2);
@@ -185,7 +185,7 @@ void map_4k_page(unsigned int logical, unsigned int physical) {
 }
 
 static void map_4k_pageJIT_quick(unsigned int logical, unsigned int physical) {
-#if defined(RPI2) || defined (RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
   PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x132u | (bb << 6) | (aa << 2);
 #else
   PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x133u | (bb << 6) | (aa << 2);
@@ -285,7 +285,7 @@ void enable_MMU_and_IDCaches(void)
   for (base = 0; base < 256; base++)
     map_4k_pageJIT_quick((JITTEDTABLE16>>12)+base, (JITTEDTABLE16>>12)+base);
 
-#if defined(RPI3)||defined(RPI4)
+#if (__ARM_ARCH > 7 )
   //unsigned cpuextctrl0, cpuextctrl1;
   //asm volatile ("mrrc p15, 1, %0, %1, c15" : "=r" (cpuextctrl0), "=r" (cpuextctrl1));
   //LOG_DEBUG("extctrl = %08x %08x\r\n", cpuextctrl1, cpuextctrl0);
@@ -310,7 +310,7 @@ void enable_MMU_and_IDCaches(void)
   //asm volatile ("mrc p15, 0, %0, c2, c0, 2" : "=r" (ttbcr));
   //LOG_DEBUG("ttbcr   = %08x\r\n", ttbcr);
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
   // set TTBR0 - page table walk memory cacheability/shareable
   // [Bit 0, Bit 6] indicates inner cachability: 01 = normal memory, inner write-back write-allocate cacheable
   // [Bit 4, Bit 3] indicates outer cachability: 01 = normal memory, outer write-back write-allocate cacheable
@@ -328,7 +328,7 @@ void enable_MMU_and_IDCaches(void)
 
 
   // Invalidate entire data cache
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
   asm volatile ("isb" ::: "memory");
   InvalidateDataCache();
 #else
