@@ -1090,6 +1090,11 @@ static void vdu_19(uint8_t *buf) {
    uint8_t r = buf[3];
    uint8_t g = buf[4];
    uint8_t b = buf[5];
+   // Don't allow Palette Changes in MODE 7 (there is no technical
+   // reason for this, but doing so breaks Acornsoft Basic Editor)
+   if (screen->mode_flags & F_TELETEXT) {
+      return;
+   }
    // See http://beebwiki.mdfs.net/VDU_19
    if (p < 16) {
       // Set to Physical Colour
