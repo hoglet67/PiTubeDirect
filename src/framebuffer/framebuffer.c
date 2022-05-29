@@ -184,7 +184,7 @@ static void edit_cursor_up();
 static void edit_cursor_down();
 static void edit_cursor_left();
 static void edit_cursor_right();
-static void text_area_scroll();
+static void text_area_scroll(scroll_dir_t dir);
 static void update_g_cursors(int16_t x, int16_t y);
 static void change_mode(screen_mode_t *new_screen);
 static void set_graphics_area(screen_mode_t *scr, g_clip_window_t *window);
@@ -505,15 +505,17 @@ static void edit_cursor_right() {
    update_cursors();
 }
 
-static void text_area_scroll() {
+static void text_area_scroll(scroll_dir_t dir) {
    int tmp = disable_cursors();
-   screen->scroll(screen, &t_window, c_bg_col);
+   screen->scroll(screen, &t_window, c_bg_col, dir);
    if (tmp) {
       enable_cursors();
    }
    if (e_enabled) {
-      if (e_y_pos > t_window.top) {
+      if (dir == SCROLL_UP && e_y_pos > t_window.top) {
          e_y_pos--;
+      } else if (dir == SCROLL_DOWN && e_y_pos < t_window.bottom) {
+         e_y_pos++;
       }
    }
    update_cursors();
@@ -618,7 +620,7 @@ static void text_cursor_up() {
    if (c_y_pos > t_window.top) {
       c_y_pos--;
    } else {
-      c_y_pos = t_window.bottom;
+      text_area_scroll(SCROLL_DOWN);
    }
    update_cursors();
 }
@@ -627,7 +629,7 @@ static void text_cursor_down() {
    if (c_y_pos < t_window.bottom) {
       c_y_pos++;
    } else {
-      text_area_scroll();
+      text_area_scroll(SCROLL_UP);
    }
    update_cursors();
 }
