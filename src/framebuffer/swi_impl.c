@@ -104,13 +104,13 @@ static void OS_Byte_impl(unsigned int *reg) {
 
    case 134:
       // Read text cursor position
-      reg[1] = (uint32_t)fb_get_text_cursor_x();
-      reg[2] = (uint32_t)fb_get_text_cursor_y();
+      reg[1] = (uint32_t)fb_get_cursor_x();
+      reg[2] = (uint32_t)fb_get_cursor_y();
       return; // parasite only
 
    case 135:
       // Read character at text cursor position
-      reg[1] = (uint32_t)fb_get_text_cursor_char();
+      reg[1] = (uint32_t)fb_get_cursor_char();
       // Also returns current screen mode
       reg[2] = (uint32_t)fb_get_current_screen_mode()->mode_num;
       return; // parasite only
@@ -207,7 +207,7 @@ static void OS_ReadLine_impl(unsigned int *reg) {
 
       // Handle copy
       if (c == 0x87) {
-         c = (uint8_t)fb_get_edit_cursor_char();
+         c = (uint8_t)fb_get_cursor_char();
          // Invalid?
          if (c == 0) {
             continue;

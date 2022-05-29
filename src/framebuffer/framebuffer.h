@@ -90,17 +90,11 @@ void fb_writes(const char *string);
 
 uint32_t fb_get_address();
 
-int fb_get_edit_cursor_x();
+int fb_get_cursor_x();
 
-int fb_get_edit_cursor_y();
+int fb_get_cursor_y();
 
-int fb_get_edit_cursor_char();
-
-int fb_get_text_cursor_x();
-
-int fb_get_text_cursor_y();
-
-int fb_get_text_cursor_char();
+int fb_get_cursor_char();
 
 void fb_wait_for_vsync();
 

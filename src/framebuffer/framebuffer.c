@@ -1756,32 +1756,28 @@ void fb_writes(const char *string) {
    }
 }
 
-int fb_get_edit_cursor_x() {
-   return e_x_pos;
-}
-
-int fb_get_edit_cursor_y() {
-   return e_y_pos;
-}
-
-int fb_get_edit_cursor_char() {
+int fb_get_cursor_x() {
    if (e_enabled) {
-      return read_character(e_x_pos, e_y_pos);
+      return e_x_pos;
    } else {
-      return 0;
+      return c_x_pos;
    }
 }
 
-int fb_get_text_cursor_x() {
-   return c_x_pos;
+int fb_get_cursor_y() {
+   if (e_enabled) {
+      return e_y_pos;
+   } else {
+      return c_y_pos;
+   }
 }
 
-int fb_get_text_cursor_y() {
-   return c_y_pos;
-}
-
-int fb_get_text_cursor_char() {
-   return read_character(c_x_pos, c_y_pos);
+int fb_get_cursor_char() {
+   if (e_enabled) {
+      return read_character(e_x_pos, e_y_pos);
+   } else {
+      return read_character(c_x_pos, c_y_pos);
+   }
 }
 
 void fb_wait_for_vsync() {
