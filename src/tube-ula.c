@@ -78,7 +78,7 @@ volatile int tube_irq;
 
 // Default value of the VDU property is 0 (off)
 int vdu_enabled = 0;
-int vdu_var = 0;
+uint8_t vdu_var = 0;
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
@@ -463,36 +463,21 @@ uint8_t tube_parasite_read(uint32_t addr)
    if (vdu_enabled && (addr & 0xFFF8) == 0xFEF0) {
       switch (addr & 7) {
       case 1:
+         // Return the cursor column within the viewport (used for OSBYTE &86)
          temp = (uint8_t)fb_get_cursor_x();
          break;
       case 2:
+         // Return the cursor row location within the viewport (used for OSBYTE &86)
          temp = (uint8_t)fb_get_cursor_y();
          break;
       case 3:
+         // Return the character under the cursor (used for OSBYTE &87)
          temp = (uint8_t)fb_get_cursor_char();
          break;
       case 4:
-         // VDU Variables are unfortunately platform specific, so try to do some mapping
-         // TODO: These are just what's used by the Acornsoft Basic Editor
-         switch (vdu_var) {
-         case 0x08:
-            temp = (uint8_t)fb_read_vdu_variable(V_TWLCOL);
-            break;
-         case 0x09:
-            temp = (uint8_t)fb_read_vdu_variable(V_TWBROW);
-            break;
-         case 0x0A:
-            temp = (uint8_t)fb_read_vdu_variable(V_TWRCOL);
-            break;
-         case 0x0B:
-            temp = (uint8_t)fb_read_vdu_variable(V_TWTROW);
-            break;
-         case 0x55:
-            temp = (uint8_t)fb_get_current_screen_mode()->mode_num;
-            break;
-         default:
-            temp = 0;
-         }
+         // Return the pre-RISCOS VDU variable(used for OSBYTE &A0)
+         temp = fb_read_legacy_vdu_variable(vdu_var);
+         break;
       }
       return temp;
    }

@@ -104,6 +104,8 @@ void fb_set_vdu_device(vdu_device_t device);
 
 int32_t fb_read_vdu_variable(vdu_variable_t v);
 
+uint8_t fb_read_legacy_vdu_variable(uint8_t v);
+
 void fb_set_flash_mark_time(uint8_t time);
 
 void fb_set_flash_space_time(uint8_t time);
