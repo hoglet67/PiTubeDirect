@@ -34,31 +34,6 @@ guard &300
 
 .init
 
-;; Copy minimal OSWRCH to host at 0900
-    LDA #page
-    STA osword6_addr_hi
-    LDY #host_oswrch_end - host_oswrch_start - 1
-.oswloop1
-    STY osword6_addr_lo
-    LDA host_oswrch_start,Y
-    PHY
-    JSR osword6
-    PLY
-    DEY
-    BPL oswloop1
-    INY
-
-;; *FX 4,1 to disable cursor editing
-    LDA #4
-    LDX #1
-    JSR osbyte
-
-;; Revector Parasite OSWRCH
-    LDA #LO(parasite_oswrch)
-    STA wrcvec
-    LDA #HI(parasite_oswrch)
-    STA wrcvec+1
-
 ;; Revector Parasite OSBYTE to intercept OSBYTE0
     LDA bytevec
     STA oldosbyte
@@ -78,6 +53,31 @@ guard &300
     STA wordvec
     LDA #HI(newosword)
     STA wordvec+1
+
+;; Revector Parasite OSWRCH
+    LDA #LO(parasite_oswrch)
+    STA wrcvec
+    LDA #HI(parasite_oswrch)
+    STA wrcvec+1
+
+;; Copy minimal OSWRCH to host at 0900
+    LDA #page
+    STA osword6_addr_hi
+    LDY #host_oswrch_end - host_oswrch_start - 1
+.oswloop1
+    STY osword6_addr_lo
+    LDA host_oswrch_start,Y
+    PHY
+    JSR osword6
+    PLY
+    DEY
+    BPL oswloop1
+    INY
+
+;; *FX 4,1 to disable cursor editing
+    LDA #4
+    LDX #1
+    JSR osbyte
 
 ;; Revector Host OSWRCH to &0900
     LDA #HI(wrcvec)
