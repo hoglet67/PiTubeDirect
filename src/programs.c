@@ -2927,7 +2927,7 @@ void copy_test_programs(uint8_t *memory) {
    unsigned char *list_end = memory + 0x2000 + sizeof(coprolist);
    unsigned int list_remain = 480;   // write max 480 chars, +1 for \0
    for (unsigned int i = 0; i < num_copros(); i++) {
-      copro_def_t *copro_def = &copro_defs[i];
+      const copro_def_t *copro_def = &copro_defs[i];
 
       if (copro_def->type == TYPE_HIDDEN) {
          continue;

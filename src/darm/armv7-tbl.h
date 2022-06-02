@@ -29,21 +29,21 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef __ARMV7_TBL__
 #define __ARMV7_TBL__
 #include "darm-tbl.h"
-extern darm_enctype_t armv7_instr_types[256];
-extern darm_enctype_t thumb2_instr_types[256];
-extern darm_instr_t armv7_instr_labels[256];
-extern darm_instr_t type_shift_instr_lookup[16];
-extern darm_instr_t type_brnchmisc_instr_lookup[16];
-extern darm_instr_t type_opless_instr_lookup[8];
-extern darm_instr_t type_uncond2_instr_lookup[8];
-extern darm_instr_t type_mul_instr_lookup[8];
-extern darm_instr_t type_stack0_instr_lookup[32];
-extern darm_instr_t type_stack1_instr_lookup[8];
-extern darm_instr_t type_stack2_instr_lookup[8];
-extern darm_instr_t type_bits_instr_lookup[4];
-extern darm_instr_t type_pas_instr_lookup[64];
-extern darm_instr_t type_sat_instr_lookup[4];
-extern darm_instr_t type_sync_instr_lookup[16];
-extern darm_instr_t type_pusr_instr_lookup[16];
+extern const darm_enctype_t armv7_instr_types[256];
+extern const darm_enctype_t thumb2_instr_types[256];
+extern const darm_instr_t armv7_instr_labels[256];
+extern const darm_instr_t type_shift_instr_lookup[16];
+extern const darm_instr_t type_brnchmisc_instr_lookup[16];
+extern const darm_instr_t type_opless_instr_lookup[8];
+extern const darm_instr_t type_uncond2_instr_lookup[8];
+extern const darm_instr_t type_mul_instr_lookup[8];
+extern const darm_instr_t type_stack0_instr_lookup[32];
+extern const darm_instr_t type_stack1_instr_lookup[8];
+extern const darm_instr_t type_stack2_instr_lookup[8];
+extern const darm_instr_t type_bits_instr_lookup[4];
+extern const darm_instr_t type_pas_instr_lookup[64];
+extern const darm_instr_t type_sat_instr_lookup[4];
+extern const darm_instr_t type_sync_instr_lookup[16];
+extern const darm_instr_t type_pusr_instr_lookup[16];
 extern const char *armv7_format_strings[479][3];
 #endif

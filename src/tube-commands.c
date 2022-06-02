@@ -212,7 +212,7 @@ static int doCmdHelp(const char *params) {
      OS_Write0(",230,n\r\n");
      for (unsigned char i = 0; i < num_copros(); i++) {
 
-        copro_def_t *copro_def = &copro_defs[i];
+        const copro_def_t *copro_def = &copro_defs[i];
 
         if (copro_def->type == TYPE_HIDDEN) {
            continue;

@@ -41,7 +41,7 @@ typedef struct {
 #endif
 } copro_def_t;
 
-extern copro_def_t copro_defs[];
+extern const copro_def_t copro_defs[];
 
 extern unsigned int num_copros();
 

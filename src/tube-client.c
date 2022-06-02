@@ -33,7 +33,7 @@ unsigned int tube_delay = 0;
 
 unsigned int arm_speed;
 
-static copro_def_t *copro_def;
+static copro_def_t const  *copro_def;
 
 // This magic number come form cache.c where we have relocated the vectors to
 // Might be better to just read the vector pointer register instead.

@@ -37,8 +37,8 @@
 
 typedef struct font {
    // The font data itself
-   char *name;
-   uint8_t *data;
+   const char *name;
+   const uint8_t *data;
    int bytes_per_char;
    int num_chars;
 } font_t;

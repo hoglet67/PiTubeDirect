@@ -10,7 +10,7 @@
 typedef struct font {
    // The raw font data itself
    const char *name;   // (max) 8 character ASCII name of the font
-   uint8_t *data;      // pointer to the raw font data
+   const uint8_t *data;      // pointer to the raw font data
    int bytes_per_char; // Number of bytes of raw data per character
    int num_chars;      // Number of characters in the character set
    int offset;         // Offset (in bytes) to the first row of the character

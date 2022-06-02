@@ -52,7 +52,7 @@
 
 #define DEFAULT_COPRO 0
 
-copro_def_t copro_defs[] = {
+const copro_def_t copro_defs[] = {
    {
       "65C02 (fast)",           // 0
       copro_65tube_emulator,

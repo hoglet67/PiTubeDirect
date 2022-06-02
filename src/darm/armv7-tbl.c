@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "armv7-tbl.h"
-darm_enctype_t armv7_instr_types[] = {
+const darm_enctype_t armv7_instr_types[] = {
     T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    0-3
     T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    4-7
     T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT, T_ARM_ARITH_SHIFT,  //    8-0xB
@@ -95,7 +95,7 @@ darm_enctype_t armv7_instr_types[] = {
     T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC, T_ARM_BRNCHSC                   // 0xFC-0xFf
 };
 
-darm_instr_t armv7_instr_labels[] = {
+const darm_instr_t armv7_instr_labels[] = {
     I_AND, I_AND, I_EOR, I_EOR,           //    0-3
     I_SUB, I_SUB, I_RSB, I_RSB,           //    4-7
     I_ADD, I_ADD, I_ADC, I_ADC,           //    8-0xB
@@ -162,48 +162,48 @@ darm_instr_t armv7_instr_labels[] = {
     I_SVC, I_SVC, I_SVC, I_SVC            // 0xFC-0xFf
 };
 
-darm_instr_t type_shift_instr_lookup[] = {
+const darm_instr_t type_shift_instr_lookup[] = {
     I_LSL, I_LSL, I_LSR, I_LSR, I_ASR, I_ASR, I_ROR, I_ROR, I_LSL, I_INVLD,
     I_LSR, I_INVLD, I_ASR, I_INVLD, I_ROR, I_INVLD
 };
 
-darm_instr_t type_brnchmisc_instr_lookup[] = {
+const darm_instr_t type_brnchmisc_instr_lookup[] = {
     I_MSR, I_BX, I_BXJ, I_BLX, I_INVLD, I_QSUB, I_INVLD, I_BKPT, I_SMLAW,
     I_INVLD, I_SMULW, I_INVLD, I_SMLAW, I_INVLD, I_SMULW, I_INVLD
 };
 
-darm_instr_t type_opless_instr_lookup[] = {
+const darm_instr_t type_opless_instr_lookup[] = {
     I_NOP, I_YIELD, I_WFE, I_WFI, I_SEV, I_INVLD, I_INVLD, I_INVLD
 };
 
-darm_instr_t type_uncond2_instr_lookup[] = {
+const darm_instr_t type_uncond2_instr_lookup[] = {
     I_INVLD, I_CLREX, I_INVLD, I_INVLD, I_DSB, I_DMB, I_ISB, I_INVLD
 };
 
-darm_instr_t type_mul_instr_lookup[] = {
+const darm_instr_t type_mul_instr_lookup[] = {
     I_MUL, I_MLA, I_UMAAL, I_MLS, I_UMULL, I_UMLAL, I_SMULL, I_SMLAL
 };
 
-darm_instr_t type_stack0_instr_lookup[] = {
+const darm_instr_t type_stack0_instr_lookup[] = {
     I_STR, I_LDR, I_STRT, I_LDRT, I_STRB, I_LDRB, I_STRBT, I_LDRBT, I_STR,
     I_LDR, I_STRT, I_LDRT, I_STRB, I_LDRB, I_STRBT, I_LDRBT, I_STR, I_LDR,
     I_STR, I_LDR, I_STRB, I_LDRB, I_STRB, I_LDRB, I_STR, I_LDR, I_STR, I_LDR,
     I_STRB, I_LDRB, I_STRB, I_LDRB
 };
 
-darm_instr_t type_stack1_instr_lookup[] = {
+const darm_instr_t type_stack1_instr_lookup[] = {
     I_INVLD, I_INVLD, I_STRHT, I_LDRHT, I_INVLD, I_LDRSBT, I_INVLD, I_LDRSHT
 };
 
-darm_instr_t type_stack2_instr_lookup[] = {
+const darm_instr_t type_stack2_instr_lookup[] = {
     I_INVLD, I_INVLD, I_STRH, I_LDRH, I_LDRD, I_LDRSB, I_STRD, I_LDRSH
 };
 
-darm_instr_t type_bits_instr_lookup[] = {
+const darm_instr_t type_bits_instr_lookup[] = {
     I_INVLD, I_SBFX, I_BFI, I_UBFX
 };
 
-darm_instr_t type_pas_instr_lookup[] = {
+const darm_instr_t type_pas_instr_lookup[] = {
     I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD, I_INVLD,
     I_SADD16, I_SASX, I_SSAX, I_SSUB16, I_SADD8, I_INVLD, I_INVLD, I_SSUB8,
     I_QADD16, I_QASX, I_QSAX, I_QSUB16, I_QADD8, I_INVLD, I_INVLD, I_QSUB8,
@@ -215,17 +215,17 @@ darm_instr_t type_pas_instr_lookup[] = {
     I_INVLD, I_INVLD, I_UHSUB8
 };
 
-darm_instr_t type_sat_instr_lookup[] = {
+const darm_instr_t type_sat_instr_lookup[] = {
     I_QADD, I_QSUB, I_QDADD, I_QDSUB
 };
 
-darm_instr_t type_sync_instr_lookup[] = {
+const darm_instr_t type_sync_instr_lookup[] = {
     I_SWP, I_INVLD, I_INVLD, I_INVLD, I_SWPB, I_INVLD, I_INVLD, I_INVLD,
     I_STREX, I_LDREX, I_STREXD, I_LDREXD, I_STREXB, I_LDREXB, I_STREXH,
     I_LDREXH
 };
 
-darm_instr_t type_pusr_instr_lookup[] = {
+const darm_instr_t type_pusr_instr_lookup[] = {
     I_SXTAB16, I_SXTB16, I_INVLD, I_INVLD, I_SXTAB, I_SXTB, I_SXTAH, I_SXTH,
     I_UXTAB16, I_UXTB16, I_INVLD, I_INVLD, I_UXTAB, I_UXTB, I_UXTAH, I_UXTH
 };

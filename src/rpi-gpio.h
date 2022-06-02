@@ -209,7 +209,8 @@ typedef enum
     RPI_IO_UNKNOWN,
 } rpi_gpio_value_t;
 
-extern rpi_gpio_t* RPI_GpioBase;
+static rpi_gpio_t* const RPI_GpioBase = (rpi_gpio_t*) RPI_GPIO_BASE;
+
 extern void RPI_SetGpioPinFunction(rpi_gpio_pin_t gpio, rpi_gpio_alt_function_t func);
 extern void RPI_SetGpioOutput(rpi_gpio_pin_t gpio);
 extern void RPI_SetGpioInput(rpi_gpio_pin_t gpio);

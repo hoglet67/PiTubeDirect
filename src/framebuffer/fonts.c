@@ -191,7 +191,7 @@ static void default_set_scale_h(font_t *font, int scale_h) {
 
 static void default_set_rounding(font_t *font, int rounding) {
    font->rounding = rounding & 1;
-   uint8_t *src = font->data;
+   const uint8_t *src = font->data;
    // Special case the SAA fonts to avoid rounding the graphics
    int num = strncmp(font->name, "SAA505", 6) ? font->num_chars : 128;
    for (int c = 0; c < font->num_chars; c++) {

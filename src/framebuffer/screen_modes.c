@@ -1240,6 +1240,7 @@ screen_mode_t *get_screen_mode(int mode_num) {
 
    // Then search the the screen mode table in this file
    if (sm == NULL) {
+
       screen_mode_t *tmp = screen_modes;
       while (tmp->mode_num >= 0) {
          if (tmp->mode_num == mode_num) {

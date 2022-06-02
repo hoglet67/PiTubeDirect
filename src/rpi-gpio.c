@@ -2,8 +2,6 @@
 #include "rpi-gpio.h"
 #include "rpi-systimer.h"
 
-rpi_gpio_t* RPI_GpioBase = (rpi_gpio_t*) RPI_GPIO_BASE;
-
 void RPI_SetGpioPinFunction(rpi_gpio_pin_t gpio, rpi_gpio_alt_function_t func)
 {
   rpi_reg_rw_t* fsel_reg = &RPI_GpioBase->GPFSEL[gpio / 10];
