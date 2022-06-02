@@ -58,6 +58,7 @@ kernel=kernelrpi4.img
 [all]
 force_turbo=1
 force_eeprom_read=0
+disable_poe_fan=1
 boot_delay=0
 kernel_address=0x0D400000
 gpu_mem=16

@@ -79,3 +79,8 @@ src/scripts/cov-int/tmp/emit-db-cache.lock
 src/scripts/cov-int/tu-timings.txt
 src/scripts/myproject.tgz
 *.su
+src/scripts/diss
+*.ctu-info
+*.dump
+src/.vscode/settings.json
+src/scripts/map
