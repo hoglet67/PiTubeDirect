@@ -106,13 +106,10 @@ typedef struct {
 
 typedef struct {
 	char mnemonic[32];
-	I386_OPCODE *opcode;
+	const I386_OPCODE *opcode;
 } GROUP_OP;
 
-static I386_OPCODE *opcode_table1 = 0;
-static I386_OPCODE *opcode_table2 = 0;
-
-static I386_OPCODE i386_opcode_table1[256] =
+static const I386_OPCODE i386_opcode_table1[256] =
 {
 	// 0x00
 	{"add",				MODRM,			PARAM_RM8,			PARAM_REG8,			0			,0},
@@ -396,7 +393,7 @@ static I386_OPCODE i386_opcode_table1[256] =
 	{"groupFF",			GROUP,			0,					0,					0			,0}
 };
 
-static I386_OPCODE i386_opcode_table2[256] =
+static const I386_OPCODE i386_opcode_table2[256] =
 {
 	// 0x00
 	{"group0F00",		GROUP,			0,					0,					0			,0},
@@ -951,7 +948,7 @@ static I386_OPCODE necv_opcode_table2[256] =
 };
 */
 
-static I386_OPCODE group80_table[8] =
+static const I386_OPCODE group80_table[8] =
 {
 	{"add",				0,				PARAM_RM8,			PARAM_I8,			0			,0},
 	{"or",				0,				PARAM_RM8,			PARAM_I8,			0			,0},
@@ -963,7 +960,7 @@ static I386_OPCODE group80_table[8] =
 	{"cmp",				0,				PARAM_RM8,			PARAM_I8,			0			,0}
 };
 
-static I386_OPCODE group81_table[8] =
+static const I386_OPCODE group81_table[8] =
 {
 	{"add",				0,				PARAM_RM,			PARAM_IMM,			0			,0},
 	{"or",				0,				PARAM_RM,			PARAM_IMM,			0			,0},
@@ -975,7 +972,7 @@ static I386_OPCODE group81_table[8] =
 	{"cmp",				0,				PARAM_RM,			PARAM_IMM,			0			,0}
 };
 
-static I386_OPCODE group83_table[8] =
+static const I386_OPCODE group83_table[8] =
 {
 	{"add",				0,				PARAM_RM,			PARAM_I8,			0			,0},
 	{"or",				0,				PARAM_RM,			PARAM_I8,			0			,0},
@@ -987,7 +984,7 @@ static I386_OPCODE group83_table[8] =
 	{"cmp",				0,				PARAM_RM,			PARAM_I8,			0			,0}
 };
 
-static I386_OPCODE groupC0_table[8] =
+static const I386_OPCODE groupC0_table[8] =
 {
 	{"rol",				0,				PARAM_RM8,			PARAM_I8,			0			,0},
 	{"ror",				0,				PARAM_RM8,			PARAM_I8,			0			,0},
@@ -999,7 +996,7 @@ static I386_OPCODE groupC0_table[8] =
 	{"sar",				0,				PARAM_RM8,			PARAM_I8,			0			,0}
 };
 
-static I386_OPCODE groupC1_table[8] =
+static const I386_OPCODE groupC1_table[8] =
 {
 	{"rol",				0,				PARAM_RM,			PARAM_I8,			0			,0},
 	{"ror",				0,				PARAM_RM,			PARAM_I8,			0			,0},
@@ -1011,7 +1008,7 @@ static I386_OPCODE groupC1_table[8] =
 	{"sar",				0,				PARAM_RM,			PARAM_I8,			0			,0}
 };
 
-static I386_OPCODE groupD0_table[8] =
+static const I386_OPCODE groupD0_table[8] =
 {
 	{"rol",				0,				PARAM_RM8,			PARAM_1,			0			,0},
 	{"ror",				0,				PARAM_RM8,			PARAM_1,			0			,0},
@@ -1023,7 +1020,7 @@ static I386_OPCODE groupD0_table[8] =
 	{"sar",				0,				PARAM_RM8,			PARAM_1,			0			,0}
 };
 
-static I386_OPCODE groupD1_table[8] =
+static const I386_OPCODE groupD1_table[8] =
 {
 	{"rol",				0,				PARAM_RM,			PARAM_1,			0			,0},
 	{"ror",				0,				PARAM_RM,			PARAM_1,			0			,0},
@@ -1035,7 +1032,7 @@ static I386_OPCODE groupD1_table[8] =
 	{"sar",				0,				PARAM_RM,			PARAM_1,			0			,0}
 };
 
-static I386_OPCODE groupD2_table[8] =
+static const I386_OPCODE groupD2_table[8] =
 {
 	{"rol",				0,				PARAM_RM8,			PARAM_CL,			0			,0},
 	{"ror",				0,				PARAM_RM8,			PARAM_CL,			0			,0},
@@ -1047,7 +1044,7 @@ static I386_OPCODE groupD2_table[8] =
 	{"sar",				0,				PARAM_RM8,			PARAM_CL,			0			,0}
 };
 
-static I386_OPCODE groupD3_table[8] =
+static const I386_OPCODE groupD3_table[8] =
 {
 	{"rol",				0,				PARAM_RM,			PARAM_CL,			0			,0},
 	{"ror",				0,				PARAM_RM,			PARAM_CL,			0			,0},
@@ -1059,7 +1056,7 @@ static I386_OPCODE groupD3_table[8] =
 	{"sar",				0,				PARAM_RM,			PARAM_CL,			0			,0}
 };
 
-static I386_OPCODE groupF6_table[8] =
+static const I386_OPCODE groupF6_table[8] =
 {
 	{"test",			0,				PARAM_RM8,			PARAM_I8,			0			,0},
 	{"???",				0,				0,					0,					0			,0},
@@ -1071,7 +1068,7 @@ static I386_OPCODE groupF6_table[8] =
 	{"idiv",			0,				PARAM_RM8,			0,					0			,0}
 };
 
-static I386_OPCODE groupF7_table[8] =
+static const I386_OPCODE groupF7_table[8] =
 {
 	{"test",			0,				PARAM_RM,			PARAM_IMM,			0			,0},
 	{"???",				0,				0,					0,					0			,0},
@@ -1083,7 +1080,7 @@ static I386_OPCODE groupF7_table[8] =
 	{"idiv",			0,				PARAM_RM,			0,					0			,0}
 };
 
-static I386_OPCODE groupFE_table[8] =
+static const I386_OPCODE groupFE_table[8] =
 {
 	{"inc",				0,				PARAM_RM8,			0,					0			,0},
 	{"dec",				0,				PARAM_RM8,			0,					0			,0},
@@ -1095,7 +1092,7 @@ static I386_OPCODE groupFE_table[8] =
 	{"???",				0,				0,					0,					0			,0}
 };
 
-static I386_OPCODE groupFF_table[8] =
+static const I386_OPCODE groupFF_table[8] =
 {
 	{"inc",				0,				PARAM_RM,			0,					0			,0},
 	{"dec",				0,				PARAM_RM,			0,					0			,0},
@@ -1107,7 +1104,7 @@ static I386_OPCODE groupFF_table[8] =
 	{"???",				0,				0,					0,					0			,0}
 };
 
-static I386_OPCODE group0F00_table[8] =
+static const I386_OPCODE group0F00_table[8] =
 {
 	{"sldt",			0,				PARAM_RM,			0,					0			,0},
 	{"str",				0,				PARAM_RM,			0,					0			,0},
@@ -1119,7 +1116,7 @@ static I386_OPCODE group0F00_table[8] =
 	{"???",				0,				0,					0,					0			,0}
 };
 
-static I386_OPCODE group0F01_table[8] =
+static const I386_OPCODE group0F01_table[8] =
 {
 	{"sgdt",			0,				PARAM_RM,			0,					0			,0},
 	{"sidt",			0,				PARAM_RM,			0,					0			,0},
@@ -1131,7 +1128,7 @@ static I386_OPCODE group0F01_table[8] =
 	{"???",				0,				0,					0,					0			,0}
 };
 
-static I386_OPCODE group0FBA_table[8] =
+static const I386_OPCODE group0FBA_table[8] =
 {
 	{"???",				0,				0,					0,					0			,0},
 	{"???",				0,				0,					0,					0			,0},
@@ -1143,7 +1140,7 @@ static I386_OPCODE group0FBA_table[8] =
 	{"btc",				0,				PARAM_RM,			PARAM_I8,			0			,0}
 };
 
-static GROUP_OP group_op_table[] =
+static const GROUP_OP group_op_table[] =
 {
 	{ "group80",			group80_table			},
 	{ "group81",			group81_table			},
@@ -1165,14 +1162,14 @@ static GROUP_OP group_op_table[] =
 
 
 
-static char i386_reg[2][8][4] =
+static const char i386_reg[2][8][4] =
 {
 	{"ax",	"cx",	"dx",	"bx",	"sp",	"bp",	"si",	"di"},
 	{"eax",	"ecx",	"edx",	"ebx",	"esp",	"ebp",	"esi",	"edi"}
 };
 
-static char i386_reg8[8][4] = {"al", "cl", "dl", "bl", "ah", "ch", "dh", "bh"};
-static char i386_sreg[8][4] = {"es", "cs", "ss", "ds", "fs", "gs", "???", "???"};
+static const char i386_reg8[8][4] = {"al", "cl", "dl", "bl", "ah", "ch", "dh", "bh"};
+static const char i386_sreg[8][4] = {"es", "cs", "ss", "ds", "fs", "gs", "???", "???"};
 
 static int address_size;
 static int operand_size;
@@ -1480,7 +1477,7 @@ static char* handle_param(char* s, uint32_t param)
 	return s;
 }
 
-static void decode_opcode(char *s, I386_OPCODE *op)
+static void decode_opcode(char *s, const I386_OPCODE *op)
 {
 	int i;
 	uint8_t op2;
@@ -1490,18 +1487,18 @@ static void decode_opcode(char *s, I386_OPCODE *op)
 		case OP_SIZE:
 			operand_size ^= 1;
 			op2 = FETCH();
-			decode_opcode( s, &opcode_table1[op2] );
+			decode_opcode( s, &i386_opcode_table1[op2] );
 			return;
 
 		case ADDR_SIZE:
 			address_size ^= 1;
 			op2 = FETCH();
-			decode_opcode( s, &opcode_table1[op2] );
+			decode_opcode( s, &i386_opcode_table1[op2] );
 			return;
 
 		case TWO_BYTE:
 			op2 = FETCHD();
-			decode_opcode( s, &opcode_table2[op2] );
+			decode_opcode( s, &i386_opcode_table2[op2] );
 			return;
 
 		case SEG_CS:
@@ -1512,13 +1509,13 @@ static void decode_opcode(char *s, I386_OPCODE *op)
 		case SEG_SS:
 			segment = op->flags;
 			op2 = FETCH();
-			decode_opcode( s, &opcode_table1[op2] );
+			decode_opcode( s, &i386_opcode_table1[op2] );
 			return;
 
 		case PREFIX:
 			s += sprintf( s, "%s ", op->mnemonic );
 			op2 = FETCH();
-			decode_opcode( s, &opcode_table1[op2] );
+			decode_opcode( s, &i386_opcode_table1[op2] );
 			return;
 
 		case VAR_NAME:
@@ -1576,8 +1573,6 @@ unsigned int i386_dasm_one(char *buffer, uint32_t eip, int addr_size, int op_siz
 {
 	uint8_t op;
 
-	opcode_table1 = i386_opcode_table1;
-	opcode_table2 = i386_opcode_table2;
 	address_size = addr_size;
 	operand_size = op_size;
 	pc = eip;
@@ -1586,7 +1581,7 @@ unsigned int i386_dasm_one(char *buffer, uint32_t eip, int addr_size, int op_siz
 
 	op = FETCH();
 
-	decode_opcode( buffer, &opcode_table1[op] );
+	decode_opcode( buffer, &i386_opcode_table1[op] );
 	return (pc-eip) | dasm_flags | DASMFLAG_SUPPORTED;
 }
 
