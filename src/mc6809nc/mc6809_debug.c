@@ -182,7 +182,7 @@ static uint32_t dbg_get_instr_addr() {
    return get_pc();
 }
 
-cpu_debug_t mc6809nc_cpu_debug = {
+const cpu_debug_t mc6809nc_cpu_debug = {
    .cpu_name       = "MC6809NC",
    .debug_enable   = dbg_debug_enable,
    .memread        = dbg_memread,

@@ -262,7 +262,7 @@ static uint32_t dbg_get_instr_addr(void)
     return toldpc;
 }
 
-cpu_debug_t w65816_cpu_debug = {
+const cpu_debug_t w65816_cpu_debug = {
     .cpu_name       = "65816",
     .debug_enable   = dbg_debug_enable,
     .memread        = do_readmem65816,

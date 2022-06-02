@@ -266,7 +266,7 @@ static uint32_t dbg_get_instr_addr() {
    return m_opc5ls->saved_pc;
 }
 
-cpu_debug_t opc5ls_cpu_debug = {
+const cpu_debug_t opc5ls_cpu_debug = {
    .cpu_name       = "OPC5LS",
    .debug_enable   = dbg_debug_enable,
    .memread        = dbg_read,

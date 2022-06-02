@@ -2,5 +2,5 @@
 
 extern int mc6809nc_debug_enabled;
 
-extern cpu_debug_t mc6809nc_cpu_debug;
+extern const cpu_debug_t mc6809nc_cpu_debug;
 

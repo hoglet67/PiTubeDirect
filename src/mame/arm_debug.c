@@ -211,7 +211,7 @@ static uint32_t dbg_get_instr_addr() {
    return m_sArmRegister[i_PC];
 }
 
-cpu_debug_t arm2_cpu_debug = {
+const cpu_debug_t arm2_cpu_debug = {
    .cpu_name       = "ARM2",
    .debug_enable   = dbg_debug_enable,
    .memread        = dbg_memread,

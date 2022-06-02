@@ -173,7 +173,7 @@ static uint32_t dbg_get_instr_addr() {
    return m_pdp11->PC;
 }
 
-cpu_debug_t pdp11_cpu_debug = {
+cpu_debug_t const pdp11_cpu_debug = {
    .cpu_name       = "PDP11",
    .debug_enable   = dbg_debug_enable,
    .memread        = dbg_memread,

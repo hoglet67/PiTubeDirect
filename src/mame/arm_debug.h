@@ -2,5 +2,5 @@
 
 extern int arm2_debug_enabled;
 
-extern cpu_debug_t arm2_cpu_debug;
+extern const cpu_debug_t arm2_cpu_debug;
 

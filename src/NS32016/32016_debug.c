@@ -211,7 +211,7 @@ static uint32_t dbg_get_instr_addr() {
    return n32016_get_startpc();
 }
 
-cpu_debug_t n32016_cpu_debug = {
+const cpu_debug_t n32016_cpu_debug = {
    .cpu_name       = "32016",
    .debug_enable   = dbg_debug_enable,
    .memread        = dbg_memread,

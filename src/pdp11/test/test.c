@@ -156,7 +156,7 @@ void dump_state(cpu_debug_t *cpu) {
 void  main() {
 
    int i = 0;
-   cpu_debug_t *cpu = &pdp11_cpu_debug;
+   const cpu_debug_t *cpu = &pdp11_cpu_debug;
    unsigned int memAddr = 0000;
    unsigned int startAddr = memAddr;
    unsigned int endAddr = loader();

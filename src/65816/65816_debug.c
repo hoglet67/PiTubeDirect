@@ -106,7 +106,7 @@ static const addr_mode_t am_816[256]=
 /*F0*/  PCR,  INDY, IND,  SRY,  ABS,  ZPX,  ZPX,  INDYL,IMP,  ABSY, IMP,  IMP,  ABSX, ABSX, ABSX, ABSXL
 };
 
-uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t bufsize)
+uint32_t dbg65816_disassemble(const cpu_debug_t *cpu, uint32_t addr, char *buf, size_t bufsize)
 {
     uint8_t op, ni, p1, p2, p3;
     uint16_t temp;

@@ -4,5 +4,5 @@
 
 extern int f100_debug_enabled;
 
-extern cpu_debug_t f100_cpu_debug;
+extern const cpu_debug_t f100_cpu_debug;
 #endif

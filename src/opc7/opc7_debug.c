@@ -270,7 +270,7 @@ static uint32_t dbg_get_instr_addr() {
    return m_opc7->saved_pc;
 }
 
-cpu_debug_t opc7_cpu_debug = {
+cpu_debug_t const opc7_cpu_debug = {
    .cpu_name       = "OPC7",
    .debug_enable   = dbg_debug_enable,
    .memread        = dbg_memread,

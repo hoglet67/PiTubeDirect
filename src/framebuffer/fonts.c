@@ -58,7 +58,7 @@ __attribute__ ((section (".noinit"))) static font_t current_font;
 // Font Definitions
 // ==========================================================================
 
-static font_t font_catalog[] = {
+static const font_t font_catalog[] = {
    //                                              scale_h
    //                                           scale_w  |
    //                                      spacing_h  |  |
@@ -127,7 +127,7 @@ static inline uint16_t combine_rows(uint16_t a, uint16_t b) {
     return (uint16_t)(a | ((a >> 1) & b & ~(b >> 1)) | ((a << 1) & b & ~(b << 1)));
 }
 
-static void copy_font_character(font_t *font, const  uint8_t *src, int c, int is_graphics) {
+static void copy_font_character(const font_t *font, const  uint8_t *src, int c, int is_graphics) {
    if (c > font->num_chars) {
       return;
    }
@@ -295,7 +295,7 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y, 
 // More Static Methods
 // ==========================================================================
 
-static font_t *initialize_font(font_t * catalog, uint32_t num) {
+static font_t *initialize_font(const font_t * catalog, uint32_t num) {
 
    // Always return a copy, rather than the entry in the catalog
    //
@@ -352,7 +352,7 @@ static font_t *initialize_font(font_t * catalog, uint32_t num) {
 // ==========================================================================
 
 const char * get_font_name(uint32_t num) {
-   font_t *font = &font_catalog[DEFAULT_FONT];
+   const font_t *font = &font_catalog[DEFAULT_FONT];
    if (num < NUM_FONTS) {
       font = &font_catalog[num];
    }
@@ -360,7 +360,7 @@ const char * get_font_name(uint32_t num) {
 }
 
 font_t *get_font_by_number(uint32_t num) {
-   font_t *font = &font_catalog[DEFAULT_FONT];
+   const font_t *font = &font_catalog[DEFAULT_FONT];
    if (num < NUM_FONTS) {
       font = &font_catalog[num];
    }
@@ -375,7 +375,7 @@ font_t *get_font_by_name(const char *name) {
          break;
       }
    }
-   font_t *font = font_catalog + num;
+   const font_t *font = font_catalog + num;
    return initialize_font(font, num);
 }
 

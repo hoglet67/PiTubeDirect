@@ -237,7 +237,7 @@ static uint32_t dbg_get_instr_addr() {
    return getinstraddr86();
 }
 
-cpu_debug_t cpu80186_cpu_debug = {
+const cpu_debug_t cpu80186_cpu_debug = {
    .cpu_name       = "80x86",
    .debug_enable   = dbg_debug_enable,
    .memread        = dbg_memread,

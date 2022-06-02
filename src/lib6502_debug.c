@@ -172,7 +172,7 @@ static uint32_t dbg_get_instr_addr() {
    return (uint32_t)lib6502_last_PC;
 }
 
-cpu_debug_t lib6502_cpu_debug = {
+const cpu_debug_t lib6502_cpu_debug = {
    .cpu_name       = "lib6502",
    .debug_enable   = dbg_debug_enable,
    .memread        = dbg_memread,

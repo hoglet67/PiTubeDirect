@@ -2,5 +2,5 @@
 
 extern int n32016_debug_enabled;
 
-extern cpu_debug_t n32016_cpu_debug;
+extern const cpu_debug_t n32016_cpu_debug;
 

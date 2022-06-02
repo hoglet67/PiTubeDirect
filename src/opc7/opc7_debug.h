@@ -2,4 +2,4 @@
 
 extern int opc7_debug_enabled;
 
-extern cpu_debug_t opc7_cpu_debug;
+extern const cpu_debug_t opc7_cpu_debug;

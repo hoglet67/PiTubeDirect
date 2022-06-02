@@ -45,7 +45,7 @@ extern WORD IFF;
 #ifdef INCLUDE_DEBUGGER
 #include "../cpu_debug.h"
 extern int simz80_debug_enabled;
-extern cpu_debug_t simz80_cpu_debug;
+extern const cpu_debug_t simz80_cpu_debug;
 #endif
 
 extern FASTWORK simz80(FASTREG PC);

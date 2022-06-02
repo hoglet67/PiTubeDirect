@@ -5,8 +5,8 @@
 
 #include "../cpu_debug.h"
 
-extern cpu_debug_t w65816_cpu_debug;
+extern const cpu_debug_t w65816_cpu_debug;
 
-uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t bufsize);
+uint32_t dbg65816_disassemble(const cpu_debug_t *cpu, uint32_t addr, char *buf, size_t bufsize);
 
 #endif

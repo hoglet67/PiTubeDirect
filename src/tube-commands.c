@@ -58,7 +58,7 @@ typedef struct {
   const int vdu;
 } cmd_type;
 
-cmd_type cmds[] = {
+const cmd_type cmds[] = {
   { "ARMBASIC", "[ <arg> ... ]",                               doCmdArmBasic, MODE_USER, 0 },
   { "CRC",      "<start> <end>",                               doCmdCrc,      MODE_USER, 0 },
   { "DIS",      "<address>",                                   doCmdDis,      MODE_USER, 0 },
@@ -74,7 +74,7 @@ cmd_type cmds[] = {
 
 #define NUM_CMDS (sizeof(cmds) / sizeof(cmd_type))
 
-static cmd_type *last_cmd = NULL;
+static const cmd_type *last_cmd = NULL;
 
 static void usage() {
   OS_Write0("Usage: *");

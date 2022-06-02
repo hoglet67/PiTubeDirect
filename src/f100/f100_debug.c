@@ -398,7 +398,7 @@ static uint32_t dbg_get_instr_addr() {
    return m_f100->saved_pc;
 }
 
-cpu_debug_t f100_cpu_debug = {
+const cpu_debug_t f100_cpu_debug = {
    .cpu_name       = "F100",
    .debug_enable   = dbg_debug_enable,
    .memread        = dbg_memread,
