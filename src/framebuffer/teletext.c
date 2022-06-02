@@ -69,7 +69,7 @@ __attribute__ ((section (".noinit"))) struct {
 // Screen Mode Handlers
 static void tt_reset          (screen_mode_t *screen);
 static void tt_clear          (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
-static void tt_scroll         (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
+static void tt_scroll         (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir);
 static void tt_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
 static int  tt_read_character (screen_mode_t *screen, int col, int row, pixel_t bg_col);
 static void tt_unknown_vdu    (screen_mode_t *screen, const uint8_t *buf);
@@ -270,17 +270,33 @@ static void tt_clear(screen_mode_t *screen, t_clip_window_t *text_window, pixel_
    update_double_height_counts();
 }
 
-static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
+static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir) {
    // Call the default implementation to scroll the framebuffer
-   default_scroll_screen(screen, text_window, bg_col);
+   default_scroll_screen(screen, text_window, bg_col, dir);
    // Scroll the backing store
-   for (int row = text_window->top; row < text_window->bottom; row++) {
-      for (int col = text_window->left; col <= text_window->right; col++) {
-         tt.mode7screen[row][col] = tt.mode7screen[row + 1][col];
+   switch (dir) {
+   case SCROLL_UP:
+      for (int row = text_window->top; row < text_window->bottom; row++) {
+         for (int col = text_window->left; col <= text_window->right; col++) {
+            tt.mode7screen[row][col] = tt.mode7screen[row + 1][col];
+         }
       }
-   }
-   for (int col = text_window->left; col <= text_window->right; col++) {
-      tt.mode7screen[text_window->bottom][col] = TT_SPACE;
+      for (int col = text_window->left; col <= text_window->right; col++) {
+         tt.mode7screen[text_window->bottom][col] = TT_SPACE;
+      }
+      break;
+   case SCROLL_DOWN:
+      for (int row = text_window->bottom; row > text_window->top; row--) {
+         for (int col = text_window->left; col <= text_window->right; col++) {
+            tt.mode7screen[row][col] = tt.mode7screen[row - 1][col];
+         }
+      }
+      for (int col = text_window->left; col <= text_window->right; col++) {
+         tt.mode7screen[text_window->top][col] = TT_SPACE;
+      }
+      break;
+   default:
+      // TODO - Left and Right not implemented
    }
    // Recalculate the double height counts
    update_double_height_counts();

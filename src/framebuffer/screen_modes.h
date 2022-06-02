@@ -51,6 +51,13 @@ typedef enum {
 } mode_flag_t;
 
 typedef enum {
+   SCROLL_RIGHT = 0,
+   SCROLL_LEFT = 1,
+   SCROLL_DOWN = 2,
+   SCROLL_UP = 3
+} scroll_dir_t;
+
+typedef enum {
    M_MODEFLAGS       = 0,   // &00 Assorted flags
    M_SCRRCOL         = 1,   // &01 Number of text columns -1
    M_SCRBROW         = 2,   // &02 Number of text rows -1
@@ -94,7 +101,7 @@ typedef struct screen_mode {
    void                     (*init)(struct screen_mode *screen);
    void                    (*reset)(struct screen_mode *screen);
    void                    (*clear)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
-   void                   (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
+   void                   (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir);
    void                    (*flash)(struct screen_mode *screen, int mark);
    void               (*set_colour)(struct screen_mode *screen, colour_index_t index, int r, int g, int b);
    pixel_t            (*get_colour)(struct screen_mode *screen, uint8_t gcol);
@@ -117,7 +124,7 @@ typedef struct screen_mode {
 void         default_init_screen(screen_mode_t *screen);
 void        default_reset_screen(screen_mode_t *screen);
 void        default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
-void       default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
+void       default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir);
 void     default_set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b);
 void    default_set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b);
 void    default_set_colour_32bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b);

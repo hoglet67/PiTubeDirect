@@ -1277,7 +1277,7 @@ static void step() {
       }
       return;
    }
-   switch (instr & 7) {
+   switch (instr) {
    case 00: // HALT
       if (cpu.curuser) {
          break;

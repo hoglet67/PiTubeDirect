@@ -1,10 +1,10 @@
+bytevec        = &020A
 wordvec        = &020C
 wrcvec         = &020E
 rdcvec         = &0210
 
 pblock         = &F0
 bufptr         = &E8
-pcopy          = &2B1
 
 oswrch         = &FFEE
 osrdch         = &FFE0
@@ -14,7 +14,11 @@ osbyte         = &FFF4
 
 page           = &09
 
+char_cursor_x  = &FEF1
+char_cursor_y  = &FEF2
 char_at_cursor = &FEF3
+vdu_var_addr   = &FEF4
+vdu_var_data   = &FEF4
 
 cpu 1
 
@@ -23,10 +27,140 @@ osword6_addr_lo = osword6_param + 0
 osword6_addr_hi = osword6_param + 1
 osword6_data    = osword6_param + 4
 
-org &02C0
+org &0280
 guard &300
 
 .start
+
+.init
+
+;; Revector Parasite OSBYTE to intercept OSBYTE0
+    LDA bytevec
+    STA oldosbyte
+    LDA bytevec+1
+    STA oldosbyte+1
+    LDA #LO(newosbyte)
+    STA bytevec
+    LDA #HI(newosbyte)
+    STA bytevec+1
+
+;; Revector Parasite OSWORD to intercept OSWORD0
+    LDA wordvec
+    STA oldosword
+    LDA wordvec+1
+    STA oldosword+1
+    LDA #LO(newosword)
+    STA wordvec
+    LDA #HI(newosword)
+    STA wordvec+1
+
+;; Revector Parasite OSWRCH
+    LDA #LO(parasite_oswrch)
+    STA wrcvec
+    LDA #HI(parasite_oswrch)
+    STA wrcvec+1
+
+;; Copy minimal OSWRCH to host at 0900
+    LDA #page
+    STA osword6_addr_hi
+    LDY #host_oswrch_end - host_oswrch_start - 1
+.oswloop1
+    STY osword6_addr_lo
+    LDA host_oswrch_start,Y
+    PHY
+    JSR osword6
+    PLY
+    DEY
+    BPL oswloop1
+    INY
+
+;; *FX 4,1 to disable cursor editing
+    LDA #4
+    LDX #1
+    JSR osbyte
+
+;; Revector Host OSWRCH to &0900
+    LDA #HI(wrcvec)
+    STA osword6_addr_hi
+    LDA #LO(wrcvec)
+    STA osword6_addr_lo
+    LDA #&00
+    JSR osword6
+    LDA #page
+    JSR osword6
+
+;; force the beeb text window left/right window limits to 0/79
+;; to work around the ADFS formatting bug (#130)
+
+    LDA #&03
+    STA osword6_addr_hi
+    LDA #&08
+    STA osword6_addr_lo
+    LDA #0      ;; 0308 (window left) = 0
+    JSR osword6
+    INC osword6_addr_lo
+    LDA #79     ;; 030a (window right) = 79
+    BNE osword6
+
+.pcopy
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+
+;; Entry point is at a nice address (&300)
+;;
+;; Only init code is before this, so it matters less if it gets
+;; trashed once it has run.
+
+org &300
+clear &300, &3FF
+
+    JMP init
+
+.osword6
+    STA osword6_data
+    LDA #6
+    LDX #LO(osword6_param)
+    LDY #HI(osword6_param)
+    JSR osword
+    INC osword6_addr_lo
+    RTS
+
+.newosbyte
+    CMP #&86
+    BEQ osbyte86
+    CMP #&87
+    BEQ osbyte87
+    CMP #&A0
+    BEQ osbyteA0
+
+    EQUB &4C ; JMP
+
+.oldosbyte
+    NOP
+    NOP
+
+.osbyte86
+    LDX char_cursor_x
+    LDY char_cursor_y
+    RTS
+
+.osbyte87
+    LDX #&55-1
+    JSR osbyteA0
+    LDX char_at_cursor
+    RTS
+
+.osbyteA0
+    INX
+    STX vdu_var_addr
+    LDY vdu_var_data
+    DEX
+    STX vdu_var_addr
+    LDX vdu_var_data
+    RTS
 
 ;; Host-side OSWRCH Redirector
 ;;
@@ -67,80 +201,6 @@ guard &300
     STA &FEE4
     RTS
 .host_oswrch_end
-
-org &0300
-clear &300,&3ff
-guard &400
-
-.init
-
-;; Copy minimal OSWRCH to host at 0900
-    LDA #page
-    STA osword6_addr_hi
-    LDY #host_oswrch_end - host_oswrch_start - 1
-.oswloop1
-    STY osword6_addr_lo
-    LDA host_oswrch_start,Y
-    PHY
-    JSR osword6
-    PLY
-    DEY
-    BPL oswloop1
-    INY
-
-;; *FX 4,1 to disable cursor editing
-    LDA #4
-    LDX #1
-    JSR osbyte
-
-;; Revector Parasite OSWRCH
-    LDA #LO(parasite_oswrch)
-    STA wrcvec
-    LDA #HI(parasite_oswrch)
-    STA wrcvec+1
-
-;; Revector Parasite OSWORD to intercept OSWORD0
-    LDA wordvec
-    STA oldosword
-    LDA wordvec+1
-    STA oldosword+1
-    LDA #LO(newosword)
-    STA wordvec
-    LDA #HI(newosword)
-    STA wordvec+1
-
-;; Revector Host OSWRCH to &0900
-    LDA #HI(wrcvec)
-    STA osword6_addr_hi
-    LDA #LO(wrcvec)
-    STA osword6_addr_lo
-    LDA #&00
-    JSR osword6
-    LDA #page
-    JSR osword6
-
-;; force the beeb text window left/right window limits to 0/79
-;; to work around the ADFS formatting bug (#130)
-
-    LDA #&03
-    STA osword6_addr_hi
-    LDA #&08
-    STA osword6_addr_lo
-    LDA #0      ;; 0308 (window left) = 0
-    JSR osword6
-    INC osword6_addr_lo
-    LDA #79     ;; 030a (window right) = 79
-
-    ;; fall through to osword6
-
-.osword6
-    STA osword6_data
-    LDA #6
-    LDX #LO(osword6_param)
-    LDY #HI(osword6_param)
-    JSR osword
-    INC osword6_addr_lo
-    RTS
 
 .parasite_oswrch
     STA &FEF8
@@ -269,6 +329,7 @@ guard &400
     ROL A          ; put bit 7 into carry
     LDA #&00       ; Preserve A
     RTS            ; and exit routine
+
 .end
 
 SAVE "osword", start, end

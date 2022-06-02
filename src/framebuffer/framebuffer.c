@@ -183,7 +183,7 @@ static void edit_cursor_up();
 static void edit_cursor_down();
 static void edit_cursor_left();
 static void edit_cursor_right();
-static void text_area_scroll();
+static void text_area_scroll(scroll_dir_t dir);
 static void update_g_cursors(int16_t x, int16_t y);
 static void change_mode(screen_mode_t *new_screen);
 static void set_graphics_area(screen_mode_t *scr, g_clip_window_t *window);
@@ -504,15 +504,17 @@ static void edit_cursor_right() {
    update_cursors();
 }
 
-static void text_area_scroll() {
+static void text_area_scroll(scroll_dir_t dir) {
    int tmp = disable_cursors();
-   screen->scroll(screen, &t_window, c_bg_col);
+   screen->scroll(screen, &t_window, c_bg_col, dir);
    if (tmp) {
       enable_cursors();
    }
    if (e_enabled) {
-      if (e_y_pos > t_window.top) {
+      if (dir == SCROLL_UP && e_y_pos > t_window.top) {
          e_y_pos--;
+      } else if (dir == SCROLL_DOWN && e_y_pos < t_window.bottom) {
+         e_y_pos++;
       }
    }
    update_cursors();
@@ -617,7 +619,7 @@ static void text_cursor_up() {
    if (c_y_pos > t_window.top) {
       c_y_pos--;
    } else {
-      c_y_pos = t_window.bottom;
+      text_area_scroll(SCROLL_DOWN);
    }
    update_cursors();
 }
@@ -626,7 +628,7 @@ static void text_cursor_down() {
    if (c_y_pos < t_window.bottom) {
       c_y_pos++;
    } else {
-      text_area_scroll();
+      text_area_scroll(SCROLL_UP);
    }
    update_cursors();
 }
@@ -1088,6 +1090,11 @@ static void vdu_19(const uint8_t *buf) {
    uint8_t r = buf[3];
    uint8_t g = buf[4];
    uint8_t b = buf[5];
+   // Don't allow Palette Changes in MODE 7 (there is no technical
+   // reason for this, but doing so breaks Acornsoft Basic Editor)
+   if (screen->mode_flags & F_TELETEXT) {
+      return;
+   }
    // See http://beebwiki.mdfs.net/VDU_19
    if (p < 16) {
       // Set to Physical Colour
@@ -1756,32 +1763,28 @@ void fb_writes(const char *string) {
    }
 }
 
-int fb_get_edit_cursor_x() {
-   return e_x_pos;
-}
-
-int fb_get_edit_cursor_y() {
-   return e_y_pos;
-}
-
-int fb_get_edit_cursor_char() {
+int fb_get_cursor_x() {
    if (e_enabled) {
-      return read_character(e_x_pos, e_y_pos);
+      return e_x_pos - t_window.left;
    } else {
-      return 0;
+      return c_x_pos - t_window.left;
    }
 }
 
-int fb_get_text_cursor_x() {
-   return c_x_pos;
+int fb_get_cursor_y() {
+   if (e_enabled) {
+      return e_y_pos - t_window.top;
+   } else {
+      return c_y_pos - t_window.top;
+   }
 }
 
-int fb_get_text_cursor_y() {
-   return c_y_pos;
-}
-
-int fb_get_text_cursor_char() {
-   return read_character(c_x_pos, c_y_pos);
+int fb_get_cursor_char() {
+   if (e_enabled) {
+      return read_character(e_x_pos, e_y_pos);
+   } else {
+      return read_character(c_x_pos, c_y_pos);
+   }
 }
 
 void fb_wait_for_vsync() {
@@ -1803,21 +1806,27 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
    }
 
    font_t *font = screen->font;
-   // Anything in internal coordinates has 0,0 at the top left
-   int ysize = (screen->height << screen->yeigfactor) - 1;
+   // (ic) means internal coordinates: the origin is always the bottom left of the screen.
+   // One unit is one pixel wide and one pixel high.
+   //
+   // (ec) means external coordinates: a pixel is (1 « XEigFactor) units wide and (1 « YEigFactor) units high,
+   // where XEigFactor and YEigFactor are VDU variables.
+
+   // g_window is in (ex) but with the origin applied (so it's neither ic or ec)
+
    switch (v) {
    case V_GWLCOL:
       // Graphics Window – Lefthand Column (ic)
-      return g_window.left;
+      return g_window.left >> screen->xeigfactor;
    case V_GWBROW:
       // Graphics Window – Bottom Row  (ic)
-      return ysize - g_window.bottom;
+      return g_window.bottom >> screen->yeigfactor;
    case V_GWRCOL:
       // Graphics Window – Righthand Column  (ic)
-      return g_window.right;
+      return g_window.right >> screen->xeigfactor;
    case V_GWTROW:
       // Graphics Window – Top Row (ic)
-      return ysize - g_window.top;
+      return g_window.top >> screen->yeigfactor;
    case V_TWLCOL:
       // Text Window – Lefthand Column
       return t_window.left;
@@ -1844,22 +1853,22 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
       return g_y_pos - g_y_origin;
    case V_OLDERCSX:
       // Oldest gr. Cursor X coord (ic)
-      return g_x_pos_last2;
+      return g_x_pos_last2 >> screen->xeigfactor;
    case V_OLDERCSY:
       // Oldest gr. Cursor Y coord (ic)
-      return ysize - g_y_pos_last2;
+      return g_y_pos_last2 >> screen->yeigfactor;
    case V_OLDCSX:
       // Previous gr. Cursor X coord (ic)
-      return g_x_pos_last1;
+      return g_x_pos_last1 >> screen->xeigfactor;
    case V_OLDCSY:
       // Previous gr. Cursor Y coord (ic)
-      return ysize - g_y_pos_last1;
+      return g_y_pos_last1 >> screen->yeigfactor;
    case V_GCSIX:
       // Graphics Cursor X coord (ic)
-      return g_x_pos;
+      return g_x_pos >> screen->xeigfactor;
    case V_GCSIY:
       // Graphics Cursor Y coord (ic)
-      return ysize - g_y_pos;
+      return g_y_pos >> screen->yeigfactor;
    case V_NEWPTX:
       // New point X coord (ic) - TODO: no idea what this is
       return 0;
@@ -1963,6 +1972,93 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
       return text_height;
    }
    return 0;
+}
+
+static uint8_t read_legacy_vdu_variable_helper(vdu_variable_t v, uint8_t offset) {
+   int value = fb_read_vdu_variable(v);
+   if (offset & 1) {
+      return (uint8_t)((value >> 8) & 0xff);
+   } else {
+      return (uint8_t)(value & 0xff);
+   }
+}
+
+uint8_t fb_read_legacy_vdu_variable(uint8_t v) {
+   // VDU Variables are unfortunately platform specific, so try to do some mapping
+   //
+   // Where these correspond to RISCOS VDU variables, we use them directly.
+   switch(v) {
+      // &00/1 Current graphics window left column in pixels
+      // &02/3 Current graphics window bottom row in pixels
+      // &04/5 Current graphics window right column in pixels
+      // &06/7 Current graphics window top row in pixels
+   case 0x00:
+   case 0x01:
+      return read_legacy_vdu_variable_helper(V_GWLCOL, v);
+   case 0x02:
+   case 0x03:
+      return read_legacy_vdu_variable_helper(V_GWBROW, v);
+   case 0x04:
+   case 0x05:
+      return read_legacy_vdu_variable_helper(V_GWRCOL, v);
+   case 0x06:
+   case 0x07:
+      return read_legacy_vdu_variable_helper(V_GWTROW, v);
+      // &08   Current text window left hand column
+      // &09   Current text window bottom row
+      // &0A   Current text window right hand column
+      // &0B   Current text window top column
+   case 0x08:
+      return read_legacy_vdu_variable_helper(V_TWLCOL, 0);
+   case 0x09:
+      return read_legacy_vdu_variable_helper(V_TWBROW, 0);
+   case 0x0A:
+      return read_legacy_vdu_variable_helper(V_TWRCOL, 0);
+   case 0x0B:
+      return read_legacy_vdu_variable_helper(V_TWTROW, 0);
+      // &0C/D Current graphics X origin in external coordinates
+      // &0E/F Current graphics Y origin in external coordinates
+   case 0x0C:
+   case 0x0D:
+      return read_legacy_vdu_variable_helper(V_ORGX, v);
+   case 0x0E:
+   case 0x0F:
+      return read_legacy_vdu_variable_helper(V_ORGY, v);
+      // &10/1 Current graphics X position in external coordinates
+      // &12/3 Current graphics Y position in external coordinates
+   case 0x10:
+   case 0x11:
+      return read_legacy_vdu_variable_helper(V_GCSX, v);
+   case 0x12:
+   case 0x13:
+      return read_legacy_vdu_variable_helper(V_GCSY, v);
+      // &14/5 Old graphics X position in internal coordinates
+      // &16/7 Old graphics Y position in internal coordinates
+   case 0x14:
+   case 0x15:
+      return read_legacy_vdu_variable_helper(V_OLDCSX, v);
+   case 0x16:
+   case 0x17:
+      return read_legacy_vdu_variable_helper(V_OLDCSY, v);
+      // &18 Current absolute text X position (=POS+vduvar &08)
+      // &19 Current absolute text Y position (=VPOS+vduvar &0B)
+   case 0x18:
+      return (uint8_t)((fb_get_cursor_x() + fb_read_vdu_variable(V_TWLCOL)) & 0xff);
+   case 0x19:
+      return (uint8_t)((fb_get_cursor_y() + fb_read_vdu_variable(V_TWTROW)) & 0xff);
+      // &24/5 Current graphics X position in internal coordinates
+      // &26/7 Current graphics Y position in internal coordinates
+   case 0x24:
+   case 0x25:
+      return read_legacy_vdu_variable_helper(V_GCSIX, v);
+   case 0x26:
+   case 0x27:
+      return read_legacy_vdu_variable_helper(V_GCSIY, v);
+      // &55 Current screen mode read by OSBYTE &87
+   case 0x55:
+      return (uint8_t)(fb_get_current_screen_mode()->mode_num & 0xff);
+   }
+   return (uint8_t) 0x00;
 }
 
 void fb_set_flash_mark_time(uint8_t time) {
