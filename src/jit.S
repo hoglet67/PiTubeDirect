@@ -34,7 +34,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 // Instructions that get used in smaller chunks to save a jump ( overlapping )
 // BIT &0000 so B on first byte
-// BIT &00 //TODO ?
+// BIT &00 
 // NOP6s &0000
 // NOP6s &00
 
@@ -955,7 +955,7 @@ Bopc_DA:
    mov      reg12, regX, LSR #24
    .word    pushtemp-12
 Bopc_E3:
-   mov      reg1,#1
+   mov      temp,#1
    .word    debugopcode-12
 Bopc_E8:
    add      regX, regX, #0x1000000
@@ -1118,7 +1118,16 @@ opc_21: // Opcode 21 - AND ($00,X)
    DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_21
 
 opc_24: // Opcode 24 - BIT $00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_24
+
+   adr temp1,Bopc_24
+   ldrd r8,[temp1]
+   orr r8,r8,r4
+   MAKEBRANCHLINK r9
+
+   strd r8,[r6]
+   FILLINJITTEDTABLES dejit16bit1
+   add temp2,temp2,#2
+   B dojitloop
 
 opc_25: // Opcode 25 - AND $00
    DOUBLEBYTET2 Bopc_25
@@ -1310,11 +1319,11 @@ Bopc_20:
    orr  regSP, #0x0100
 Bopc_21:
    JITINDXLOGICAL ands
+
 Bopc_24:
    ldrb reg12,[ram6502,#0x00]
-   bic     flags, flags, #V_FLAG6502
-   tst     reg12, regA
-   .word bit2-20
+   .word bit24-12
+
 Bopc_25:
    JITZPLOGICAL ands
 Bopc_26:
@@ -2473,14 +2482,14 @@ cacheflushloopjittable:
 
 #if JITDEBUG
 // Enable jit tracing
-   mov temp,#1
+   mov temp,#0
    str temp,debugflag
 
-   mov temp,#0xe3
-   ldr temp1,= 0x7FFE
-   strb temp,[temp1],#1
-   mov temp,#0x60
-   strb temp,[temp1]
+  mov temp,#0xe3
+  ldr temp1,= 0x7FFE
+  strb temp,[temp1],#1
+  mov temp,#0x60
+  strb temp,[temp1]
 #endif
 
    add regSP,ram6502, #0x1F0
@@ -2524,6 +2533,8 @@ exec_65tube_exit:     // We get here from the Event handler when RST is detected
    pop {r4-r11,pc}
 .ltorg
 debugflag:
+   .word 0
+debugtemp:
    .word 0
 old_fiq_vector:
    .word 0
@@ -2875,13 +2886,13 @@ jitend2byte:
    str temp0,[temp1,#4]
 
 dojitloop:
-#ifdef JITDEBUG
+#if 0 //JITDEBUG
    ldr temp,debugflag
    movs temp,temp
    BEQ 1f
 
    push {r0-r12}
-   mov r0,r6 // r6 can be corrupt now ******** by fixt2
+   ldr r0,debugtemp
    mov r1,r2
    BL disarm
    pop {r0-r12}
@@ -2890,7 +2901,7 @@ dojitloop:
 jitentry:
 
 //debug
-#ifdef JITDEBUG
+#if JITDEBUG
    ldr r0,debugflag
    movs r0,r0
    BEQ 1f
@@ -2908,6 +2919,9 @@ jitentry:
    ldr temp0,[temp0,r7,LSL#2]
    ldrb r4,[temp2,#1]
    ldrb r5,[temp2,#2]
+#if JITDEBUG
+   str  r6,debugtemp
+#endif   
    bx temp0
 // entry regs
 // r0
@@ -2966,12 +2980,12 @@ jitend2byteexit:
   // FILLINJITTEDTABLES dejit16bit22
 
 dojitexit :
-#ifdef JITDEBUG
+#if 0 //JITDEBUG
    ldr r0,debugflag
    movs r0,r0
    BEQ 1f
    push {r0-r12}
-   mov r0,r6
+   ldr r0,debugtemp
    mov r1,r2
    BL disarm
    pop {r0-r12}
@@ -3299,7 +3313,7 @@ putcharopcode:
 debugopcode:
 #if JITDEBUG
    ldr reg1,=debugflag
-   str reg12,[reg1]
+   str temp,[reg1]
 #endif
    bx lr
 
@@ -3428,9 +3442,21 @@ bitadjustr14:
    msr     CPSR_flg, reg12
    bx  reg2
 
+bit24: // 24
+   add     r2,r14,#8
+   bic     flags, flags, #V_FLAG6502
+   tst     reg12, regA  // This clears N flag and sets up the Z flag
+   mrs     reg0, CPSR
+   and     reg1, reg12, #N_FLAG6502
+   and     reg12, reg12, #V_FLAG6502
+   orr     flags, flags, reg12
+   orr     reg0, reg0, reg1, LSL #24
+   msr     CPSR_flg, reg0
+   bx       r2
+
 bit: // 34
    tst     reg12, regA  // This clears N flag and sets up the Z flag
-bit2: // 24 3c
+bit2: // 3c
    mrs     reg0, CPSR
    and     reg1, reg12, #N_FLAG6502
    and     reg12, reg12, #V_FLAG6502
