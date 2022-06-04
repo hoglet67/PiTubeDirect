@@ -84,3 +84,4 @@ src/scripts/diss
 *.dump
 src/.vscode/settings.json
 src/scripts/map
+src/scripts/dissjit

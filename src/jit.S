@@ -20,8 +20,10 @@
 
 // NB this code starts 0x0D400000 + xxx so the above tables are close enough to jump to
 
+
 //#define JITDEBUG 1
 //#define DORMANN_TEST 1
+//#define DEBUG_TIMING 1
 
 #define TIMING_INSTRUCTION 1
 
@@ -218,11 +220,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    //strd r8,r9,[r6]
    //str r10,[r6,#8]
 .endm
-.macro COPY3STOREINC
-   STMIA r6!,{r8,r9,r10}
-   //strd r8,r9,[r6]
-   //str r10,[r6,#8]
-.endm
+
 .macro COPY4 start
    adr temp1,\start
    LDMIA temp1,{r8,r9,r10,r11}
@@ -251,9 +249,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro COPY5STORE
    STMIA r6,{r7,r8,r9,r10,r11}
 .endm
-.macro COPY5STOREINC
-   STMIA r6!,{r7,r8,r9,r10,r11}
-.endm
+
 .macro COPY6 start
    adr temp1,\start
    LDMIA temp1,{r7,r8,r9,r10,r11,r12}
@@ -1104,14 +1100,21 @@ opc_1F: // Opcode 1F - BBR1
 
 opc_20:// Opcode 20 - JSR $0000
 
-   ldrh temp,[temp2,#1]
+   ldrh r12,[temp2,#1]
    COPY5LOAD Bopc_20
    add temp0,temp2,#2
    and temp1,temp0,#0xFF
    orr r7,r7,temp0,LSR #8
    orr r8,r8,temp1
-   COPY5STOREINC
-   B createbranchtojitlet
+
+   mov r12,r12,LSL#JITLETSHIFT-2
+   add r12,r12,#JITLET>>2
+
+   sub r12,r12,r6,LSR #2
+   sub r12,r12,#28>>2
+   BIC r12,r12,#0xFF000000
+   ORR r12,r12,#BINSTRUCTION
+   B jitend3byteexitstore6
 
 opc_21: // Opcode 21 - AND ($00,X)
    DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_21
@@ -1228,7 +1231,15 @@ opc_49: // Opcode 49 - EOR #$00
 opc_4C: // Opcode 4C - JMP $0000
    ldrh r12,[temp2,#1]
 
-   B createbranchtojitlet
+   mov temp0,r12,LSL#JITLETSHIFT-2
+   add temp0,temp0,#JITLET>>2
+
+   sub temp0,temp0,r6,LSR #2
+   sub temp0,temp0,#8>>2
+   BIC temp0,temp0,#0xFF000000
+   ORR temp0,temp0,#BINSTRUCTION
+   str temp0,[r6]
+   B jitend3byteexit
 
 opc_4D: // Opcode 4D - EOR $0000
    TRIPLEBYTEABST2 Bopc_4D
@@ -2433,11 +2444,11 @@ loopioregion:
    and r0,r12,#0xF
    mov r1,#4
    lsl r1,r1,r0
-   str r1,cachelineI
+   strb r1,cachelineI
    ubfx r1,r12,#16,#4
    mov r12,#4
    lsl r12,r12,r1
-   str r12,cachelineD
+   strb r12,cachelineD
 
    mov r5,#JITLET
    mov r0,#JITTEDTABLE16
@@ -2483,7 +2494,7 @@ cacheflushloopjittable:
 #if JITDEBUG
 // Enable jit tracing
    mov temp,#0
-   str temp,debugflag
+   strb temp,debugflag
 
   mov temp,#0xe3
   ldr temp1,= 0x7FFE
@@ -2532,10 +2543,7 @@ exec_65tube_exit:     // We get here from the Event handler when RST is detected
    ldr r13,stackptr  // Hack to ensure the stack ptr is on the right place
    pop {r4-r11,pc}
 .ltorg
-debugflag:
-   .word 0
-debugtemp:
-   .word 0
+
 old_fiq_vector:
    .word 0
 fiq_lr_temp:
@@ -2545,9 +2553,13 @@ fiq_spsr_temp:
 stackptr:
    .word 0
 cachelineD:
-   .word 0
+   .byte 0
 cachelineI:
-   .word 0
+   .byte 0
+debugflag:
+   .byte 0
+spare:
+   .byte 0
 ram6502store:
    .word 0
 
@@ -2836,9 +2848,11 @@ dojit:
    CPSID   if                     // Disable ARM FIQ and IRQ interrupts
    sub r3,r14,#4                  // return address ( first address of jitted code)
    push {r3-r11}
+#ifdef DEBUG_TIMING   
         ldr     r8, =ASS_GPSET0     // timing debug code
         mov     r7, #TEST2_MASK
         str     r7, [r8]
+#endif        
    sub temp2,R3,#JITLET
    mov temp2,temp2,LSR#JITLETSHIFT
    b jitentry
@@ -2887,12 +2901,12 @@ jitend2byte:
 
 dojitloop:
 #if 0 //JITDEBUG
-   ldr temp,debugflag
+   ldrb temp,debugflag
    movs temp,temp
    BEQ 1f
 
    push {r0-r12}
-   ldr r0,debugtemp
+   mov r0,r6
    mov r1,r2
    BL disarm
    pop {r0-r12}
@@ -2902,7 +2916,7 @@ jitentry:
 
 //debug
 #if JITDEBUG
-   ldr r0,debugflag
+   ldrb r0,debugflag
    movs r0,r0
    BEQ 1f
 
@@ -2918,10 +2932,7 @@ jitentry:
    add r6,r6,#JITLET
    ldr temp0,[temp0,r7,LSL#2]
    ldrb r4,[temp2,#1]
-   ldrb r5,[temp2,#2]
-#if JITDEBUG
-   str  r6,debugtemp
-#endif   
+   ldrb r5,[temp2,#2]   
    bx temp0
 // entry regs
 // r0
@@ -2981,11 +2992,11 @@ jitend2byteexit:
 
 dojitexit :
 #if 0 //JITDEBUG
-   ldr r0,debugflag
+   ldrb r0,debugflag
    movs r0,r0
    BEQ 1f
    push {r0-r12}
-   ldr r0,debugtemp
+   mov r0,r6
    mov r1,r2
    BL disarm
    pop {r0-r12}
@@ -3003,8 +3014,8 @@ dojitexit :
    // r3 has the first address of JITLET instruction
    // r2 has last address
    
-   ldr r12,cachelineD
-   ldr r11,cachelineI
+   ldrb r12,cachelineD
+   ldrb r11,cachelineI
    mov r2,r2,LSL #2        // change to words
    sub r4,r3,#JITLET
    add r2,r2,#JITTEDTABLE16   // 
@@ -3094,11 +3105,13 @@ cacheflushloopI:
    MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
    MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
 #endif
+      
+#endif
+#ifdef DEBUG_TIMING   
         ldr     r8, =ASS_GPCLR0
         mov     r7, #TEST2_MASK
         str     r7, [r8]
-#endif
-
+#endif  
    pop {r3-r11}
    msr CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
 
@@ -3180,19 +3193,7 @@ fillinjittedtable:
    str temp0,[temp1,temp2,LSL #2]!
    bx lr
 
-// entry temp0 address to goto (JITLET)
-//       r6 address to place the branch
 
-createbranchtojitlet:
-   mov temp0,r12,LSL#JITLETSHIFT-2
-   add temp0,temp0,#JITLET>>2
-
-   sub temp0,temp0,r6,LSR #2
-   sub temp0,temp0,#8>>2
-   BIC temp0,temp0,#0xFF000000
-   ORR temp0,temp0,#BINSTRUCTION
-   str temp0,[r6]
-   B jitend3byteexit
 
 fixuptype2accessload4:
    LDM temp1,{r8,r9,r10,r11}
@@ -3308,7 +3309,7 @@ putcharopcode:
 debugopcode:
 #if JITDEBUG
    ldr reg1,=debugflag
-   str temp,[reg1]
+   strb temp,[reg1]
 #endif
    bx lr
 
