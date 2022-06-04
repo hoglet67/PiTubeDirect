@@ -429,15 +429,15 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro BRANCH type
    sxtb r4,r4
-   ldr temp1,B_NOP
+   ldr r9,B_NOP
 // do jump maths
 // temp0 is where we need to goto NB -2 ie. if we have 6 we goto +8
 // so it look like arm and 6502 jumps are the same so if we load the bit signed
 // we just need to clear the top byte
-   mov temp0,r4,LSL #1
-   add temp0,temp0,#2
-   BIC temp0,temp0,#0xFF000000
-   orr temp0,temp0,#\type
+   mov r8,r4,LSL #1
+   add r8,r8,#2
+   BIC r8,r8,#0xFF000000
+   orr r8,r8,#\type
    b branchsavewords
 .endm
 
@@ -447,18 +447,17 @@ then return to our secret stack This relies on instructions being re entrant , b
 //      B xx // branch taken
 //      msr CPSR_flg,temp1
 
-   ldr r0,=\branch-8
+   ldr r8,=\branch-8
    LDR r9,\block
    sxtb r4,r4
    // fill in BL
-   BL createbranchlinkm8
-
-   mov temp0,r4,LSL #1
-   str r9,[R6,#4]
-   BIC temp0,temp0,#0xFF000000
-   str r9,[R6,#12]
-   orr temp0,temp0,#BINSTRUCTION
-   str temp0,[r6,#8]
+   MAKEBRANCHLINK r8
+   strd r8,r9,[r6]
+   mov r8,r4,LSL #1
+   
+   BIC r8,r8,#0xFF000000
+   orr r8,r8,#BINSTRUCTION
+   strd r8,r9,[r6,#8]
    B jitend2byteexit
 .endm
 
@@ -1123,8 +1122,7 @@ opc_24: // Opcode 24 - BIT $00
    ldrd r8,[temp1]
    orr r8,r8,r4
    MAKEBRANCHLINK r9
-
-   strd r8,[r6]
+   strd r8,r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#2
    B dojitloop
@@ -1149,22 +1147,24 @@ opc_2C: // Opcode 2C - BIT $0000
    cmp temp, temp0, lsr #5  //  constant 0xFEE0 >> 5
    BEQ bitabsio
 
-   ldr r7,Bopc_2C
-   ldr temp0,=bitabstable-8
-   orr r7,r7,r5
-   str r7,[r6],#4
-   add temp0,temp0,r4,LSL #3
-   BL createbranchlinkm8
+   ldr r8,Bopc_2C
+   ldr r9,=bitabstable-12
+   orr r8,r8,r5
+   add r9,r9,r4,LSL #3
+
+   MAKEBRANCHLINK r9
+   strd r8,r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#3
    B dojitloop
 
 bitabsio:
-   ldr r7,Bopc_2C_io
-   ldr temp0,=bitioload-8
-   orr r7,r7,r4
-   str r7,[r6],#4
-   BL createbranchlinkm8
+   ldr r8,Bopc_2C_io
+   ldr r9,=bitioload-12
+   orr r8,r8,r4
+
+   MAKEBRANCHLINK r9
+   strd r8,r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#3
    B dojitloop
@@ -2968,9 +2968,9 @@ opcode_table:
 
 
 branchsavewords:
-   STRD temp0,temp1,[R6]
-   str temp1,[r6,#8]
-   str temp1,[r6,#12]
+   STRD r8,r9,[R6]
+   str r9,[r6,#8]
+   str r9,[r6,#12]
 
 jitend2byteexit:
    FILLINJITTEDTABLES dejit16bit21
@@ -3107,7 +3107,7 @@ cacheflushloopI:
 singleopcodeexit:
    MAKEBRANCHLINK r9
 singleopcodeexitstore:
-   strd r8,[r6]
+   strd r8,r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#1
    B dojitexit
@@ -3115,7 +3115,7 @@ singleopcodeexitstore:
 singleopcodeBLend:
    MAKEBRANCHLINK r9
 jitend1bytestore2:
-   strd r8,[r6]
+   strd r8,r9,[r6]
 jitend1byte:
    FILLINJITTEDTABLES dejit16bit1
    add temp2,temp2,#1
@@ -3193,11 +3193,6 @@ createbranchtojitlet:
    ORR temp0,temp0,#BINSTRUCTION
    str temp0,[r6]
    B jitend3byteexit
-
-createbranchlinkm8:
-   MAKEBRANCHLINK temp0
-   str temp0,[r6]
-   bx lr
 
 fixuptype2accessload4:
    LDM temp1,{r8,r9,r10,r11}
