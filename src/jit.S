@@ -511,7 +511,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro SINGLEBYTEOPT block
    ldrd r8,\block
+#if defined(RPI4)|| defined(RPI3)||defined(RPI2)  
+// it is unknwon why this slows ARMv6 down   
    B jitend1bytestore2opt
+#else
+   B jitend1bytestore2
+#endif    
 .endm
 
 .macro DOUBLEBYTESETFIRSTBYTE block
