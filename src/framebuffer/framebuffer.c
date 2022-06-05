@@ -28,7 +28,8 @@ static int font_width;
 static int font_height;
 static int text_height; // of whole screen
 static int text_width;  // of whole screen
-static int cursor_height;
+static int cursor_start;
+static int cursor_end;
 
 // Text area clip window
 static t_clip_window_t t_window;
@@ -175,7 +176,7 @@ static void update_text_area();
 static void init_variables();
 static void reset_areas();
 static void set_text_area(t_clip_window_t *window);
-static void invert_cursor(int x_pos, int y_pos, int rows);
+static void invert_cursor(int x_pos, int y_pos, int start, int end);
 static void enable_edit_cursor();
 static void disable_edit_cursor();
 static void update_cursors();
@@ -218,11 +219,18 @@ static void update_font_size() {
    // Calculate the font size, taking account of scale and spacing
    font_width  = font->get_overall_w(font);
    font_height = font->get_overall_h(font);
-   // Calculate the height of the flashing cursor
-   cursor_height = font_height >> 3;
+   // Calculate the start/end of the flashing cursor
+   // - in MODES 0,1,2,4,5 the cursor is 1px high (rows 7)
+   // - in MODES 3,6 the cursor is 3px high (rows 7,8,9)
+   int cursor_height = font_height >> 3;
    if (cursor_height < 1) {
       cursor_height = 1;
    }
+   if (screen->mode_flags & (F_BBC_GAP | F_GAP)) {
+      cursor_height += 2;
+   }
+   cursor_start = font_height - cursor_height;
+   cursor_end = font_height - 1;
    // Calc screen text size
    text_width = screen->width / font_width;
    text_height = screen->height / font_height;
@@ -374,10 +382,10 @@ static void set_text_area(t_clip_window_t *window) {
    update_text_area();
 }
 
-static void invert_cursor(int x_pos, int y_pos, int rows) {
+static void invert_cursor(int x_pos, int y_pos, int start, int end) {
    int x = x_pos * font_width;
    int y = screen->height - y_pos * font_height - 1;
-   for (int i = font_height - rows; i < font_height; i++) {
+   for (int i = start; i <= end; i++) {
       for (int j = 0; j < font_width; j++) {
          pixel_t col = screen->get_pixel(screen, x + j, y - i);
          col ^= white_col;
@@ -389,24 +397,24 @@ static void invert_cursor(int x_pos, int y_pos, int rows) {
 static void update_cursors() {
    // Update the flashing cursor
    if (f_visible) {
-      invert_cursor(f_x_pos, f_y_pos, cursor_height);
+      invert_cursor(f_x_pos, f_y_pos, cursor_start, cursor_end);
       f_visible = 0;
    }
    if (e_enabled || c_enabled) {
       f_x_pos = e_enabled ? e_x_pos : c_x_pos;
       f_y_pos = e_enabled ? e_y_pos : c_y_pos;
-      invert_cursor(f_x_pos, f_y_pos, cursor_height);
+      invert_cursor(f_x_pos, f_y_pos, cursor_start, cursor_end);
       f_visible = 1;
    }
    // Update the block cursor
    if (b_visible) {
-      invert_cursor(b_x_pos, b_y_pos, font_height);
+      invert_cursor(b_x_pos, b_y_pos, 0, font_height - 1);
       b_visible = 0;
    }
    if (e_enabled) {
       b_x_pos = c_x_pos;
       b_y_pos = c_y_pos;
-      invert_cursor(b_x_pos, b_y_pos, font_height);
+      invert_cursor(b_x_pos, b_y_pos, 0, font_height - 1);
       b_visible = 1;
    }
 }
@@ -419,11 +427,11 @@ static int disable_cursors() {
    int ret = c_enabled;
    c_enabled = 0;
    if (f_visible) {
-      invert_cursor(f_x_pos, f_y_pos, cursor_height);
+      invert_cursor(f_x_pos, f_y_pos, cursor_start, cursor_end);
    }
    f_visible = 0;
    if (b_visible) {
-      invert_cursor(b_x_pos, b_y_pos, font_height);
+      invert_cursor(b_x_pos, b_y_pos, 0, font_height - 1);
    }
    b_visible = 0;
    return ret;
@@ -433,7 +441,7 @@ static int disable_cursors() {
 static void cursor_interrupt() {
    if (c_enabled || e_enabled) {
       f_visible = !f_visible;
-      invert_cursor(f_x_pos, f_y_pos, cursor_height);
+      invert_cursor(f_x_pos, f_y_pos, cursor_start, cursor_end);
    }
 }
 
@@ -764,6 +772,26 @@ static void graphics_delete() {
 // ==========================================================================
 // VDU 23 commands
 // ==========================================================================
+
+static void vdu23_0(const uint8_t *buf) {
+   // VDU 23,0: Write CRTC Register
+   int tmp;
+   switch (buf[1]) {
+   case 10:
+   case 11:
+      // Cursor Start or End
+      tmp = disable_cursors();
+      if (buf[1] & 1) {
+         cursor_end = buf[2] & 0x1f;
+      } else {
+         cursor_start = buf[2] & 0x1f;
+      }
+      if (tmp) {
+         enable_cursors();
+      }
+      break;
+   }
+}
 
 static void vdu23_1(const uint8_t *buf) {
    // VDU 23,1: Enable/Disable cursor
@@ -1149,6 +1177,7 @@ static void vdu_23(uint8_t *buf) {
       define_character(screen->font, buf[1], buf + 2);
    } else {
       switch (buf[1]) {
+      case  0: vdu23_0 (buf + 1); break;
       case  1: vdu23_1 (buf + 1); break;
       case  2: vdu23_2 (buf + 1); break;
       case  3: vdu23_3 (buf + 1); break;
