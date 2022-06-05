@@ -511,8 +511,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro SINGLEBYTEOPT block
    ldrd r8,\block
-#if defined(RPI4)|| defined(RPI3)||defined(RPI2)  
-// it is unknwon why this slows ARMv6 down   
+#if 0 
+// it is unknwon why this doesn't improvement performance  
    B jitend1bytestore2opt
 #else
    B jitend1bytestore2
@@ -3045,9 +3045,8 @@ jitentry:
    add r6,r6,#JITLET
    ldr temp0,[temp0,r7,LSL#2]
    ldrb r4,[temp2,#1]
-   adr r12,flags_table
    ldrb r5,[temp2,#2]   
-   
+   adr r12,flags_table   
    bx temp0
 // entry regs
 // r0
@@ -3092,251 +3091,6 @@ opcode_table:
 .word opc_E8,opc_E9,opc_EA,opc_EB,opc_EC,opc_ED,opc_EE,opc_EF
 .word opc_F0,opc_F1,opc_F2,opc_F3,opc_F4,opc_F5,opc_F6,opc_F7
 .word opc_F8,opc_F9,opc_FA,opc_FB,opc_FC,opc_FD,opc_FE,opc_FF
-
-
-branchsavewords:
-   STRD r8,r9,[R6]
-   str r9,[r6,#8]
-   str r9,[r6,#12]
-
-jitend2byteexit:
-   FILLINJITTEDTABLES dejit16bit21
-   add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
-   mov r5,#2
-   str temp0,[temp1,#4]
-  // FILLINJITTEDTABLES dejit16bit22
-
-dojitexit :
-#if 0 //JITDEBUG
-   ldrb r0,debugflag
-   movs r0,r0
-   BEQ 1f
-   push {r0-r12}
-   mov r0,r6
-   mov r1,r2
-   BL disarm
-   pop {r0-r12}
-
- //  DEBUG_REG r3
-
-1:
-#endif
-   add r2,r2,r5
-   sub r2,r2,#1   // move end pointer to the last byte
-// flush BTB icache dcache it might be better to just invalidate a few lines
-#if defined(RPI4)|| defined(RPI3)||defined(RPI2)
-   DSB // might not be needed
-
-   // Clean data cache both JITLET
-   // r3 has the first address of JITLET instruction
-   // r2 has last address
-   
-   ldrb r12,cachelineD
-   ldrb r11,cachelineI
-   mov r2,r2,LSL #2        // change to words
-   sub r4,r3,#JITLET
-   add r2,r2,#JITTEDTABLE16   // 
-   mov r4,r4,LSR #(JITLETSHIFT-2)
-   add r4,r4,#JITTEDTABLE16
-
-   mov r5,r2   // end address needs to flushed (JITTEDTABLE16)
-   mov r6,r3   // start address
-   mov r7,r4
-   sub r10,r12,#1
-   bic r4,r4,r10           // round down to the begin of the line
-
-cacheflushloopD:
-   mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16 (DCCMVAU)
-   add r4,r4,r12
-   mcr p15,0,r3,cr7,cr11,1 // data JITLET (NB 2xJITLET compared to table)
-   cmp r4,r2
-   add r3,r3,r12
-   mcr p15,0,r3,cr7,cr11,1 // data JITLET
-   add r3,r3,r12
-   blt cacheflushloopD
-
-   DSB
-
-   sub r10,r11,#1
-   bic r7,r7,r10           // round down the begin of the line
-
-cacheflushloopI:
-   MCR p15,0,r7, c7, c5, 1 // instruction (ICIMVAU)
-   add r7,r7,r11
-   MCR p15,0,r6, c7, c5, 1 // instruction
-   cmp r7,r5
-   add r6,r6,r11
-   MCR p15,0,r6, c7, c5, 1 // instruction
-   add r6,r6,r11
-   blt cacheflushloopI
-
-   MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
-   //MCR p15, 0, reg12, c7, c5, 0 // invalidate I&BTB cache
-
-   DSB
-   ISB
-
-#else
-// Pizero Cache flush code
-
-#if 1
-
-   // this should flush the cache area used in the jitter.
-   // even better if we were to work out if full cache fush would be faster
-   // especially because of the ARMv6 cache flush errata which can be seen in the
-   // Twinhead demo on the Desire screen
-
-   // MCRR p15,end,start,cxx
-   mov temp,#0
-   //MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTC
-
-   mov r2,r2,LSL #JITLETSHIFT
-   add r7,r2,#JITLET
-   sub r4,r3,#JITLET
-   mov r4,r4,LSR #(JITLETSHIFT-2)
-   mov r2,r2,LSR #(JITLETSHIFT-2)
-   add r4,r4,#JITTEDTABLE16
-   add r2,r2,#JITTEDTABLE16
-
-   MCRR p15,0,r7,r3,c12 // clean data cache
-   MCRR p15,0,r2,r4,c12 // clean data cache
-
- //  MCRR p15,0,r7,r3,c5 // invalidate instruction cache
- //  MCRR p15,0,r2,r4,c5 // invalidate instruction cache
-
- //  MCR p15, 0, temp, c7, c10, 4 // DSB
-
- //  MCRR p15,0,r7,r3,c5 // invalidate instruction cache // Do it again ( errata)
- //  MCRR p15,0,r2,r4,c5 // invalidate instruction cache // Do it again ( errata)
-   //MCR p15, 0, r0, c7, c5, 1
-
-   MCR p15, 0, temp, c7, c10, 4 // DSB
-   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTC BTAC
-   MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
-   MCR p15, 0, temp, c7, c10, 4 // DSB
-#else
-   // clean all the cache
-   mov temp,#0
-   MCR p15, 0, temp, c7, c10, 0 //; clean data cache line
-   //mcr p15, 0, temp, c7, c10, 4 //drain write buffer
-   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
-   MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
-#endif
-      
-#endif
-#ifdef DEBUG_TIMING   
-        ldr     r8, =ASS_GPCLR0
-        mov     r7, #TEST2_MASK
-        str     r7, [r8]
-#endif  
-   pop {r3-r11}
-   msr CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
-
-   bx r3  // don't use r14 as it is slow on A72
-
-singleopcodeexit:
-   MAKEBRANCHLINK r9
-singleopcodeexitstore:
-   strd r8,r9,[r6]
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#1
-   B dojitexit
-
-jitend1bytestore2opt:
-   ldrb r7,[r12,r4]
-   tst r7,#NF
-   ldrne r9,=ARMNOP
-   b jitend1bytestore2
-
-singleopcodeBLend:
-   MAKEBRANCHLINK r9
-jitend1bytestore2:
-   strd r8,r9,[r6]
-jitend1byte:
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#1
-   B dojitloop
-
-jitend3byteloadstoreoperandBL8:
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
-   orr r7,r7,r5
-   orr r8,r8,r4
-   MAKEBRANCHLINK r9
-   B jitend3bytestore
-
-// .word address-28
-jitend3byteloadstoreoperandBL:
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
-   orr r7,r7,r5
-   orr r8,r8,r4
-jitend3bytestoreoperandBL:
-   MAKEBRANCHLINK r12
-   B jitend3bytestore
-
-jitend3byteloadstoreoperand:
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
-jitend3bytestoreoperand:
-   orr r7,r7,r5
-   orr r8,r8,r4
-jitend3bytestore:
-   COPY6STORE
-jitend3byte:
-   FILLINJITTEDTABLES dejit16bit31
-   add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   mov r5,#3
-   str temp0,[temp1,#4]
-   add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
-   str temp0,[temp1,#8]
-   B dojitloop
-
-jitend3byteexitBBRS:
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
-   sxtb r5, r5
-   mov r5,r5,LSL #1
-   BIC r5,r5,#0xFF000000
-   orr r11,r5,#BINSTRUCTION
-   orr r7,r7,r4
-   MAKEBRANCHLINK r10
-jitend3byteexitstore6:
-   STMIA r6,{r7,r8,r9,r10,r11,r12}
-
-jitend3byteexit:
-   FILLINJITTEDTABLES dejit16bit31
-   add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   mov r5,#3
-   str temp0,[temp1,#4]
-   add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
-   str temp0,[temp1,#8]
-   B dojitexit
-
-fillinjittedtable:
-   mov temp1,#JITTEDTABLE16
-   RSB temp0,temp2,temp0,LSR #2
-   ORR temp0,temp0,#BINSTRUCTION
-   str temp0,[temp1,temp2,LSL #2]!
-   bx lr
-
-fixuptype2accessload4:
-   LDM temp1,{r8,r9,r10,r11}
-fixuptype2accessstore4:
-   and r1,r4,#0xF0
-   and temp,r4,#0x0F
-   orr r8,r8,r1,LSL #4
-   orr r8,r8,temp
-   B jitend2bytestore4
-
-fixuptype2accessquick:
-   LDM r1,{r7,r8,r9,r10,r11,r12}
-   and r1,r4,#0xF0
-   and r4,r4,#0x0F
-   orr r7,r7,r5
-   orr r8,r8,r1,LSL #4
-   orr r8,r8,r4
-   bx lr
-
-#if OPTIMISMISE>0
-   nop
-   nop
 flags_table:
 .byte RP_N  		// Opcode 00 - BRK is really a two byte instruction, so no fixup needed
 .byte RP_N + NZF 	// Opcode 01 - ORA ($00,X)
@@ -3594,7 +3348,246 @@ flags_table:
 .byte RP_N + VCNZF // Opcode FD - SBC $0000,X
 .byte RP_5 + NZF  // Opcode FE - INC $0000,X
 .byte RP_N  		// Opcode FF - BBS7
+
+branchsavewords:
+   STRD r8,r9,[R6]
+   str r9,[r6,#8]
+   str r9,[r6,#12]
+
+jitend2byteexit:
+   FILLINJITTEDTABLES dejit16bit21
+   add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
+   mov r5,#2
+   str temp0,[temp1,#4]
+  // FILLINJITTEDTABLES dejit16bit22
+
+dojitexit :
+#if 0 //JITDEBUG
+   ldrb r0,debugflag
+   movs r0,r0
+   BEQ 1f
+   push {r0-r12}
+   mov r0,r6
+   mov r1,r2
+   BL disarm
+   pop {r0-r12}
+
+ //  DEBUG_REG r3
+
+1:
 #endif
+   add r2,r2,r5
+   sub r2,r2,#1   // move end pointer to the last byte
+// flush BTB icache dcache it might be better to just invalidate a few lines
+#if defined(RPI4)|| defined(RPI3)||defined(RPI2)
+   DSB // might not be needed
+
+   // Clean data cache both JITLET
+   // r3 has the first address of JITLET instruction
+   // r2 has last address
+   
+   ldrb r12,cachelineD
+   ldrb r11,cachelineI
+   mov r2,r2,LSL #2        // change to words
+   sub r4,r3,#JITLET
+   add r2,r2,#JITTEDTABLE16   // 
+   mov r4,r4,LSR #(JITLETSHIFT-2)
+   add r4,r4,#JITTEDTABLE16
+
+   mov r5,r2   // end address needs to flushed (JITTEDTABLE16)
+   mov r6,r3   // start address
+   mov r7,r4
+   sub r10,r12,#1
+   bic r4,r4,r10           // round down to the begin of the line
+
+cacheflushloopD:
+   mcr p15,0,r4,cr7,cr11,1 // data JITTEDTABLE16 (DCCMVAU)
+   add r4,r4,r12
+   mcr p15,0,r3,cr7,cr11,1 // data JITLET (NB 2xJITLET compared to table)
+   cmp r4,r2
+   add r3,r3,r12
+   mcr p15,0,r3,cr7,cr11,1 // data JITLET
+   add r3,r3,r12
+   blt cacheflushloopD
+
+   DSB
+
+   sub r10,r11,#1
+   bic r7,r7,r10           // round down the begin of the line
+
+cacheflushloopI:
+   MCR p15,0,r7, c7, c5, 1 // instruction (ICIMVAU)
+   add r7,r7,r11
+   MCR p15,0,r6, c7, c5, 1 // instruction
+   cmp r7,r5
+   add r6,r6,r11
+   MCR p15,0,r6, c7, c5, 1 // instruction
+   add r6,r6,r11
+   blt cacheflushloopI
+
+   MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
+   //MCR p15, 0, reg12, c7, c5, 0 // invalidate I&BTB cache
+
+   DSB
+   ISB
+
+#else
+// Pizero Cache flush code
+
+#if 1
+
+   // this should flush the cache area used in the jitter.
+   // even better if we were to work out if full cache fush would be faster
+   // especially because of the ARMv6 cache flush errata which can be seen in the
+   // Twinhead demo on the Desire screen
+
+   // MCRR p15,end,start,cxx
+   mov temp,#0
+   //MCR p15, 0, temp, c7, c5, 6 //; invalidate all of the BTC
+
+   mov r2,r2,LSL #JITLETSHIFT
+   add r7,r2,#JITLET
+   sub r4,r3,#JITLET
+   mov r4,r4,LSR #(JITLETSHIFT-2)
+   mov r2,r2,LSR #(JITLETSHIFT-2)
+   add r4,r4,#JITTEDTABLE16
+   add r2,r2,#JITTEDTABLE16
+
+   MCRR p15,0,r7,r3,c12 // clean data cache
+   MCRR p15,0,r2,r4,c12 // clean data cache
+
+ //  MCRR p15,0,r7,r3,c5 // invalidate instruction cache
+ //  MCRR p15,0,r2,r4,c5 // invalidate instruction cache
+
+ //  MCR p15, 0, temp, c7, c10, 4 // DSB
+
+ //  MCRR p15,0,r7,r3,c5 // invalidate instruction cache // Do it again ( errata)
+ //  MCRR p15,0,r2,r4,c5 // invalidate instruction cache // Do it again ( errata)
+   //MCR p15, 0, r0, c7, c5, 1
+
+   MCR p15, 0, temp, c7, c10, 4 // DSB
+   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTC BTAC
+   MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
+   MCR p15, 0, temp, c7, c10, 4 // DSB
+#else
+   // clean all the cache
+   mov temp,#0
+   MCR p15, 0, temp, c7, c10, 0 //; clean data cache line
+   //mcr p15, 0, temp, c7, c10, 4 //drain write buffer
+   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
+   MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
+#endif
+      
+#endif
+#ifdef DEBUG_TIMING   
+        ldr     r8, =ASS_GPCLR0
+        mov     r7, #TEST2_MASK
+        str     r7, [r8]
+#endif  
+   pop {r3-r11}
+   msr CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
+
+   bx r3  // don't use r14 as it is slow on A72
+
+singleopcodeexit:
+   MAKEBRANCHLINK r9
+singleopcodeexitstore:
+   strd r8,r9,[r6]
+   FILLINJITTEDTABLES dejit16bit1
+   mov r5,#1
+   B dojitexit
+
+jitend1bytestore2opt:
+   ldrb r7,[r12,r4]
+   tst r7,#NF
+   ldrne r9,=ARMNOP
+   b jitend1bytestore2
+
+singleopcodeBLend:
+   MAKEBRANCHLINK r9
+jitend1bytestore2:
+   strd r8,r9,[r6]
+jitend1byte:
+   FILLINJITTEDTABLES dejit16bit1
+   mov r5,#1
+   B dojitloop
+
+jitend3byteloadstoreoperandBL8:
+   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   orr r7,r7,r5
+   orr r8,r8,r4
+   MAKEBRANCHLINK r9
+   B jitend3bytestore
+
+// .word address-28
+jitend3byteloadstoreoperandBL:
+   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   orr r7,r7,r5
+   orr r8,r8,r4
+jitend3bytestoreoperandBL:
+   MAKEBRANCHLINK r12
+   B jitend3bytestore
+
+jitend3byteloadstoreoperand:
+   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+jitend3bytestoreoperand:
+   orr r7,r7,r5
+   orr r8,r8,r4
+jitend3bytestore:
+   COPY6STORE
+jitend3byte:
+   FILLINJITTEDTABLES dejit16bit31
+   add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
+   mov r5,#3
+   str temp0,[temp1,#4]
+   add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
+   str temp0,[temp1,#8]
+   B dojitloop
+
+jitend3byteexitBBRS:
+   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   sxtb r5, r5
+   mov r5,r5,LSL #1
+   BIC r5,r5,#0xFF000000
+   orr r11,r5,#BINSTRUCTION
+   orr r7,r7,r4
+   MAKEBRANCHLINK r10
+jitend3byteexitstore6:
+   STMIA r6,{r7,r8,r9,r10,r11,r12}
+
+jitend3byteexit:
+   FILLINJITTEDTABLES dejit16bit31
+   add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
+   mov r5,#3
+   str temp0,[temp1,#4]
+   add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
+   str temp0,[temp1,#8]
+   B dojitexit
+
+fillinjittedtable:
+   mov temp1,#JITTEDTABLE16
+   RSB temp0,temp2,temp0,LSR #2
+   ORR temp0,temp0,#BINSTRUCTION
+   str temp0,[temp1,temp2,LSL #2]!
+   bx lr
+
+fixuptype2accessload4:
+   LDM temp1,{r8,r9,r10,r11}
+fixuptype2accessstore4:
+   and r1,r4,#0xF0
+   and temp,r4,#0x0F
+   orr r8,r8,r1,LSL #4
+   orr r8,r8,temp
+   B jitend2bytestore4
+
+fixuptype2accessquick:
+   LDM r1,{r7,r8,r9,r10,r11,r12}
+   and r1,r4,#0xF0
+   and r4,r4,#0x0F
+   orr r7,r7,r5
+   orr r8,r8,r1,LSL #4
+   orr r8,r8,r4
+   bx lr
 
 ioload:
    push    {lr}               // ram6502 (r6) is used as a working register
