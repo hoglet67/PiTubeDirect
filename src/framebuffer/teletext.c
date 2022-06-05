@@ -297,6 +297,7 @@ static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel
       break;
    default:
       // TODO - Left and Right not implemented
+      break;
    }
    // Recalculate the double height counts
    update_double_height_counts();
