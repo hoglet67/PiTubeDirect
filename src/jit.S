@@ -20,11 +20,14 @@
 
 // NB this code starts 0x0D400000 + xxx so the above tables are close enough to jump to
 
+// Very simple optimiser such that if the next instruction also sets the NZ flags then the current 
+// instruction doesn't need to set the flags. This can help to remove pipeline stalls 
+// especially after a ldrb instruction
 
 //#define JITDEBUG 1
 //#define DORMANN_TEST 1
 //#define DEBUG_TIMING 1
-
+#define OPTIMISMISE 1
 #define TIMING_INSTRUCTION 1
 
 /* Interrupts
@@ -121,6 +124,28 @@ then return to our secret stack This relies on instructions being re entrant , b
 .equ    I_FLAG6502,  0x04
 .equ    Z_FLAG6502,  0x02
 .equ    C_FLAG6502,  0x01
+
+
+// use for optimastions
+#define RP_N (128)
+#define RP_0 (0<<2)
+#define RP_1 (1<<2)
+#define RP_2 (2<<2)
+#define RP_3 (3<<2)
+#define RP_4 (4<<2)
+#define RP_5 (5<<2)
+
+// simpify replace algorithm. If we have a replacable flags setting instruction and the next instruction sets the N flag then we can replace the flags setting instruction with a NOP
+
+#define ZF 0
+#define NF 64
+#define CF 0
+#define VF 0
+
+#define NZF NF+ZF
+#define CNZF CF+NF+ZF
+#define VCNZF VF+CF+NF+ZF
+
 
 .text
 .global exec_65tubejit
@@ -287,7 +312,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ORR temp,temp,#(NEXTJITLET>>2) // B $+8
    str temp,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#2
+   mov r5,#2
    B dojitloop
 .endm
 
@@ -296,7 +321,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ORR temp,temp,#(NEXTJITLET>>1) // B $+10
    str temp,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#3
+   mov r5,#3
    B dojitloop
 .endm
 
@@ -484,8 +509,21 @@ then return to our secret stack This relies on instructions being re entrant , b
    B jitend1bytestore2
 .endm
 
+.macro SINGLEBYTEOPT block
+   ldrd r8,\block
+   B jitend1bytestore2opt
+.endm
+
 .macro DOUBLEBYTESETFIRSTBYTE block
    adr temp1,\block
+   B doublebyteend
+.endm
+
+.macro DOUBLEBYTESETFIRSTBYTEOPT block block1
+   ldrb r7,[r8,r5]
+   adr temp1,\block
+   tst r7,#NF
+   adrne temp1,\block1
    B doublebyteend
 .endm
 
@@ -511,6 +549,14 @@ then return to our secret stack This relies on instructions being re entrant , b
    B fixuptype2accessload4
 .endm
 
+.macro DOUBLEBYTET2OPT block block1
+   ldrb r7,[r8,r5]
+   adr temp1,\block
+   tst r7,#NF
+   adrne temp1,\block1
+   B fixuptype2accessload4
+.endm
+
 .macro DOUBLEBYTESETTWOBYTES block offset
    COPY4LOAD \block
    orr r8,r8,r4
@@ -533,6 +579,16 @@ then return to our secret stack This relies on instructions being re entrant , b
    adr temp1,\block
    B  jitend3byteloadstoreoperand
 .endm
+
+.macro TRIPLEBYTEABSOPT block block1
+   ldrb r7,[r2,#3]   
+   ldrb r7,[r8,r7]
+   adr temp1,\block
+   tst r7,#NF
+   adrne temp1,\block1
+   B  jitend3byteloadstoreoperand
+.endm
+
 
 .macro TRIPLEBYTEABST2 block
    adr temp1,\block
@@ -835,25 +891,25 @@ opc_78: SINGLEBYTE Bopc_78        // Opcode 78 - SEI
 
 opc_7A: SINGLEOPCODEBLOUT Bopc_7A // Opcode 7A - PLY
 
-opc_88: SINGLEBYTE Bopc_88        // Opcode 88 - DEY
+opc_88: SINGLEBYTEOPT Bopc_88        // Opcode 88 - DEY
 
-opc_8A: SINGLEBYTE Bopc_8A        // Opcode 8A - TXA
+opc_8A: SINGLEBYTEOPT Bopc_8A        // Opcode 8A - TXA
 
-opc_98: SINGLEBYTE Bopc_98        // Opcode 98 - TYA
+opc_98: SINGLEBYTEOPT Bopc_98        // Opcode 98 - TYA
 
 opc_9A: SINGLEBYTE Bopc_9A        // Opcode 9A - TXS
 
-opc_A8: SINGLEBYTE Bopc_A8        // Opcode A8 - TAY
+opc_A8: SINGLEBYTEOPT Bopc_A8        // Opcode A8 - TAY
 
-opc_AA: SINGLEBYTE Bopc_AA        // Opcode AA - TAX
+opc_AA: SINGLEBYTEOPT Bopc_AA        // Opcode AA - TAX
 
 opc_B8: SINGLEBYTE Bopc_B8        // Opcode B8 - CLV
 
-opc_BA: SINGLEBYTE Bopc_BA        // Opcode BA - TSX
+opc_BA: SINGLEBYTEOPT Bopc_BA        // Opcode BA - TSX
 
-opc_C8: SINGLEBYTE Bopc_C8        // Opcode C8 - INY
+opc_C8: SINGLEBYTEOPT Bopc_C8        // Opcode C8 - INY
 
-opc_CA: SINGLEBYTE Bopc_CA        // Opcode CA - DEX
+opc_CA: SINGLEBYTEOPT Bopc_CA        // Opcode CA - DEX
 
 opc_D8: SINGLEBYTE Bopc_D8        // Opcode D8 - CLD
 
@@ -861,7 +917,7 @@ opc_DA: SINGLEOPCODEBLOUT Bopc_DA // Opcode DA - PHX
 
 opc_E3: SINGLEOPCODEBLOUT Bopc_E3 // Opcode E3 - NOP6
 
-opc_E8: SINGLEBYTE Bopc_E8        // Opcode E8 - INX
+opc_E8: SINGLEBYTEOPT Bopc_E8        // Opcode E8 - INX
 
 opc_EB: SINGLEBYTE Bopc_EB        // Opcode EB - NOP6 ( Used for instruction timing)
 
@@ -1127,7 +1183,7 @@ opc_24: // Opcode 24 - BIT $00
    MAKEBRANCHLINK r9
    strd r8,r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#2
+   mov r5,#2
    B dojitloop
 
 opc_25: // Opcode 25 - AND $00
@@ -1158,7 +1214,7 @@ opc_2C: // Opcode 2C - BIT $0000
    MAKEBRANCHLINK r9
    strd r8,r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#3
+   mov r5,#3
    B dojitloop
 
 bitabsio:
@@ -1169,7 +1225,7 @@ bitabsio:
    MAKEBRANCHLINK r9
    strd r8,r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#3
+   mov r5,#3
    B dojitloop
 
 opc_2D: // Opcode 2D - AND $0000
@@ -1888,13 +1944,13 @@ opc_A2: // Opcode A2 - LDX #$00
    DOUBLEBYTESETFIRSTBYTE Bopc_A2
 
 opc_A4: // Opcode A4 - LDY $00
-   DOUBLEBYTESETFIRSTBYTE Bopc_A4
+   DOUBLEBYTESETFIRSTBYTEOPT Bopc_A4 Bopc_A4_fast
 
 opc_A5: // Opcode A5 - LDA $00
-   DOUBLEBYTET2 Bopc_A5
+   DOUBLEBYTET2OPT Bopc_A5 Bopc_A5_fast
 
 opc_A6: // Opcode A6 - LDX $00
-   DOUBLEBYTESETFIRSTBYTE Bopc_A6
+   DOUBLEBYTESETFIRSTBYTEOPT Bopc_A6 Bopc_A6_fast
 
 opc_A7: // Opcode A7 - SMB2 $00
    DOUBLEBYTESETTWOBYTES12 Bopc_A7 12
@@ -1954,10 +2010,10 @@ opc_AF: // Opcode AF - BBS2
    BBRS Bopc_AF bbsreturn
 
 opc_B1: // Opcode B1 - LDA ($00),Y
-   DOUBLEBYTET2 Bopc_B1
+   DOUBLEBYTET2OPT Bopc_B1 Bopc_B1_fast
 
 opc_B2: // Opcode B2 - LDA ($00)
-   DOUBLEBYTET2 Bopc_B2
+   DOUBLEBYTET2OPT Bopc_B2 Bopc_B2_fast
 
 opc_B4: // Opcode B4 - LDY $00,X
    DOUBLEBYTESETFIRSTBYTE Bopc_B4
@@ -1978,7 +2034,7 @@ opc_BC: // Opcode BC - LDY $0000,X
    TRIPLEBYTEABS Bopc_BC
 
 opc_BD: // Opcode BD - LDA $0000,X
-   TRIPLEBYTEABS Bopc_BD
+   TRIPLEBYTEABSOPT Bopc_BD Bopc_BD_fast
 
 opc_BE: // Opcode BE - LDX $0000,Y
    TRIPLEBYTEABS Bopc_BE
@@ -2034,16 +2090,34 @@ Bopc_A4:
    nop
    mov regY,regY,LSL #24
    teq regY,#0
+
+Bopc_A4_fast:
+   ldrb regY,[ram6502,#0x00]
+   nop
+   nop
+   mov regY,regY,LSL #24
+
 Bopc_A5:
    LDRSB regA,[ram6502,#0x00]
    nop
    nop
    teq regA,#0
+Bopc_A5_fast:
+   LDRSB regA,[ram6502,#0x00]
+   nop
+   nop
+   nop
 Bopc_A6:
    ldrb regX,[ram6502,#0x00]
    nop
    mov regX,regX,LSL #24
    teq regX,#0
+Bopc_A6_fast:
+   ldrb regX,[ram6502,#0x00]
+   nop
+   nop
+   mov regX,regX,LSL #24
+
 Bopc_A7:
    JITSMB 2
 
@@ -2092,11 +2166,22 @@ Bopc_B1:
    mov reg1,regY,LSR #24
    ldrsb regA,[reg1,reg0]
    teq   regA,#0
+Bopc_B1_fast:
+   ldrh reg0,[ram6502,#0x00]
+   mov reg1,regY,LSR #24
+   nop
+   ldrsb regA,[reg1,reg0]
 Bopc_B2:
    ldrh reg0,[ram6502,#0x00]
    nop
    ldrsb regA,[reg0]
    teq   regA,#0
+Bopc_B2_fast:
+   ldrh reg0,[ram6502,#0x00]
+   nop
+   nop
+   ldrsb regA,[reg0]
+
 Bopc_B4:
    ADDR1REGXZP
    ldrb regY,[ram6502,reg1,LSR#24]
@@ -2134,6 +2219,13 @@ Bopc_BD:
    ldrsb regA,[reg1, regA]   // ldrsb regA,[reg1,#LSB] // Should be fast
    nop
    teq  regA, #0
+Bopc_BD_fast:
+   JITABS                    // mov r1,regx,LSL#24
+   mov  regA, regX, lsr #24  // ADD r1,r1,#MSB<<8
+   ldrsb regA,[reg1, regA]   // ldrsb regA,[reg1,#LSB] // Should be fast
+   nop
+   nop
+
 Bopc_BE:
    JITABS
    ldrb regX,[reg1, regY, lsr #24]
@@ -2253,6 +2345,12 @@ Bopc_E6:
    add  reg0, reg0, #1
    strb reg0,[ram6502,#0]
    .word tempflags-20
+Bopc_E6_fast:
+   ldrb reg0,[ram6502,#0]
+   nop
+   add  reg0, reg0, #1
+   strb reg0,[ram6502,#0]
+
 Bopc_E7:
    JITSMB 6
 
@@ -2322,10 +2420,18 @@ opc_E4: // Opcode E4 - CPX $00
    DOUBLEBYTESETFIRSTBYTE Bopc_E4
 
 opc_E6: // Opcode E6 - INC $00
+   ldrb r7,[r8,r5]
+   tst r7,#NF
+   Bne 1f
    COPY4LOAD Bopc_E6
    orr r8,r8,r4
    orr r10,r10,r4
    B jitend2byteBLendstore
+1:
+   COPY4LOAD Bopc_E6_fast
+   orr r8,r8,r4
+   orr r11,r11,r4
+   B jitend2bytestore4
 
 opc_E7: // Opcode E7 - SMB6 $00
    DOUBLEBYTESETTWOBYTES12 Bopc_E7 12
@@ -2853,7 +2959,8 @@ dojit:
         mov     r7, #TEST2_MASK
         str     r7, [r8]
 #endif        
-   sub temp2,R3,#JITLET
+   sub temp2,R3,#JITLET 
+   mov r5,#0
    mov temp2,temp2,LSR#JITLETSHIFT
    b jitentry
 
@@ -2896,10 +3003,12 @@ jitend2bytestore4:
 jitend2byte:
    FILLINJITTEDTABLES dejit16bit21
    add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
-   add temp2,temp2,#2
+   mov r5,#2
    str temp0,[temp1,#4]
 
 dojitloop:
+
+#endif 
 #if 0 //JITDEBUG
    ldrb temp,debugflag
    movs temp,temp
@@ -2907,7 +3016,7 @@ dojitloop:
 
    push {r0-r12}
    mov r0,r6
-   mov r1,r2
+   add r1,r2,r5
    BL disarm
    pop {r0-r12}
 1:
@@ -2921,18 +3030,20 @@ jitentry:
    BEQ 1f
 
    push {r0-r12}
-   mov r0,temp2
+   add r0,temp2,r5
    BL dis6502
    pop {r0-r12}
 1:
 #endif
-   ldrb r7,[temp2]
+   ldrb r7,[temp2,r5]!
    mov r6,temp2,LSL#JITLETSHIFT
    adr temp0,opcode_table
    add r6,r6,#JITLET
    ldr temp0,[temp0,r7,LSL#2]
    ldrb r4,[temp2,#1]
+   adr r8,flags_table
    ldrb r5,[temp2,#2]   
+   
    bx temp0
 // entry regs
 // r0
@@ -2942,7 +3053,8 @@ jitentry:
 // r4 operand byte 1
 // r5 operand byte 2
 // r6 Address to write to JITLET code to
-//r7,r8,r9,r10,r11,r12 six registers for COPY6
+// r7,r8,r9,r10,r11,r12 six registers for COPY6
+// exit with r5 being the length of the 6502 instruction
 opcode_table:
 .word opc_00,opc_01,opc_02,opc_03,opc_04,opc_05,opc_06,opc_07
 .word opc_08,opc_09,opc_0A,opc_0B,opc_0C,opc_0D,opc_0E,opc_0F
@@ -2986,7 +3098,7 @@ branchsavewords:
 jitend2byteexit:
    FILLINJITTEDTABLES dejit16bit21
    add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
-   add temp2,temp2,#2
+   mov r5,#2
    str temp0,[temp1,#4]
   // FILLINJITTEDTABLES dejit16bit22
 
@@ -3005,6 +3117,7 @@ dojitexit :
 
 1:
 #endif
+   add r2,r2,r5
    sub r2,r2,#1   // move end pointer to the last byte
 // flush BTB icache dcache it might be better to just invalidate a few lines
 #if defined(RPI4)|| defined(RPI3)||defined(RPI2)
@@ -3122,8 +3235,14 @@ singleopcodeexit:
 singleopcodeexitstore:
    strd r8,r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#1
+   mov r5,#1
    B dojitexit
+
+jitend1bytestore2opt:
+   ldrb r7,[r7,r4]
+   tst r7,#NF
+   ldrne r9,=ARMNOP
+   b jitend1bytestore2
 
 singleopcodeBLend:
    MAKEBRANCHLINK r9
@@ -3131,7 +3250,7 @@ jitend1bytestore2:
    strd r8,r9,[r6]
 jitend1byte:
    FILLINJITTEDTABLES dejit16bit1
-   add temp2,temp2,#1
+   mov r5,#1
    B dojitloop
 
 jitend3byteloadstoreoperandBL8:
@@ -3160,7 +3279,7 @@ jitend3bytestore:
 jitend3byte:
    FILLINJITTEDTABLES dejit16bit31
    add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   add temp2,temp2,#3
+   mov r5,#3
    str temp0,[temp1,#4]
    add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
    str temp0,[temp1,#8]
@@ -3180,7 +3299,7 @@ jitend3byteexitstore6:
 jitend3byteexit:
    FILLINJITTEDTABLES dejit16bit31
    add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   add temp2,temp2,#3
+   mov r5,#3
    str temp0,[temp1,#4]
    add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
    str temp0,[temp1,#8]
@@ -3192,8 +3311,6 @@ fillinjittedtable:
    ORR temp0,temp0,#BINSTRUCTION
    str temp0,[temp1,temp2,LSL #2]!
    bx lr
-
-
 
 fixuptype2accessload4:
    LDM temp1,{r8,r9,r10,r11}
@@ -3212,6 +3329,268 @@ fixuptype2accessquick:
    orr r8,r8,r1,LSL #4
    orr r8,r8,r4
    bx lr
+
+#if OPTIMISMISE>0
+   nop
+   nop
+flags_table:
+.byte RP_N  		// Opcode 00 - BRK is really a two byte instruction, so no fixup needed
+.byte RP_N + NZF 	// Opcode 01 - ORA ($00,X)
+.byte RP_N  		// Opcode 02 - NOP 2
+.byte RP_N  		// Opcode 03 - NOP
+.byte RP_N + ZF 	// Opcode 04 - TSB $00
+.byte RP_N + NZF 	// Opcode 05 - ORA $00
+.byte RP_N + CNZF // Opcode 06 - ASL $00
+.byte RP_N  		// Opcode 07 - RMB0 $00
+.byte RP_N  		// Opcode 08 - PHP
+.byte RP_N + NZF 	// Opcode 09 - ORA #$00
+.byte RP_N + CNZF	// Opcode 0A - ASL A
+.byte RP_N  		// Opcode 0B - NOP
+.byte RP_N + ZF 	// Opcode 0C - TSB $0000
+.byte RP_N + NZF	// Opcode 0D - ORA $0000
+.byte RP_N + CNZF // Opcode 0E - ASL $0000
+.byte RP_N  		// Opcode 0F - BBR0
+.byte RP_N  		// Opcode 10 - BPL
+.byte RP_N + NZF	// Opcode 11 - ORA ($00),Y
+.byte RP_N + NZF	// Opcode 12 - ORA ($00)
+.byte RP_N  		// Opcode 13 - NOP
+.byte RP_N + ZF 	// Opcode 14 - TRB $00
+.byte RP_N + NZF	// Opcode 15 - ORA $00,X
+.byte RP_N + CNZF	// Opcode 16 - ASL $00, X
+.byte RP_N  		// Opcode 17 - RMB1 $00
+.byte RP_N + CF	// Opcode 18 - CLC
+.byte RP_N + NZF	// Opcode 19 - ORA $0000,Y
+.byte RP_N + NZF	// Opcode 1A - INC A
+.byte RP_N  		// Opcode 1B - NOP
+.byte RP_N + ZF	// Opcode 1C - TRB $0000
+.byte RP_N + NZF	// Opcode 1D - ORA $0000,X
+.byte RP_N + CNZF	// Opcode 1E - ASL $0000,X
+.byte RP_N  		// Opcode 1F - BBR1
+.byte RP_N  		// Opcode 20 - JSR $0000
+.byte RP_N + NZF	// Opcode 21 - AND ($00,X)
+.byte RP_N  		// Opcode 22 - NOP #$00
+.byte RP_N  		// Opcode 23 - NOP
+.byte RP_N + NZF+ VF// Opcode 24 - BIT $00
+.byte RP_N + NZF	// Opcode 25 - AND     $00
+.byte RP_N + CNZF	// Opcode 26 - ROL $00
+.byte RP_N  		// Opcode 27 - RMB2 $00
+.byte RP_N + VCNZF // Opcode 28 - PLP
+.byte RP_N + NZF 	// Opcode 29 - AND     #$00
+.byte RP_N + CNZF // Opcode 2A - ROL A
+.byte RP_N  		// Opcode 2B - NOP
+.byte RP_N + NZF+ VF// Opcode 2C - BIT $0000
+.byte RP_N + NZF	// Opcode 2D - AND     $0000
+.byte RP_N + CNZF // Opcode 2E - ROL $0000
+.byte RP_N  		// Opcode 2F - BBR2
+.byte RP_N  		// Opcode 30 - BMI
+.byte RP_N + NZF	// Opcode 31 - AND ($00),Y
+.byte RP_N + NZF	// Opcode 32 - AND ($00)
+.byte RP_N  		// Opcode 33 - NOP
+.byte RP_N + NZF+ VF// Opcode 34 - BIT $00,X
+.byte RP_N + NZF	// Opcode 35 - AND $00,X
+.byte RP_N + CNZF // Opcode 36 - ROL $00,X
+.byte RP_N  		// Opcode 37 - RMB3 $00
+.byte RP_N + CF 	// Opcode 38 - SEC
+.byte RP_N + NZF	// Opcode 39 - AND $0000,Y
+.byte RP_N + NZF	// Opcode 3A - DEC A
+.byte RP_N  		// Opcode 3B - NOP
+.byte RP_N + NZF+ VF// Opcode 3C - BIT $0000,X
+.byte RP_N + NZF	// Opcode 3D - AND $0000,X
+.byte RP_N + CNZF // Opcode 3E - ROL $0000,X
+.byte RP_N  		// Opcode 3F - BBR3
+.byte RP_N + VCNZF // Opcode 40 - RTI
+.byte RP_N + NZF	// Opcode 41 - EOR ($00,X)
+.byte RP_N  		// Opcode 42 - NOP #$00
+.byte RP_N  		// Opcode 43 - NOP
+.byte RP_N  		// Opcode 44 - NOP $00
+.byte RP_N + NZF	// Opcode 45 - EOR $00
+.byte RP_N + CNZF	// Opcode 46 - LSR $00
+.byte RP_N  		// Opcode 47 - RMB4 $00
+.byte RP_N  		// Opcode 48 - PHA
+.byte RP_N + NZF	// Opcode 49 - EOR #$00
+.byte RP_N + CNZF	// Opcode 4A - LSR A
+.byte RP_N  		// Opcode 4B - NOP
+.byte RP_N  		// Opcode 4C - JMP $0000
+.byte RP_N + NZF	// Opcode 4D - EOR $0000
+.byte RP_N + CNZF	// Opcode 4E - LSR $0000
+.byte RP_N  		// Opcode 4F - BBR4
+.byte RP_N  		// Opcode 50 - BVC
+.byte RP_N + NZF	// Opcode 51 - EOR ($00),Y
+.byte RP_N + NZF	// Opcode 52 - EOR ($00)
+.byte RP_N  		// Opcode 53 - NOP
+.byte RP_N  		// Opcode 54 - NOP $00,X
+.byte RP_N + NZF	// Opcode 55 - EOR $00,X
+.byte RP_N + CNZF	// Opcode 56 - LSR $00,X
+.byte RP_N  		// Opcode 57 - RMB5 $00
+.byte RP_N  		// Opcode 58 - CLI
+.byte RP_N + NZF	// Opcode 59 - EOR $0000,Y
+.byte RP_N  		// Opcode 5A - PHY
+.byte RP_N  		// Opcode 5B - NOP
+.byte RP_N  		// Opcode 5C - NOP $0000
+.byte RP_N + NZF	// Opcode 5D - EOR $0000,X
+.byte RP_N + CNZF	// Opcode 5E - LSR $0000,X
+.byte RP_N  		// Opcode 5F - BBR5
+.byte RP_N  		// Opcode 60 - RTS
+.byte RP_N + VCNZF // Opcode 61 - ADC ($00,X)
+.byte RP_N  		// Opcode 62 - NOP #$00
+.byte RP_N  		// Opcode 63 - NOP
+.byte RP_N  		// Opcode 64 - STZ $00
+.byte RP_N + VCNZF // Opcode 65 - ADC $00
+.byte RP_N + CNZF // Opcode 66 - ROR $00
+.byte RP_N  		// Opcode 67 - RMB6 $00
+.byte RP_N + NZF	// Opcode 68 - PLA
+.byte RP_N + VCNZF // Opcode 69 - ADC #$00
+.byte RP_N + CNZF // Opcode 6A - ROR A
+.byte RP_N  		// Opcode 6B - NOP
+.byte RP_N  		// Opcode 6C - JMP ($0000)
+.byte RP_N + VCNZF // Opcode 6D - ADC $0000
+.byte RP_N + CNZF // Opcode 6E - ROR $0000
+.byte RP_N  		// Opcode 6F - BBR6
+.byte RP_N  		// Opcode 70 - BVS
+.byte RP_N + VCNZF // Opcode 71 - ADC ($00),Y
+.byte RP_N + VCNZF // Opcode 72 - ADC ($00)
+.byte RP_N  		// Opcode 73 - NOP
+.byte RP_N  		// Opcode 74 - STZ $00,X
+.byte RP_N + VCNZF // Opcode 75 - ADC $00,X
+.byte RP_N + CNZF	// Opcode 76 - ROR $00,X
+.byte RP_N  		// Opcode 77 - RMB7 $00
+.byte RP_N  		// Opcode 78 - SEI
+.byte RP_N + VCNZF // Opcode 79 - ADC $0000,Y
+.byte RP_N + NZF	// Opcode 7A - PLY
+.byte RP_N  		// Opcode 7B - NOP
+.byte RP_N  		// Opcode 7C - JMP ($0000,X)
+.byte RP_N + VCNZF // Opcode 7D - ADC $0000,X
+.byte RP_N + CNZF // Opcode 7E - ROR $0000,X
+.byte RP_N  		// Opcode 7F - BBR7
+.byte RP_N  		// Opcode 80 - BRA
+.byte RP_N  		// Opcode 81 - STA ($00,X)
+.byte RP_N  		// Opcode 82 - NOP #$00
+.byte RP_N  		// Opcode 83 - NOP
+.byte RP_N  		// Opcode 84 - STY $00
+.byte RP_N  		// Opcode 85 - STA $00
+.byte RP_N  		// Opcode 86 - STX $00
+.byte RP_N  		// Opcode 87 - SMB0 $00
+.byte RP_1 + NZF	// Opcode 88 - DEY - may not be worth it
+.byte RP_N + ZF	// Opcode 89 - BIT #$00
+.byte RP_1 + NZF  // Opcode 8A - TXA - may not be worth it
+.byte RP_N  		// Opcode 8B - NOP
+.byte RP_N  		// Opcode 8C - STY $0000
+.byte RP_N  		// Opcode 8D - STA $0000
+.byte RP_N  		// Opcode 8E - STX $0000
+.byte RP_N  		// Opcode 8F - BBS0
+.byte RP_N  		// Opcode 90 - BCC
+.byte RP_N  		// Opcode 91 - STA ($00),Y
+.byte RP_N  		// Opcode 92 - STA ($00)
+.byte RP_N  		// Opcode 93 - NOP
+.byte RP_N  		// Opcode 94 - STY $00,X
+.byte RP_N  		// Opcode 95 - STA $00,X
+.byte RP_N  		// Opcode 96 - STX $00,Y
+.byte RP_N  		// Opcode 97 - SMB1 $00
+.byte RP_1 + NZF 	// Opcode 98 - TYA
+.byte RP_N  		// Opcode 99 - STA $0000,Y
+.byte RP_N  		// Opcode 9A - TXS
+.byte RP_N  		// Opcode 9B - NOP
+.byte RP_N  		// Opcode 9C - STZ $0000
+.byte RP_N  		// Opcode 9D - STA $0000,X
+.byte RP_N  		// Opcode 9E - STZ $0000,X
+.byte RP_N  		// Opcode 9F - BBS1
+.byte RP_N + NZF 	// Opcode A0 - LDY #$00 -- could be replace 2 but unlikely to be worth it
+.byte RP_N + NZF	// Opcode A1 - LDA ($00,X)
+.byte RP_N + NZF	// Opcode A2 - LDX #$00 -- could be replace 2 but unlikely to be worth it
+.byte RP_N  		// Opcode A3 - NOP
+.byte RP_3 + NZF	// Opcode A4 - LDY $00 - may not be worth it ( bigger rewrite would be)
+.byte RP_3 + NZF	// Opcode A5 - LDA $00
+.byte RP_3 + NZF 	// Opcode A6 - LDX $00 - may not be worth it ( bigger rewrite would be)
+.byte RP_N  		// Opcode A7 - SMB2 $00
+.byte RP_1 + NZF	// Opcode A8 - TAY - really may not be worth it
+.byte RP_N + NZF	// Opcode A9 - LDA #$00
+.byte RP_1 + NZF	// Opcode AA - TAX - really may not be worth it
+.byte RP_N  		// Opcode AB - NOP
+.byte RP_5 + NZF	// Opcode AC - LDY $0000 - may not be worth it ( bigger rewrite would be)
+.byte RP_5 + NZF	// Opcode AD - LDA $0000 - may not be worth it ( bigger rewrite would be)
+.byte RP_5 + NZF	// Opcode AE - LDX $0000 - may not be worth it ( bigger rewrite would be)
+.byte RP_N  		// Opcode AF - BBS2
+.byte RP_N  		// Opcode B0 - BCS
+.byte RP_3 + NZF 	// Opcode B1 - LDA ($00),Y
+.byte RP_3 + NZF 	// Opcode B2 - LDA ($00)
+.byte RP_N  		// Opcode B3 - NOP
+.byte RP_3 + NZF 	// Opcode B4 - LDY $00,X
+.byte RP_3 + NZF 	// Opcode B5 - LDA $00,X
+.byte RP_3 + NZF 	// Opcode B6 - LDX $00,Y
+.byte RP_N  		// Opcode B7 - SMB3 $00
+.byte RP_N  		// Opcode B8 - CLV
+.byte RP_5 + NZF 	// Opcode B9 - LDA $0000,Y
+.byte RP_1 + NZF	// Opcode BA - TSX - may not be worth it
+.byte RP_N  		// Opcode BB - NOP
+.byte RP_5 + NZF 	// Opcode BC - LDY $0000,X
+.byte RP_5 + NZF 	// Opcode BD - LDA $0000,X
+.byte RP_5 + NZF 	// Opcode BE - LDX $0000,Y
+.byte RP_N  		// Opcode BF - BBS3
+.byte RP_N + CNZF	// Opcode C0 - CPY #$00
+.byte RP_N + CNZF	// Opcode C1 - CMP ($00,X)
+.byte RP_N  		// Opcode C2 - NOP #$00
+.byte RP_N  		// Opcode C3 - NOP
+.byte RP_N + CNZF // Opcode C4 - CPY $00
+.byte RP_N + CNZF	// Opcode C5 - CMP $00
+.byte RP_N + NZF	// Opcode C6 - DEC $00
+.byte RP_N  		// Opcode C7 - SMB4 $00
+.byte RP_1 + NZF	// Opcode C8 - INY
+.byte RP_N + CNZF	// Opcode C9 - CMP #$00
+.byte RP_1 + NZF  // Opcode CA - DEX
+.byte RP_N  		// Opcode CB - WAI
+.byte RP_N + CNZF	// Opcode CC - CPY $0000
+.byte RP_N + CNZF	// Opcode CD - CMP $0000
+.byte RP_5 + NZF	// Opcode CE - DEC $0000
+.byte RP_N  		// Opcode CF - BBS4
+.byte RP_N  		// Opcode D0 - BNE
+.byte RP_N + CNZF	// Opcode D1 - CMP ($00),Y
+.byte RP_N + CNZF	// Opcode D2 - CMP ($00)
+.byte RP_N  		// Opcode D3 - NOP
+.byte RP_N  		// Opcode D4 - NOP $00,X
+.byte RP_N + CNZF	// Opcode D5 - CMP $00,X
+.byte RP_N + NZF	// Opcode D6 - DEC $00,X
+.byte RP_N  		// Opcode D7 - SMB5 $00
+.byte RP_N  		// Opcode D8 - CLD
+.byte RP_N + CNZF	// Opcode D9 - CMP $0000,Y
+.byte RP_N     	// Opcode DA - PHX
+.byte RP_N  		// Opcode DB - STP
+.byte RP_N  		// Opcode DC - NOP $0000
+.byte RP_N + CNZF	// Opcode DD - CMP $0000,X
+.byte RP_N + NZF	// Opcode DE - DEX $0000,X
+.byte RP_N  		// Opcode DF - BBS5
+.byte RP_N + CNZF	// Opcode E0 - CPX #$00
+.byte RP_N + VCNZF // Opcode E1 - SBC ($00,X)
+.byte RP_N  		// Opcode E2 - NOP #$00
+.byte RP_N  		// Opcode E3 - 
+.byte RP_N + CNZF	// Opcode E4 - CPX $00
+.byte RP_N + VCNZF  // Opcode E5 - SBC $00
+.byte RP_N + NZF	// Opcode E6 - INC $00
+.byte RP_N  		// Opcode E7 - SMB6 $00
+.byte RP_1 + NZF	// Opcode E8 - INX
+.byte RP_N + VCNZF  // Opcode E9 - SBC #$00
+.byte RP_N  		// Opcode EA - NOP
+.byte RP_N  		// Opcode EB - NOP ( Borrowed for instruction timing)
+.byte RP_N + CNZF	// Opcode EC - CPX $0000
+.byte RP_N + VCNZF	// Opcode ED - SBC $0000
+.byte RP_4 + NZF 	// Opcode EE - INC $0000
+.byte RP_N  		// Opcode EF - BBS6
+.byte RP_N  		// Opcode F0 - BEQ
+.byte RP_N + VCNZF 	// Opcode F1 - SBC ($00),Y
+.byte RP_N + VCNZF 	// Opcode F2 - SBC ($00)
+.byte RP_N  		// Opcode F3 - NOP
+.byte RP_N  		// Opcode F4 -
+.byte RP_N + VCNZF  // Opcode F5 - SBC $00,X
+.byte RP_N + NZF 	// Opcode F6 - INC $00,X
+.byte RP_N  		// Opcode F7 - SMB7 $00
+.byte RP_N  		// Opcode F8 - SED
+.byte RP_N + VCNZF  // Opcode F9 - SBC $0000,Y
+.byte RP_N     	// Opcode FA - PLX
+.byte RP_N  		// Opcode FB - NOP
+.byte RP_N  		// Opcode FC - NOP $0000
+.byte RP_N + VCNZF // Opcode FD - SBC $0000,X
+.byte RP_5 + NZF  // Opcode FE - INC $0000,X
+.byte RP_N  		// Opcode FF - BBS7
+#endif
 
 ioload:
    push    {lr}               // ram6502 (r6) is used as a working register
