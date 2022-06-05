@@ -520,7 +520,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTESETFIRSTBYTEOPT block block1
-   ldrb r7,[r8,r5]
+   ldrb r7,[r12,r5]
    adr temp1,\block
    tst r7,#NF
    adrne temp1,\block1
@@ -550,7 +550,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DOUBLEBYTET2OPT block block1
-   ldrb r7,[r8,r5]
+   ldrb r7,[r12,r5]
    adr temp1,\block
    tst r7,#NF
    adrne temp1,\block1
@@ -582,7 +582,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro TRIPLEBYTEABSOPT block block1
    ldrb r7,[r2,#3]   
-   ldrb r7,[r8,r7]
+   ldrb r7,[r12,r7]
    adr temp1,\block
    tst r7,#NF
    adrne temp1,\block1
@@ -2420,7 +2420,7 @@ opc_E4: // Opcode E4 - CPX $00
    DOUBLEBYTESETFIRSTBYTE Bopc_E4
 
 opc_E6: // Opcode E6 - INC $00
-   ldrb r7,[r8,r5]
+   ldrb r7,[r12,r5]
    tst r7,#NF
    Bne 1f
    COPY4LOAD Bopc_E6
@@ -3008,7 +3008,6 @@ jitend2byte:
 
 dojitloop:
 
-#endif 
 #if 0 //JITDEBUG
    ldrb temp,debugflag
    movs temp,temp
@@ -3041,7 +3040,7 @@ jitentry:
    add r6,r6,#JITLET
    ldr temp0,[temp0,r7,LSL#2]
    ldrb r4,[temp2,#1]
-   adr r8,flags_table
+   adr r12,flags_table
    ldrb r5,[temp2,#2]   
    
    bx temp0
@@ -3239,7 +3238,7 @@ singleopcodeexitstore:
    B dojitexit
 
 jitend1bytestore2opt:
-   ldrb r7,[r7,r4]
+   ldrb r7,[r12,r4]
    tst r7,#NF
    ldrne r9,=ARMNOP
    b jitend1bytestore2
