@@ -3351,8 +3351,8 @@ flags_table:
 
 branchsavewords:
    STRD r8,r9,[R6]
-   str r9,[r6,#8]
-   str r9,[r6,#12]
+   //str r9,[r6,#8]
+   //str r9,[r6,#12]
 
 jitend2byteexit:
    FILLINJITTEDTABLES dejit16bit21
