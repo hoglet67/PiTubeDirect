@@ -450,7 +450,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro BRANCH type
    sxtb r4,r4
-   ldr r9,B_NOP
+   ldr r9,=0xea000001 //B_NOP
 // do jump maths
 // temp0 is where we need to goto NB -2 ie. if we have 6 we goto +8
 // so it look like arm and 6502 jumps are the same so if we load the bit signed
