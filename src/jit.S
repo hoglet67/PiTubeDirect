@@ -2645,7 +2645,6 @@ exec_65tube_exit:     // We get here from the Event handler when RST is detected
    ldr r13,stackptr  // Hack to ensure the stack ptr is on the right place
    pop {r4-r11,pc}
 .ltorg
-
 old_fiq_vector:
    .word 0
 fiq_lr_temp:
@@ -3358,7 +3357,7 @@ dojitexit :
    movs r0,r0
    BEQ 1f
    push {r0-r12}
-   mov r0,r6
+   ldr r0,debugtemp
    mov r1,r2
    BL disarm
    pop {r0-r12}
