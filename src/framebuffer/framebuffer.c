@@ -2083,9 +2083,53 @@ uint8_t fb_read_legacy_vdu_variable(uint8_t v) {
    case 0x26:
    case 0x27:
       return read_legacy_vdu_variable_helper(V_GCSIY, v);
+      // &4F Bytes per character for current mode
+   case 0x4f:
+      if (screen->mode_flags & F_TELETEXT) {
+         return 1;
+      } else {
+         // Note: the values returned are the same as on the Beeb
+         // and don't actually refect the real frame buffer bit depths
+         // in some cases. Also assumes an 8x8 font.
+         switch (screen->ncolour) {
+         case 0x01:
+            return (uint8_t)8;   // actually 64
+         case 0x03:
+            return (uint8_t)16;  // actually 64
+         case 0x0f:
+            return (uint8_t)32;  // actually 64
+         case 0xff:
+            return (uint8_t)64;
+         case 0xffff:
+            return (uint8_t)128;
+         case 0xffffff:
+            return (uint8_t)0;   // actually 256
+         default:
+            return (uint8_t)0;   // should never hit this case
+         }
+      }
       // &55 Current screen mode read by OSBYTE &87
    case 0x55:
-      return (uint8_t)(fb_get_current_screen_mode()->mode_num & 0xff);
+      return (uint8_t)(screen->mode_num & 0xff);
+      // &60 Number logical colours -1
+   case 0x60:
+      return (uint8_t)(screen->ncolour & 0xff);
+      // &61 Pixels per byte -1 (zero if text only mode)
+   case 0x61:
+      if (screen->mode_flags & (F_TELETEXT | F_BBC_GAP)) {
+         return (uint8_t)0;
+      } else {
+         switch (screen->ncolour) {
+         case 0x01:
+            return (uint8_t)7;
+         case 0x03:
+            return (uint8_t)3;
+         case 0x0f:
+            return (uint8_t)1;
+         default:
+            return (uint8_t)0;
+         }
+      }
    }
    return (uint8_t) 0x00;
 }
