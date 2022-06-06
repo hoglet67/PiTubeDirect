@@ -686,12 +686,10 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ZPSTAZ block
-   COPY3LOAD \block
-   mov r11,r4,LSL #2
-   add r11,r11,#JITTEDTABLE16
+   COPY4LOAD \block
    orr r8,r8,r4
-   orr r9,r9,r4
-   sub r11,r11,#20
+   orr r9,r9,r4 
+   add r11,r4,LSL #2
    b jitend2byteBLendstore
 .endm
 
@@ -699,6 +697,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    strb  \reg,[ram6502,#0x00]
    mov reg1,#00
    nop
+   .word JITTEDTABLE16-20
 .endm
 
 .macro ZPST block
