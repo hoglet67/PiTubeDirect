@@ -152,6 +152,13 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 // **** MACROS ******
 
+.macro SPACE_THREE_ARM_WORDS
+   b 1f
+   nop
+   nop
+1:
+.endm
+
 .macro FILLINJITTEDTABLES table16
    ldr temp0,=\table16-8-JITTEDTABLE16
    // temp0 is address to goto
@@ -377,9 +384,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITABSLOGICAL inst
    JITABSLDRSB
-   nop
-   nop
-   nop
+   SPACE_THREE_ARM_WORDS
    \inst regA,regA,reg0
 .endm
 
@@ -2109,9 +2114,7 @@ Bopc_A5:
    teq regA,#0
 Bopc_A5_fast:
    LDRSB regA,[ram6502,#0x00]
-   nop
-   nop
-   nop
+   SPACE_THREE_ARM_WORDS
 Bopc_A6:
    ldrb regX,[ram6502,#0x00]
    nop
@@ -2141,9 +2144,7 @@ Bopc_AC_io:
 Bopc_AD:
    MOVR1HIGH
    ldrsb regA,[reg1,#0x00]
-   nop
-   nop
-   nop
+   SPACE_THREE_ARM_WORDS
    teq regA,#0
 Bopc_AD_io:
    JITABS r0
@@ -2241,10 +2242,7 @@ Bopc_BF:
    JITBBS 3
 Bopc_C0:
    CMPREGYCONST
-   nop
-   nop
-   nop
-
+   SPACE_THREE_ARM_WORDS
 Bopc_C4:
    ldrb reg0,[ram6502,#0x00]
    nop
@@ -2271,9 +2269,7 @@ Bopc_C9:
 
 Bopc_CC:
    JITABSLDRB
-   nop
-   nop
-   nop
+   SPACE_THREE_ARM_WORDS
    cmp regY,reg12, lsl #24
 Bopc_CD:
    JITABSLDRB
@@ -2335,10 +2331,7 @@ Bopc_DF:
    JITBBS 5
 Bopc_E0:
    CMPREGXCONST
-   nop
-   nop
-   nop
-
+   SPACE_THREE_ARM_WORDS
 Bopc_E4:
    ldrb reg0,[ram6502,#0x00]
    nop
@@ -2361,9 +2354,7 @@ Bopc_E7:
 
 Bopc_EC:
    JITABSLDRB
-   nop
-   nop
-   nop
+   SPACE_THREE_ARM_WORDS
    cmp regX,reg12, lsl #24
 
 Bopc_EE:
