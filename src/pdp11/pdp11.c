@@ -102,7 +102,12 @@ static void printstate() {
    printf("[%s%s%s%s%s%s", cpu.prevuser ? "u" : "k", cpu.curuser ? "U" : "K",
           (cpu.PS & FLAGN) ? "N" : " ", (cpu.PS & FLAGZ) ? "Z" : " ",
           (cpu.PS & FLAGV) ? "V" : " ", (cpu.PS & FLAGC) ? "C" : " ");
-   printf("]  instr %06o: %06o\t ", cpu.PC, read16(cpu.PC));
+   printf("]  instr %06o: ", cpu.PC);
+   if (cpu.PC & 1) {
+      printf("------ (odd)");
+   } else {
+      printf("%06o", read16(cpu.PC));
+   }
    printf("\r\n");
 }
 
