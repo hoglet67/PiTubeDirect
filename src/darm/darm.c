@@ -294,7 +294,7 @@ static int darm_str(const darm_t *d, darm_str_t *str)
 
             if(d->P == B_SET) {
                 // we're still inside the memory address
-                shift = args[arg] - 1;
+                shift = args[arg];
                 *shift++ = ',';
                 *shift++ = ' ';
             }
@@ -334,6 +334,9 @@ static int darm_str(const darm_t *d, darm_str_t *str)
                 // reset shift
                 args[arg] = shift;
                 shift = str->shift;
+            }
+            if(d->W == B_SET) {
+                *args[arg]++ = '!';
             }
             continue;
 
@@ -445,9 +448,8 @@ static int darm_str(const darm_t *d, darm_str_t *str)
                 args[arg] -= 2;
             }
 
-            // if pre-indexed, close the memory address, but don't increase
-            // arg so we can alter it in the shift handler
-            if(d->P == B_SET) {
+            // if pre-indexed and no shift , close the memory address
+            if( (d->P == B_SET)  && (d->shift_type == S_INVLD) ) {
                 *args[arg]++ = ']';
 
                 // if pre-indexed and write-back, then add an exclamation mark
