@@ -18,14 +18,14 @@
 
 #define USE_IRQ
 
-#define TX_BUFFER_SIZE 65536  // Must be a power of 2
+#define TX_BUFFER_SIZE (1<<20)  // Must be a power of 2
 
 static aux_t* auxiliary = (aux_t*) AUX_BASE;
 
 #ifdef USE_IRQ
 
 #include "rpi-interrupts.h"
-__attribute__ ((section (".noinit"))) static char tx_buffer[TX_BUFFER_SIZE];
+__attribute__ ((section (".noinit"))) static volatile char tx_buffer[TX_BUFFER_SIZE];
 //static char *tx_buffer;
 static volatile int tx_head;
 static volatile int tx_tail;
@@ -82,15 +82,15 @@ void RPI_AuxMiniUartWrite(char c)
 
 void RPI_AuxMiniUartIRQHandler() {
 
-  _data_memory_barrier();
-  RPI_SetGpioHi(TEST3_PIN);
+  //_data_memory_barrier();
+  //RPI_SetGpioHi(TEST3_PIN);
 
 #ifdef USE_IRQ
   _data_memory_barrier();
 
   while (1) {
 
-    uint32_t iir = auxiliary->MU_IIR;
+    uint8_t iir = auxiliary->MU_IIR;
 
     if (iir & AUX_MUIIR_INT_NOT_PENDING) {
       /* No more interrupts */
@@ -127,7 +127,7 @@ void RPI_AuxMiniUartIRQHandler() {
 
   _data_memory_barrier();
 
-  RPI_SetGpioLo(TEST3_PIN);
+ // RPI_SetGpioLo(TEST3_PIN);
 
   _data_memory_barrier();
 }
