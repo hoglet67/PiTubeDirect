@@ -90,9 +90,6 @@ typedef struct _darm_t {
     // the original address
     uint32_t        addr;
 
-    // the original address
-    uint32_t        addr_mask;
-
     // the instruction label
     darm_instr_t    instr;
     darm_enctype_t  instr_type;

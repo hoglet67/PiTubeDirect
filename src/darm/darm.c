@@ -292,7 +292,7 @@ static int darm_str(const darm_t *d, darm_str_t *str)
 
             if(d->P == B_SET) {
                 // we're still inside the memory address
-                shift = args[arg] - 1;
+                shift = args[arg] ;//- 1;
                 *shift++ = ',';
                 *shift++ = ' ';
             }
@@ -332,6 +332,10 @@ static int darm_str(const darm_t *d, darm_str_t *str)
                 // reset shift
                 args[arg] = shift;
                 shift = str->shift;
+            }
+            // if post-indexed and write-back, then add an exclamation mark
+            if(d->W == B_SET) {
+                *args[arg]++ = '!';
             }
             continue;
 
@@ -445,7 +449,7 @@ static int darm_str(const darm_t *d, darm_str_t *str)
 
             // if pre-indexed, close the memory address, but don't increase
             // arg so we can alter it in the shift handler
-            if(d->P == B_SET) {
+            if((d->P == B_SET) && (d->shift_type == S_INVLD)) {
                 *args[arg]++ = ']';
 
                 // if pre-indexed and write-back, then add an exclamation mark
@@ -461,7 +465,7 @@ static int darm_str(const darm_t *d, darm_str_t *str)
             // branch stuff has been initialized yet
             if(d->instr == I_BLX && d->H == B_INVLD) break;
 
-            uint32_t target = (d->addr + 8 + d->imm) & d->addr_mask;
+            uint32_t target = (d->addr + 8 + d->imm) & 0xfffffffc;
             *args[arg]++ = '&';
             args[arg] += _utoa(target, args[arg], 16);
             continue;
