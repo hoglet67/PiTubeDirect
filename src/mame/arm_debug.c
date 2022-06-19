@@ -114,7 +114,6 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    int ok = 0;
    if (darm_armv7_disasm(&dis, instr) == 0) {
       dis.addr = addr;
-      dis.addr_mask = ADDRESS_MASK;
       if (darm_str2(&dis, &dis_str, 1) == 0) {
          strncpy(buf, dis_str.total, bufsize);
          ok = 1;
