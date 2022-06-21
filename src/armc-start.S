@@ -234,10 +234,10 @@ _reset_continue:
     // declaration) and initialise the bss section variables to 0 (generally
     // known as automatics). It'll then call main
 
-    // clear bss section here using fast clear otherwise C will use 
+    // clear bss section here using fast clear otherwise C will use
     // memset which uses byte writes
     // As _fast_clear round lengths down to 64 byte boundaries we need to
-    // round up. It doesn't matter if we go too far as we just zero part of the heap. 
+    // round up. It doesn't matter if we go too far as we just zero part of the heap.
     push    {r0-r3}
     ldr     r0,=__bss_start__
     ldr     r2,=__bss_end__+64
@@ -270,16 +270,13 @@ _set_interrupts:
 
 .section ".text._enable_interrupts"
 _enable_interrupts:
-    mrs     r0, cpsr
-    bic     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
-    msr     cpsr_c, r0
+    CPSIE   if
     bx      lr
 
 .section ".text._disable_interrupts"
 _disable_interrupts:
     mrs     r0, cpsr
-    orr     r1, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
-    msr     cpsr_c, r1
+    CPSID   if
     bx      lr
 
 .section ".text._undefined_instruction_handler_"
