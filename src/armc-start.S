@@ -108,25 +108,22 @@
 .equ    CPSR_THUMB,             0x20
 
 _start:
-    ldr pc, _reset_h
+    B _reset_
     ldr pc, _undefined_instruction_vector_h
     ldr pc, _software_interrupt_vector_h
     ldr pc, _prefetch_abort_vector_h
     ldr pc, _data_abort_vector_h
-    ldr pc, _unused_handler_h
+    B _reset_
     ldr pc, _interrupt_vector_h
     ldr pc, _fast_interrupt_vector_h
 
-_reset_h:                           .word   _reset_
 _undefined_instruction_vector_h:    .word   _undefined_instruction_handler_
 _software_interrupt_vector_h:       .word   _swi_handler_
 _prefetch_abort_vector_h:           .word   _prefetch_abort_handler_
 _data_abort_vector_h:               .word   _data_abort_handler_
-_unused_handler_h:                  .word   _reset_
 _interrupt_vector_h:                .word   arm_irq_handler
 _fast_interrupt_vector_h:           .word   arm_fiq_handler
 
-.section ".text._reset_"
 _reset_:
 #if defined(RPI4)
 	ldr	    r4,=0xff842000
@@ -134,7 +131,6 @@ _reset_:
 	str     r5,[r4]		// disable GIC on rpi4
 #endif
     BL _enable_l1_cache
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
     //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
     ldr     r4, =(0xf << 20)
@@ -144,28 +140,18 @@ _reset_:
     mov     r4, #0x40000000
     vmsr    fpexc, r4
 
-    // if kernel_old=0 enter in HYP mode and need to force a switch to SVC mode
-    //
-    // for now we assume kernel_old=1 and don't execute this core
+#if (__ARM_ARCH >= 7 )
+
+    // enter in HYP mode and need to force a switch to SVC mode
     //
     // The logs show:
     // SVC mode: cpsr ends with 1d3
     // HYP mode: cpsr ends with 1a3
-    mrs     r4, cpsr
-    eor     r4, r4, #CPSR_MODE_HYP
-    tst     r4, #CPSR_MODE_MASK
-    bic     r4 , r4 , #CPSR_MODE_MASK
-    orr     r4 , r4 , #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVR
-    bne     _not_in_hyp_mode
-    orr     r4, r4, #CPSR_A_BIT
-    adr     lr, _reset_continue
-    msr     spsr_cxsf, r4
-    .word 0xE12EF30E  // msr_elr_hyp lr
-    .word 0xE160006E  // eret
-_not_in_hyp_mode:
-    msr    cpsr_c, r4
+    adr     lr , _reset_continue
+    msr     spsr_cxsf, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVC
+    msr     ELR_hyp , lr
+    eret
 _reset_continue:
-
 #endif
 
     // We enter execution in supervisor mode. For more information on
@@ -173,7 +159,7 @@ _reset_continue:
 
 
     // move the vector pointer to the beginning of the code
-    ldr     r4, =_start
+    adr     r4, _start
     mcr     p15, 0, r4, c12, c0, 0
 
     // Initialise Stack Pointers ---------------------------------------------
@@ -206,28 +192,6 @@ _reset_continue:
     // application.
     msr cpsr_c, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, #C0_SVR_STACK
-
-    // Enable VFP ------------------------------------------------------------
-
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
-
-
-#else
-    // r1 = Access Control Register
-    MRC p15, #0, r4, c1, c0, #2
-    // enable full access for p10,11
-    ORR r4, r4, #(0xf << 20)
-    // ccess Control Register = r1
-    MCR p15, #0, r4, c1, c0, #2
-    MOV r4, #0
-    // flush prefetch buffer because of FMXR below
-    MCR p15, #0, r4, c7, c5, #4
-    // and CP 10 & 11 were only just enabled
-    // Enable VFP itself
-    MOV r4,#0x40000000
-    // FPEXC = r0
-    FMXR FPEXC, r4
-#endif
 
     // The c-startup function which we never return from. This function will
     // initialise the ro data section (most things that have the const
@@ -378,22 +342,30 @@ _data_synchronization_barrier:
 #ifdef USE_MULTICORE
 +.section ".text._init_core"
 _init_core:
-    // On a Raspberry Pi 2 we enter in HYP mode, and need to force a switch to supervisor mode
-    mrs     r0, cpsr
-    eor     r0, r0, #CPSR_MODE_HYP
-    tst     r0, #CPSR_MODE_MASK
-    bic     r0 , r0 , #CPSR_MODE_MASK
-    orr     r0 , r0 , #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVR
-    bne     _init_not_in_hyp_mode
-    orr     r0, r0, #CPSR_A_BIT
-    adr     lr, _init_continue
-    msr     spsr_cxsf, r0
-    .word 0xE12EF30E  // msr_elr_hyp lr
-    .word 0xE160006E  // eret
-_init_not_in_hyp_mode:
-    msr    cpsr_c, r0
+    // Enable VFP ------------------------------------------------------------
 
+    //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
+    ldr     r0, =(0xf << 20)
+    mcr     p15, 0, r0, c1, c0, 2
+
+    // 2. Set the FPEXC EN bit to enable the NEON MPE:
+    mov     r0, #0x40000000
+    vmsr    fpexc, r0
+
+#if (__ARM_ARCH >= 7 )
+
+    // enter in HYP mode and need to force a switch to SVC mode
+    //
+    // The logs show:
+    // SVC mode: cpsr ends with 1d3
+    // HYP mode: cpsr ends with 1a3
+    adr     lr , _init_continue
+    msr     spsr_cxsf, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVC
+    msr     ELR_hyp , lr
+    eret
 _init_continue:
+#endif
+
     ldr  r4,=_start
     // Initialise Stack Pointers ---------------------------------------------
 
@@ -424,16 +396,6 @@ _init_continue:
     // application.
     msr cpsr_c, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
     sub sp, r4, # C1_SVR_STACK
-
-    // Enable VFP ------------------------------------------------------------
-
-    //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
-    ldr     r0, =(0xf << 20)
-    mcr     p15, 0, r0, c1, c0, 2
-
-    // 2. Set the FPEXC EN bit to enable the NEON MPE:
-    mov     r0, #0x40000000
-    vmsr    fpexc, r0
 
     bl      run_core
 #endif
