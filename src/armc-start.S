@@ -148,7 +148,7 @@ _reset_:
     // SVC mode: cpsr ends with 1d3
     // HYP mode: cpsr ends with 1a3
     adr     lr , _reset_continue
-    msr     spsr_cxsf, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVC
+    msr     spsr_cxsf, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVR
     msr     ELR_hyp , lr
     eret
 _reset_continue:
