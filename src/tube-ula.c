@@ -407,9 +407,9 @@ static void tube_host_write(uint32_t addr, uint8_t val)
 #endif
       if (HSTAT1 & HBIT_4)
       {
-         if (hp3pos < 2)
+         if (hp3pos < sizeof(hp3))
             hp3[hp3pos++] = val;
-         if (hp3pos == 2)
+         if (hp3pos == sizeof(hp3))
          {
             PSTAT3 |=  0x80;
             HSTAT3 &= (uint32_t)~HBIT_6;
