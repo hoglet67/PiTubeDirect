@@ -2906,10 +2906,6 @@ dojit:
    mov r0,#1
    strb r0,fiqjitflag
 
-#ifndef DORMANN_TEST
- //  CPSID   if                     // Disable ARM FIQ and IRQ interrupts
-#endif
-
    sub r3,r14,#4                  // return address ( first address of jitted code)
    push {r3-r11}
 #ifdef DEBUG_TIMING
