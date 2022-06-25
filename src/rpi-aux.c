@@ -18,7 +18,7 @@
 
 #define USE_IRQ
 
-#define TX_BUFFER_SIZE (1<<20)  // Must be a power of 2
+#define TX_BUFFER_SIZE (1<<22)  // Must be a power of 2
 
 static aux_t* auxiliary = (aux_t*) AUX_BASE;
 
@@ -129,7 +129,7 @@ void RPI_AuxMiniUartIRQHandler() {
 
  // RPI_SetGpioLo(TEST3_PIN);
 
-  _data_memory_barrier();
+ // _data_memory_barrier();
 }
 
 
@@ -209,4 +209,3 @@ void RPI_AuxMiniUartInit(uint32_t baud)
   _data_memory_barrier();
 
 }
-
