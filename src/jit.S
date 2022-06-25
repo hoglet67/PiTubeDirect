@@ -133,7 +133,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .equ    Z_FLAG6502,  0x02
 .equ    C_FLAG6502,  0x01
 
-
 // use for optimastions
 #define RP_N (128)
 #define RP_0 (0<<2)
@@ -199,7 +198,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro DEJITCLEAN count=0
 
 #if defined(RPI4)|| defined(RPI3)
-   //bic reg3,reg12,#0x3f // hack
       MCR p15, 0, reg12, c7, c11, 1 // clean data cache line
       DSB
       MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line
@@ -251,6 +249,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    mrs   r4, CPSR               // Save 6502 flags
    CPSID if
    mov   r0,\reg
+   mov   r1,#8
    BL    dump_hex
    msr   CPSR, r4
    pop   {r0-r4,r14}
@@ -281,8 +280,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    adr temp1,\start
    LDMIA temp1,{r8,r9,r10}
    STMIA r6,{r8,r9,10}
-   //strd r8,r9,[r6]
-   //str r10,[r6,#8]
 .endm
 
 .macro COPY3LOAD start
@@ -291,16 +288,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 .macro COPY3STORE
    STMIA r6,{r8,r9,r10}
-   //strd r8,r9,[r6]
-   //str r10,[r6,#8]
 .endm
 
 .macro COPY4 start
    adr temp1,\start
    LDMIA temp1,{r8,r9,r10,r11}
    stmia r6,{r8,r9,r10,r11}
-   //strd r8,r9,[r6]
-   //strd r10,r11,[r6,#8]
 .endm
 .macro COPY4LOAD start
    adr temp1,\start
@@ -308,8 +301,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 .macro COPY4STORE
    stmia r6,{r8,r9,r10,r11}
-   //strd r8,r9,[r6]
-   //strd r10,r11,[r6,#8]
 .endm
 .macro COPY5 start
    adr temp1,\start
@@ -348,30 +339,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro SPUSH reg
    strb    \reg, [regSP], #-1
    orr     regSP, #0x0100
-.endm
-
-.macro NOP6
-   ldr r8,B_NOP
-   mov r9,r8
-   B jitend1bytestore2
-.endm
-
-.macro NOP6_1
-   mov temp,#BINSTRUCTION
-   ORR temp,temp,#(NEXTJITLET>>2) // B $+8
-   str temp,[r6]
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#TWOBYTES
-   B dojitloop
-.endm
-
-.macro NOP6_2
-   mov temp,#BINSTRUCTION
-   ORR temp,temp,#(NEXTJITLET>>1) // B $+10
-   str temp,[r6]
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#THREEBYTES
-   B dojitloop
 .endm
 
 .macro JITINDXLOGICAL inst
@@ -641,7 +608,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    B  jitend3byteloadstoreoperand
 .endm
 
-
 .macro TRIPLEBYTEABST2 block
    adr temp1,\block
    BL fixuptype2accessquick
@@ -664,7 +630,6 @@ then return to our secret stack This relies on instructions being re entrant , b
    MAKEBRANCHLINK r10
    B jitend3bytestore
 .endif
-
 .endm
 
 .macro ABSSTORE block
@@ -877,7 +842,9 @@ opc_CB: // Opcode CB - WAI
 opc_D3: // Opcode D3 - NOP6
 opc_DB: // Opcode DB - STP
 opc_EA: // Opcode EA - NOP6
-   NOP6
+   ldr r8,B_NOP
+   mov r9,r8
+   B jitend1bytestore2
 
 opc_02: // Opcode 02 - NOP6 2
 opc_22: // Opcode 22 - NOP6 #$00
@@ -890,12 +857,23 @@ opc_C2: // Opcode C2 - NOP6 #$00
 opc_D4: // Opcode D4 - NOP6 $00,X
 opc_E2: // Opcode E2 - NOP6 #$00
 opc_F4: // NOP6_2
-   NOP6_1
+   mov temp,#BINSTRUCTION
+   ORR temp,temp,#(NEXTJITLET>>2) // B $+8
+   str temp,[r6]
+   FILLINJITTEDTABLES dejit16bit1
+   mov r5,#TWOBYTES
+   B dojitloop
 
 opc_5C: // Opcode 5C - NOP6 $0000
 opc_DC: // Opcode DC - NOP6 $0000
 opc_FC: // Opcode FC - NOP6 $0000
-   NOP6_2
+   mov temp,#BINSTRUCTION
+   ORR temp,temp,#(NEXTJITLET>>1) // B $+10
+   str temp,[r6]
+   FILLINJITTEDTABLES dejit16bit1
+   mov r5,#THREEBYTES
+   B dojitloop
+
 opc_10: BRANCH BPLINSTRUCTION // Opcode 10 - BPL
 
 opc_30: BRANCH BMIINSTRUCTION // Opcode 30 - BMI
@@ -2609,7 +2587,6 @@ cacheflushloopjittable:
    cmp   r1,r0
    bhi   cacheflushloopjittable
 
-//   BL CleanDataCache // this may not be correct for Pi4
    DSB
    ISB
    mov   temp,#0
@@ -2828,18 +2805,19 @@ arm_jit_irq_handler:
 // the caches need to be flushed
 // reg1 is the memory location that has been unjitted
 
-
 // one byte instruction
 dejit16bit1: //reg1 pointer to address to dejit
    ldr reg2,=dojit-JITLET-8
    ldr reg0,=MOVPCR14INSTRUCTION
    mov reg12,#JITLET
    sub reg2,reg2,reg1,LSL # JITLETSHIFT
-   mov reg3,#0 // only used in Armv6 DSB
+
    mov reg2,reg2,LSR#BYTEWORDSHIFT
    add reg2,reg2,#BLINSTRUCTION
 
    str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   mov reg3,#0 // only used in Armv6 DSB
+
    DEJITCLEAN 1
    mov reg12,#JITTEDTABLE16
 #if JITTEDTABLESHIFT==3
@@ -2850,148 +2828,72 @@ dejit16bit1: //reg1 pointer to address to dejit
    bx lr
 
 // two byte instruction
+dejit16bit22:
+   sub   reg1, reg1, #1
 dejit16bit21: // reg1 , reg1+4
-
-   ldr reg2,=dojit-JITLET-8
-   ldr reg0,=MOVPCR14INSTRUCTION
-   mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
-   mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#BYTEWORDSHIFT
-   add reg2,reg2,#BLINSTRUCTION
-
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   ldr   reg2,=dojit-JITLET-8
+   ldr   reg0,=MOVPCR14INSTRUCTION
+   mov   reg12,#JITLET
+   sub   reg2,reg2,reg1,LSL # JITLETSHIFT
+   mov   reg3,#0 // only used in Armv6 DSB
+   mov   reg2,reg2,LSR#BYTEWORDSHIFT
+   add   reg2,reg2,#BLINSTRUCTION
+   str   reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   sub   reg2,reg2,#(NEXTJITLET>>2)
+   str   reg2,[reg12,#NEXTJITLET]
    DEJITCLEAN 1
-   sub reg2,reg2,#(NEXTJITLET>>2)
-   str reg2,[reg12,#NEXTJITLET]!
+   add   reg12, reg12, #NEXTJITLET
    DEJITCLEAN 1
 
-   mov reg12,#JITTEDTABLE16
+   mov   reg12,#JITTEDTABLE16
 #if JITTEDTABLESHIFT==3
-   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
+   add   reg12,reg12,#4*(JITTEDTABLESHIFT-2)
 #endif
-   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
+   str   reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
+   str   reg0,[reg12,#(1<<JITTEDTABLESHIFT)]
    DEJITCLEAN 1
-   str reg0,[reg12,#(1<<JITTEDTABLESHIFT)]!
+   add   reg12, reg12, #(1<<JITTEDTABLESHIFT)
    DEJITCLEAN 0
-   bx lr
-
-dejit16bit22: // reg1 , reg1-4
-   ldr reg2,=(dojit-JITLET-8)
-   ldr reg0,=MOVPCR14INSTRUCTION
-   mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
-   mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#BYTEWORDSHIFT
-   add reg2,reg2,#BLINSTRUCTION
-
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
-   DEJITCLEAN 1
-   add reg2,reg2,#(NEXTJITLET>>2)
-   str reg2,[reg12,#-NEXTJITLET]!
-   DEJITCLEAN 1
-
-   mov reg12,#JITTEDTABLE16
-#if JITTEDTABLESHIFT==3
-   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
-#endif
-   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
-   DEJITCLEAN 1
-   str reg0,[reg12,#-(1<<JITTEDTABLESHIFT)]!
-   DEJITCLEAN 0
-   bx lr
+   bx    lr
 
 // three byte instruction
+dejit16bit33:
+   sub   reg1, reg1, #1
+dejit16bit32:
+   sub   reg1, reg1, #1
 dejit16bit31: // reg1 , reg1+4, reg1 + 8
-   ldr reg2,=dojit-JITLET-8
-   ldr reg0,=MOVPCR14INSTRUCTION
-   mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
-   mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#BYTEWORDSHIFT
-   add reg2,reg2,#BLINSTRUCTION
+   ldr   reg2,=dojit-JITLET-8
+   ldr   reg0,=MOVPCR14INSTRUCTION
+   mov   reg12,#JITLET
+   sub   reg2,reg2,reg1,LSL # JITLETSHIFT
+   mov   reg3,#0 // only used in Armv6 DSB
+   mov   reg2,reg2,LSR#BYTEWORDSHIFT
+   add   reg2,reg2,#BLINSTRUCTION
 
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   str   reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   sub   reg2,reg2,#NEXTJITLET>>2
+   str   reg2,[reg12,#NEXTJITLET]
+   sub   reg2,reg2,#NEXTJITLET>>2
+   str   reg2,[reg12,#NEXTJITLET<<1]
    DEJITCLEAN 1
-   sub reg2,reg2,#NEXTJITLET>>2
-   str reg2,[reg12,#NEXTJITLET]!
+   add   reg12, reg12, #NEXTJITLET
    DEJITCLEANMID
-   sub reg2,reg2,#NEXTJITLET>>2
-   str reg2,[reg12,#NEXTJITLET]!
+   add   reg12, reg12, #NEXTJITLET
    DEJITCLEAN 1
 
-   mov reg12,#JITTEDTABLE16
+   mov   reg12,#JITTEDTABLE16
 #if JITTEDTABLESHIFT==3
-   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
+   add   reg12,reg12,#4*(JITTEDTABLESHIFT-2)
 #endif
-   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
+   str   reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
+   str   reg0,[reg12,#(1<<JITTEDTABLESHIFT)]
+   str   reg0,[reg12,#(2<<JITTEDTABLESHIFT)]
    DEJITCLEAN 1
-   str reg0,[reg12,#(1<<JITTEDTABLESHIFT)]!
+   add   reg12, reg12, #NEXTJITLET
    DEJITCLEANMID
-   str reg0,[reg12,#(1<<JITTEDTABLESHIFT)]!
+   add   reg12, reg12, #NEXTJITLET
    DEJITCLEAN 0
-   bx lr
-
-dejit16bit32: // reg1 , reg1-4, reg1 + 4
-
-   ldr reg2,=dojit-JITLET-8
-   ldr reg0,=MOVPCR14INSTRUCTION
-   mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
-   mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#BYTEWORDSHIFT
-   add reg2,reg2,#BLINSTRUCTION
-
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
-   DEJITCLEANMID
-   sub reg2,reg2,#-(NEXTJITLET>>2)
-   str reg2,[reg12,#-NEXTJITLET]!
-   DEJITCLEAN 1
-   sub reg2,reg2,#(NEXTJITLET>>2)*2
-   str reg2,[reg12,#NEXTJITLET*2]!
-   DEJITCLEAN 1
-
-   mov reg12,#JITTEDTABLE16
-#if JITTEDTABLESHIFT==3
-   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
-#endif
-   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
-   DEJITCLEANMID
-   str reg0,[reg12,#-(1<<JITTEDTABLESHIFT)]!
-   DEJITCLEAN 1
-   str reg0,[reg12,#(2<<JITTEDTABLESHIFT)]!
-   DEJITCLEAN 0
-   bx lr
-
-dejit16bit33: // reg1 , reg1-4, reg1 - 8
-   ldr reg2,=dojit-JITLET-8
-   ldr reg0,=MOVPCR14INSTRUCTION
-   mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
-   mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#BYTEWORDSHIFT
-   add reg2,reg2,#BLINSTRUCTION
-
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
-   DEJITCLEAN 1
-   sub reg2,reg2,#-(NEXTJITLET>>2)
-   str reg2,[reg12,#-NEXTJITLET]!
-   DEJITCLEANMID
-   sub reg2,reg2,#-(NEXTJITLET>>2)
-   str reg2,[reg12,#-NEXTJITLET]!
-   DEJITCLEAN 1
-
-   mov reg12,#JITTEDTABLE16
-#if JITTEDTABLESHIFT==3
-   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
-#endif
-   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
-   DEJITCLEAN 1
-   str reg0,[reg12,#-(1<<JITTEDTABLESHIFT)]!
-   DEJITCLEANMID
-   str reg0,[reg12,#-(1<<JITTEDTABLESHIFT)]!
-   DEJITCLEAN 0
-   bx lr
+   bx    lr
 
 .ltorg
 // *************
