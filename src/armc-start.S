@@ -475,20 +475,7 @@ _fast_clear_loop:
 
 .section ".text._main_irq_handler"
 _main_irq_handler:
-        // Save a copy of the Jit6502 regsp (r9) for use by the fiq handler
-        // when it runs a 6502 IRQ/NMI handler. This pattern works because the
-        // ARM IRQ handler is NOT re-entrant.
-        str     r9, _main_irq_r9_regsp
         sub     lr, lr, #4
         push    {r0, r1, r2, r3, ip, lr}
-        // ARM ABI says that Callee must preserve r4-r8, r10, r11 and SP
-        // r9 is platform specific, but GCC seems to callee save that
         bl      RPI_AuxMiniUartIRQHandler
-        // Mark the copy Jit6502 regsp (r9) as invalid
-        // This is safe to do, as r9 now holds the real regsp again
-        mov     r0, #0
-        str     r0, _main_irq_r9_regsp
         ldm     sp!, {r0, r1, r2, r3, ip, pc}^
-
-_main_irq_r9_regsp:
-        .word 0

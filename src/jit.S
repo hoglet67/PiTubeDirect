@@ -20,15 +20,15 @@
 
 // NB this code starts 0x0D400000 + xxx so the above tables are close enough to jump to
 
-// Very simple optimiser such that if the next instruction also sets the NZ flags then the current 
-// instruction doesn't need to set the flags. This can help to remove pipeline stalls 
+// Very simple optimiser such that if the next instruction also sets the NZ flags then the current
+// instruction doesn't need to set the flags. This can help to remove pipeline stalls
 // especially after a ldrb instruction
 
-//#define JITDEBUG 1
+#define JITDEBUG 0
 //#define DORMANN_TEST 1
 //#define DEBUG_TIMING 1
 #define OPTIMISMISE 1
-#define TIMING_INSTRUCTION 1
+#define TIMING_INSTRUCTION 0
 
 /* Interrupts
 
@@ -39,7 +39,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 // Instructions that get used in smaller chunks to save a jump ( overlapping )
 // BIT &0000 so B on first byte
-// BIT &00 
+// BIT &00
 // NOP6s &0000
 // NOP6s &00
 
@@ -68,7 +68,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define regA      r10
 #define regX      r11
 
-#define reg12      r12
+#define reg12     r12
 
 #define temp0 r0
 #define temp1 r1
@@ -78,6 +78,14 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define JITLETSHIFT 3
 
 #define NEXTJITLET (1<<JITLETSHIFT)
+
+#define JITTEDTABLESHIFT 2
+
+#define BYTEWORDSHIFT 2
+
+#define THREEBYTES 3
+#define TWOBYTES 2
+#define ONEBYTE 1
 
 #define BEQINSTRUCTION 0x0A000000
 #define BNEINSTRUCTION 0x1A000000
@@ -146,11 +154,32 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define CNZF CF+NF+ZF
 #define VCNZF VF+CF+NF+ZF
 
-
 .text
 .global exec_65tubejit
 
 // **** MACROS ******
+
+.macro DEBUGDISS
+#if JITDEBUG
+
+   ldrb  temp,debugflag
+   mov   r0,temp2
+   mov   r1,r5,LSL #1
+  // ldr r4,timingtemp
+  // MRC   p15, 0, r1, c15, c12, 1
+  // sub   r1,r1,r4
+   movs  temp,temp
+   BEQ   1f
+
+   push  {r2-r3}
+   BL    dissall
+   pop   {r2-r3}
+  // MRC   p15, 0, r1, c15, c12, 1
+  // str r1,timingtemp
+
+1:
+#endif
+.endm
 
 .macro SPACE_THREE_ARM_WORDS
    b 1f
@@ -160,7 +189,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro FILLINJITTEDTABLES table16
-   ldr temp0,=\table16-8-JITTEDTABLE16
+   ldr temp0,=\table16-(4*JITTEDTABLESHIFT)-JITTEDTABLE16
    // temp0 is address to goto
    // temp1 is location for store
 
@@ -183,6 +212,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    #if defined(RPI2)
       DSB
    #endif
+
    MCR p15, 0, reg12, c7, c10, 1 // clean data cache line
 
    #if defined(RPI2)
@@ -190,12 +220,20 @@ then return to our secret stack This relies on instructions being re entrant , b
       MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
       DSB
    #else
-   .ifc \count,0
-      MCR p15, 0, reg12, c7, c5, 0 //; invalidate I cache and BTB
+   //.ifc \count,0
+      //MCR p15, 0, reg12, c7, c5, 0 //; invalidate I cache and BTB
+      //MCR p15, 0, reg3, c7, c10, 4 // DSB
+   //.endif
+      MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line // errata
       MCR p15, 0, reg3, c7, c10, 4 // DSB
-   .endif
-     // MCR p15, 0, reg3, c7, c10, 4 // DSB
-     // MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line // errata
+      MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line // errata
+      MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
+      .ifc \count,0
+       //  MCR p15, 0, reg3, c7, c5, 6 // flush entire Branch Target Cache
+         MCR p15, 0, reg3, c7, c5, 4 // flush prefetch buffer
+      .endif
+      MCR p15, 0, reg3, c7, c10, 4 // DSB
+
    #endif
 #endif
 .endm
@@ -203,25 +241,29 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro DEJITCLEANMID
    #if defined(RPI4)|| defined(RPI3) || defined(RPI2)
       MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
+   #else
+      MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
    #endif
 .endm
 
 .macro DEBUG_REG reg
-   push {r0-r12,r14}
-   mrs     regSP, CPSR               // Save 6502 flags
-   mov r0,\reg
-   BL dump_hex
-   msr     CPSR_flg, regSP
-   pop {r0-r12,r14}
+   push  {r0-r4,r14}
+   mrs   r4, CPSR               // Save 6502 flags
+   CPSID if
+   mov   r0,\reg
+   BL    dump_hex
+   msr   CPSR, r4
+   pop   {r0-r4,r14}
 .endm
 
 .macro DEBUG_CHAR char
-   push {r0-r12,r14}
-   mrs     regSP, CPSR               // Save 6502 flags
-   mov r0,#\char
-   BL RPI_AuxMiniUartWrite
-   msr     CPSR_flg, regSP
-   pop {r0-r12,r14}
+   push  {r0-r4,r14}
+   mrs   r4, CPSR               // Save 6502 flags
+   CPSID if
+   mov   r0,#\char
+   BL    RPI_AuxMiniUartWrite
+   msr   CPSR, r4
+   pop   {r0-r4,r14}
 .endm
 
 .macro COPY1 start
@@ -296,8 +338,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro MAKEBRANCHLINK reg
-   mov \reg,\reg,LSR #2
-   sub \reg,\reg,r6,LSR #2
+   mov \reg,\reg,LSR #BYTEWORDSHIFT
+   sub \reg,\reg,r6,LSR #BYTEWORDSHIFT
    ORR \reg,\reg,#BLINSTRUCTION
 .endm
 
@@ -319,7 +361,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ORR temp,temp,#(NEXTJITLET>>2) // B $+8
    str temp,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   mov r5,#2
+   mov r5,#TWOBYTES
    B dojitloop
 .endm
 
@@ -328,7 +370,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ORR temp,temp,#(NEXTJITLET>>1) // B $+10
    str temp,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   mov r5,#3
+   mov r5,#THREEBYTES
    B dojitloop
 .endm
 
@@ -371,7 +413,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    ldr r7,=immediatesignextenedtable
    adr reg1,\block
    LDMIA reg1,{r8,r9}
-   ldr r7,[r7,r4,LSL #2]
+   ldr r7,[r7,r4,LSL #BYTEWORDSHIFT]
    strd  r8,r9,[r6,#8]
    STMIA r6,{r7,r8}
    B jitend2byte
@@ -480,7 +522,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    MAKEBRANCHLINK r8
    strd r8,r9,[r6]
    mov r8,r4,LSL #1
-   
+
    BIC r8,r8,#0xFF000000
    orr r8,r8,#BINSTRUCTION
    strd r8,r9,[r6,#8]
@@ -499,7 +541,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro SINGLEOPCODEEXIT block
    ldrd r8,\block
    sub r9,r9,r6
-   mov r9,r9,LSR #2
+   mov r9,r9,LSR #BYTEWORDSHIFT
    ORR r9,r9,#BINSTRUCTION
    B singleopcodeexitstore
 .endm
@@ -516,12 +558,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro SINGLEBYTEOPT block
    ldrd r8,\block
-#if 0 
-// it is unknwon why this doesn't improvement performance  
+#if 0
+// it is unknwon why this doesn't improvement performance
    B jitend1bytestore2opt
 #else
    B jitend1bytestore2
-#endif    
+#endif
 .endm
 
 .macro DOUBLEBYTESETFIRSTBYTE block
@@ -591,7 +633,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro TRIPLEBYTEABSOPT block block1
-   ldrb r7,[r2,#3]   
+   ldrb r7,[r2,#3]
    ldrb r7,[r12,r7]
    adr temp1,\block
    tst r7,#NF
@@ -627,7 +669,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro ABSSTORE block
    COPY5LOAD \block
-   mov r12,r12, LSL #2
+   mov r12,r12, LSL #JITTEDTABLESHIFT
    add r12,r12,#JITTEDTABLE16
    orr r7,r7,r5
    orr r11,r11,r4
@@ -652,7 +694,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro ASSIGNCARRY carry
    ldrd r8,Bopc_carry
    sub r8,r8,r6
-   mov r8,r8,LSR #2
+   mov r8,r8,LSR #BYTEWORDSHIFT
 .ifc \carry,clear
    orr r8,r8,#ARMBLCS
 .else
@@ -688,8 +730,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro ZPSTAZ block
    COPY4LOAD \block
    orr r8,r8,r4
-   orr r9,r9,r4 
-   add r11,r4,LSL #2
+   orr r9,r9,r4
+   add r11,r4,LSL #JITTEDTABLESHIFT
    b jitend2byteBLendstore
 .endm
 
@@ -702,7 +744,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro ZPST block
    COPY3LOAD \block
-   mov r11,r4,LSL #2
+   mov r11,r4,LSL #JITTEDTABLESHIFT
    add r11,r11,#JITTEDTABLE16
    orr r9,r9,r4
    orr r10,r10,r4
@@ -720,7 +762,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    JITABS
    strb \reg,[reg1,\index,LSR#24]!
    nop
-   add reg0,jittedtable16ptr,reg1,LSL#2
+   add reg0,jittedtable16ptr,reg1,LSL#JITTEDTABLESHIFT
    blx reg0
 .endm
 
@@ -752,10 +794,7 @@ then return to our secret stack This relies on instructions being re entrant , b
    sub     regSP, regSP, #2
    mov     temp, #0x10000
 .ifc \fake, FAKE
-   mov temp1,#0xFF
-   orr temp1,#0xFF<<8
-.else
-   // else return address is presetup in temp1
+   sub  temp1,temp,#1         // 0xFFFF
 .endif
    strh    temp1, [regSP,#1]         // slight risk of over running the stack
    orr     regSP, #0x0100
@@ -779,11 +818,12 @@ then return to our secret stack This relies on instructions being re entrant , b
 // RTI is executed. We leave IRQ masked at this point to avoid the possibility
 // of a re-entrant IRQ, which IRQ handler should not have to deal with.
 .ifc \fake, FAKE
-   CPSIE   f  // enable ARM FIQ interrupts only
+   CPSIE   if  // enable ARM FIQ interrupts only
 .endif
 .if \setbrk
    CPSIE   if  // enable both ARM IRQ and FIQ interrupts
 .endif
+  // CPSIE i
    bx temp0
 .endm
 
@@ -1175,7 +1215,7 @@ opc_20:// Opcode 20 - JSR $0000
    mov r12,r12,LSL#JITLETSHIFT-2
    add r12,r12,#JITLET>>2
 
-   sub r12,r12,r6,LSR #2
+   sub r12,r12,r6,LSR #BYTEWORDSHIFT
    sub r12,r12,#28>>2
    BIC r12,r12,#0xFF000000
    ORR r12,r12,#BINSTRUCTION
@@ -1187,12 +1227,12 @@ opc_21: // Opcode 21 - AND ($00,X)
 opc_24: // Opcode 24 - BIT $00
 
    adr temp1,Bopc_24
+   mov r5,#TWOBYTES
    ldrd r8,[temp1]
+   FILLINJITTEDTABLES dejit16bit1
    orr r8,r8,r4
    MAKEBRANCHLINK r9
    strd r8,r9,[r6]
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#2
    B dojitloop
 
 opc_25: // Opcode 25 - AND $00
@@ -1217,24 +1257,23 @@ opc_2C: // Opcode 2C - BIT $0000
 
    ldr r8,Bopc_2C
    ldr r9,=bitabstable-12
+   FILLINJITTEDTABLES dejit16bit1
    orr r8,r8,r5
    add r9,r9,r4,LSL #3
-
    MAKEBRANCHLINK r9
    strd r8,r9,[r6]
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#3
+
+   mov r5,#THREEBYTES
    B dojitloop
 
 bitabsio:
    ldr r8,Bopc_2C_io
    ldr r9,=bitioload-12
+   mov r5,#THREEBYTES
+   FILLINJITTEDTABLES dejit16bit1
    orr r8,r8,r4
-
    MAKEBRANCHLINK r9
    strd r8,r9,[r6]
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#3
    B dojitloop
 
 opc_2D: // Opcode 2D - AND $0000
@@ -1299,7 +1338,7 @@ opc_4C: // Opcode 4C - JMP $0000
    mov temp0,r12,LSL#JITLETSHIFT-2
    add temp0,temp0,#JITLET>>2
 
-   sub temp0,temp0,r6,LSR #2
+   sub temp0,temp0,r6,LSR #BYTEWORDSHIFT
    sub temp0,temp0,#8>>2
    BIC temp0,temp0,#0xFF000000
    ORR temp0,temp0,#BINSTRUCTION
@@ -1590,7 +1629,7 @@ Bopc_72:
 Bopc_74:
    ADDR1REGXZP
    strb ram6502,[ram6502,reg1,LSR #24]
-   add reg0,jittedtable16ptr, reg1,LSR #24-2
+   add reg0,jittedtable16ptr, reg1,LSR #24-JITTEDTABLESHIFT
    .word jittablezp-20
 
 Bopc_75:
@@ -1695,13 +1734,13 @@ Bopc_8F:
 Bopc_91:
    ldrh reg1,[ram6502,#00]
    strb regA,[reg1,regY,LSR #24]!
-   add reg0,jittedtable16ptr, reg1,LSL #2
+   add reg0,jittedtable16ptr, reg1,LSL #JITTEDTABLESHIFT
    BLX reg0
 
 Bopc_92:
    ldrh reg1,[ram6502,#00]
    strb regA,[reg1]
-   add reg0,jittedtable16ptr, reg1,LSL #2
+   add reg0,jittedtable16ptr, reg1,LSL #JITTEDTABLESHIFT
    BLX reg0
 
 Bopc_94:
@@ -1712,7 +1751,7 @@ Bopc_94:
 Bopc_95:
    ADDR1REGXZP
    strb regA,[ram6502,reg1,LSR #24]
-   add reg0,jittedtable16ptr, reg1,LSR #24-2
+   add reg0,jittedtable16ptr, reg1,LSR #24-JITTEDTABLESHIFT
    .word jittablezp-20
 
 Bopc_96:
@@ -1832,7 +1871,7 @@ Bopc_F2:
 Bopc_F5:
    ADDR1REGXZP
    tst     flags, #D_FLAG6502
-   ldrb    reg12,[ram6502,reg1,LSR#24]
+   ldrb    reg12,[ram6502,reg1,LSR #24]
    .word SBC1-20
 
 Bopc_F9:
@@ -1970,7 +2009,7 @@ opc_A9: // Opcode A9 - LDA #$00
    str r8,[r6,#4]
    str r8,[r6,#8]
    str r8,[r6,#12]
-   ldr temp,[r11,r4,LSL #2]
+   ldr temp,[r11,r4,LSL #BYTEWORDSHIFT]
    orr temp,temp,#1<<20// S FLAG
    orr temp,temp,#0xA000 // regA
    str temp,[r6]
@@ -2366,7 +2405,7 @@ Bopc_EF:
 
 Bopc_F6:
    ADDR1REGXZP
-   ldrb reg0,[ram6502,reg1,LSR#24]
+   ldrb reg0,[ram6502,reg1,LSR #24]
    add  reg0, reg0, #1
    .word storeXflags-20
 Bopc_F7:
@@ -2441,7 +2480,7 @@ opc_EE: // Opcode EE - INC $0000
    orr r8,r8,r4
    MAKEBRANCHLINK r9
 
-   mov r12,r12, LSL #2
+   mov r12,r12, LSL #JITTEDTABLESHIFT
    add r12,r12,#JITTEDTABLE16
    sub r12,r12,#8+20
 
@@ -2474,36 +2513,33 @@ opc_FF: // Opcode FF - BBS7
 
 exec_65tubejit:
    push  {r4-r11,lr}
-   str   r13,stackptr
    mov   ram6502,r0  // this is assumed to be zero
-   str   ram6502,ram6502store
-
-// install our interrupt handler
-
-   ldr   temp,=_fast_interrupt_vector_h
-   ldr   temp0,[temp]
-   str   temp0,old_fiq_vector
-   ldr   temp0,=arm_fiq_handler_jit
-   str   temp0,[temp]
 
 // setup ARM cycle counter
 
 #if defined(RPI2)|| defined(RPI3)||defined(RPI4)
-   mrc   p15 ,0, r0, c9, c12, 0
-   BIC   r0, r0, #8
-   mcr   p15, 0, r0, c9, c12, 0
-   mrc   p15, 0, r0, c9, c13, 0
+   mrc   p15 ,0, r12, c9, c12, 0
+   BIC   r12, r12, #8
+   mcr   p15, 0, r12, c9, c12, 0
+  // mrc   p15, 0, r12, c9, c13, 0
 #else
-   MRC   p15, 0, r0, c15, c12, 0    // Read Performance Monitor Control Register
-   BIC   r0 ,r0, #8                 // clear div 64 bit
-   MCR   p15, 0, r0, c15, c12, 0    // Write Performance Monitor Control Register
-   MRC   p15, 0, r0, c15, c12, 1    // Read Cycle Counter Register
+   MRC   p15, 0, r12, c15, c12, 0   // Read Performance Monitor Control Register
+   BIC   r12 ,r12, #8               // clear div 64 bit
+   MCR   p15, 0, r12, c15, c12, 0   // Write Performance Monitor Control Register
+ //  MRC   p15, 0, r12, c15, c12, 1  // Read Cycle Counter Register
+
+   mrc   p15, 0, r12, c1, c0, 1     // Read Auxiliary Register Errata 714068 ( cache lock up bug)
+   orr   r0, r0, #0x10000000        // Set PHD bit
+   mcr   p15, 0, r0, c1, c0, 1      // Write Auxiliary Control Register
 #endif
 
 // setup table JITLET ( 64K x bl JITLET)
 // setup JITTEDTABLE16 with 64K x mov pc,r14
    ldr   temp2,=dojit-JITLET-8
    mov   r0,#JITLET
+#if JITTEDTABLESHIFT==3
+   ldr   temp1,=ARMNOP
+#endif
    ldr   temp,=MOVPCR14INSTRUCTION
    mov   r4,#JITTEDTABLE16
 
@@ -2515,25 +2551,30 @@ loopdejitsetup:
    subs  r3,r3,#1
    str   temp2,[r0],#NEXTJITLET
    sub   temp2,temp2,#NEXTJITLET>>2
-   str   temp,[r4],#4   // JITTEDTABLE16
+#if JITTEDTABLESHIFT==3
+   str   temp1,[r4],#4   // NOP JITTEDTABLE16
+#endif
+   str   temp,[r4],#4   // BX R14 JITTEDTABLE16
    bne   loopdejitsetup
 
 // Setup IO region in JITTEDTABLE16
 // When a store occurs for the IO locations
-// we assume the data to store is in regA 
+// we assume the data to store is in regA
 // This fixes ?&FEF7 = xx ; and other STA indirect instructions ( STZ still broken)
 // it doesn't fix P.?&FEF7
 
    mov   r3,#32
-   sub   r4,r4,#(0x10000-0xFEE0)<<2
-
-   ldr   temp,=indirectiostore-8-(JITTEDTABLE16+(0xFEE0<<2))
-   mov   temp,temp,LSR#2
+   sub   r4,r4,#((0x10000-0xFEE0)<<JITTEDTABLESHIFT)
+#if JITTEDTABLESHIFT==3
+   add   r4,r4,#(4*(JITTEDTABLESHIFT-2))
+#endif
+   ldr   temp,=indirectiostore-(4*JITTEDTABLESHIFT)-(JITTEDTABLE16+(0xFEE0<<JITTEDTABLESHIFT))
+   mov   temp,temp,LSR#BYTEWORDSHIFT
    add   temp,temp,#BINSTRUCTION
 loopioregion:
    subs  r3,r3,#1
-   str   temp,[r4],#4
-   sub   temp,temp,#1
+   str   temp,[r4],#1<<JITTEDTABLESHIFT
+   sub   temp,temp,#JITTEDTABLESHIFT-1
    bne   loopioregion
 
 // flush caches
@@ -2541,114 +2582,124 @@ loopioregion:
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
    DSB
 // this would be faster to flush the cache by way instead of VA
-   mrc p15, 0,r12,cr0,cr0,1
-   and r0,r12,#0xF
-   mov r1,#4
-   lsl r1,r1,r0
-   strb r1,cachelineI
-   ubfx r1,r12,#16,#4
-   mov r12,#4
-   lsl r12,r12,r1
-   strb r12,cachelineD
+   mrc   p15, 0,r12,cr0,cr0,1
+   and   r0,r12,#0xF
+   mov   r1,#4
+   lsl   r1,r1,r0
+   strb  r1,cachelineI
+   ubfx  r1,r12,#16,#4
+   mov   r12,#4
+   lsl   r12,r12,r1
+   strb  r12,cachelineD
 
-   mov r5,#JITLET
-   mov r0,#JITTEDTABLE16
-   add r1,r0,#0x10000*4
+   mov   r5,#JITLET
+   mov   r0,#JITTEDTABLE16
+   add   r1,r0,#0x10000*(1<<JITTEDTABLESHIFT)
 cacheflushloopjittable:
-   mcr p15,0,r0,cr7,cr11,1
-   add r0,r0,r12
-   mcr p15,0,r5,cr7,cr11,1
-   add r5,r5,r12
-   mcr p15,0,r5,cr7,cr11,1
-   add r5,r5,r12
-   cmp r1,r0
-   bhi cacheflushloopjittable
+   mcr   p15,0,r0,cr7,cr11,1
+   add   r0,r0,r12
+#if JITTEDTABLESHIFT==3
+   mcr   p15,0,r0,cr7,cr11,1
+   add   r0,r0,r12
+#endif
+   mcr   p15,0,r5,cr7,cr11,1
+   add   r5,r5,r12
+   mcr   p15,0,r5,cr7,cr11,1
+   add   r5,r5,r12
+   cmp   r1,r0
+   bhi   cacheflushloopjittable
 
 //   BL CleanDataCache // this may not be correct for Pi4
    DSB
    ISB
-   mov temp,#0
+   mov   temp,#0
 
-   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
+   MCR   p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
 
    DSB
    ISB
 #else
-   mov temp,#0
-   MCR p15, 0, temp, c7, c10, 0 //; clean data cache
-   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
+   mov   temp,#0
+   MCR   p15, 0, temp, c7, c10, 0 //; clean data cache
+   MCR   p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
 #endif
-
-   mov   r0, #0x10000
-   ldrh  temp0, [r0, #-4]        // Fetch the vector address
 
 // run dormann tests directly
 #ifdef DORMANN_TEST
-   ldr temp0,=0x3400
-   mov temp,#0xF3
-   ldr temp1,=0xFFEE
-   str temp,[temp1]
-   mov temp,#0x60
-   str temp,[temp1,#1]
+   mov   r3, 0x3400
+   mov   temp1,0xFF00
+   mov   temp,#0xF3
+   orr   temp,temp,#0x60<<8
+   strh  temp,[temp1,#0xEE]   // store 0xF3 0x60 at FFEE ( oswrch)
+#else
+   mov   r0, #0x10000
+   ldrh  r3, [r0, #-4]        // Fetch the vector address
 #endif
 
 #if JITDEBUG
 // Enable jit tracing
-   mov temp,#0
-   strb temp,debugflag
-
-  mov temp,#0xe3
-  ldr temp1,= 0x7FFE
-  strb temp,[temp1],#1
-  mov temp,#0x60
-  strb temp,[temp1]
+   mov   temp,#1
+   strb  temp,debugflag
 #endif
 
-   add regSP,ram6502, #0x1F0
+   mov   temp,#0xe3
+   mov   temp1,#0x8000
+   orr   temp,temp,#0x60<<8
+   strh  temp,[temp1,#-2] // 0x7FFE
 
-   mov flags, #0x00     // Initialize flags (flags) to zero on power up
+   add   regSP,ram6502, #0x1F0
+
+   mov   flags, #0x00   // Initialize flags (flags) to zero on power up
                         // This was added to fix a bug where the language transfer
                         // would fail if exec_65tube was entered with certain
                         // values of flags (specifically, with bit 7 = 1).
                         // Code assumes Bits 7,2,1 is zero
 
-   mov temp0,temp0,LSL#JITLETSHIFT
-   add temp0,temp0,#JITLET
-   mov jittedtable16ptr,#JITTEDTABLE16
-   bx temp0
+   mov   r3,r3,LSL#JITLETSHIFT
+   add   r3,r3,#JITLET
+   mov   jittedtable16ptr,#JITTEDTABLE16
 
+   CPSID if
+   ldr   temp,=_fast_interrupt_vector_h
+   str   r13,stackptr
+   str   ram6502,ram6502store
+
+// install our interrupt handler
+   ldr   temp0,[temp]
+   ldr   temp1,=arm_fiq_handler_jit
+   str   temp0,old_fiq_vector
+   str   temp1,[temp]
+   ldr   temp,=_interrupt_vector_h
+   ldr   temp0,[temp]
+   ldr   temp1,=arm_jit_irq_handler
+   str   temp0,old_irq_vector
+   str   temp1,[temp]
+   CPSIE if // enable interupts
+   bx r3
 
 //*************************************************************
 reset_handler:
-// disable IRQS
-   CPSID   if                     // Disable ARM FIQ and IRQ interrupts
-// unstack
-   pop {r0-r2}
-   str  r0,fiq_spsr_temp
-   str  r1,fiq_lr_temp
-   msr  CPSR_flg,r2
-   pop {r0-r12,r14}
-// Return to FIQ mode
-   //msr     CPSR_c, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT)
-   //ldr r12,fiq_spsr_temp
-   //ldr r14,fiq_lr_temp
-   //msr     spsr_cf, r12            // Restore spsr.
-   //subs    pc, lr, #4             // Return from ISR
-   CPSIE   if                     // Re-enable ARM FIQ and IRQ interrupts
+   pop   {r0-r12,r14}        // unstack everything
+   pop   {r0-r1}
 
-exec_65tube_exit:     // We get here from the Event handler when RST is detected
+reset_handler_jit:
 // release interrupt handler
-   ldr temp,=_fast_interrupt_vector_h
-   ldr temp0,old_fiq_vector
-   str temp0,[temp]
-   ldr r13,stackptr  // Hack to ensure the stack ptr is on the right place
-   pop {r4-r11,pc}
+   CPSID if
+   ldr   temp,=_fast_interrupt_vector_h
+   ldr   temp0,old_fiq_vector
+   ldr   temp1,=_interrupt_vector_h
+   ldr   temp2,old_irq_vector
+   str   temp0,[temp]
+   str   temp2,[temp1]
+   CPSIE if
+
+   ldr   r13,stackptr  // Hack to ensure the stack ptr is on the right place
+   pop   {r4-r11,pc}
+
 .ltorg
 old_fiq_vector:
    .word 0
-fiq_lr_temp:
-   .word 0
-fiq_spsr_temp:
+old_irq_vector:
    .word 0
 stackptr:
    .word 0
@@ -2658,8 +2709,11 @@ cachelineI:
    .byte 0
 debugflag:
    .byte 0
-spare:
+fiqjitflag:
    .byte 0
+fiqirqflag:
+   .byte 0
+.align
 ram6502store:
    .word 0
 
@@ -2675,110 +2729,92 @@ CACHELINE_ALIGN = 5
 // ARM FIQ handler (in FIQ mode)
 arm_fiq_handler_jit:
 #ifdef USE_DOORBELL
-   ldr r12,=DOORBELL
-   ldr r10,=tube_irq
-   ldr r11,=DOORBELLDATA
-   push {r0-r3,r14}
-   ldr r0, [r12]               // read doorbell
-   ldr r0, [r11]               // Get doorbell data
+   ldr   r12, =DOORBELL
+   ldr   r11, =DOORBELLDATA
+   ldr   r10, =tube_irq
+   push  {r0-r3,r14}
+   ldr   r0, [r12]               // read doorbell
 #else
-   ldr r12, =MBOX0_READ        // Read the GPU mailbox
-   push {r0-r3,r14}
-   ldr r10,=tube_irq
-   ldr  r0, [r12]               // Get Mailbox data
+   ldr   r11, =MBOX0_READ        // Read the GPU mailbox
+   push  {r0-r3,r14}
+   ldr   r10, =tube_irq
 #endif
-   BL   tube_io_handler
-   ldr  r12,[r10]
-   pop  {r0-r3,r14}
+   ldr   r0, [r11]               // Get data
+   BL    tube_io_handler
+   ldr   r12,[r10]
+   pop   {r0-r3,r14}
    tst   r12,#RESET_BIT+NMI_BIT+IRQ_BIT
    subeqs pc, lr, #4
 
-// save lr to ram address
-   str  lr,fiq_lr_temp
-   mrs  r12, spsr               // Get the saved psr
-   str  r12,fiq_spsr_temp
+// if we are currently jitting the event will be handled at the end of the jitting
+   ldrb  r12, fiqjitflag
+   movs  r12, r12
+   add   r12, r12, #1
+   strneb r12, fiqjitflag
+   subnes pc, lr, #4
 
-// drop to user mode
-   msr     CPSR_c, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT)
+// if we are in an IRQ the event will be handled at the end of the IRQ
+   mrs   r12, spsr            // Get the saved psr
+   and   r12, #0x1F
+   cmp   r12, #0x12
+   streqb r12,fiqirqflag
+   subeqs pc,lr,#4
 
-// stack everything onto user stack
-   push {r0-r12,r14}
-// stack ram saved lr
-   ldr r0,fiq_spsr_temp
-   ldr r1,fiq_lr_temp
-   mrs r2, CPSR                // preserve the 6502 flags
-   push {r0-r2}
+   sub   r14,r14,#4
+fiq_during_irq:
+   SRSFD r13!,#CPSR_MODE_SVR  // saves lr and SPSR to user mode stack
 
-   // If the SPSR indicates FIQ has interrupted IRQ then we need to recover a valid 6502 SP
-   mov    r1, regSP
-   and    r0, #0x1F
-   cmp    r0, #0x12
-   ldreq  r0, =_main_irq_r9_regsp
-   ldreq  r1, [r0]
-   cmp    r1, #0
-   movne  regSP, r1
+   CPS   #CPSR_MODE_SVR       // drop to user mode
 
-// We need to restore these registers in case the FIQ has interrupted an IRQ which
-// has over written them. other register
-// e.g. flag register needs to be thought about
-   mov jittedtable16ptr,#JITTEDTABLE16
-   ldr ram6502, ram6502store
+   push  {r0-r12,r14}         // stack everything onto user stack
+
+rtiended:
+   ldr   r12,=tube_irq
+   CPSID if                   // could come from rti
+
+   ldr   r0, [r12]            // Get Mailbox data
 
 // process events
-   ldr      r1,=tube_irq
-   ldr      r0, [r1]               // Get Mailbox data
-   tst r0,#4
-   bne  reset_handler
-   tst r0,#2
-   bne handle_nmi
-   tst     flags, #I_FLAG6502      // Test whether interrupts are enabled (bit 2 = 0)
-   bne     noirq
-   tst     r0, #1             // Bit 0 set indicate IRQ is active
-   bne     handle_irq_fake         // Take the IRQ interrupt
 
-noirq:
-// unstack
-   pop {r0-r2}
-   str  r0,fiq_spsr_temp
-   str  r1,fiq_lr_temp
-   msr  CPSR_flg,r2
-   pop {r0-r12,r14}
-// Return to FIQ mode
-   msr     CPSR_c, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT)
-   ldr r12,fiq_spsr_temp
-   ldr r14,fiq_lr_temp
-
-   msr     spsr_cf, r12            // Restore spsr.
-   subs    pc, lr, #4             // Return from ISR
-
-CHECK_IRQ:
-   ldr     reg0, =tube_irq             // Get IRQ status
-   ldr     reg0, [reg0]
-   //mrs     reg12, CPSR                  // Preserve the 6502 flags
-   tst     flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
-   eoreq   reg0, reg0, #1
-   tsteq   reg0, #1                    // Test for IRQ
-   beq     handle_irq
-   msr     CPSR_flg, temp              // Restore the 6502 flags
-   mov     temp1,temp1,LSL #JITLETSHIFT
-   add   temp1,temp1,#JITLET
-   bx    temp1
-
-handle_irq:
-   msr  CPSR_flg, temp     // Restore the 6502 flags
-   INTR -2, 0
+   tst   r0, #RESET_BIT
+   bne   reset_handler
+   tst   r0, #NMI_BIT
+   bne   handle_nmi
+   tst   flags, #I_FLAG6502   // Test whether interrupts are enabled (bit 2 = 0)
+   bne   noirq
+   tst   r0, #IRQ_BIT         // Bit 0 set indicate IRQ is active
+   beq   noirq                // Take the IRQ interrupt
 
 handle_irq_fake:
-   msr     CPSR_flg, temp2   // Restore the 6502 flags
-   INTR    -2, 0, FAKE
+   msr   CPSR_flg, temp2      // Restore the 6502 flags
+   INTR  -2, 0, FAKE
+
+noirq:
+   pop   {r0-r12,r14}
+   RFEFD r13!                 // return from ISR
 
 handle_nmi:
-   ldr     r0,[r1]   // load tube_irq again as it might have changed
-   BIC     r0,r0,#2  // clear NMI flag
-   str     r0,[r1]   // Store it back again
-   msr     CPSR_flg, r2   // Restore the 6502 flags
-   INTR    -6, 0, FAKE
-.ltorg
+   BIC   r0,r0,#NMI_BIT       // clear NMI flag
+   str   r0,[r12]             // Store it back again
+   msr   CPSR_flg, r2         // Restore the 6502 flags
+   INTR  -6, 0, FAKE
+
+
+arm_jit_irq_handler:
+   sub   lr, lr, #4
+   push  {r0, r1, r2, r3, ip, lr}
+   bl    RPI_AuxMiniUartIRQHandler
+
+   CPSID f
+   ldrb  r0,fiqirqflag
+   movs  r0,r0
+   ldmeq sp!, {r0, r1, r2, r3, ip, pc}^
+   mov   r0,#0
+   strb  r0,fiqirqflag
+
+// we are in IRQ mode and have had a FIQ event
+   ldm   sp!, {r0, r1, r2, r3, ip, lr}
+   B fiq_during_irq
 
 // **** dejit functions
 
@@ -2800,13 +2836,16 @@ dejit16bit1: //reg1 pointer to address to dejit
    mov reg12,#JITLET
    sub reg2,reg2,reg1,LSL # JITLETSHIFT
    mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#2
+   mov reg2,reg2,LSR#BYTEWORDSHIFT
    add reg2,reg2,#BLINSTRUCTION
 
    str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
    DEJITCLEAN 1
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+#if JITTEDTABLESHIFT==3
+   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
+#endif
+   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
    DEJITCLEAN 0
    bx lr
 
@@ -2818,7 +2857,7 @@ dejit16bit21: // reg1 , reg1+4
    mov reg12,#JITLET
    sub reg2,reg2,reg1,LSL # JITLETSHIFT
    mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#2
+   mov reg2,reg2,LSR#BYTEWORDSHIFT
    add reg2,reg2,#BLINSTRUCTION
 
    str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
@@ -2828,9 +2867,12 @@ dejit16bit21: // reg1 , reg1+4
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+#if JITTEDTABLESHIFT==3
+   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
+#endif
+   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
    DEJITCLEAN 1
-   str reg0,[reg12,#4]!
+   str reg0,[reg12,#(1<<JITTEDTABLESHIFT)]!
    DEJITCLEAN 0
    bx lr
 
@@ -2840,7 +2882,7 @@ dejit16bit22: // reg1 , reg1-4
    mov reg12,#JITLET
    sub reg2,reg2,reg1,LSL # JITLETSHIFT
    mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#2
+   mov reg2,reg2,LSR#BYTEWORDSHIFT
    add reg2,reg2,#BLINSTRUCTION
 
    str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
@@ -2850,9 +2892,12 @@ dejit16bit22: // reg1 , reg1-4
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+#if JITTEDTABLESHIFT==3
+   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
+#endif
+   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
    DEJITCLEAN 1
-   str reg0,[reg12,#-4]!
+   str reg0,[reg12,#-(1<<JITTEDTABLESHIFT)]!
    DEJITCLEAN 0
    bx lr
 
@@ -2863,7 +2908,7 @@ dejit16bit31: // reg1 , reg1+4, reg1 + 8
    mov reg12,#JITLET
    sub reg2,reg2,reg1,LSL # JITLETSHIFT
    mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#2
+   mov reg2,reg2,LSR#BYTEWORDSHIFT
    add reg2,reg2,#BLINSTRUCTION
 
    str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
@@ -2876,11 +2921,14 @@ dejit16bit31: // reg1 , reg1+4, reg1 + 8
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+#if JITTEDTABLESHIFT==3
+   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
+#endif
+   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
    DEJITCLEAN 1
-   str reg0,[reg12,#4]!
+   str reg0,[reg12,#(1<<JITTEDTABLESHIFT)]!
    DEJITCLEANMID
-   str reg0,[reg12,#4]!
+   str reg0,[reg12,#(1<<JITTEDTABLESHIFT)]!
    DEJITCLEAN 0
    bx lr
 
@@ -2891,7 +2939,7 @@ dejit16bit32: // reg1 , reg1-4, reg1 + 4
    mov reg12,#JITLET
    sub reg2,reg2,reg1,LSL # JITLETSHIFT
    mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#2
+   mov reg2,reg2,LSR#BYTEWORDSHIFT
    add reg2,reg2,#BLINSTRUCTION
 
    str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
@@ -2904,11 +2952,14 @@ dejit16bit32: // reg1 , reg1-4, reg1 + 4
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+#if JITTEDTABLESHIFT==3
+   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
+#endif
+   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
    DEJITCLEANMID
-   str reg0,[reg12,#-4]!
+   str reg0,[reg12,#-(1<<JITTEDTABLESHIFT)]!
    DEJITCLEAN 1
-   str reg0,[reg12,#8]!
+   str reg0,[reg12,#(2<<JITTEDTABLESHIFT)]!
    DEJITCLEAN 0
    bx lr
 
@@ -2918,7 +2969,7 @@ dejit16bit33: // reg1 , reg1-4, reg1 - 8
    mov reg12,#JITLET
    sub reg2,reg2,reg1,LSL # JITLETSHIFT
    mov reg3,#0 // only used in Armv6 DSB
-   mov reg2,reg2,LSR#2
+   mov reg2,reg2,LSR#BYTEWORDSHIFT
    add reg2,reg2,#BLINSTRUCTION
 
    str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
@@ -2931,29 +2982,40 @@ dejit16bit33: // reg1 , reg1-4, reg1 - 8
    DEJITCLEAN 1
 
    mov reg12,#JITTEDTABLE16
-   str reg0,[reg12,reg1,LSL #2]!
+#if JITTEDTABLESHIFT==3
+   add reg12,reg12,#4*(JITTEDTABLESHIFT-2)
+#endif
+   str reg0,[reg12,reg1,LSL #JITTEDTABLESHIFT]!
    DEJITCLEAN 1
-   str reg0,[reg12,#-4]!
+   str reg0,[reg12,#-(1<<JITTEDTABLESHIFT)]!
    DEJITCLEANMID
-   str reg0,[reg12,#-4]!
+   str reg0,[reg12,#-(1<<JITTEDTABLESHIFT)]!
    DEJITCLEAN 0
    bx lr
 
+.ltorg
 // *************
 
 // **** jit up to a branch or jsr rts rti
 dojit:
 // r14 has address of instruction
    mrs r4, CPSR                   // Save interrupt state (restored by dojitexit)
-   CPSID   if                     // Disable ARM FIQ and IRQ interrupts
+
+   mov r0,#1
+   strb r0,fiqjitflag
+
+#ifndef DORMANN_TEST
+ //  CPSID   if                     // Disable ARM FIQ and IRQ interrupts
+#endif
+
    sub r3,r14,#4                  // return address ( first address of jitted code)
    push {r3-r11}
-#ifdef DEBUG_TIMING   
+#ifdef DEBUG_TIMING
         ldr     r8, =ASS_GPSET0     // timing debug code
         mov     r7, #TEST2_MASK
         str     r7, [r8]
-#endif        
-   sub temp2,R3,#JITLET 
+#endif
+   sub temp2,R3,#JITLET
    mov r5,#0
    mov temp2,temp2,LSR#JITLETSHIFT
    b jitentry
@@ -2996,47 +3058,22 @@ jitend2bytestore4:
 
 jitend2byte:
    FILLINJITTEDTABLES dejit16bit21
-   add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
-   mov r5,#2
-   str temp0,[temp1,#4]
+   add temp0,temp0,#(dejit16bit22-dejit16bit21-(1<<JITTEDTABLESHIFT))>>2
+   mov r5,#TWOBYTES
+   str temp0,[temp1,#1<<JITTEDTABLESHIFT]
 
 dojitloop:
-
-#if 0 //JITDEBUG
-   ldrb temp,debugflag
-   movs temp,temp
-   BEQ 1f
-
-   push {r0-r12}
-   mov r0,r6
-   add r1,r2,r5
-   BL disarm
-   pop {r0-r12}
-1:
-#endif
+   DEBUGDISS
 jitentry:
-
-//debug
-#if JITDEBUG
-   ldrb r0,debugflag
-   movs r0,r0
-   BEQ 1f
-
-   push {r0-r12}
-   add r0,temp2,r5
-   BL dis6502
-   pop {r0-r12}
-1:
-#endif
-   ldrb r7,[temp2,r5]!
-   mov r6,temp2,LSL#JITLETSHIFT
-   adr temp0,opcode_table
-   add r6,r6,#JITLET
-   ldr temp0,[temp0,r7,LSL#2]
-   ldrb r4,[temp2,#1]
-   ldrb r5,[temp2,#2]   
-   adr r12,flags_table   
-   bx temp0
+   ldrb  r7,[temp2,r5]!
+   mov   r6,temp2,LSL#JITLETSHIFT
+   adr   temp0,opcode_table
+   add   r6,r6,#JITLET
+   ldr   temp0,[temp0,r7,LSL #BYTEWORDSHIFT]
+   ldrb  r4,[temp2,#1]
+   ldrb  r5,[temp2,#2]
+   adr   r12,flags_table
+   bx    temp0
 // entry regs
 // r0
 // r1
@@ -3308,7 +3345,7 @@ flags_table:
 .byte RP_N + CNZF	// Opcode E0 - CPX #$00
 .byte RP_N + VCNZF // Opcode E1 - SBC ($00,X)
 .byte RP_N  		// Opcode E2 - NOP #$00
-.byte RP_N  		// Opcode E3 - 
+.byte RP_N  		// Opcode E3 -
 .byte RP_N + CNZF	// Opcode E4 - CPX $00
 .byte RP_N + VCNZF  // Opcode E5 - SBC $00
 .byte RP_N + NZF	// Opcode E6 - INC $00
@@ -3337,7 +3374,8 @@ flags_table:
 .byte RP_N + VCNZF // Opcode FD - SBC $0000,X
 .byte RP_5 + NZF  // Opcode FE - INC $0000,X
 .byte RP_N  		// Opcode FF - BBS7
-
+timingtemp:
+   .word 0
 branchsavewords:
    STRD r8,r9,[R6]
    //str r9,[r6,#8]
@@ -3345,26 +3383,13 @@ branchsavewords:
 
 jitend2byteexit:
    FILLINJITTEDTABLES dejit16bit21
-   add temp0,temp0,#(dejit16bit22-dejit16bit21-4)>>2
-   mov r5,#2
-   str temp0,[temp1,#4]
+   add temp0,temp0,#(dejit16bit22-dejit16bit21-(1<<JITTEDTABLESHIFT))>>2
+   mov r5,#TWOBYTES
+   str temp0,[temp1,#1<<JITTEDTABLESHIFT]
   // FILLINJITTEDTABLES dejit16bit22
 
 dojitexit :
-#if 0 //JITDEBUG
-   ldrb r0,debugflag
-   movs r0,r0
-   BEQ 1f
-   push {r0-r12}
-   ldr r0,debugtemp
-   mov r1,r2
-   BL disarm
-   pop {r0-r12}
-
- //  DEBUG_REG r3
-
-1:
-#endif
+   DEBUGDISS
    add r2,r2,r5
    sub r2,r2,#1   // move end pointer to the last byte
 // flush BTB icache dcache it might be better to just invalidate a few lines
@@ -3374,12 +3399,12 @@ dojitexit :
    // Clean data cache both JITLET
    // r3 has the first address of JITLET instruction
    // r2 has last address
-   
+
    ldrb r12,cachelineD
    ldrb r11,cachelineI
-   mov r2,r2,LSL #2        // change to words
+   mov r2,r2,LSL #BYTEWORDSHIFT        // change to words
    sub r4,r3,#JITLET
-   add r2,r2,#JITTEDTABLE16   // 
+   add r2,r2,#JITTEDTABLE16   //
    mov r4,r4,LSR #(JITLETSHIFT-2)
    add r4,r4,#JITTEDTABLE16
 
@@ -3437,25 +3462,26 @@ cacheflushloopI:
    mov r2,r2,LSL #JITLETSHIFT
    add r7,r2,#JITLET
    sub r4,r3,#JITLET
-   mov r4,r4,LSR #(JITLETSHIFT-2)
-   mov r2,r2,LSR #(JITLETSHIFT-2)
+   mov r4,r4,LSR #(JITLETSHIFT-JITTEDTABLESHIFT)
+   mov r2,r2,LSR #(JITLETSHIFT-JITTEDTABLESHIFT)
    add r4,r4,#JITTEDTABLE16
    add r2,r2,#JITTEDTABLE16
 
    MCRR p15,0,r7,r3,c12 // clean data cache
    MCRR p15,0,r2,r4,c12 // clean data cache
 
- //  MCRR p15,0,r7,r3,c5 // invalidate instruction cache
- //  MCRR p15,0,r2,r4,c5 // invalidate instruction cache
+   MCRR p15,0,r7,r3,c5 // invalidate instruction cache
+   MCRR p15,0,r2,r4,c5 // invalidate instruction cache
 
- //  MCR p15, 0, temp, c7, c10, 4 // DSB
+   MCR p15, 0, temp, c7, c10, 4 // DSB
 
- //  MCRR p15,0,r7,r3,c5 // invalidate instruction cache // Do it again ( errata)
- //  MCRR p15,0,r2,r4,c5 // invalidate instruction cache // Do it again ( errata)
+   MCRR p15,0,r7,r3,c5 // invalidate instruction cache // Do it again ( errata)
+   MCRR p15,0,r2,r4,c5 // invalidate instruction cache // Do it again ( errata)
    //MCR p15, 0, r0, c7, c5, 1
 
    MCR p15, 0, temp, c7, c10, 4 // DSB
-   MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTC BTAC
+ //  MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTC BTAC
+   MCR p15, 0, temp, c7, c5, 6 // flush entire Branch Target Cache
    MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
    MCR p15, 0, temp, c7, c10, 4 // DSB
 #else
@@ -3466,24 +3492,75 @@ cacheflushloopI:
    MCR p15, 0, temp, c7, c5, 0 //; invalidate I cache and BTB
    MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
 #endif
-      
+
 #endif
-#ifdef DEBUG_TIMING   
+#ifdef DEBUG_TIMING
         ldr     r8, =ASS_GPCLR0
         mov     r7, #TEST2_MASK
         str     r7, [r8]
-#endif  
+#endif
    pop {r3-r11}
-   msr CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
+/*
+   push {r0-r3}
+   mov r0,r6
+   BL dump_hex
+   mov r0,regA
+   BL dump_hex
+   mov r0,regY
+   BL dump_hex
+   pop {r0-r3}
 
-   bx r3  // don't use r14 as it is slow on A72
+   push {r0-r3}
+   mov r0,r3
+   BL dump_hex
+   pop {r0-r3}
+*/
+
+   CPSID f
+   ldrb  r0, fiqjitflag
+   cmp   r0, #2
+   mov   r0, #0
+   strb  r0, fiqjitflag
+   blt   noirq_jit
+
+irqoccured:
+   ldr   r1, =tube_irq
+   ldr   r0, [r1]               // Get Mailbox data
+   tst   r0, #RESET_BIT
+   bne   reset_handler_jit
+   tst   r0, #NMI_BIT
+   bne   handle_nmi_jit
+   tst   flags, #I_FLAG6502      // Test whether interrupts are enabled (bit 2 = 0)
+   bne   noirq_jit
+   tst   r0, #IRQ_BIT             // Bit 0 set indicate IRQ is active
+   beq   noirq_jit
+
+handle_irq_jit:
+// deal with IRQ during jitter
+   SUB   temp1,r3,#JITLET
+   mov   temp1,temp1,LSR #JITLETSHIFT
+   msr   CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
+   INTR  -2, 0
+
+handle_nmi_jit:
+// deal with IRQ during jitter
+   BIC   r0,r0,#NMI_BIT  // clear NMI flag
+   str   r0,[r1]   // Store it back again
+   SUB   temp1,r3,#JITLET
+   mov   temp1,temp1,LSR #JITLETSHIFT
+   msr   CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
+   INTR  -4, 0
+
+noirq_jit:
+   msr   CPSR, r4
+   bx    r3
 
 singleopcodeexit:
    MAKEBRANCHLINK r9
 singleopcodeexitstore:
-   strd r8,r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   mov r5,#1
+   mov r5,#ONEBYTE
+   strd r8,r9,[r6]
    B dojitexit
 
 jitend1bytestore2opt:
@@ -3495,10 +3572,9 @@ jitend1bytestore2opt:
 singleopcodeBLend:
    MAKEBRANCHLINK r9
 jitend1bytestore2:
-   strd r8,r9,[r6]
-jitend1byte:
    FILLINJITTEDTABLES dejit16bit1
-   mov r5,#1
+   mov r5,#ONEBYTE
+   strd r8,r9,[r6]
    B dojitloop
 
 jitend3byteloadstoreoperandBL8:
@@ -3523,14 +3599,13 @@ jitend3bytestoreoperand:
    orr r7,r7,r5
    orr r8,r8,r4
 jitend3bytestore:
-   COPY6STORE
-jitend3byte:
    FILLINJITTEDTABLES dejit16bit31
-   add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   mov r5,#3
-   str temp0,[temp1,#4]
-   add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
-   str temp0,[temp1,#8]
+   COPY6STORE
+   add temp0,temp0,#(dejit16bit32-dejit16bit31-(1<<JITTEDTABLESHIFT))>>2
+   mov r5,#THREEBYTES
+   str temp0,[temp1,#1<<JITTEDTABLESHIFT]
+   add temp0,temp0,#(dejit16bit33-dejit16bit32-(1<<JITTEDTABLESHIFT))>>2
+   str temp0,[temp1,#2<<JITTEDTABLESHIFT]
    B dojitloop
 
 jitend3byteexitBBRS:
@@ -3546,18 +3621,28 @@ jitend3byteexitstore6:
 
 jitend3byteexit:
    FILLINJITTEDTABLES dejit16bit31
-   add temp0,temp0,#(dejit16bit32-dejit16bit31-4)>>2
-   mov r5,#3
-   str temp0,[temp1,#4]
-   add temp0,temp0,#(dejit16bit33-dejit16bit32-4)>>2
-   str temp0,[temp1,#8]
+   add temp0,temp0,#(dejit16bit32-dejit16bit31-(1<<JITTEDTABLESHIFT))>>2
+   mov r5,#THREEBYTES
+   str temp0,[temp1,#1<<JITTEDTABLESHIFT]
+   add temp0,temp0,#(dejit16bit33-dejit16bit32-(1<<JITTEDTABLESHIFT))>>2
+   str temp0,[temp1,#2<<JITTEDTABLESHIFT]
    B dojitexit
 
 fillinjittedtable:
    mov temp1,#JITTEDTABLE16
-   RSB temp0,temp2,temp0,LSR #2
+
+#if JITTEDTABLESHIFT==3
+   add temp1,temp1,#4*(JITTEDTABLESHIFT-2)
+   mov temp2,temp2,LSL #1
+   RSB temp0,temp2,temp0,LSR #BYTEWORDSHIFT
+   mov temp2,temp2,LSR #1
+#else
+   RSB temp0,temp2,temp0,LSR #BYTEWORDSHIFT
+#endif
+
    ORR temp0,temp0,#BINSTRUCTION
-   str temp0,[temp1,temp2,LSL #2]!
+   str temp0,[temp1,temp2,LSL #JITTEDTABLESHIFT]!
+
    bx lr
 
 fixuptype2accessload4:
@@ -3587,9 +3672,9 @@ ioload:
    pop     {pc}               // Restore registers and return
 
 indirectiostore:
-   sub     reg0,reg0,jittedtable16ptr 
+   sub     reg0,reg0,jittedtable16ptr
    and     reg1,regA,#0xFF    // This is an assumption that the value is in regA
-   mov     reg0,reg0,LSR #2
+   mov     reg0,reg0,LSR #JITTEDTABLESHIFT
 
 iostore:
    push    {lr}               // ram6502 (r6) is used as a working register
@@ -3602,109 +3687,109 @@ iostore:
 // Jits overflow
 
 brk:
-   sub reg1,r14,#JITLET
-   mov reg1,reg1,LSR#JITLETSHIFT
-   add reg1,reg1,#1
-   INTR    -2, 1
+   sub   reg1,r14,#JITLET
+   mov   reg1,reg1,LSR#JITLETSHIFT
+   add   reg1,reg1,#1
+   INTR  -2, 1
 
 rti:
    PLP
-   ldrh    reg1, [regSP, #1]
+   ldrh  reg1, [regSP, #1]
 
-   mov     reg0, #2
-   UADD8   regSP, regSP, reg0
+   mov   reg0, #2
+   UADD8 regSP, regSP, reg0
 
-   add reg0,reg1,#1
-   cmp reg0,#0x10000
+   add   reg0,reg1,#1
+   cmp   reg0,#0x10000
 
    // so we have an irq that happened during execution
-   beq noirq
+   beq   rtiended
 
-   ldr     reg0, =tube_irq             // Get IRQ status
-   ldr     reg0, [reg0]
+   ldr   reg0, =tube_irq             // Get IRQ status
+   ldr   reg0, [reg0]
    //mrs     reg12, CPSR                  // Preserve the 6502 flags
-   tst     flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
-   eoreq   reg0, reg0, #1
-   tsteq   reg0, #1                    // Test for IRQ
-   beq     handle_irqrti
-   msr     CPSR_flg, reg12              // Restore the 6502 flags
-   mov     reg1,reg1,LSL #JITLETSHIFT
+   tst   flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
+   eoreq reg0, reg0, #1
+   tsteq reg0, #1                    // Test for IRQ
+   beq   handle_irqrti
+   msr   CPSR_flg, reg12              // Restore the 6502 flags
+   mov   reg1,reg1,LSL #JITLETSHIFT
    add   reg1,reg1,#JITLET
    bx    reg1
 
 handle_irqrti:
 
-   msr  CPSR_flg, temp     // Restore the 6502 flags
-   INTR -2, 0
+   msr   CPSR_flg, temp     // Restore the 6502 flags
+   INTR  -2, 0
 
 cli:
-   mrs reg12,CPSR
-   B check_irq_plp
+   mrs   reg12,CPSR
+   B     check_irq_plp
 
 plp:
    PLP
 // CHECK_IRQ
 check_irq_plp:
-   ldr     reg0, =tube_irq             // Get IRQ status
-   ldr     reg0, [reg0]
+   ldr   reg0, =tube_irq             // Get IRQ status
+   ldr   reg0, [reg0]
    //mrs     reg12, CPSR                  // Preserve the 6502 flags
-   tst     flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
-   eoreq   reg0, reg0, #1
-   tsteq   reg0, #1                    // Test for IRQ
-   beq     handle_irqplp
-   msr     CPSR_flg, reg12              // Restore the 6502 flags
-   bx lr
+   tst   flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
+   eoreq reg0, reg0, #1
+   tsteq reg0, #1                    // Test for IRQ
+   beq   handle_irqplp
+   msr   CPSR_flg, reg12              // Restore the 6502 flags
+   bx    lr
 
 handle_irqplp:
-   sub reg1,r14,#JITLET
-   mov reg1,reg1,LSR#JITLETSHIFT
+   sub   reg1,r14,#JITLET
+   mov   reg1,reg1,LSR#JITLETSHIFT
 
-   msr  CPSR_flg, reg12     // Restore the 6502 flags
-   INTR -2, 0
+   msr   CPSR_flg, reg12     // Restore the 6502 flags
+   INTR  -2, 0
 
 putcharopcode:
-   push    {regSP, r12,r14}
-   mrs     regSP, CPSR               // Save 6502 flags
-   ldr reg12,=putchar
-   mov r0,regA
-   BLX reg12
-   msr     CPSR_flg, regSP
-   pop     {regSP,r12,pc}
+   push  {r4,r14}
+   mrs   r4, CPSR               // Save 6502 flags
+   CPSID if
+   mov   r0,regA
+   BL    putchar
+   msr   CPSR, r4
+   pop   {r4,pc}
 
 debugopcode:
 #if JITDEBUG
-   ldr reg1,=debugflag
-   strb temp,[reg1]
+   ldr   reg1,=debugflag
+   strb  temp,[reg1]
 #endif
-   bx lr
+   bx    lr
 
 invertcarry:
    mrs   reg0, CPSR
    eor   reg0, reg0, #C_FLAG
    msr   CPSR_flg, reg0
-   bx lr
+   bx    lr
 
 testvflagC:
-   mrs     reg1, CPSR
-   tst     flags, #V_FLAG6502
+   mrs   reg1, CPSR
+   tst   flags, #V_FLAG6502
    addne pc,r14,#8 // return to jit
-   bx lr
+   bx    lr
 
 testvflagS:
-   mrs     reg1, CPSR
-   tst     flags, #V_FLAG6502
+   mrs   reg1, CPSR
+   tst   flags, #V_FLAG6502
    addeq pc,r14,#8 // return to jit
-   bx lr
+   bx    lr
 
 bbrreturn:
    addne pc,r14,#4 // return to jit
-   msr     CPSR_flg, reg1
-   bx lr
+   msr   CPSR_flg, reg1
+   bx    lr
 
 bbsreturn:
    addeq pc,r14,#4 // return to jit
-   msr     CPSR_flg, reg1
-   bx lr
+   msr   CPSR_flg, reg1
+   bx    lr
 
 bitimm:
    bicne   reg1, reg1, #Z_FLAG
@@ -3713,18 +3798,18 @@ bitimm:
    bx lr
 
 jitstxytable:
-   add reg0,jittedtable16ptr,reg1,LSR #24-2
+   add reg0,jittedtable16ptr,reg1,LSR #24-JITTEDTABLESHIFT
 jittablezp:
    mov reg1,reg1,LSR #24
    BX reg0
 
 jitstatable:
    strb regA,[reg1]
-   add reg0,jittedtable16ptr, reg1,LSL #2
+   add reg0,jittedtable16ptr, reg1,LSL #JITTEDTABLESHIFT
    BX reg0
 
 storeXflags:
-   strb reg0,[ram6502,reg1,LSR#24]
+   strb reg0,[ram6502,reg1,LSR #24]
 tempflags:
    sxtb reg0, reg0
    teq  reg0, #0

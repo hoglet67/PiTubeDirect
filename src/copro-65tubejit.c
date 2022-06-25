@@ -20,6 +20,7 @@
 #include "copro-65tubejit.h"
 #include "cache.h"
 #include "copro-defs.h"
+#include "rpi-aux.h"
 
 // used for the debug output
 #include "lib6502.h"
@@ -75,49 +76,74 @@ void copro_65tubejit_emulator(int type) {
 
    map_4k_pageJIT((JITTEDTABLE16+(4*65536))>>12, (JITTEDTABLE16+(4*65536))>>12);
 }
+#if DEBUG
 
-void dis6502( int addr)
+static void dis6502(unsigned int addr, int padding)
 {
-   char buffer[4096];
+   char buffer[64];
    M6502 mpu;
-
    mpu.memory=0;
-
-   M6502_disassemble(&mpu, (unsigned short)addr,buffer);
-   printf(" Jitting : %x : %s\r\n",addr,buffer);
+   dump_hex(addr,16); RPI_AuxMiniUartWrite(' ');
+   char * ptr =buffer;
+   M6502_disassemble(&mpu, (unsigned short)addr,ptr);
+   dump_string(buffer,padding);
 }
 
-static darm_t dis;
-static darm_str_t dis_str;
-
-void disarm(unsigned int addr, unsigned int endaddr)
+void dissall(unsigned int addr, unsigned length)
+#if 0
 {
-   char buffer[4096];
-
-   size_t bufsize = 4096;
-   unsigned int length = (endaddr+JITLET-addr)>>2;
-
-   for (unsigned int i=0;i<length;i++)
+   unsigned int jitletaddr = JITLET+ ( addr<<3);
+   unsigned int tableaddr = (JITTEDTABLE16+(addr<<3));
+   for ( uint i = 0; i < length ; i++)
    {
-   unsigned int instr = *(char *)addr;
-   char *buf= buffer;
-   unsigned int len = (unsigned int)snprintf(buf, bufsize, "%08"PRIx32" %08"PRIx32" ",(long unsigned int) addr, (long unsigned int )instr);
-   buf += len;
-   bufsize -= len;
-   int ok = 0;
-   if (darm_armv7_disasm(&dis, instr) == 0) {
-      dis.addr = addr;
-      dis.addr_mask = ADDRESS_MASK;
-      if (darm_str2(&dis, &dis_str, 1) == 0) {
-         strncpy(buf, dis_str.total, bufsize);
-         ok = 1;
+  /*    if (i ==0)
+      {
+         dis6502( addr, 12);
       }
-   }
-      if (!ok) {
-      strncpy(buf, "???", bufsize);
-   }
+      else
+         padding(17);
 
-   printf("%s\r\n",buffer);
-      addr = addr+4;
+      darm_t dis;
+      darm_str_t dis_str;
+      unsigned int instr = * (unsigned int *) (jitletaddr);
+      if (darm_armv7_disasm(&dis, instr) == 0) {
+         dis.addr = (jitletaddr);
+         darm_str2(&dis, &dis_str, 0);
+      }
+      dump_hex(jitletaddr,32);
+      RPI_AuxMiniUartWrite(' ');
+      dump_string(dis_str.total,30);
+*/
+      darm_t dis;
+      darm_str_t dis_str;
+      if (darm_armv7_disasm(&dis, * (unsigned int *) (tableaddr)) == 0) {
+         dis.addr = tableaddr;
+         darm_str2(&dis, &dis_str, 0);
+      }
+      dump_string(dis_str.total,0);
+      RPI_AuxMiniUartWrite('\r');
+      RPI_AuxMiniUartWrite('\n');
+      jitletaddr+=4;
+      tableaddr+=4;
    }
 }
+#else
+{
+   dis6502( addr, 0);
+/*
+   darm_t dis;
+   darm_str_t dis_str;
+   unsigned int tableaddr = (JITTEDTABLE16+(addr<<3));
+   unsigned int instr = * (unsigned int *) (tableaddr);
+   if (darm_armv7_disasm(&dis, instr) == 0) {
+      dis.addr = tableaddr;
+      darm_str2(&dis, &dis_str, 0);
+   }
+
+   dump_string(dis_str.total,0);
+*/
+   RPI_AuxMiniUartWrite('\r');
+   RPI_AuxMiniUartWrite('\n');
+}
+#endif
+#endif
