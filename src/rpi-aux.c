@@ -209,3 +209,33 @@ void RPI_AuxMiniUartInit(uint32_t baud)
   _data_memory_barrier();
 
 }
+
+
+void dump_hex(unsigned int value, int bits)
+{
+   value = value << (32-bits);
+   for (int i = 0; i < (bits>>2); i++) {
+      unsigned int c = value >> 28;
+      if (c < 10) {
+         c = '0' + c;
+      } else {
+         c = 'A' + c - 10;
+      }
+      RPI_AuxMiniUartWrite((uint8_t)c);
+      value <<= 4;
+   }
+}
+
+void dump_string( const char * string, int padding)
+{
+   int i=0;
+   while(1)
+      if (string[i] !=0)
+         RPI_AuxMiniUartWrite(string[i++]);
+      else
+         break;
+   while ( i<padding) {
+      RPI_AuxMiniUartWrite(' ');
+      i++;
+   }
+}
