@@ -2915,7 +2915,6 @@ opc_60: // Opcode 60 - RTS
 
 opc_00: // Opcode 00 - BRK
 opc_40: // Opcode 40 - RTI
-singleopcodeexit:
    ldrd r8,[r9]
    MAKEBRANCHLINK r9
 singleopcodeexitstore:
@@ -2969,7 +2968,6 @@ opc_DA: // Opcode DA - PHX
 opc_E3: // Opcode E3 - NOP6
 opc_F3: // Opcode F3 - NOP6
 opc_FA: // Opcode FA - PLX
-singleopcodeBLend:
    ldrd r8,[r9]
    MAKEBRANCHLINK r9
 jitend1bytestore2:
@@ -3006,7 +3004,6 @@ opc_DE: // Opcode DE - DEC $0000,X
 opc_ED: // Opcode ED - SBC $0000
 opc_F9: // Opcode F9 - SBC $0000,Y
 opc_FD: // Opcode FD - SBC $0000,X
-jitend3byteloadstoreoperandBL:
    LDMIA r9,{r7,r8,r9,r10,r11,r12}
    orr r7,r7,r5
    orr r8,r8,r4
@@ -3058,9 +3055,7 @@ opc_CE: // Opcode CE - DEC $0000
 opc_D9: // Opcode D9 - CMP $0000,Y
 opc_DD: // Opcode DD - CMP $0000,X
 opc_EC: // Opcode EC - CPX $0000
-jitend3byteloadstoreoperand:
    LDMIA r9,{r7,r8,r9,r10,r11,r12}
-jitend3bytestoreoperand:
    orr r7,r7,r5
    orr r8,r8,r4
 jitend3bytestore:
@@ -3097,7 +3092,6 @@ opc_CF: // Opcode CF - BBS4
 opc_DF: // Opcode DF - BBS5
 opc_EF: // Opcode EF - BBS6
 opc_FF: // Opcode FF - BBS7
-jitend3byteexitBBRS:
    LDMIA r9,{r7,r8,r9,r10,r11,r12}
    sxtb r5, r5
    mov r5,r5,LSL #1
@@ -3154,9 +3148,7 @@ opc_91: // Opcode 91 - STA ($00),Y
 opc_92: // Opcode 92 - STA ($00)
 opc_D1: // Opcode D1 - CMP ($00),Y
 opc_D2: // Opcode D2 - CMP ($00)
-fixuptype2accessload4:
    LDM r9,{r8,r9,r10,r11}
-fixuptype2accessstore4:
    and r1,r4,#0xF0
    and temp,r4,#0x0F
    orr r8,r8,r1,LSL #4
