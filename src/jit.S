@@ -27,7 +27,7 @@
 #define JITDEBUG 0
 //#define DORMANN_TEST 1
 //#define DEBUG_TIMING 1
-#define OPTIMISMISE 1
+#define OPTIMISMISE 2
 #define TIMING_INSTRUCTION 0
 
 /* Interrupts
@@ -556,9 +556,9 @@ Bopc_06:  // Opcode 06 - ASL $00
    strb  reg12,[ram6502,#00]
    movs  reg12, reg12, lsl #24
 Bopc_06_fast:  // Opcode 06 - ASL $00
-   ldrb  reg12,[ram6502,#00]
+   ldrsb reg12,[ram6502,#00]
    nop
-   add   reg12, reg12, reg12
+   adds  reg12, reg12, reg12
    strb  reg12,[ram6502,#00]
 Bopc_07: // Opcode 07 - RMB0 $00
    JITRMB 0
@@ -643,9 +643,9 @@ Bopc_26: // Opcode 26 - ROL $00
    strb  reg12,[ram6502,#00]
    movs  reg12, reg12, lsl #24
 Bopc_26_fast: // Opcode 26 - ROL $00
-   ldrb  reg12,[ram6502,#00]
+   ldrsb reg12,[ram6502,#00]
    nop
-   adc   reg12, reg12, reg12
+   adcs  reg12, reg12, reg12
    strb  reg12,[ram6502,#00]
 Bopc_27: // Opcode 27 - RMB2 $00
    JITRMB 2
@@ -862,10 +862,11 @@ Bopc_7A: // Opcode 7A - PLY
    mov   reg1,#1
    .word ply-12
 Bopc_7C: // Opcode 7C - JMP ($0000,X)
-   JITABS
-   mov   reg0, regX, LSR #24
-   ldrh  reg1,[reg0, reg1]
+   mov   reg1, regX, LSR #24
+   ADDR1HIGH  //add \reg,\reg, #00<<8
+   ldrsb reg1, [reg1,#00]
    mov   reg0,#JITLET
+   nop
    add   pc,reg0,reg1,LSL #JITLETSHIFT
 Bopc_7D: // Opcode 7D - ADC $0000,X
    JITABS
@@ -1542,9 +1543,7 @@ opc_6C: // Opcode 6C - JMP ($0000)
    b     jitend3byteexitstore6
 
 opc_7C: // Opcode 7C - JMP ($0000,X)
-   LDMIA r9,{r7,r8,r9,r10,r11,r12}
-   orr   r7,r7,r5
-   orr   r8,r8,r4
+   BL    fixuptype2accessquickthird
    B     jitend3byteexitstore6
 
 opc_89: // Opcode 89 - BIT #$00
@@ -1553,21 +1552,32 @@ opc_89: // Opcode 89 - BIT #$00
    B     jitend2byteBLendstore
 
 opc_BD: // Opcode BD - LDA $0000,X
+#if OPTIMISMISE >0
    ldrb  r7,[r2,#3]
    ldrb  r7,[r12,r7]
    tst   r7,#NF
    addne r9,r9,#6*4
-   BL fixuptype2accessquickthird
+#endif
+   BL    fixuptype2accessquickthird
    b     jitend3bytestore
 
 opc_06: // Opcode 06 - ASL $00
 opc_26: // Opcode 26 - ROL $00
-   ldrb r7,[r12,r5]
-   tst r7,#NF
+   ldrb  r7,[r12,r5]
+   tst   r7,#NF
    Bne   1f
    LDMIA r9,{r8,r9,r10,r11}
    orr   r8,r8,r4
    orr   r10,r10,r4
+   B     jitend2bytestore4
+1:
+   add   r9,r9,#4*4
+   LDMIA r9,{r8,r9,r10,r11}
+   and   r1,r4,#0xF0
+   and   temp,r4,#0x0F
+   orr   r8,r8,r1,LSL #4
+   orr   r8,r8,temp
+   orr   r11,r11,r4
    B     jitend2bytestore4
 
 opc_C6: // Opcode C6 - DEC $00
@@ -1746,8 +1756,8 @@ cacheflushloopjittable:
 
 // run dormann tests directly
 #ifdef DORMANN_TEST
-   //mov   r3, #0x3400    // 6502 test code
-   mov   r3, #0xC000      // 65C02 test
+   mov   r3, #0x3400    // 6502 test code
+   //mov   r3, #0xC000      // 65C02 test
    mov   temp1,#0xFF00
    mov   temp,#0xF3
    orr   temp,temp,#0x60<<8
@@ -2606,7 +2616,7 @@ opcode_table:
 .word  opc_A6, Bopc_A6  // Opcode A6 - LDX $00 - may not be worth it ( bigger rewrite would be)
 .word  opc_A7, Bopc_A7  // Opcode A7 - SMB2 $00
 .word  opc_A8, Bopc_A8  // Opcode A8 - TAY - really may not be worth it
-.word  opc_A9, ARMNOP   // Opcode A9 - LDA #$00
+.word  opc_A9, 0xea000001   // Opcode A9 - LDA #$00
 .word  opc_AA, Bopc_AA  // Opcode AA - TAX - really may not be worth it
 .word  opc_AB, ARMNOP   // Opcode AB - NOP
 .word  opc_AC, Bopc_AC  // Opcode AC - LDY $0000 - may not be worth it ( bigger rewrite would be)
@@ -3555,8 +3565,8 @@ opc_A9: // Opcode A9 - LDA #$00
    adr r11,immediatesignextenedtable
    ldr temp,[r11,r4,LSL #BYTEWORDSHIFT]
    str r9,[r6,#4]
-   str r9,[r6,#8]
-   str r9,[r6,#12]
+  // str r9,[r6,#8]
+  // str r9,[r6,#12]
    orr temp,temp,#1<<20// S FLAG
    orr temp,temp,#0xA000 // regA
    str temp,[r6]
