@@ -969,6 +969,7 @@ Bopc_9A: // Opcode 9A - TXS
    orr   regSP, regSP, regX, lsr #24     // put X in lower nibble
 Bopc_9C: // Opcode 9C - STZ $0000
    JITABSSTORE ram6502
+Bopc_9C_iostore:
    JITABS r0
    nop
    mov   reg1,#0
@@ -1116,11 +1117,14 @@ Bopc_B8: // Opcode B8 - CLV
    nop
    bic   flags, #V_FLAG6502
 Bopc_B9: // Opcode B9 - LDA $0000,Y
-   JITABS
-   mov   regA, regY, lsr #24
-   ldrsb regA,[reg1, regA]
+   JITABSXYLDRSB regY regA
+   nop
    nop
    teq   regA, #0
+Bopc_B9_fast:
+   JITABSXYLDRSB regY regA
+   SPACE_THREE_ARM_WORDS
+
 Bopc_BA: // Opcode BA - TSX
    lsl   regX, regSP, #24
    teq   regX, #0
@@ -1133,19 +1137,11 @@ Bopc_BC: // Opcode BC - LDY $0000,X
 Bopc_BD: // Opcode BD - LDA $0000,X
    JITABSXYLDRSB regX regA
    nop
- //  JITABS                    // mov r1,regx,LSL#24
- //  mov   regA, regX, lsr #24  // ADD r1,r1,#MSB<<8
- //  ldrsb regA,[reg1, regA]   // ldrsb regA,[reg1,#LSB] // Should be fast
    nop
    teq   regA, #0
 Bopc_BD_fast: // Opcode BD - LDA $0000,X
    JITABSXYLDRSB regX regA
    SPACE_THREE_ARM_WORDS
-   //JITABS                    // mov r1,regx,LSL#24
-   //mov   regA, regX, lsr #24  // ADD r1,r1,#MSB<<8
-   //ldrsb regA,[reg1, regA]   // ldrsb regA,[reg1,#LSB] // Should be fast
-   //nop
-   //nop
 
 Bopc_BE: // Opcode BE - LDX $0000,Y
    JITABS
@@ -1550,7 +1546,7 @@ opc_89: // Opcode 89 - BIT #$00
    LDMIA r9,{r8,r9,r10,r11}
    orr   r9,r9,r4
    B     jitend2byteBLendstore
-
+opc_B9: // Opcode B9 - LDA $0000,Y
 opc_BD: // Opcode BD - LDA $0000,X
 #if OPTIMISMISE >0
    ldrb  r7,[r2,#3]
@@ -3046,7 +3042,7 @@ opc_7E: // Opcode 7E - ROR $0000,X
 opc_99: // Opcode 99 - STA $0000,Y
 opc_9D: // Opcode 9D - STA $0000,X
 opc_9E: // Opcode 9E - STZ $0000,X
-opc_B9: // Opcode B9 - LDA $0000,Y
+
 opc_BC: // Opcode BC - LDY $0000,X
 opc_BE: // Opcode BE - LDX $0000,Y
 opc_CC: // Opcode CC - CPY $0000
