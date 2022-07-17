@@ -99,7 +99,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 // mov pc,r14 0xe1a0f00e  // This is very slow on Pi3B+
 #define MOVPCR14INSTRUCTION 0xe12fff1e
 #define ARMNOP 0xe320f000
-
 #define ARMBLCC 0x3B000000
 #define ARMBLCS 0x2B000000
 
@@ -115,6 +114,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 //   mov reg1,#0xFF<<8
 #define MOVR0HIGH      .word 0xe3a00C00
 #define MOVR1HIGH      .word 0xe3a01C00
+#define ADDR1HIGH      .word 0xe2811C00
 
 .equ    N_FLAG,                 0x80000000
 .equ    Z_FLAG,                 0x40000000
@@ -198,14 +198,14 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro DEJITCLEAN count=0
 
 #if defined(RPI4)|| defined(RPI3)
-      MCR p15, 0, reg12, c7, c11, 1 // clean data cache line
-      DSB
-      MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line
-      MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
-      DSB
-      .ifc \count,0
-         ISB
-      .endif
+   MCR p15, 0, reg12, c7, c11, 1 // clean data cache line
+   DSB
+   MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line
+   MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
+   DSB
+   .ifc \count,0
+      ISB
+   .endif
 #else
    #if defined(RPI2)
       DSB
@@ -265,98 +265,35 @@ then return to our secret stack This relies on instructions being re entrant , b
    pop   {r0-r4,r14}
 .endm
 
-.macro COPY1 start
-   ldr r7,\start
-   str r7,[r6]
-.endm
-
-.macro COPY2 start
-   ldr r8,\start
-   ldr r9,4+\start
-   strd r8,r9,[r6]
-.endm
-
-.macro COPY3 start
-   adr temp1,\start
-   LDMIA temp1,{r8,r9,r10}
-   STMIA r6,{r8,r9,10}
-.endm
-
-.macro COPY3LOAD start
-   adr temp1,\start
-   LDMIA temp1,{r8,r9,r10}
-.endm
-.macro COPY3STORE
-   STMIA r6,{r8,r9,r10}
-.endm
-
-.macro COPY4 start
-   adr temp1,\start
-   LDMIA temp1,{r8,r9,r10,r11}
-   stmia r6,{r8,r9,r10,r11}
-.endm
-.macro COPY4LOAD start
-   adr temp1,\start
-   LDMIA temp1,{r8,r9,r10,r11}
-.endm
-.macro COPY4STORE
-   stmia r6,{r8,r9,r10,r11}
-.endm
-.macro COPY5 start
-   adr temp1,\start
-   LDMIA temp1,{r7,r8,r9,r10,r11}
-   STMIA r6,{r7,r8,r9,r10,r11}
-.endm
-.macro COPY5LOAD start
-   adr temp1,\start
-   LDMIA temp1,{r7,r8,r9,r10,r11}
-.endm
-.macro COPY5STORE
-   STMIA r6,{r7,r8,r9,r10,r11}
-.endm
-
-.macro COPY6 start
-   adr temp1,\start
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
-   STMIA r6,{r7,r8,r9,r10,r11,r12}
-.endm
-.macro COPY6LOAD start
-   adr temp1,\start
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
-.endm
-.macro COPY6STORE
-   STMIA r6,{r7,r8,r9,r10,r11,r12}
-.endm
-
 .macro MAKEBRANCHLINK reg
-   mov \reg,\reg,LSR #BYTEWORDSHIFT
-   sub \reg,\reg,r6,LSR #BYTEWORDSHIFT
-   ORR \reg,\reg,#BLINSTRUCTION
+   mov   \reg,\reg,LSR #BYTEWORDSHIFT
+   sub   \reg,\reg,r6,LSR #BYTEWORDSHIFT
+   ORR   \reg,\reg,#BLINSTRUCTION
 .endm
 
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 256 byte aligned
 .macro SPUSH reg
-   strb    \reg, [regSP], #-1
-   orr     regSP, #0x0100
+   strb  \reg, [regSP], #-1
+   orr   regSP, #0x0100
 .endm
 
 .macro JITINDXLOGICAL inst
    ADDR1REGXZP
-   mov reg1,reg1,LSR #24
+   mov   reg1,reg1,LSR #24
    .word ldrhldrsb-16
    \inst regA,regA,reg0
 .endm
 
 .macro JITINDYLOGICAL inst
-   ldrh reg0,[ram6502,#0x00]
-   mov reg1,regY,LSR #24
+   ldrh  reg0,[ram6502,#0x00]
+   mov   reg1,regY,LSR #24
    ldrsb reg0,[reg0,reg1]
    \inst regA,regA,reg0
 .endm
 
 .macro JITINDLOGICAL inst
-   ldrh reg0,[ram6502,#0x00]
+   ldrh  reg0,[ram6502,#0x00]
    nop
    ldrsb reg0,[reg0]
    \inst regA,regA,reg0
@@ -365,25 +302,16 @@ then return to our secret stack This relies on instructions being re entrant , b
 .macro JITZPLOGICAL inst
    ldrsb reg0,[ram6502,#0x00]
    nop
-   nop
-   \inst regA,regA,reg0
+   // fall into JITIMMLOGICAL
+   //nop
+   //\inst regA,regA,reg0
 .endm
 
 .macro JITZPXLOGICAL inst
    ADDR1REGXZP
-   mov reg1,reg1,LSR#24
+   mov   reg1,reg1,LSR#24
    ldrsb reg0,[reg1]
    \inst regA,regA,reg0
-.endm
-
-.macro IMMLOAD block
-   ldr r7,=immediatesignextenedtable
-   adr reg1,\block
-   LDMIA reg1,{r8,r9}
-   ldr r7,[r7,r4,LSL #BYTEWORDSHIFT]
-   strd  r8,r9,[r6,#8]
-   STMIA r6,{r7,r8}
-   B jitend2byte
 .endm
 
 .macro JITIMMLOGICAL inst
@@ -399,7 +327,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITABSYLOGICAL inst
    JITABS
-   mov reg0,regY,LSR #24
+   mov   reg0,regY,LSR #24
    ldrsb reg0,[reg1,reg0] // can save a cycle by reordering the above
    nop
    \inst regA,regA,reg0
@@ -407,51 +335,44 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITABSXLOGICAL inst
    JITABS
-   mov reg0,regX, LSR #24
+   mov   reg0,regX, LSR #24
    ldrsb reg0,[reg1,reg0] // can save a cycle by reordering the above
    nop
    \inst regA,regA,reg0
 .endm
 
 .macro JITRMB bitnum
-   ldrb reg0,[ram6502,#00]
+   ldrb  reg0,[ram6502,#00]
    nop
-   bic  reg0, #(1 << \bitnum)
-   strb reg0,[ram6502,#00]
+   bic   reg0, #(1 << \bitnum)
+   strb  reg0,[ram6502,#00]
 .endm
 
 .macro JITSMB bitnum
-   ldrb reg0,[ram6502,#00]
+   ldrb  reg0,[ram6502,#00]
    nop
-   orr  reg0, #(1 << \bitnum)
-   strb reg0,[ram6502,#00]
-.endm
-
-.macro BBRS block blout
-   adr r1,\block
-
-   // fill in BL
-   B  jitend3byteexitBBRS
+   orr   reg0, #(1 << \bitnum)
+   strb  reg0,[ram6502,#00]
 .endm
 
 .macro JITBBR bitnum
-   ldrb    reg0,[ram6502,#0x00]
-   mrs     reg1, CPSR
-   tst     reg0, #(1 << \bitnum)
+   ldrb  reg0,[ram6502,#0x00]
+   mrs   reg1, CPSR
+   tst   reg0, #(1 << \bitnum)
    .word bbrreturn-20
 
    //   addne pc,r14,#4 // return to jit
    //   msr     CPSR_flg, reg1
    //   mov pc,r14
 
-   B .+8  // taken
-   msr     CPSR_flg, reg1
+   B     .+8  // taken
+   msr   CPSR_flg, reg1
 .endm
 
 .macro JITBBS bitnum
-   ldrb    reg0,[ram6502,#0x00]
-   mrs     reg1, CPSR
-   tst     reg0, #(1 << \bitnum)
+   ldrb  reg0,[ram6502,#0x00]
+   mrs   reg1, CPSR
+   tst   reg0, #(1 << \bitnum)
    .word bbsreturn-20
 
    //   addne pc,r14,#4 // return to jit
@@ -459,187 +380,11 @@ then return to our secret stack This relies on instructions being re entrant , b
    //   mov pc,r14
 
    B .+8  // taken
-   msr     CPSR_flg, reg1
-.endm
-
-.macro BRANCH type
-   sxtb r4,r4
-   ldr r9,=0xea000001 //B_NOP
-// do jump maths
-// temp0 is where we need to goto NB -2 ie. if we have 6 we goto +8
-// so it look like arm and 6502 jumps are the same so if we load the bit signed
-// we just need to clear the top byte
-   mov r8,r4,LSL #1
-   add r8,r8,#2
-   BIC r8,r8,#0xFF000000
-   orr r8,r8,#\type
-   b branchsavewords
-.endm
-
-.macro BRANCHVCS block branch
-// Make BL testvflagC
-//      msr CPSR_flg, temp1
-//      B xx // branch taken
-//      msr CPSR_flg,temp1
-
-   ldr r8,=\branch-8
-   LDR r9,\block
-   sxtb r4,r4
-   // fill in BL
-   MAKEBRANCHLINK r8
-   strd r8,r9,[r6]
-   mov r8,r4,LSL #1
-
-   BIC r8,r8,#0xFF000000
-   orr r8,r8,#BINSTRUCTION
-   strd r8,r9,[r6,#8]
-   B jitend2byteexit
+   msr   CPSR_flg, reg1
 .endm
 
 .macro JITBRANCHVCS
-   msr     CPSR_flg, reg1
-.endm
-
-.macro SINGLEOPCODEBLOUT block
-   ldrd r8,\block
-   B singleopcodeBLend
-.endm
-
-.macro SINGLEOPCODEEXIT block
-   ldrd r8,\block
-   sub r9,r9,r6
-   mov r9,r9,LSR #BYTEWORDSHIFT
-   ORR r9,r9,#BINSTRUCTION
-   B singleopcodeexitstore
-.endm
-
-.macro SINGLEOPCODEBLEXIT block
-   ldrd r8,\block
-   B singleopcodeexit
-.endm
-
-.macro SINGLEBYTE block
-   ldrd r8,\block
-   B jitend1bytestore2
-.endm
-
-.macro SINGLEBYTEOPT block
-   ldrd r8,\block
-#if 0
-// it is unknwon why this doesn't improvement performance
-   B jitend1bytestore2opt
-#else
-   B jitend1bytestore2
-#endif
-.endm
-
-.macro DOUBLEBYTESETFIRSTBYTE block
-   adr temp1,\block
-   B doublebyteend
-.endm
-
-.macro DOUBLEBYTESETFIRSTBYTEOPT block block1
-   ldrb r7,[r12,r5]
-   adr temp1,\block
-   tst r7,#NF
-   adrne temp1,\block1
-   B doublebyteend
-.endm
-
-// BL at third instruction -16
-.macro DOUBLEBYTESETFIRSTBYTEBLOUT8 block
-   adr temp1,\block
-   B jitend2byteBL8
-.endm
-
-// last word is the address of the branch-20
-.macro DOUBLEBYTESETFIRSTBYTEBLOUTQ block
-   adr temp1,\block
-   B jitend2byteBLend
-.endm
-
-.macro DOUBLEBYTEBYTET2BLOUT block
-   adr temp1,\block
-   B jitendT2byte
-.endm
-
-.macro DOUBLEBYTET2 block
-   adr temp1,\block
-   B fixuptype2accessload4
-.endm
-
-.macro DOUBLEBYTET2OPT block block1
-   ldrb r7,[r12,r5]
-   adr temp1,\block
-   tst r7,#NF
-   adrne temp1,\block1
-   B fixuptype2accessload4
-.endm
-
-.macro DOUBLEBYTESETTWOBYTES block offset
-   COPY4LOAD \block
-   orr r8,r8,r4
-.ifc \offset,8
-   orr r10,r10,r4
-.endif
-
-.ifc \offset,12
-   orr r11,r11,r4
-.endif
-   B jitend2bytestore4
-.endm
-
-.macro DOUBLEBYTESETTWOBYTES12 block offset
-   adr temp1,\block
-   B doublebyteendsettwobytes12
-.endm
-
-.macro TRIPLEBYTEABS block
-   adr temp1,\block
-   B  jitend3byteloadstoreoperand
-.endm
-
-.macro TRIPLEBYTEABSOPT block block1
-   ldrb r7,[r2,#3]
-   ldrb r7,[r12,r7]
-   adr temp1,\block
-   tst r7,#NF
-   adrne temp1,\block1
-   B  jitend3byteloadstoreoperand
-.endm
-
-.macro TRIPLEBYTEABST2 block
-   adr temp1,\block
-   BL fixuptype2accessquick
-   b jitend3bytestore
-.endm
-
-.macro TRIPLEBYTEABSBLOUT20 block
-   adr temp1,\block
-   B  jitend3byteloadstoreoperandBL
-.endm
-
-.macro TRIPLEBYTEABSBLOUT block address offset
-.ifc \offset,8
-   adr temp1,\block
-   B  jitend3byteloadstoreoperandBL8
-.else
-   COPY6LOAD \block
-   orr r7,r7,r5
-   orr r8,r8,r4
-   MAKEBRANCHLINK r10
-   B jitend3bytestore
-.endif
-.endm
-
-.macro ABSSTORE block
-   COPY5LOAD \block
-   mov r12,r12, LSL #JITTEDTABLESHIFT
-   add r12,r12,#JITTEDTABLE16
-   orr r7,r7,r5
-   orr r11,r11,r4
-   sub r12,r12,#28
-   B  jitend3bytestoreoperandBL
+   msr   CPSR_flg, reg1
 .endm
 
 .macro JITABSSTORE reg
@@ -648,24 +393,13 @@ then return to our secret stack This relies on instructions being re entrant , b
 .ifc \reg,regA
    nop
    nop
-   strb regA,[reg1,#0]!
+   strb  regA,[reg1,#0]!
 .else
-   mov reg0,\reg,LSR #24
+   mov   reg0,\reg,LSR #24
    nop
-   strb reg0,[reg1,#0]!
+   strb  reg0,[reg1,#0]!
 .endif
-.endm
-
-.macro ASSIGNCARRY carry
-   ldrd r8,Bopc_carry
-   sub r8,r8,r6
-   mov r8,r8,LSR #BYTEWORDSHIFT
-.ifc \carry,clear
-   orr r8,r8,#ARMBLCS
-.else
-   orr r8,r8,#ARMBLCC
-.endif
-   B jitend1bytestore2
+   .word JITTEDTABLE16-28
 .endm
 
 .macro JITABS reg=reg1
@@ -674,17 +408,23 @@ then return to our secret stack This relies on instructions being re entrant , b
 .else
    MOVR0HIGH
 .endif
-   orr \reg,\reg,#0x00  // NB armv8 faster option
+   orr   \reg,\reg,#0x00  // NB armv8 faster option
+.endm
+
+.macro JITABSXYLDRSB index reg
+   mov   reg1, \index, LSR #24
+   ADDR1HIGH  //add \reg,\reg, #00<<8
+   ldrsb \reg, [reg1,#00]
 .endm
 
 .macro JITABSLDRB
    MOVR1HIGH
-   ldrb reg12,[reg1,#0x00]
+   ldrb  reg12,[reg1,#0x00]
 .endm
 
 .macro JITABSLDRBWB
    MOVR1HIGH
-   ldrb reg12,[reg1,#0x00]!
+   ldrb  reg12,[reg1,#0x00]!
 .endm
 
 .macro JITABSLDRSB
@@ -692,43 +432,26 @@ then return to our secret stack This relies on instructions being re entrant , b
    ldrsb reg0,[reg1,#0x00]
 .endm
 
-.macro ZPSTAZ block
-   COPY4LOAD \block
-   orr r8,r8,r4
-   orr r9,r9,r4
-   add r11,r4,LSL #JITTEDTABLESHIFT
-   b jitend2byteBLendstore
-.endm
-
 .macro JITZPSTAZ reg
-   strb  \reg,[ram6502,#0x00]
-   mov reg1,#00
    nop
+   mov   reg1,#00
+   strb  \reg,[ram6502,#0x00]
    .word JITTEDTABLE16-20
 .endm
 
-.macro ZPST block
-   COPY3LOAD \block
-   mov r11,r4,LSL #JITTEDTABLESHIFT
-   add r11,r11,#JITTEDTABLE16
-   orr r9,r9,r4
-   orr r10,r10,r4
-   sub r11,r11,#20
-   b jitend2byteBLendstore
-.endm
-
 .macro JITZPST reg
-   mov reg0,\reg,LSR #24
-   mov reg1,#00
-   strb reg0,[ram6502,#0x00]
+   mov   reg0,\reg,LSR #24
+   mov   reg1,#00
+   strb  reg0,[ram6502,#0x00]
+   .word JITTEDTABLE16-20
 .endm
 
 .macro JITABSXYST reg index
    JITABS
-   strb \reg,[reg1,\index,LSR#24]!
+   strb  \reg,[reg1,\index,LSR#24]!
    nop
-   add reg0,jittedtable16ptr,reg1,LSL#JITTEDTABLESHIFT
-   blx reg0
+   add   reg0,jittedtable16ptr,reg1,LSL#JITTEDTABLESHIFT
+   blx   reg0
 .endm
 
 .macro ASL6
@@ -738,58 +461,58 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro ROL6
-   adc  reg12, reg12, reg12
-   strb reg12,[reg1]
-   lsls    reg12, reg12, #24
+   adc   reg12, reg12, reg12
+   strb  reg12,[reg1]
+   lsls  reg12, reg12, #24
 .endm
 
 .macro LSR6
-   lsrs reg12, reg12, #1
-   strb reg12,[reg1]
+   lsrs  reg12, reg12, #1
+   strb  reg12,[reg1]
 .endm
 
 .macro ROR6
-   orrcs   reg12, reg12, #0x100
-   rrxs    reg12, reg12
-   strb reg12,[reg1]
+   orrcs reg12, reg12, #0x100
+   rrxs  reg12, reg12
+   strb  reg12,[reg1]
 .endm
 
 .macro INTR vector setbrk  fake     // vector is -2 for IRQ/BRK or -6 for NMI
                                 // setbrk should be 1 for BRK, 0 for IRQ/NMI
-   sub     regSP, regSP, #2
-   mov     temp, #0x10000
+   sub   regSP, regSP, #2
+   mov   temp, #0x10000
 .ifc \fake, FAKE
-   sub  temp1,temp,#1         // 0xFFFF
+   sub   temp1,temp,#1         // 0xFFFF
 .endif
-   strh    temp1, [regSP,#1]         // slight risk of over running the stack
-   orr     regSP, #0x0100
-   ldrh    temp0, [temp, #\vector]     // Fetch the vector address
+   strh  temp1, [regSP,#1]         // slight risk of over running the stack
+   orr   regSP, #0x0100
+   ldrh  temp0, [temp, #\vector]     // Fetch the vector address
 
 .if \setbrk
-   orr     temp, flags, #X_FLAG6502+B_FLAG6502 // Always set bit 5 (-) in the pushed value and Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
+   orr   temp, flags, #X_FLAG6502+B_FLAG6502 // Always set bit 5 (-) in the pushed value and Set the B bit in the pushed value (in BRK, not in IRQ/NMI)
 .else
-   orr     temp, flags, #X_FLAG6502            // Always set bit 5 (-) in the pushed value
+   orr   temp, flags, #X_FLAG6502            // Always set bit 5 (-) in the pushed value
 .endif
-   orrmi   temp, temp, #N_FLAG6502       // set N_FLAG NB bit defaults to zero
-   orrcs   temp, temp, #C_FLAG6502       // set C_FLAG NB bit defaults to zero
-   orreq   temp, temp, #Z_FLAG6502       // set Z_FLAG NB bit defaults to zero
-   SPUSH   temp
-   orr     flags, flags, #I_FLAG6502 // Set the I bit in the 6502 status register
-   bic     flags, flags, #D_FLAG6502 // Clear the D bit in the 6502 status register
-   mov temp0,temp0,LSL#JITLETSHIFT
-   add temp0,temp0,#JITLET
+   orrmi temp, temp, #N_FLAG6502       // set N_FLAG NB bit defaults to zero
+   orrcs temp, temp, #C_FLAG6502       // set C_FLAG NB bit defaults to zero
+   orreq temp, temp, #Z_FLAG6502       // set Z_FLAG NB bit defaults to zero
+   SPUSH temp
+   orr   flags, flags, #I_FLAG6502 // Set the I bit in the 6502 status register
+   bic   flags, flags, #D_FLAG6502 // Clear the D bit in the 6502 status register
+   mov   temp0,temp0,LSL#JITLETSHIFT
+   add   temp0,temp0,#JITLET
 // In the case of a "fake" interrupt, we need to explicitly re-enable FIQ
 // interrupts, because the FIQ handler is not going to exit until the 6502
 // RTI is executed. We leave IRQ masked at this point to avoid the possibility
 // of a re-entrant IRQ, which IRQ handler should not have to deal with.
 .ifc \fake, FAKE
-   CPSIE   if  // enable ARM FIQ interrupts only
+   CPSIE if  // enable ARM FIQ interrupts only
 .endif
 .if \setbrk
-   CPSIE   if  // enable both ARM IRQ and FIQ interrupts
+   CPSIE if  // enable both ARM IRQ and FIQ interrupts
 .endif
   // CPSIE i
-   bx temp0
+   bx    temp0
 .endm
 
 .macro  PLP
@@ -797,13 +520,13 @@ then return to our secret stack This relies on instructions being re entrant , b
    ldrb  reg2, [reg2]
    uadd8 regSP,regSP,reg12
 
-   and  reg12, flags, #0xffffff00
-   orr  reg12, reg12, reg2        // preserve the other bits in flags, e.g. the slowdown bit
-   bic  flags, reg12, #N_FLAG6502+X_FLAG6502+B_FLAG6502+Z_FLAG6502+C_FLAG6502
-   and  reg12, reg2, #N_FLAG6502
-   and  reg2, reg2, #Z_FLAG6502+C_FLAG6502
-   mov  reg12, reg12, lsl #24
-   orr  reg12, reg12, reg2, lsl #29
+   and   reg12, flags, #0xffffff00
+   orr   reg12, reg12, reg2        // preserve the other bits in flags, e.g. the slowdown bit
+   bic   flags, reg12, #N_FLAG6502+X_FLAG6502+B_FLAG6502+Z_FLAG6502+C_FLAG6502
+   and   reg12, reg2, #N_FLAG6502
+   and   reg2, reg2, #Z_FLAG6502+C_FLAG6502
+   mov   reg12, reg12, lsl #24
+   orr   reg12, reg12, reg2, lsl #29
    //   Need to update the ARM flags later with  msr     CPSR_flg, reg12
    // reg1 return address
    // reg12 has 6502 flags to be restored to the ARM
@@ -812,6 +535,892 @@ then return to our secret stack This relies on instructions being re entrant , b
 // **********************************************
 // Start of opcode implementations
 // **********************************************
+Bopc_00: // Opcode 00 - BRK
+   nop
+   .word brk-12
+Bopc_01: // Opcode 01 - ORA ($00,X)
+   JITINDXLOGICAL orrs
+Bopc_04: // Opcode 04 - TSB $00
+   ldrb  reg12,[ram6502,#00]
+   mrs   reg0, CPSR
+   mov   reg1,#0x00
+   .word tsb-20
+Bopc_05: // Opcode 05 - ORA $00
+   JITZPLOGICAL orrs
+   // fall into JITIMMLOGICAL
+Bopc_09: // Opcode 09 - ORA #$00
+   JITIMMLOGICAL orrs
+Bopc_06:  // Opcode 06 - ASL $00
+   ldrb  reg12,[ram6502,#00]
+   add   reg12, reg12, reg12
+   strb  reg12,[ram6502,#00]
+   movs  reg12, reg12, lsl #24
+Bopc_06_fast:  // Opcode 06 - ASL $00
+   ldrb  reg12,[ram6502,#00]
+   nop
+   add   reg12, reg12, reg12
+   strb  reg12,[ram6502,#00]
+Bopc_07: // Opcode 07 - RMB0 $00
+   JITRMB 0
+Bopc_08: // Opcode 08 - PHP
+   orr   reg12, flags, #X_FLAG6502+B_FLAG6502
+   .word php-12
+Bopc_0A: // Opcode 0A - ASL A
+   lsls  regA, regA, #25
+   sxtb  regA, regA , ror #24
+Bopc_0C: // Opcode 0C - TSB $0000
+   JITABSLDRBWB
+   mrs   reg0, CPSR
+   bic   reg0, reg0, #Z_FLAG
+   tst   reg12, regA
+   .word tsb2-28
+Bopc_0D: // Opcode 0D - ORA $0000
+   JITABSLOGICAL orrs
+Bopc_0E: // Opcode 0E - ASL $0000
+   JITABSLDRBWB
+   nop
+   ASL6
+Bopc_0F: // Opcode 0F - BBR0
+   JITBBR 0
+
+Bopc_11: // Opcode 11 - ORA ($00),Y
+   JITINDYLOGICAL orrs
+Bopc_12: // Opcode 12 - ORA ($00)
+   JITINDLOGICAL orrs
+Bopc_14: // Opcode 14 - TRB $00
+   ldrb  reg12,[ram6502,#00]
+   mrs   reg0, CPSR
+   mov   reg1,#0x00
+   .word trb-20
+Bopc_15: // Opcode 15 - ORA $00,X
+   JITZPXLOGICAL orrs
+Bopc_16: // Opcode 16 - ASL $00, X
+   ADDR1REGXZP
+   ldrb  reg12,[ram6502,reg1,LSR #24]
+   mov   reg1,reg1,LSR #24  // can save a cycle here
+   .word asl-20
+Bopc_17: // Opcode 17 - RMB1 $00
+   JITRMB 1
+Bopc_19: // Opcode 19 - ORA $0000,Y
+   JITABSYLOGICAL orrs
+Bopc_1A: // Opcode 1A - INC A
+   add   regA, regA, #0x1
+   .word aflags-12
+Bopc_1C: // Opcode 1C - TRB $0000
+   JITABSLDRBWB
+   mrs   reg0, CPSR
+   bic   reg0, reg0, #Z_FLAG
+   tst   reg12, regA
+   .word trb2-28
+Bopc_1D: // Opcode 1D - ORA $0000,X
+   JITABSXLOGICAL orrs
+Bopc_1E: // Opcode 1E - ASL $0000,X
+   JITABS
+   ldrb  reg12,[reg1, regX, lsr #24]!
+   ASL6
+Bopc_1F: // Opcode 1F - BBR1
+   JITBBR 1
+
+Bopc_20: // Opcode 20 - JSR $0000
+   JITABS
+   sub   regSP, regSP, #2
+   strh  reg1,[regSP,#1]
+   orr   regSP, #0x0100
+   .word JITLET-28
+Bopc_21: // Opcode 21 - AND ($00,X)
+   JITINDXLOGICAL ands
+Bopc_24: // Opcode 24 - BIT $00
+   ldrb  reg12,[ram6502,#0x00]
+   .word bit24-12
+Bopc_25: // Opcode 25 - AND $00
+   JITZPLOGICAL ands
+    // fall into JITIMMLOGICAL
+Bopc_29: // Opcode 29 - AND #$00
+   JITIMMLOGICAL ands
+Bopc_26: // Opcode 26 - ROL $00
+   ldrb  reg12,[ram6502,#00]
+   adc   reg12, reg12, reg12
+   strb  reg12,[ram6502,#00]
+   movs  reg12, reg12, lsl #24
+Bopc_26_fast: // Opcode 26 - ROL $00
+   ldrb  reg12,[ram6502,#00]
+   nop
+   adc   reg12, reg12, reg12
+   strb  reg12,[ram6502,#00]
+Bopc_27: // Opcode 27 - RMB2 $00
+   JITRMB 2
+Bopc_28: // Opcode 28 - PLP
+   mov   reg12, #1
+   .word plp-12
+
+Bopc_2A: // Opcode 2A - ROL A
+   adc   regA, regA, regA
+   .word rola-12
+Bopc_2D: // Opcode 2D - AND $0000
+   JITABSLOGICAL ands
+Bopc_2E: // Opcode 2E - ROL $0000
+   JITABSLDRBWB
+   nop
+   ROL6
+Bopc_2F: // Opcode 2F - BBR2
+   JITBBR 2
+
+Bopc_31: // Opcode 31 - AND ($00),Y
+   JITINDYLOGICAL ands
+Bopc_32: // Opcode 32 - AND ($00)
+   JITINDLOGICAL ands
+Bopc_34: // Opcode 34 - BIT $00,X
+   ADDR1REGXZP
+   ldrb  reg12,[ram6502,reg1,LSR #24]
+   bic   flags, flags, #V_FLAG6502
+   .word bit-20
+Bopc_35: // Opcode 35 - AND $00,X
+   JITZPXLOGICAL ands
+Bopc_36: // Opcode 36 - ROL $00,X
+   ADDR1REGXZP
+   ldrb  reg12,[ram6502, reg1,LSR#24]
+   .word rol-16
+   lsls    reg12, reg12, #24
+Bopc_37: // Opcode 37 - RMB3 $00
+   JITRMB 3
+Bopc_39: // Opcode 39 - AND $0000,Y
+   JITABSYLOGICAL ands
+Bopc_3A: // Opcode 3A - DEC A
+   sub   regA, regA, #0x1
+   .word aflags-12
+Bopc_3C: // Opcode 3C - BIT $0000,X
+   JITABS
+   ldrb  reg12,[reg1, regX, lsr #24]
+   bic   flags, flags, #V_FLAG6502
+   tst   reg12, regA
+   .word bit2-28
+Bopc_3D: // Opcode 3D - AND $0000,X
+   JITABSXLOGICAL ands
+Bopc_3E: // Opcode 3E - ROL $0000,X
+   JITABS
+   ldrb  reg12,[reg1, regX, lsr #24]!
+   ROL6
+Bopc_3F: // Opcode 3F - BBR3
+   JITBBR 3
+
+Bopc_40: // Opcode 40 - RTI
+   mov   reg12,#1
+   .word rti-12
+Bopc_41: // Opcode 41 - EOR ($00,X)
+   JITINDXLOGICAL eors
+Bopc_45: // Opcode 45 - EOR $00
+   JITZPLOGICAL eors
+// fall into JITIMMLOGICAL
+Bopc_49: // Opcode 49 - EOR #$00
+   JITIMMLOGICAL eors
+Bopc_46: // Opcode 46 - LSR $00
+   ldrb  reg0,[ram6502,#00]
+   nop
+   lsrs  reg0, reg0, #1
+   strb  reg0,[ram6502,#00]
+Bopc_47: // Opcode 47 - RMB4 $00
+   JITRMB 4
+Bopc_48: // Opcode 48 - PHA
+   SPUSH regA
+
+Bopc_4A: // Opcode 4A - LSR A
+   lsrs  regA, regA, #1
+   and   regA, regA, #0x7F
+Bopc_4D: // Opcode 4D - EOR $0000
+   JITABSLOGICAL eors
+Bopc_4E: // Opcode 4E - LSR $0000
+   JITABSLDRBWB
+   nop
+   nop
+   LSR6
+Bopc_4F: // Opcode 4F - BBR4
+   JITBBR 4
+
+
+Bopc_51: // Opcode 51 - EOR ($00),Y
+   JITINDYLOGICAL eors
+Bopc_52: // Opcode 52 - EOR ($00)
+   JITINDLOGICAL eors
+Bopc_55: // Opcode 55 - EOR $00,X
+   JITZPXLOGICAL eors
+Bopc_56: // Opcode 56 - LSR $00,X
+   ADDR1REGXZP
+   ldrb  reg0,[ram6502,reg1,LSR #24]
+   lsrs  reg0, reg0, #1
+   strb  reg0,[ram6502,reg1,LSR #24]
+Bopc_57: // Opcode 57 - RMB5 $00
+   JITRMB 5
+Bopc_58: // Opcode 58 - CLI
+   bic   flags, flags, #I_FLAG6502
+   .word cli-12
+Bopc_59: // Opcode 59 - EOR $0000,Y
+   JITABSYLOGICAL eors
+Bopc_5A: // Opcode 5A - PHY
+   mov   reg12, regY,LSR  #24
+   .word pushtemp-12
+Bopc_5D: // Opcode 5D - EOR $0000,X
+   JITABSXLOGICAL eors
+Bopc_5E: // Opcode 5E - LSR $0000,X
+   JITABS
+   ldrb  reg12,[reg1, regX, lsr #24]!
+   nop
+   LSR6
+Bopc_5F: // Opcode 5F - BBR5
+   JITBBR 5
+
+Bopc_60: // Opcode 60 - RTS
+   ldrh  reg0,[regSP,#1]
+   .word rts-12
+Bopc_61: // Opcode 61 - ADC ($00,X)
+   ADDR1REGXZP
+   mov   reg1,reg1,LSR #24
+   ldrh  reg1,[reg1]
+   .word ADCload-20
+Bopc_64: // Opcode 64 - STZ $00
+   JITZPSTAZ ram6502
+Bopc_65: // Opcode 65 - ADC $00
+   ldrb  reg12,[ram6502,#0x00]
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   .word ADC2-20
+Bopc_66: // Opcode 66 - ROR $00
+   ldrb  reg12,[ram6502,#00]
+   orrcs reg12, reg12, #0x100
+   rrxs  reg12, reg12
+   strb  reg12,[ram6502,#00]
+Bopc_67: // Opcode 67 - RMB6 $00
+   JITRMB 6
+Bopc_68: // Opcode 68 - PLA
+   mov   reg1,#1
+   .word pla-12
+Bopc_69: // Opcode 69 - ADC #$00
+   mov   reg12,#00 // NB could save a cycle later on
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   .word ADC2-20
+Bopc_6A: // Opcode 6A - ROR A
+   and   regA, regA, #0xFF    // isolate lower byte
+   .word rora-12
+Bopc_6C: // Opcode 6C - JMP ($0000)
+   MOVR1HIGH
+   ldrh  reg1,[reg1,#0x00]
+   nop
+   mov   reg0,#JITLET
+   add   reg0,reg0,reg1,LSL #JITLETSHIFT
+   bx    reg0
+Bopc_6D: // Opcode 6D - ADC $0000
+   JITABSLDRB
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   LSL   regA, regA, #24
+   .word ADC3-28
+Bopc_6E: // Opcode 6E - ROR $0000
+   JITABSLDRBWB
+   nop
+   ROR6
+Bopc_6F: // Opcode 6F - BBR6
+   JITBBR 6
+
+Bopc_71: // Opcode 71 - ADC ($00),Y
+   ldrh  reg1,[ram6502,#0x00]
+   tst   flags, #D_FLAG6502
+   ldrb  reg12,[reg1,regY,LSR #24]
+   .word ADC1-20
+Bopc_72: // Opcode 72 - ADC ($00)
+   ldrh  reg1,[ram6502,#0x00]
+   tst   flags, #D_FLAG6502
+   ldrb  reg12,[reg1]
+   .word ADC1-20
+Bopc_74: // Opcode 74 - STZ $00,X
+   ADDR1REGXZP
+   strb  ram6502,[ram6502,reg1,LSR #24]
+   add   reg0,jittedtable16ptr, reg1,LSR #24-JITTEDTABLESHIFT
+   .word jittablezp-20
+
+Bopc_75: // Opcode 75 - ADC $00,X
+   ADDR1REGXZP
+   tst   flags, #D_FLAG6502
+   ldrb  reg12,[ram6502,reg1,LSR#24]
+   .word ADC1-20
+Bopc_76: // Opcode 76 - ROR $00,X
+   ADDR1REGXZP
+   mov   reg1,reg1,LSR #24 // can save a cycle here
+   ldrb  reg12,[reg1]
+   .word ror-20
+Bopc_77: // Opcode 77 - RMB7 $00
+   JITRMB 7
+Bopc_78:  // Opcode 78 - SEI
+   orr   flags, flags, #I_FLAG6502
+   nop
+Bopc_79: // Opcode 79 - ADC $0000,Y
+   JITABS
+   ldrb  reg12,[reg1, regY, lsr #24]
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   .word ADC2-28
+Bopc_7A: // Opcode 7A - PLY
+   mov   reg1,#1
+   .word ply-12
+Bopc_7C: // Opcode 7C - JMP ($0000,X)
+   JITABS
+   mov   reg0, regX, LSR #24
+   ldrh  reg1,[reg0, reg1]
+   mov   reg0,#JITLET
+   add   pc,reg0,reg1,LSL #JITLETSHIFT
+Bopc_7D: // Opcode 7D - ADC $0000,X
+   JITABS
+   ldrb  reg12,[reg1, regX, lsr #24]
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   .word ADC2-28
+Bopc_7E: // Opcode 7E - ROR $0000,X
+   JITABS
+   ldrb  reg12,[reg1, regX, lsr #24]!
+   ROR6
+Bopc_7F: // Opcode 7F - BBR7
+   JITBBR 7
+
+Bopc_81: // Opcode 81 - STA ($00,X)
+   ADDR1REGXZP
+   mov   reg1,reg1,LSR #24
+   ldrh  reg1,[reg1]
+   .word jitstatable-20
+Bopc_84: // Opcode 84 - STY $00
+   JITZPST regY
+Bopc_85: // Opcode 85 - STA $00
+   JITZPSTAZ regA
+Bopc_86: // Opcode 86 - STX $00
+   JITZPST regX
+Bopc_87: // Opcode 87 - SMB0 $00
+   JITSMB 0
+Bopc_88: // Opcode 88 - DEY
+   sub   regY, regY, #0x1000000
+   teq   regY, #0
+Bopc_89: // Opcode 89 - BIT #$00
+   mrs   reg1, CPSR
+   tst   regA, #00
+   bicne reg1, reg1, #Z_FLAG
+   .word bitimm-20
+Bopc_8A: // Opcode 8A - TXA
+   sxtb  regA, regX, ror #24
+   TEQ   regA, #0
+Bopc_8C: // Opcode 8C - STY $0000
+   JITABSSTORE regY
+Bopc_8C_io: // Opcode 8C - STY $0000
+   JITABS r0
+   nop
+   mov   reg1,regY,LSR #24
+   nop
+   .word iostore-28
+Bopc_8D: // Opcode 8D - STA $0000
+   JITABSSTORE regA
+Bopc_8D_io: // Opcode 8D - STA $0000
+   JITABS r0
+   nop
+   and   reg1,regA,#0xFF
+   nop
+   .word iostore-28
+Bopc_8E: // Opcode 8E - STX $0000
+   JITABSSTORE regX
+Bopc_8E_io: // Opcode 8E - STX $0000
+   JITABS r0
+   nop
+   mov   reg1,regX,LSR #24
+   nop
+   .word iostore-28
+Bopc_8F: // Opcode 8F - BBS0
+   JITBBS 0
+
+Bopc_91: // Opcode 91 - STA ($00),Y
+   ldrh  reg1,[ram6502,#00]
+   strb  regA,[reg1,regY,LSR #24]!
+   add   reg0,jittedtable16ptr, reg1,LSL #JITTEDTABLESHIFT
+   BLX   reg0
+Bopc_92: // Opcode 92 - STA ($00)
+   ldrh  reg1,[ram6502,#00]
+   strb  regA,[reg1]
+   add   reg0,jittedtable16ptr, reg1,LSL #JITTEDTABLESHIFT
+   BLX   reg0
+Bopc_94: // Opcode 94 - STY $00,X
+   ADDR1REGXZP
+   mov   reg0,regY,LSR #24
+   strb  reg0,[ram6502,reg1,LSR #24]
+   .word jitstxytable-20
+Bopc_95: // Opcode 95 - STA $00,X
+   ADDR1REGXZP
+   strb  regA,[ram6502,reg1,LSR #24]
+   add   reg0,jittedtable16ptr, reg1,LSR #24-JITTEDTABLESHIFT
+   .word jittablezp-20
+Bopc_96: // Opcode 96 - STX $00,Y
+   ADDR1REGYCONST
+   mov   reg0,regX,LSR #24
+   strb  reg0,[ram6502,reg1,LSR #24]
+   .word jitstxytable-20
+Bopc_97: // Opcode 97 - SMB1 $00
+   JITSMB 1
+Bopc_98: // Opcode 98 - TYA
+   sxtb  regA, regY, ror #24
+   TEQ   regA, #0
+Bopc_99: // Opcode 99 - STA $0000,Y
+   JITABSXYST regA regY
+Bopc_9A: // Opcode 9A - TXS
+   bic   regSP, regSP, #0xFF             // clear lower nibble
+   orr   regSP, regSP, regX, lsr #24     // put X in lower nibble
+Bopc_9C: // Opcode 9C - STZ $0000
+   JITABSSTORE ram6502
+   JITABS r0
+   nop
+   mov   reg1,#0
+   nop
+   .word iostore-28
+Bopc_9D: // Opcode 9D - STA $0000,X
+   JITABSXYST regA regX
+Bopc_9E: // Opcode 9E - STZ $0000,X
+   JITABSXYST ram6502 regX
+Bopc_9F: // Opcode 9F - BBS1
+   JITBBS 1
+
+Bopc_A0: // Opcode A0 - LDY #$00
+   MOVREGYCONST
+   nop
+   teq   regY,#0
+   nop
+Bopc_A0_fast: // Opcode A0 - LDY #$00
+   MOVREGYCONST
+   SPACE_THREE_ARM_WORDS
+
+Bopc_A1: // Opcode A1 - LDA ($00,X)
+   ADDR1REGXZP
+   mov   reg1,reg1,LSR #24
+   ldrh  reg1,[reg1]
+   .word loada-20
+Bopc_A2:// Opcode A2 - LDX #$00
+   MOVREGXCONST
+   nop
+   teq   regX,#0
+   nop
+Bopc_A4: // Opcode A4 - LDY $00
+   ldrb  regY,[ram6502,#0x00]
+   nop
+   mov   regY,regY,LSL #24
+   teq   regY,#0
+Bopc_A4_fast: // Opcode A4 - LDY $00
+   ldrb  regY,[ram6502,#0x00]
+   nop
+   nop
+   mov   regY,regY,LSL #24
+Bopc_A5: // Opcode A5 - LDA $00
+   LDRSB regA,[ram6502,#0x00]
+   nop
+   nop
+   teq   regA,#0
+Bopc_A5_fast: // Opcode A5 - LDA $00
+   LDRSB regA,[ram6502,#0x00]
+   SPACE_THREE_ARM_WORDS
+Bopc_A6: // Opcode A6 - LDX $00
+   ldrb  regX,[ram6502,#0x00]
+   nop
+   mov   regX,regX,LSL #24
+   teq   regX,#0
+Bopc_A6_fast: // Opcode A6 - LDX $00
+   ldrb  regX,[ram6502,#0x00]
+   nop
+   nop
+   mov   regX,regX,LSL #24
+Bopc_A7: // Opcode A7 - SMB2 $00
+   JITSMB 2
+Bopc_A8: // Opcode A8 - TAY
+   lsl   regY, regA, #24
+   TEQ   regA, #0
+Bopc_AA: // Opcode AA - TAX
+   lsl   regX, regA, #24
+   TEQ   regA, #0
+Bopc_AC: // Opcode AC - LDY $0000
+   JITABSLDRB
+   nop
+   nop
+   mov   regY,reg12, LSL #24
+   teq   regY,#0
+Bopc_AC_io:
+   JITABS r0
+   .word ioload-16
+   mov   regY,r0,LSL #24
+   nop
+   teq   regY,#0
+Bopc_AD: // Opcode AD - LDA $0000
+   MOVR1HIGH
+   ldrsb regA,[reg1,#0x00]
+   SPACE_THREE_ARM_WORDS
+   teq   regA,#0
+Bopc_AD_io: // Opcode AD - LDA $0000
+   JITABS r0
+   .word ioload-16
+   sxtb  regA,r0
+   nop
+   teq   regA,#0
+Bopc_AE: // Opcode AE - LDX $0000
+   JITABSLDRB
+   nop
+   nop
+   mov   regX,reg12, LSL #24
+   teq   regX,#0
+Bopc_AE_io:
+   JITABS r0
+   .word ioload-16
+   mov   regX,r0,LSL #24
+   nop
+   teq   regX,#0
+Bopc_AF: // Opcode AF - BBS2
+   JITBBS 2
+
+Bopc_B1: // Opcode B1 - LDA ($00),Y
+   ldrh  reg0,[ram6502,#0x00]
+   mov   reg1,regY,LSR #24
+   ldrsb regA,[reg1,reg0]
+   teq   regA,#0
+Bopc_B1_fast: // Opcode B1 - LDA ($00),Y
+   ldrh  reg0,[ram6502,#0x00]
+   mov   reg1,regY,LSR #24
+   nop
+   ldrsb regA,[reg1,reg0]
+Bopc_B2: // Opcode B2 - LDA ($00)
+   ldrh  reg0,[ram6502,#0x00]
+   nop
+   ldrsb regA,[reg0]
+   teq   regA,#0
+Bopc_B2_fast: // Opcode B2 - LDA ($00)
+   ldrh  reg0,[ram6502,#0x00]
+   nop
+   nop
+   ldrsb regA,[reg0]
+
+Bopc_B4: // Opcode B4 - LDY $00,X
+   ADDR1REGXZP
+   ldrb  regY,[ram6502,reg1,LSR#24]
+   mov   regY,regY,LSL #24
+   teq   regY,#0
+Bopc_B5: // Opcode B5 - LDA $00,X
+   ADDR1REGXZP
+   mov   reg1,reg1,LSR#24
+   ldrsb regA,[reg1]
+   teq   regA,#0
+Bopc_B6: // Opcode B6 - LDX $00,Y
+   ADDR1REGYCONST
+   ldrb  reg12,[ram6502,reg1,LSR#24]
+   mov   regX,reg12,LSL #24
+   teq   regX,#0
+Bopc_B7: // Opcode B7 - SMB3 $00
+   JITSMB 3
+Bopc_B8: // Opcode B8 - CLV
+   nop
+   bic   flags, #V_FLAG6502
+Bopc_B9: // Opcode B9 - LDA $0000,Y
+   JITABS
+   mov   regA, regY, lsr #24
+   ldrsb regA,[reg1, regA]
+   nop
+   teq   regA, #0
+Bopc_BA: // Opcode BA - TSX
+   lsl   regX, regSP, #24
+   teq   regX, #0
+Bopc_BC: // Opcode BC - LDY $0000,X
+   JITABS
+   ldrb  regY,[reg1, regX, lsr #24]
+   nop
+   mov   regY,regY, lsl #24
+   teq   regY, #0
+Bopc_BD: // Opcode BD - LDA $0000,X
+   JITABSXYLDRSB regX regA
+   nop
+ //  JITABS                    // mov r1,regx,LSL#24
+ //  mov   regA, regX, lsr #24  // ADD r1,r1,#MSB<<8
+ //  ldrsb regA,[reg1, regA]   // ldrsb regA,[reg1,#LSB] // Should be fast
+   nop
+   teq   regA, #0
+Bopc_BD_fast: // Opcode BD - LDA $0000,X
+   JITABSXYLDRSB regX regA
+   SPACE_THREE_ARM_WORDS
+   //JITABS                    // mov r1,regx,LSL#24
+   //mov   regA, regX, lsr #24  // ADD r1,r1,#MSB<<8
+   //ldrsb regA,[reg1, regA]   // ldrsb regA,[reg1,#LSB] // Should be fast
+   //nop
+   //nop
+
+Bopc_BE: // Opcode BE - LDX $0000,Y
+   JITABS
+   ldrb  regX,[reg1, regY, lsr #24]
+   nop
+   mov   regX,regX, lsl #24
+   teq   regX, #0
+Bopc_BF: // Opcode BF - BBS3
+   JITBBS 3
+Bopc_C0: // Opcode C0 - CPY #$00
+   CMPREGYCONST
+   SPACE_THREE_ARM_WORDS
+Bopc_C1: // Opcode C1 - CMP ($00,X)
+   ADDR1REGXZP
+   mov   reg1,reg1,LSR #24
+   ldrh  reg1,[reg1]
+   .word cmpa-20
+Bopc_C4: // Opcode C4 - CPY $00
+   ldrb  reg0,[ram6502,#0x00]
+   nop
+   nop
+   cmp   regY, reg0, lsl #24
+Bopc_C5: // Opcode C5 - CMP $00
+   ldrb  reg0,[ram6502,#0x00]
+   mov   reg1,regA,LSL #24
+   nop
+   cmp   reg1, reg0, LSL #24
+Bopc_C6: // Opcode C6 - DEC $00
+   ldrb  reg0,[ram6502,#0]
+   sub   reg0, reg0, #1
+   strb  reg0,[ram6502,#0]
+   .word tempflags-20
+Bopc_C6_fast: // Opcode C6 - DEC $00
+   ldrb  reg0,[ram6502,#0]
+   nop
+   sub   reg0, reg0, #1
+   strb  reg0,[ram6502,#0]
+Bopc_C7: // Opcode C7 - SMB4 $00
+   JITSMB 4
+Bopc_C8: // Opcode C8 - INY
+   add   regY, regY, #0x1000000
+   teq   regY, #0
+Bopc_C9: // Opcode C9 - CMP #$00
+   MOVR1CONST
+   nop
+   rsbs  reg1,reg1,regA,LSL #24
+   nop
+Bopc_CA:  // Opcode CA - DEX
+   sub   regX, regX, #0x1000000
+   teq   regX, #0
+Bopc_CC: // Opcode CC - CPY $0000
+   JITABSLDRB
+   SPACE_THREE_ARM_WORDS
+   cmp   regY,reg12, lsl #24
+Bopc_CD: // Opcode CD - CMP $0000
+   JITABSLDRB
+   nop
+   mov   reg1,regA,LSL #24
+   nop
+   cmp   reg1,reg12,LSL #24
+Bopc_CE: // Opcode CE - DEC $0000
+   JITABSLDRBWB
+   sub   reg12, reg12, #1
+   strb  reg12,[reg1]
+   sxtb  reg12, reg12
+   teq   reg12, #0
+Bopc_CF: // Opcode CF - BBS4
+   JITBBS 4
+
+Bopc_D1: // Opcode D1 - CMP ($00),Y
+   ldrh  reg0,[ram6502,#0x00]
+   ldrb  reg0,[reg0,regY, LSR #24]
+   mov   reg1,regA, LSL #24
+   cmp   reg1,reg0,LSL #24
+Bopc_D2: // Opcode D2 - CMP ($00)
+   ldrh  reg0,[ram6502,#0x00]
+   ldrb  reg0,[reg0]
+   mov   reg1,regA, LSL #24
+   cmp   reg1,reg0,LSL #24
+Bopc_D5: // Opcode D5 - CMP $00,X
+   ADDR1REGXZP
+   ldrb  reg0,[ram6502,reg1,LSR#24]
+   mov   reg1,regA,LSL #24
+   cmp   reg1,reg0,LSL #24
+Bopc_D6: // Opcode D6 - DEC $00,X
+   ADDR1REGXZP
+   ldrb  reg0,[ram6502,reg1,LSR#24]
+   sub   reg0, reg0, #1
+   .word storeXflags-20
+Bopc_D7: // Opcode D7 - SMB5 $0
+   JITSMB 5
+Bopc_D8: // Opcode D8 - CLD
+   nop
+   bic   flags, flags, #D_FLAG6502
+Bopc_D9: // Opcode D9 - CMP $0000,Y
+   JITABS
+   ldrb  reg0,[reg1,regY,LSR #24]
+   nop
+   mov   reg1,regA,LSL #24
+   cmp   reg1,reg0,LSL #24
+Bopc_DA:  // Opcode DA - PHX
+   mov   reg12, regX, LSR #24
+   .word pushtemp-12
+Bopc_DD: // Opcode DD - CMP $0000,X
+   JITABS
+   ldrb  reg0,[reg1,regX,LSR #24]
+   nop
+   mov   reg1,regA,LSL #24
+   cmp   reg1,reg0,LSL #24
+Bopc_DE: // Opcode DE - DEC $0000,X
+   JITABS
+   ldrb  reg0,[reg1, regX, lsr #24]!
+   sub   reg0, reg0, #1
+   strb  reg0,[reg1]
+   .word tempflags-28
+Bopc_DF: // Opcode DF - BBS5
+   JITBBS 5
+
+Bopc_E0: // Opcode E0 - CPX #$00
+   CMPREGXCONST
+   SPACE_THREE_ARM_WORDS
+Bopc_E1: // Opcode E1 - SBC ($00,X)
+   ADDR1REGXZP
+   mov   reg1,reg1,LSR #24
+   ldrh  reg1,[reg1]
+   .word SBCload-20
+Bopc_E3: // Opcode E3 - NOP6
+   mov   temp,#1
+   .word debugopcode-12
+Bopc_E4: // Opcode E4 - CPX $00
+   ldrb  reg0,[ram6502,#0x00]
+   nop
+   nop
+   cmp   regX, reg0, lsl #24
+Bopc_E5: // Opcode E5 - SBC $00
+   ldrb  reg12,[ram6502,#0x00]
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   .word SBC2-20
+Bopc_E6: // Opcode E6 - INC $00
+   ldrb  reg0,[ram6502,#0]
+   add   reg0, reg0, #1
+   strb  reg0,[ram6502,#0]
+   .word tempflags-20
+Bopc_E6_fast: // Opcode E6 - INC $00
+   ldrb  reg0,[ram6502,#0]
+   nop
+   add   reg0, reg0, #1
+   strb  reg0,[ram6502,#0]
+Bopc_E7: // Opcode E7 - SMB6 $00
+   JITSMB 6
+Bopc_E8: // Opcode E8 - INX
+   add   regX, regX, #0x1000000
+   teq   regX, #0
+Bopc_E9: // Opcode E9 - SBC #$00
+   mov   reg12,#00 // NB could save a cycle later on
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   .word SBC2-20
+Bopc_EB: // Opcode EB - NOP6 ( Used for instruction timing)
+#if defined(TIMING_INSTRUCTION)
+#if defined(RPI2)|| defined(RPI3) || defined(RPI4)
+   mrc   p15, 0, reg0, c9, c13, 0
+#else
+   MRC   p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
+#endif
+   str   reg0,[ram6502,#0xE0]
+#else
+   nop
+   nop
+#endif
+Bopc_EC: // Opcode EC - CPX $0000
+   JITABSLDRB
+   SPACE_THREE_ARM_WORDS
+   cmp   regX,reg12, lsl #24
+Bopc_ED: // Opcode ED - SBC $0000
+   JITABSLDRB
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   LSL   regA, regA, #24
+   .word SBC3-28
+Bopc_EE: // Opcode EE - INC $0000
+   JITABSLDRBWB
+   .word incstore-16
+   sxtb  reg12, reg12
+   teq   reg12, #0
+   .word JITTEDTABLE16-28
+Bopc_EF: // Opcode EF - BBS6
+   JITBBS 6
+
+Bopc_F1: // Opcode F1 - SBC ($00),Y
+   ldrh  reg1,[ram6502,#0x00]
+   tst   flags, #D_FLAG6502
+   ldrb  reg12,[reg1,regY,LSR #24]
+   .word SBC1-20
+
+Bopc_F2: // Opcode F2 - SBC ($00)
+   ldrh  reg1,[ram6502,#0x00]
+   tst   flags, #D_FLAG6502
+   ldrb  reg12,[reg1]
+   .word SBC1-20
+Bopc_F3: // Opcode F3 - NOP6
+   nop
+   .word putcharopcode-12
+Bopc_F5: // Opcode F5 - SBC $00,X
+   ADDR1REGXZP
+   tst   flags, #D_FLAG6502
+   ldrb  reg12,[ram6502,reg1,LSR #24]
+   .word SBC1-20
+Bopc_F6: // Opcode F6 - INC $00,X
+   ADDR1REGXZP
+   ldrb  reg0,[ram6502,reg1,LSR #24]
+   add   reg0, reg0, #1
+   .word storeXflags-20
+Bopc_F7: // Opcode F7 - SMB7 $00
+   JITSMB 7
+Bopc_F8: // Opcode F8 - SED
+   nop
+   orr   flags, flags, #D_FLAG6502
+Bopc_F9: // Opcode F9 - SBC $0000,Y
+   JITABS
+   ldrb  reg12,[reg1, regY, lsr #24]
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   .word SBC2-28
+
+Bopc_FA: // Opcode FA - PLX
+   mov   reg1,#1
+   .word plx-12
+Bopc_FB: // Opcode FB - NOP6
+#if defined(TIMING_INSTRUCTION)
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+   mrc   p15, 0, reg0, c9, c13, 0
+#else
+   MRC   p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
+#endif
+   str   reg0,[ram6502,#0xE4]
+#else
+   nop
+   nop
+#endif
+Bopc_FD: // Opcode FD - SBC $0000,X
+   JITABS
+   ldrb  reg12,[reg1, regX, lsr #24]
+   tst   flags, #D_FLAG6502
+   bic   flags, #V_FLAG6502
+   .word  SBC2-28
+Bopc_FE: // Opcode FE - INC $0000,X
+   JITABS
+   ldrb  reg12,[reg1, regX, lsr #24]!
+   .word incstore-20
+   sxtb  reg12, reg12
+   teq   reg12, #0
+Bopc_FF: // Opcode FF - BBS7
+   JITBBS 7
+
+Bopc_carry:
+   .word invertcarry-8
+   nop
+
+Bopc_50: // Opcode 50 - BVC
+Bopc_70: // Opcode 70 - BVS
+   JITBRANCHVCS
+
+// ***** End of JITTED 6502 opcodes
+
+
+
+opc_18: // Opcode 18 - CLC
+opc_38: // Opcode 38 - SEC
+   ldrd  r10,Bopc_carry
+   sub   r8,r10,r6
+   mov   r8,r8,LSR #BYTEWORDSHIFT
+   orr   r8,r8,r9
+   mov   r9,r11
+   B     jitend1bytestore2
 
 opc_03: // Opcode 03 - NOP6
 opc_0B: // Opcode 0B - NOP6
@@ -842,9 +1451,8 @@ opc_CB: // Opcode CB - WAI
 opc_D3: // Opcode D3 - NOP6
 opc_DB: // Opcode DB - STP
 opc_EA: // Opcode EA - NOP6
-   ldr r8,B_NOP
-   mov r9,r8
-   B jitend1bytestore2
+   mov   r8,r9
+   B     jitend1bytestore2
 
 opc_02: // Opcode 02 - NOP6 2
 opc_22: // Opcode 22 - NOP6 #$00
@@ -857,1627 +1465,162 @@ opc_C2: // Opcode C2 - NOP6 #$00
 opc_D4: // Opcode D4 - NOP6 $00,X
 opc_E2: // Opcode E2 - NOP6 #$00
 opc_F4: // NOP6_2
-   mov temp,#BINSTRUCTION
-   ORR temp,temp,#(NEXTJITLET>>2) // B $+8
-   str temp,[r6]
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#TWOBYTES
-   B dojitloop
+   mov   r5,#TWOBYTES
+   B     nop_end
 
 opc_5C: // Opcode 5C - NOP6 $0000
 opc_DC: // Opcode DC - NOP6 $0000
 opc_FC: // Opcode FC - NOP6 $0000
-   mov temp,#BINSTRUCTION
-   ORR temp,temp,#(NEXTJITLET>>1) // B $+10
-   str temp,[r6]
+   mov   r5,#THREEBYTES
+nop_end:
+   str   r9,[r6]
    FILLINJITTEDTABLES dejit16bit1
-   mov r5,#THREEBYTES
-   B dojitloop
+   B     dojitloop
 
-opc_10: BRANCH BPLINSTRUCTION // Opcode 10 - BPL
+opc_20: // Opcode 20 - JSR $0000
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   orr   r4, r4, r5, LSL #8
+   add   temp0,temp2,#2
+   and   temp1,temp0,#0xFF
+   orr   r7,r7,temp0,LSR #8
+   orr   r8,r8,temp1
 
-opc_30: BRANCH BMIINSTRUCTION // Opcode 30 - BMI
+   add   r12,r12,r4,LSL #JITLETSHIFT
 
-opc_80: BRANCH BINSTRUCTION   // Opcode 80 - BRA
-
-opc_90: BRANCH BCCINSTRUCTION // Opcode 90 - BCC
-
-opc_B0: BRANCH BCSINSTRUCTION // Opcode B0 - BCS
-
-opc_D0: BRANCH BNEINSTRUCTION // Opcode D0 - BNE
-
-opc_F0: BRANCH BEQINSTRUCTION // Opcode F0 - BEQ
-
-.ltorg
-.balign 8
-opc_08: SINGLEOPCODEBLOUT Bopc_08 // Opcode 08 - PHP
-
-opc_0A: SINGLEBYTE Bopc_0A        // Opcode 0A - ASL A
-
-opc_1A: SINGLEOPCODEBLOUT Bopc_1A // Opcode 1A - INC A
-
-opc_28: SINGLEOPCODEBLOUT Bopc_28 // Opcode 28 - PLP
-
-opc_2A: SINGLEOPCODEBLOUT Bopc_2A // Opcode 2A - ROL A
-
-opc_3A: SINGLEOPCODEBLOUT Bopc_3A // Opcode 3A - DEC A
-
-opc_48: SINGLEBYTE Bopc_48        // Opcode 48 - PHA
-
-opc_4A: SINGLEBYTE Bopc_4A        // Opcode 4A - LSR A
-
-opc_58: SINGLEOPCODEBLOUT Bopc_58 // Opcode 58 - CLI
-
-opc_5A: SINGLEOPCODEBLOUT Bopc_5A // Opcode 5A - PHY
-
-opc_68: SINGLEOPCODEBLOUT Bopc_68 // Opcode 68 - PLA
-
-opc_6A: SINGLEOPCODEBLOUT Bopc_6A // Opcode 6A - ROR A
-
-opc_78: SINGLEBYTE Bopc_78        // Opcode 78 - SEI
-
-opc_7A: SINGLEOPCODEBLOUT Bopc_7A // Opcode 7A - PLY
-
-opc_88: SINGLEBYTEOPT Bopc_88        // Opcode 88 - DEY
-
-opc_8A: SINGLEBYTEOPT Bopc_8A        // Opcode 8A - TXA
-
-opc_98: SINGLEBYTEOPT Bopc_98        // Opcode 98 - TYA
-
-opc_9A: SINGLEBYTE Bopc_9A        // Opcode 9A - TXS
-
-opc_A8: SINGLEBYTEOPT Bopc_A8        // Opcode A8 - TAY
-
-opc_AA: SINGLEBYTEOPT Bopc_AA        // Opcode AA - TAX
-
-opc_B8: SINGLEBYTE Bopc_B8        // Opcode B8 - CLV
-
-opc_BA: SINGLEBYTEOPT Bopc_BA        // Opcode BA - TSX
-
-opc_C8: SINGLEBYTEOPT Bopc_C8        // Opcode C8 - INY
-
-opc_CA: SINGLEBYTEOPT Bopc_CA        // Opcode CA - DEX
-
-opc_D8: SINGLEBYTE Bopc_D8        // Opcode D8 - CLD
-
-opc_DA: SINGLEOPCODEBLOUT Bopc_DA // Opcode DA - PHX
-
-opc_E3: SINGLEOPCODEBLOUT Bopc_E3 // Opcode E3 - NOP6
-
-opc_E8: SINGLEBYTEOPT Bopc_E8        // Opcode E8 - INX
-
-opc_EB: SINGLEBYTE Bopc_EB        // Opcode EB - NOP6 ( Used for instruction timing)
-
-opc_F3: SINGLEOPCODEBLOUT Bopc_F3 // Opcode F3 - NOP6
-
-opc_F8: SINGLEBYTE Bopc_F8        // Opcode F8 - SED
-
-opc_FA: SINGLEOPCODEBLOUT Bopc_FA // Opcode FA - PLX
-
-.balign 8
-Bopc_08:
-   orr      reg12, flags, #X_FLAG6502+B_FLAG6502
-   .word    php-12
-Bopc_0A:
-   lsls     regA, regA, #25
-   sxtb     regA, regA , ror #24
-Bopc_1A:
-   add      regA, regA, #0x1
-   .word    aflags-12
-Bopc_28:
-   mov      reg12,#1
-   .word    plp-12
-Bopc_2A:
-   adc      regA, regA, regA
-   .word    rola-12
-Bopc_3A:
-   sub      regA, regA, #0x1
-   .word    aflags-12
-Bopc_48:
-   SPUSH regA
-Bopc_4A:
-   lsrs     regA, regA, #1
-   and      regA, regA, #0x7F
-Bopc_58:
-   bic      flags, flags, #I_FLAG6502
-   .word    cli-12
-Bopc_5A:
-   mov      reg12, regY,LSR  #24
-   .word    pushtemp-12
-Bopc_68:
-   mov      reg1,#1
-   .word    pla-12
-Bopc_6A:
-   and      regA, regA, #0xFF    // isolate lower byte
-   .word    rora-12
-Bopc_78:
-   orr      flags, flags, #I_FLAG6502
-   nop
-Bopc_7A:
-   mov      reg1,#1
-   .word    ply-12
-Bopc_88:
-   sub      regY, regY, #0x1000000
-   teq      regY, #0
-Bopc_8A:
-   sxtb     regA, regX, ror #24
-   TEQ      regA, #0
-Bopc_98:
-   sxtb     regA, regY, ror #24
-   TEQ      regA, #0
-Bopc_9A:
-   bic      regSP, regSP, #0xFF             // clear lower nibble
-   orr      regSP, regSP, regX, lsr #24     // put X in lower nibble
-Bopc_A8:
-   lsl      regY, regA, #24
-   TEQ      regA, #0
-Bopc_AA:
-   lsl      regX, regA, #24
-   TEQ      regA, #0
-Bopc_B8:
-   nop
-   bic      flags, #V_FLAG6502
-Bopc_BA:
-   lsl      regX, regSP, #24
-   teq      regX, #0
-Bopc_C8:
-   add      regY, regY, #0x1000000
-   teq      regY, #0
-Bopc_CA:
-   sub      regX, regX, #0x1000000
-   teq      regX, #0
-Bopc_D8:
-   nop
-   bic      flags, flags, #D_FLAG6502
-Bopc_DA:
-   mov      reg12, regX, LSR #24
-   .word    pushtemp-12
-Bopc_E3:
-   mov      temp,#1
-   .word    debugopcode-12
-Bopc_E8:
-   add      regX, regX, #0x1000000
-   teq      regX, #0
-Bopc_EB:
-#if defined(TIMING_INSTRUCTION)
-#if defined(RPI2)|| defined(RPI3) || defined(RPI4)
-   mrc     p15, 0, reg0, c9, c13, 0
-#else
-   MRC     p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
-#endif
-   str     reg0,[ram6502,#0xE0]
-#else
-   nop
-   nop
-#endif
-Bopc_F3:
-   nop
-   .word putcharopcode-12
-Bopc_F8:
-   nop
-   orr      flags, flags, #D_FLAG6502
-Bopc_FA:
-   mov      reg1,#1
-   .word    plx-12
-Bopc_FB:
-#if defined(TIMING_INSTRUCTION)
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
-   mrc     p15, 0, reg0, c9, c13, 0
-#else
-   MRC     p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
-#endif
-   str     reg0,[ram6502,#0xE4]
-#else
-   nop
-   nop
-#endif
-
-Bopc_carry:
-   .word invertcarry-8
-   nop
-Bopc_00:
-   nop
-   .word brk-12
-Bopc_40:
-   mov   reg12,#1
-   .word rti-12
-Bopc_60:
-   ldrh reg0,[regSP,#1]
-   .word rts-12
-Bopc_01:
-   JITINDXLOGICAL orrs
-Bopc_04:
-   mov reg1,#0x00
-   ldrb reg12,[reg1]
-   mrs reg0, CPSR
-   .word tsb-20
-Bopc_05:
-   JITZPLOGICAL orrs
-Bopc_06:
-   ldrb reg12,[ram6502,#00]
-   add   reg12, reg12, reg12
-   strb  reg12,[ram6502,#00]
-   movs  reg12, reg12, lsl #24
-Bopc_07:
-   JITRMB 0
-Bopc_09:
-   JITIMMLOGICAL orrs
-Bopc_0C:
-   JITABSLDRBWB
-   mrs reg0, CPSR
-   bic reg0, reg0, #Z_FLAG
-   tst reg12, regA
-   .word tsb2-28
-Bopc_0D:
-   JITABSLOGICAL orrs
-Bopc_0E:
-   JITABSLDRBWB
-   nop
-   ASL6
-
-opc_FB: // Opcode FB - NOP6
-   SINGLEBYTE Bopc_FB
-opc_18: // Opcode 18 - CLC
-   ASSIGNCARRY clear
-opc_38: // Opcode 38 - SEC
-   ASSIGNCARRY set
-opc_00: // Opcode 00 - BRK is really a two byte instruction
-   SINGLEOPCODEBLEXIT Bopc_00
-opc_40: // Opcode 40 - RTI
-   SINGLEOPCODEBLEXIT Bopc_40
-opc_60: // Opcode 60 - RTS
-   SINGLEOPCODEEXIT Bopc_60
-opc_01: // Opcode 01 - ORA ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_01
-opc_04: // Opcode 04 - TSB $00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_04
-opc_05: // Opcode 05 - ORA $00
-   DOUBLEBYTET2 Bopc_05
-opc_06: // Opcode 06 - ASL $00
-   DOUBLEBYTESETTWOBYTES Bopc_06 8
-opc_07: // Opcode 07 - RMB0 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_07 12
-opc_09: // Opcode 09 - ORA #$00
-   IMMLOAD Bopc_09
-opc_0C: // Opcode 0C - TSB $0000
-   TRIPLEBYTEABSBLOUT20 Bopc_0C
-opc_0D: // Opcode 0D - ORA $0000
-   TRIPLEBYTEABST2 Bopc_0D
-opc_0E: // Opcode 0E - ASL $0000
-   TRIPLEBYTEABS Bopc_0E
-opc_0F: // Opcode 0F - BBR0
-   BBRS Bopc_0F bbrreturn
-
-opc_11: // Opcode 11 - ORA ($00),Y
-   DOUBLEBYTET2 Bopc_11
-
-opc_12: // Opcode 12 - ORA ($00)
-   DOUBLEBYTET2 Bopc_12
-
-opc_14: // Opcode 14 - TRB $00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_14
-
-opc_15: // Opcode 15 - ORA $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_15
-
-opc_16: // Opcode 16 - ASL $00, X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_16
-
-opc_17: // Opcode 17 - RMB1 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_17 12
-
-opc_19: // Opcode 19 - ORA $0000,Y
-   TRIPLEBYTEABS Bopc_19
-
-opc_1C: // Opcode 1C - TRB $0000
-   TRIPLEBYTEABSBLOUT20 Bopc_1C
-
-opc_1D: // Opcode 1D - ORA $0000,X
-   TRIPLEBYTEABS Bopc_1D
-
-opc_1E: // Opcode 1E - ASL $0000,X
-   TRIPLEBYTEABS Bopc_1E
-
-opc_1F: // Opcode 1F - BBR1
-   BBRS Bopc_1F bbrreturn
-
-opc_20:// Opcode 20 - JSR $0000
-
-   ldrh r12,[temp2,#1]
-   COPY5LOAD Bopc_20
-   add temp0,temp2,#2
-   and temp1,temp0,#0xFF
-   orr r7,r7,temp0,LSR #8
-   orr r8,r8,temp1
-
-   mov r12,r12,LSL#JITLETSHIFT-2
-   add r12,r12,#JITLET>>2
-
-   sub r12,r12,r6,LSR #BYTEWORDSHIFT
-   sub r12,r12,#28>>2
-   BIC r12,r12,#0xFF000000
-   ORR r12,r12,#BINSTRUCTION
-   B jitend3byteexitstore6
-
-opc_21: // Opcode 21 - AND ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_21
+   sub   r12,r12,r6
+   mov   r12,r12,LSR #BYTEWORDSHIFT
+   BIC   r12,r12,#0xFF000000
+   ORR   r12,r12,#BINSTRUCTION
+   B     jitend3byteexitstore6
 
 opc_24: // Opcode 24 - BIT $00
-
-   adr temp1,Bopc_24
-   mov r5,#TWOBYTES
-   ldrd r8,[temp1]
+   ldrd  r8,[r9]
+   mov   r5,#TWOBYTES
    FILLINJITTEDTABLES dejit16bit1
-   orr r8,r8,r4
+   orr   r8,r8,r4
    MAKEBRANCHLINK r9
-   strd r8,r9,[r6]
-   B dojitloop
-
-opc_25: // Opcode 25 - AND $00
-   DOUBLEBYTET2 Bopc_25
-
-opc_26: // Opcode 26 - ROL $00
-   DOUBLEBYTESETTWOBYTES Bopc_26 8
-
-opc_27: // Opcode 27 - RMB2 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_27 12
-
-opc_29: // Opcode 29 - AND #$00
-   IMMLOAD Bopc_29
-
-opc_2C: // Opcode 2C - BIT $0000
-   ldrh temp0,[temp2,#1]
-
-   mov temp,#(0xFEE0>>5) & 0xFF
-   orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  //  constant 0xFEE0 >> 5
-   BEQ bitabsio
-
-   ldr r8,Bopc_2C
-   ldr r9,=bitabstable-12
-   FILLINJITTEDTABLES dejit16bit1
-   orr r8,r8,r5
-   add r9,r9,r4,LSL #3
-   MAKEBRANCHLINK r9
-   strd r8,r9,[r6]
-
-   mov r5,#THREEBYTES
-   B dojitloop
-
-bitabsio:
-   ldr r8,Bopc_2C_io
-   ldr r9,=bitioload-12
-   mov r5,#THREEBYTES
-   FILLINJITTEDTABLES dejit16bit1
-   orr r8,r8,r4
-   MAKEBRANCHLINK r9
-   strd r8,r9,[r6]
-   B dojitloop
-
-opc_2D: // Opcode 2D - AND $0000
-   TRIPLEBYTEABST2 Bopc_2D
-
-opc_2E: // Opcode 2E - ROL $0000
-   TRIPLEBYTEABS Bopc_2E
-
-opc_2F: // Opcode 2F - BBR2
-   BBRS Bopc_2F bbrreturn
-opc_31: // Opcode 31 - AND ($00),Y
-   DOUBLEBYTET2 Bopc_31
-
-opc_32: // Opcode 32 - AND ($00)
-   DOUBLEBYTET2 Bopc_32
-
-opc_34: // Opcode 34 - BIT $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_34
-
-opc_35: // Opcode 35 - AND $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_35
-
-opc_36: // Opcode 36 - ROL $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_36
-
-opc_37: // Opcode 37 - RMB3 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_37 12
-
-opc_39: // Opcode 39 - AND $0000,Y
-   TRIPLEBYTEABS Bopc_39
-
-opc_3C: // Opcode 3C - BIT $0000,X
-   TRIPLEBYTEABSBLOUT20 Bopc_3C
-
-opc_3D: // Opcode 3D - AND $0000,X
-   TRIPLEBYTEABS Bopc_3D
-
-opc_3E: // Opcode 3E - ROL $0000,X
-   TRIPLEBYTEABS Bopc_3E
-
-opc_3F: // Opcode 3F - BBR3
-   BBRS Bopc_3F bbrreturn
-
-opc_41: // Opcode 41 - EOR ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUT8 Bopc_41
-
-opc_45: // Opcode 45 - EOR $00
-   DOUBLEBYTET2 Bopc_45
-
-opc_46: // Opcode 46 - LSR $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_46 12
-
-opc_47: // Opcode 47 - RMB4 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_47 12
-
-opc_49: // Opcode 49 - EOR #$00
-   IMMLOAD Bopc_49
+   strd  r8,r9,[r6]
+   B     dojitloop
 
 opc_4C: // Opcode 4C - JMP $0000
-   ldrh r12,[temp2,#1]
-
-   mov temp0,r12,LSL#JITLETSHIFT-2
-   add temp0,temp0,#JITLET>>2
-
-   sub temp0,temp0,r6,LSR #BYTEWORDSHIFT
-   sub temp0,temp0,#8>>2
-   BIC temp0,temp0,#0xFF000000
-   ORR temp0,temp0,#BINSTRUCTION
-   str temp0,[r6]
-   B jitend3byteexit
-
-opc_4D: // Opcode 4D - EOR $0000
-   TRIPLEBYTEABST2 Bopc_4D
-
-opc_4E: // Opcode 4E - LSR $0000
-   TRIPLEBYTEABS Bopc_4E
-
-opc_4F: // Opcode 4F - BBR4
-   BBRS Bopc_4F bbrreturn
+   mov   r4,r4,LSL#JITLETSHIFT-2
+   orr   temp0,r4,r5,LSL #(8+JITLETSHIFT-2)
+   add   temp0,temp0,r9
+   sub   temp0,temp0,r6,LSR #BYTEWORDSHIFT
+   BIC   temp0,temp0,#0xFF000000
+   ORR   temp0,temp0,#BINSTRUCTION
+   str   temp0,[r6]
+   B     jitend3byteexit
 
 opc_50: // Opcode 50 - BVC
-   BRANCHVCS Bopc_50 testvflagC
+   //BRANCHVCS Bopc_50 //testvflagC
+opc_70: // Opcode 70 - BVS
+  // BRANCHVCS Bopc_70 //testvflagS
 
-opc_51: // Opcode 51 - EOR ($00),Y
-   DOUBLEBYTET2 Bopc_51
+// Make BL testvflagC
+//      msr CPSR_flg, temp1
+//      B xx // branch taken
+//      msr CPSR_flg,temp1
 
-opc_52: // Opcode 52 - EOR ($00)
-   DOUBLEBYTET2 Bopc_52
+   //ldr r10,=\branch-8
+   LDR   r11,Bopc_70
+   mov   R10,R9
 
-opc_55: // Opcode 55 - EOR $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_55
+   sxtb  r4,r4
+   // fill in BL
+   MAKEBRANCHLINK r10
+   strd  r10,r11,[r6]
+   mov   r10,r4,LSL #1
 
-opc_56: // Opcode 56 - LSR $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_56
-
-opc_57: // Opcode 57 - RMB5 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_57 12
-
-opc_59: // Opcode 59 - EOR $0000,Y
-   TRIPLEBYTEABS Bopc_59
-
-opc_5D: // Opcode 5D - EOR $0000,X
-   TRIPLEBYTEABS Bopc_5D
-
-opc_5E: // Opcode 5E - LSR $0000,X
-   TRIPLEBYTEABS Bopc_5E
-
-opc_5F: // Opcode 5F - BBR5
-   BBRS Bopc_5F bbrreturn
-opc_61: // Opcode 61 - ADC ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_61
-opc_64: // Opcode 64 - STZ $00
-   ZPSTAZ Bopc_64
-
-opc_65: // Opcode 65 - ADC $00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_65
-Bopc_0F:
-   JITBBR 0
-Bopc_11:
-   JITINDYLOGICAL orrs
-Bopc_12:
-   JITINDLOGICAL orrs
-Bopc_14:
-   mov reg1,#0x00
-   ldrb reg12,[reg1]
-   mrs reg0, CPSR
-   .word trb-20
-Bopc_15:
-   JITZPXLOGICAL orrs
-Bopc_16:
-   ADDR1REGXZP
-   ldrb reg12,[ram6502,reg1,LSR #24]
-   mov reg1,reg1,LSR #24  // can save a cycle here
-   .word asl-20
-Bopc_17:
-   JITRMB 1
-Bopc_19:
-   JITABSYLOGICAL orrs
-Bopc_1C:
-   JITABSLDRBWB
-   mrs reg0, CPSR
-   bic reg0, reg0, #Z_FLAG
-   tst reg12, regA
-   .word trb2-28
-Bopc_1D:
-   JITABSXLOGICAL orrs
-Bopc_1E:
-   JITABS
-   ldrb  reg12,[reg1, regX, lsr #24]!
-   ASL6
-Bopc_1F:
-   JITBBR 1
-
-Bopc_20:
-   JITABS
-   sub  regSP, regSP, #2
-   strh reg1,[regSP,#1]
-   orr  regSP, #0x0100
-Bopc_21:
-   JITINDXLOGICAL ands
-
-Bopc_24:
-   ldrb reg12,[ram6502,#0x00]
-   .word bit24-12
-
-Bopc_25:
-   JITZPLOGICAL ands
-Bopc_26:
-   ldrb reg12,[ram6502,#00]
-   adc   reg12, reg12, reg12
-   strb  reg12,[ram6502,#00]
-   movs  reg12, reg12, lsl #24
-Bopc_27:
-   JITRMB 2
-
-Bopc_29:
-   JITIMMLOGICAL ands
-
-Bopc_2C:
-   MOVR1HIGH
-Bopc_2C_io:
-   mov r0,#0x00
-Bopc_2D:
-   JITABSLOGICAL ands
-Bopc_2E:
-   JITABSLDRBWB
-   nop
-   ROL6
-Bopc_2F:
-   JITBBR 2
-Bopc_31:
-   JITINDYLOGICAL ands
-Bopc_32:
-   JITINDLOGICAL ands
-Bopc_34:
-   ADDR1REGXZP
-   ldrb reg12,[ram6502,reg1,LSR #24]
-   bic  flags, flags, #V_FLAG6502
-   .word bit-20
-Bopc_35:
-   JITZPXLOGICAL ands
-Bopc_36:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24 // can save a cycle here
-   ldrb reg12,[reg1]
-   .word rol-20
-Bopc_37:
-   JITRMB 3
-Bopc_39:
-   JITABSYLOGICAL ands
-
-Bopc_3C:
-   JITABS
-   ldrb  reg12,[reg1, regX, lsr #24]
-   bic     flags, flags, #V_FLAG6502
-   tst     reg12, regA
-   .word bit2-28
-Bopc_3D:
-   JITABSXLOGICAL ands
-Bopc_3E:
-   JITABS
-   ldrb  reg12,[reg1, regX, lsr #24]!
-   ROL6
-Bopc_3F:
-   JITBBR 3
-
-Bopc_41:
-   JITINDXLOGICAL eors
-Bopc_45:
-   JITZPLOGICAL eors
-Bopc_46:
-   ldrb reg0,[ram6502,#00]
-   nop
-   lsrs reg0, reg0, #1
-   strb  reg0,[ram6502,#00]
-Bopc_47:
-   JITRMB 4
-
-Bopc_49:
-   JITIMMLOGICAL eors
-
-Bopc_4D:
-   JITABSLOGICAL eors
-Bopc_4E:
-   JITABSLDRBWB
-B_NOP:
-   nop
-   nop
-   LSR6
-Bopc_4F:
-   JITBBR 4
-Bopc_50:
-Bopc_70:
-   JITBRANCHVCS
-Bopc_51:
-   JITINDYLOGICAL eors
-Bopc_52:
-   JITINDLOGICAL eors
-Bopc_55:
-   JITZPXLOGICAL eors
-Bopc_56:
-   ADDR1REGXZP
-   ldrb reg0,[ram6502,reg1,LSR #24]
-   lsrs reg0, reg0, #1
-   strb reg0,[ram6502,reg1,LSR #24]
-Bopc_57:
-   JITRMB 5
-
-Bopc_59:
-   JITABSYLOGICAL eors
-
-Bopc_5D:
-   JITABSXLOGICAL eors
-Bopc_5E:
-   JITABS
-   ldrb  reg12,[reg1, regX, lsr #24]!
-   nop
-   LSR6
-Bopc_5F:
-   JITBBR 5
-Bopc_61:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24
-   ldrh reg1,[reg1]
-   .word ADCload-20
-Bopc_64:
-   JITZPSTAZ ram6502
-Bopc_65:
-   ldrb    reg12,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word ADC2-20
-Bopc_E5:
-   ldrb    reg12,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word SBC2-20
-Bopc_66:
-   ldrb reg12,[ram6502,#00]
-   orrcs   reg12, reg12, #0x100
-   rrxs    reg12, reg12
-   strb reg12,[ram6502,#00]
-Bopc_67:
-   JITRMB 6
-
-Bopc_69:
-   mov     reg12,#00 // NB could save a cycle later on
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word ADC2-20
-Bopc_E9:
-   mov     reg12,#00 // NB could save a cycle later on
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word SBC2-20
-
-Bopc_6C:
-   MOVR1HIGH
-   ldrh reg1,[reg1,#0x00]
-   nop
-   mov reg0,#JITLET
-   add reg0,reg0,reg1,LSL #JITLETSHIFT
-   bx reg0
-Bopc_6D:
-   JITABSLDRB
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   LSL     regA, regA, #24
-   .word ADC3-28
-Bopc_ED:
-   JITABSLDRB
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   LSL     regA, regA, #24
-   .word SBC3-28
-Bopc_6E:
-   JITABSLDRBWB
-   nop
-   ROR6
-Bopc_6F:
-   JITBBR 6
-
-Bopc_71:
-   ldrh    reg1,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[reg1,regY,LSR #24]
-   .word ADC1-20
-Bopc_72:
-   ldrh    reg1,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[reg1]
-   .word ADC1-20
-Bopc_74:
-   ADDR1REGXZP
-   strb ram6502,[ram6502,reg1,LSR #24]
-   add reg0,jittedtable16ptr, reg1,LSR #24-JITTEDTABLESHIFT
-   .word jittablezp-20
-
-Bopc_75:
-   ADDR1REGXZP
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[ram6502,reg1,LSR#24]
-   .word ADC1-20
-Bopc_76:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24 // can save a cycle here
-   ldrb reg12,[reg1]
-   .word ror-20
-Bopc_77:
-   JITRMB 7
-
-Bopc_79:
-   JITABS
-   ldrb    reg12,[reg1, regY, lsr #24]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word ADC2-28
-Bopc_7C:
-   JITABS
-   mov reg0, regX, LSR #24
-   ldrh reg1,[reg0, reg1]
-   mov reg0,#JITLET
-   add pc,reg0,reg1,LSL #JITLETSHIFT
-Bopc_7D:
-   JITABS
-   ldrb    reg12,[reg1, regX, lsr #24]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word   ADC2-28
-Bopc_7E:
-   JITABS
-   ldrb  reg12,[reg1, regX, lsr #24]!
-   ROR6
-Bopc_7F:
-   JITBBR 7
-
-Bopc_81:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24
-   ldrh reg1,[reg1]
-   .word jitstatable-20
-Bopc_A1:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24
-   ldrh reg1,[reg1]
-   .word loada-20
-Bopc_C1:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24
-   ldrh reg1,[reg1]
-   .word cmpa-20
-Bopc_E1:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR #24
-   ldrh reg1,[reg1]
-   .word SBCload-20
-Bopc_84:
-   JITZPST regY
-Bopc_85:
-   JITZPSTAZ regA
-Bopc_86:
-   JITZPST regX
-Bopc_87:
-   JITSMB 0
-
-Bopc_89:
-   mrs     reg1, CPSR
-   tst     regA, #00
-   bicne   reg1, reg1, #Z_FLAG
-   .word bitimm-20
-
-Bopc_8C:
-   JITABSSTORE regY
-Bopc_8C_io:
-   JITABS r0
-   nop
-   mov reg1,regY,LSR #24
-   nop
-   .word iostore-28
-Bopc_8D:
-   JITABSSTORE regA
-Bopc_8D_io:
-   JITABS r0
-   nop
-   and reg1,regA,#0xFF
-   nop
-   .word iostore-28
-Bopc_8E:
-   JITABSSTORE regX
-Bopc_8E_io:
-   JITABS r0
-   nop
-   mov reg1,regX,LSR #24
-   nop
-   .word iostore-28
-Bopc_8F:
-   JITBBS 0
-Bopc_91:
-   ldrh reg1,[ram6502,#00]
-   strb regA,[reg1,regY,LSR #24]!
-   add reg0,jittedtable16ptr, reg1,LSL #JITTEDTABLESHIFT
-   BLX reg0
-
-Bopc_92:
-   ldrh reg1,[ram6502,#00]
-   strb regA,[reg1]
-   add reg0,jittedtable16ptr, reg1,LSL #JITTEDTABLESHIFT
-   BLX reg0
-
-Bopc_94:
-   ADDR1REGXZP
-   mov reg0,regY,LSR #24
-   strb reg0,[ram6502,reg1,LSR #24]
-   .word jitstxytable-20
-Bopc_95:
-   ADDR1REGXZP
-   strb regA,[ram6502,reg1,LSR #24]
-   add reg0,jittedtable16ptr, reg1,LSR #24-JITTEDTABLESHIFT
-   .word jittablezp-20
-
-Bopc_96:
-   ADDR1REGYCONST
-   mov reg0,regX,LSR #24
-   strb reg0,[ram6502,reg1,LSR #24]
-   .word jitstxytable-20
-Bopc_97:
-   JITSMB 1
-
-Bopc_99:
-   JITABSXYST regA regY
-
-Bopc_9C:
-   JITABSSTORE ram6502
-Bopc_9D:
-   JITABSXYST regA regX
-Bopc_9E:
-   JITABSXYST ram6502 regX
-Bopc_9F:
-   JITBBS 1
-
-
-
-opc_E5: // Opcode E5 - SBC $00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E5
-
-opc_66: // Opcode 66 - ROR $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_66 12
-
-opc_67: // Opcode 67 - RMB6 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_67 12
-
-opc_69: // Opcode 69 - ADC #$00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_69
-opc_E9: // Opcode E9 - SBC #$00
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E9
+   BIC   r10,r10,#0xFF000000
+   orr   r10,r10,#BINSTRUCTION
+   strd  r10,r11,[r6,#8]
+   B     jitend2byteexit
 
 opc_6C: // Opcode 6C - JMP ($0000)
-   adr   r1,Bopc_6C
-   BL fixuptype2accessquick
-   b jitend3byteexitstore6
-
-opc_6D: // Opcode 6D - ADC $0000
-   TRIPLEBYTEABSBLOUT20 Bopc_6D
-opc_ED: // Opcode ED - SBC $0000
-   TRIPLEBYTEABSBLOUT20 Bopc_ED
-
-opc_6E: // Opcode 6E - ROR $0000
-   TRIPLEBYTEABS Bopc_6E
-
-opc_6F: // Opcode 6F - BBR6
-   BBRS Bopc_6F bbrreturn
-opc_70: // Opcode 70 - BVS
-   BRANCHVCS Bopc_70 testvflagS
-
-opc_71: // Opcode 71 - ADC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_71
-opc_F1: // Opcode F1 - SBC ($00),Y
-   DOUBLEBYTEBYTET2BLOUT Bopc_F1
-
-opc_72: // Opcode 72 - ADC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_72
-opc_F2: // Opcode F2 - SBC ($00)
-   DOUBLEBYTEBYTET2BLOUT Bopc_F2
-
-opc_74: // Opcode 74 - STZ $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_74
-
-opc_75: // Opcode 75 - ADC $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_75
-opc_76: // Opcode 76 - ROR $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_76
-opc_F5: // Opcode F5 - SBC $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_F5
-
-opc_77: // Opcode 77 - RMB7 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_77 12
-
-opc_79: // Opcode 79 - ADC $0000,Y
-   TRIPLEBYTEABSBLOUT20 Bopc_79
-opc_F9: // Opcode F9 - SBC $0000,Y
-   TRIPLEBYTEABSBLOUT20 Bopc_F9
+   BL    fixuptype2accessquick
+   b     jitend3byteexitstore6
 
 opc_7C: // Opcode 7C - JMP ($0000,X)
-   COPY6LOAD Bopc_7C
-   orr r7,r7,r5
-   orr r8,r8,r4
-   B  jitend3byteexitstore6
-
-opc_7D: // Opcode 7D - ADC $0000,X
-   TRIPLEBYTEABSBLOUT20 Bopc_7D
-opc_FD: // Opcode FD - SBC $0000,X
-   TRIPLEBYTEABSBLOUT20 Bopc_FD
-
-opc_7E: // Opcode 7E - ROR $0000,X
-   TRIPLEBYTEABS Bopc_7E
-
-opc_7F: // Opcode 7F - BBR7
-   BBRS Bopc_7F bbrreturn
-
-
-
-
-Bopc_F1:
-   ldrh    reg1,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[reg1,regY,LSR #24]
-   .word SBC1-20
-
-Bopc_F2:
-   ldrh    reg1,[ram6502,#0x00]
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[reg1]
-   .word SBC1-20
-
-Bopc_F5:
-   ADDR1REGXZP
-   tst     flags, #D_FLAG6502
-   ldrb    reg12,[ram6502,reg1,LSR #24]
-   .word SBC1-20
-
-Bopc_F9:
-   JITABS
-   ldrb    reg12,[reg1, regY, lsr #24]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word SBC2-28
-
-
-Bopc_FD:
-   JITABS
-   ldrb    reg12,[reg1, regX, lsr #24]
-   tst     flags, #D_FLAG6502
-   bic     flags, #V_FLAG6502
-   .word    SBC2-28
-
-opc_81: // Opcode 81 - STA ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_81
-opc_A1: // Opcode A1 - LDA ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_A1
-opc_C1: // Opcode C1 - CMP ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_C1
-opc_E1: // Opcode E1 - SBC ($00,X)
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_E1
-
-opc_84: // Opcode 84 - STY $00
-   ZPST Bopc_84
-
-opc_85: // Opcode 85 - STA $00
-   ZPSTAZ Bopc_85
-
-opc_86: // Opcode 86 - STX $00
-   ZPST Bopc_86
-
-opc_87: // Opcode 87 - SMB0 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_87 12
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   orr   r7,r7,r5
+   orr   r8,r8,r4
+   B     jitend3byteexitstore6
 
 opc_89: // Opcode 89 - BIT #$00
-   COPY4LOAD Bopc_89
-   orr r9,r9,r4
-   B jitend2byteBLendstore
-
-opc_8C: // Opcode 8C - STY $0000
-   ldrh r12,[temp2,#1]
-   mov temp0,#(0xFEE0>>5) & 0xFF
-   orr temp0,temp0, #(0xFEE0>>5) & 0xFF00
-   cmp temp0, r12, lsr #5  // constant 0xFEE0 >> 5
-   BEQ 9f
-   ABSSTORE Bopc_8C
-9:
-   TRIPLEBYTEABSBLOUT20 Bopc_8C_io
-
-opc_8D: // Opcode 8D - STA $0000
-   ldrh r12,[temp2,#1]
-   mov temp0,#(0xFEE0>>5) & 0xFF
-   orr temp0,temp0, #(0xFEE0>>5) & 0xFF00
-   cmp temp0, r12, lsr #5  // constant 0xFEE0 >> 5
-   BEQ 9f
-
-   ABSSTORE Bopc_8D
-
-9:
-   TRIPLEBYTEABSBLOUT20 Bopc_8D_io
-
-opc_8E: // Opcode 8E - STX $0000
-   ldrh temp,[temp2,#1]
-   mov temp0,#(0xFEE0>>5) & 0xFF
-   orr temp0,temp0, #(0xFEE0>>5) & 0xFF00
-   cmp temp0, r12, lsr #5  // constant 0xFEE0 >> 5
-   BEQ 9f
-
-   ABSSTORE Bopc_8E
-9:
-   TRIPLEBYTEABSBLOUT20 Bopc_8E_io
-
-opc_8F: // Opcode 8F - BBS0
-   BBRS Bopc_8F bbsreturn
-
-opc_91: // Opcode 91 - STA ($00),Y
-   DOUBLEBYTET2 Bopc_91
-
-opc_92: // Opcode 92 - STA ($00)
-   DOUBLEBYTET2 Bopc_92
-
-opc_94: // Opcode 94 - STY $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_94
-
-opc_95: // Opcode 95 - STA $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_95
-
-opc_96: // Opcode 96 - STX $00,Y
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_96
-
-opc_97: // Opcode 97 - SMB1 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_97 12
-
-opc_99: // Opcode 99 - STA $0000,Y
-   TRIPLEBYTEABS Bopc_99
-
-opc_9C: // Opcode 9C - STZ $0000
-   ldrh r12,[temp2,#1]
-   ABSSTORE Bopc_9C
-
-opc_9D: // Opcode 9D - STA $0000,X
-   TRIPLEBYTEABS Bopc_9D
-
-opc_9E: // Opcode 9E - STZ $0000,X
-   TRIPLEBYTEABS Bopc_9E
-
-opc_9F: // Opcode 9F - BBS1
-   BBRS Bopc_9F bbsreturn
-
-opc_A0: // Opcode A0 - LDY #$00
-   DOUBLEBYTESETFIRSTBYTE Bopc_A0
-
-opc_A2: // Opcode A2 - LDX #$00
-   DOUBLEBYTESETFIRSTBYTE Bopc_A2
-
-opc_A4: // Opcode A4 - LDY $00
-   DOUBLEBYTESETFIRSTBYTEOPT Bopc_A4 Bopc_A4_fast
-
-opc_A5: // Opcode A5 - LDA $00
-   DOUBLEBYTET2OPT Bopc_A5 Bopc_A5_fast
-
-opc_A6: // Opcode A6 - LDX $00
-   DOUBLEBYTESETFIRSTBYTEOPT Bopc_A6 Bopc_A6_fast
-
-opc_A7: // Opcode A7 - SMB2 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_A7 12
-
-opc_A9: // Opcode A9 - LDA #$00
-   LDR r8,B_NOP
-   ldr r11,=immediatesignextenedtable
-   str r8,[r6,#4]
-   str r8,[r6,#8]
-   str r8,[r6,#12]
-   ldr temp,[r11,r4,LSL #BYTEWORDSHIFT]
-   orr temp,temp,#1<<20// S FLAG
-   orr temp,temp,#0xA000 // regA
-   str temp,[r6]
-   B jitend2byte
-
-opc_AC: // Opcode AC - LDY $0000
-   ldrh temp0,[temp2,#1]
-
-   mov temp,#(0xFEE0>>5) & 0xFF
-   orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // constant 0xFEE0 >> 5
-   BEQ 9f
-
-   TRIPLEBYTEABS Bopc_AC
-
-9:
-   TRIPLEBYTEABSBLOUT Bopc_AC_io ioload 8
-
-opc_AD: // Opcode AD - LDA $0000
-   ldrh temp0,[temp2,#1]
-
-   mov temp,#(0xFEE0>>5) & 0xFF
-   orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // constant 0xFEE0 >> 5
-   BEQ loadio
-   // ramload
-   TRIPLEBYTEABST2 Bopc_AD
-
-loadio:
-   TRIPLEBYTEABSBLOUT Bopc_AD_io ioload 8
-
-opc_AE: // Opcode AE - LDX $0000
-   ldrh temp0,[temp2,#1]
-
-   mov temp,#(0xFEE0>>5) & 0xFF
-   orr temp,temp, #(0xFEE0>>5) & 0xFF00
-   cmp temp, temp0, lsr #5  // constant 0xFEE0 >> 5
-   BEQ 9f
-
-   TRIPLEBYTEABS Bopc_AE
-
-9:
-   TRIPLEBYTEABSBLOUT Bopc_AE_io ioload 8
-
-opc_AF: // Opcode AF - BBS2
-   BBRS Bopc_AF bbsreturn
-
-opc_B1: // Opcode B1 - LDA ($00),Y
-   DOUBLEBYTET2OPT Bopc_B1 Bopc_B1_fast
-
-opc_B2: // Opcode B2 - LDA ($00)
-   DOUBLEBYTET2OPT Bopc_B2 Bopc_B2_fast
-
-opc_B4: // Opcode B4 - LDY $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_B4
-
-opc_B5: // Opcode B5 - LDA $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_B5
-
-opc_B6: // Opcode B6 - LDX $00,Y
-   DOUBLEBYTESETFIRSTBYTE Bopc_B6
-
-opc_B7: // Opcode B7 - SMB3 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_B7 12
-
-opc_B9: // Opcode B9 - LDA $0000,Y
-   TRIPLEBYTEABS Bopc_B9
-
-opc_BC: // Opcode BC - LDY $0000,X
-   TRIPLEBYTEABS Bopc_BC
+   LDMIA r9,{r8,r9,r10,r11}
+   orr   r9,r9,r4
+   B     jitend2byteBLendstore
 
 opc_BD: // Opcode BD - LDA $0000,X
-   TRIPLEBYTEABSOPT Bopc_BD Bopc_BD_fast
+   ldrb  r7,[r2,#3]
+   ldrb  r7,[r12,r7]
+   tst   r7,#NF
+   addne r9,r9,#6*4
+   BL fixuptype2accessquickthird
+   b     jitend3bytestore
 
-opc_BE: // Opcode BE - LDX $0000,Y
-   TRIPLEBYTEABS Bopc_BE
-
-opc_BF: // Opcode BF - BBS3
-   BBRS Bopc_BF bbsreturn
-opc_C0: // Opcode C0 - CPY #$00
-   DOUBLEBYTESETFIRSTBYTE Bopc_C0
-
-opc_C4: // Opcode C4 - CPY $00
-   DOUBLEBYTESETFIRSTBYTE Bopc_C4
-
-opc_C5: // Opcode C5 - CMP $00
-   DOUBLEBYTESETFIRSTBYTE Bopc_C5
-
-opc_C6: // Opcode C6 - DEC $00
-   COPY4LOAD Bopc_C6
-   orr r8,r8,r4
-   orr r10,r10,r4
-   B jitend2byteBLendstore
-
-opc_C7: // Opcode C7 - SMB4 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_C7 12
-
-opc_C9: // Opcode C9 - CMP #$00
-   DOUBLEBYTESETFIRSTBYTE Bopc_C9
-
-opc_CC: // Opcode CC - CPY $0000
-   TRIPLEBYTEABS Bopc_CC
-
-opc_CD: // Opcode CD - CMP $0000
-   TRIPLEBYTEABS Bopc_CD
-
-opc_CE: // Opcode CE - DEC $0000
-   TRIPLEBYTEABS Bopc_CE
-
-opc_CF: // Opcode CF - BBS4
-   BBRS Bopc_CF bbsreturn
-.ltorg
-Bopc_A0:
-   MOVREGYCONST
-   nop
-   teq regY,#0
-   nop
-
-Bopc_A2:
-   MOVREGXCONST
-   nop
-   teq regX,#0
-   nop
-Bopc_A4:
-   ldrb regY,[ram6502,#0x00]
-   nop
-   mov regY,regY,LSL #24
-   teq regY,#0
-
-Bopc_A4_fast:
-   ldrb regY,[ram6502,#0x00]
-   nop
-   nop
-   mov regY,regY,LSL #24
-
-Bopc_A5:
-   LDRSB regA,[ram6502,#0x00]
-   nop
-   nop
-   teq regA,#0
-Bopc_A5_fast:
-   LDRSB regA,[ram6502,#0x00]
-   SPACE_THREE_ARM_WORDS
-Bopc_A6:
-   ldrb regX,[ram6502,#0x00]
-   nop
-   mov regX,regX,LSL #24
-   teq regX,#0
-Bopc_A6_fast:
-   ldrb regX,[ram6502,#0x00]
-   nop
-   nop
-   mov regX,regX,LSL #24
-
-Bopc_A7:
-   JITSMB 2
-
-Bopc_AC:
-   JITABSLDRB
-   nop
-   nop
-   mov regY,reg12, LSL #24
-   teq regY,#0
-Bopc_AC_io:
-   JITABS r0
-   .word ioload-16
-   mov regY,r0,LSL #24
-   nop
-   teq regY,#0
-Bopc_AD:
-   MOVR1HIGH
-   ldrsb regA,[reg1,#0x00]
-   SPACE_THREE_ARM_WORDS
-   teq regA,#0
-Bopc_AD_io:
-   JITABS r0
-   .word ioload-16
-   sxtb regA,r0
-   nop
-   teq regA,#0
-Bopc_AE:
-   JITABSLDRB
-   nop
-   nop
-   mov regX,reg12, LSL #24
-   teq regX,#0
-Bopc_AE_io:
-   JITABS r0
-   .word ioload-16
-   mov regX,r0,LSL #24
-   nop
-   teq regX,#0
-Bopc_AF:
-   JITBBS 2
-
-Bopc_B1:
-   ldrh reg0,[ram6502,#0x00]
-   mov reg1,regY,LSR #24
-   ldrsb regA,[reg1,reg0]
-   teq   regA,#0
-Bopc_B1_fast:
-   ldrh reg0,[ram6502,#0x00]
-   mov reg1,regY,LSR #24
-   nop
-   ldrsb regA,[reg1,reg0]
-Bopc_B2:
-   ldrh reg0,[ram6502,#0x00]
-   nop
-   ldrsb regA,[reg0]
-   teq   regA,#0
-Bopc_B2_fast:
-   ldrh reg0,[ram6502,#0x00]
-   nop
-   nop
-   ldrsb regA,[reg0]
-
-Bopc_B4:
-   ADDR1REGXZP
-   ldrb regY,[ram6502,reg1,LSR#24]
-   mov regY,regY,LSL #24
-   teq   regY,#0
-Bopc_B5:
-   ADDR1REGXZP
-   mov reg1,reg1,LSR#24
-   ldrsb regA,[reg1]
-   teq   regA,#0
-Bopc_B6:
-   ADDR1REGYCONST
-   ldrb reg12,[ram6502,reg1,LSR#24]
-   mov regX,reg12,LSL #24
-   teq   regX,#0
-Bopc_B7:
-   JITSMB 3
-
-Bopc_B9:
-   JITABS
-   mov  regA, regY, lsr #24
-   ldrsb regA,[reg1, regA]
-   nop
-   teq  regA, #0
-
-Bopc_BC:
-   JITABS
-   ldrb regY,[reg1, regX, lsr #24]
-   nop
-   mov  regY,regY, lsl #24
-   teq  regY, #0
-Bopc_BD:
-   JITABS                    // mov r1,regx,LSL#24
-   mov  regA, regX, lsr #24  // ADD r1,r1,#MSB<<8
-   ldrsb regA,[reg1, regA]   // ldrsb regA,[reg1,#LSB] // Should be fast
-   nop
-   teq  regA, #0
-Bopc_BD_fast:
-   JITABS                    // mov r1,regx,LSL#24
-   mov  regA, regX, lsr #24  // ADD r1,r1,#MSB<<8
-   ldrsb regA,[reg1, regA]   // ldrsb regA,[reg1,#LSB] // Should be fast
-   nop
-   nop
-
-Bopc_BE:
-   JITABS
-   ldrb regX,[reg1, regY, lsr #24]
-   nop
-   mov  regX,regX, lsl #24
-   teq  regX, #0
-Bopc_BF:
-   JITBBS 3
-Bopc_C0:
-   CMPREGYCONST
-   SPACE_THREE_ARM_WORDS
-Bopc_C4:
-   ldrb reg0,[ram6502,#0x00]
-   nop
-   nop
-   cmp regY, reg0, lsl #24
-Bopc_C5:
-   ldrb reg0,[ram6502,#0x00]
-   mov reg1,regA,LSL #24
-   nop
-   cmp reg1, reg0, LSL #24
-Bopc_C6:
-   ldrb reg0,[ram6502,#0]
-   sub  reg0, reg0, #1
-   strb reg0,[ram6502,#0]
-   .word tempflags-20
-Bopc_C7:
-   JITSMB 4
-
-Bopc_C9:
-   MOVR1CONST
-   nop
-   rsbs reg1,reg1,regA,LSL #24
-   nop
-
-Bopc_CC:
-   JITABSLDRB
-   SPACE_THREE_ARM_WORDS
-   cmp regY,reg12, lsl #24
-Bopc_CD:
-   JITABSLDRB
-   nop
-   mov reg1,regA,LSL #24
-   nop
-   cmp reg1,reg12,LSL #24
-Bopc_CE:
-   JITABSLDRBWB
-   sub  reg12, reg12, #1
-   strb reg12,[reg1]
-   sxtb reg12, reg12
-   teq  reg12, #0
-Bopc_CF:
-   JITBBS 4
-Bopc_D1:
-   ldrh reg0,[ram6502,#0x00]
-   ldrb reg0,[reg0,regY, LSR #24]
-   mov reg1,regA, LSL #24
-   cmp reg1,reg0,LSL #24
-Bopc_D2:
-   ldrh reg0,[ram6502,#0x00]
-   ldrb reg0,[reg0]
-   mov reg1,regA, LSL #24
-   cmp reg1,reg0,LSL #24
-Bopc_D5:
-   ADDR1REGXZP
-   ldrb reg0,[ram6502,reg1,LSR#24]
-   mov reg1,regA,LSL #24
-   cmp reg1,reg0,LSL #24
-Bopc_D6:
-   ADDR1REGXZP
-   ldrb reg0,[ram6502,reg1,LSR#24]
-   sub  reg0, reg0, #1
-   .word storeXflags-20
-Bopc_D7:
-   JITSMB 5
-
-Bopc_D9:
-   JITABS
-   ldrb reg0,[reg1,regY,LSR #24]
-   nop
-   mov reg1,regA,LSL #24
-   cmp reg1,reg0,LSL #24
-
-Bopc_DD:
-   JITABS
-   ldrb reg0,[reg1,regX,LSR #24]
-   nop
-   mov reg1,regA,LSL #24
-   cmp reg1,reg0,LSL #24
-Bopc_DE:
-   JITABS
-   ldrb reg0,[reg1, regX, lsr #24]!
-   sub  reg0, reg0, #1
-   strb reg0,[reg1]
-   .word tempflags-28
-Bopc_DF:
-   JITBBS 5
-Bopc_E0:
-   CMPREGXCONST
-   SPACE_THREE_ARM_WORDS
-Bopc_E4:
-   ldrb reg0,[ram6502,#0x00]
-   nop
-   nop
-   cmp regX, reg0, lsl #24
-
-Bopc_E6:
-   ldrb reg0,[ram6502,#0]
-   add  reg0, reg0, #1
-   strb reg0,[ram6502,#0]
-   .word tempflags-20
-Bopc_E6_fast:
-   ldrb reg0,[ram6502,#0]
-   nop
-   add  reg0, reg0, #1
-   strb reg0,[ram6502,#0]
-
-Bopc_E7:
-   JITSMB 6
-
-Bopc_EC:
-   JITABSLDRB
-   SPACE_THREE_ARM_WORDS
-   cmp regX,reg12, lsl #24
-
-Bopc_EE:
-   JITABSLDRBWB
-   .word incstore-16
-   sxtb reg12, reg12
-   teq  reg12, #0
-Bopc_EF:
-   JITBBS 6
-
-Bopc_F6:
-   ADDR1REGXZP
-   ldrb reg0,[ram6502,reg1,LSR #24]
-   add  reg0, reg0, #1
-   .word storeXflags-20
-Bopc_F7:
-   JITSMB 7
-
-Bopc_FE:
-   JITABS
-   ldrb reg12,[reg1, regX, lsr #24]!
-   .word incstore-20
-   sxtb reg12, reg12
-   teq  reg12, #0
-Bopc_FF:
-   JITBBS 7
-
-opc_D1: // Opcode D1 - CMP ($00),Y
-   DOUBLEBYTET2 Bopc_D1
-
-opc_D2: // Opcode D2 - CMP ($00)
-   DOUBLEBYTET2 Bopc_D2
-
-opc_D5: // Opcode D5 - CMP $00,X
-   DOUBLEBYTESETFIRSTBYTE Bopc_D5
-
-opc_D6: // Opcode D6 - DEC $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_D6
-
-opc_D7: // Opcode D7 - SMB5 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_D7 12
-
-opc_D9: // Opcode D9 - CMP $0000,Y
-   TRIPLEBYTEABS Bopc_D9
-
-opc_DD: // Opcode DD - CMP $0000,X
-   TRIPLEBYTEABS Bopc_DD
-
-opc_DE: // Opcode DE - DEC $0000,X
-   TRIPLEBYTEABSBLOUT20 Bopc_DE
-
-opc_DF: // Opcode DF - BBS5
-   BBRS Bopc_DF bbsreturn
-
-opc_E0: // Opcode E0 - CPX #$00
-   DOUBLEBYTESETFIRSTBYTE Bopc_E0
-
-opc_E4: // Opcode E4 - CPX $00
-   DOUBLEBYTESETFIRSTBYTE Bopc_E4
-
-opc_E6: // Opcode E6 - INC $00
+opc_06: // Opcode 06 - ASL $00
+opc_26: // Opcode 26 - ROL $00
    ldrb r7,[r12,r5]
    tst r7,#NF
-   Bne 1f
-   COPY4LOAD Bopc_E6
-   orr r8,r8,r4
-   orr r10,r10,r4
-   B jitend2byteBLendstore
+   Bne   1f
+   LDMIA r9,{r8,r9,r10,r11}
+   orr   r8,r8,r4
+   orr   r10,r10,r4
+   B     jitend2bytestore4
+
+opc_C6: // Opcode C6 - DEC $00
+opc_E6: // Opcode E6 - INC $00
+   ldrb  r7,[r12,r5]
+   tst   r7,#NF
+   Bne   1f
+opc_04: // Opcode 04 - TSB $00
+opc_14: // Opcode 14 - TRB $00
+   LDMIA r9,{r8,r9,r10,r11}
+   orr   r8,r8,r4
+   orr   r10,r10,r4
+   B     jitend2byteBLendstore
 1:
-   COPY4LOAD Bopc_E6_fast
-   orr r8,r8,r4
-   orr r11,r11,r4
-   B jitend2bytestore4
-
+   add   r9,r9,#4*4
+opc_07: // Opcode 07 - RMB0 $00
+opc_17: // Opcode 17 - RMB1 $00
+opc_27: // Opcode 27 - RMB2 $00
+opc_37: // Opcode 37 - RMB3 $00
+opc_46: // Opcode 46 - LSR $00
+opc_47: // Opcode 47 - RMB4 $00
+opc_57: // Opcode 57 - RMB5 $00
+opc_66: // Opcode 66 - ROR $00
+opc_67: // Opcode 67 - RMB6 $00
+opc_77: // Opcode 77 - RMB7 $00
+opc_87: // Opcode 87 - SMB0 $00
+opc_97: // Opcode 97 - SMB1 $00
+opc_A7: // Opcode A7 - SMB2 $00
+opc_B7: // Opcode B7 - SMB3 $00
+opc_C7: // Opcode C7 - SMB4 $00
+opc_D7: // Opcode D7 - SMB5 $00
 opc_E7: // Opcode E7 - SMB6 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_E7 12
-
-opc_EC: // Opcode EC - CPX $0000
-   TRIPLEBYTEABS Bopc_EC
+opc_F7: // Opcode F7 - SMB7 $00
+   LDMIA r9,{r8,r9,r10,r11}
+   orr   r8,r8,r4
+   orr   r11,r11,r4
+   B     jitend2bytestore4
 
 opc_EE: // Opcode EE - INC $0000
-   ldrh r12,[temp2,#1]
-   COPY5LOAD Bopc_EE
-   orr r7,r7,r5
-   orr r8,r8,r4
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   orr   r0,r4,r5,LSL #8
+   orr   r7,r7,r5
+   orr   r8,r8,r4
    MAKEBRANCHLINK r9
-
-   mov r12,r12, LSL #JITTEDTABLESHIFT
-   add r12,r12,#JITTEDTABLE16
-   sub r12,r12,#8+20
-
-   B  jitend3bytestoreoperandBL
-
-opc_EF: // Opcode EF - BBS6
-   BBRS Bopc_EF bbsreturn
-
-opc_F6: // Opcode F6 - INC $00,X
-   DOUBLEBYTESETFIRSTBYTEBLOUTQ Bopc_F6
-
-opc_F7: // Opcode F7 - SMB7 $00
-   DOUBLEBYTESETTWOBYTES12 Bopc_F7 12
+   add   r12,r12,r0, LSL #JITTEDTABLESHIFT
+   B     jitend3bytestoreoperandBL
 
 opc_FE: // Opcode FE - INC $0000,X
-   TRIPLEBYTEABSBLOUT Bopc_FE incstore 12
-
-opc_FF: // Opcode FF - BBS7
-   BBRS Bopc_FF bbsreturn
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   orr   r7,r7,r5
+   orr   r8,r8,r4
+   MAKEBRANCHLINK r10
+   B     jitend3bytestore
 
 // **********************************************
 // End of opcode implementations
@@ -2506,9 +1649,9 @@ exec_65tubejit:
    MCR   p15, 0, r12, c15, c12, 0   // Write Performance Monitor Control Register
  //  MRC   p15, 0, r12, c15, c12, 1  // Read Cycle Counter Register
 
-   mrc   p15, 0, r12, c1, c0, 1     // Read Auxiliary Register Errata 714068 ( cache lock up bug)
-   orr   r0, r0, #0x10000000        // Set PHD bit
-   mcr   p15, 0, r0, c1, c0, 1      // Write Auxiliary Control Register
+   //mrc   p15, 0, r12, c1, c0, 1     // Read Auxiliary Register Errata 714068 ( cache lock up bug)
+   //orr   r0, r0, #0x10000000        // Set PHD bit ( reduces performance by 10% !!)
+   //mcr   p15, 0, r0, c1, c0, 1      // Write Auxiliary Control Register
 #endif
 
 // setup table JITLET ( 64K x bl JITLET)
@@ -2603,8 +1746,9 @@ cacheflushloopjittable:
 
 // run dormann tests directly
 #ifdef DORMANN_TEST
-   mov   r3, 0x3400
-   mov   temp1,0xFF00
+   //mov   r3, #0x3400    // 6502 test code
+   mov   r3, #0xC000      // 65C02 test
+   mov   temp1,#0xFF00
    mov   temp,#0xF3
    orr   temp,temp,#0x60<<8
    strh  temp,[temp1,#0xEE]   // store 0xF3 0x60 at FFEE ( oswrch)
@@ -2613,7 +1757,7 @@ cacheflushloopjittable:
    ldrh  r3, [r0, #-4]        // Fetch the vector address
 #endif
 
-#if JITDEBUG
+#if JITDEBUG>1
 // Enable jit tracing
    mov   temp,#1
    strb  temp,debugflag
@@ -2643,15 +1787,16 @@ cacheflushloopjittable:
 
 // install our interrupt handler
    ldr   temp0,[temp]
-   ldr   temp1,=arm_fiq_handler_jit
+   adr   temp1,arm_fiq_handler_jit
    str   temp0,old_fiq_vector
    str   temp1,[temp]
    ldr   temp,=_interrupt_vector_h
    ldr   temp0,[temp]
-   ldr   temp1,=arm_jit_irq_handler
+   adr   temp1,arm_jit_irq_handler
    str   temp0,old_irq_vector
    str   temp1,[temp]
    CPSIE if // enable interupts
+
    bx r3
 
 //*************************************************************
@@ -2909,9 +2054,9 @@ dojit:
    sub r3,r14,#4                  // return address ( first address of jitted code)
    push {r3-r11}
 #ifdef DEBUG_TIMING
-        ldr     r8, =ASS_GPSET0     // timing debug code
-        mov     r7, #TEST2_MASK
-        str     r7, [r8]
+      ldr     r8, =ASS_GPSET0     // timing debug code
+      mov     r7, #TEST2_MASK
+      str     r7, [r8]
 #endif
    sub temp2,R3,#JITLET
    mov r5,#0
@@ -2919,40 +2064,89 @@ dojit:
    b jitentry
 
 // NB word -16
-jitend2byteBL8:
-   LDMIA temp1,{r8,r9,r10,r11}
+opc_01: // Opcode 01 - ORA ($00,X)
+opc_21: // Opcode 21 - AND ($00,X)
+opc_36: // Opcode 36 - ROL $00,X
+opc_41: // Opcode 41 - EOR ($00,X)
+   LDMIA r9,{r8,r9,r10,r11}
    MAKEBRANCHLINK r10
    B jitend2bytestore4operand
 
-jitendT2byte:
-   LDMIA temp1,{r8,r9,r10,r11}
+opc_71: // Opcode 71 - ADC ($00),Y
+opc_F1: // Opcode F1 - SBC ($00),Y
+opc_72: // Opcode 72 - ADC ($00)
+opc_F2: // Opcode F2 - SBC ($00)
+   LDMIA r9,{r8,r9,r10,r11}
    and r1,r4,#0xF0
    and r4,r4,#0x0F
    orr r8,r8,r1,LSL #4
    B jitend2byteBLendoperand
 
-jitend2byteBLend:
+opc_64: // Opcode 64 - STZ $00
+opc_84: // Opcode 84 - STY $00
+opc_85: // Opcode 85 - STA $00
+opc_86: // Opcode 86 - STX $00
+   LDMIA r9,{r8,r9,r10,r11}
+   orr r9,r9,r4
+   orr r10,r10,r4
+   add r11,r11,r4,LSL #JITTEDTABLESHIFT
+   b jitend2byteBLendstore
 
+opc_16: // Opcode 16 - ASL $00, X
+opc_34: // Opcode 34 - BIT $00,X
+opc_61: // Opcode 61 - ADC ($00,X)
+opc_65: // Opcode 65 - ADC $00
+opc_69: // Opcode 69 - ADC #$00
+opc_74: // Opcode 74 - STZ $00,X
+opc_75: // Opcode 75 - ADC $00,X
+opc_76: // Opcode 76 - ROR $00,X
+opc_81: // Opcode 81 - STA ($00,X)
+opc_94: // Opcode 94 - STY $00,X
+opc_95: // Opcode 95 - STA $00,X
+opc_96: // Opcode 96 - STX $00,Y
+opc_A1: // Opcode A1 - LDA ($00,X)
+opc_C1: // Opcode C1 - CMP ($00,X)
+opc_D6: // Opcode D6 - DEC $00,X
+opc_E1: // Opcode E1 - SBC ($00,X)
+opc_E5: // Opcode E5 - SBC $00
+opc_E9: // Opcode E9 - SBC #$00
+opc_F5: // Opcode F5 - SBC $00,X
+opc_F6: // Opcode F6 - INC $00,X
 // NB word -20  ( 8+12)
-   LDMIA temp1,{r8,r9,r10,r11}
+   LDMIA r9,{r8,r9,r10,r11}
 jitend2byteBLendoperand:
    orr r8,r8,r4
 jitend2byteBLendstore:
    MAKEBRANCHLINK r11
    B jitend2bytestore4
 
-doublebyteendsettwobytes12:
-   LDMIA temp1,{r8,r9,r10,r11}
-   orr r8,r8,r4
-   orr r11,r11,r4
-   B jitend2bytestore4
+opc_A0: // Opcode A0 - LDY #$00
+opc_A4: // Opcode A4 - LDY $00
+opc_A6: // Opcode A6 - LDX $00
+   ldrb r7,[r12,r5]
+   tst r7,#NF
+   addne r9,r9,#4*4
 
-doublebyteend:
-   LDMIA temp1,{r8,r9,r10,r11}
+opc_15: // Opcode 15 - ORA $00,X
+opc_35: // Opcode 35 - AND $00,X
+opc_55: // Opcode 55 - EOR $00,X
+opc_56: // Opcode 56 - LSR $00,X
+opc_A2: // Opcode A2 - LDX #$00
+opc_B4: // Opcode B4 - LDY $00,X
+opc_B5: // Opcode B5 - LDA $00,X
+opc_B6: // Opcode B6 - LDX $00,Y
+opc_C0: // Opcode C0 - CPY #$00
+opc_C4: // Opcode C4 - CPY $00
+opc_C5: // Opcode C5 - CMP $00
+opc_C9: // Opcode C9 - CMP #$00
+opc_D5: // Opcode D5 - CMP $00,X
+opc_E0: // Opcode E0 - CPX #$00
+opc_E4: // Opcode E4 - CPX $00
+   LDMIA r9,{r8,r9,r10,r11}
 jitend2bytestore4operand:
    orr r8,r8,r4
 jitend2bytestore4:
-   COPY4STORE
+   stmia r6,{r8,r9,r10,r11}
 
 jitend2byte:
    FILLINJITTEDTABLES dejit16bit21
@@ -2967,11 +2161,12 @@ jitentry:
    mov   r6,temp2,LSL#JITLETSHIFT
    adr   temp0,opcode_table
    add   r6,r6,#JITLET
-   ldr   temp0,[temp0,r7,LSL #BYTEWORDSHIFT]
+   mov   r7,r7,LSL #3
+   ldrd  r8,r9,[temp0,r7]//,LSL #BYTEWORDSHIFT]
    ldrb  r4,[temp2,#1]
    ldrb  r5,[temp2,#2]
    adr   r12,flags_table
-   bx    temp0
+   bx    r8
 // entry regs
 // r0
 // r1
@@ -2982,39 +2177,7 @@ jitentry:
 // r6 Address to write to JITLET code to
 // r7,r8,r9,r10,r11,r12 six registers for COPY6
 // exit with r5 being the length of the 6502 instruction
-opcode_table:
-.word opc_00,opc_01,opc_02,opc_03,opc_04,opc_05,opc_06,opc_07
-.word opc_08,opc_09,opc_0A,opc_0B,opc_0C,opc_0D,opc_0E,opc_0F
-.word opc_10,opc_11,opc_12,opc_13,opc_14,opc_15,opc_16,opc_17
-.word opc_18,opc_19,opc_1A,opc_1B,opc_1C,opc_1D,opc_1E,opc_1F
-.word opc_20,opc_21,opc_22,opc_23,opc_24,opc_25,opc_26,opc_27
-.word opc_28,opc_29,opc_2A,opc_2B,opc_2C,opc_2D,opc_2E,opc_2F
-.word opc_30,opc_31,opc_32,opc_33,opc_34,opc_35,opc_36,opc_37
-.word opc_38,opc_39,opc_3A,opc_3B,opc_3C,opc_3D,opc_3E,opc_3F
-.word opc_40,opc_41,opc_42,opc_43,opc_44,opc_45,opc_46,opc_47
-.word opc_48,opc_49,opc_4A,opc_4B,opc_4C,opc_4D,opc_4E,opc_4F
-.word opc_50,opc_51,opc_52,opc_53,opc_54,opc_55,opc_56,opc_57
-.word opc_58,opc_59,opc_5A,opc_5B,opc_5C,opc_5D,opc_5E,opc_5F
-.word opc_60,opc_61,opc_62,opc_63,opc_64,opc_65,opc_66,opc_67
-.word opc_68,opc_69,opc_6A,opc_6B,opc_6C,opc_6D,opc_6E,opc_6F
-.word opc_70,opc_71,opc_72,opc_73,opc_74,opc_75,opc_76,opc_77
-.word opc_78,opc_79,opc_7A,opc_7B,opc_7C,opc_7D,opc_7E,opc_7F
-.word opc_80,opc_81,opc_82,opc_83,opc_84,opc_85,opc_86,opc_87
-.word opc_88,opc_89,opc_8A,opc_8B,opc_8C,opc_8D,opc_8E,opc_8F
-.word opc_90,opc_91,opc_92,opc_93,opc_94,opc_95,opc_96,opc_97
-.word opc_98,opc_99,opc_9A,opc_9B,opc_9C,opc_9D,opc_9E,opc_9F
-.word opc_A0,opc_A1,opc_A2,opc_A3,opc_A4,opc_A5,opc_A6,opc_A7
-.word opc_A8,opc_A9,opc_AA,opc_AB,opc_AC,opc_AD,opc_AE,opc_AF
-.word opc_B0,opc_B1,opc_B2,opc_B3,opc_B4,opc_B5,opc_B6,opc_B7
-.word opc_B8,opc_B9,opc_BA,opc_BB,opc_BC,opc_BD,opc_BE,opc_BF
-.word opc_C0,opc_C1,opc_C2,opc_C3,opc_C4,opc_C5,opc_C6,opc_C7
-.word opc_C8,opc_C9,opc_CA,opc_CB,opc_CC,opc_CD,opc_CE,opc_CF
-.word opc_D0,opc_D1,opc_D2,opc_D3,opc_D4,opc_D5,opc_D6,opc_D7
-.word opc_D8,opc_D9,opc_DA,opc_DB,opc_DC,opc_DD,opc_DE,opc_DF
-.word opc_E0,opc_E1,opc_E2,opc_E3,opc_E4,opc_E5,opc_E6,opc_E7
-.word opc_E8,opc_E9,opc_EA,opc_EB,opc_EC,opc_ED,opc_EE,opc_EF
-.word opc_F0,opc_F1,opc_F2,opc_F3,opc_F4,opc_F5,opc_F6,opc_F7
-.word opc_F8,opc_F9,opc_FA,opc_FB,opc_FC,opc_FD,opc_FE,opc_FF
+.balign 8
 flags_table:
 .byte RP_N  		// Opcode 00 - BRK is really a two byte instruction, so no fixup needed
 .byte RP_N + NZF 	// Opcode 01 - ORA ($00,X)
@@ -3200,7 +2363,7 @@ flags_table:
 .byte RP_3 + NZF 	// Opcode B5 - LDA $00,X
 .byte RP_3 + NZF 	// Opcode B6 - LDX $00,Y
 .byte RP_N  		// Opcode B7 - SMB3 $00
-.byte RP_N  		// Opcode B8 - CLV
+.byte RP_N + VF 	// Opcode B8 - CLV
 .byte RP_5 + NZF 	// Opcode B9 - LDA $0000,Y
 .byte RP_1 + NZF	// Opcode BA - TSX - may not be worth it
 .byte RP_N  		// Opcode BB - NOP
@@ -3265,19 +2428,293 @@ flags_table:
 .byte RP_N + NZF 	// Opcode F6 - INC $00,X
 .byte RP_N  		// Opcode F7 - SMB7 $00
 .byte RP_N  		// Opcode F8 - SED
-.byte RP_N + VCNZF  // Opcode F9 - SBC $0000,Y
-.byte RP_N     	// Opcode FA - PLX
+.byte RP_N + VCNZF // Opcode F9 - SBC $0000,Y
+.byte RP_N + NZF 	// Opcode FA - PLX
 .byte RP_N  		// Opcode FB - NOP
 .byte RP_N  		// Opcode FC - NOP $0000
 .byte RP_N + VCNZF // Opcode FD - SBC $0000,X
 .byte RP_5 + NZF  // Opcode FE - INC $0000,X
 .byte RP_N  		// Opcode FF - BBS7
+
+opcode_table:
+.word  opc_00, Bopc_00	// Opcode 00 - BRK is really a two byte instruction, so no fixup needed
+.word  opc_01, Bopc_01 	// Opcode 01 - ORA ($00,X)
+.word  opc_02, BINSTRUCTION+ (NEXTJITLET>>2)		// Opcode 02 - NOP 2
+.word  opc_03, ARMNOP   // Opcode 03 - NOP
+.word  opc_04, Bopc_04  // Opcode 04 - TSB $00
+.word  opc_05, Bopc_05 	// Opcode 05 - ORA $00
+.word  opc_06, Bopc_06  // Opcode 06 - ASL $00
+.word  opc_07, Bopc_07 	// Opcode 07 - RMB0 $00
+.word  opc_08, Bopc_08  // Opcode 08 - PHP
+.word  opc_09, Bopc_09 	// Opcode 09 - ORA #$00
+.word  opc_0A, Bopc_0A	// Opcode 0A - ASL A
+.word  opc_0B, ARMNOP   // Opcode 0B - NOP
+.word  opc_0C, Bopc_0C  // Opcode 0C - TSB $0000
+.word  opc_0D, Bopc_0D  // Opcode 0D - ORA $0000
+.word  opc_0E, Bopc_0E  // Opcode 0E - ASL $0000
+.word  opc_0F, Bopc_0F  // Opcode 0F - BBR0
+.word  opc_10, BPLINSTRUCTION // Opcode 10 - BPL
+.word  opc_11, Bopc_11  // Opcode 11 - ORA ($00),Y
+.word  opc_12, Bopc_12  // Opcode 12 - ORA ($00)
+.word  opc_13, ARMNOP   // Opcode 13 - NOP
+.word  opc_14, Bopc_14  // Opcode 14 - TRB $00
+.word  opc_15, Bopc_15  // Opcode 15 - ORA $00,X
+.word  opc_16, Bopc_16  // Opcode 16 - ASL $00, X
+.word  opc_17, Bopc_17  // Opcode 17 - RMB1 $00
+.word  opc_18, ARMBLCS  // Opcode 18 - CLC
+.word  opc_19, Bopc_19  // Opcode 19 - ORA $0000,Y
+.word  opc_1A, Bopc_1A  // Opcode 1A - INC A
+.word  opc_1B, ARMNOP   // Opcode 1B - NOP
+.word  opc_1C, Bopc_1C  // Opcode 1C - TRB $0000
+.word  opc_1D, Bopc_1D  // Opcode 1D - ORA $0000,X
+.word  opc_1E, Bopc_1E  // Opcode 1E - ASL $0000,X
+.word  opc_1F, Bopc_1F  // Opcode 1F - BBR1
+.word  opc_20, Bopc_20  // Opcode 20 - JSR $0000
+.word  opc_21, Bopc_21  // Opcode 21 - AND ($00,X)
+.word  opc_22, BINSTRUCTION+ (NEXTJITLET>>2)  // Opcode 22 - NOP #$00
+.word  opc_23, ARMNOP   // Opcode 23 - NOP
+.word  opc_24, Bopc_24  // Opcode 24 - BIT $00
+.word  opc_25, Bopc_25  // Opcode 25 - AND     $00
+.word  opc_26, Bopc_26  // Opcode 26 - ROL $00
+.word  opc_27, Bopc_27  // Opcode 27 - RMB2 $00
+.word  opc_28, Bopc_28  // Opcode 28 - PLP
+.word  opc_29, Bopc_29  // Opcode 29 - AND     #$00
+.word  opc_2A, Bopc_2A  // Opcode 2A - ROL A
+.word  opc_2B, ARMNOP   // Opcode 2B - NOP
+.word  opc_2C; MOVR1HIGH  // Opcode 2C - BIT $0000
+.word  opc_2D, Bopc_2D  // Opcode 2D - AND $0000
+.word  opc_2E, Bopc_2E  // Opcode 2E - ROL $0000
+.word  opc_2F, Bopc_2F  // Opcode 2F - BBR2
+.word  opc_30, BMIINSTRUCTION  // Opcode 30 - BMI
+.word  opc_31, Bopc_31  // Opcode 31 - AND ($00),Y
+.word  opc_32, Bopc_32  // Opcode 32 - AND ($00)
+.word  opc_33, ARMNOP   // Opcode 33 - NOP
+.word  opc_34, Bopc_34  // Opcode 34 - BIT $00,X
+.word  opc_35, Bopc_35  // Opcode 35 - AND $00,X
+.word  opc_36, Bopc_36  // Opcode 36 - ROL $00,X
+.word  opc_37, Bopc_37  // Opcode 37 - RMB3 $00
+.word  opc_38, ARMBLCC  // Opcode 38 - SEC
+.word  opc_39, Bopc_39  // Opcode 39 - AND $0000,Y
+.word  opc_3A, Bopc_3A  // Opcode 3A - DEC A
+.word  opc_3B, ARMNOP   // Opcode 3B - NOP
+.word  opc_3C, Bopc_3C  // Opcode 3C - BIT $0000,X
+.word  opc_3D, Bopc_3D  // Opcode 3D - AND $0000,X
+.word  opc_3E, Bopc_3E  // Opcode 3E - ROL $0000,X
+.word  opc_3F, Bopc_3F  // Opcode 3F - BBR3
+.word  opc_40, Bopc_40  // Opcode 40 - RTI
+.word  opc_41, Bopc_41  // Opcode 41 - EOR ($00,X)
+.word  opc_42, BINSTRUCTION+ (NEXTJITLET>>2)  // Opcode 42 - NOP #$00
+.word  opc_43, ARMNOP   // Opcode 43 - NOP
+.word  opc_44, BINSTRUCTION+ (NEXTJITLET>>2)  // Opcode 44 - NOP $00
+.word  opc_45, Bopc_45  // Opcode 45 - EOR $00
+.word  opc_46, Bopc_46  // Opcode 46 - LSR $00
+.word  opc_47, Bopc_47  // Opcode 47 - RMB4 $00
+.word  opc_48, Bopc_48  // Opcode 48 - PHA
+.word  opc_49, Bopc_49  // Opcode 49 - EOR #$00
+.word  opc_4A, Bopc_4A  // Opcode 4A - LSR A
+.word  opc_4B, ARMNOP   // Opcode 4B - NOP
+.word  opc_4C, (JITLET-8)>>2 // Opcode 4C - JMP $0000
+.word  opc_4D, Bopc_4D  // Opcode 4D - EOR $0000
+.word  opc_4E, Bopc_4E  // Opcode 4E - LSR $0000
+.word  opc_4F, Bopc_4F  // Opcode 4F - BBR4
+.word  opc_50, testvflagC-8  // Opcode 50 - BVC
+.word  opc_51, Bopc_51  // Opcode 51 - EOR ($00),Y
+.word  opc_52, Bopc_52  // Opcode 52 - EOR ($00)
+.word  opc_53, ARMNOP   // Opcode 53 - NOP
+.word  opc_54, BINSTRUCTION+ (NEXTJITLET>>2)  // Opcode 54 - NOP $00,X
+.word  opc_55, Bopc_55  // Opcode 55 - EOR $00,X
+.word  opc_56, Bopc_56  // Opcode 56 - LSR $00,X
+.word  opc_57, Bopc_57  // Opcode 57 - RMB5 $00
+.word  opc_58, Bopc_58  // Opcode 58 - CLI
+.word  opc_59, Bopc_59  // Opcode 59 - EOR $0000,Y
+.word  opc_5A, Bopc_5A  // Opcode 5A - PHY
+.word  opc_5B, ARMNOP   // Opcode 5B - NOP
+.word  opc_5C, BINSTRUCTION+ (NEXTJITLET>>1)   // Opcode 5C - NOP $0000
+.word  opc_5D, Bopc_5D  // Opcode 5D - EOR $0000,X
+.word  opc_5E, Bopc_5E  // Opcode 5E - LSR $0000,X
+.word  opc_5F, Bopc_5F  // Opcode 5F - BBR5
+.word  opc_60, Bopc_60  // Opcode 60 - RTS
+.word  opc_61, Bopc_61  // Opcode 61 - ADC ($00,X)
+.word  opc_62, BINSTRUCTION+ (NEXTJITLET>>2)  // Opcode 62 - NOP #$00
+.word  opc_63, ARMNOP   // Opcode 63 - NOP
+.word  opc_64, Bopc_64  // Opcode 64 - STZ $00
+.word  opc_65, Bopc_65  // Opcode 65 - ADC $00
+.word  opc_66, Bopc_66  // Opcode 66 - ROR $00
+.word  opc_67, Bopc_67  // Opcode 67 - RMB6 $00
+.word  opc_68, Bopc_68  // Opcode 68 - PLA
+.word  opc_69, Bopc_69  // Opcode 69 - ADC #$00
+.word  opc_6A, Bopc_6A  // Opcode 6A - ROR A
+.word  opc_6B, ARMNOP   // Opcode 6B - NOP
+.word  opc_6C, Bopc_6C  // Opcode 6C - JMP ($0000)
+.word  opc_6D, Bopc_6D  // Opcode 6D - ADC $0000
+.word  opc_6E, Bopc_6E  // Opcode 6E - ROR $0000
+.word  opc_6F, Bopc_6F  // Opcode 6F - BBR6
+.word  opc_70, testvflagS-8  // Opcode 70 - BVS
+.word  opc_71, Bopc_71  // Opcode 71 - ADC ($00),Y
+.word  opc_72, Bopc_72  // Opcode 72 - ADC ($00)
+.word  opc_73, ARMNOP   // Opcode 73 - NOP
+.word  opc_74, Bopc_74  // Opcode 74 - STZ $00,X
+.word  opc_75, Bopc_75  // Opcode 75 - ADC $00,X
+.word  opc_76, Bopc_76  // Opcode 76 - ROR $00,X
+.word  opc_77, Bopc_77  // Opcode 77 - RMB7 $00
+.word  opc_78, Bopc_78  // Opcode 78 - SEI
+.word  opc_79, Bopc_79  // Opcode 79 - ADC $0000,Y
+.word  opc_7A, Bopc_7A  // Opcode 7A - PLY
+.word  opc_7B, ARMNOP   // Opcode 7B - NOP
+.word  opc_7C, Bopc_7C  // Opcode 7C - JMP ($0000,X)
+.word  opc_7D, Bopc_7D  // Opcode 7D - ADC $0000,X
+.word  opc_7E, Bopc_7E  // Opcode 7E - ROR $0000,X
+.word  opc_7F, Bopc_7F  // Opcode 7F - BBR7
+.word  opc_80, BINSTRUCTION // Opcode 80 - BRA
+.word  opc_81, Bopc_81  // Opcode 81 - STA ($00,X)
+.word  opc_82, BINSTRUCTION+ (NEXTJITLET>>2)// Opcode 82 - NOP #$00
+.word  opc_83, ARMNOP   // Opcode 83 - NOP
+.word  opc_84, Bopc_84  // Opcode 84 - STY $00
+.word  opc_85, Bopc_85  // Opcode 85 - STA $00
+.word  opc_86, Bopc_86  // Opcode 86 - STX $00
+.word  opc_87, Bopc_87  // Opcode 87 - SMB0 $00
+.word  opc_88, Bopc_88  // Opcode 88 - DEY - may not be worth it
+.word  opc_89, Bopc_89  // Opcode 89 - BIT #$00
+.word  opc_8A, Bopc_8A  // Opcode 8A - TXA - may not be worth it
+.word  opc_8B, ARMNOP   // Opcode 8B - NOP
+.word  opc_8C, Bopc_8C  // Opcode 8C - STY $0000
+.word  opc_8D, Bopc_8D  // Opcode 8D - STA $0000
+.word  opc_8E, Bopc_8E  // Opcode 8E - STX $0000
+.word  opc_8F, Bopc_8F  // Opcode 8F - BBS0
+.word  opc_90, BCCINSTRUCTION // Opcode 90 - BCC
+.word  opc_91, Bopc_91  // Opcode 91 - STA ($00),Y
+.word  opc_92, Bopc_92  // Opcode 92 - STA ($00)
+.word  opc_93, ARMNOP   // Opcode 93 - NOP
+.word  opc_94, Bopc_94  // Opcode 94 - STY $00,X
+.word  opc_95, Bopc_95  // Opcode 95 - STA $00,X
+.word  opc_96, Bopc_96  // Opcode 96 - STX $00,Y
+.word  opc_97, Bopc_97  // Opcode 97 - SMB1 $00
+.word  opc_98, Bopc_98  // Opcode 98 - TYA
+.word  opc_99, Bopc_99  // Opcode 99 - STA $0000,Y
+.word  opc_9A, Bopc_9A  // Opcode 9A - TXS
+.word  opc_9B, ARMNOP   // Opcode 9B - NOP
+.word  opc_9C, Bopc_9C  // Opcode 9C - STZ $0000
+.word  opc_9D, Bopc_9D  // Opcode 9D - STA $0000,X
+.word  opc_9E, Bopc_9E  // Opcode 9E - STZ $0000,X
+.word  opc_9F, Bopc_9F  // Opcode 9F - BBS1
+.word  opc_A0, Bopc_A0  // Opcode A0 - LDY #$00 -- could be replace 2 but unlikely to be worth it
+.word  opc_A1, Bopc_A1  // Opcode A1 - LDA ($00,X)
+.word  opc_A2, Bopc_A2  // Opcode A2 - LDX #$00 -- could be replace 2 but unlikely to be worth it
+.word  opc_A3, ARMNOP   // Opcode A3 - NOP
+.word  opc_A4, Bopc_A4  // Opcode A4 - LDY $00 - may not be worth it ( bigger rewrite would be)
+.word  opc_A5, Bopc_A5  // Opcode A5 - LDA $00
+.word  opc_A6, Bopc_A6  // Opcode A6 - LDX $00 - may not be worth it ( bigger rewrite would be)
+.word  opc_A7, Bopc_A7  // Opcode A7 - SMB2 $00
+.word  opc_A8, Bopc_A8  // Opcode A8 - TAY - really may not be worth it
+.word  opc_A9, ARMNOP   // Opcode A9 - LDA #$00
+.word  opc_AA, Bopc_AA  // Opcode AA - TAX - really may not be worth it
+.word  opc_AB, ARMNOP   // Opcode AB - NOP
+.word  opc_AC, Bopc_AC  // Opcode AC - LDY $0000 - may not be worth it ( bigger rewrite would be)
+.word  opc_AD, Bopc_AD  // Opcode AD - LDA $0000 - may not be worth it ( bigger rewrite would be)
+.word  opc_AE, Bopc_AE  // Opcode AE - LDX $0000 - may not be worth it ( bigger rewrite would be)
+.word  opc_AF, Bopc_AF  // Opcode AF - BBS2
+.word  opc_B0, BCSINSTRUCTION // Opcode B0 - BCS
+.word  opc_B1, Bopc_B1  // Opcode B1 - LDA ($00),Y
+.word  opc_B2, Bopc_B2  // Opcode B2 - LDA ($00)
+.word  opc_B3, ARMNOP   // Opcode B3 - NOP
+.word  opc_B4, Bopc_B4  // Opcode B4 - LDY $00,X
+.word  opc_B5, Bopc_B5  // Opcode B5 - LDA $00,X
+.word  opc_B6, Bopc_B6  // Opcode B6 - LDX $00,Y
+.word  opc_B7, Bopc_B7  // Opcode B7 - SMB3 $00
+.word  opc_B8, Bopc_B8  // Opcode B8 - CLV
+.word  opc_B9, Bopc_B9  // Opcode B9 - LDA $0000,Y
+.word  opc_BA, Bopc_BA  // Opcode BA - TSX - may not be worth it
+.word  opc_BB, ARMNOP   // Opcode BB - NOP
+.word  opc_BC, Bopc_BC  // Opcode BC - LDY $0000,X
+.word  opc_BD, Bopc_BD  // Opcode BD - LDA $0000,X
+.word  opc_BE, Bopc_BE  // Opcode BE - LDX $0000,Y
+.word  opc_BF, Bopc_BF  // Opcode BF - BBS3
+.word  opc_C0, Bopc_C0  // Opcode C0 - CPY #$00
+.word  opc_C1, Bopc_C1  // Opcode C1 - CMP ($00,X)
+.word  opc_C2, BINSTRUCTION+ (NEXTJITLET>>2)  // Opcode C2 - NOP #$00
+.word  opc_C3, ARMNOP   // Opcode C3 - NOP
+.word  opc_C4, Bopc_C4  // Opcode C4 - CPY $00
+.word  opc_C5, Bopc_C5  // Opcode C5 - CMP $00
+.word  opc_C6, Bopc_C6  // Opcode C6 - DEC $00
+.word  opc_C7, Bopc_C7  // Opcode C7 - SMB4 $00
+.word  opc_C8, Bopc_C8  // Opcode C8 - INY
+.word  opc_C9, Bopc_C9  // Opcode C9 - CMP #$00
+.word  opc_CA, Bopc_CA  // Opcode CA - DEX
+.word  opc_CB, ARMNOP   // Opcode CB - WAI
+.word  opc_CC, Bopc_CC  // Opcode CC - CPY $0000
+.word  opc_CD, Bopc_CD  // Opcode CD - CMP $0000
+.word  opc_CE, Bopc_CE  // Opcode CE - DEC $0000
+.word  opc_CF, Bopc_CF  // Opcode CF - BBS4
+.word  opc_D0, BNEINSTRUCTION  // Opcode D0 - BNE
+.word  opc_D1, Bopc_D1  // Opcode D1 - CMP ($00),Y
+.word  opc_D2, Bopc_D2  // Opcode D2 - CMP ($00)
+.word  opc_D3, ARMNOP   // Opcode D3 - NOP
+.word  opc_D4, BINSTRUCTION+ (NEXTJITLET>>2)  // Opcode D4 - NOP $00,X
+.word  opc_D5, Bopc_D5  // Opcode D5 - CMP $00,X
+.word  opc_D6, Bopc_D6  // Opcode D6 - DEC $00,X
+.word  opc_D7, Bopc_D7  // Opcode D7 - SMB5 $00
+.word  opc_D8, Bopc_D8  // Opcode D8 - CLD
+.word  opc_D9, Bopc_D9  // Opcode D9 - CMP $0000,Y
+.word  opc_DA, Bopc_DA  // Opcode DA - PHX
+.word  opc_DB, ARMNOP   // Opcode DB - STP
+.word  opc_DC, BINSTRUCTION+ (NEXTJITLET>>1)   // Opcode DC - NOP $0000
+.word  opc_DD, Bopc_DD  // Opcode DD - CMP $0000,X
+.word  opc_DE, Bopc_DE  // Opcode DE - DEX $0000,X
+.word  opc_DF, Bopc_DF  // Opcode DF - BBS5
+.word  opc_E0, Bopc_E0  // Opcode E0 - CPX #$00
+.word  opc_E1, Bopc_E1  // Opcode E1 - SBC ($00,X)
+.word  opc_E2, BINSTRUCTION+ (NEXTJITLET>>2)  // Opcode E2 - NOP #$00
+.word  opc_E3, Bopc_E3  // Opcode E3 -
+.word  opc_E4, Bopc_E4  // Opcode E4 - CPX $00
+.word  opc_E5, Bopc_E5  // Opcode E5 - SBC $00
+.word  opc_E6, Bopc_E6  // Opcode E6 - INC $00
+.word  opc_E7, Bopc_E7  // Opcode E7 - SMB6 $00
+.word  opc_E8, Bopc_E8  // Opcode E8 - INX
+.word  opc_E9, Bopc_E9  // Opcode E9 - SBC #$00
+.word  opc_EA, ARMNOP   // Opcode EA - NOP
+.word  opc_EB, Bopc_EB  // Opcode EB - NOP ( Borrowed for instruction timing)
+.word  opc_EC, Bopc_EC  // Opcode EC - CPX $0000
+.word  opc_ED, Bopc_ED  // Opcode ED - SBC $0000
+.word  opc_EE, Bopc_EE  // Opcode EE - INC $0000
+.word  opc_EF, Bopc_EF  // Opcode EF - BBS6
+.word  opc_F0, BEQINSTRUCTION  // Opcode F0 - BEQ
+.word  opc_F1, Bopc_F1  // Opcode F1 - SBC ($00),Y
+.word  opc_F2, Bopc_F2  // Opcode F2 - SBC ($00)
+.word  opc_F3, Bopc_F3   // Opcode F3 - NOP
+.word  opc_F4, BINSTRUCTION+ (NEXTJITLET>>2)  // Opcode F4 - NOP2
+.word  opc_F5, Bopc_F5  // Opcode F5 - SBC $00,X
+.word  opc_F6, Bopc_F6  // Opcode F6 - INC $00,X
+.word  opc_F7, Bopc_F7  // Opcode F7 - SMB7 $00
+.word  opc_F8, Bopc_F8  // Opcode F8 - SED
+.word  opc_F9, Bopc_F9  // Opcode F9 - SBC $0000,Y
+.word  opc_FA, Bopc_FA  // Opcode FA - PLX
+.word  opc_FB, Bopc_FB  // Opcode FB - NOP
+.word  opc_FC, BINSTRUCTION+ (NEXTJITLET>>1)  // Opcode FC - NOP $0000
+.word  opc_FD, Bopc_FD  // Opcode FD - SBC $0000,X
+.word  opc_FE, Bopc_FE  // Opcode FE - INC $0000,X
+.word  opc_FF, Bopc_FF  // Opcode FF - BBS7
+
+
 timingtemp:
    .word 0
-branchsavewords:
-   STRD r8,r9,[R6]
-   //str r9,[r6,#8]
-   //str r9,[r6,#12]
+opc_10: // Opcode 10 - BPL
+opc_30: // Opcode 30 - BMI
+opc_80: // Opcode 80 - BRA
+opc_90: // Opcode 90 - BCC
+opc_B0: // Opcode B0 - BCS
+opc_D0: // Opcode D0 - BNE
+opc_F0: // Opcode F0 - BEQ
+   sxtb r4,r4
+   ldr r11,=0xea000001 // Branch +2
+// do jump maths
+// temp0 is where we need to goto NB -2 ie. if we have 6 we goto +8
+// so it look like arm and 6502 jumps are the same so if we load the bit signed
+// we just need to clear the top byte
+   mov r10,r4,LSL #1
+   add r10,r10,#2
+   BIC r10,r10,#0xFF000000
+   orr r10,r10,r9
+   STRD r10,r11,[R6]
 
 jitend2byteexit:
    FILLINJITTEDTABLES dejit16bit21
@@ -3453,7 +2890,23 @@ noirq_jit:
    msr   CPSR, r4
    bx    r3
 
+debugopcode:
+#if JITDEBUG
+   strb  temp,debugflag
+#endif
+   bx    lr
+
+opc_60: // Opcode 60 - RTS
+   ldrd r8,[r9]
+   sub r9,r9,r6
+   mov r9,r9,LSR #BYTEWORDSHIFT
+   ORR r9,r9,#BINSTRUCTION
+   B singleopcodeexitstore
+
+opc_00: // Opcode 00 - BRK
+opc_40: // Opcode 40 - RTI
 singleopcodeexit:
+   ldrd r8,[r9]
    MAKEBRANCHLINK r9
 singleopcodeexitstore:
    FILLINJITTEDTABLES dejit16bit1
@@ -3461,13 +2914,53 @@ singleopcodeexitstore:
    strd r8,r9,[r6]
    B dojitexit
 
-jitend1bytestore2opt:
+opc_88: // Opcode 88 - DEY
+opc_8A: // Opcode 8A - TXA
+opc_98: // Opcode 98 - TYA
+opc_A8: // Opcode A8 - TAY
+opc_AA: // Opcode AA - TAX
+opc_BA: // Opcode BA - TSX
+opc_C8: // Opcode C8 - INY
+opc_CA: // Opcode CA - DEX
+opc_E8: // Opcode E8 - INX
+#if 0
+// it is unknwon why this doesn't improvement performance
    ldrb r7,[r12,r4]
+   ldrd r8,[r9]
    tst r7,#NF
    ldrne r9,=ARMNOP
    b jitend1bytestore2
+#endif
 
+opc_0A: // Opcode 0A - ASL A
+opc_48: // Opcode 48 - PHA
+opc_4A: // Opcode 4A - LSR A
+opc_78: // Opcode 78 - SEI
+opc_9A: // Opcode 9A - TXS
+opc_B8: // Opcode B8 - CLV
+opc_D8: // Opcode D8 - CLD
+opc_EB: // Opcode EB - NOP6 ( Used for instruction timing)
+opc_F8: // Opcode F8 - SED
+opc_FB: // Opcode FB - NOP6
+   ldrd r8,[r9]
+   B jitend1bytestore2
+
+opc_08: // Opcode 08 - PHP
+opc_1A: // Opcode 1A - INC A
+opc_28: // Opcode 28 - PLP
+opc_2A: // Opcode 2A - ROL A
+opc_3A: // Opcode 3A - DEC A
+opc_58: // Opcode 58 - CLI
+opc_5A: // Opcode 5A - PHY
+opc_68: // Opcode 68 - PLA
+opc_6A: // Opcode 6A - ROR A
+opc_7A: // Opcode 7A - PLY
+opc_DA: // Opcode DA - PHX
+opc_E3: // Opcode E3 - NOP6
+opc_F3: // Opcode F3 - NOP6
+opc_FA: // Opcode FA - PLX
 singleopcodeBLend:
+   ldrd r8,[r9]
    MAKEBRANCHLINK r9
 jitend1bytestore2:
    FILLINJITTEDTABLES dejit16bit1
@@ -3475,30 +2968,94 @@ jitend1bytestore2:
    strd r8,r9,[r6]
    B dojitloop
 
-jitend3byteloadstoreoperandBL8:
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
-   orr r7,r7,r5
-   orr r8,r8,r4
-   MAKEBRANCHLINK r9
-   B jitend3bytestore
+opc_8C: // Opcode 8C - STY $0000
+opc_8D: // Opcode 8D - STA $0000
+opc_8E: // Opcode 8E - STX $0000
+opc_9C: // Opcode 9C - STZ $0000
+   cmp   r4,#0xE0
+   cmpge r5,#0xFE
+   BEQ   iostoreaccess
 
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   orr   temp0,r4,r5,LSL #8
+   orr   r7,r7,r5
+   orr   r11,r11,r4
+   add   r12,r12,temp0,LSL #JITTEDTABLESHIFT
+   B     jitend3bytestoreoperandBL
+
+iostoreaccess:
+   add   r9,r9,#6*4
 // .word address-28
+opc_0C: // Opcode 0C - TSB $0000
+opc_1C: // Opcode 1C - TRB $0000
+opc_3C: // Opcode 3C - BIT $0000,X
+opc_6D: // Opcode 6D - ADC $0000
+opc_79: // Opcode 79 - ADC $0000,Y
+opc_7D: // Opcode 7D - ADC $0000,X
+opc_DE: // Opcode DE - DEC $0000,X
+opc_ED: // Opcode ED - SBC $0000
+opc_F9: // Opcode F9 - SBC $0000,Y
+opc_FD: // Opcode FD - SBC $0000,X
 jitend3byteloadstoreoperandBL:
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
    orr r7,r7,r5
    orr r8,r8,r4
 jitend3bytestoreoperandBL:
    MAKEBRANCHLINK r12
    B jitend3bytestore
 
+opc_AD: // Opcode AD - LDA $0000
+   cmp   r4,#0xE0
+   cmpge r5,#0xFE
+   BEQ   loadio
+   // ramload fall into below
+
+opc_0D: // Opcode 0D - ORA $0000
+opc_2D: // Opcode 2D - AND $0000
+opc_4D: // Opcode 4D - EOR $0000
+   BL    fixuptype2accessquick
+   b     jitend3bytestore
+
+opc_AC: // Opcode AC - LDY $0000
+opc_AE: // Opcode AE - LDX $0000
+   cmp   r4,#0xE0
+   cmpge r5,#0xFE
+   BEQ   loadio
+   // fall into below
+opc_0E: // Opcode 0E - ASL $0000
+opc_19: // Opcode 19 - ORA $0000,Y
+opc_1D: // Opcode 1D - ORA $0000,X
+opc_1E: // Opcode 1E - ASL $0000,X
+opc_2E: // Opcode 2E - ROL $0000
+opc_39: // Opcode 39 - AND $0000,Y
+opc_3D: // Opcode 3D - AND $0000,X
+opc_3E: // Opcode 3E - ROL $0000,X
+opc_4E: // Opcode 4E - LSR $0000
+opc_59: // Opcode 59 - EOR $0000,Y
+opc_5D: // Opcode 5D - EOR $0000,X
+opc_5E: // Opcode 5E - LSR $0000,X
+opc_6E: // Opcode 6E - ROR $0000
+opc_7E: // Opcode 7E - ROR $0000,X
+opc_99: // Opcode 99 - STA $0000,Y
+opc_9D: // Opcode 9D - STA $0000,X
+opc_9E: // Opcode 9E - STZ $0000,X
+opc_B9: // Opcode B9 - LDA $0000,Y
+opc_BC: // Opcode BC - LDY $0000,X
+opc_BE: // Opcode BE - LDX $0000,Y
+opc_CC: // Opcode CC - CPY $0000
+opc_CD: // Opcode CD - CMP $0000
+opc_CE: // Opcode CE - DEC $0000
+opc_D9: // Opcode D9 - CMP $0000,Y
+opc_DD: // Opcode DD - CMP $0000,X
+opc_EC: // Opcode EC - CPX $0000
 jitend3byteloadstoreoperand:
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
 jitend3bytestoreoperand:
    orr r7,r7,r5
    orr r8,r8,r4
 jitend3bytestore:
    FILLINJITTEDTABLES dejit16bit31
-   COPY6STORE
+   STMIA r6,{r7,r8,r9,r10,r11,r12}
    add temp0,temp0,#(dejit16bit32-dejit16bit31-(1<<JITTEDTABLESHIFT))>>2
    mov r5,#THREEBYTES
    str temp0,[temp1,#1<<JITTEDTABLESHIFT]
@@ -3506,8 +3063,32 @@ jitend3bytestore:
    str temp0,[temp1,#2<<JITTEDTABLESHIFT]
    B dojitloop
 
+loadio:
+   add r9,r9,#6*4
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   orr r7,r7,r5
+   orr r8,r8,r4
+   MAKEBRANCHLINK r9
+   B jitend3bytestore
+
+opc_0F: // Opcode 0F - BBR0
+opc_1F: // Opcode 1F - BBR1
+opc_2F: // Opcode 2F - BBR2
+opc_3F: // Opcode 3F - BBR3
+opc_4F: // Opcode 4F - BBR4
+opc_5F: // Opcode 5F - BBR5
+opc_6F: // Opcode 6F - BBR6
+opc_7F: // Opcode 7F - BBR7
+opc_8F: // Opcode 8F - BBS0
+opc_9F: // Opcode 9F - BBS1
+opc_AF: // Opcode AF - BBS2
+opc_BF: // Opcode BF - BBS3
+opc_CF: // Opcode CF - BBS4
+opc_DF: // Opcode DF - BBS5
+opc_EF: // Opcode EF - BBS6
+opc_FF: // Opcode FF - BBS7
 jitend3byteexitBBRS:
-   LDMIA temp1,{r7,r8,r9,r10,r11,r12}
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
    sxtb r5, r5
    mov r5,r5,LSL #1
    BIC r5,r5,#0xFF000000
@@ -3543,8 +3124,28 @@ fillinjittedtable:
 
    bx lr
 
+opc_A5: // Opcode A5 - LDA $00
+opc_B1: // Opcode B1 - LDA ($00),Y
+opc_B2: // Opcode B2 - LDA ($00)
+   ldrb r7,[r12,r5]
+   tst r7,#NF
+   addne r9,r9,#4*4
+
+opc_05: // Opcode 05 - ORA $00
+opc_11: // Opcode 11 - ORA ($00),Y
+opc_12: // Opcode 12 - ORA ($00)
+opc_25: // Opcode 25 - AND $00
+opc_31: // Opcode 31 - AND ($00),Y
+opc_32: // Opcode 32 - AND ($00)
+opc_45: // Opcode 45 - EOR $00
+opc_51: // Opcode 51 - EOR ($00),Y
+opc_52: // Opcode 52 - EOR ($00)
+opc_91: // Opcode 91 - STA ($00),Y
+opc_92: // Opcode 92 - STA ($00)
+opc_D1: // Opcode D1 - CMP ($00),Y
+opc_D2: // Opcode D2 - CMP ($00)
 fixuptype2accessload4:
-   LDM temp1,{r8,r9,r10,r11}
+   LDM r9,{r8,r9,r10,r11}
 fixuptype2accessstore4:
    and r1,r4,#0xF0
    and temp,r4,#0x0F
@@ -3553,12 +3154,21 @@ fixuptype2accessstore4:
    B jitend2bytestore4
 
 fixuptype2accessquick:
-   LDM r1,{r7,r8,r9,r10,r11,r12}
+   LDM r9,{r7,r8,r9,r10,r11,r12}
    and r1,r4,#0xF0
    and r4,r4,#0x0F
    orr r7,r7,r5
    orr r8,r8,r1,LSL #4
    orr r8,r8,r4
+   bx lr
+
+fixuptype2accessquickthird:
+   LDM r9,{r7,r8,r9,r10,r11,r12}
+   and r1,r4,#0xF0
+   and r4,r4,#0x0F
+   orr r8,r8,r5
+   orr r9,r9,r1,LSL #4
+   orr r9,r9,r4
    bx lr
 
 ioload:
@@ -3637,7 +3247,7 @@ check_irq_plp:
    beq   handle_irqplp
    msr   CPSR_flg, reg12              // Restore the 6502 flags
    bx    lr
-
+.ltorg
 handle_irqplp:
    sub   reg1,r14,#JITLET
    mov   reg1,reg1,LSR#JITLETSHIFT
@@ -3653,13 +3263,6 @@ putcharopcode:
    BL    putchar
    msr   CPSR, r4
    pop   {r4,pc}
-
-debugopcode:
-#if JITDEBUG
-   ldr   reg1,=debugflag
-   strb  temp,[reg1]
-#endif
-   bx    lr
 
 invertcarry:
    mrs   reg0, CPSR
@@ -3760,8 +3363,7 @@ ror:
 
 rol:
    adc  reg12, reg12, reg12
-   strb reg12,[reg1]
-   lsls    reg12, reg12, #24
+   strb reg12,[ram6502, reg1, LSR #24]
    bx lr
 
 rola:
@@ -3939,8 +3541,55 @@ decimal_mode_sbc:
         teq     regA, #0
         bx lr
 
-.ltorg
+opc_09: // Opcode 09 - ORA #$00
+opc_29: // Opcode 29 - AND #$00
+opc_49: // Opcode 49 - EOR #$00
+   ldrd  r8,r9,[r9]
+   adr r7,immediatesignextenedtable
+   ldr r7,[r7,r4,LSL #BYTEWORDSHIFT]
+   strd  r8,r9,[r6,#8]
+   STMIA r6,{r7,r8}
+   B jitend2byte
 
+opc_A9: // Opcode A9 - LDA #$00
+   adr r11,immediatesignextenedtable
+   ldr temp,[r11,r4,LSL #BYTEWORDSHIFT]
+   str r9,[r6,#4]
+   str r9,[r6,#8]
+   str r9,[r6,#12]
+   orr temp,temp,#1<<20// S FLAG
+   orr temp,temp,#0xA000 // regA
+   str temp,[r6]
+   B jitend2byte
+
+opc_2C: // Opcode 2C - BIT $0000
+
+   FILLINJITTEDTABLES dejit16bit1
+   cmp   r4,#0xE0
+   cmpge r5,#0xFE
+
+   BEQ bitabsio
+
+   orr r8,r9,r5
+   adr r9,bitabstable-12
+   add r9,r9,r4,LSL #3
+   MAKEBRANCHLINK r9
+   mov r5,#THREEBYTES
+   strd r8,r9,[r6]
+   B dojitloop
+
+bitabsio:
+   ldr r8,Bopc_2C_io
+   adr r9,bitioload-12
+   orr r8,r8,r4
+   MAKEBRANCHLINK r9
+   mov r5,#THREEBYTES
+   strd r8,r9,[r6]
+   B dojitloop
+
+Bopc_2C_io: // Opcode 2C - BIT $0000
+//   mov r0,#0x00
+// use first word  of table
 immediatesignextenedtable:
 .set imm,0
 .rept 128
