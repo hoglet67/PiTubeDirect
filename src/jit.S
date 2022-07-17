@@ -865,7 +865,7 @@ Bopc_7A: // Opcode 7A - PLY
 Bopc_7C: // Opcode 7C - JMP ($0000,X)
    mov   reg1, regX, LSR #24
    ADDR1HIGH  //add \reg,\reg, #00<<8
-   ldrsb reg1, [reg1,#00]
+   ldrh reg1, [reg1,#00]
    mov   reg0,#JITLET
    nop
    add   pc,reg0,reg1,LSL #JITLETSHIFT
@@ -1753,8 +1753,8 @@ cacheflushloopjittable:
 
 // run dormann tests directly
 #ifdef DORMANN_TEST
-   mov   r3, #0x3400    // 6502 test code
-   //mov   r3, #0xC000      // 65C02 test
+   //mov   r3, #0x3400    // 6502 test code
+   mov   r3, #0xC000      // 65C02 test
    mov   temp1,#0xFF00
    mov   temp,#0xF3
    orr   temp,temp,#0x60<<8
