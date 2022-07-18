@@ -905,7 +905,7 @@ Bopc_89: // Opcode 89 - BIT #$00
    .word bitimm-20
 Bopc_8A: // Opcode 8A - TXA
    sxtb  regA, regX, ror #24
-   TEQ   regA, #0
+   TEQ   regX, #0
 Bopc_8C: // Opcode 8C - STY $0000
    JITABSSTORE regY
 Bopc_8C_io: // Opcode 8C - STY $0000
@@ -962,7 +962,7 @@ Bopc_97: // Opcode 97 - SMB1 $00
    JITSMB 1
 Bopc_98: // Opcode 98 - TYA
    sxtb  regA, regY, ror #24
-   TEQ   regA, #0
+   TEQ   regY, #0
 Bopc_99: // Opcode 99 - STA $0000,Y
    JITABSXYST regA regY
 Bopc_9A: // Opcode 9A - TXS
@@ -1002,6 +1002,9 @@ Bopc_A2:// Opcode A2 - LDX #$00
    ARMNOPR6QUICK
    teq   regX,#0
    ARMNOPR6QUICK
+Bopc_A2_fast:// Opcode A2 - LDX #$00
+   MOVREGXCONST
+   SPACE_THREE_ARM_WORDS
 Bopc_A4: // Opcode A4 - LDY $00
    ldrb  regY,[ram6502,#0x00]
    nop
@@ -2128,6 +2131,7 @@ jitend2byteBLendstore:
    B jitend2bytestore4
 
 opc_A0: // Opcode A0 - LDY #$00
+opc_A2: // Opcode A2 - LDX #$00
 opc_A4: // Opcode A4 - LDY $00
 opc_A6: // Opcode A6 - LDX $00
    ldrb r7,[r12,r5]
@@ -2138,7 +2142,6 @@ opc_15: // Opcode 15 - ORA $00,X
 opc_35: // Opcode 35 - AND $00,X
 opc_55: // Opcode 55 - EOR $00,X
 opc_56: // Opcode 56 - LSR $00,X
-opc_A2: // Opcode A2 - LDX #$00
 opc_B4: // Opcode B4 - LDY $00,X
 opc_B5: // Opcode B5 - LDA $00,X
 opc_B6: // Opcode B6 - LDX $00,Y
