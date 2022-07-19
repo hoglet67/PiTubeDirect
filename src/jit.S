@@ -624,9 +624,9 @@ Bopc_1F: // Opcode 1F - BBR1
 
 Bopc_20: // Opcode 20 - JSR $0000
    JITABS
-   mov reg12,#2
-   strh  reg1,[regSP,#-1]
-   USUB8 regSP,regSP,reg12
+   sub   regSP, regSP, #2
+   strh  reg1,[regSP,#1]
+   orr   regSP, #0x0100
    .word JITLET-28
 Bopc_21: // Opcode 21 - AND ($00,X)
    JITINDXLOGICAL ands
