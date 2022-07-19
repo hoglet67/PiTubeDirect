@@ -623,8 +623,8 @@ Bopc_1F: // Opcode 1F - BBR1
    JITBBR 1
 
 Bopc_20: // Opcode 20 - JSR $0000
-   JITABS
    sub   regSP, regSP, #2
+   JITABS
    strh  reg1,[regSP,#1]
    orr   regSP, #0x0100
    .word JITLET-28
@@ -1483,8 +1483,8 @@ opc_20: // Opcode 20 - JSR $0000
    orr   r4, r4, r5, LSL #8
    add   temp0,temp2,#2
    and   temp1,temp0,#0xFF
-   orr   r7,r7,temp0,LSR #8
-   orr   r8,r8,temp1
+   orr   r8,r8,temp0,LSR #8
+   orr   r9,r9,temp1
 
    add   r12,r12,r4,LSL #JITLETSHIFT
 
