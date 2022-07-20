@@ -326,19 +326,10 @@ then return to our secret stack This relies on instructions being re entrant , b
    \inst regA,regA,reg0
 .endm
 
-.macro JITABSYLOGICAL inst
-   JITABS
-   mov   reg0,regY,LSR #24
-   ldrsb reg0,[reg1,reg0] // can save a cycle by reordering the above
-   nop
-   \inst regA,regA,reg0
-.endm
-
-.macro JITABSXLOGICAL inst
-   JITABS
-   mov   reg0,regX, LSR #24
-   ldrsb reg0,[reg1,reg0] // can save a cycle by reordering the above
-   nop
+.macro JITABSXYLOGICAL inst index
+   JITABSXYLDRSB \index reg0
+   ARMNOPR6QUICK
+   ARMNOPR6QUICK
    \inst regA,regA,reg0
 .endm
 
@@ -389,13 +380,14 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro JITABSSTORE reg
-   MOVR1HIGH
-   ARMNOPR6QUICK
+
 .ifc \reg,regA
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   MOVR1HIGH
+   SPACE_THREE_ARM_WORDS
    strb  regA,[reg1,#0]!
 .else
+   MOVR1HIGH
+   ARMNOPR6QUICK
    mov   reg0,\reg,LSR #24
    ARMNOPR6QUICK
    strb  reg0,[reg1,#0]!
@@ -603,7 +595,7 @@ Bopc_16: // Opcode 16 - ASL $00, X
 Bopc_17: // Opcode 17 - RMB1 $00
    JITRMB 1
 Bopc_19: // Opcode 19 - ORA $0000,Y
-   JITABSYLOGICAL orrs
+   JITABSXYLOGICAL orrs regY
 Bopc_1A: // Opcode 1A - INC A
    add   regA, regA, #0x1
    .word aflags-12
@@ -614,7 +606,7 @@ Bopc_1C: // Opcode 1C - TRB $0000
    tst   reg12, regA
    .word trb2-28
 Bopc_1D: // Opcode 1D - ORA $0000,X
-   JITABSXLOGICAL orrs
+   JITABSXYLOGICAL orrs regX
 Bopc_1E: // Opcode 1E - ASL $0000,X
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]!
@@ -685,7 +677,7 @@ Bopc_36: // Opcode 36 - ROL $00,X
 Bopc_37: // Opcode 37 - RMB3 $00
    JITRMB 3
 Bopc_39: // Opcode 39 - AND $0000,Y
-   JITABSYLOGICAL ands
+   JITABSXYLOGICAL ands regY
 Bopc_3A: // Opcode 3A - DEC A
    sub   regA, regA, #0x1
    .word aflags-12
@@ -696,7 +688,7 @@ Bopc_3C: // Opcode 3C - BIT $0000,X
    tst   reg12, regA
    .word bit2-28
 Bopc_3D: // Opcode 3D - AND $0000,X
-   JITABSXLOGICAL ands
+   JITABSXYLOGICAL ands regX
 Bopc_3E: // Opcode 3E - ROL $0000,X
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]!
@@ -755,12 +747,12 @@ Bopc_58: // Opcode 58 - CLI
    bic   flags, flags, #I_FLAG6502
    .word cli-12
 Bopc_59: // Opcode 59 - EOR $0000,Y
-   JITABSYLOGICAL eors
+   JITABSXYLOGICAL eors regY
 Bopc_5A: // Opcode 5A - PHY
    mov   reg12, regY,LSR  #24
    .word pushtemp-12
 Bopc_5D: // Opcode 5D - EOR $0000,X
-   JITABSXLOGICAL eors
+   JITABSXYLOGICAL eors regX
 Bopc_5E: // Opcode 5E - LSR $0000,X
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]!
@@ -1558,6 +1550,12 @@ opc_BD: // Opcode BD - LDA $0000,X
    tst   r7,#NF
    addne r9,r9,#6*4
 #endif
+opc_19: // Opcode 19 - ORA $0000,Y
+opc_1D: // Opcode 1D - ORA $0000,X
+opc_39: // Opcode 39 - AND $0000,Y
+opc_3D: // Opcode 3D - AND $0000,X
+opc_59: // Opcode 59 - EOR $0000,Y
+opc_5D: // Opcode 5D - EOR $0000,X
    BL    fixuptype2accessquickthird
    b     jitend3bytestore
 
@@ -3030,23 +3028,16 @@ opc_AE: // Opcode AE - LDX $0000
    BEQ   loadio
    // fall into below
 opc_0E: // Opcode 0E - ASL $0000
-opc_19: // Opcode 19 - ORA $0000,Y
-opc_1D: // Opcode 1D - ORA $0000,X
 opc_1E: // Opcode 1E - ASL $0000,X
 opc_2E: // Opcode 2E - ROL $0000
-opc_39: // Opcode 39 - AND $0000,Y
-opc_3D: // Opcode 3D - AND $0000,X
 opc_3E: // Opcode 3E - ROL $0000,X
 opc_4E: // Opcode 4E - LSR $0000
-opc_59: // Opcode 59 - EOR $0000,Y
-opc_5D: // Opcode 5D - EOR $0000,X
 opc_5E: // Opcode 5E - LSR $0000,X
 opc_6E: // Opcode 6E - ROR $0000
 opc_7E: // Opcode 7E - ROR $0000,X
 opc_99: // Opcode 99 - STA $0000,Y
 opc_9D: // Opcode 9D - STA $0000,X
 opc_9E: // Opcode 9E - STZ $0000,X
-
 opc_BC: // Opcode BC - LDY $0000,X
 opc_BE: // Opcode BE - LDX $0000,Y
 opc_CC: // Opcode CC - CPY $0000
