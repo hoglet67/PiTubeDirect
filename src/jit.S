@@ -1182,8 +1182,8 @@ Bopc_C8: // Opcode C8 - INY
    teq   regY, #0
 Bopc_C9: // Opcode C9 - CMP #$00
    MOVR1CONST
-   ARMNOPR0QUICK
    rsbs  reg1,reg1,regA,LSL #24
+   ARMNOPR6QUICK
    ARMNOPR0QUICK
 Bopc_CA:  // Opcode CA - DEX
    sub   regX, regX, #0x1000000
