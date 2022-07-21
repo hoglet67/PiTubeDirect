@@ -3339,10 +3339,10 @@ pla:
 rts:
    mov reg1, #2
    mov reg12,#JITLET
+   add  reg12,reg12,#NEXTJITLET
+   add  reg12,reg12,reg0,LSL #JITLETSHIFT
    UADD8 regSP, regSP, reg1
-   add  reg1,reg12,#NEXTJITLET
-   add  reg1,reg1,reg0,LSL #JITLETSHIFT
-   bx reg1
+   bx reg12
 
 rora:
    subcs   regA, regA, #0x100   // if Carry set all other bits ie sign extend
