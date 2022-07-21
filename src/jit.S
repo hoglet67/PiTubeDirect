@@ -2930,8 +2930,7 @@ opc_BA: // Opcode BA - TSX
 opc_C8: // Opcode C8 - INY
 opc_CA: // Opcode CA - DEX
 opc_E8: // Opcode E8 - INX
-#if 0
-// it is unknwon why this doesn't improvement performance
+#if (__ARM_ARCH > 6 )
    ldrb r7,[r12,r4]
    ldrd r8,[r9]
    tst r7,#NF
