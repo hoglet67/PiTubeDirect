@@ -2916,9 +2916,7 @@ opc_40: // Opcode 40 - RTI
    ldrd  r8,[r9]
    MAKEBRANCHLINK r9
 singleopcodeexitstore:
-   BL    fillinjittabledejit16bit1
-   mov   r5,#ONEBYTE
-   strd  r8,r9,[r6]
+   BL    fillinjittabledejit16bit1store
    B     dojitexit
 
 opc_88: // Opcode 88 - DEY
@@ -2968,10 +2966,8 @@ opc_FA: // Opcode FA - PLX
    ldrd r8,[r9]
    MAKEBRANCHLINK r9
 jitend1bytestore2:
-   BL    fillinjittabledejit16bit1
-   mov   r5,#ONEBYTE
-   strd  r8,r9,[r6]
-   B     dojitloop
+   BL  fillinjittabledejit16bit1store
+   B dojitloop
 
 opc_8C: // Opcode 8C - STY $0000
 opc_8D: // Opcode 8D - STA $0000
@@ -3101,24 +3097,26 @@ jitend3byteexit:
    str temp0,[temp1,#2<<JITTEDTABLESHIFT]
    B dojitexit
 
+fillinjittabledejit16bit1store:
+   mov   r5,#ONEBYTE
+   strd  r8,r9,[r6]
 fillinjittabledejit16bit1:
-   ldr temp0,=dejit16bit1-(4*JITTEDTABLESHIFT)-JITTEDTABLE16
+   ldr   temp0,=dejit16bit1-(4*JITTEDTABLESHIFT)-JITTEDTABLE16
 fillinjittedtable:
-   mov temp1,#JITTEDTABLE16
+   mov   temp1,#JITTEDTABLE16
 
 #if JITTEDTABLESHIFT==3
-   add temp1,temp1,#4*(JITTEDTABLESHIFT-2)
-   mov temp2,temp2,LSL #1
-   RSB temp0,temp2,temp0,LSR #BYTEWORDSHIFT
-   mov temp2,temp2,LSR #1
+   add   temp1,temp1,#4*(JITTEDTABLESHIFT-2)
+   mov   temp2,temp2,LSL #1
+   RSB   temp0,temp2,temp0,LSR #BYTEWORDSHIFT
+   mov   temp2,temp2,LSR #1
 #else
-   RSB temp0,temp2,temp0,LSR #BYTEWORDSHIFT
+   RSB   temp0,temp2,temp0,LSR #BYTEWORDSHIFT
 #endif
 
-   ORR temp0,temp0,#BINSTRUCTION
-   str temp0,[temp1,temp2,LSL #JITTEDTABLESHIFT]!
-
-   bx lr
+   ORR   temp0,temp0,#BINSTRUCTION
+   str   temp0,[temp1,temp2,LSL #JITTEDTABLESHIFT]!
+   bx    lr
 
 opc_A5: // Opcode A5 - LDA $00
 opc_B1: // Opcode B1 - LDA ($00),Y
@@ -3558,7 +3556,7 @@ opc_A9: // Opcode A9 - LDA #$00
 
 opc_2C: // Opcode 2C - BIT $0000
 
-   BL    fillinjittabledejit16bit1
+   FILLINJITTEDTABLES dejit16bit1
    cmp   r4,#0xE0
    cmpge r5,#0xFE
 
