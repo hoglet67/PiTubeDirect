@@ -1467,7 +1467,7 @@ opc_FC: // Opcode FC - NOP6 $0000
    mov   r5,#THREEBYTES
 nop_end:
    str   r9,[r6]
-   FILLINJITTEDTABLES dejit16bit1
+   BL    fillinjittabledejit16bit1
    B     dojitloop
 
 opc_20: // Opcode 20 - JSR $0000
@@ -1489,7 +1489,7 @@ opc_20: // Opcode 20 - JSR $0000
 opc_24: // Opcode 24 - BIT $00
    ldrd  r8,[r9]
    mov   r5,#TWOBYTES
-   FILLINJITTEDTABLES dejit16bit1
+   BL    fillinjittabledejit16bit1
    orr   r8,r8,r4
    MAKEBRANCHLINK r9
    strd  r8,r9,[r6]
@@ -2913,13 +2913,13 @@ opc_60: // Opcode 60 - RTS
 
 opc_00: // Opcode 00 - BRK
 opc_40: // Opcode 40 - RTI
-   ldrd r8,[r9]
+   ldrd  r8,[r9]
    MAKEBRANCHLINK r9
 singleopcodeexitstore:
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#ONEBYTE
-   strd r8,r9,[r6]
-   B dojitexit
+   BL    fillinjittabledejit16bit1
+   mov   r5,#ONEBYTE
+   strd  r8,r9,[r6]
+   B     dojitexit
 
 opc_88: // Opcode 88 - DEY
 opc_8A: // Opcode 8A - TXA
@@ -2968,10 +2968,10 @@ opc_FA: // Opcode FA - PLX
    ldrd r8,[r9]
    MAKEBRANCHLINK r9
 jitend1bytestore2:
-   FILLINJITTEDTABLES dejit16bit1
-   mov r5,#ONEBYTE
-   strd r8,r9,[r6]
-   B dojitloop
+   BL    fillinjittabledejit16bit1
+   mov   r5,#ONEBYTE
+   strd  r8,r9,[r6]
+   B     dojitloop
 
 opc_8C: // Opcode 8C - STY $0000
 opc_8D: // Opcode 8D - STA $0000
@@ -3101,6 +3101,8 @@ jitend3byteexit:
    str temp0,[temp1,#2<<JITTEDTABLESHIFT]
    B dojitexit
 
+fillinjittabledejit16bit1:
+   ldr temp0,=dejit16bit1-(4*JITTEDTABLESHIFT)-JITTEDTABLE16
 fillinjittedtable:
    mov temp1,#JITTEDTABLE16
 
@@ -3556,7 +3558,7 @@ opc_A9: // Opcode A9 - LDA #$00
 
 opc_2C: // Opcode 2C - BIT $0000
 
-   FILLINJITTEDTABLES dejit16bit1
+   BL    fillinjittabledejit16bit1
    cmp   r4,#0xE0
    cmpge r5,#0xFE
 
