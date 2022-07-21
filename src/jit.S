@@ -490,11 +490,11 @@ then return to our secret stack This relies on instructions being re entrant , b
    orrcs temp, temp, #C_FLAG6502       // set C_FLAG NB bit defaults to zero
    orreq temp, temp, #Z_FLAG6502       // set Z_FLAG NB bit defaults to zero
    SPUSH temp
-   orr   flags, flags, #I_FLAG6502 // Set the I bit in the 6502 status register
-   bic   flags, flags, #D_FLAG6502 // Clear the D bit in the 6502 status register
    mov   temp0,temp0,LSL#JITLETSHIFT
    add   temp0,temp0,#JITLET
-// In the case of a "fake" interrupt, we need to explicitly re-enable FIQ
+   orr   flags, flags, #I_FLAG6502 // Set the I bit in the 6502 status register
+   bic   flags, flags, #D_FLAG6502 // Clear the D bit in the 6502 status register
+ // In the case of a "fake" interrupt, we need to explicitly re-enable FIQ
 // interrupts, because the FIQ handler is not going to exit until the 6502
 // RTI is executed. We leave IRQ masked at this point to avoid the possibility
 // of a re-entrant IRQ, which IRQ handler should not have to deal with.
@@ -3206,15 +3206,15 @@ rti:
    beq   rtiended
 
    ldr   reg0, =tube_irq             // Get IRQ status
-   ldr   reg0, [reg0]
-   //mrs     reg12, CPSR                  // Preserve the 6502 flags
    tst   flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
-   eoreq reg0, reg0, #1
-   tsteq reg0, #1                    // Test for IRQ
-   beq   handle_irqrti
-   msr   CPSR_flg, reg12              // Restore the 6502 flags
+   bne   dontdoirqnow
+   ldr   reg0, [reg0]
+   tst   reg0, #1                    // Test for IRQ
+   bne   handle_irqrti
+dontdoirqnow:
    mov   reg1,reg1,LSL #JITLETSHIFT
    add   reg1,reg1,#JITLET
+   msr   CPSR_flg, reg12              // Restore the 6502 flags
    bx    reg1
 
 handle_irqrti:
