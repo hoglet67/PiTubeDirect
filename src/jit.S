@@ -599,6 +599,9 @@ Bopc_19: // Opcode 19 - ORA $0000,Y
 Bopc_1A: // Opcode 1A - INC A
    add   regA, regA, #0x1
    .word aflags-12
+Bopc_1A_fast: // Opcode 1A - INC A
+   add   regA, regA, #0x1
+   sxtb  regA, regA
 Bopc_1C: // Opcode 1C - TRB $0000
    JITABSLDRBWB
    mrs   reg0, CPSR
@@ -649,6 +652,9 @@ Bopc_28: // Opcode 28 - PLP
 Bopc_2A: // Opcode 2A - ROL A
    adc   regA, regA, regA
    .word rola-12
+Bopc_2A_fast: // Opcode 2A - ROL A
+   adcs  regA, regA, regA
+   sxtb  regA, regA
 Bopc_2D: // Opcode 2D - AND $0000
    JITABSLOGICAL ands
 Bopc_2E: // Opcode 2E - ROL $0000
@@ -681,6 +687,9 @@ Bopc_39: // Opcode 39 - AND $0000,Y
 Bopc_3A: // Opcode 3A - DEC A
    sub   regA, regA, #0x1
    .word aflags-12
+Bopc_3A_fast: // Opcode 3A - DEC A
+   sub   regA, regA, #0x1
+   sxtb    regA, regA
 Bopc_3C: // Opcode 3C - BIT $0000,X
    JITABS
    ldrb  reg12,[reg1, regX, lsr #24]
@@ -1102,6 +1111,11 @@ Bopc_B5: // Opcode B5 - LDA $00,X
    mov   reg1,reg1,LSR#24
    ldrsb regA,[reg1]
    teq   regA,#0
+Bopc_B5_fast: // Opcode B5 - LDA $00,X
+   ADDR1REGXZP
+   ARMNOPR6QUICK
+   mov   reg1,reg1,LSR#24
+   ldrsb regA,[reg1]
 Bopc_B6: // Opcode B6 - LDX $00,Y
    ADDR1REGYCONST
    ldrb  reg12,[ram6502,reg1,LSR#24]
@@ -1130,6 +1144,13 @@ Bopc_BC: // Opcode BC - LDY $0000,X
    nop
    mov   regY,regY, lsl #24
    teq   regY, #0
+Bopc_BC_fast: // Opcode BC - LDY $0000,X
+   JITABS
+   ldrb  regY,[reg1, regX, lsr #24]
+   ARMNOPR6QUICK
+   ARMNOPR6QUICK
+   mov   regY,regY, lsl #24
+
 Bopc_BD: // Opcode BD - LDA $0000,X
    JITABSXYLDRSB regX regA
    ARMNOPR6QUICK
@@ -1145,8 +1166,15 @@ Bopc_BE: // Opcode BE - LDX $0000,Y
    nop
    mov   regX,regX, lsl #24
    teq   regX, #0
+Bopc_BE_fast: // Opcode BE - LDX $0000,Y
+   JITABS
+   ldrb  regX,[reg1, regY, lsr #24]
+   ARMNOPR6QUICK
+   ARMNOPR6QUICK
+   mov   regX,regX, lsl #24
 Bopc_BF: // Opcode BF - BBS3
    JITBBS 3
+
 Bopc_C0: // Opcode C0 - CPY #$00
    CMPREGYCONST
    SPACE_THREE_ARM_WORDS
@@ -1542,6 +1570,7 @@ opc_89: // Opcode 89 - BIT #$00
    LDMIA r9,{r8,r9,r10,r11}
    orr   r9,r9,r4
    B     jitend2byteBLendstore
+
 opc_B9: // Opcode B9 - LDA $0000,Y
 opc_BD: // Opcode BD - LDA $0000,X
 #if OPTIMISMISE >0
@@ -2132,6 +2161,7 @@ opc_A0: // Opcode A0 - LDY #$00
 opc_A2: // Opcode A2 - LDX #$00
 opc_A4: // Opcode A4 - LDY $00
 opc_A6: // Opcode A6 - LDX $00
+opc_B5: // Opcode B5 - LDA $00,X
    ldrb r7,[r12,r5]
    tst r7,#NF
    addne r9,r9,#4*4
@@ -2141,7 +2171,6 @@ opc_35: // Opcode 35 - AND $00,X
 opc_55: // Opcode 55 - EOR $00,X
 opc_56: // Opcode 56 - LSR $00,X
 opc_B4: // Opcode B4 - LDY $00,X
-opc_B5: // Opcode B5 - LDA $00,X
 opc_B6: // Opcode B6 - LDX $00,Y
 opc_C0: // Opcode C0 - CPY #$00
 opc_C4: // Opcode C4 - CPY $00
@@ -2949,11 +2978,16 @@ opc_FB: // Opcode FB - NOP6
    ldrd r8,[r9]
    B jitend1bytestore2
 
-opc_08: // Opcode 08 - PHP
 opc_1A: // Opcode 1A - INC A
-opc_28: // Opcode 28 - PLP
 opc_2A: // Opcode 2A - ROL A
 opc_3A: // Opcode 3A - DEC A
+   ldrb r7,[r12,r4]
+   tst   r7,#NF
+   ldrned r8,[r9,#2*4]
+   Bne jitend1bytestore2
+
+opc_08: // Opcode 08 - PHP
+opc_28: // Opcode 28 - PLP
 opc_58: // Opcode 58 - CLI
 opc_5A: // Opcode 5A - PHY
 opc_68: // Opcode 68 - PLA
@@ -3016,6 +3050,16 @@ opc_4D: // Opcode 4D - EOR $0000
    BL    fixuptype2accessquick
    b     jitend3bytestore
 
+opc_BC: // Opcode BC - LDY $0000,X
+opc_BE: // Opcode BE - LDX $0000,Y
+#if OPTIMISMISE >0
+   ldrb  r7,[r2,#3]
+   ldrb  r7,[r12,r7]
+   tst   r7,#NF
+   addne r9,r9,#6*4
+#endif
+   B threebyteinstruction
+
 opc_AC: // Opcode AC - LDY $0000
 opc_AE: // Opcode AE - LDX $0000
    cmp   r4,#0xE0
@@ -3033,14 +3077,13 @@ opc_7E: // Opcode 7E - ROR $0000,X
 opc_99: // Opcode 99 - STA $0000,Y
 opc_9D: // Opcode 9D - STA $0000,X
 opc_9E: // Opcode 9E - STZ $0000,X
-opc_BC: // Opcode BC - LDY $0000,X
-opc_BE: // Opcode BE - LDX $0000,Y
 opc_CC: // Opcode CC - CPY $0000
 opc_CD: // Opcode CD - CMP $0000
 opc_CE: // Opcode CE - DEC $0000
 opc_D9: // Opcode D9 - CMP $0000,Y
 opc_DD: // Opcode DD - CMP $0000,X
 opc_EC: // Opcode EC - CPX $0000
+threebyteinstruction:
    LDMIA r9,{r7,r8,r9,r10,r11,r12}
    orr r7,r7,r5
    orr r8,r8,r4
