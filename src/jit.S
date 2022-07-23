@@ -137,15 +137,19 @@ then return to our secret stack This relies on instructions being re entrant , b
 .equ    C_FLAG6502,  0x01
 
 // use for optimastions
-#define RP_N (128)
-#define RP_0 (0<<2)
-#define RP_1 (1<<2)
-#define RP_2 (2<<2)
-#define RP_3 (3<<2)
-#define RP_4 (4<<2)
-#define RP_5 (5<<2)
+
+// exit instruction lengths
+#define E1  ( EF + 1 )
+#define E2  ( EF + 2 )
+#define E3  ( EF + 3 )
+
+#define S1  ( 1 )
+#define S2  ( 2 )
+#define S3  ( 3 )
 
 // simpify replace algorithm. If we have a replacable flags setting instruction and the next instruction sets the N flag then we can replace the flags setting instruction with a NOP
+
+#define EF 128
 
 #define ZF 0
 #define NF 64
@@ -1227,9 +1231,10 @@ Bopc_CD: // Opcode CD - CMP $0000
 Bopc_CE: // Opcode CE - DEC $0000
    JITABSLDRBWB
    sub   reg12, reg12, #1
-   strb  reg12,[reg1]
    sxtb  reg12, reg12
    teq   reg12, #0
+   strb  reg12,[reg1]
+
 Bopc_CF: // Opcode CF - BBS4
    JITBBS 4
 
@@ -1439,14 +1444,14 @@ Bopc_70: // Opcode 70 - BVS
 
 opc_18: // Opcode 18 - CLC
    ldrb  r7,[r12,r4]
-   tst   r7,#NF
+   BL optimiseflags
    ldrned  r8,Bopc_18
    Bne jitend1bytestore2
    b opc_invertcarry
 
 opc_38: // Opcode 38 - SEC
    ldrb  r7,[r12,r4]
-   tst   r7,#NF
+   BL optimiseflags
    ldrned  r8,Bopc_38
    Bne jitend1bytestore2
 opc_invertcarry:
@@ -1592,7 +1597,7 @@ opc_BE: // Opcode BE - LDX $0000,Y
 #if OPTIMISMISE >0
    ldrb  r7,[r2,#3]
    ldrb  r7,[r12,r7]
-   tst   r7,#NF
+   BL optimiseflags
    addne r9,r9,#6*4
 #endif
 opc_19: // Opcode 19 - ORA $0000,Y
@@ -1607,7 +1612,7 @@ opc_5D: // Opcode 5D - EOR $0000,X
 opc_06: // Opcode 06 - ASL $00
 opc_26: // Opcode 26 - ROL $00
    ldrb  r7,[r12,r5]
-   tst   r7,#NF
+   BL optimiseflags
    Bne   1f
    LDMIA r9,{r8,r9,r10,r11}
    orr   r8,r8,r4
@@ -1626,7 +1631,7 @@ opc_26: // Opcode 26 - ROL $00
 opc_C6: // Opcode C6 - DEC $00
 opc_E6: // Opcode E6 - INC $00
    ldrb  r7,[r12,r5]
-   tst   r7,#NF
+   BL optimiseflags
    Bne   1f
    LDMIA r9,{r8,r9,r10,r11}
    orr   r8,r8,r4
@@ -2183,7 +2188,7 @@ opc_A0: // Opcode A0 - LDY #$00
 opc_A2: // Opcode A2 - LDX #$00
 opc_B5: // Opcode B5 - LDA $00,X
    ldrb r7,[r12,r5]
-   tst r7,#NF
+   BL optimiseflags
    addne r9,r9,#4*4
 
 opc_15: // Opcode 15 - ORA $00,X
@@ -2215,11 +2220,11 @@ jitend2byte:
 dojitloop:
    DEBUGDISS
 jitentry:
-   ldrb  r7,[temp2,r5]!
+   ldrb  r10,[temp2,r5]!
    mov   r6,temp2,LSL#JITLETSHIFT
    adr   temp0,opcode_table
    add   r6,r6,#JITLET
-   mov   r7,r7,LSL #3
+   mov   r7,r10,LSL #3
    ldrd  r8,r9,[temp0,r7]//,LSL #BYTEWORDSHIFT]
    ldrb  r4,[temp2,#1]
    ldrb  r5,[temp2,#2]
@@ -2237,262 +2242,262 @@ jitentry:
 // exit with r5 being the length of the 6502 instruction
 .balign 8
 flags_table:
-.byte RP_N  		// Opcode 00 - BRK is really a two byte instruction, so no fixup needed
-.byte RP_N + NZF 	// Opcode 01 - ORA ($00,X)
-.byte RP_N  		// Opcode 02 - NOP 2
-.byte RP_N  		// Opcode 03 - NOP
-.byte RP_N + ZF 	// Opcode 04 - TSB $00
-.byte RP_N + NZF 	// Opcode 05 - ORA $00
-.byte RP_N + CNZF // Opcode 06 - ASL $00
-.byte RP_N  		// Opcode 07 - RMB0 $00
-.byte RP_N  		// Opcode 08 - PHP
-.byte RP_N + NZF 	// Opcode 09 - ORA #$00
-.byte RP_N + CNZF	// Opcode 0A - ASL A
-.byte RP_N  		// Opcode 0B - NOP
-.byte RP_N + ZF 	// Opcode 0C - TSB $0000
-.byte RP_N + NZF	// Opcode 0D - ORA $0000
-.byte RP_N + CNZF // Opcode 0E - ASL $0000
-.byte RP_N  		// Opcode 0F - BBR0
-.byte RP_N  		// Opcode 10 - BPL
-.byte RP_N + NZF	// Opcode 11 - ORA ($00),Y
-.byte RP_N + NZF	// Opcode 12 - ORA ($00)
-.byte RP_N  		// Opcode 13 - NOP
-.byte RP_N + ZF 	// Opcode 14 - TRB $00
-.byte RP_N + NZF	// Opcode 15 - ORA $00,X
-.byte RP_N + CNZF	// Opcode 16 - ASL $00, X
-.byte RP_N  		// Opcode 17 - RMB1 $00
-.byte RP_N + CF	// Opcode 18 - CLC
-.byte RP_N + NZF	// Opcode 19 - ORA $0000,Y
-.byte RP_N + NZF	// Opcode 1A - INC A
-.byte RP_N  		// Opcode 1B - NOP
-.byte RP_N + ZF	// Opcode 1C - TRB $0000
-.byte RP_N + NZF	// Opcode 1D - ORA $0000,X
-.byte RP_N + CNZF	// Opcode 1E - ASL $0000,X
-.byte RP_N  		// Opcode 1F - BBR1
-.byte RP_N  		// Opcode 20 - JSR $0000
-.byte RP_N + NZF	// Opcode 21 - AND ($00,X)
-.byte RP_N  		// Opcode 22 - NOP #$00
-.byte RP_N  		// Opcode 23 - NOP
-.byte RP_N + NZF+ VF// Opcode 24 - BIT $00
-.byte RP_N + NZF	// Opcode 25 - AND     $00
-.byte RP_N + CNZF	// Opcode 26 - ROL $00
-.byte RP_N  		// Opcode 27 - RMB2 $00
-.byte RP_N + VCNZF // Opcode 28 - PLP
-.byte RP_N + NZF 	// Opcode 29 - AND     #$00
-.byte RP_N + CNZF // Opcode 2A - ROL A
-.byte RP_N  		// Opcode 2B - NOP
-.byte RP_N + NZF+ VF// Opcode 2C - BIT $0000
-.byte RP_N + NZF	// Opcode 2D - AND     $0000
-.byte RP_N + CNZF // Opcode 2E - ROL $0000
-.byte RP_N  		// Opcode 2F - BBR2
-.byte RP_N  		// Opcode 30 - BMI
-.byte RP_N + NZF	// Opcode 31 - AND ($00),Y
-.byte RP_N + NZF	// Opcode 32 - AND ($00)
-.byte RP_N  		// Opcode 33 - NOP
-.byte RP_N + NZF+ VF// Opcode 34 - BIT $00,X
-.byte RP_N + NZF	// Opcode 35 - AND $00,X
-.byte RP_N + CNZF // Opcode 36 - ROL $00,X
-.byte RP_N  		// Opcode 37 - RMB3 $00
-.byte RP_N + CF 	// Opcode 38 - SEC
-.byte RP_N + NZF	// Opcode 39 - AND $0000,Y
-.byte RP_N + NZF	// Opcode 3A - DEC A
-.byte RP_N  		// Opcode 3B - NOP
-.byte RP_N + NZF+ VF// Opcode 3C - BIT $0000,X
-.byte RP_N + NZF	// Opcode 3D - AND $0000,X
-.byte RP_N + CNZF // Opcode 3E - ROL $0000,X
-.byte RP_N  		// Opcode 3F - BBR3
-.byte RP_N + VCNZF // Opcode 40 - RTI
-.byte RP_N + NZF	// Opcode 41 - EOR ($00,X)
-.byte RP_N  		// Opcode 42 - NOP #$00
-.byte RP_N  		// Opcode 43 - NOP
-.byte RP_N  		// Opcode 44 - NOP $00
-.byte RP_N + NZF	// Opcode 45 - EOR $00
-.byte RP_N + CNZF	// Opcode 46 - LSR $00
-.byte RP_N  		// Opcode 47 - RMB4 $00
-.byte RP_N  		// Opcode 48 - PHA
-.byte RP_N + NZF	// Opcode 49 - EOR #$00
-.byte RP_N + CNZF	// Opcode 4A - LSR A
-.byte RP_N  		// Opcode 4B - NOP
-.byte RP_N  		// Opcode 4C - JMP $0000
-.byte RP_N + NZF	// Opcode 4D - EOR $0000
-.byte RP_N + CNZF	// Opcode 4E - LSR $0000
-.byte RP_N  		// Opcode 4F - BBR4
-.byte RP_N  		// Opcode 50 - BVC
-.byte RP_N + NZF	// Opcode 51 - EOR ($00),Y
-.byte RP_N + NZF	// Opcode 52 - EOR ($00)
-.byte RP_N  		// Opcode 53 - NOP
-.byte RP_N  		// Opcode 54 - NOP $00,X
-.byte RP_N + NZF	// Opcode 55 - EOR $00,X
-.byte RP_N + CNZF	// Opcode 56 - LSR $00,X
-.byte RP_N  		// Opcode 57 - RMB5 $00
-.byte RP_N  		// Opcode 58 - CLI
-.byte RP_N + NZF	// Opcode 59 - EOR $0000,Y
-.byte RP_N  		// Opcode 5A - PHY
-.byte RP_N  		// Opcode 5B - NOP
-.byte RP_N  		// Opcode 5C - NOP $0000
-.byte RP_N + NZF	// Opcode 5D - EOR $0000,X
-.byte RP_N + CNZF	// Opcode 5E - LSR $0000,X
-.byte RP_N  		// Opcode 5F - BBR5
-.byte RP_N  		// Opcode 60 - RTS
-.byte RP_N + VCNZF // Opcode 61 - ADC ($00,X)
-.byte RP_N  		// Opcode 62 - NOP #$00
-.byte RP_N  		// Opcode 63 - NOP
-.byte RP_N  		// Opcode 64 - STZ $00
-.byte RP_N + VCNZF // Opcode 65 - ADC $00
-.byte RP_N + CNZF // Opcode 66 - ROR $00
-.byte RP_N  		// Opcode 67 - RMB6 $00
-.byte RP_N + NZF	// Opcode 68 - PLA
-.byte RP_N + VCNZF // Opcode 69 - ADC #$00
-.byte RP_N + CNZF // Opcode 6A - ROR A
-.byte RP_N  		// Opcode 6B - NOP
-.byte RP_N  		// Opcode 6C - JMP ($0000)
-.byte RP_N + VCNZF // Opcode 6D - ADC $0000
-.byte RP_N + CNZF // Opcode 6E - ROR $0000
-.byte RP_N  		// Opcode 6F - BBR6
-.byte RP_N  		// Opcode 70 - BVS
-.byte RP_N + VCNZF // Opcode 71 - ADC ($00),Y
-.byte RP_N + VCNZF // Opcode 72 - ADC ($00)
-.byte RP_N  		// Opcode 73 - NOP
-.byte RP_N  		// Opcode 74 - STZ $00,X
-.byte RP_N + VCNZF // Opcode 75 - ADC $00,X
-.byte RP_N + CNZF	// Opcode 76 - ROR $00,X
-.byte RP_N  		// Opcode 77 - RMB7 $00
-.byte RP_N  		// Opcode 78 - SEI
-.byte RP_N + VCNZF // Opcode 79 - ADC $0000,Y
-.byte RP_N + NZF	// Opcode 7A - PLY
-.byte RP_N  		// Opcode 7B - NOP
-.byte RP_N  		// Opcode 7C - JMP ($0000,X)
-.byte RP_N + VCNZF // Opcode 7D - ADC $0000,X
-.byte RP_N + CNZF // Opcode 7E - ROR $0000,X
-.byte RP_N  		// Opcode 7F - BBR7
-.byte RP_N  		// Opcode 80 - BRA
-.byte RP_N  		// Opcode 81 - STA ($00,X)
-.byte RP_N  		// Opcode 82 - NOP #$00
-.byte RP_N  		// Opcode 83 - NOP
-.byte RP_N  		// Opcode 84 - STY $00
-.byte RP_N  		// Opcode 85 - STA $00
-.byte RP_N  		// Opcode 86 - STX $00
-.byte RP_N  		// Opcode 87 - SMB0 $00
-.byte RP_1 + NZF	// Opcode 88 - DEY - may not be worth it
-.byte RP_N + ZF	// Opcode 89 - BIT #$00
-.byte RP_1 + NZF  // Opcode 8A - TXA - may not be worth it
-.byte RP_N  		// Opcode 8B - NOP
-.byte RP_N  		// Opcode 8C - STY $0000
-.byte RP_N  		// Opcode 8D - STA $0000
-.byte RP_N  		// Opcode 8E - STX $0000
-.byte RP_N  		// Opcode 8F - BBS0
-.byte RP_N  		// Opcode 90 - BCC
-.byte RP_N  		// Opcode 91 - STA ($00),Y
-.byte RP_N  		// Opcode 92 - STA ($00)
-.byte RP_N  		// Opcode 93 - NOP
-.byte RP_N  		// Opcode 94 - STY $00,X
-.byte RP_N  		// Opcode 95 - STA $00,X
-.byte RP_N  		// Opcode 96 - STX $00,Y
-.byte RP_N  		// Opcode 97 - SMB1 $00
-.byte RP_1 + NZF 	// Opcode 98 - TYA
-.byte RP_N  		// Opcode 99 - STA $0000,Y
-.byte RP_N  		// Opcode 9A - TXS
-.byte RP_N  		// Opcode 9B - NOP
-.byte RP_N  		// Opcode 9C - STZ $0000
-.byte RP_N  		// Opcode 9D - STA $0000,X
-.byte RP_N  		// Opcode 9E - STZ $0000,X
-.byte RP_N  		// Opcode 9F - BBS1
-.byte RP_N + NZF 	// Opcode A0 - LDY #$00 -- could be replace 2 but unlikely to be worth it
-.byte RP_N + NZF	// Opcode A1 - LDA ($00,X)
-.byte RP_N + NZF	// Opcode A2 - LDX #$00 -- could be replace 2 but unlikely to be worth it
-.byte RP_N  		// Opcode A3 - NOP
-.byte RP_3 + NZF	// Opcode A4 - LDY $00 - may not be worth it ( bigger rewrite would be)
-.byte RP_3 + NZF	// Opcode A5 - LDA $00
-.byte RP_3 + NZF 	// Opcode A6 - LDX $00 - may not be worth it ( bigger rewrite would be)
-.byte RP_N  		// Opcode A7 - SMB2 $00
-.byte RP_1 + NZF	// Opcode A8 - TAY - really may not be worth it
-.byte RP_N + NZF	// Opcode A9 - LDA #$00
-.byte RP_1 + NZF	// Opcode AA - TAX - really may not be worth it
-.byte RP_N  		// Opcode AB - NOP
-.byte RP_5 + NZF	// Opcode AC - LDY $0000 - may not be worth it ( bigger rewrite would be)
-.byte RP_5 + NZF	// Opcode AD - LDA $0000 - may not be worth it ( bigger rewrite would be)
-.byte RP_5 + NZF	// Opcode AE - LDX $0000 - may not be worth it ( bigger rewrite would be)
-.byte RP_N  		// Opcode AF - BBS2
-.byte RP_N  		// Opcode B0 - BCS
-.byte RP_3 + NZF 	// Opcode B1 - LDA ($00),Y
-.byte RP_3 + NZF 	// Opcode B2 - LDA ($00)
-.byte RP_N  		// Opcode B3 - NOP
-.byte RP_3 + NZF 	// Opcode B4 - LDY $00,X
-.byte RP_3 + NZF 	// Opcode B5 - LDA $00,X
-.byte RP_3 + NZF 	// Opcode B6 - LDX $00,Y
-.byte RP_N  		// Opcode B7 - SMB3 $00
-.byte RP_N + VF 	// Opcode B8 - CLV
-.byte RP_5 + NZF 	// Opcode B9 - LDA $0000,Y
-.byte RP_1 + NZF	// Opcode BA - TSX - may not be worth it
-.byte RP_N  		// Opcode BB - NOP
-.byte RP_5 + NZF 	// Opcode BC - LDY $0000,X
-.byte RP_5 + NZF 	// Opcode BD - LDA $0000,X
-.byte RP_5 + NZF 	// Opcode BE - LDX $0000,Y
-.byte RP_N  		// Opcode BF - BBS3
-.byte RP_N + CNZF	// Opcode C0 - CPY #$00
-.byte RP_N + CNZF	// Opcode C1 - CMP ($00,X)
-.byte RP_N  		// Opcode C2 - NOP #$00
-.byte RP_N  		// Opcode C3 - NOP
-.byte RP_N + CNZF // Opcode C4 - CPY $00
-.byte RP_N + CNZF	// Opcode C5 - CMP $00
-.byte RP_N + NZF	// Opcode C6 - DEC $00
-.byte RP_N  		// Opcode C7 - SMB4 $00
-.byte RP_1 + NZF	// Opcode C8 - INY
-.byte RP_N + CNZF	// Opcode C9 - CMP #$00
-.byte RP_1 + NZF  // Opcode CA - DEX
-.byte RP_N  		// Opcode CB - WAI
-.byte RP_N + CNZF	// Opcode CC - CPY $0000
-.byte RP_N + CNZF	// Opcode CD - CMP $0000
-.byte RP_5 + NZF	// Opcode CE - DEC $0000
-.byte RP_N  		// Opcode CF - BBS4
-.byte RP_N  		// Opcode D0 - BNE
-.byte RP_N + CNZF	// Opcode D1 - CMP ($00),Y
-.byte RP_N + CNZF	// Opcode D2 - CMP ($00)
-.byte RP_N  		// Opcode D3 - NOP
-.byte RP_N  		// Opcode D4 - NOP $00,X
-.byte RP_N + CNZF	// Opcode D5 - CMP $00,X
-.byte RP_N + NZF	// Opcode D6 - DEC $00,X
-.byte RP_N  		// Opcode D7 - SMB5 $00
-.byte RP_N  		// Opcode D8 - CLD
-.byte RP_N + CNZF	// Opcode D9 - CMP $0000,Y
-.byte RP_N     	// Opcode DA - PHX
-.byte RP_N  		// Opcode DB - STP
-.byte RP_N  		// Opcode DC - NOP $0000
-.byte RP_N + CNZF	// Opcode DD - CMP $0000,X
-.byte RP_N + NZF	// Opcode DE - DEX $0000,X
-.byte RP_N  		// Opcode DF - BBS5
-.byte RP_N + CNZF	// Opcode E0 - CPX #$00
-.byte RP_N + VCNZF // Opcode E1 - SBC ($00,X)
-.byte RP_N  		// Opcode E2 - NOP #$00
-.byte RP_N  		// Opcode E3 -
-.byte RP_N + CNZF	// Opcode E4 - CPX $00
-.byte RP_N + VCNZF  // Opcode E5 - SBC $00
-.byte RP_N + NZF	// Opcode E6 - INC $00
-.byte RP_N  		// Opcode E7 - SMB6 $00
-.byte RP_1 + NZF	// Opcode E8 - INX
-.byte RP_N + VCNZF  // Opcode E9 - SBC #$00
-.byte RP_N  		// Opcode EA - NOP
-.byte RP_N  		// Opcode EB - NOP ( Borrowed for instruction timing)
-.byte RP_N + CNZF	// Opcode EC - CPX $0000
-.byte RP_N + VCNZF	// Opcode ED - SBC $0000
-.byte RP_4 + NZF 	// Opcode EE - INC $0000
-.byte RP_N  		// Opcode EF - BBS6
-.byte RP_N  		// Opcode F0 - BEQ
-.byte RP_N + VCNZF 	// Opcode F1 - SBC ($00),Y
-.byte RP_N + VCNZF 	// Opcode F2 - SBC ($00)
-.byte RP_N  		// Opcode F3 - NOP
-.byte RP_N  		// Opcode F4 -
-.byte RP_N + VCNZF  // Opcode F5 - SBC $00,X
-.byte RP_N + NZF 	// Opcode F6 - INC $00,X
-.byte RP_N  		// Opcode F7 - SMB7 $00
-.byte RP_N  		// Opcode F8 - SED
-.byte RP_N + VCNZF // Opcode F9 - SBC $0000,Y
-.byte RP_N + NZF 	// Opcode FA - PLX
-.byte RP_N  		// Opcode FB - NOP
-.byte RP_N  		// Opcode FC - NOP $0000
-.byte RP_N + VCNZF // Opcode FD - SBC $0000,X
-.byte RP_5 + NZF  // Opcode FE - INC $0000,X
-.byte RP_N  		// Opcode FF - BBS7
+.byte E2  		// Opcode 00 - BRK is really a two byte instruction, so no fixup needed
+.byte S2 + NZF // Opcode 01 - ORA ($00,X)
+.byte S2  		// Opcode 02 - NOP 2
+.byte S1  		// Opcode 03 - NOP
+.byte S2 + ZF 	// Opcode 04 - TSB $00
+.byte S2 + NZF // Opcode 05 - ORA $00
+.byte S2 + CNZF// Opcode 06 - ASL $00
+.byte S2  		// Opcode 07 - RMB0 $00
+.byte E1  		// Opcode 08 - PHP
+.byte S2 + NZF // Opcode 09 - ORA #$00
+.byte S1 + CNZF// Opcode 0A - ASL A
+.byte S1  		// Opcode 0B - NOP
+.byte S3 + ZF 	// Opcode 0C - TSB $0000
+.byte S3 + NZF	// Opcode 0D - ORA $0000
+.byte S3 + CNZF// Opcode 0E - ASL $0000
+.byte E3  		// Opcode 0F - BBR0
+.byte E2  		// Opcode 10 - BPL
+.byte S2 + NZF	// Opcode 11 - ORA ($00),Y
+.byte S2 + NZF	// Opcode 12 - ORA ($00)
+.byte S1  		// Opcode 13 - NOP
+.byte S2 + ZF 	// Opcode 14 - TRB $00
+.byte S2 + NZF	// Opcode 15 - ORA $00,X
+.byte S2 + CNZF// Opcode 16 - ASL $00, X
+.byte S2  		// Opcode 17 - RMB1 $00
+.byte S1 + CF	// Opcode 18 - CLC
+.byte S3 + NZF	// Opcode 19 - ORA $0000,Y
+.byte S1 + NZF	// Opcode 1A - INC A
+.byte S1  		// Opcode 1B - NOP
+.byte S3 + ZF	// Opcode 1C - TRB $0000
+.byte S3 + NZF	// Opcode 1D - ORA $0000,X
+.byte S3 + CNZF// Opcode 1E - ASL $0000,X
+.byte E3  		// Opcode 1F - BBR1
+.byte E3  		// Opcode 20 - JSR $0000
+.byte S2 + NZF	// Opcode 21 - AND ($00,X)
+.byte S2  		// Opcode 22 - NOP #$00
+.byte S1  		// Opcode 23 - NOP
+.byte S2 + NZF+ VF// Opcode 24 - BIT $00
+.byte S2 + NZF	// Opcode 25 - AND     $00
+.byte S2 + CNZF// Opcode 26 - ROL $00
+.byte S2  		// Opcode 27 - RMB2 $00
+.byte S1 + VCNZF// Opcode 28 - PLP
+.byte S2 + NZF // Opcode 29 - AND     #$00
+.byte S1 + CNZF// Opcode 2A - ROL A
+.byte S1  		// Opcode 2B - NOP
+.byte S3 + NZF+ VF// Opcode 2C - BIT $0000
+.byte S3 + NZF	// Opcode 2D - AND     $0000
+.byte S3 + CNZF// Opcode 2E - ROL $0000
+.byte E3  		// Opcode 2F - BBR2
+.byte E2  		// Opcode 30 - BMI
+.byte S2 + NZF	// Opcode 31 - AND ($00),Y
+.byte S2 + NZF	// Opcode 32 - AND ($00)
+.byte S1  		// Opcode 33 - NOP
+.byte S2 + NZF+ VF// Opcode 34 - BIT $00,X
+.byte S2 + NZF	// Opcode 35 - AND $00,X
+.byte S2 + CNZF// Opcode 36 - ROL $00,X
+.byte S2  		// Opcode 37 - RMB3 $00
+.byte S1 + CF 	// Opcode 38 - SEC
+.byte S3 + NZF	// Opcode 39 - AND $0000,Y
+.byte S1 + NZF	// Opcode 3A - DEC A
+.byte S1  		// Opcode 3B - NOP
+.byte S3 + NZF+ VF// Opcode 3C - BIT $0000,X
+.byte S3 + NZF	// Opcode 3D - AND $0000,X
+.byte S3 + CNZF// Opcode 3E - ROL $0000,X
+.byte E3  		// Opcode 3F - BBR3
+.byte E1 + VCNZF// Opcode 40 - RTI
+.byte S2 + NZF	// Opcode 41 - EOR ($00,X)
+.byte S2  		// Opcode 42 - NOP #$00
+.byte S1  		// Opcode 43 - NOP
+.byte S2  		// Opcode 44 - NOP $00
+.byte S2 + NZF	// Opcode 45 - EOR $00
+.byte S2 + CNZF// Opcode 46 - LSR $00
+.byte S2  		// Opcode 47 - RMB4 $00
+.byte S1  		// Opcode 48 - PHA
+.byte S2 + NZF	// Opcode 49 - EOR #$00
+.byte S1 + CNZF// Opcode 4A - LSR A
+.byte S1  		// Opcode 4B - NOP
+.byte E3  		// Opcode 4C - JMP $0000
+.byte S3 + NZF	// Opcode 4D - EOR $0000
+.byte S3 + CNZF// Opcode 4E - LSR $0000
+.byte E3  		// Opcode 4F - BBR4
+.byte E2  		// Opcode 50 - BVC
+.byte S2 + NZF	// Opcode 51 - EOR ($00),Y
+.byte S2 + NZF	// Opcode 52 - EOR ($00)
+.byte S1  		// Opcode 53 - NOP
+.byte S2  		// Opcode 54 - NOP $00,X
+.byte S2 + NZF	// Opcode 55 - EOR $00,X
+.byte S2 + CNZF// Opcode 56 - LSR $00,X
+.byte S2  		// Opcode 57 - RMB5 $00
+.byte S1  		// Opcode 58 - CLI
+.byte S3 + NZF	// Opcode 59 - EOR $0000,Y
+.byte S1  		// Opcode 5A - PHY
+.byte S1  		// Opcode 5B - NOP
+.byte S3  		// Opcode 5C - NOP $0000
+.byte S3 + NZF	// Opcode 5D - EOR $0000,X
+.byte S3 + CNZF// Opcode 5E - LSR $0000,X
+.byte E3  		// Opcode 5F - BBR5
+.byte E1  		// Opcode 60 - RTS
+.byte S2 + VCNZF// Opcode 61 - ADC ($00,X)
+.byte S2  		// Opcode 62 - NOP #$00
+.byte S1  		// Opcode 63 - NOP
+.byte S2  		// Opcode 64 - STZ $00
+.byte S2 + VCNZF// Opcode 65 - ADC $00
+.byte S2 + CNZF// Opcode 66 - ROR $00
+.byte S2  		// Opcode 67 - RMB6 $00
+.byte S1 + NZF	// Opcode 68 - PLA
+.byte S2 + VCNZF// Opcode 69 - ADC #$00
+.byte S1 + CNZF// Opcode 6A - ROR A
+.byte S1  		// Opcode 6B - NOP
+.byte E3  		// Opcode 6C - JMP ($0000)
+.byte S3 + VCNZF// Opcode 6D - ADC $0000
+.byte S3 + CNZF// Opcode 6E - ROR $0000
+.byte E3  		// Opcode 6F - BBR6
+.byte E2  		// Opcode 70 - BVS
+.byte S2 + VCNZF// Opcode 71 - ADC ($00),Y
+.byte S2 + VCNZF// Opcode 72 - ADC ($00)
+.byte S1  		// Opcode 73 - NOP
+.byte S2  		// Opcode 74 - STZ $00,X
+.byte S2 + VCNZF// Opcode 75 - ADC $00,X
+.byte S2 + CNZF// Opcode 76 - ROR $00,X
+.byte S2  		// Opcode 77 - RMB7 $00
+.byte S1  		// Opcode 78 - SEI
+.byte S3 + VCNZF// Opcode 79 - ADC $0000,Y
+.byte S1 + NZF	// Opcode 7A - PLY
+.byte S1  		// Opcode 7B - NOP
+.byte E3  		// Opcode 7C - JMP ($0000,X)
+.byte S3 + VCNZF// Opcode 7D - ADC $0000,X
+.byte S3 + CNZF// Opcode 7E - ROR $0000,X
+.byte E3  		// Opcode 7F - BBR7
+.byte E2  		// Opcode 80 - BRA
+.byte S2  		// Opcode 81 - STA ($00,X)
+.byte S2  		// Opcode 82 - NOP #$00
+.byte S1  		// Opcode 83 - NOP
+.byte S2  		// Opcode 84 - STY $00
+.byte S2  		// Opcode 85 - STA $00
+.byte S2  		// Opcode 86 - STX $00
+.byte S2  		// Opcode 87 - SMB0 $00
+.byte S1 + NZF	// Opcode 88 - DEY
+.byte S2 + ZF	// Opcode 89 - BIT #$00
+.byte S1 + NZF // Opcode 8A - TXA
+.byte S1  		// Opcode 8B - NOP
+.byte S3  		// Opcode 8C - STY $0000
+.byte S3  		// Opcode 8D - STA $0000
+.byte S3  		// Opcode 8E - STX $0000
+.byte E3  		// Opcode 8F - BBS0
+.byte E2  		// Opcode 90 - BCC
+.byte S2  		// Opcode 91 - STA ($00),Y
+.byte S2  		// Opcode 92 - STA ($00)
+.byte S1  		// Opcode 93 - NOP
+.byte S2  		// Opcode 94 - STY $00,X
+.byte S2  		// Opcode 95 - STA $00,X
+.byte S2  		// Opcode 96 - STX $00,Y
+.byte S2  		// Opcode 97 - SMB1 $00
+.byte S1 + NZF // Opcode 98 - TYA
+.byte S3  		// Opcode 99 - STA $0000,Y
+.byte S1  		// Opcode 9A - TXS
+.byte S1  		// Opcode 9B - NOP
+.byte S3  		// Opcode 9C - STZ $0000
+.byte S3  		// Opcode 9D - STA $0000,X
+.byte S3  		// Opcode 9E - STZ $0000,X
+.byte E3  		// Opcode 9F - BBS1
+.byte S2 + NZF // Opcode A0 - LDY #$00
+.byte S2 + NZF	// Opcode A1 - LDA ($00,X)
+.byte S2 + NZF	// Opcode A2 - LDX #$00
+.byte S1  		// Opcode A3 - NOP
+.byte S2 + NZF	// Opcode A4 - LDY $00
+.byte S2 + NZF	// Opcode A5 - LDA $00
+.byte S2 + NZF // Opcode A6 - LDX $00
+.byte S2  		// Opcode A7 - SMB2 $00
+.byte S1 + NZF	// Opcode A8 - TAY - really may not be worth it
+.byte S2 + NZF	// Opcode A9 - LDA #$00
+.byte S1 + NZF	// Opcode AA - TAX - really may not be worth it
+.byte S1  		// Opcode AB - NOP
+.byte S3 + NZF	// Opcode AC - LDY $0000
+.byte S3 + NZF	// Opcode AD - LDA $0000
+.byte S3 + NZF	// Opcode AE - LDX $0000
+.byte E3  		// Opcode AF - BBS2
+.byte E2  		// Opcode B0 - BCS
+.byte S2 + NZF // Opcode B1 - LDA ($00),Y
+.byte S2 + NZF // Opcode B2 - LDA ($00)
+.byte S1  		// Opcode B3 - NOP
+.byte S2 + NZF // Opcode B4 - LDY $00,X
+.byte S2 + NZF // Opcode B5 - LDA $00,X
+.byte S2 + NZF	// Opcode B6 - LDX $00,Y
+.byte S2  		// Opcode B7 - SMB3 $00
+.byte S1 + VF 	// Opcode B8 - CLV
+.byte S3 + NZF // Opcode B9 - LDA $0000,Y
+.byte S1 + NZF	// Opcode BA - TSX
+.byte S1  		// Opcode BB - NOP
+.byte S3 + NZF // Opcode BC - LDY $0000,X
+.byte S3 + NZF // Opcode BD - LDA $0000,X
+.byte S3 + NZF // Opcode BE - LDX $0000,Y
+.byte E3  		// Opcode BF - BBS3
+.byte S2 + CNZF// Opcode C0 - CPY #$00
+.byte S2 + CNZF// Opcode C1 - CMP ($00,X)
+.byte S2  		// Opcode C2 - NOP #$00
+.byte S1  		// Opcode C3 - NOP
+.byte S2 + CNZF// Opcode C4 - CPY $00
+.byte S2 + CNZF// Opcode C5 - CMP $00
+.byte S2 + NZF	// Opcode C6 - DEC $00
+.byte S2  		// Opcode C7 - SMB4 $00
+.byte S1 + NZF	// Opcode C8 - INY
+.byte S2 + CNZF// Opcode C9 - CMP #$00
+.byte S1 + NZF // Opcode CA - DEX
+.byte S1  		// Opcode CB - WAI
+.byte S3 + CNZF// Opcode CC - CPY $0000
+.byte S3 + CNZF// Opcode CD - CMP $0000
+.byte S3 + NZF	// Opcode CE - DEC $0000
+.byte E3  		// Opcode CF - BBS4
+.byte E2  		// Opcode D0 - BNE
+.byte S2 + CNZF// Opcode D1 - CMP ($00),Y
+.byte S2 + CNZF// Opcode D2 - CMP ($00)
+.byte S1  		// Opcode D3 - NOP
+.byte S2  		// Opcode D4 - NOP $00,X
+.byte S2 + CNZF// Opcode D5 - CMP $00,X
+.byte S2 + NZF	// Opcode D6 - DEC $00,X
+.byte S2  		// Opcode D7 - SMB5 $00
+.byte S1  		// Opcode D8 - CLD
+.byte S3 + CNZF// Opcode D9 - CMP $0000,Y
+.byte S1     	// Opcode DA - PHX
+.byte S1  		// Opcode DB - STP
+.byte S3  		// Opcode DC - NOP $0000
+.byte S3 + CNZF// Opcode DD - CMP $0000,X
+.byte S3 + NZF	// Opcode DE - DEX $0000,X
+.byte E3  		// Opcode DF - BBS5
+.byte S1 + CNZF// Opcode E0 - CPX #$00
+.byte S2 + VCNZF// Opcode E1 - SBC ($00,X)
+.byte S2  		// Opcode E2 - NOP #$00
+.byte S1  		// Opcode E3 -
+.byte S2 + CNZF// Opcode E4 - CPX $00
+.byte S2 + VCNZF// Opcode E5 - SBC $00
+.byte S2 + NZF	// Opcode E6 - INC $00
+.byte S2  		// Opcode E7 - SMB6 $00
+.byte S1 + NZF	// Opcode E8 - INX
+.byte S2 + VCNZF// Opcode E9 - SBC #$00
+.byte S1  		// Opcode EA - NOP
+.byte S1  		// Opcode EB - NOP ( Borrowed for instruction timing)
+.byte S3 + CNZF// Opcode EC - CPX $0000
+.byte S3 + VCNZF// Opcode ED - SBC $0000
+.byte S3 + NZF // Opcode EE - INC $0000
+.byte E3  		// Opcode EF - BBS6
+.byte E2  		// Opcode F0 - BEQ
+.byte S2 + VCNZF// Opcode F1 - SBC ($00),Y
+.byte S2 + VCNZF// Opcode F2 - SBC ($00)
+.byte S1  		// Opcode F3 - NOP
+.byte S2  		// Opcode F4 -
+.byte S2 + VCNZF// Opcode F5 - SBC $00,X
+.byte S2 + NZF // Opcode F6 - INC $00,X
+.byte S2  		// Opcode F7 - SMB7 $00
+.byte S1  		// Opcode F8 - SED
+.byte S3 + VCNZF// Opcode F9 - SBC $0000,Y
+.byte S1 + NZF // Opcode FA - PLX
+.byte S1  		// Opcode FB - NOP
+.byte S3  		// Opcode FC - NOP $0000
+.byte S3 + VCNZF// Opcode FD - SBC $0000,X
+.byte S3 + NZF // Opcode FE - INC $0000,X
+.byte E3  		// Opcode FF - BBS7
 
 opcode_table:
 .word  opc_00, Bopc_00	// Opcode 00 - BRK is really a two byte instruction, so no fixup needed
@@ -2981,7 +2986,7 @@ opc_E8: // Opcode E8 - INX
 #if (__ARM_ARCH > 6 )
    ldrb r7,[r12,r4]
    ldrd r8,[r9]
-   tst r7,#NF
+   BL optimiseflags
    ldrne r9,=0xe1a06006 // ARMNOPR6QUICK
    b jitend1bytestore2
 #endif
@@ -3003,7 +3008,7 @@ opc_1A: // Opcode 1A - INC A
 opc_2A: // Opcode 2A - ROL A
 opc_3A: // Opcode 3A - DEC A
    ldrb r7,[r12,r4]
-   tst   r7,#NF
+   BL optimiseflags
    ldrned r8,[r9,#2*4]
    Bne jitend1bytestore2
 
@@ -3178,7 +3183,7 @@ opc_A6: // Opcode A6 - LDX $00
 opc_B1: // Opcode B1 - LDA ($00),Y
 opc_B2: // Opcode B2 - LDA ($00)
    ldrb r7,[r12,r5]
-   tst r7,#NF
+   BL optimiseflags
    addne r9,r9,#4*4
 
 opc_05: // Opcode 05 - ORA $00
@@ -3218,6 +3223,22 @@ fixuptype2accessquickthird:
    orr r9,r9,r1,LSL #4
    orr r9,r9,r4
    bx lr
+
+optimiseflags:
+   tst   r7,#NF+EF
+   bne   optimiseflagsexit
+   and   r1,r7,#3       // get length of next instruction
+   ldrb  r7,[r12,r10]   // get length of original instruction
+   add   r1,r1,r2       // add pointer
+ optimiseflagsloop:
+   and   r7,#3          // get length
+   ldrb  r7,[r1,r7]!    // get next instruction
+   ldrb  r7,[r12,r7]    // get flags for next instruction
+   tst   r7,#NF+EF
+   beq  optimiseflagsloop
+optimiseflagsexit:
+   tst   r7,#NF
+   bx    LR
 
 ioload:
    push    {lr}               // ram6502 (r6) is used as a working register
