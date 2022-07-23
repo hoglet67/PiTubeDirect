@@ -1139,14 +1139,13 @@ Bopc_BA: // Opcode BA - TSX
    lsl   regX, regSP, #24
    teq   regX, #0
 Bopc_BC: // Opcode BC - LDY $0000,X
-   JITABS
-   ldrb  regY,[reg1, regX, lsr #24]
-   nop
-   mov   regY,regY, lsl #24
+   JITABSXYLDRSB regX regY
+   ARMNOPR6QUICK
    teq   regY, #0
+   mov   regY,regY, lsl #24
+
 Bopc_BC_fast: // Opcode BC - LDY $0000,X
-   JITABS
-   ldrb  regY,[reg1, regX, lsr #24]
+   JITABSXYLDRSB regX regY
    ARMNOPR6QUICK
    ARMNOPR6QUICK
    mov   regY,regY, lsl #24
@@ -1161,14 +1160,13 @@ Bopc_BD_fast: // Opcode BD - LDA $0000,X
    SPACE_THREE_ARM_WORDS
 
 Bopc_BE: // Opcode BE - LDX $0000,Y
-   JITABS
-   ldrb  regX,[reg1, regY, lsr #24]
-   nop
-   mov   regX,regX, lsl #24
+   JITABSXYLDRSB regY regX
+   ARMNOPR6QUICK
    teq   regX, #0
+   mov   regX,regX, lsl #24
+
 Bopc_BE_fast: // Opcode BE - LDX $0000,Y
-   JITABS
-   ldrb  regX,[reg1, regY, lsr #24]
+   JITABSXYLDRSB regY regX
    ARMNOPR6QUICK
    ARMNOPR6QUICK
    mov   regX,regX, lsl #24
@@ -1589,6 +1587,8 @@ opc_89: // Opcode 89 - BIT #$00
 
 opc_B9: // Opcode B9 - LDA $0000,Y
 opc_BD: // Opcode BD - LDA $0000,X
+opc_BC: // Opcode BC - LDY $0000,X
+opc_BE: // Opcode BE - LDX $0000,Y
 #if OPTIMISMISE >0
    ldrb  r7,[r2,#3]
    ldrb  r7,[r12,r7]
@@ -3070,16 +3070,6 @@ opc_2D: // Opcode 2D - AND $0000
 opc_4D: // Opcode 4D - EOR $0000
    BL    fixuptype2accessquick
    b     jitend3bytestore
-
-opc_BC: // Opcode BC - LDY $0000,X
-opc_BE: // Opcode BE - LDX $0000,Y
-#if OPTIMISMISE >0
-   ldrb  r7,[r2,#3]
-   ldrb  r7,[r12,r7]
-   tst   r7,#NF
-   addne r9,r9,#6*4
-#endif
-   B threebyteinstruction
 
 opc_AC: // Opcode AC - LDY $0000
 opc_AE: // Opcode AE - LDX $0000
