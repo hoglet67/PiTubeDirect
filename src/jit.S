@@ -1007,12 +1007,12 @@ Bopc_A2_fast:// Opcode A2 - LDX #$00
    MOVREGXCONST
    SPACE_THREE_ARM_WORDS
 Bopc_A4: // Opcode A4 - LDY $00
-   ldrb  regY,[ram6502,#0x00]
-   nop
-   mov   regY,regY,LSL #24
+   ldrsb  regY,[ram6502,#0x00]
+   ARMNOPR6QUICK
    teq   regY,#0
+   mov   regY,regY,LSL #24
 Bopc_A4_fast: // Opcode A4 - LDY $00
-   ldrb  regY,[ram6502,#0x00]
+   ldrsb  regY,[ram6502,#0x00]
    ARMNOPR6QUICK
    ARMNOPR6QUICK
    mov   regY,regY,LSL #24
@@ -1025,12 +1025,12 @@ Bopc_A5_fast: // Opcode A5 - LDA $00
    LDRSB regA,[ram6502,#0x00]
    SPACE_THREE_ARM_WORDS
 Bopc_A6: // Opcode A6 - LDX $00
-   ldrb  regX,[ram6502,#0x00]
-   nop
-   mov   regX,regX,LSL #24
+   ldrsb  regX,[ram6502,#0x00]
+   ARMNOPR6QUICK
    teq   regX,#0
+   mov   regX,regX,LSL #24
 Bopc_A6_fast: // Opcode A6 - LDX $00
-   ldrb  regX,[ram6502,#0x00]
+   ldrsb  regX,[ram6502,#0x00]
    ARMNOPR6QUICK
    ARMNOPR6QUICK
    mov   regX,regX,LSL #24
@@ -2181,8 +2181,6 @@ jitend2byteBLendstore:
 
 opc_A0: // Opcode A0 - LDY #$00
 opc_A2: // Opcode A2 - LDX #$00
-opc_A4: // Opcode A4 - LDY $00
-opc_A6: // Opcode A6 - LDX $00
 opc_B5: // Opcode B5 - LDA $00,X
    ldrb r7,[r12,r5]
    tst r7,#NF
@@ -2201,6 +2199,7 @@ opc_C9: // Opcode C9 - CMP #$00
 opc_D5: // Opcode D5 - CMP $00,X
 opc_E0: // Opcode E0 - CPX #$00
 opc_E4: // Opcode E4 - CPX $00
+
    LDMIA r9,{r8,r9,r10,r11}
 jitend2bytestore4operand:
    orr r8,r8,r4
@@ -3183,7 +3182,9 @@ fillinjittedtable:
    str   temp0,[temp1,temp2,LSL #JITTEDTABLESHIFT]!
    bx    lr
 
+opc_A4: // Opcode A4 - LDY $00
 opc_A5: // Opcode A5 - LDA $00
+opc_A6: // Opcode A6 - LDX $00
 opc_B1: // Opcode B1 - LDA ($00),Y
 opc_B2: // Opcode B2 - LDA ($00)
    ldrb r7,[r12,r5]
