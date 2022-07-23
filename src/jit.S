@@ -622,11 +622,11 @@ Bopc_1F: // Opcode 1F - BBR1
    JITBBR 1
 
 Bopc_20: // Opcode 20 - JSR $0000
-   sub   regSP, regSP, #2
+   usub8  regSP, regSP, r4
    JITABS
    strh  reg1,[regSP,#1]
-   orr   regSP, #0x0100
-   .word JITLET-28
+   .word JITLET-24
+   nop
 Bopc_21: // Opcode 21 - AND ($00,X)
    JITINDXLOGICAL ands
 Bopc_24: // Opcode 24 - BIT $00
@@ -1518,19 +1518,19 @@ nop_end:
    B     dojitloop
 
 opc_20: // Opcode 20 - JSR $0000
-   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   LDMIA r9,{r7,r8,r9,r10,r11}
    orr   r4, r4, r5, LSL #8
    add   temp0,temp2,#2
    and   temp1,temp0,#0xFF
    orr   r8,r8,temp0,LSR #8
    orr   r9,r9,temp1
 
-   add   r12,r12,r4,LSL #JITLETSHIFT
+   add   r11,r11,r4,LSL #JITLETSHIFT
 
-   sub   r12,r12,r6
-   mov   r12,r12,LSR #BYTEWORDSHIFT
-   BIC   r12,r12,#0xFF000000
-   ORR   r12,r12,#BINSTRUCTION
+   sub   r11,r11,r6
+   mov   r11,r11,LSR #BYTEWORDSHIFT
+   BIC   r11,r11,#0xFF000000
+   ORR   r11,r11,#BINSTRUCTION
    B     jitend3byteexitstore6
 
 opc_24: // Opcode 24 - BIT $00
@@ -1860,7 +1860,7 @@ cacheflushloopjittable:
    str   temp0,old_irq_vector
    str   temp1,[temp]
    CPSIE if // enable interupts
-
+   mov   r4, #2 // constant used by jsr rts
    bx r3
 
 //*************************************************************
@@ -2951,6 +2951,7 @@ handle_nmi_jit:
 
 noirq_jit:
    msr   CPSR, r4
+   mov   r4, #2 // constant used by jsr rts
    bx    r3
 
 debugopcode:
@@ -3246,6 +3247,7 @@ ioload:
    CPSID   if                 // Disable FIQ/IRQ at the same time
    bl      tube_parasite_read // Call up to C code to handle parasite read
    msr     CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
+   mov   r4, #2 // constant used by jsr rts
    pop     {pc}               // Restore registers and return
 
 indirectiostore:
@@ -3259,6 +3261,7 @@ iostore:
    CPSID   if                 // Disable FIQ/IRQ at the same time
    bl      tube_parasite_write_banksel // Call up to C code to handle parasite write
    msr     CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
+   mov   r4, #2 // constant used by jsr rts
    pop     {pc}               // Restore registers and return
 
 // Jits overflow
@@ -3424,11 +3427,10 @@ pla:
    bx lr
 
 rts:
-   mov reg1, #2
    mov reg12,#JITLET
    add  reg12,reg12,#NEXTJITLET
    add  reg12,reg12,reg0,LSL #JITLETSHIFT
-   UADD8 regSP, regSP, reg1
+   UADD8 regSP, regSP, reg4
    bx reg12
 
 rora:
