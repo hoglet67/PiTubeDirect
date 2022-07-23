@@ -1425,6 +1425,13 @@ Bopc_FF: // Opcode FF - BBS7
 Bopc_carry:
    .word invertcarry-8
    ARMNOPR6QUICK
+Bopc_18:
+   cmn r6,#0
+   ARMNOPR6QUICK
+Bopc_38:
+   cmp r6,#0
+   ARMNOPR6QUICK
+
 
 Bopc_50: // Opcode 50 - BVC
 Bopc_70: // Opcode 70 - BVS
@@ -1432,10 +1439,19 @@ Bopc_70: // Opcode 70 - BVS
 
 // ***** End of JITTED 6502 opcodes
 
-
-
 opc_18: // Opcode 18 - CLC
+   ldrb  r7,[r12,r4]
+   tst   r7,#NF
+   ldrned  r8,Bopc_18
+   Bne jitend1bytestore2
+   b opc_invertcarry
+
 opc_38: // Opcode 38 - SEC
+   ldrb  r7,[r12,r4]
+   tst   r7,#NF
+   ldrned  r8,Bopc_38
+   Bne jitend1bytestore2
+opc_invertcarry:
    ldrd  r10,Bopc_carry
    sub   r8,r10,r6
    mov   r8,r8,LSR #BYTEWORDSHIFT
