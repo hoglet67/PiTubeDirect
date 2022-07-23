@@ -1195,9 +1195,9 @@ Bopc_C5: // Opcode C5 - CMP $00
    cmp   reg1, reg0, LSL #24
 Bopc_C6: // Opcode C6 - DEC $00
    ldrb  reg0,[ram6502,#0]
-   sub   reg0, reg0, #1
+   .word decflags-12
+   teq   reg0,#0
    strb  reg0,[ram6502,#0]
-   .word tempflags-20
 Bopc_C6_fast: // Opcode C6 - DEC $00
    ldrb  reg0,[ram6502,#0]
    nop
@@ -1307,9 +1307,9 @@ Bopc_E5: // Opcode E5 - SBC $00
    .word SBC2-20
 Bopc_E6: // Opcode E6 - INC $00
    ldrb  reg0,[ram6502,#0]
-   add   reg0, reg0, #1
+   .word incflags-12
+   teq   reg0,#0
    strb  reg0,[ram6502,#0]
-   .word tempflags-20
 Bopc_E6_fast: // Opcode E6 - INC $00
    ldrb  reg0,[ram6502,#0]
    nop
@@ -1328,11 +1328,11 @@ Bopc_E9: // Opcode E9 - SBC #$00
 Bopc_EB: // Opcode EB - NOP6 ( Used for instruction timing)
 #if defined(TIMING_INSTRUCTION)
 #if defined(RPI2)|| defined(RPI3) || defined(RPI4)
-   mrc   p15, 0, reg0, c9, c13, 0
+   mrc   p15, 0, r14, c9, c13, 0
 #else
-   MRC   p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
+   MRC   p15, 0, r14, c15, c12, 1    // Read Cycle Counter Register
 #endif
-   str   reg0,[ram6502,#0xE0]
+   str   r14,[ram6502,#0xE0]
 #else
    nop
    nop
@@ -1628,6 +1628,12 @@ opc_E6: // Opcode E6 - INC $00
    ldrb  r7,[r12,r5]
    tst   r7,#NF
    Bne   1f
+   LDMIA r9,{r8,r9,r10,r11}
+   orr   r8,r8,r4
+   MAKEBRANCHLINK r9
+   orr   r11,r11,r4
+   B     jitend2bytestore4
+
 opc_04: // Opcode 04 - TSB $00
 opc_14: // Opcode 14 - TRB $00
    LDMIA r9,{r8,r9,r10,r11}
@@ -3366,6 +3372,16 @@ tempflags:
    sxtb reg0, reg0
    teq  reg0, #0
    bx lr
+
+incflags:
+   add   reg0, reg0, #1
+   sxtb  reg0, reg0
+   bx    lr
+
+decflags:
+   sub   reg0, reg0, #1
+   sxtb  reg0, reg0
+   bx    lr
 
 incstore:
    add  reg12, reg12, #1
