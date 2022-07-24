@@ -24,10 +24,10 @@
 // instruction doesn't need to set the flags. This can help to remove pipeline stalls
 // especially after a ldrb instruction
 
-#define JITDEBUG 0
+#define JITDEBUG 1
 //#define DORMANN_TEST 1
 //#define DEBUG_TIMING 1
-#define OPTIMISMISE 2
+#define OPTIMISMISE 1
 #define TIMING_INSTRUCTION 0
 
 /* Interrupts
@@ -187,11 +187,24 @@ then return to our secret stack This relies on instructions being re entrant , b
 #endif
 .endm
 
+.macro READ_CYCLE_COUNT
+#if defined(RPI2)|| defined(RPI3) || defined(RPI4)
+   mrc   p15, 0, r0, c9, c13, 0
+#else
+   MRC   p15, 0, r0, c15, c12, 1    // Read Cycle Counter Register
+#endif
+.endm
+
 .macro SPACE_THREE_ARM_WORDS
    b 1f
    nop
    nop
 1:
+.endm
+
+.macro SPACE_TWO_ARM_WORDS
+   ARMNOPR6QUICK
+   ARMNOPR1QUICK
 .endm
 
 .macro FILLINJITTEDTABLES table16
@@ -332,8 +345,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro JITABSXYLOGICAL inst index
    JITABSXYLDRSB \index reg0
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    \inst regA,regA,reg0
 .endm
 
@@ -736,8 +748,7 @@ Bopc_4D: // Opcode 4D - EOR $0000
    JITABSLOGICAL eors
 Bopc_4E: // Opcode 4E - LSR $0000
    JITABSLDRBWB
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    LSR6
 Bopc_4F: // Opcode 4F - BBR4
    JITBBR 4
@@ -1017,13 +1028,11 @@ Bopc_A4: // Opcode A4 - LDY $00
    mov   regY,regY,LSL #24
 Bopc_A4_fast: // Opcode A4 - LDY $00
    ldrsb  regY,[ram6502,#0x00]
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    mov   regY,regY,LSL #24
 Bopc_A5: // Opcode A5 - LDA $00
    LDRSB regA,[ram6502,#0x00]
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    teq   regA,#0
 Bopc_A5_fast: // Opcode A5 - LDA $00
    LDRSB regA,[ram6502,#0x00]
@@ -1035,8 +1044,7 @@ Bopc_A6: // Opcode A6 - LDX $00
    mov   regX,regX,LSL #24
 Bopc_A6_fast: // Opcode A6 - LDX $00
    ldrsb  regX,[ram6502,#0x00]
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    mov   regX,regX,LSL #24
 Bopc_A7: // Opcode A7 - SMB2 $00
    JITSMB 2
@@ -1048,8 +1056,7 @@ Bopc_AA: // Opcode AA - TAX
    TEQ   regA, #0
 Bopc_AC: // Opcode AC - LDY $0000
    JITABSLDRB
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    mov   regY,reg12, LSL #24
    teq   regY,#0
 Bopc_AC_io:
@@ -1071,8 +1078,7 @@ Bopc_AD_io: // Opcode AD - LDA $0000
    teq   regA,#0
 Bopc_AE: // Opcode AE - LDX $0000
    JITABSLDRB
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    mov   regX,reg12, LSL #24
    teq   regX,#0
 Bopc_AE_io:
@@ -1101,8 +1107,7 @@ Bopc_B2: // Opcode B2 - LDA ($00)
    teq   regA,#0
 Bopc_B2_fast: // Opcode B2 - LDA ($00)
    ldrh  reg0,[ram6502,#0x00]
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    ldrsb regA,[reg0]
 
 Bopc_B4: // Opcode B4 - LDY $00,X
@@ -1132,8 +1137,7 @@ Bopc_B8: // Opcode B8 - CLV
    bic   flags, #V_FLAG6502
 Bopc_B9: // Opcode B9 - LDA $0000,Y
    JITABSXYLDRSB regY regA
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    teq   regA, #0
 Bopc_B9_fast:
    JITABSXYLDRSB regY regA
@@ -1150,14 +1154,12 @@ Bopc_BC: // Opcode BC - LDY $0000,X
 
 Bopc_BC_fast: // Opcode BC - LDY $0000,X
    JITABSXYLDRSB regX regY
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    mov   regY,regY, lsl #24
 
 Bopc_BD: // Opcode BD - LDA $0000,X
    JITABSXYLDRSB regX regA
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    teq   regA, #0
 Bopc_BD_fast: // Opcode BD - LDA $0000,X
    JITABSXYLDRSB regX regA
@@ -1171,8 +1173,7 @@ Bopc_BE: // Opcode BE - LDX $0000,Y
 
 Bopc_BE_fast: // Opcode BE - LDX $0000,Y
    JITABSXYLDRSB regY regX
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    mov   regX,regX, lsl #24
 Bopc_BF: // Opcode BF - BBS3
    JITBBS 3
@@ -1187,8 +1188,7 @@ Bopc_C1: // Opcode C1 - CMP ($00,X)
    .word cmpa-20
 Bopc_C4: // Opcode C4 - CPY $00
    ldrb  reg0,[ram6502,#0x00]
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    cmp   regY, reg0, lsl #24
 Bopc_C5: // Opcode C5 - CMP $00
    ldrb  reg0,[ram6502,#0x00]
@@ -1213,8 +1213,7 @@ Bopc_C8: // Opcode C8 - INY
 Bopc_C9: // Opcode C9 - CMP #$00
    MOVR1CONST
    rsbs  reg1,reg1,regA,LSL #24
-   ARMNOPR6QUICK
-   ARMNOPR0QUICK
+   SPACE_TWO_ARM_WORDS
 Bopc_CA:  // Opcode CA - DEX
    sub   regX, regX, #0x1000000
    teq   regX, #0
@@ -1300,8 +1299,7 @@ Bopc_E3: // Opcode E3 - NOP6
    .word debugopcode-12
 Bopc_E4: // Opcode E4 - CPX $00
    ldrb  reg0,[ram6502,#0x00]
-   ARMNOPR6QUICK
-   ARMNOPR6QUICK
+   SPACE_TWO_ARM_WORDS
    cmp   regX, reg0, lsl #24
 Bopc_E5: // Opcode E5 - SBC $00
    ldrb  reg12,[ram6502,#0x00]
@@ -1330,12 +1328,8 @@ Bopc_E9: // Opcode E9 - SBC #$00
    .word SBC2-20
 Bopc_EB: // Opcode EB - NOP6 ( Used for instruction timing)
 #if defined(TIMING_INSTRUCTION)
-#if defined(RPI2)|| defined(RPI3) || defined(RPI4)
-   mrc   p15, 0, r14, c9, c13, 0
-#else
-   MRC   p15, 0, r14, c15, c12, 1    // Read Cycle Counter Register
-#endif
-   str   r14,[ram6502,#0xE0]
+   READ_CYCLE_COUNT
+   str   r0,[ram6502,#0xE0]
 #else
    nop
    nop
@@ -1400,11 +1394,7 @@ Bopc_FA: // Opcode FA - PLX
    .word plx-12
 Bopc_FB: // Opcode FB - NOP6
 #if defined(TIMING_INSTRUCTION)
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
-   mrc   p15, 0, reg0, c9, c13, 0
-#else
-   MRC   p15, 0, reg0, c15, c12, 1    // Read Cycle Counter Register
-#endif
+   READ_CYCLE_COUNT
    str   reg0,[ram6502,#0xE4]
 #else
    nop
@@ -1706,13 +1696,10 @@ exec_65tubejit:
    mrc   p15 ,0, r12, c9, c12, 0
    BIC   r12, r12, #8
    mcr   p15, 0, r12, c9, c12, 0
-  // mrc   p15, 0, r12, c9, c13, 0
 #else
    MRC   p15, 0, r12, c15, c12, 0   // Read Performance Monitor Control Register
    BIC   r12 ,r12, #8               // clear div 64 bit
    MCR   p15, 0, r12, c15, c12, 0   // Write Performance Monitor Control Register
- //  MRC   p15, 0, r12, c15, c12, 1  // Read Cycle Counter Register
-
    //mrc   p15, 0, r12, c1, c0, 1     // Read Auxiliary Register Errata 714068 ( cache lock up bug)
    //orr   r0, r0, #0x10000000        // Set PHD bit ( reduces performance by 10% !!)
    //mcr   p15, 0, r0, c1, c0, 1      // Write Auxiliary Control Register
@@ -2734,7 +2721,7 @@ opcode_table:
 .word  opc_E7, Bopc_E7  // Opcode E7 - SMB6 $00
 .word  opc_E8, Bopc_E8  // Opcode E8 - INX
 .word  opc_E9, Bopc_E9  // Opcode E9 - SBC #$00
-.word  opc_EA, ARMNOP   // Opcode EA - NOP
+.word  opc_EA; ARMNOPR6QUICK  // Opcode EA - NOP
 .word  opc_EB, Bopc_EB  // Opcode EB - NOP ( Borrowed for instruction timing)
 .word  opc_EC, Bopc_EC  // Opcode EC - CPX $0000
 .word  opc_ED, Bopc_ED  // Opcode ED - SBC $0000
@@ -2842,6 +2829,7 @@ cacheflushloopI:
 
    DSB
    ISB
+   PLI [r3]
 
 #else
 // Pizero Cache flush code
@@ -2865,7 +2853,7 @@ cacheflushloopI:
    add r4,r4,#JITTEDTABLE16
    add r2,r2,#JITTEDTABLE16
 
-   MCRR p15,0,r7,r3,c12 // clean data cache
+   MCRR p15,0,r7,r3,c12 // clean data cache  ( jitlets)
    MCRR p15,0,r2,r4,c12 // clean data cache
 
    MCRR p15,0,r7,r3,c5 // invalidate instruction cache
@@ -2882,6 +2870,7 @@ cacheflushloopI:
    MCR p15, 0, temp, c7, c5, 6 // flush entire Branch Target Cache
    MCR p15, 0, temp, c7, c5, 4 // flush prefetch buffer
    MCR p15, 0, temp, c7, c10, 4 // DSB
+   MCR p15, 0, r3, c7, c13, 1    // prefetch instruction cache line
 #else
    // clean all the cache
    mov temp,#0
@@ -3238,7 +3227,11 @@ optimiseflags:
    tst   r7,#NF+EF
    beq  optimiseflagsloop
 optimiseflagsexit:
+#if OPTIMISMISE>0
    tst   r7,#NF
+#else
+   movs  r1,#0
+#endif
    bx    LR
 
 ioload:
