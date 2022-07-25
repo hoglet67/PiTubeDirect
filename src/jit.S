@@ -196,10 +196,16 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro SPACE_THREE_ARM_WORDS
+#if (__ARM_ARCH > 6 )
+   nop
+   nop
+   nop
+#else
    b 1f
    nop
    nop
 1:
+#endif
 .endm
 
 .macro SPACE_TWO_ARM_WORDS
