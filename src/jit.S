@@ -306,16 +306,16 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro JITINDYLOGICAL inst
-   ldrh  reg0,[ram6502,#0x00]
-   mov   reg1,regY,LSR #24
+   ldrh  reg1,[ram6502,#0x00]
+   mov   reg0,regY,LSR #24
    ldrsb reg0,[reg0,reg1]
    \inst regA,regA,reg0
 .endm
 
 .macro JITINDLOGICAL inst
-   ldrh  reg0,[ram6502,#0x00]
+   ldrh  reg1,[ram6502,#0x00]
    nop
-   ldrsb reg0,[reg0]
+   ldrsb reg0,[reg1]
    \inst regA,regA,reg0
 .endm
 
@@ -1091,24 +1091,24 @@ Bopc_AF: // Opcode AF - BBS2
    JITBBS 2
 
 Bopc_B1: // Opcode B1 - LDA ($00),Y
-   ldrh  reg0,[ram6502,#0x00]
-   mov   reg1,regY,LSR #24
+   ldrh  reg1,[ram6502,#0x00]
+   mov   reg0,regY,LSR #24
    ldrsb regA,[reg1,reg0]
    teq   regA,#0
 Bopc_B1_fast: // Opcode B1 - LDA ($00),Y
-   ldrh  reg0,[ram6502,#0x00]
-   mov   reg1,regY,LSR #24
+   ldrh  reg1,[ram6502,#0x00]
+   mov   reg0,regY,LSR #24
    ARMNOPR6QUICK
    ldrsb regA,[reg1,reg0]
 Bopc_B2: // Opcode B2 - LDA ($00)
-   ldrh  reg0,[ram6502,#0x00]
+   ldrh  reg1,[ram6502,#0x00]
    ARMNOPR6QUICK
-   ldrsb regA,[reg0]
+   ldrsb regA,[reg1]
    teq   regA,#0
 Bopc_B2_fast: // Opcode B2 - LDA ($00)
-   ldrh  reg0,[ram6502,#0x00]
+   ldrh  reg1,[ram6502,#0x00]
    SPACE_TWO_ARM_WORDS
-   ldrsb regA,[reg0]
+   ldrsb regA,[reg1]
 
 Bopc_B4: // Opcode B4 - LDY $00,X
    ADDR1REGXZP
@@ -1238,13 +1238,13 @@ Bopc_CF: // Opcode CF - BBS4
    JITBBS 4
 
 Bopc_D1: // Opcode D1 - CMP ($00),Y
-   ldrh  reg0,[ram6502,#0x00]
-   ldrb  reg0,[reg0,regY, LSR #24]
+   ldrh  reg1,[ram6502,#0x00]
+   ldrb  reg0,[reg1,regY, LSR #24]
    mov   reg1,regA, LSL #24
    cmp   reg1,reg0,LSL #24
 Bopc_D2: // Opcode D2 - CMP ($00)
-   ldrh  reg0,[ram6502,#0x00]
-   ldrb  reg0,[reg0]
+   ldrh  reg1,[ram6502,#0x00]
+   ldrb  reg0,[reg1]
    mov   reg1,regA, LSL #24
    cmp   reg1,reg0,LSL #24
 Bopc_D5: // Opcode D5 - CMP $00,X
@@ -2128,6 +2128,8 @@ opc_F1: // Opcode F1 - SBC ($00),Y
 opc_72: // Opcode 72 - ADC ($00)
 opc_F2: // Opcode F2 - SBC ($00)
    LDMIA r9,{r8,r9,r10,r11}
+   cmp   r4, #0xff
+   beq   replaceldrhadcsbc
    and r1,r4,#0xF0
    and r4,r4,#0x0F
    orr r8,r8,r1,LSL #4
@@ -3166,35 +3168,53 @@ fillinjittedtable:
    ORR   temp0,temp0,#BINSTRUCTION
    str   temp0,[temp1,temp2,LSL #JITTEDTABLESHIFT]!
    bx    lr
-
+opc_B1: // Opcode B1 - LDA ($00),Y
+opc_B2: // Opcode B2 - LDA ($00)
+   cmp   r4, #0xFF
+   BEQ  replaceldrh
 opc_A4: // Opcode A4 - LDY $00
 opc_A5: // Opcode A5 - LDA $00
 opc_A6: // Opcode A6 - LDX $00
-opc_B1: // Opcode B1 - LDA ($00),Y
-opc_B2: // Opcode B2 - LDA ($00)
+
    ldrb r7,[r12,r5]
    BL optimiseflags
    addne r9,r9,#4*4
+   b fixupldrh
 
-opc_05: // Opcode 05 - ORA $00
 opc_11: // Opcode 11 - ORA ($00),Y
 opc_12: // Opcode 12 - ORA ($00)
-opc_25: // Opcode 25 - AND $00
 opc_31: // Opcode 31 - AND ($00),Y
 opc_32: // Opcode 32 - AND ($00)
-opc_45: // Opcode 45 - EOR $00
 opc_51: // Opcode 51 - EOR ($00),Y
 opc_52: // Opcode 52 - EOR ($00)
 opc_91: // Opcode 91 - STA ($00),Y
 opc_92: // Opcode 92 - STA ($00)
 opc_D1: // Opcode D1 - CMP ($00),Y
 opc_D2: // Opcode D2 - CMP ($00)
-   LDM r9,{r8,r9,r10,r11}
-   and r1,r4,#0xF0
-   and temp,r4,#0x0F
-   orr r8,r8,r1,LSL #4
-   orr r8,r8,temp
-   B jitend2bytestore4
+   cmp   r4, #0xFF
+   BEQ  replaceldrh
+
+opc_05: // Opcode 05 - ORA $00
+opc_25: // Opcode 25 - AND $00
+opc_45: // Opcode 45 - EOR $00
+fixupldrh:
+   LDM   r9, {r8,r9,r10,r11}
+   and   r1, r4, #0xF0
+   and   temp, r4, #0x0F
+   orr   r8, r8, r1, LSL #4
+   orr   r8, r8, temp
+   B     jitend2bytestore4
+
+replaceldrh:
+   LDM   r9, {r8,r9,r10,r11}
+   LDR   r8,=replacementldrh-8
+   MAKEBRANCHLINK r8
+   B     jitend2bytestore4
+
+replaceldrhadcsbc:
+   LDR   r8,=replacementldrh-8
+   MAKEBRANCHLINK r8
+   B     jitend2byteBLendstore
 
 fixuptype2accessquick:
    LDM r9,{r7,r8,r9,r10,r11,r12}
@@ -3540,6 +3560,12 @@ ldrhldrsb:
    ldrh reg0,[reg1]
    ldrsb reg0,[reg0]
    bx lr
+
+replacementldrh:
+   ldrb  r1,[ram6502]
+   ldrb  r0,[ram6502, #0xFF]
+   orr   r1,r0,r1,LSL#8
+   bx    lr
 
 //
 // Decimal mode functions
