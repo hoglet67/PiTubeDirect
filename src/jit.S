@@ -2815,7 +2815,7 @@ cacheflushloopD:
    add r3,r3,r12
    mcr p15,0,r3,cr7,cr11,1 // data JITLET
    add r3,r3,r12
-   blt cacheflushloopD
+   ble cacheflushloopD
 
    DSB
 
@@ -2830,7 +2830,7 @@ cacheflushloopI:
    add r6,r6,r11
    MCR p15,0,r6, c7, c5, 1 // instruction
    add r6,r6,r11
-   blt cacheflushloopI
+   ble cacheflushloopI
 
    MCR p15, 0, temp0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
    //MCR p15, 0, reg12, c7, c5, 0 // invalidate I&BTB cache
