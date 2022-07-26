@@ -531,17 +531,17 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro  PLP
-   uadd8 reg2,regSP,reg12
-   ldrb  reg2, [reg2]
+   uadd8 reg0,regSP,reg12
+   ldrb  reg0, [reg0]
    uadd8 regSP,regSP,reg12
 
    and   reg12, flags, #0xffffff00
-   orr   reg12, reg12, reg2        // preserve the other bits in flags, e.g. the slowdown bit
+   orr   reg12, reg12, reg0        // preserve the other bits in flags, e.g. the slowdown bit
    bic   flags, reg12, #N_FLAG6502+X_FLAG6502+B_FLAG6502+Z_FLAG6502+C_FLAG6502
-   and   reg12, reg2, #N_FLAG6502
-   and   reg2, reg2, #Z_FLAG6502+C_FLAG6502
+   and   reg12, reg0, #N_FLAG6502
+   and   reg0, reg0, #Z_FLAG6502+C_FLAG6502
    mov   reg12, reg12, lsl #24
-   orr   reg12, reg12, reg2, lsl #29
+   orr   reg12, reg12, reg0, lsl #29
    //   Need to update the ARM flags later with  msr     CPSR_flg, reg12
    // reg1 return address
    // reg12 has 6502 flags to be restored to the ARM
@@ -1853,8 +1853,10 @@ cacheflushloopjittable:
    str   temp0,old_irq_vector
    str   temp1,[temp]
    CPSIE if // enable interupts
+   mov   reg2,#JITLET
    mov   r4, #2 // constant used by jsr rts
-   bx r3
+   add   reg2,reg2,#NEXTJITLET
+   bx    r3
 
 //*************************************************************
 reset_handler:
@@ -1947,11 +1949,13 @@ fiq_during_irq:
 
    push  {r0-r12,r14}         // stack everything onto user stack
 
+   ldr   reg0, =tube_irq             // Get IRQ status
+   mrs   reg12,CPSR
+
 rtiended:
-   ldr   r12,=tube_irq
    CPSID if                   // could come from rti
 
-   ldr   r0, [r12]            // Get Mailbox data
+   ldr   r0, [r0]            // Get Mailbox data
 
 // process events
 
@@ -1964,8 +1968,7 @@ rtiended:
    tst   r0, #IRQ_BIT         // Bit 0 set indicate IRQ is active
    beq   noirq                // Take the IRQ interrupt
 
-handle_irq_fake:
-   msr   CPSR_flg, temp2      // Restore the 6502 flags
+   msr   CPSR_flg, reg12      // Restore the 6502 flags
    INTR  -2, 0, FAKE
 
 noirq:
@@ -1975,7 +1978,7 @@ noirq:
 handle_nmi:
    BIC   r0,r0,#NMI_BIT       // clear NMI flag
    str   r0,[r12]             // Store it back again
-   msr   CPSR_flg, r2         // Restore the 6502 flags
+   msr   CPSR_flg, r12        // Restore the 6502 flags
    INTR  -6, 0, FAKE
 
 
@@ -1999,7 +2002,7 @@ arm_jit_irq_handler:
 
 // so we get here by storing data to a location that has already been jitted
 // Normally we having branched with link to the JITTEDTABLE16. which contains BX LR
-// if that location has been jitted then the bx lr will have been replaced b dejit
+// if that location has been jitted then the bx lr will have been replaced by b dejit
 //
 // so now we need to replace all the jitted code for that instruction with
 // B dojit.
@@ -2009,17 +2012,14 @@ arm_jit_irq_handler:
 
 // one byte instruction
 dejit16bit1: //reg1 pointer to address to dejit
-   ldr reg2,=dojit-JITLET-8
+   ldr reg3,=dojit-JITLET-8
    ldr reg0,=MOVPCR14INSTRUCTION
    mov reg12,#JITLET
-   sub reg2,reg2,reg1,LSL # JITLETSHIFT
-
-   mov reg2,reg2,LSR#BYTEWORDSHIFT
-   add reg2,reg2,#BLINSTRUCTION
-
-   str reg2,[reg12,reg1,LSL #JITLETSHIFT]!
+   sub reg3,reg3,reg1,LSL # JITLETSHIFT
+   mov reg3,reg3,LSR#BYTEWORDSHIFT
+   add reg3,reg3,#BLINSTRUCTION
+   str reg3,[reg12,reg1,LSL #JITLETSHIFT]!
    mov reg3,#0 // only used in Armv6 DSB
-
    DEJITCLEAN 1
    mov reg12,#JITTEDTABLE16
 #if JITTEDTABLESHIFT==3
@@ -2033,16 +2033,16 @@ dejit16bit1: //reg1 pointer to address to dejit
 dejit16bit22:
    sub   reg1, reg1, #1
 dejit16bit21: // reg1 , reg1+4
-   ldr   reg2,=dojit-JITLET-8
+   ldr   reg3,=dojit-JITLET-8
    ldr   reg0,=MOVPCR14INSTRUCTION
    mov   reg12,#JITLET
-   sub   reg2,reg2,reg1,LSL # JITLETSHIFT
+   sub   reg3,reg3,reg1,LSL # JITLETSHIFT
+   mov   reg3,reg3,LSR#BYTEWORDSHIFT
+   add   reg3,reg3,#BLINSTRUCTION
+   str   reg3,[reg12,reg1,LSL #JITLETSHIFT]!
+   sub   reg3,reg3,#(NEXTJITLET>>2)
+   str   reg3,[reg12,#NEXTJITLET]
    mov   reg3,#0 // only used in Armv6 DSB
-   mov   reg2,reg2,LSR#BYTEWORDSHIFT
-   add   reg2,reg2,#BLINSTRUCTION
-   str   reg2,[reg12,reg1,LSL #JITLETSHIFT]!
-   sub   reg2,reg2,#(NEXTJITLET>>2)
-   str   reg2,[reg12,#NEXTJITLET]
    DEJITCLEAN 1
    add   reg12, reg12, #NEXTJITLET
    DEJITCLEAN 1
@@ -2064,19 +2064,20 @@ dejit16bit33:
 dejit16bit32:
    sub   reg1, reg1, #1
 dejit16bit31: // reg1 , reg1+4, reg1 + 8
-   ldr   reg2,=dojit-JITLET-8
+   ldr   reg3,=dojit-JITLET-8
    ldr   reg0,=MOVPCR14INSTRUCTION
    mov   reg12,#JITLET
-   sub   reg2,reg2,reg1,LSL # JITLETSHIFT
-   mov   reg3,#0 // only used in Armv6 DSB
-   mov   reg2,reg2,LSR#BYTEWORDSHIFT
-   add   reg2,reg2,#BLINSTRUCTION
+   sub   reg3,reg3,reg1,LSL # JITLETSHIFT
 
-   str   reg2,[reg12,reg1,LSL #JITLETSHIFT]!
-   sub   reg2,reg2,#NEXTJITLET>>2
-   str   reg2,[reg12,#NEXTJITLET]
-   sub   reg2,reg2,#NEXTJITLET>>2
-   str   reg2,[reg12,#NEXTJITLET<<1]
+   mov   reg3,reg3,LSR#BYTEWORDSHIFT
+   add   reg3,reg3,#BLINSTRUCTION
+
+   str   reg3,[reg12,reg1,LSL #JITLETSHIFT]!
+   sub   reg3,reg3,#NEXTJITLET>>2
+   str   reg3,[reg12,#NEXTJITLET]
+   sub   reg3,reg3,#NEXTJITLET>>2
+   str   reg3,[reg12,#NEXTJITLET<<1]
+   mov   reg3,#0 // only used in Armv6 DSB
    DEJITCLEAN 1
    add   reg12, reg12, #NEXTJITLET
    DEJITCLEANMID
@@ -2935,6 +2936,9 @@ handle_irq_jit:
    SUB   temp1,r3,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
    msr   CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
+   mov   reg2,#JITLET
+   mov   r4, #2 // constant used by jsr rts
+   add   reg2,reg2,#NEXTJITLET
    INTR  -2, 0
 
 handle_nmi_jit:
@@ -2944,11 +2948,16 @@ handle_nmi_jit:
    SUB   temp1,r3,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
    msr   CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
+   mov   reg2,#JITLET
+   mov   r4, #2 // constant used by jsr rts
+   add   reg2,reg2,#NEXTJITLET
    INTR  -4, 0
 
 noirq_jit:
    msr   CPSR, r4
+   mov   reg2,#JITLET
    mov   r4, #2 // constant used by jsr rts
+   add   reg2,reg2,#NEXTJITLET
    bx    r3
 
 debugopcode:
@@ -3261,27 +3270,31 @@ optimiseflagsexit:
    bx    LR
 
 ioload:
-   push    {lr}               // ram6502 (r6) is used as a working register
-   mrs     reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
-   CPSID   if                 // Disable FIQ/IRQ at the same time
-   bl      tube_parasite_read // Call up to C code to handle parasite read
-   msr     CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
+   push  {lr}               // ram6502 (r6) is used as a working register
+   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   CPSID if                 // Disable FIQ/IRQ at the same time
+   bl    tube_parasite_read // Call up to C code to handle parasite read
+   msr   CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
+   mov   reg2,#JITLET
    mov   r4, #2 // constant used by jsr rts
-   pop     {pc}               // Restore registers and return
+   add   reg2,reg2,#NEXTJITLET
+   pop   {pc}               // Restore registers and return
 
 indirectiostore:
-   sub     reg0,reg0,jittedtable16ptr
-   and     reg1,regA,#0xFF    // This is an assumption that the value is in regA
-   mov     reg0,reg0,LSR #JITTEDTABLESHIFT
+   sub   reg0,reg0,jittedtable16ptr
+   and   reg1,regA,#0xFF    // This is an assumption that the value is in regA
+   mov   reg0,reg0,LSR #JITTEDTABLESHIFT
 
 iostore:
-   push    {lr}               // ram6502 (r6) is used as a working register
-   mrs     reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
-   CPSID   if                 // Disable FIQ/IRQ at the same time
-   bl      tube_parasite_write_banksel // Call up to C code to handle parasite write
-   msr     CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
+   push  {lr}               // ram6502 (r6) is used as a working register
+   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   CPSID if                 // Disable FIQ/IRQ at the same time
+   bl    tube_parasite_write_banksel // Call up to C code to handle parasite write
+   msr   CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
+   mov   reg2,#JITLET
    mov   r4, #2 // constant used by jsr rts
-   pop     {pc}               // Restore registers and return
+   add   reg2,reg2,#NEXTJITLET
+   pop   {pc}               // Restore registers and return
 
 // Jits overflow
 
@@ -3295,16 +3308,14 @@ rti:
    PLP
    ldrh  reg1, [regSP, #1]
 
-   mov   reg0, #2
-   UADD8 regSP, regSP, reg0
+   UADD8 regSP, regSP, reg4
 
    add   reg0,reg1,#1
    cmp   reg0,#0x10000
-
+   ldr   reg0, =tube_irq             // Get IRQ status
    // so we have an irq that happened during execution
    beq   rtiended
 
-   ldr   reg0, =tube_irq             // Get IRQ status
    tst   flags, #I_FLAG6502        // Test whether interrupts are enabled (bit 2 = 0)
    bne   dontdoirqnow
    ldr   reg0, [reg0]
@@ -3318,7 +3329,7 @@ dontdoirqnow:
 
 handle_irqrti:
 
-   msr   CPSR_flg, temp     // Restore the 6502 flags
+   msr   CPSR_flg, reg12     // Restore the 6502 flags
    INTR  -2, 0
 
 cli:
@@ -3446,11 +3457,9 @@ pla:
    bx lr
 
 rts:
-   mov reg12,#JITLET
-   add  reg12,reg12,#NEXTJITLET
-   add  reg12,reg12,reg0,LSL #JITLETSHIFT
+   add   reg12,reg2,reg0,LSL #JITLETSHIFT
    UADD8 regSP, regSP, reg4
-   bx reg12
+   bx    reg12
 
 rora:
    subcs   regA, regA, #0x100   // if Carry set all other bits ie sign extend
@@ -3472,64 +3481,64 @@ rola:
    bx lr
 
 bitioload: //2c
-   push {r14}
-   BL      ioload
-   pop  {r14}
+   push  {r14}
+   BL    ioload
+   pop   {r14}
 
 bitadjustr14:
-   add reg2,r14,#16
-   bic     flags, flags, #V_FLAG6502
-   tst     r0, regA  // This clears N flag and sets up the Z flag
-   mrs     reg12, CPSR
-   and     reg1, r0, #N_FLAG6502
-   and     r0, r0, #V_FLAG6502
-   orr     flags, flags, r0
-   orr     reg12, reg12, reg1, LSL #24
-   msr     CPSR_flg, reg12
-   bx  reg2
+   add   reg3,r14,#16
+   bic   flags, flags, #V_FLAG6502
+   tst   r0, regA  // This clears N flag and sets up the Z flag
+   mrs   reg12, CPSR
+   and   reg1, r0, #N_FLAG6502
+   and   r0, r0, #V_FLAG6502
+   orr   flags, flags, r0
+   orr   reg12, reg12, reg1, LSL #24
+   msr   CPSR_flg, reg12
+   bx    reg3
 
 bit24: // 24
-   add     r2,r14,#8
-   bic     flags, flags, #V_FLAG6502
-   tst     reg12, regA  // This clears N flag and sets up the Z flag
-   mrs     reg0, CPSR
-   and     reg1, reg12, #N_FLAG6502
-   and     reg12, reg12, #V_FLAG6502
-   orr     flags, flags, reg12
-   orr     reg0, reg0, reg1, LSL #24
-   msr     CPSR_flg, reg0
-   bx       r2
+   add   r3,r14,#8
+   bic   flags, flags, #V_FLAG6502
+   tst   reg12, regA  // This clears N flag and sets up the Z flag
+   mrs   reg0, CPSR
+   and   reg1, reg12, #N_FLAG6502
+   and   reg12, reg12, #V_FLAG6502
+   orr   flags, flags, reg12
+   orr   reg0, reg0, reg1, LSL #24
+   msr   CPSR_flg, reg0
+   bx    r3
 
 bit: // 34
    tst     reg12, regA  // This clears N flag and sets up the Z flag
 bit2: // 3c
-   mrs     reg0, CPSR
-   and     reg1, reg12, #N_FLAG6502
-   and     reg12, reg12, #V_FLAG6502
-   orr     flags, flags, reg12
-   orr     reg0, reg0, reg1, LSL #24
-   msr     CPSR_flg, reg0
-   bx lr
+   mrs   reg0, CPSR
+   and   reg1, reg12, #N_FLAG6502
+   and   reg12, reg12, #V_FLAG6502
+   orr   flags, flags, reg12
+   orr   reg0, reg0, reg1, LSL #24
+   msr   CPSR_flg, reg0
+   bx    lr
 
 cmpa:
-   ldrb reg0,[reg1]
-   mov reg1,regA,LSL #24
-   cmp reg1,reg0,LSL#24
-   bx lr
+   ldrb  reg0,[reg1]
+   mov   reg1,regA,LSL #24
+   cmp   reg1,reg0,LSL#24
+   bx    lr
 
 loada:
    ldrsb regA,[reg1]
-   teq regA,#0
-   bx lr
+   teq   regA,#0
+   bx    lr
 
 aflags:
-   sxtb    regA, regA
-   teq     regA, #0
-   bx lr
+   sxtb  regA, regA
+   teq   regA, #0
+   bx    lr
 
 asl:
    ASL6
-   bx lr
+   bx    lr
 
 php:
    orrmi reg12, reg12, #N_FLAG6502
@@ -3537,7 +3546,7 @@ php:
    orreq reg12, reg12, #Z_FLAG6502
 pushtemp:
    SPUSH reg12
-   bx lr
+   bx    lr
 
 //   mrs reg0, CPSR
 trb:
