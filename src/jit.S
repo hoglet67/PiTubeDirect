@@ -1198,8 +1198,8 @@ Bopc_C4: // Opcode C4 - CPY $00
    cmp   regY, reg0, lsl #24
 Bopc_C5: // Opcode C5 - CMP $00
    ldrb  reg0,[ram6502,#0x00]
+   ARMNOPR6QUICK
    mov   reg1,regA,LSL #24
-   nop
    cmp   reg1, reg0, LSL #24
 Bopc_C6: // Opcode C6 - DEC $00
    ldrb  reg0,[ram6502,#0]
