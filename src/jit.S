@@ -3424,18 +3424,18 @@ incstore:
 
 plx:
    uadd8 regX,regSP,reg1
-   ldrb  regX, [regX]
+   ldrsb  regX, [regX]
    uadd8 regSP,regSP,reg1
-   mov   regX, regX, LSL #24
    teq   regX, #0
+   mov   regX, regX, LSL #24
    bx lr
 
 ply:
    uadd8 regY,regSP,reg1
-   ldrb  regY, [regY]
+   ldrsb  regY, [regY]
    uadd8 regSP,regSP,reg1
-   mov   regY, regY, LSL #24
    teq   regY, #0
+   mov   regY, regY, LSL #24
    bx lr
 
 pla:
