@@ -296,7 +296,6 @@ static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel
       }
       break;
    default:
-      break;
       // TODO - Left and Right not implemented
       break;
    }
