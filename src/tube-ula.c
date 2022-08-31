@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include "tube-defs.h"
 #include "tube.h"
@@ -18,6 +19,7 @@
 #include "cache.h"
 #include "info.h"
 #include "performance.h"
+#include "framebuffer/framebuffer.h"
 
 // For predictable timing (i.e. stalling to to cache or memory contention)
 // we need to find somewhere in I/O space to place the tube registers.
@@ -38,6 +40,8 @@
 // Another option if we go back to 8-bit values tube_regs is to use
 // CPG_Param0..CPG_Param1
 
+static void start_vc_ula();
+
 #define GPU_TUBE_REG_ADDR 0x7e0000a0
 #define ARM_TUBE_REG_ADDR ((GPU_TUBE_REG_ADDR & 0x00FFFFFF) | PERIPHERAL_BASE)
 
@@ -45,33 +49,36 @@
 #include "startup.h"
 
 int test_pin;
-static int led_type=0;
+static uint32_t led_type=0;
 
 static volatile uint32_t *tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
 static uint32_t host_addr_bus;
 
-#define HBIT_7 (1 << 25)
-#define HBIT_6 (1 << 24)
-#define HBIT_5 (1 << 23)
-#define HBIT_4 (1 << 22)
-#define HBIT_3 (1 << 11)
-#define HBIT_2 (1 << 10)
-#define HBIT_1 (1 << 9)
-#define HBIT_0 (1 << 8)
+#define HBIT_7 ((uint32_t)(1 << 25))
+#define HBIT_6 ((uint32_t)(1 << 24))
+#define HBIT_5 ((uint32_t)(1 << 23))
+#define HBIT_4 ((uint32_t)(1 << 22))
+#define HBIT_3 ((uint32_t)(1 << 11))
+#define HBIT_2 ((uint32_t)(1 << 10))
+#define HBIT_1 ((uint32_t)(1 << 9))
+#define HBIT_0 ((uint32_t)(1 << 8))
 
-#define BYTE_TO_WORD(data) ((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18))
-#define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) << 18) & 0xF0))
+#define BYTE_TO_WORD(data) ((uint32_t)((((data) & 0x0F) << 8) | (((data) & 0xF0) << 18)))
+#define WORD_TO_BYTE(data) ((((data) >> 8) & 0x0F) | (((data) >> 18) & 0xF0))
 
 static char copro_command =0;
 static perf_counters_t pct;
 
-uint8_t ph1[24],ph3_1;
-uint8_t hp1,hp2,hp3[2],hp4;
-uint8_t pstat[4];
-uint8_t ph3pos,hp3pos;
-uint8_t ph1rdpos,ph1wrpos,ph1len;
+static uint8_t ph1[24],ph3_1;
+static uint8_t hp1,hp2,hp3[2],hp4;
+static uint8_t pstat[4];
+static uint8_t ph3pos,hp3pos;
+static uint8_t ph1rdpos,ph1wrpos,ph1len;
 volatile int tube_irq;
 
+// Default value of the VDU property is 0 (off)
+int vdu_enabled = 0;
+uint8_t vdu_var = 0;
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
@@ -118,7 +125,7 @@ void tube_dump_buffer() {
          if (tube_buffer[i] & TUBE_WRITE_MARKER) {
             LOG_INFO("Wr R");
          }
-         // Covert address (1,3,5,7) to R1,R2,R3,R4
+         // Convert address (1,3,5,7) to R1,R2,R3,R4
          LOG_INFO("%u = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
       } else {
          LOG_INFO("?? %08x\r\n", tube_buffer[i]);
@@ -178,37 +185,43 @@ void tube_ack_nmi(void)
    }
 }
 
-void copro_command_excute(unsigned char copro_command,unsigned char val)
+static void copro_command_excute(unsigned char copro_comm,unsigned char val)
 {
-    switch (copro_command)
-    {
-      case 0 :
-          if (val == 0)
-             copro_speed = 0;
-          else
-             copro_speed = (arm_speed/(1000000/256) / val);
-          LOG_DEBUG("New Copro speed= %u, %u\r\n", val, copro_speed);
-          return;
-      case 1 : // *fx 151,226,1 followed by *fx 151,228,val
-               // Select memory size
-               if (val & 128 )
-                  copro_memory_size = (val & 127 ) * 8 * 1024 * 1024;
-               else
-                  copro_memory_size = (val & 127 ) * 64 * 1024 ;
-               if (copro_memory_size > 16 *1024 * 1024)
-                  copro_memory_size = 0;
-               LOG_DEBUG("New Copro memory size = %u, %u\r\n", val, copro_memory_size);
-               copro = copro | 128 ;  // Set bit 7 to signal full reset of core
-               return;
-      default :
-          break;
-    }
-
+   switch (copro_comm) {
+   case 0:
+      if (val == 0) {
+         copro_speed = 0;
+      }  else {
+         copro_speed = (arm_speed/(1000000/256) / val);
+      }
+      LOG_DEBUG("New Copro speed= %u, %u\r\n", val, copro_speed);
+      break;
+   case 1:
+      // *fx 151,226,1 followed by *fx 151,228,val
+      // Select memory size
+      if (val & 128 ) {
+         copro_memory_size = (val & 127 ) * 8 * 1024 * 1024;
+      } else {
+         copro_memory_size = (val & 127 ) * 64 * 1024 ;
+      }
+      if (copro_memory_size > 16 *1024 * 1024) {
+         copro_memory_size = 0;
+      }
+      LOG_DEBUG("New Copro memory size = %u, %u\r\n", val, copro_memory_size);
+      copro = copro | 128 ;  // Set bit 7 to signal full reset of core
+      break;
+   case 3:
+      if (vdu_enabled) {
+         fb_writec_buffered(val);
+      }
+      break;
+   default:
+      break;
+   }
 }
 
 static void tube_reset()
 {
-   tube_irq |= TUBE_ENABLE_BIT;
    tube_irq &= ~(RESET_BIT + NMI_BIT + IRQ_BIT);
    hp3pos = 0;
    ph1rdpos = ph1wrpos = ph1len = 0;
@@ -240,7 +253,7 @@ static void tube_reset()
 // Reading of status registers has no side effects, so nothing to
 // do here for even registers (all handled in the FIQ handler).
 
-static void tube_host_read(uint16_t addr)
+static void tube_host_read(uint32_t addr)
 {
    switch (addr & 7)
    {
@@ -256,7 +269,7 @@ static void tube_host_read(uint16_t addr)
             else
                ph1rdpos++;
          }
-         if (!ph1len) HSTAT1 &= ~HBIT_7;
+         if (!ph1len) HSTAT1 &= (uint32_t)~HBIT_7;
          PSTAT1 |= 0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the irq status
@@ -264,7 +277,7 @@ static void tube_host_read(uint16_t addr)
    case 3: /*Register 2*/
       if (HSTAT2 & HBIT_7)
       {
-         HSTAT2 &= ~HBIT_7;
+         HSTAT2 &= (uint32_t)~HBIT_7;
          PSTAT2 |=  0x40;
       }
       break;
@@ -274,7 +287,7 @@ static void tube_host_read(uint16_t addr)
          PH3_0 = BYTE_TO_WORD(PH3_1);
          ph3pos--;
          PSTAT3 |= 0xC0;
-         if (!ph3pos) HSTAT3 &= ~HBIT_7;
+         if (!ph3pos) HSTAT3 &= (uint32_t)~HBIT_7;
          if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=NMI_BIT;
          //tube_updateints_NMI();
       }
@@ -282,7 +295,7 @@ static void tube_host_read(uint16_t addr)
    case 7: /*Register 4*/
       if (HSTAT4 & HBIT_7)
       {
-         HSTAT4 &= ~HBIT_7;
+         HSTAT4 &= (uint32_t)~HBIT_7;
          PSTAT4 |=  0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the irq status
@@ -290,12 +303,12 @@ static void tube_host_read(uint16_t addr)
    }
 }
 
-static void tube_host_write(uint16_t addr, uint8_t val)
+static void tube_host_write(uint32_t addr, uint8_t val)
 {
    switch (addr & 7)
    {
    case 0: /*Register 1 control/status*/
-
+      {
       if (!(tube_irq & TUBE_ENABLE_BIT))
          return;
 
@@ -347,23 +360,40 @@ static void tube_host_write(uint16_t addr, uint8_t val)
       if ((HSTAT1 & HBIT_2) && (PSTAT4 & 128)) tube_irq  |= IRQ_BIT;
 
       break;
+      }
    case 1: /*Register 1*/
       //if (!tube_enabled)
       //      return;
       hp1 = val;
       PSTAT1 |=  0x80;
-      HSTAT1 &= ~HBIT_6;
+      HSTAT1 &= (uint32_t)~HBIT_6;
       if (HSTAT1 & HBIT_1) tube_irq  |= IRQ_BIT; //tube_updateints_IRQ();
       break;
    case 2:
       copro_command = val;
+      // TODO:
+      //   *FX 226, 2 disables the VDU
+      //   *FX 226, 3 enables the VDU
+      //
+      // This currently doesn't work, because it's executing
+      // in FIQ context and likely takes too long
+      //
+      //if ((val & 0xfe) == 0x02) {
+      //   val &= 1;
+      //   if (!vdu_enabled && val) {
+      //      fb_initialize();
+      //   } else if (vdu_enabled && !val) {
+      //      fb_destroy();
+      //   }
+      //   vdu_enabled = val;
+      //}
       break;
    case 3: /*Register 2*/
       //if (!tube_enabled)
       //  return;
       hp2 = val;
       PSTAT2 |=  0x80;
-      HSTAT2 &= ~HBIT_6;
+      HSTAT2 &= (uint32_t)~HBIT_6;
       break;
    case 4:
       copro_command_excute(copro_command,val);
@@ -383,7 +413,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          if (hp3pos == 2)
          {
             PSTAT3 |=  0x80;
-            HSTAT3 &= ~HBIT_6;
+            HSTAT3 &= (uint32_t)~HBIT_6;
          }
          if ((HSTAT1 & HBIT_3) && (hp3pos > 1)) tube_irq |= NMI_BIT;
       }
@@ -392,7 +422,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
          hp3[0] = val;
          hp3pos = 1;
          PSTAT3 |=  0x80;
-         HSTAT3 &= ~HBIT_6;
+         HSTAT3 &= (uint32_t)~HBIT_6;
          if (HSTAT1 & HBIT_3) tube_irq |= NMI_BIT;
       }
       //tube_updateints_NMI();
@@ -406,7 +436,7 @@ static void tube_host_write(uint16_t addr, uint8_t val)
      //       return;
       hp4 = val;
       PSTAT4 |=  0x80;
-      HSTAT4 &= ~HBIT_6;
+      HSTAT4 &= (uint32_t)~HBIT_6;
 #ifdef DEBUG_TRANSFERS
       if (val == 4) {
          LOG_INFO("checksum_h = %08"PRIX32" %08"PRIX32"\r\n", count_h, checksum_h);
@@ -420,26 +450,50 @@ static void tube_host_write(uint16_t addr, uint8_t val)
        if (HSTAT1 & HBIT_2) tube_irq |= IRQ_BIT; //tube_updateints_IRQ();
       break;
    default:
-      LOG_WARN("Illegal host write to %d\r\n", addr);
+      LOG_WARN("Illegal host write to %08"PRIX32"\r\n", addr);
    }
 }
 
 uint8_t tube_parasite_read(uint32_t addr)
 {
+   uint8_t temp = 0xAA;
+   // Squeeze in read-only framebuffer registers at FEF1, FEF2, FEF3
+   // note: only the 6502 Co Pros pass a full 16-bit address in
+   // note: avoid FEF0 as this is Reg0 in the Turbo Co Pro
+   if (vdu_enabled && (addr & 0xFFF8) == 0xFEF0) {
+      switch (addr & 7) {
+      case 1:
+         // Return the cursor column within the viewport (used for OSBYTE &86)
+         temp = (uint8_t)fb_get_cursor_x();
+         break;
+      case 2:
+         // Return the cursor row location within the viewport (used for OSBYTE &86)
+         temp = (uint8_t)fb_get_cursor_y();
+         break;
+      case 3:
+         // Return the character under the cursor (used for OSBYTE &87)
+         temp = (uint8_t)fb_get_cursor_char();
+         break;
+      case 4:
+         // Return the pre-RISCOS VDU variable(used for OSBYTE &A0)
+         temp = fb_read_legacy_vdu_variable(vdu_var);
+         break;
+      }
+      return temp;
+   }
    int cpsr = _disable_interrupts();
-   uint8_t temp ;
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
-      temp = PSTAT1 | (WORD_TO_BYTE(HSTAT1) & 0x3F);
+      temp = (uint8_t)(PSTAT1 | (WORD_TO_BYTE(HSTAT1) & 0x3F));
       break;
    case 1: /*Register 1*/
       temp = hp1;
       if (PSTAT1 & 0x80)
       {
-         PSTAT1 &= ~0x80;
+         PSTAT1 &= (uint8_t)~0x80;
          HSTAT1 |=  HBIT_6;
-         //tube_updateints_IRQ(); // clear irq if required reg 4 isnt irqing
+         //tube_updateints_IRQ(); // clear irq if required reg 4 isn't irqing
          if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT;
       }
       break;
@@ -450,7 +504,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       temp = hp2;
       if (PSTAT2 & 0x80)
       {
-         PSTAT2 &= ~0x80;
+         PSTAT2 &= (uint8_t)~0x80;
          HSTAT2 |=  HBIT_6;
       }
       break;
@@ -471,7 +525,7 @@ uint8_t tube_parasite_read(uint32_t addr)
          if (!hp3pos)
          {
             HSTAT3 |=  HBIT_6;
-            PSTAT3 &= ~0x80;
+            PSTAT3 &= (uint8_t)~0x80;
          }
          //tube_updateints_NMI();
          // here we want to only clear NMI if required
@@ -485,9 +539,9 @@ uint8_t tube_parasite_read(uint32_t addr)
       temp = hp4;
       if (PSTAT4 & 0x80)
       {
-         PSTAT4 &= ~0x80;
+         PSTAT4 &= (uint8_t)~0x80;
          HSTAT4 |=  HBIT_6;
-         //tube_updateints_IRQ(); // clear irq if  reg 1 isnt irqing
+         //tube_updateints_IRQ(); // clear irq if  reg 1 isn't irqing
          if (!(PSTAT1 & 128)) tube_irq &= ~IRQ_BIT;
       }
       break;
@@ -513,10 +567,15 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
   if ((addr & 0xFFF8) == 0xFEF8) {
     // Tube writes get passed on to original code
     tube_parasite_write(addr, val);
+  } else if ((addr & 0xFFF8) == 0xFEF0) {
+     // Writing to FEF4 selects a VDU variable to read
+     if ((addr & 7) == 4) {
+        vdu_var = val;
+     }
   } else if ((addr & 0xFFF8) == 0xFEE0) {
      // Implement write only bank selection registers for 8x 8K pages
-     int logical = (addr & 7) << 1;
-     int physical = (val << 1);
+     unsigned int logical = (addr & 7) << 1;
+     unsigned int physical = (val << 1);
      map_4k_page(logical, physical);
      map_4k_page(logical + 1, physical + 1);
      // Page 0 must also be mapped as page 16 (64K)
@@ -553,14 +612,14 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
          ph1len++;
          HSTAT1 |= HBIT_7;
-         if (ph1len == 24) PSTAT1 &= ~0x40;
+         if (ph1len == 24) PSTAT1 &= (uint8_t)~0x40;
       }
       // tube_updateints_IRQ(); // the above can't change the IRQ flags
       break;
    case 3: /*Register 2*/
       PH2 = BYTE_TO_WORD(val);
       HSTAT2 |=  HBIT_7;
-      PSTAT2 &= ~0x40;
+      PSTAT2 &= (uint8_t)~0x40;
       break;
    case 5: /*Register 3*/
       if (HSTAT1 & HBIT_4)
@@ -576,9 +635,9 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          if (ph3pos == 2)
          {
             HSTAT3 |=  HBIT_7;
-            PSTAT3 &= ~0xC0;
+            PSTAT3 &= (uint8_t)~0xC0;
          }
-         //NMI if other case isn't seting it
+         //NMI if other case isn't setting it
          if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
       }
       else
@@ -586,8 +645,8 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
          PH3_0 = BYTE_TO_WORD(val);
          ph3pos = 1;
          HSTAT3 |=  HBIT_7;
-         PSTAT3 &= ~0xC0;
-         //NMI if other case isn't seting it
+         PSTAT3 &= (uint8_t)~0xC0;
+         //NMI if other case isn't setting it
          if (!(hp3pos > 0) ) tube_irq &= ~NMI_BIT;
       }
       //tube_updateints_NMI();
@@ -597,13 +656,17 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
    case 7: /*Register 4*/
       PH4 = BYTE_TO_WORD(val);
       HSTAT4 |=  HBIT_7;
-      PSTAT4 &= ~0x40;
+      PSTAT4 &= (uint8_t)~0x40;
       // tube_updateints_IRQ(); // the above can't change IRQ flag
       break;
    }
    if ((cpsr & 0xc0) != 0xc0) {
       _set_interrupts(cpsr);
-  }
+   }
+   if (vdu_enabled && (addr & 7) == 0) {
+      // Write to &FEF8
+      fb_writec(val);
+   }
 }
 
 // Returns bit 0 set if IRQ is asserted by the tube
@@ -612,113 +675,48 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 
 int tube_io_handler(uint32_t mail)
 {
-   int addr;
-#ifndef USE_GPU
-   int data;
-   int rnw;
-   int ntube;
-   int nrst;
+   // 23..16 -> D7..D0
+   // 12     -> RST (active high)
+   // 11     -> RnW
+   // 10..8  -> A2..A0
+   //
+   // Shortcut writes of 0x81 or 0x01 to the tube control register bit 0
+   // This is used for tube detection by the MOS
+   // Writes need to be visible within three 6502 bus cycles (1.5us)
+   //
+   //         D D D D  D D D D  - - - R  R A A A  - - - -  - - - -
+   //  mask:  0 1 1 1  1 1 1 1  0 0 0 1  1 1 1 1  0 0 0 0  0 0 0 0 = 0x7F1F00
+   // value:  0 0 0 0  0 0 0 1  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0 = 0x010000
+   if ((mail & 0x7F1F00) == 0x010000) {
+      if (tube_irq & TUBE_ENABLE_BIT) {
+         HSTAT1 = (HSTAT1 & ~HBIT_0) ^ ((mail & (1 << 23)) ? HBIT_0 : 0);
+         // then process the request as normal
+      }
+   }
 
-#ifdef USE_HW_MAILBOX
-   // Sequence numbers are currently 4 bits, and are stored in bits 12..15
-   int act_seq_num;
-   static int exp_seq_num = -1;
-   act_seq_num = (mail >> 12) & 15;
-#endif
-#endif
-
-#ifdef USE_GPU
-
-   if ((mail >> 12) & 1)        // Check for Reset
-   {
+   // Check for Reset
+   if (mail & (1 << 12)) {
       tube_irq |= RESET_BIT;
-      return tube_irq;      // Set reset Flag
-   }
-   else
-   {
-      addr = (mail>>8) & 7;
-      if ( ( (mail >>11 ) & 1) == 0) {  // Check read write flag
-         tube_host_write(addr, mail & 0xFF);
-      } else {
+   } else {
+      unsigned int addr = (mail >> 8) & 7;
+      // Check read write flag
+      if (mail & (1 << 11)) {
          tube_host_read(addr);
-      }
-      return tube_irq ;
-   }
-#else
-   addr = 0;
-   if (mail & A0_MASK) {
-      addr += 1;
-   }
-   if (mail & A1_MASK) {
-      addr += 2;
-   }
-   if (mail & A2_MASK) {
-      addr += 4;
-   }
-   data  = ((mail >> D0_BASE) & 0xF) | (((mail >> D4_BASE) & 0xF) << 4);
-   rnw   = (mail >> RNW_PIN) & 1;
-   ntube = (mail >> NTUBE_PIN) & 1;
-   nrst  = (mail >> NRST_PIN) & 1;
-
-   // Only report OVERRUNs that occur when nRST is high
-#ifdef USE_HW_MAILBOX
-   if (exp_seq_num < 0) {
-      // A resync is being forces
-      exp_seq_num = act_seq_num;
-   } else {
-      // Increment the expected sequence number
-      exp_seq_num = (exp_seq_num + 1) & 15;
-   }
-   if ((exp_seq_num != act_seq_num) && (mail & NRST_MASK)) {
-      LOG_WARN("OVERRUN: exp=%X act=%X A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", exp_seq_num, act_seq_num, addr, data, rnw, ntube, nrst);
-   }
-   if (mail & NRST_MASK) {
-      // Not reset: sync to the last received sequence number
-      exp_seq_num = act_seq_num;
-   } else {
-      // Reset: Force a resync as mailbox overlow is very likely here
-      exp_seq_num = -1;
-   }
-#else
-   if ((mail & OVERRUN_MASK) && (mail & NRST_MASK)) {
-      LOG_WARN("OVERRUN: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-   }
-#endif
-
-
-   if (mail & GLITCH_MASK) {
-      LOG_WARN("GLITCH: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-   } else if (nrst == 1) {
-
-      if (ntube == 0) {
-         if (rnw == 0) {
-            tube_host_write(addr, data);
-         } else {
-            tube_host_read(addr);
-         }
       } else {
-         LOG_WARN("LATE: A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
+         tube_host_write(addr, (mail >> 16) & 0xFF);
       }
    }
-
-#if TEST_MODE
-   LOG_INFO("A=%d; D=%02X; RNW=%d; NTUBE=%d; nRST=%d\r\n", addr, data, rnw, ntube, nrst);
-#endif
-
-   if (nrst == 0 || (tube_enabled && (HSTAT1 & HBIT_5))) {
-      return tube_irq | 4;
-   } else {
-      return tube_irq & 3;
-   }
-#endif
+   return tube_irq;
 }
-
 
 void tube_init_hardware()
 {
-   int revision = get_revision();
+   uint32_t revision = get_revision();
 
-   // uuuu uuuu FMMM CCCC PPPP TTTT TTTT RRRR
+   // uuuu uuWw FMMM CCCC PPPP TTTT TTTT RRRR
+   //
+   // W = Warranty bit (Pi 2 and later)
+   // w = Warranty bit (Pi 1)
    //
    // F = new revision code flags
    // M = memory
@@ -802,6 +800,7 @@ void tube_init_hardware()
 
    case 0x0e0 : // RPI 3A+
    case 0x0d0 : // RPI 3B+
+   case 0x120 : // RPI Zero 2 W
       led_type = 3;
       RPI_GpioBase-> GPFSEL[2] |= 1<<27; // LED is GPIO 29
       break;
@@ -828,12 +827,24 @@ void tube_init_hardware()
    RPI_SetGpioPinFunction(NRST_PIN, FS_INPUT);
    RPI_SetGpioPinFunction(RNW_PIN, FS_INPUT);
 
+   // Run out Tube Handler code on 2nd VPU Core
+   start_vc_ula();
+
    // Initialise the info system with cached values (as we break the GPU property interface)
    init_info();
 
 #ifdef DEBUG
    dump_useful_info();
 #endif
+
+   // Read the VDU property, and initialize the frame
+   char *vdu_prop = get_cmdline_prop("vdu");
+   if (vdu_prop) {
+      vdu_enabled = atoi(vdu_prop) & 1;
+   }
+   if (vdu_enabled) {
+      fb_initialize();
+   }
 
    // Initialize performance counters
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
@@ -935,12 +946,16 @@ void disable_tube() {
    }
 }
 
-void start_vc_ula()
+static void start_vc_ula()
 {
-   int func,r0,r1, r2,r3,r4,r5;
-   extern int tube_delay;
-   func = (int) &tubevc_asm[0];
-   r0   = (int) GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
+   unsigned int func,r0,r1, r2,r3,r4,r5;
+   extern unsigned int tube_delay;
+#ifdef USE_DOORBELL
+   func =  (uint32_t)&tubevc_doorbell_asm[0];
+#else
+   func =  (uint32_t)&tubevc_mailbox_asm[0];
+#endif
+   r0   =  GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
    r1   = led_type;
    r2   = tube_delay;
 
@@ -959,8 +974,15 @@ void start_vc_ula()
    LOG_DEBUG("VidCore   r5 = %08x\r\n", r5);
 #endif
    RPI_PropertyInit();
-   RPI_PropertyAddTag(TAG_EXECUTE_CODE,func,r0,r1,r2,r3,r4,r5);
-   RPI_PropertyProcessNoCheck();
+   RPI_PropertyAddTag(TAG_LAUNCH_VPU1, func, r0, r1, r2, r3, r4, r5);
+   RPI_PropertyProcess();
+   rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_LAUNCH_VPU1);
+   if (buf) {
+      LOG_DEBUG("TAG_LAUNCH_VPU1 returned %08"PRIx32"\r\n", buf->data.buffer_32[0]);
+   } else {
+      LOG_DEBUG("TAG_LAUNCH_VPU1 ?\r\n");
+   }
+
 // for (r0 = 0x7E002000; r0 < 0x7E003000; r0+= 4) {
 //    rpi_mailbox_property_t *buf;
 //    RPI_PropertyInit();

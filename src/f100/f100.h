@@ -8,11 +8,6 @@
 #include "../tube.h"
 #include "../copro-f100.h"
 
-#ifdef INCLUDE_DEBUGGER
-#include "f100_debug.h"
-#include "../cpu_debug.h"
-#endif
-
 // Point the memory read/write back to the Co Pro to include tube access
 #define F100_READ_MEM copro_f100_read_mem
 #define F100_WRITE_MEM copro_f100_write_mem
@@ -55,10 +50,10 @@ void f100_irq(int id);
 #define CLEAR_MULTI       cpu.M = 0
 #define UNPACK_FLAGS(f)   cpu.I=(f&1);cpu.Z=(f>>1)&1;cpu.V=(f>>2)&1;cpu.S=(f>>3)&1;cpu.C=(f>>4)&1;cpu.M=(f>>5)&1;cpu.F=(f>>6)&1
 #define PACK_FLAGS        (((cpu.F<<6)|(cpu.M<<5)|(cpu.C<<4)|(cpu.S<<3)|(cpu.V<<2)|(cpu.Z<<1)|(cpu.I?1:0)) & 0x7F)
-#define TRUNC16(m)        ((m) & 0xFFFF)
+#define TRUNC16(m)        ((uint16_t)(m) & 0xFFFF)
 
 #ifdef F200
-// For F200 operation don't trucate the 15th bit of addresses
+// For F200 operation don't truncate the 15th bit of addresses
 #define TRUNC15(m)        ((m) & 0xFFFF)
 #else
 #define TRUNC15(m)        ((m) & 0x7FFF)

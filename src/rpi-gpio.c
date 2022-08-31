@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "rpi-gpio.h"
+#include "rpi-systimer.h"
 
 rpi_gpio_t* RPI_GpioBase = (rpi_gpio_t*) RPI_GPIO_BASE;
 
@@ -8,7 +9,7 @@ void RPI_SetGpioPinFunction(rpi_gpio_pin_t gpio, rpi_gpio_alt_function_t func)
   rpi_reg_rw_t* fsel_reg = &RPI_GpioBase->GPFSEL[gpio / 10];
 
   rpi_reg_rw_t fsel_copy = *fsel_reg;
-  fsel_copy &= ~(FS_MASK << ((gpio % 10) * 3));
+  fsel_copy &= (uint32_t)~(FS_MASK << ((gpio % 10) * 3));
   fsel_copy |= (func << ((gpio % 10) * 3));
   *fsel_reg = fsel_copy;
 }
@@ -92,4 +93,34 @@ void RPI_SetGpioValue(rpi_gpio_pin_t gpio, rpi_gpio_value_t value)
     RPI_SetGpioLo(gpio);
   else if ((value == RPI_IO_HI) || (value == RPI_IO_ON))
     RPI_SetGpioHi(gpio);
+}
+
+void RPI_SetGpioLowLevelIRQ(rpi_gpio_pin_t gpio)
+{
+
+  rpi_reg_rw_t* fsel_reg = &RPI_GpioBase->GPLEN0;
+
+  rpi_reg_rw_t fsel_copy = *fsel_reg;
+  fsel_copy |= 1 << gpio;
+  *fsel_reg = fsel_copy;
+}
+
+void RPI_SetGpioPull(rpi_gpio_pin_t gpio, rpi_gpio_pull pull)
+{
+#if defined(RPI4)
+  rpi_reg_rw_t* pull_reg = &RPI_GpioBase->GPPULL[gpio / 16];
+
+  rpi_reg_rw_t pull_copy = *pull_reg;
+  pull_copy &= (uint32_t)~(0x3 << ((gpio % 16) * 2));
+  pull_copy |= (pull << ((gpio % 16) * 2));
+  *pull_reg = pull_copy;
+#else
+  RPI_GpioBase->GPPUD = pull;
+  RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
+
+  RPI_GpioBase->GPPUDCLK0 = 1<<gpio;
+  RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
+
+  RPI_GpioBase->GPPUDCLK0 = 0;
+#endif
 }

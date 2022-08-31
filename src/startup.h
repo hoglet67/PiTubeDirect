@@ -36,11 +36,11 @@ extern void _invalidate_dcache_mva(void *address);
 
 extern void _clean_invalidate_dcache_mva(void *address);
 
-extern void _invalidate_dtlb();
-
-extern void _invalidate_dtlb_mva(void *address);
+extern void _invalidate_tlb_mva(void *address);
 
 extern void _data_memory_barrier();
+
+extern void _data_synchronization_barrier();
 
 extern unsigned int _get_core();
 
@@ -51,5 +51,11 @@ extern void _spin_core();
 #ifdef HAS_40PINS
 extern void _toggle_test_pin(int count);
 #endif
+
+extern void _fast_scroll(void *dst, void *src, int num_bytes);
+
+extern void _fast_clear(void *dst, unsigned int val, int num_bytes);
+
+extern void _main_irq_handler();
 
 #endif

@@ -27,7 +27,7 @@ void copro_opc5ls_write(uint16_t addr, uint16_t data) {
    }
 #endif
    if ((addr & 0xFFF8) == 0xFEF8) {
-      tube_parasite_write(addr & 7, data);
+      tube_parasite_write(addr & 7, (uint8_t) data);
       DBG_PRINT("write: %d = %x\r\n", addr & 7, data);
    } else {
       memory[addr] = data;
@@ -58,7 +58,7 @@ static void copro_opc5ls_poweron_reset() {
    opc5ls_init(memory, 0xfffc, 0xfffe);
 
    // Copy over client ROM
-   memcpy((void *) (memory + 0xF000), (void *)tuberom_opc5ls, sizeof(tuberom_opc5ls));
+   copro_memcpy((void *) (memory + 0xF000), (void *)tuberom_opc5ls, sizeof(tuberom_opc5ls));
 }
 
 static void copro_opc5ls_reset() {
@@ -77,8 +77,6 @@ static void copro_opc5ls_reset() {
 
 void copro_opc5ls_emulator()
 {
-   unsigned int tube_irq_copy;
-
    // Remember the current copro so we can exit if it changes
    unsigned int last_copro = copro;
 
@@ -88,7 +86,7 @@ void copro_opc5ls_emulator()
    while (1) {
       opc5ls_execute();
       DBG_PRINT("tube_irq = %d\r\n", tube_irq);
-      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
+      int tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
       if (tube_irq_copy) {
          // Reset the processor on active edge of rst
          if ( tube_irq_copy & RESET_BIT ) {

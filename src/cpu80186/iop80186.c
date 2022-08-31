@@ -63,7 +63,7 @@ uint8_t portin(uint16_t portnum)
 {
    uint8_t value;
 	if (TUBE_ACCESS(portnum)) {
-		value = copro_80186_tube_read(TUBE_CONVERT(portnum));
+		value = (uint8_t) copro_80186_tube_read(TUBE_CONVERT(portnum));
 	} else {
       value = 0xFF;
    }
@@ -77,7 +77,7 @@ uint8_t portin(uint16_t portnum)
 
 uint16_t portin16(uint16_t portnum)
 {
-	return ((uint16_t) portin(portnum) | (uint16_t) (portin(portnum + 1) << 8));
+	return (uint16_t)( portin(portnum) | (uint16_t) (portin(portnum + 1) << 8));
 }
 
 void portout16(uint16_t portnum, uint16_t value)

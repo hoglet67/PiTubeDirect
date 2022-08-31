@@ -1,7 +1,7 @@
 #include "../logging.h"
 
 /* A custom warning logger for n32016 that logs the PC */
-void n32016_warn(char * fmt, ...);
+void n32016_warn(const char * fmt, ...);
 
 #define PiTRACE(...) log_debug(__VA_ARGS__)
 
@@ -23,9 +23,9 @@ void n32016_warn(char * fmt, ...);
 #define MEM_MASK 0xFFFFFF
 
 
-#define BIT(in)   (1 <<(in))
+#define BIT(in)   (1u <<(in))
 
-#define TEST(in) ((in) ? 1 : 0)
+#define TEST(in) ((in) ? 1u : 0u)
 #define C_FLAG PR.PSR.c_flag
 #define T_FLAG PR.PSR.t_flag
 #define L_FLAG PR.PSR.l_flag
@@ -336,11 +336,9 @@ enum StringBits
 };
 
 extern void n32016_init();
-extern void n32016_ShowRegs(int Option);
-extern void n32016_reset();
+extern void n32016_ShowRegs(uint32_t Option);
 extern void n32016_reset_addr(uint32_t StartAddress);
 extern void n32016_exec();
-extern void n32016_close();
 extern void n32016_build_matrix();
 extern uint32_t n32016_get_pc();
 extern uint32_t n32016_get_startpc();
@@ -371,8 +369,6 @@ extern int tube_irq;
 //extern volatile int tube_irq;
 #endif
 
-extern uint32_t genaddr[2];
-extern int gentype[2];
 extern const uint8_t FormatSizes[FormatCount + 1];
 
 //#define SHOW_STACK
@@ -393,4 +389,4 @@ extern const uint8_t FormatSizes[FormatCount + 1];
 
 #define NIBBLE_EXTEND(reg) \
    if (reg & 0x08) \
-      reg |= 0xFFFFFFF0;
+      reg |= 0xFFFFFFF0u;

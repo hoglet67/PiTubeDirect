@@ -10,7 +10,7 @@
 #define ZP_ABORTF   ZP_BASE+0x00C;  // Prefetch abort entry point
 #define ZP_ABORTD   ZP_BASE+0x010;  // Data abort entry point
 #define ZP_ABORTA   ZP_BASE+0x014;  // Address abort entry point
-#define ZP_IRQ      ZP_BASE+0x018;  // Maskable Interupt entry point
+#define ZP_IRQ      ZP_BASE+0x018;  // Maskable Interrupt entry point
 #define ZP_FIRQ     ZP_BASE+0x01C;  // Fast Interrupt entry point
 
 #define ZP_RESETV   ZP_BASE+0x0E0;  // RESET vector
@@ -19,7 +19,7 @@
 #define ZP_ABORTFV  ZP_BASE+0x0EC;  // Prefetch abort vector
 #define ZP_ABORTDV  ZP_BASE+0x0F0;  // Data abort vector
 #define ZP_ABORTAV  ZP_BASE+0x0F4;  // Address abort vector
-#define ZP_IRQV     ZP_BASE+0x0F8;  // Maskable Interupt vector
+#define ZP_IRQV     ZP_BASE+0x0F8;  // Maskable Interrupt vector
 #define ZP_FIRQV    ZP_BASE+0x0FC;  // Fast Interrupt vector
 
 #define ZP_SWIDISPATCH  ZP_BASE+0x100;  // SWI dispatch table SWI 0-127
@@ -39,7 +39,7 @@
 // &0100-&02FF SWI dispatch table 0-&7F       | progressively
 // &0300-&037F Debugger workspace             | higher
 // &0380-&03FF Software vectors 0-&1F         v level
-// &0400-&04FF Program enviromnent
+// &0400-&04FF Program environment
 // &0500-      Module handler
 //
 // &0E00-&0EFF Environment buffer and Error buffer
@@ -128,7 +128,7 @@
 //  &0424  9 Escape                    ESCV
 //  &0428 10 Event                     EVENTV    <--- EventV
 //  &042C 11 Exit                      EXITV
-//  &0430 12 Ununsed SWI               UKSWIV    <--- UKSWIV
+//  &0430 12 Unused SWI                UKSWIV    <--- UKSWIV
 //  &0434 13 Exception register dump   REGADDR
 //  &0438 14 Application space         RAMTOP
 //  &043C 15 Current Active Object     PROG
@@ -141,7 +141,7 @@
 //  &0450  9 Escape                    R12
 //  &0454 10 Event                     R12
 //  &0458 11 Exit                      R12
-//  &045C 12 Ununsed SWI               R12
+//  &045C 12 Unused SWI                R12
 //  &0460 16 UpCall                    R12
 //
 //       Environment handler buffers

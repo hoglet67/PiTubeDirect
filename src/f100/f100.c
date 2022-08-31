@@ -59,8 +59,8 @@ static void decode( uint16_t word) {
   cpu.ir.S = (word>> 6) & 0x0003 ;
   cpu.ir.J = (word>> 4) & 0x0003 ;
   cpu.ir.B = word       & 0x000F ;
-  cpu.ir.P = word       & 0x00FF ;
-  cpu.ir.N = word       & 0x07FF ;
+  cpu.ir.P = word       & 0x00FFu ;
+  cpu.ir.N = word       & 0x07FFu ;
 }
 
 void f100_execute() {
@@ -133,7 +133,7 @@ void f100_execute() {
         } else { // Double length
           mask = 0xFFFFFFFF;
           places = (((cpu.ir.J&1)<<4) + cpu.ir.B);
-          result = ((cpu.acc<<16) | cpu.or) & mask;
+          result = (uint32_t)((cpu.acc<<16) | cpu.or) & mask;
         }
         // S=Direction, J=0,1:Arith, 2:Logical, 3:Rotate (single length only)
         if (cpu.ir.S) {
@@ -147,7 +147,7 @@ void f100_execute() {
             if ( cpu.M==0) {                      // need to respect sign bit in different location for single/double shift
               result =  TRUNC16((int16_t) result>>places);
             } else {
-              result =  ((int32_t) result>>places) & mask;
+              result =  (uint32_t) (( result>>places) & mask);
             }
           } else if ( cpu.ir.J==2 || cpu.M==1) {  // Logical shift, single or double length
             result = (result>>places) & mask;
@@ -195,14 +195,14 @@ void f100_execute() {
           }
         }
         if (cpu.ir.J>1) { // Set or clear bit
-          result = ( cpu.ir.J==2) ? (operand | bmask) : (operand & ~bmask);
+          result = (uint32_t) (( cpu.ir.J==2) ? (operand | bmask) : (operand & ~bmask));
           if (cpu.ir.R==3) {
             cpu.or = TRUNC16(result);
             F100_WRITE_MEM(operand_address, cpu.or);
           } else if ( cpu.ir.R==1) {
             UNPACK_FLAGS (result);
           } else {
-            cpu.acc=result;
+            cpu.acc= (uint16_t) result;
           }
         }
       }
@@ -236,7 +236,7 @@ void f100_execute() {
         uint16_t flags, new_flags;
         flags = PACK_FLAGS;
         new_flags = F100_READ_MEM(stack_pointer);
-        flags = (new_flags & 0x3F) | (flags & 0xC0) ;
+        flags = (uint16_t) ((new_flags & 0x3F) | (flags & 0xC0) );
         UNPACK_FLAGS(flags);
       }
       F100_WRITE_MEM(LSP, TRUNC15(stack_pointer-2));

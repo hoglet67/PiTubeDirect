@@ -37,8 +37,8 @@ typedef unsigned int                        offs_t;
 extern uint8_t *RAM;
 
 /* ----- opcode and opcode argument reading ----- */
-INLINE uint8_t  cpu_readop(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
-INLINE uint8_t  cpu_readop_arg(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
+static INLINE uint8_t  cpu_readop(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
+static INLINE uint8_t  cpu_readop_arg(offs_t A)			{ return (RAM[(A) & 0xFFFFF]); }
 
 enum {
 	PARAM_REG = 1,		/* 16 or 32-bit register */
@@ -1185,53 +1185,52 @@ static char modrm_string[256];
 #define MODRM_REG1	((modrm >> 3) & 0x7)
 #define MODRM_REG2	(modrm & 0x7)
 
-INLINE uint8_t FETCH(void)
+static INLINE uint8_t FETCH(void)
 {
 	pc++;
 	return cpu_readop(pc-1);
 }
-
-INLINE uint16_t FETCH16(void)
+#if 0 
+static INLINE uint16_t FETCH16(void)
 {
 	uint16_t d;
-	d = cpu_readop(pc) | (cpu_readop(pc+1) << 8);
+	d = (uint16_t) ((uint16_t)cpu_readop(pc) | (cpu_readop(pc+1) << 8));
 	pc += 2;
 	return d;
 }
-
-INLINE uint32_t FETCH32(void)
+#endif
+static INLINE uint32_t FETCH32(void)
 {
 	uint32_t d;
-	d = cpu_readop(pc) | (cpu_readop(pc+1) << 8) | (cpu_readop(pc+2) << 16) | (cpu_readop(pc+3) << 24);
+	d = (uint32_t)cpu_readop(pc) | (cpu_readop(pc+1) << 8) | (cpu_readop(pc+2) << 16) | (cpu_readop(pc+3) << 24);
 	pc += 4;
 	return d;
 }
 
-INLINE uint8_t FETCHD(void)
+static INLINE uint8_t FETCHD(void)
 {
 	pc++;
 	return cpu_readop_arg(pc-1);
 }
 
-INLINE uint16_t FETCHD16(void)
+static INLINE uint16_t FETCHD16(void)
 {
 	uint16_t d;
-	d = cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8);
+	d = (uint16_t) (cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8));
 	pc += 2;
 	return d;
 }
 
-INLINE uint32_t FETCHD32(void)
+static INLINE uint32_t FETCHD32(void)
 {
 	uint32_t d;
-	d = cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8) | (cpu_readop_arg(pc+2) << 16) | (cpu_readop_arg(pc+3) << 24);
+	d = (uint32_t)(cpu_readop_arg(pc) | (cpu_readop_arg(pc+1) << 8) | (cpu_readop_arg(pc+2) << 16) | (cpu_readop_arg(pc+3) << 24));
 	pc += 4;
 	return d;
 }
 
 static char* handle_sib_byte( char* s, uint8_t mod )
 {
-	uint32_t i32;
 	uint8_t scale, i, base;
 	uint8_t sib = FETCHD();
 	scale = (sib >> 6) & 0x3;
@@ -1247,8 +1246,7 @@ static char* handle_sib_byte( char* s, uint8_t mod )
 		case 4: s += sprintf( s, "esp"); break;
 		case 5:
 			if( mod == 0 ) {
-				i32 = FETCH32();
-				s += sprintf( s, "$%08" PRIX32, i32 );
+				s += sprintf( s, "$%08" PRIX32, FETCH32() );
 			} else if( mod == 1 ) {
 				s += sprintf( s, "ebp" );
 			} else if( mod == 2 ) {
@@ -1274,9 +1272,6 @@ static char* handle_sib_byte( char* s, uint8_t mod )
 
 static void handle_modrm(char* s)
 {
-	int8_t disp8;
-	int16_t disp16;
-	int32_t disp32;
 	uint8_t mod, rm;
 
 	modrm = FETCHD();
@@ -1307,8 +1302,7 @@ static void handle_modrm(char* s)
 			case 4: s = handle_sib_byte( s, mod ); break;
 			case 5:
 				if( mod == 0 ) {
-					disp32 = FETCHD32();
-					s += sprintf( s, "$%08" PRIX32, disp32 );
+					s += sprintf( s, "$%08" PRIX32, FETCHD32() );
 				} else {
 					s += sprintf( s, "ebp" );
 				}
@@ -1317,11 +1311,9 @@ static void handle_modrm(char* s)
 			case 7: s += sprintf( s, "edi" ); break;
 		}
 		if( mod == 1 ) {
-			disp8 = FETCHD();
-			s += sprintf( s, "+$%08" PRIX32, (int32_t)disp8 );
+			s += sprintf( s, "+$%08" PRIX32, (int32_t)FETCHD() );
 		} else if( mod == 2 ) {
-			disp32 = FETCHD32();
-			s += sprintf( s, "+$%08" PRIX32, disp32 );
+			s += sprintf( s, "+$%08" PRIX32, FETCHD32() );
 		}
 	} else {
 		switch( rm )
@@ -1334,8 +1326,7 @@ static void handle_modrm(char* s)
 			case 5: s += sprintf( s, "di" ); break;
 			case 6:
 				if( mod == 0 ) {
-					disp16 = FETCHD16();
-					s += sprintf( s, "$%04" PRIX16,  (uint16_t) disp16 );
+					s += sprintf( s, "$%04" PRIX16,  (uint16_t) FETCHD16() );
 				} else {
 					s += sprintf( s, "bp" );
 				}
@@ -1343,11 +1334,9 @@ static void handle_modrm(char* s)
 			case 7: s += sprintf( s, "bx" ); break;
 		}
 		if( mod == 1 ) {
-			disp8 = FETCHD();
-			s += sprintf( s, "+$%08" PRIX32, (int32_t)disp8 );
+			s += sprintf( s, "+$%08" PRIX32, (int32_t)FETCHD() );
 		} else if( mod == 2 ) {
-			disp16 = FETCHD16();
-			s += sprintf( s, "+$%08" PRIX32, (int32_t)disp16 );
+			s += sprintf( s, "+$%08" PRIX32, (int32_t)FETCHD16() );
 		}
 	}
 	sprintf( s, "]" );
@@ -1355,14 +1344,8 @@ static void handle_modrm(char* s)
 
 static char* handle_param(char* s, uint32_t param)
 {
-	uint8_t i8;
-	uint16_t i16;
-	uint32_t i32;
 	uint16_t ptr;
 	uint32_t addr;
-	int8_t d8;
-	int16_t d16;
-	int32_t d32;
 
 	switch(param)
 	{
@@ -1409,22 +1392,18 @@ static char* handle_param(char* s, uint32_t param)
 			break;
 
 		case PARAM_I8:
-			i8 = FETCHD();
-			s += sprintf( s, "$%02" PRIX8, i8 );
+			s += sprintf( s, "$%02" PRIX8, FETCHD() );
 			break;
 
 		case PARAM_I16:
-			i16 = FETCHD16();
-			s += sprintf( s, "$%04" PRIX16, i16 );
+			s += sprintf( s, "$%04" PRIX16, FETCHD16() );
 			break;
 
 		case PARAM_IMM:
 			if( operand_size ) {
-				i32 = FETCHD32();
-				s += sprintf( s, "$%08" PRIX32, i32 );
+				s += sprintf( s, "$%08" PRIX32, FETCHD32() );
 			} else {
-				i16 = FETCHD16();
-				s += sprintf( s, "$%04" PRIX16, i16 );
+				s += sprintf( s, "$%04" PRIX16, FETCHD16() );
 			}
 			break;
 
@@ -1442,31 +1421,25 @@ static char* handle_param(char* s, uint32_t param)
 
 		case PARAM_REL:
 			if( operand_size ) {
-				d32 = FETCHD32();
-				s += sprintf( s, "[$%08" PRIX32 "]", pc + d32 );
+				s += sprintf( s, "[$%08" PRIX32 "]", pc + FETCHD32() );
 			} else {
-				d16 = FETCHD16();
-				s += sprintf( s, "[$%08" PRIX32 "]", pc + d16 );
+				s += sprintf( s, "[$%08" PRIX32 "]", pc + FETCHD16() );
 			}
 			break;
 
 		case PARAM_REL8:
-			d8 = FETCHD();
-			s += sprintf( s, "[$%08" PRIX32 "]", pc + d8 );
+			s += sprintf( s, "[$%08" PRIX32 "]", pc + FETCHD() );
 			break;
 
 		case PARAM_MEM_OFFS_B:
-			d8 = FETCHD();
-			s += sprintf( s, "[$%08" PRIX8 "]", d8 );
+			s += sprintf( s, "[$%08" PRIX8 "]", FETCHD() );
 			break;
 
 		case PARAM_MEM_OFFS_V:
 			if( address_size ) {
-				d32 = FETCHD32();
-				s += sprintf( s, "[$%08" PRIX32 "]", d32 );
+				s += sprintf( s, "[$%08" PRIX32 "]", FETCHD32() );
 			} else {
-				d32 = FETCHD16();
-				s += sprintf( s, "[$%08" PRIX32 "]", d32 );
+				s += sprintf( s, "[$%04" PRIX16 "]", FETCHD16() );
 			}
 			break;
 
@@ -1599,7 +1572,7 @@ handle_unknown:
 	sprintf(s, "???");
 }
 
-int i386_dasm_one(char *buffer, uint32_t eip, int addr_size, int op_size)
+unsigned int i386_dasm_one(char *buffer, uint32_t eip, int addr_size, int op_size)
 {
 	uint8_t op;
 

@@ -64,5 +64,5 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=arm1176jzf-s" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
 set( CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
 
-set( KERNEL_NAME "./kernelrpi.img" )
+set( KERNEL_NAME "./kernel.img" )
 

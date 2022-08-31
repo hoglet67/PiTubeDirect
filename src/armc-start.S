@@ -67,9 +67,9 @@
 .global _clean_invalidate_dcache
 .global _invalidate_dcache_mva
 .global _clean_invalidate_dcache_mva
-.global _invalidate_dtlb
-.global _invalidate_dtlb_mva
+.global _invalidate_tlb_mva
 .global _data_memory_barrier
+.global _data_synchronization_barrier
 
 .global _software_interrupt_vector_h
 .global _interrupt_vector_h
@@ -84,6 +84,11 @@
 #if defined(HAS_40PINS)
 .global _toggle_test_pin
 #endif
+
+.global _fast_scroll
+.global _fast_clear
+.global _main_irq_handler
+.global _main_irq_r9_regsp
 
 // From the ARM ARM (Architecture Reference Manual). Make sure you get the
 // ARMv5 documentation which includes the ARMv6 documentation which is the
@@ -194,7 +199,7 @@ _reset_continue:
     // processor modes see ARM Section A2.2 (Processor Modes)
 
 
-    // move the vector pointer to the begining of the code
+    // move the vector pointer to the beginning of the code
     ldr     r4, =_start
     mcr     p15, 0, r4, c12, c0, 0
 
@@ -262,12 +267,12 @@ _reset_continue:
 .section ".text._get_stack_pointer"
 _get_stack_pointer:
     mov     r0, sp
-    mov     pc, lr
+    bx      lr
 
 .section ".text._get_cpsr"
 _get_cpsr:
     mrs     r0, cpsr
-    mov     pc, lr
+    bx      lr
 
 .section ".text._set_interrupts"
 _set_interrupts:
@@ -276,21 +281,21 @@ _set_interrupts:
     bic     r1, r1, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     orr     r1, r1, r0
     msr     cpsr_c, r1
-    mov     pc, lr
+    bx      lr
 
 .section ".text._enable_interrupts"
 _enable_interrupts:
     mrs     r0, cpsr
     bic     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r0
-    mov     pc, lr
+    bx      lr
 
 .section ".text._disable_interrupts"
 _disable_interrupts:
     mrs     r0, cpsr
     orr     r1, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
     msr     cpsr_c, r1
-    mov     pc, lr
+    bx      lr
 
 .section ".text._undefined_instruction_handler_"
 _undefined_instruction_handler_:
@@ -330,7 +335,7 @@ _enable_unaligned_access:
     bic      r0, r0, #2              // A (no unaligned access fault)
     orr      r0, r0, #1 << 22        // U (v6 unaligned access model)
     mcr      p15, 0, r0, c1, c0, 0   // write SCTLR
-    mov      pc, lr
+    bx       lr
 
     // Enable L1 Cache -------------------------------------------------------
 .section ".text._enable_l1_cache"
@@ -347,56 +352,70 @@ _enable_l1_cache:
     // System Control Register = R0
     mcr p15,0,r0,c1,c0,0
 
-    mov      pc, lr
+    bx      lr
 
 .section ".text._invalidate_icache"
 _invalidate_icache:
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c5, 0
-    mov      pc, lr
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c5, 0
+    bx      lr
 
 .section ".text._invalidate_dcache"
 _invalidate_dcache:
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c6, 0
-    mov      pc, lr
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c6, 0
+    bx      lr
 
 .section ".text._clean_invalidate_dcache"
 _clean_invalidate_dcache:
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c14, 0
-    mov      pc, lr
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c14, 0
+    bx      lr
 
 .section ".text._invalidate_dcache_mva"
 _invalidate_dcache_mva:
-    mcr      p15, 0, r0, c7, c6, 1
-    mov      pc, lr
+    mcr     p15, 0, r0, c7, c6, 1
+    bx      lr
 
 .section ".text._clean_invalidate_dcache_mva"
 _clean_invalidate_dcache_mva:
-    mcr      p15, 0, r0, c7, c14, 1
-    mov      pc, lr
+    mcr     p15, 0, r0, c7, c14, 1
+    bx      lr
 
-.section ".text._invalidate_dtlb"
-_invalidate_dtlb:
-    mov      r0, #0
-    mcr      p15, 0, r0, c8, c6, 0
-    mov      pc, lr
+.section ".text._invalidate_tlb_mva"
+_invalidate_tlb_mva:
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+    dsb
+#endif
 
-.section ".text._invalidate_dtlb_mva"
-_invalidate_dtlb_mva:
-    mcr      p15, 0, r0, c8, c6, 1
-    mov      pc, lr
+    mcr     p15, 0, r0, c8, c7, 1  // invalidate tlb
+
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+    MCR p15, 0, r0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
+    dsb
+    isb
+#endif
+    bx      lr
 
 .section ".text._data_memory_barrier"
 _data_memory_barrier:
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
     dmb
 #else
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c10, 5
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c10, 5 // DMB
 #endif
-    mov      pc, lr
+    bx      lr
+
+.section ".text._data_synchronization_barrier"
+_data_synchronization_barrier:
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+    dsb
+#else
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c10, 4
+#endif
+    bx      lr
 
 #ifdef USE_MULTICORE
 +.section ".text._init_core"
@@ -490,7 +509,7 @@ _spin_core1:
 _get_core:
     mrc     p15, 0, r0, c0, c0, 5
     and     r0, #3
-    mov     pc, lr
+    bx      lr
 
 #endif
 
@@ -505,5 +524,67 @@ _toggle_test_pin_loop:
         str     r1, [r2]
         subs    r0, r0, #1
         bne     _toggle_test_pin_loop
-        mov     pc, lr
+        bx      lr
 #endif
+
+
+
+.section ".text._fast_scroll"
+// R0 = dst
+// R1 = src
+// R2 = number of bytes, must be a multiple of 64
+// Note: R7 reserved by Fast 6502 FIQ handler, so avoid
+_fast_scroll:
+        push    {r4, r5, r6, r8, r9, r10, r11, lr}
+        bic     r2, r2, #0x4F
+_fast_scroll_loop:
+        ldmia   r1!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        ldmia   r1!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        subs    r2, r2, #64
+        bne     _fast_scroll_loop
+        pop     {r4, r5, r6, r8, r9, r10, r11, pc}
+
+.section ".text._fast_clear"
+// R0 = dst
+// R1 = val
+// R2 = number of bytes, must be a multiple of 64
+// Note: R7 reserved by Fast 6502 FIQ handler, so avoid
+_fast_clear:
+        push    {r4, r5, r6, r8, r9, r10, r11, lr}
+        mov     r3, r1
+        mov     r4, r1
+        mov     r5, r1
+        mov     r6, r1
+        mov     r8, r1
+        mov     r9, r1
+        mov     r10, r1
+        mov     r11, r1
+        bic     r2, r2, #0x3F
+_fast_clear_loop:
+        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
+        subs    r2, r2, #64
+        bne     _fast_clear_loop
+        pop     {r4, r5, r6, r8, r9, r10, r11, pc}
+
+.section ".text._main_irq_handler"
+_main_irq_handler:
+        // Save a copy of the Jit6502 regsp (r9) for use by the fiq handler
+        // when it runs a 6502 IRQ/NMI handler. This pattern works because the
+        // ARM IRQ handler is NOT re-entrant.
+        str     r9, _main_irq_r9_regsp
+        sub     lr, lr, #4
+        push    {r0, r1, r2, r3, ip, lr}
+        // ARM ABI says that Callee must preserve r4-r8, r10, r11 and SP
+        // r9 is platform specific, but GCC seems to callee save that
+        bl      RPI_AuxMiniUartIRQHandler
+        // Mark the copy Jit6502 regsp (r9) as invalid
+        // This is safe to do, as r9 now holds the real regsp again
+        mov     r0, #0
+        str     r0, _main_irq_r9_regsp
+        ldm     sp!, {r0, r1, r2, r3, ip, pc}^
+
+_main_irq_r9_regsp:
+        .word 0

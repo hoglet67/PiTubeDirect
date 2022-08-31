@@ -20,17 +20,20 @@
 .equ    C_FLAG,      0x20000000
 
 copro_armnative_enable_mailbox:
+#ifndef USE_DOORBELL
         mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
         ldr     r1, =MBOX0_CONFIG       // to generate interrupts when data is present
         str     r0, [r1]
-        mov     pc, lr
-
+#endif
+        bx      lr
 
 copro_armnative_disable_mailbox:
+#ifndef USE_DOORBELL
         mov     r0, #0                  // disable mailbox hardware to generate interrupts
         ldr     r1, =MBOX0_CONFIG       // when data is present
         str     r0, [r1]
-        mov     pc, lr
+#endif
+        bx      lr
 
 #ifdef USE_REENTRANT_FIQ_HANDLER
 
@@ -40,7 +43,13 @@ copro_armnative_fiq_handler:
 
         push    {r0-r8,lr}             // Save register state to FIQ stack
 
+#ifdef USE_DOORBELL
+        ldr     r1, =DOORBELL          // Read the GPU doorbell
+        ldr     r0, [r1]
+        ldr     r1, =DOORBELLDATA      // Read the GPU doorbell
+#else
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
+#endif
         ldr     r0, [r1]
 
         bl      tube_io_handler        // Update the Tube ULA emulation
@@ -77,7 +86,7 @@ copro_armnative_fiq_handler:
 
         CPSID   if                     // Disable ARM FIQ and IRQ interrupts
 
-        pop     {r1, lr}               // Restore LR and stack aligment offset
+        pop     {r1, lr}               // Restore LR and stack alignment offset
         add     sp, sp, r1             // Undo stack alignment (if any)
         pop     {r0-r3}                // Restore non-callee saved registers and LR
 
@@ -106,7 +115,13 @@ copro_armnative_fiq_handler:
 
         push    {r0-r7, lr}            // Save everything that is not shadowed
 
+#ifdef USE_DOORBELL
+        ldr     r1, =DOORBELL          // Read the GPU doorbell
+        ldr     r0, [r1]
+        ldr     r1, =DOORBELLDATA      // Read the GPU doorbell
+#else
         ldr     r1, =MBOX0_READ        // Read the GPU mailbox
+#endif
         ldr     r0, [r1]
 
         push    {r0}
@@ -169,8 +184,9 @@ _user_exec:
     mcr      p15, 0, r0, c7, c5, 0   // Invalidate entire instruction cache
     mcr      p15, 0, r0, c7, c5, 4   // Flush the prefetch buffer
  #endif
-    CPS      #CPSR_MODE_USER         // Change to user mode
 
+    // Re-enable ARM FIQ and IRQ interrupts, and move to user mode
+    CPSIE    if, #CPSR_MODE_USER
 
     tst      r4, #1               // Bit 0 of the address is used to indicate the carry flag value
     mrs      r0, CPSR
@@ -183,8 +199,15 @@ _user_exec:
     mov      r0, r1               // Copy the params
     mov      r1, r2
     mov      r2, r3
+
+    stmfd    sp!, {ip,lr}         // Preserve the existing user mode link register
+                                  // otherwise SYS "OS_CLI","TEST" hangs on return (#136)
+                                  // ip is saved as well to maintain 8-byte stack allignment
+
     blx      r4                   // Call the address of the user program
                                   // On return, the exit code is now in R0
+
+    ldmfd    sp!, {ip,lr}         // Restore the existing user mode link register
 
     svc      0x000016             // Change back to supervisor mode (OS_EnterOS)
 
@@ -196,14 +219,17 @@ _user_exec:
     ldmfd    sp!, {r0-r5, pc}     // Restore registers and return.
 
 
-    // Called with the error buffer ppointer in R0 and the error handler address in R1
+    // Called with the error buffer pointer in R0, the last known value of R12 in R1 and the error handler address in R2
 _error_handler_wrapper:
 
     // Re-enable ARM FIQ and IRQ interrupts, and move to user mode
-    CPSIE   if, #CPSR_MODE_USER
+    CPSIE    if, #CPSR_MODE_USER
+
+    // Restore the original R12 value (saved by the SWI handler)
+    mov      r12, r1
 
     // Continue execution of the error handler
-    mov      pc, r1
+    bx       r2
 
     // Called with the escape flag value in R0 and the escape handler address in R1
 _escape_handler_wrapper:
@@ -222,7 +248,7 @@ _escape_handler_wrapper:
 
     // Restore stacked resisters and return
     ldmfd    sp!, {r11-r12, lr}
-    mov      pc, lr
+    bx       lr
 
     // Called with the R12 value in R0 and the exit handler address in R1
 _exit_handler_wrapper:
@@ -231,7 +257,7 @@ _exit_handler_wrapper:
     mov      r12, r0
 
     // Re-enable ARM FIQ and IRQ interrupts, and move to user mode
-    CPSIE   if, #CPSR_MODE_USER
+    CPSIE    if, #CPSR_MODE_USER
 
     // Continue execution of the exit handler
-    mov      pc, r1
+    bx       r1

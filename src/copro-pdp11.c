@@ -55,7 +55,7 @@ void copro_pdp11_write16(const uint16_t addr, const uint16_t data) {
    }
 #endif
    if ((addr & 0xFFF0) == 0xFFF0) {
-      tube_parasite_write((addr >> 1) & 7, data & 255);
+      tube_parasite_write((addr >> 1) & 7, ( uint8_t)data & 255);
    } else {
       *(uint16_t *)(memory + addr) = data;
    }
@@ -86,7 +86,7 @@ static void copro_pdp11_reset() {
    tube_log_performance_counters();
 
    // Copy over client ROM
-   memcpy((void *) (memory + 0xF800), (void *)tuberom_pdp11, sizeof(tuberom_pdp11));
+   copro_memcpy((void *) (memory + 0xF800), (void *)tuberom_pdp11, sizeof(tuberom_pdp11));
 
    // Reset the processor
    pdp11_reset(0xf800);
@@ -100,8 +100,6 @@ static void copro_pdp11_reset() {
 
 void copro_pdp11_emulator()
 {
-   unsigned int tube_irq_copy;
-
    // Remember the current copro so we can exit if it changes
    unsigned int last_copro = copro;
 
@@ -110,7 +108,7 @@ void copro_pdp11_emulator()
 
    while (1) {
       pdp11_execute();
-      tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT) ;
+      int tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT) ;
       if (tube_irq_copy) {
          // Reset the processor on active edge of rst
          if (tube_irq_copy & RESET_BIT) {

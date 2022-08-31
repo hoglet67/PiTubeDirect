@@ -13,6 +13,8 @@
 // Uncomment to log all tube FIFO reads/writes (excluding status only)
 // #define DEBUG_TUBE
 
+extern int vdu_enabled;
+
 extern void disable_tube();
 
 //extern void tube_host_read(uint16_t addr);
@@ -35,14 +37,12 @@ extern void tube_init_hardware();
 
 extern int tube_is_rst_active();
 
-//extern void tube_wait_for_rst_active();
+extern void tube_wait_for_rst_active();
 
 extern void tube_wait_for_rst_release();
 
 extern void tube_reset_performance_counters();
 
 extern void tube_log_performance_counters();
-
-extern void start_vc_ula();
 
 #endif

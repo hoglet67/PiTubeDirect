@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Gecko"
+#define RELEASENAME "Hognose"
 
 #define NDEBUG
 
@@ -25,14 +25,13 @@
 
 #endif
 
-#define USE_GPU
-
-#define USE_HW_MAILBOX
+// If defined, the doorbell is used rather then the mailbox
+#define USE_DOORBELL
 
 //
 // tube_irq bit definitions
 //
-// bit 7 Selects if R7 is used to inform the copro of an interupt event used for fast 6502
+// bit 7 Selects if R7 is used to inform the copro of an interrupt event used for fast 6502
 // bit 6 Selects if direct native arm irq are used
 // bit 5 native arm irq lock
 // bit 3 tube_enable
@@ -49,7 +48,8 @@
 
 #include "rpi-base.h"
 
-
+#define DOORBELL        (PERIPHERAL_BASE + 0x00B844) // Doorbell 1
+#define DOORBELLDATA    (PERIPHERAL_BASE + 0x20C014) // Hijack PWM_DAT1 for Doorbell1 Data
 #define MBOX0_READ      (PERIPHERAL_BASE + 0x00B880)
 #define MBOX0_STATUS    (PERIPHERAL_BASE + 0x00B898)
 #define MBOX0_CONFIG    (PERIPHERAL_BASE + 0x00B89C)

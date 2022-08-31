@@ -118,36 +118,36 @@ static int dbg_debug_enable(int newvalue) {
    int oldvalue = opc7_debug_enabled;
    opc7_debug_enabled = newvalue;
    return oldvalue;
-};
+}
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
    return copro_opc7_read_mem(addr);
-};
+}
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
    copro_opc7_write_mem(addr, value);
-};
+}
 
 // CPU's usual io read function for data.
 static uint32_t dbg_ioread(uint32_t addr) {
    return copro_opc7_read_io(addr);
-};
+}
 
 // CPU's usual io write function.
 static void dbg_iowrite(uint32_t addr, uint32_t value) {
    copro_opc7_write_io(addr, value);
-};
+}
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
-   int len;
+   uint32_t len;
 
    // Read the instruction
    uint32_t instr = copro_opc7_read_mem(addr);
 
    // Output address/instruction in hex
-   len = snprintf(buf, bufsize, "%05"PRIx32" %08"PRIx32" ", addr, instr);
+   len = (uint32_t) snprintf(buf, bufsize, "%05"PRIx32" %08"PRIx32" ", addr, instr);
    buf += len;
    bufsize -= len;
 
@@ -156,7 +156,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
 
    // Decode the instruction
    int opcode = (instr >> OPCODE) & 31;
-   int pred = (instr >> PRED) & 7;
+   uint32_t pred = (instr >> PRED) & 7;
    int dst = (instr >> DST) & 15;
    int src = (instr >> SRC) & 15;
 
@@ -184,7 +184,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    }
 
    return addr;
-};
+}
 
 // Get a register - which is the index into the names above
 static uint32_t dbg_reg_get(int which) {
@@ -197,7 +197,7 @@ static uint32_t dbg_reg_get(int which) {
    } else {
       return m_opc7->reg[which];
    }
-};
+}
 
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
@@ -210,18 +210,17 @@ static void  dbg_reg_set(int which, uint32_t value) {
    } else {
       m_opc7->reg[which] = value;
    }
-};
+}
 
 static const char* flagname = "EI S C Z ";
 
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    if (which == i_PSR) {
-      int i;
-      int bit;
+      uint32_t bit;
       char c;
       const char *flagnameptr = flagname;
-      int psr = dbg_reg_get(i_PSR);
+      uint32_t psr = dbg_reg_get(i_PSR);
 
       if (bufsize < 40) {
          strncpy(buf, "buffer too small!!!", bufsize);
@@ -232,13 +231,13 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = 'W';
       *buf++ = 'I';
       *buf++ = ':';
-      sprintf(buf, "%x", (psr >> 4) & 0x0F);
+      sprintf(buf, "%"PRIx32, (psr >> 4) & 0x0F);
       buf++;
       *buf++ = ' ';
 
       // Print the remaining flag bits
       bit = 0x8;
-      for (i = 0; i < 4; i++) {
+      for (int i = 0; i < 4; i++) {
          if (psr & bit) {
             c = '1';
          } else {
@@ -256,16 +255,16 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       *buf++ = '\0';
       return strlen(buf);
    } else {
-      return snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));
+      return (size_t)snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));
    }
-};
+}
 
 // Parse a value into a register.
 static void dbg_reg_parse(int which, const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
-};
+}
 
 static uint32_t dbg_get_instr_addr() {
    return m_opc7->saved_pc;

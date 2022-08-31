@@ -36,15 +36,37 @@ int m_trace;
 #include "../cpu_debug.h"
 #endif
 
+static UINT32 decodeShift(UINT32 insn, UINT32 *pCarry);
+static UINT32 DecimalToBCD(UINT32 value);
+static void HandleBranch( UINT32 insn );
+static void HandleMemSingle( UINT32 insn );
+static void HandleALU( UINT32 insn );
+static void HandleMul( UINT32 insn);
+static void HandleMemBlock( UINT32 insn );
+static void HandleCoProVL86C020( UINT32 insn );
+static void HandleCoPro( UINT32 insn );
+
+static UINT32 GetRegister( unsigned int rIndex );
+static void SetRegister( unsigned int rIndex, UINT32 value );
+static UINT32 GetModeRegister( int mode, unsigned int rIndex );
+static void SetModeRegister( int mode, unsigned int rIndex, UINT32 value );
+
+static void arm2_check_irq_state();
+
+static unsigned int loadInc(UINT32 pat, UINT32 rbv, UINT32 s);
+static unsigned int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer);
+static unsigned int storeInc(UINT32 pat, UINT32 rbv);
+static unsigned int storeDec(UINT32 pat, UINT32 rbv);
+
 //int    m_icount;
 #define CYCLE_COUNT(in)
 
 UINT32 m_sArmRegister[27];
-UINT32 m_coproRegister[16];
+static UINT32 m_coproRegister[16];
 
-UINT8 m_pendingIrq;
-UINT8 m_pendingFiq;
-UINT8 m_copro_type;
+static UINT8 m_pendingIrq;
+static UINT8 m_pendingFiq;
+static UINT8 m_copro_type;
 
 enum
 {
@@ -220,7 +242,7 @@ enum
 
 /***************************************************************************/
 
-UINT32 GetRegister(int rIndex)
+static UINT32 GetRegister(unsigned int rIndex)
 {
   if (MODE == 0)
   {
@@ -230,17 +252,17 @@ UINT32 GetRegister(int rIndex)
   return m_sArmRegister[sRegisterTable[MODE][rIndex]];
 }
 
-void SetRegister(int rIndex, UINT32 value)
+static void SetRegister(unsigned int rIndex, UINT32 value)
 {
   m_sArmRegister[sRegisterTable[MODE][rIndex]] = value;
 }
 
-UINT32 GetModeRegister(int mode, int rIndex)
+static UINT32 GetModeRegister(int mode, unsigned int rIndex)
 {
   return m_sArmRegister[sRegisterTable[mode][rIndex]];
 }
 
-void SetModeRegister(int mode, int rIndex, UINT32 value)
+static void SetModeRegister(int mode, unsigned int rIndex, UINT32 value)
 {
   m_sArmRegister[sRegisterTable[mode][rIndex]] = value;
 }
@@ -425,18 +447,18 @@ void arm2_execute_run(int tube_cycles)
 
     //arm2_check_irq_state();
 
-    tubeUseCycles(1); 
+    tubeUseCycles(1);
     } while (tubeContinueRunning());
   //while( m_icount > 0 );
   //while (number--);
 } /* arm_execute */
 
-void arm2_check_irq_state()
+static void arm2_check_irq_state()
 {
   UINT32 pc = R15+4; /* save old pc (already incremented in pipeline) */;
 
   /* Exception priorities (from ARM6, not specifically ARM2/3):
-   
+
    Reset
    Data abort
    FIRQ
@@ -493,7 +515,7 @@ UINT32 arm2_getR15()
 
 /***************************************************************************/
 
-void HandleBranch(UINT32 insn)
+static void HandleBranch(UINT32 insn)
 {
   UINT32 off = (insn & INSN_BRANCH) << 2;
 
@@ -515,7 +537,7 @@ void HandleBranch(UINT32 insn)
   CYCLE_COUNT(2 * S_CYCLE + N_CYCLE);
 }
 
-void HandleMemSingle(UINT32 insn)
+static void HandleMemSingle(UINT32 insn)
 {
   UINT32 rn, rnv, off, rd;
 
@@ -578,8 +600,8 @@ void HandleMemSingle(UINT32 insn)
     CYCLE_COUNT(S_CYCLE + I_CYCLE + N_CYCLE);
     if (insn & INSN_SDT_B)
     {
-      if (ARM_DEBUG_CORE && rd == eR15)
-        logerror("read byte R15 %08x\n", R15);
+        if (ARM_DEBUG_CORE && rd == eR15)
+          logerror("read byte R15 %08x\n", R15);
         SetRegister(rd,(UINT32) cpu_read8(rnv) );
       }
       else
@@ -593,8 +615,8 @@ void HandleMemSingle(UINT32 insn)
            when writing to R15 in this way, however World Cup Volleyball 95 has
            an example of an unaligned jump (bottom bits = 2) where execution
            should definitely continue from the rounded up address.
-           
-           In other cases, 4 is subracted from R15 here to account for pipelining.
+
+           In other cases, 4 is subtracted from R15 here to account for pipelining.
            */
           if (m_copro_type == ARM_COPRO_TYPE_VL86C020 || (cpu_read32(rnv)&3)==0)
           R15 -= 4;
@@ -614,14 +636,14 @@ void HandleMemSingle(UINT32 insn)
       if (insn & INSN_SDT_B)
       {
         if (ARM_DEBUG_CORE && rd==eR15)
-        logerror("Wrote R15 in byte mode\n");
+          logerror("Wrote R15 in byte mode\n");
 
         cpu_write8(rnv, (UINT8) GetRegister(rd) & 0xffu);
       }
       else
       {
         if (ARM_DEBUG_CORE && rd==eR15)
-        logerror("Wrote R15 in 32bit mode\n");
+          logerror("Wrote R15 in 32bit mode\n");
 
         cpu_write32(rnv, rd == eR15 ? R15 + 8 : GetRegister(rd));
       }
@@ -651,8 +673,8 @@ void HandleMemSingle(UINT32 insn)
       }
       else
       {
-        if ((insn & INSN_SDT_W) != 0)
-          logerror("%08x:  RegisterWritebackIncrement %d %d %d\n", R15,(insn & INSN_SDT_P)!=0,(insn&INSN_SDT_W)!=0,(insn & INSN_SDT_U)!=0);
+          if ((insn & INSN_SDT_W) != 0)
+            logerror("%08x:  RegisterWritebackIncrement %d %d %d\n", R15,(insn & INSN_SDT_P)!=0,(insn&INSN_SDT_W)!=0,(insn & INSN_SDT_U)!=0);
 
           SetRegister(rn,(rnv + off));
         }
@@ -685,7 +707,7 @@ void HandleMemSingle(UINT32 insn)
   if (insn & INSN_S)                            \
     R15 =                                             \
       ((R15 &~ (N_MASK | Z_MASK | V_MASK | C_MASK))                   \
-       | (((!SIGN_BITS_DIFFER(rn, op2)) && SIGN_BITS_DIFFER(rn, rd))  \
+       | (UINT32)(((!SIGN_BITS_DIFFER(rn, op2)) && SIGN_BITS_DIFFER(rn, rd))  \
           << V_BIT)                                                   \
        | (((IsNeg(rn) & IsNeg(op2)) | (IsNeg(rn) & IsPos(rd)) | (IsNeg(op2) & IsPos(rd))) ? C_MASK : 0) \
        | HandleALUNZFlags(rd))                                        \
@@ -696,7 +718,7 @@ void HandleMemSingle(UINT32 insn)
   if (insn & INSN_S)                            \
     R15 =                                             \
       ((R15 &~ (N_MASK | Z_MASK | V_MASK | C_MASK))                \
-       | ((SIGN_BITS_DIFFER(rn, op2) && SIGN_BITS_DIFFER(rn, rd))  \
+       | (UINT32)((SIGN_BITS_DIFFER(rn, op2) && SIGN_BITS_DIFFER(rn, rd))  \
           << V_BIT)                                                     \
        | (((IsNeg(rn) & IsPos(op2)) | (IsNeg(rn) & IsPos(rd)) | (IsPos(op2) & IsPos(rd))) ? C_MASK : 0) \
        | HandleALUNZFlags(rd))                                          \
@@ -706,19 +728,19 @@ void HandleMemSingle(UINT32 insn)
   /* Set NZC flags for logical operations. */
 
 #define HandleALUNZFlags(rd)                    \
-  (((rd) & SIGN_BIT) | ((!(rd)) << Z_BIT))
+  (((rd) & SIGN_BIT) | (((UINT32)!(rd)) << Z_BIT))
 
 #define HandleALULogicalFlags(rd, sc)           \
   if (insn & INSN_S)                            \
     R15 = ((R15 &~ (N_MASK | Z_MASK | C_MASK))  \
            | HandleALUNZFlags(rd)                      \
-           | (((sc) != 0) << C_BIT)) + 4;              \
+           | ((UINT32)((sc) != 0) << C_BIT)) + 4;              \
   else R15 += 4;
 
-void HandleALU(UINT32 insn)
+static void HandleALU(UINT32 insn)
 {
   UINT32 op2, sc = 0, rd, rn, opcode;
-  UINT32 by, rdn;
+  UINT32 rdn;
 
   opcode = (insn & INSN_OPCODE) >> INSN_OPCODE_SHIFT;
   CYCLE_COUNT(S_CYCLE);
@@ -730,7 +752,7 @@ void HandleALU(UINT32 insn)
   if (insn & INSN_I)
   {
     /* Immediate constant */
-    by = (insn & INSN_OP2_ROTATE) >> INSN_OP2_ROTATE_SHIFT;
+    UINT32 by = (insn & INSN_OP2_ROTATE) >> INSN_OP2_ROTATE_SHIFT;
     if (by)
     {
       op2 = ROR(insn & INSN_OP2_IMM, by << 1);
@@ -755,8 +777,8 @@ void HandleALU(UINT32 insn)
   {
     if ((rn = (insn & INSN_RN) >> INSN_RN_SHIFT) == eR15)
     {
-      if (ARM_DEBUG_CORE)
-        logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,((insn&INSN_I)?8:12));
+        if (ARM_DEBUG_CORE)
+          logerror("%08x:  Pipelined R15 (Shift %d)\n", R15,((insn&INSN_I)?8:12));
 
         /* Docs strongly suggest the mode bits should be included here, but it breaks Captain
          America, as it starts doing unaligned reads */
@@ -880,7 +902,7 @@ void HandleALU(UINT32 insn)
   }
 }
 
-void HandleMul(UINT32 insn)
+static void HandleMul(UINT32 insn)
 {
   UINT32 r;
 
@@ -929,9 +951,9 @@ void HandleMul(UINT32 insn)
   }
 }
 
-int loadInc(UINT32 pat, UINT32 rbv, UINT32 s)
+static unsigned int loadInc(UINT32 pat, UINT32 rbv, UINT32 s)
 {
-  int i, result;
+  unsigned int i, result;
 
   result = 0;
   for (i = 0; i < 16; i++)
@@ -955,9 +977,10 @@ int loadInc(UINT32 pat, UINT32 rbv, UINT32 s)
   return result;
 }
 
-int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
+static unsigned int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
 {
-  int i, result;
+  unsigned int result;
+  int i;
 
   result = 0;
   for (i = 15; i >= 0; i--)
@@ -974,24 +997,24 @@ int loadDec(UINT32 pat, UINT32 rbv, UINT32 s, UINT32* deferredR15, int* defer)
           *deferredR15 = (R15&PSR_MASK) | (R15&IRQ_MASK) | (R15&MODE_MASK) | ((cpu_read32(rbv-=4))&ADDRESS_MASK);
       }
       else
-        SetRegister( i, cpu_read32(rbv -=4) );
+        SetRegister( (UINT32)i, cpu_read32(rbv -=4) );
       result++;
-    } 
+    }
   }
   return result;
 }
 
-int storeInc(UINT32 pat, UINT32 rbv)
+static unsigned int storeInc(UINT32 pat, UINT32 rbv)
 {
-  int i, result;
+  unsigned int i, result;
 
   result = 0;
   for (i = 0; i < 16; i++)
   {
     if ((pat >> i) & 1)
     {
-      if (ARM_DEBUG_CORE && i == 15) /* R15 is plus 12 from address of STM */
-        logerror("%08x: StoreInc on R15\n", R15);
+        if (ARM_DEBUG_CORE && i == 15) /* R15 is plus 12 from address of STM */
+          logerror("%08x: StoreInc on R15\n", R15);
 
         cpu_write32( rbv += 4, GetRegister(i) );
         result++;
@@ -1000,30 +1023,31 @@ int storeInc(UINT32 pat, UINT32 rbv)
   return result;
 } /* storeInc */
 
-int storeDec(UINT32 pat, UINT32 rbv)
+static unsigned int storeDec(UINT32 pat, UINT32 rbv)
 {
-  int i, result;
-
+  unsigned int result;
+  int i;
+  
   result = 0;
   for (i = 15; i >= 0; i--)
   {
     if ((pat >> i) & 1)
     {
-      if (ARM_DEBUG_CORE && i == 15) /* R15 is plus 12 from address of STM */
-        logerror("%08x: StoreDec on R15\n", R15);
+        if (ARM_DEBUG_CORE && i == 15) /* R15 is plus 12 from address of STM */
+          logerror("%08x: StoreDec on R15\n", R15);
 
-        cpu_write32( rbv -= 4, GetRegister(i) );
+        cpu_write32( rbv -= 4, GetRegister((UINT32)i) );
         result++;
       }
     }
   return result;
 } /* storeDec */
 
-void HandleMemBlock(UINT32 insn)
+static void HandleMemBlock(UINT32 insn)
 {
   UINT32 rb = (insn & INSN_RN) >> INSN_RN_SHIFT;
   UINT32 rbp = GetRegister(rb);
-  int result;
+  unsigned int result;
 
   if (ARM_DEBUG_CORE && (insn & INSN_BDT_S))
     logerror("%08x:  S Bit set in MEMBLOCK\n", R15);
@@ -1037,12 +1061,12 @@ void HandleMemBlock(UINT32 insn)
 
       /* Incrementing */
       if (!(insn & INSN_BDT_P))
-        rbp = rbp + (-4);
+        rbp = rbp - 4 ;//+ (-4);
 
       // S Flag Set, but R15 not in list = Transfers to User Bank
       if ((insn & INSN_BDT_S) && !(insn & 0x8000))
       {
-        int curmode = MODE;
+        unsigned int curmode = MODE;
         R15 = R15 & ~MODE_MASK;
         result = loadInc( insn & 0xffff, rbp, insn&INSN_BDT_S );
         R15 = R15 | curmode;
@@ -1069,13 +1093,13 @@ void HandleMemBlock(UINT32 insn)
          implementations (the results are officially undefined).
          */
 
-        if (ARM_DEBUG_CORE && rb == 15)
-          logerror("%08x:  Illegal LDRM writeback to r15\n", R15);
+          if (ARM_DEBUG_CORE && rb == 15)
+            logerror("%08x:  Illegal LDRM writeback to r15\n", R15);
 
           if ((insn&(1<<rb))==0)
           SetModeRegister(mode, rb, GetModeRegister(mode, rb) + result * 4);
           else if (ARM_DEBUG_CORE)
-          logerror("%08x:  Illegal LDRM writeback to base register (%u)\n",R15, rb);
+            logerror("%08x:  Illegal LDRM writeback to base register (%u)\n",R15, rb);
         }
       }
       else
@@ -1086,13 +1110,13 @@ void HandleMemBlock(UINT32 insn)
         /* Decrementing */
         if (!(insn & INSN_BDT_P))
         {
-          rbp = rbp - (- 4);
+          rbp = rbp + 4; //- (- 4);
         }
 
               // S Flag Set, but R15 not in list = Transfers to User Bank
         if ((insn & INSN_BDT_S) && !(insn & 0x8000))
         {
-          int curmode = MODE;
+          unsigned int curmode = MODE;
           R15 = R15 & ~MODE_MASK;
           result = loadDec( insn&0xffff, rbp, insn&INSN_BDT_S, &deferredR15, &defer );
           R15 = R15 | curmode;
@@ -1133,7 +1157,7 @@ void HandleMemBlock(UINT32 insn)
       if (insn & (1<<eR15))
       {
         if (ARM_DEBUG_CORE)
-        logerror("%08x: Writing R15 in strm\n",R15);
+          logerror("%08x: Writing R15 in strm\n",R15);
 
         /* special case handling if writing to PC */
         R15 += 12;
@@ -1143,12 +1167,12 @@ void HandleMemBlock(UINT32 insn)
         /* Incrementing */
         if (!(insn & INSN_BDT_P))
         {
-          rbp = rbp + (- 4);
+          rbp = rbp -4 ; // + (- 4);
         }
         // S bit set = Transfers to User Bank
         if (insn & INSN_BDT_S)
         {
-          int curmode = MODE;
+          unsigned int curmode = MODE;
           R15 = R15 & ~MODE_MASK;
           result = storeInc( insn&0xffff, rbp );
           R15 = R15 | curmode;
@@ -1165,12 +1189,12 @@ void HandleMemBlock(UINT32 insn)
         /* Decrementing */
         if (!(insn & INSN_BDT_P))
         {
-          rbp = rbp - (- 4);
+          rbp = rbp + 4 ;// - (- 4);
         }
         // S bit set = Transfers to User Bank
         if (insn & INSN_BDT_S)
         {
-          int curmode = MODE;
+          unsigned int curmode = MODE;
           R15 = R15 & ~MODE_MASK;
           result = storeDec( insn&0xffff, rbp );
           R15 = R15 | curmode;
@@ -1193,7 +1217,7 @@ void HandleMemBlock(UINT32 insn)
    * shifter carry output will manifest itself as @*carry == 0@ for carry clear
    * and @*carry != 0@ for carry set.
    */
-UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
+static UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
 {
   UINT32 k = (insn & INSN_OP2_SHIFT) >> INSN_OP2_SHIFT_SHIFT;
   UINT32 rm = GetRegister(insn & INSN_OP2_RM);
@@ -1210,8 +1234,8 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
   if (t & 1)
   {
 //      logerror("%08x:  RegShift %02x %02x\n",R15, k>>1,GetRegister(k >> 1));
-    if (ARM_DEBUG_CORE && (insn & 0x80) == 0x80)
-      logerror("%08x:  RegShift ERROR (p36)\n", R15);
+      if (ARM_DEBUG_CORE && (insn & 0x80) == 0x80)
+        logerror("%08x:  RegShift ERROR (p36)\n", R15);
 
       //see p35 for check on this
       k = GetRegister(k >> 1)&0xff;
@@ -1275,6 +1299,7 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
       {
         while (k > 32) k -= 32;
         if (pCarry) *pCarry = rm & (1 << (k - 1));
+        if (k==32) return 0;
         return ROR(rm, k);
       }
       else
@@ -1288,7 +1313,7 @@ UINT32 decodeShift(UINT32 insn, UINT32 *pCarry)
   return 0;
 } /* decodeShift */
 
-UINT32 BCDToDecimal(UINT32 value)
+static UINT32 BCDToDecimal(UINT32 value)
 {
   UINT32 accumulator = 0;
   UINT32 multiplier = 1;
@@ -1305,7 +1330,7 @@ UINT32 BCDToDecimal(UINT32 value)
   return accumulator;
 }
 
-UINT32 DecimalToBCD(UINT32 value)
+static UINT32 DecimalToBCD(UINT32 value)
 {
   UINT32 accumulator = 0;
   UINT32 divisor = 10;
@@ -1327,7 +1352,7 @@ UINT32 DecimalToBCD(UINT32 value)
   return accumulator;
 }
 
-void HandleCoProVL86C020(UINT32 insn)
+static void HandleCoProVL86C020(UINT32 insn)
 {
   UINT32 rn = (insn >> 12) & 0xf;
   UINT32 crn = (insn >> 16) & 0xf;
@@ -1367,7 +1392,7 @@ void HandleCoProVL86C020(UINT32 insn)
   }
 }
 
-void HandleCoPro(UINT32 insn)
+static void HandleCoPro(UINT32 insn)
 {
   UINT32 rn = (insn >> 12) & 0xf;
   UINT32 crn = (insn >> 16) & 0xf;
@@ -1393,8 +1418,8 @@ void HandleCoPro(UINT32 insn)
         if (m_coproRegister[crn]==0)
         {
           /* Unpack BCD */
-          int v0=BCDToDecimal(m_coproRegister[0]);
-          int v1=BCDToDecimal(m_coproRegister[1]);
+          unsigned int v0=BCDToDecimal(m_coproRegister[0]);
+          unsigned int v1=BCDToDecimal(m_coproRegister[1]);
 
           /* Repack vcd */
           m_coproRegister[5]=DecimalToBCD(v0+v1);
@@ -1405,8 +1430,8 @@ void HandleCoPro(UINT32 insn)
         else if (m_coproRegister[crn]==1)
         {
           /* Unpack BCD */
-          int v0=BCDToDecimal(m_coproRegister[0]);
-          int v1=BCDToDecimal(m_coproRegister[1]);
+          unsigned int v0=BCDToDecimal(m_coproRegister[0]);
+          unsigned int v1=BCDToDecimal(m_coproRegister[1]);
 
           /* Repack vcd */
           m_coproRegister[5]=DecimalToBCD(v0*v1);
@@ -1417,8 +1442,8 @@ void HandleCoPro(UINT32 insn)
         else if (m_coproRegister[crn]==3)
         {
           /* Unpack BCD */
-          int v0=BCDToDecimal(m_coproRegister[0]);
-          int v1=BCDToDecimal(m_coproRegister[1]);
+          unsigned int v0=BCDToDecimal(m_coproRegister[0]);
+          unsigned int v1=BCDToDecimal(m_coproRegister[1]);
 
           /* Repack vcd */
           m_coproRegister[5]=DecimalToBCD(v0-v1);

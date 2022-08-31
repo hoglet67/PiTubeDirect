@@ -19,13 +19,13 @@
 // #define ADD_ASCII
 
 #ifdef INCLUDE_DEBUGGER
-#define read_mem_8 read_x8_internal
+#define read_mem_8 (uint8_t)read_x8_internal
 #else
-#define read_mem_8 read_x8
+#define read_mem_8 (uint8_t)read_x8
 #endif
 
-static inline uint32_t read_mem_32(uint32_t addr) {
-   return read_mem_8(addr) | (read_mem_8(addr + 1) << 8) | (read_mem_8(addr + 2) << 16) | (read_mem_8(addr + 3) << 24);
+static inline uint32_t read_mem_32(uint32_t a) {
+   return read_mem_8(a) | (uint32_t) ((read_mem_8(a + 1) << 8)) | (uint32_t) ((read_mem_8(a + 2) << 16)) | (uint32_t)(read_mem_8(a + 3) << 24);
 }
 
 static const char LPRLookUp[16][20] =
@@ -58,10 +58,10 @@ static void StringInit(char *buf, size_t bufsize) {
 
 
 static void StringAppend(const char *fmt, ...) {
-   int len;
+   uint32_t len;
    va_list argptr;
    va_start(argptr, fmt);
-   len = vsnprintf(str_buf, str_bufsize, fmt, argptr);
+   len = (uint32_t)vsnprintf(str_buf, str_bufsize, fmt, argptr);
    str_buf += len;
    str_bufsize -= len;
    va_end(argptr);
@@ -216,7 +216,7 @@ static void GetOperandText(uint32_t Start, uint32_t* pPC, RegLKU Pattern, uint32
 
          case Immediate:
          {
-            int32_t Value;
+            uint32_t Value;
             MultiReg temp3;
 
             temp3.u32 = SWAP32(read_mem_32(*pPC));
@@ -295,7 +295,7 @@ static void GetOperandText(uint32_t Start, uint32_t* pPC, RegLKU Pattern, uint32
             RegLKU NewPattern;
             NewPattern.Whole = Pattern.Whole >> 11;
             GetOperandText(Start, pPC, NewPattern, c, OperandSize);   // Recurse
-            StringAppend("[R%" PRId16 ":%c]", ((Pattern.Whole >> 8) & 3), SizeLookup[Pattern.Whole & 3]);
+            StringAppend("[R%" PRId16 ":%c]", (Pattern.IdxReg), SizeLookup[Pattern.Whole & 3]);
          }
          break;
       }
@@ -363,7 +363,7 @@ static void AddInstructionText(uint32_t Function, uint32_t opcode, uint32_t Oper
    if (Function < InstructionCount)
    {
       char Str[80];
-      unsigned int s;
+      int s;
 
       switch (Function)
       {
@@ -424,7 +424,7 @@ static void AddInstructionText(uint32_t Function, uint32_t opcode, uint32_t Oper
          break;
       }
 
-      if (s < (sizeof(EightSpaces) - 1))
+      if (s < (int32_t)(sizeof(EightSpaces) - 1))
       {
          StringAppend("%s%s", Str, &EightSpaces[s]);
       }
@@ -458,7 +458,6 @@ static void AddASCII(uint32_t opcode, uint32_t Format)
 
 void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, uint32_t Function, OperandSizeType *OperandSize)
 {
-   int i;
    static uint32_t old_pc = 0xFFFFFFFF;
 
    if (StartPc < (IO_BASE - 64))                     // The code will not work near the IO Space as it will have side effects
@@ -473,7 +472,7 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
             case CMPS:
             case SKPS:
             {
-               return;                                            // This is just another iteration of an interruptable instructions
+               return;                                            // This is just another iteration of an interruptible instructions
             }
             // No break due to return
          }
@@ -483,7 +482,7 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
 
       StringAppend("&%06" PRIX32 " ", StartPc);
       StringAppend("[");
-      for (i = 0; i < MAX_INSTR_SIZE; i++) {
+      for (uint32_t i = 0; i < MAX_INSTR_SIZE; i++) {
          StringAppend("%02x", read_mem_8(StartPc + i));
       }
       StringAppend("] ");
@@ -513,7 +512,7 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
             case ACB:
             case MOVQ:
             {
-               int32_t Value = (opcode >> 7) & 0xF;
+               uint32_t Value = (opcode >> 7) & 0xF;
                NIBBLE_EXTEND(Value);
                StringAppend("%" PRId32 ",", Value);
             }
@@ -536,8 +535,7 @@ void n32016_show_instruction(uint32_t StartPc, uint32_t* pPC, uint32_t opcode, u
 
          if ((Function <= BN) || (Function == BSR))
          {
-            int32_t d = GetDisplacement(pPC);
-            StringAppend("&%06"PRIX32" ", StartPc + d);
+            StringAppend("&%06"PRIX32" ", (uint32_t)((int)StartPc + GetDisplacement(pPC)));
          }
 
          switch (Function)
@@ -658,25 +656,25 @@ void ShowRegisterWrite(RegLKU RegIn, uint32_t Value)
    }
 }
 
-static void getgen(int gen, int c, uint32_t* pPC)
+static void getgen(uint32_t gen, int c, uint32_t* pPC)
 {
    gen &= 0x1F;
-   Regs[c].Whole = gen;
+   Regs[c].Whole = (uint16_t)gen;
 
    if (gen >= EaPlusRn)
    {
-      Regs[c].Whole |= read_mem_8((*pPC)++) << 8;
+      Regs[c].Whole |= (uint16_t)(read_mem_8(*pPC) << 8);
       (*pPC)++;
 
-      if ((Regs[c].Whole & 0xF800) == (Immediate << 11))
-      {
-         SET_TRAP(IllegalImmediate);
-      }
+      //if ((Regs[c].Whole & 0xF800) == (Immediate << 11))
+      //{
+      //   SET_TRAP(IllegalImmediate);
+      //}
 
-      if ((Regs[c].Whole & 0xF800) >= (EaPlusRn << 11))
-      {
-         SET_TRAP(IllegalDoubleIndexing);
-      }
+      //if ((Regs[c].Whole & 0xF800) >= (EaPlusRn << 11))
+      //{
+      //   SET_TRAP(IllegalDoubleIndexing);
+      //}
    }
 }
 
@@ -843,7 +841,7 @@ static void Decode(uint32_t* pPC)
 
       default:
       {
-         SET_TRAP(UnknownFormat);
+         // SET_TRAP(UnknownFormat);
       }
       break;
    }
@@ -852,13 +850,13 @@ static void Decode(uint32_t* pPC)
 }
 
 
-uint32_t n32016_disassemble(uint32_t addr, char *buf, size_t bufsize)
+uint32_t n32016_disassemble(uint32_t address, char *buf, size_t bufsize)
 {
    unsigned int i;
-   uint32_t old = addr;
-   int len;
+   uint32_t old = address;
+   uint32_t len;
    StringInit(buf, bufsize);
-   Decode(&addr);
+   Decode(&address);
    len = addr - old;
    // Nuke the op bytes that are part of next instruction
    for (i = 9 + len * 2; i < 9 + MAX_INSTR_SIZE * 2 && i < bufsize - 1; i++) {
@@ -866,5 +864,5 @@ uint32_t n32016_disassemble(uint32_t addr, char *buf, size_t bufsize)
    }
    //ShowTraps();
    //CLEAR_TRAP();
-   return addr;
+   return address;
 }

@@ -19,10 +19,10 @@ opc5ls_state *m_opc5ls = &s;
 
 static void int_action() {
    s.pc_int = s.reg[PC];
-   s.psr_int = s.psr & ~SWI_MASK; // Always clear the swi flag in the saved copy
+   s.psr_int = (uint16_t) (s.psr & ~SWI_MASK); // Always clear the swi flag in the saved copy
    DBG_PRINT("saving %04x %02x\r\n", s.pc_int, s.psr_int);
    s.reg[PC] = s.pc_irq;
-   s.psr &= ~EI_MASK;
+   s.psr &= (uint16_t) (~EI_MASK);
 }
 
 void opc5ls_execute() {
@@ -81,7 +81,7 @@ void opc5ls_execute() {
          int dst = (instr >> DST) & 15;
          int src = (instr >> SRC) & 15;
          int opcode = (instr >> OPCODE) & 15;
-         int ea_ed = (s.reg[src] + operand) & 0xffff;
+         uint16_t ea_ed = (uint16_t) (s.reg[src] + operand) & 0xffff;
 
          // Setup carry going into the "ALU"
          uint32_t res = 0;
@@ -111,7 +111,7 @@ void opc5ls_execute() {
             cout = (res >> 16) & 1;
             break;
          case op_adc:
-            res = s.reg[dst] + ea_ed + cin;
+            res = (uint32_t) (s.reg[dst] + ea_ed + cin);
             s.reg[dst] = res & 0xffff;
             cout = (res >> 16) & 1;
             break;
@@ -124,42 +124,42 @@ void opc5ls_execute() {
             break;
          case op_ror:
             cout = ea_ed & 1;
-            s.reg[dst] = (cin << 15) | (ea_ed >> 1);
+            s.reg[dst] = (uint16_t) ((cin << 15) | (ea_ed >> 1));
             break;
          case op_not:
             s.reg[dst] = ~ea_ed;
             break;
          case op_sub:
-            res = s.reg[dst] + ((~ea_ed) & 0xffff) + 1;
+            res = (uint32_t) (s.reg[dst] + ((~ea_ed) & 0xffff) + 1);
             s.reg[dst] = res & 0xffff;
             cout = (res >> 16) & 1;
             break;
          case op_sbc:
-            res = s.reg[dst] + ((~ea_ed) & 0xffff) + cin;
+            res = (uint32_t) (s.reg[dst] + ((~ea_ed) & 0xffff) + cin);
             s.reg[dst] = res & 0xffff;
             cout = (res >> 16) & 1;
             break;
          case op_cmp:
-            res = s.reg[dst] + ((~ea_ed) & 0xffff) + 1;
+            res = (uint32_t) (s.reg[dst] + ((~ea_ed) & 0xffff) + 1);
             dst = 0; // retarget cmp/cmpc to r0
             s.reg[dst] = res & 0xffff;
             cout = (res >> 16) & 1;
             break;
          case op_cmpc:
-            res = s.reg[dst] + ((~ea_ed) & 0xffff) + cin;
+            res = (uint32_t) (s.reg[dst] + ((~ea_ed) & 0xffff) + cin);
             dst = 0; // retarget cmp/cmpc to r0
             s.reg[dst] = res & 0xffff;
             cout = (res >> 16) & 1;
             break;
          case op_bswp:
-            s.reg[dst] = (((ea_ed & 0xFF00) >> 8) | ((ea_ed & 0x00FF) << 8));
+            s.reg[dst] = (uint16_t)(((ea_ed & 0xFF00) >> 8) | ((ea_ed & 0x00FF) << 8));
             break;
          case op_psr_rti:
             if (dst == PC) {
                // RTI
                DBG_PRINT("restoring %04x %02x\r\n", s.pc_int, s.psr_int);
                s.reg[PC] = s.pc_int;
-               s.psr = s.psr_int & ~SWI_MASK;
+               s.psr = (uint16_t) (s.psr_int & ~SWI_MASK);
                preserve_flag = 1;
             } else if (dst == 0) {
                // putpsr
@@ -179,7 +179,7 @@ void opc5ls_execute() {
 
          // Update flags
          if ((!preserve_flag) && (dst != PC)) {
-            s.psr &= ~(S_MASK | C_MASK | Z_MASK);
+            s.psr &= (uint16_t) (~(S_MASK | C_MASK | Z_MASK));
             if (s.reg[dst] & 0x8000) {
                s.psr |= S_MASK;
             }

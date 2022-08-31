@@ -52,51 +52,54 @@
 #define RPI_BASIC_ACCESS_ERROR_1_IRQ    (1 << 6)
 #define RPI_BASIC_ACCESS_ERROR_0_IRQ    (1 << 7)
 
+
+#define RPI_VSYNC_IRQ                  (1 << 16)
+
+#define SMICTRL     (PERIPHERAL_BASE + 0x600000)
+
 #if defined(RPI4)
 /** @brief The interrupt controller memory mapped register set */
 typedef struct {
-    volatile uint32_t IRQ_pending_1;
-    volatile uint32_t IRQ_pending_2;
-	volatile uint32_t IRQ_basic_pending;
-    volatile uint32_t res1;
-    volatile uint32_t Enable_IRQs_1;
-    volatile uint32_t Enable_IRQs_2;
-    volatile uint32_t Enable_Basic_IRQs;
-	volatile uint32_t res2;
-    volatile uint32_t Disable_IRQs_1;
-    volatile uint32_t Disable_IRQs_2;
-    volatile uint32_t Disable_Basic_IRQs;
-	volatile uint32_t res3[((0x100-0x2c)/4)];
-    volatile uint32_t FIQ_pending_1;
-    volatile uint32_t FIQ_pending_2;
-	volatile uint32_t FIQ_basic_pending;
-    volatile uint32_t resF1;
-    volatile uint32_t Enable_FIQs_1;
-    volatile uint32_t Enable_FIQs_2;
-    volatile uint32_t Enable_Basic_FIQs;
-	volatile uint32_t resF2;
-    volatile uint32_t Disable_FIQs_1;
-    volatile uint32_t Disable_FIQs_2;
-    volatile uint32_t Disable_Basic_FIQs;
-    } rpi_irq_controller_t;
+   volatile uint32_t IRQ_pending_1;
+   volatile uint32_t IRQ_pending_2;
+   volatile uint32_t IRQ_basic_pending;
+   volatile uint32_t res1;
+   volatile uint32_t Enable_IRQs_1;
+   volatile uint32_t Enable_IRQs_2;
+   volatile uint32_t Enable_Basic_IRQs;
+   volatile uint32_t res2;
+   volatile uint32_t Disable_IRQs_1;
+   volatile uint32_t Disable_IRQs_2;
+   volatile uint32_t Disable_Basic_IRQs;
+   volatile uint32_t res3[((0x100-0x2c)/4)];
+   volatile uint32_t FIQ_pending_1;
+   volatile uint32_t FIQ_pending_2;
+   volatile uint32_t FIQ_basic_pending;
+   volatile uint32_t resF1;
+   volatile uint32_t Enable_FIQs_1;
+   volatile uint32_t Enable_FIQs_2;
+   volatile uint32_t Enable_Basic_FIQs;
+   volatile uint32_t resF2;
+   volatile uint32_t Disable_FIQs_1;
+   volatile uint32_t Disable_FIQs_2;
+   volatile uint32_t Disable_Basic_FIQs;
+   } rpi_irq_controller_t;
 #else
 /** @brief The interrupt controller memory mapped register set */
 typedef struct {
-    volatile uint32_t IRQ_basic_pending;
-    volatile uint32_t IRQ_pending_1;
-    volatile uint32_t IRQ_pending_2;
-    volatile uint32_t FIQ_control;
-    volatile uint32_t Enable_IRQs_1;
-    volatile uint32_t Enable_IRQs_2;
-    volatile uint32_t Enable_Basic_IRQs;
-    volatile uint32_t Disable_IRQs_1;
-    volatile uint32_t Disable_IRQs_2;
-    volatile uint32_t Disable_Basic_IRQs;
-    } rpi_irq_controller_t;
+   volatile uint32_t IRQ_basic_pending;
+   volatile uint32_t IRQ_pending_1;
+   volatile uint32_t IRQ_pending_2;
+   volatile uint32_t FIQ_control;
+   volatile uint32_t Enable_IRQs_1;
+   volatile uint32_t Enable_IRQs_2;
+   volatile uint32_t Enable_Basic_IRQs;
+   volatile uint32_t Disable_IRQs_1;
+   volatile uint32_t Disable_IRQs_2;
+   volatile uint32_t Disable_Basic_IRQs;
+   } rpi_irq_controller_t;
 #endif
 
 extern rpi_irq_controller_t* RPI_GetIrqController( void );
-
-extern void reboot_now(void);
 
 #endif

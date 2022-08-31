@@ -8,6 +8,13 @@
 
 #include "copro-65tubeasm.h"
 
+// FIX_STACK_WRAP_BUG adds code to make JSR/RTS wrap correctly on the stack boundary.
+// On the Pi Zero this reduces the CLOCKS4 benchmark from 280.72MHz to 272.41MHz.
+// The only known case of stack wrapping "in the wild" was Sarah Walker's TwinHead
+// demo, which has since been fixed.
+
+#define FIX_STACK_WRAP_BUG
+
 // TIMING_INSTRUCTION borrows opcodes 0xEB and 0xFB to record the state of the
 // ARMs instruction cycle counter to zero page registers 0xE0 -0xE3 and 0xE4 to 0xE7
 // These instructions are NOPs which aren't used by any normal program
@@ -127,7 +134,7 @@
 // once we are in the event handler we do
 // disable arm IRQs // this prevents us missing events
 // bic instt,instt,#256<<I_ALIGN
-// reenable IRQs // now if another event happens we will service it at the next instruction boundary
+// re-enable IRQs // now if another event happens we will service it at the next instruction boundary
 // sub regPC,regPC,#1 // set instruction pointer ready to be stacked
 // check for reset ( if we have a reset we are happy to drop any other outstanding events
 // Check for NMI ( if there is also an IRQ present is will get checked for at the RTI)
@@ -318,7 +325,7 @@
         orr     regSP, #0x0100
 .endm
 
-// Macro for poping a byte from the stack, whilst correctly handing wrapping
+// Macro for popping a byte from the stack, whilst correctly handing wrapping
 // This relies on the 6502 memory being 1024 Byte aligned
 .macro SPOP_FETCH_STAGE_0_I reg fetch=FETCH
         mov     \reg,#1
@@ -1193,6 +1200,25 @@ opcode_1F:
 
 // Opcode 20 - JSR $0000
 opcode_20:
+#if defined(FIX_STACK_WRAP_BUG)
+        mov     temp1, regPC, LSR #8
+        strb    temp1, [regSP], #-1    // high byte
+        orr     regSP, #0x0100
+        strb    regPC, [regSP], #-1    // low byte
+        orr     regSP, #0x0100
+#if defined(USE_MEMORY_POINTER)
+        add     regPC, operand, next_instr, LSL #8
+        add     regPC, regPC, memry
+        ldrb    temp1, [regPC]
+#else
+        ldrb    temp1, [operand,next_instr,LSL #8] // modified FETCH_NEXT_3B_STAGE_0
+        add     regPC, operand, next_instr, LSL #8
+#endif
+        FETCH_NEXT_STAGE_1a
+        ADD     next_op, instt, temp1, LSL #I_ALIGN_BITS
+        FETCH_NEXT_STAGE_1b
+        FETCH_NEXT_STAGE_2
+#else // FIX_STACK_WRAP_BUG
 #if defined(USE_MEMORY_POINTER)
         strh    regPC, [regSP,#-1]               // memory is 64K aligned so only need hword
         add     regPC, operand, next_instr, LSL #8
@@ -1214,6 +1240,7 @@ opcode_20:
         FETCH_NEXT_STAGE_1b
         FETCH_NEXT_STAGE_2
 #endif
+#endif // FIX_STACK_WRAP_BUG
         .balign I_ALIGN
 
 // Opcode 21 - AND ($00,X)
@@ -1659,10 +1686,19 @@ opcode_5F:
 
 // Opcode 60 - RTS
 opcode_60:
+#if defined(FIX_STACK_WRAP_BUG)
+        mov     operand,#1
+        uadd8   regSP,regSP,operand
+        ldrb    regPC, [regSP]         // low byte
+        uadd8   regSP,regSP,operand
+        ldrb    operand, [regSP]       // high byte
+        orr     regPC, operand, LSL #8
+#else // FIX_STACK_WRAP_BUG
         ldrh    regPC, [regSP, #1]
         // stall
         mov     operand, #2
         UADD8   regSP, regSP, operand
+#endif // FIX_STACK_WRAP_BUG
 #if defined(USE_MEMORY_POINTER)
         add     regPC, regPC, memry
 #endif
@@ -3234,7 +3270,7 @@ copro_speed6502:
 //
 // 3. We added a time wasting loop
 //     added 4 lines or so
-//     we (redundantly) re-enable interupts first because we don't want to slow down FIQ response
+//     we (redundantly) re-enable interrupts first because we don't want to slow down FIQ response
 //
 // 4. Replaced postamble of FETCH_NEXT_STAGE_012
 //     we added one line

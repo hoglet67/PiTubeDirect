@@ -7,86 +7,85 @@
 #include "startup.h"
 
 // From here: https://www.raspberrypi.org/forums/viewtopic.php?f=72&t=53862
-void reboot_now(void)
+static void reboot_now(void)
 {
   const int PM_PASSWORD = 0x5a000000;
   const int PM_RSTC_WRCFG_FULL_RESET = 0x00000020;
   unsigned int *PM_WDOG = (unsigned int *) (PERIPHERAL_BASE + 0x00100024);
   unsigned int *PM_RSTC = (unsigned int *) (PERIPHERAL_BASE + 0x0010001c);
-  
+
   // timeout = 1/16th of a second? (whatever)
   *PM_WDOG = PM_PASSWORD | 1;
   *PM_RSTC = PM_PASSWORD | PM_RSTC_WRCFG_FULL_RESET;
   while(1);
 }
 
-void dump_digit(unsigned int c) {
+#ifdef HAS_MULTICORE
+static void dump_digit(unsigned int c) {
    c &= 15;
    if (c < 10) {
       c = '0' + c;
    } else {
       c = 'A' + c - 10;
    }
-   RPI_AuxMiniUartWrite(c);
+   RPI_AuxMiniUartWrite((uint8_t)c);
 }
+#endif
 
-void dump_hex(unsigned int value) {
-  int i;
-  for (i = 0; i < 8; i++) {   
-    int c = value >> 28;
+static void dump_hex(unsigned int value) {
+  for (int i = 0; i < 8; i++) {
+    unsigned int c = value >> 28;
     if (c < 10) {
       c = '0' + c;
     } else {
       c = 'A' + c - 10;
     }
-    RPI_AuxMiniUartWrite(c);
+    RPI_AuxMiniUartWrite((uint8_t)c);
     value <<= 4;
   }
 }
 
-void dump_binary(unsigned int value) {
-  int i;
-  for (i = 0; i < 32; i++) {   
-    int c = '0' + (value >> 31);
-    RPI_AuxMiniUartWrite(c);
+static void dump_binary(unsigned int value) {
+  for (int i = 0; i < 32; i++) {
+    RPI_AuxMiniUartWrite((uint8_t)('0' + (value >> 31)));
     value <<= 1;
   }
 }
 
-void dump_string(char *string) {
+static void dump_string(const char *string) {
   char c;
   while ((c = *string++) != 0) {
-    RPI_AuxMiniUartWrite(c);
-  } 
+    RPI_AuxMiniUartWrite((uint8_t)c);
+  }
 }
 
 // For some reason printf generally doesn't work here
-void dump_info(unsigned int *context, int offset, char *type) {
+static void dump_info(unsigned int *context, int offset, const char *type) {
   unsigned int *addr;
   unsigned int *reg;
   unsigned int flags;
   int i, j;
 
   // Make sure we avoid unaligned accesses
-  context = (unsigned int *)(((unsigned int) context) & ~3);
+  context = (unsigned int *)(((unsigned int) context) & ~3u);
   // context point into the exception stack, at flags, followed by registers 0 .. 13
   reg = context + 1;
   dump_string(type);
   dump_string(" at ");
-  // The stacked LR points one or two words afer the exception address
-  addr = (unsigned int *)((reg[13] & ~3) - offset);
+  // The stacked LR points one or two words after the exception address
+  addr = (unsigned int *)((reg[13] & ~3u) - (uint32_t)offset);
   dump_hex((unsigned int)addr);
 #ifdef HAS_MULTICORE
   dump_string(" on core ");
   dump_digit(_get_core());
-#endif  
+#endif
   dump_string("\r\n");
   dump_string("Registers:\r\n");
   for (i = 0; i <= 13; i++) {
     j = (i < 13) ? i : 14; // slot 13 actually holds the link register
     dump_string("  r[");
-    RPI_AuxMiniUartWrite('0' + (j / 10));  
-    RPI_AuxMiniUartWrite('0' + (j % 10));  
+    RPI_AuxMiniUartWrite((uint8_t)('0' + (j / 10)));
+    RPI_AuxMiniUartWrite((uint8_t)('0' + (j % 10)));
     dump_string("]=");
     dump_hex(reg[i]);
     dump_string("\r\n");
@@ -138,7 +137,7 @@ void dump_info(unsigned int *context, int offset, char *type) {
   dump_string(" Mode)\r\n");
 
   dump_string("Halted waiting for reset\r\n");
-  
+
   // look for reset being low
   while( !tube_is_rst_active() );
   // then reset on the next rising edge

@@ -15,7 +15,7 @@
 // #define ALLOW_UNALIGNED
 
 
-jmp_buf trapbuf;
+static jmp_buf trapbuf;
 
 enum {
    INTBUS    = 0004,
@@ -34,14 +34,14 @@ enum {
 };
 
 enum {
-   FLAGN = 8,
-   FLAGZ = 4,
-   FLAGV = 2,
-   FLAGC = 1
+   FLAGN = 8u,
+   FLAGZ = 4u,
+   FLAGV = 2u,
+   FLAGC = 1u
 };
 
 // Encapsulate the persistent CPU state
-pdp11_state cpu;
+static pdp11_state cpu;
 
 pdp11_state *m_pdp11 = &cpu;
 
@@ -76,7 +76,7 @@ static uint16_t read16(uint16_t a) {
    return copro_pdp11_read16(a);
 }
 
-static void write8(uint16_t a, const uint16_t v) {
+static void write8(uint16_t a, const uint8_t v) {
    // write8(mmu::decode(a, true, curuser), v);
    copro_pdp11_write8(a, v);
 }
@@ -94,7 +94,7 @@ static void write16(uint16_t a, const uint16_t v) {
    copro_pdp11_write16(a, v);
 }
 
-void printstate() {
+static void printstate() {
    printf("R0 %06o R1 %06o R2 %06o R3 %06o R4 %06o R5 %06o R6 %06o R7 %06o\r\n",
           (uint16_t)cpu.R[0], (uint16_t)cpu.R[1], (uint16_t)cpu.R[2],
           (uint16_t)cpu.R[3], (uint16_t)cpu.R[4], (uint16_t)cpu.R[5],
@@ -102,15 +102,20 @@ void printstate() {
    printf("[%s%s%s%s%s%s", cpu.prevuser ? "u" : "k", cpu.curuser ? "U" : "K",
           (cpu.PS & FLAGN) ? "N" : " ", (cpu.PS & FLAGZ) ? "Z" : " ",
           (cpu.PS & FLAGV) ? "V" : " ", (cpu.PS & FLAGC) ? "C" : " ");
-   printf("]  instr %06o: %06o\t ", cpu.PC, read16(cpu.PC));
+   printf("]  instr %06o: ", cpu.PC);
+   if (cpu.PC & 1) {
+      printf("------ (odd)");
+   } else {
+      printf("%06o", read16(cpu.PC));
+   }
    printf("\r\n");
 }
 
-void panic() {
+static void panic() {
    cpu.halted = 1;
 #ifndef TEST_MODE
    printstate();
-   while (1);
+   while (tubeContinueRunning());
 #endif
 }
 
@@ -160,7 +165,7 @@ static void memwrite(const uint16_t a, const uint8_t l, const uint16_t v) {
    if (l == 2) {
       write16(a, v);
    } else {
-      write8(a, v);
+      write8(a, (uint8_t) v);
    }
 }
 
@@ -172,7 +177,7 @@ static uint16_t fetch16() {
 
 static void push(const uint16_t v) {
    cpu.R[6] -= 2;
-   write16(cpu.R[6], v);
+   write16((uint16_t) cpu.R[6], v);
 }
 
 static uint16_t pop() {
@@ -188,7 +193,7 @@ static uint16_t pop() {
 // any addresses here, so we can safely do thicpu.
 static uint16_t aget(uint8_t v, uint8_t l) {
    if ((v & 070) == 000) {
-      return 0170000 | (v & 7);
+      return (uint16_t) (0170000 | (v & 7));
    }
    if (((v & 7) >= 6) || (v & 010)) {
       l = 2;
@@ -223,7 +228,7 @@ static void branch(int16_t o) {
       o = -(((~o) + 1) & 0xFF);
    }
    o <<= 1;
-   cpu.R[7] += o;
+   cpu.R[7] =  (uint16_t) ((int16_t )cpu.R[7] + o) ;
 }
 
 static void switchmode(const bool newm) {
@@ -255,7 +260,7 @@ static void setZ(bool b) {
 static void MOV(const uint16_t instr) {
    const uint8_t d = instr & 077;
    const uint8_t s = (instr & 07700) >> 6;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    const uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t uval = memread(aget(s, l), l);
    const uint16_t da = aget(d, l);
@@ -276,7 +281,7 @@ static void MOV(const uint16_t instr) {
 static void CMP(uint16_t instr) {
    const uint8_t d = instr & 077;
    const uint8_t s = (instr & 07700) >> 6;
-   const uint8_t l = 2 - (instr >> 15);
+   const uint8_t l = (uint8_t) (2 - (instr >> 15));
    const uint16_t msb = l == 2 ? 0x8000 : 0x80;
    const uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t val1 = memread(aget(s, l), l);
@@ -299,7 +304,7 @@ static void CMP(uint16_t instr) {
 static void BIT(uint16_t instr) {
    const uint8_t d = instr & 077;
    const uint8_t s = (instr & 07700) >> 6;
-   const uint8_t l = 2 - (instr >> 15);
+   const uint8_t l = (uint8_t) (2 - (instr >> 15));
    const uint16_t msb = l == 2 ? 0x8000 : 0x80;
    const uint16_t val1 = memread(aget(s, l), l);
    const uint16_t da = aget(d, l);
@@ -315,7 +320,7 @@ static void BIT(uint16_t instr) {
 static void BIC(uint16_t instr) {
    const uint8_t d = instr & 077;
    const uint8_t s = (instr & 07700) >> 6;
-   const uint8_t l = 2 - (instr >> 15);
+   const uint8_t l = (uint8_t) (2 - (instr >> 15));
    const uint16_t msb = l == 2 ? 0x8000 : 0x80;
    const uint16_t max = l == 2 ? 0xFFFF : 0xff;
    const uint16_t val1 = memread(aget(s, l), l);
@@ -333,7 +338,7 @@ static void BIC(uint16_t instr) {
 static void BIS(uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t val1 = memread(aget(s, l), l);
    uint16_t da = aget(d, l);
@@ -392,7 +397,7 @@ static void SUB(uint16_t instr) {
 static void JSR(uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t uval = aget(d, l);
    if (isReg(uval)) {
       printf("JSR called on registeri\r\n");
@@ -410,20 +415,20 @@ static void MUL(const uint16_t instr) {
    if (val1 & 0x8000) {
       val1 = -((0xFFFF ^ val1) + 1);
    }
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t da = aget(d, l);
    int32_t val2 = memread16(da);
    if (val2 & 0x8000) {
       val2 = -((0xFFFF ^ val2) + 1);
    }
    int32_t sval = val1 * val2;
-   cpu.R[s & 7] = sval >> 16;
-   cpu.R[(s & 7) | 1] = sval & 0xFFFF;
+   cpu.R[s & 7] = (uint16_t) (sval >> 16);
+   cpu.R[(s & 7) | 1] = (uint16_t) sval & 0xFFFF;
    cpu.PS &= 0xFFF0;
-   if (sval & 0x80000000) {
+   if ((uint32_t)sval & 0x80000000u) {
       cpu.PS |= FLAGN;
    }
-   setZ((sval & 0xFFFFFFFF) == 0);
+   setZ(((uint32_t)sval & 0xFFFFFFFFu) == 0);
    if ((sval < -(1 << 15)) || (sval >= ((1 << 15) - 1))) {
       cpu.PS |= FLAGC;
    }
@@ -433,11 +438,10 @@ static void DIV(uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
    int32_t val1 = (cpu.R[s & 7] << 16) | (cpu.R[(s & 7) | 1]);
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t da = aget(d, l);
    int32_t val2 = memread16(da);
    int32_t quo;
-   int32_t rem;
    cpu.PS &= 0xFFF0;
    if (val2 == 0) {
       // divide by zero
@@ -453,7 +457,7 @@ static void DIV(uint16_t instr) {
    }
    // sign extend val2
    if (val2 & 0x8000) {
-      val2 |= 0xffff0000;
+      val2 = (int32_t) (( uint32_t) val2 | 0xffff0000u);
    }
    quo = val1 / val2;
    if (quo < 0) {
@@ -462,9 +466,9 @@ static void DIV(uint16_t instr) {
    if (quo < -0x8000 || quo > 0x7fff) {
       cpu.PS |= FLAGV;  // J11,11/70 compat
    } else {
-      rem = val1 - quo * val2;
-      cpu.R[s & 7] = quo & 0xFFFF;
-      cpu.R[(s & 7) | 1] = rem & 0xFFFF;
+      int32_t rem = val1 - quo * val2;
+      cpu.R[s & 7] = (uint16_t )quo & 0xFFFF;
+      cpu.R[(s & 7) | 1] = (uint16_t )rem & 0xFFFF;
       setZ(cpu.R[s & 7] == 0);
    }
 }
@@ -505,16 +509,16 @@ static void ASH(uint16_t instr) {
          } else {
             // calculate the bits that have been shifted out of the top
             uint16_t sovf1 = val1 >> (16 - val2);
-            // if sval is negative, all the shifted bits should have been one, otherise overflow occurred
-            // if sval is positive, all the shifted bits should have been zero, otherise overflow occurred
-            uint16_t sovf2 = (sval & 0x8000) ? (1 << val2) - 1 : 0;
+            // if sval is negative, all the shifted bits should have been one, otherwise overflow occurred
+            // if sval is positive, all the shifted bits should have been zero, otherwise overflow occurred
+            uint16_t sovf2 =(uint16_t) ((sval & 0x8000) ? (1 << val2) - 1 : 0);
             if (sovf1 != sovf2) {
                cpu.PS |= FLAGV;
             }
          }
       }
    }
-   cpu.R[s & 7] = sval;
+   cpu.R[s & 7] = (uint16_t) sval;
    setZ(sval == 0);
    if (sval & 0100000) {
       cpu.PS |= FLAGN;
@@ -524,7 +528,7 @@ static void ASH(uint16_t instr) {
 static void ASHC(uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
-   uint32_t val1 = cpu.R[s & 7] << 16 | cpu.R[(s & 7) | 1];
+   uint32_t val1 = (uint32_t) cpu.R[s & 7] << 16 | cpu.R[(s & 7) | 1];
    uint16_t da = aget(d, 2);
    uint16_t val2 = memread16(da) & 077;
    cpu.PS &= 0xFFF0;
@@ -560,15 +564,15 @@ static void ASHC(uint16_t instr) {
          }
          // calculate the bits that have been shifted out of the top
          uint32_t sovf1 = val1 >> (32 - val2);
-         // if sval is negative, all the shifted bits should have been one, otherise overflow occurred
-         // if sval is positive, all the shifted bits should have been zero, otherise overflow occurred
-         uint32_t sovf2 = (sval & 0x80000000) ? (1 << val2) - 1 : 0;
+         // if sval is negative, all the shifted bits should have been one, otherwise overflow occurred
+         // if sval is positive, all the shifted bits should have been zero, otherwise overflow occurred
+         uint32_t sovf2 = ((uint32_t) sval & 0x80000000u) ? (1 << val2) - 1u : 0u;
          if (sovf1 != sovf2) {
             cpu.PS |= FLAGV;
          }
       }
    }
-   cpu.R[s & 7] = (sval >> 16) & 0xFFFF;
+   cpu.R[s & 7] = (uint16_t) ((sval >> 16) & 0xFFFF);
    cpu.R[(s & 7) | 1] = sval & 0xFFFF;
    setZ(sval == 0);
    if (sval & 0x80000000) {
@@ -593,8 +597,8 @@ static void XOR(uint16_t instr) {
 
 static void SOB(const uint16_t instr) {
    const uint8_t s = (instr & 07700) >> 6;
-   uint8_t o = instr & 0xFF;
-   cpu.R[s & 7] = (cpu.R[s & 7] - 1) & 0xffff;
+   uint8_t o = (uint8_t) instr & 0xFF;
+   cpu.R[s & 7] = (cpu.R[s & 7] - 1u) & 0xffff;
    if (cpu.R[s & 7]) {
       o &= 077;
       o <<= 1;
@@ -604,7 +608,7 @@ static void SOB(const uint16_t instr) {
 
 static void CLR(uint16_t instr) {
    const uint8_t d = instr & 077;
-   const uint8_t l = 2 - (instr >> 15);
+   const uint8_t l = (uint8_t)(2 - (instr >> 15));
    cpu.PS &= 0xFFF0;
    cpu.PS |= FLAGZ;
    const uint16_t da = aget(d, l);
@@ -613,7 +617,7 @@ static void CLR(uint16_t instr) {
 
 static void COM(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t)(2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
@@ -629,11 +633,11 @@ static void COM(uint16_t instr) {
 
 static void INC(const uint16_t instr) {
    const uint8_t d = instr & 077;
-   const uint8_t l = 2 - (instr >> 15);
+   const uint8_t l = (uint8_t)(2 - (instr >> 15));
    const uint16_t msb = l == 2 ? 0x8000 : 0x80;
    const uint16_t max = l == 2 ? 0xFFFF : 0xff;
    const uint16_t da = aget(d, l);
-   const uint16_t uval = (memread(da, l) + 1) & max;
+   const uint16_t uval = (uint16_t) (memread(da, l) + 1) & max;
    cpu.PS &= 0xFFF1;
    if (uval & msb) {
       cpu.PS |= FLAGN;
@@ -648,12 +652,12 @@ static void INC(const uint16_t instr) {
 
 static void _DEC(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t)(2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t maxp = l == 2 ? 0x7FFF : 0x7f;
    uint16_t da = aget(d, l);
-   uint16_t uval = (memread(da, l) - 1) & max;
+   uint16_t uval = (uint16_t) (memread(da, l) - 1) & max;
    cpu.PS &= 0xFFF1;
    if (uval & msb) {
       cpu.PS |= FLAGN;
@@ -667,11 +671,11 @@ static void _DEC(uint16_t instr) {
 
 static void NEG(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t)(2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
-   int32_t sval = (-memread(da, l)) & max;
+   uint16_t sval = (uint16_t)(-(int)memread(da, l)) & max;
    cpu.PS &= 0xFFF0;
    if (sval & msb) {
       cpu.PS |= FLAGN;
@@ -689,7 +693,7 @@ static void NEG(uint16_t instr) {
 
 static void _ADC(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
@@ -706,7 +710,7 @@ static void _ADC(uint16_t instr) {
       if (uval == max) {
          cpu.PS |= FLAGC;
       }
-      memwrite(da, l, (uval + 1) & max);
+      memwrite(da, l, (uint16_t) (uval + 1) & max);
    } else {
       cpu.PS &= 0xFFF0;
       if (uval & msb) {
@@ -718,7 +722,7 @@ static void _ADC(uint16_t instr) {
 
 static void SBC(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
@@ -735,7 +739,7 @@ static void SBC(uint16_t instr) {
       if (sval == msb) {
          cpu.PS |= FLAGV;
       }
-      memwrite(da, l, (sval - 1) & max);
+      memwrite(da, l, (uint16_t)(sval - 1) & max);
    } else {
       cpu.PS &= 0xFFF0;
       if (sval & msb) {
@@ -750,7 +754,7 @@ static void SBC(uint16_t instr) {
 
 static void TST(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t uval = memread(aget(d, l), l);
    cpu.PS &= 0xFFF0;
@@ -762,7 +766,7 @@ static void TST(uint16_t instr) {
 
 static void ROR(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    int32_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
    int32_t sval = memread(da, l);
@@ -781,12 +785,12 @@ static void ROR(uint16_t instr) {
    }
    sval >>= 1;
    setZ(!(sval & max));
-   memwrite(da, l, sval);
+   memwrite(da, l, (uint16_t) sval);
 }
 
 static void ROL(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    int32_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
@@ -806,12 +810,12 @@ static void ROL(uint16_t instr) {
       cpu.PS |= FLAGV;
    }
    sval &= max;
-   memwrite(da, l, sval);
+   memwrite(da, l, (uint16_t)sval);
 }
 
 static void ASR(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t da = aget(d, l);
    uint16_t uval = memread(da, l);
@@ -831,7 +835,7 @@ static void ASR(uint16_t instr) {
 
 static void ASL(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t msb = l == 2 ? 0x8000 : 0x80;
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
@@ -849,15 +853,15 @@ static void ASL(uint16_t instr) {
    }
    sval = (sval << 1) & max;
    setZ(sval == 0);
-   memwrite(da, l, sval);
+   memwrite(da, l, (uint16_t)sval);
 }
 
 static void SXT(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t max = l == 2 ? 0xFFFF : 0xff;
    uint16_t da = aget(d, l);
-   cpu.PS &= ~(FLAGV | FLAGZ);
+   cpu.PS &= (uint16_t)~(FLAGV | FLAGZ);
    if (cpu.PS & FLAGN) {
       memwrite(da, l, max);
    } else {
@@ -878,10 +882,10 @@ static void JMP(uint16_t instr) {
 
 static void SWAB(uint16_t instr) {
    uint8_t d = instr & 077;
-   uint8_t l = 2 - (instr >> 15);
+   uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t da = aget(d, l);
    uint16_t uval = memread(da, l);
-   uval = ((uval >> 8) | (uval << 8)) & 0xFFFF;
+   uval = (uint16_t )((uval >> 8) | (uval << 8)) & 0xFFFF;
    cpu.PS &= 0xFFF0;
    setZ((uval & 0xFF) == 0);
    if (uval & 0x80) {
@@ -961,7 +965,7 @@ static void MTPS(uint16_t instr) {
 }
 
 static void MFPS(uint16_t instr) {
-   int l = 1;
+   uint8_t l = 1;
    const uint8_t d = instr & 077;
    const uint16_t da = aget(d, l);
    uint16_t uval = cpu.PS & 0xff;
@@ -989,7 +993,7 @@ static void SPL(uint16_t instr) {
    if (!cpu.curuser) {
       // only work in kernel mode, NOP in user mode (no trap occurs)
       cpu.PS &= 0xff1f;
-      cpu.PS |= (instr & 7) << 5;
+      cpu.PS = (uint16_t)(cpu.PS | ((instr & 7) << 5));
    }
 }
 
@@ -1020,7 +1024,7 @@ static void _RTT(uint16_t instr) {
    uint16_t uval = pop();
    if (cpu.curuser) {
       uval &= 047;
-      uval |= cpu.PS & 0177730;
+      uval = (uint16_t)(uval | (cpu.PS & 0177730) );
    }
    // In some PDP-11's the PSW is memory mapped, but not for now in ours
    // write16(0777776, uval);
@@ -1272,13 +1276,13 @@ static void step() {
    }
    if ((instr & 0177740) == 0240) { // CL?, SE?
       if (instr & 020) {
-         cpu.PS |= instr & 017;
+         cpu.PS = (uint16_t)( cpu.PS | (instr & 017) );
       } else {
-         cpu.PS &= ~(instr & 017);
+         cpu.PS = (uint16_t)( cpu.PS  & ~(instr & 017));
       }
       return;
    }
-   switch (instr & 7) {
+   switch (instr) {
    case 00: // HALT
       if (cpu.curuser) {
          break;
@@ -1313,7 +1317,8 @@ static void trapat(uint16_t vec) { // , msg string) {
       printf("Thou darst calling trapat() with an odd vector number?\r\n");
       panic();
    }
-   printf("trap: %x\r\n", vec);
+   printf("trap: %x at PC=%04x\r\n", vec, cpu.PC);
+   printstate();
 
    /*var prev uint16
      defer func() {
@@ -1358,7 +1363,7 @@ static void handleinterrupt() {
    if (DEBUG_INTER) {
       printf("IRQ: %x\r\n", vec);
    }
-   uint16_t vv = setjmp(trapbuf);
+   uint16_t vv = (uint16_t) setjmp(trapbuf);
    if (vv == 0) {
       uint16_t prev = cpu.PS;
       switchmode(false);
@@ -1416,6 +1421,7 @@ void pdp11_interrupt(uint8_t vec, uint8_t pri) {
    if (i >= ITABN) {
       printf("interrupt table full\r\n");
       panic();
+      return;
    }
    uint8_t j;
    for (j = ITABN - 1; j >= i + 1; j--) {
@@ -1455,7 +1461,7 @@ static void loop0() {
 }
 
 void pdp11_execute() {
-   uint16_t vec = setjmp(trapbuf);
+   uint16_t vec = (uint16_t) setjmp(trapbuf);
    if (vec == 0) {
       loop0();
    } else {

@@ -253,7 +253,7 @@ int darm_immshift_decode(const darm_t *d, const char **type,
     uint32_t *immediate);
 
 const char *darm_mnemonic_name(darm_instr_t instr);
-const char *darm_enctype_name(darm_enctype_t enctype);
+//const char *darm_enctype_name(darm_enctype_t enctype);
 const char *darm_register_name(darm_reg_t reg);
 const char *darm_shift_type_name(darm_shift_type_t shifttype);
 
@@ -261,18 +261,18 @@ const char *darm_shift_type_name(darm_shift_type_t shifttype);
 const char *darm_condition_name(darm_cond_t cond, int omit_always_execute);
 
 // meaning if this condition is used for regular instructions
-const char *darm_condition_meaning_int(darm_cond_t cond);
+//const char *darm_condition_meaning_int(darm_cond_t cond);
 
 // meaning if this condition is used for floating point instructions
-const char *darm_condition_meaning_fp(darm_cond_t cond);
+//const char *darm_condition_meaning_fp(darm_cond_t cond);
 
 // look up a condition code, e.g., "EQ" => C_EQ
-darm_cond_t darm_condition_index(const char *condition_code);
+//darm_cond_t darm_condition_index(const char *condition_code);
 
-int darm_reglist(uint16_t reglist, char *out);
-void darm_dump(const darm_t *d);
+//int darm_reglist(uint16_t reglist, char *out);
+//void darm_dump(const darm_t *d);
 
-int darm_str(const darm_t *d, darm_str_t *str);
+//int darm_str(const darm_t *d, darm_str_t *str);
 int darm_str2(const darm_t *d, darm_str_t *str, int lowercase);
 
 #endif
