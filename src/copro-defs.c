@@ -81,28 +81,28 @@ copro_def_t copro_defs[] = {
 #ifndef MINIMAL_BUILD
    ,
    {
-      "Z80",                    // 4
+      "Z80 (1.21)",             // 4
       copro_z80_emulator,
       TYPE_GENERIC,
       DEBUGGER(&simz80_cpu_debug)
    },
    {
-      "Null",                   // 5
-      copro_null_emulator,
-      TYPE_HIDDEN,
-      NO_DEBUGGER
+      "Z80 (2.00)",             // 5
+      copro_z80_emulator,
+      TYPE_GENERIC,
+      DEBUGGER(&simz80_cpu_debug)
    },
    {
-      "Null",                   // 6
-      copro_null_emulator,
-      TYPE_HIDDEN,
-      NO_DEBUGGER
+      "Z80 (2.2c)",             // 6
+      copro_z80_emulator,
+      TYPE_GENERIC,
+      DEBUGGER(&simz80_cpu_debug)
    },
    {
-      "Null",                   // 7
-      copro_null_emulator,
-      TYPE_HIDDEN,
-      NO_DEBUGGER
+      "Z80 (2.30)",             // 7
+      copro_z80_emulator,
+      TYPE_GENERIC,
+      DEBUGGER(&simz80_cpu_debug)
    },
    {
       "80286",                  // 8

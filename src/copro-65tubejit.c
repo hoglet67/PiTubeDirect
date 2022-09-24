@@ -38,9 +38,9 @@ static unsigned char *copro_65tube_poweron_reset(void) {
 static void copro_65tube_reset(int type, unsigned char mpu_memory[]) {
    // Re-instate the Tube ROM on reset
    if (type == TYPE_65TUBE_0 || type == TYPE_65TUBE_1) {
-      copro_memcpy(mpu_memory + 0xf800, tuberom_6502_extern_1_10, 0x800);
+      copro_memcpy(mpu_memory + 0xf800, tuberom_6502_extern_1_20, 0x800);
    } else {
-      copro_memcpy(mpu_memory + 0xf800, tuberom_6502_intern_1_10, 0x800);
+      copro_memcpy(mpu_memory + 0xf800, tuberom_6502_intern_1_20, 0x800);
    }
    // Wait for rst become inactive before continuing to execute
    tube_wait_for_rst_release();

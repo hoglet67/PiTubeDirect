@@ -102,7 +102,12 @@ static void printstate() {
    printf("[%s%s%s%s%s%s", cpu.prevuser ? "u" : "k", cpu.curuser ? "U" : "K",
           (cpu.PS & FLAGN) ? "N" : " ", (cpu.PS & FLAGZ) ? "Z" : " ",
           (cpu.PS & FLAGV) ? "V" : " ", (cpu.PS & FLAGC) ? "C" : " ");
-   printf("]  instr %06o: %06o\t ", cpu.PC, read16(cpu.PC));
+   printf("]  instr %06o: ", cpu.PC);
+   if (cpu.PC & 1) {
+      printf("------ (odd)");
+   } else {
+      printf("%06o", read16(cpu.PC));
+   }
    printf("\r\n");
 }
 
@@ -1277,7 +1282,7 @@ static void step() {
       }
       return;
    }
-   switch (instr & 7) {
+   switch (instr) {
    case 00: // HALT
       if (cpu.curuser) {
          break;
@@ -1312,7 +1317,8 @@ static void trapat(uint16_t vec) { // , msg string) {
       printf("Thou darst calling trapat() with an odd vector number?\r\n");
       panic();
    }
-   printf("trap: %x\r\n", vec);
+   printf("trap: %x at PC=%04x\r\n", vec, cpu.PC);
+   printstate();
 
    /*var prev uint16
      defer func() {

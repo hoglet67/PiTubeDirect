@@ -28,7 +28,8 @@ static int font_width;
 static int font_height;
 static int text_height; // of whole screen
 static int text_width;  // of whole screen
-static int cursor_height;
+static int cursor_start;
+static int cursor_end;
 
 // Text area clip window
 static t_clip_window_t t_window;
@@ -175,7 +176,7 @@ static void update_text_area();
 static void init_variables();
 static void reset_areas();
 static void set_text_area(t_clip_window_t *window);
-static void invert_cursor(int x_pos, int y_pos, int rows);
+static void invert_cursor(int x_pos, int y_pos, int start, int end);
 static void enable_edit_cursor();
 static void disable_edit_cursor();
 static void update_cursors();
@@ -184,7 +185,7 @@ static void edit_cursor_up();
 static void edit_cursor_down();
 static void edit_cursor_left();
 static void edit_cursor_right();
-static void text_area_scroll();
+static void text_area_scroll(scroll_dir_t dir);
 static void update_g_cursors(int16_t x, int16_t y);
 static void change_mode(screen_mode_t *new_screen);
 static void set_graphics_area(screen_mode_t *scr, g_clip_window_t *window);
@@ -218,11 +219,18 @@ static void update_font_size() {
    // Calculate the font size, taking account of scale and spacing
    font_width  = font->get_overall_w(font);
    font_height = font->get_overall_h(font);
-   // Calculate the height of the flashing cursor
-   cursor_height = font_height >> 3;
+   // Calculate the start/end of the flashing cursor
+   // - in MODES 0,1,2,4,5 the cursor is 1px high (rows 7)
+   // - in MODES 3,6 the cursor is 3px high (rows 7,8,9)
+   int cursor_height = font_height >> 3;
    if (cursor_height < 1) {
       cursor_height = 1;
    }
+   if (screen->mode_flags & (F_BBC_GAP | F_GAP)) {
+      cursor_height += 2;
+   }
+   cursor_start = font_height - cursor_height;
+   cursor_end = font_height - 1;
    // Calc screen text size
    text_width = screen->width / font_width;
    text_height = screen->height / font_height;
@@ -374,10 +382,10 @@ static void set_text_area(t_clip_window_t *window) {
    update_text_area();
 }
 
-static void invert_cursor(int x_pos, int y_pos, int rows) {
+static void invert_cursor(int x_pos, int y_pos, int start, int end) {
    int x = x_pos * font_width;
    int y = screen->height - y_pos * font_height - 1;
-   for (int i = font_height - rows; i < font_height; i++) {
+   for (int i = start; i <= end; i++) {
       for (int j = 0; j < font_width; j++) {
          pixel_t col = screen->get_pixel(screen, x + j, y - i);
          col ^= white_col;
@@ -389,24 +397,24 @@ static void invert_cursor(int x_pos, int y_pos, int rows) {
 static void update_cursors() {
    // Update the flashing cursor
    if (f_visible) {
-      invert_cursor(f_x_pos, f_y_pos, cursor_height);
+      invert_cursor(f_x_pos, f_y_pos, cursor_start, cursor_end);
       f_visible = 0;
    }
    if (e_enabled || c_enabled) {
       f_x_pos = e_enabled ? e_x_pos : c_x_pos;
       f_y_pos = e_enabled ? e_y_pos : c_y_pos;
-      invert_cursor(f_x_pos, f_y_pos, cursor_height);
+      invert_cursor(f_x_pos, f_y_pos, cursor_start, cursor_end);
       f_visible = 1;
    }
    // Update the block cursor
    if (b_visible) {
-      invert_cursor(b_x_pos, b_y_pos, font_height);
+      invert_cursor(b_x_pos, b_y_pos, 0, font_height - 1);
       b_visible = 0;
    }
    if (e_enabled) {
       b_x_pos = c_x_pos;
       b_y_pos = c_y_pos;
-      invert_cursor(b_x_pos, b_y_pos, font_height);
+      invert_cursor(b_x_pos, b_y_pos, 0, font_height - 1);
       b_visible = 1;
    }
 }
@@ -419,11 +427,11 @@ static int disable_cursors() {
    int ret = c_enabled;
    c_enabled = 0;
    if (f_visible) {
-      invert_cursor(f_x_pos, f_y_pos, cursor_height);
+      invert_cursor(f_x_pos, f_y_pos, cursor_start, cursor_end);
    }
    f_visible = 0;
    if (b_visible) {
-      invert_cursor(b_x_pos, b_y_pos, font_height);
+      invert_cursor(b_x_pos, b_y_pos, 0, font_height - 1);
    }
    b_visible = 0;
    return ret;
@@ -433,7 +441,7 @@ static int disable_cursors() {
 static void cursor_interrupt() {
    if (c_enabled || e_enabled) {
       f_visible = !f_visible;
-      invert_cursor(f_x_pos, f_y_pos, cursor_height);
+      invert_cursor(f_x_pos, f_y_pos, cursor_start, cursor_end);
    }
 }
 
@@ -505,15 +513,17 @@ static void edit_cursor_right() {
    update_cursors();
 }
 
-static void text_area_scroll() {
+static void text_area_scroll(scroll_dir_t dir) {
    int tmp = disable_cursors();
-   screen->scroll(screen, &t_window, c_bg_col);
+   screen->scroll(screen, &t_window, c_bg_col, dir);
    if (tmp) {
       enable_cursors();
    }
    if (e_enabled) {
-      if (e_y_pos > t_window.top) {
+      if (dir == SCROLL_UP && e_y_pos > t_window.top) {
          e_y_pos--;
+      } else if (dir == SCROLL_DOWN && e_y_pos < t_window.bottom) {
+         e_y_pos++;
       }
    }
    update_cursors();
@@ -618,7 +628,7 @@ static void text_cursor_up() {
    if (c_y_pos > t_window.top) {
       c_y_pos--;
    } else {
-      c_y_pos = t_window.bottom;
+      text_area_scroll(SCROLL_DOWN);
    }
    update_cursors();
 }
@@ -627,7 +637,7 @@ static void text_cursor_down() {
    if (c_y_pos < t_window.bottom) {
       c_y_pos++;
    } else {
-      text_area_scroll();
+      text_area_scroll(SCROLL_UP);
    }
    update_cursors();
 }
@@ -762,6 +772,26 @@ static void graphics_delete() {
 // ==========================================================================
 // VDU 23 commands
 // ==========================================================================
+
+static void vdu23_0(const uint8_t *buf) {
+   // VDU 23,0: Write CRTC Register
+   int tmp;
+   switch (buf[1]) {
+   case 10:
+   case 11:
+      // Cursor Start or End
+      tmp = disable_cursors();
+      if (buf[1] & 1) {
+         cursor_end = buf[2] & 0x1f;
+      } else {
+         cursor_start = buf[2] & 0x1f;
+      }
+      if (tmp) {
+         enable_cursors();
+      }
+      break;
+   }
+}
 
 static void vdu23_1(const uint8_t *buf) {
    // VDU 23,1: Enable/Disable cursor
@@ -1088,6 +1118,11 @@ static void vdu_19(uint8_t *buf) {
    uint8_t r = buf[3];
    uint8_t g = buf[4];
    uint8_t b = buf[5];
+   // Don't allow Palette Changes in MODE 7 (there is no technical
+   // reason for this, but doing so breaks Acornsoft Basic Editor)
+   if (screen->mode_flags & F_TELETEXT) {
+      return;
+   }
    // See http://beebwiki.mdfs.net/VDU_19
    if (p < 16) {
       // Set to Physical Colour
@@ -1142,6 +1177,7 @@ static void vdu_23(uint8_t *buf) {
       define_character(screen->font, buf[1], buf + 2);
    } else {
       switch (buf[1]) {
+      case  0: vdu23_0 (buf + 1); break;
       case  1: vdu23_1 (buf + 1); break;
       case  2: vdu23_2 (buf + 1); break;
       case  3: vdu23_3 (buf + 1); break;
@@ -1589,9 +1625,6 @@ void fb_initialize() {
       vdu_operation_table[i].handler = vdu_default;
    }
 
-   // Add the frame buffer specific SW calls to the SWI handler table
-   fb_add_swi_handlers();
-
    // Select the default screen mode
    fb_writec(22);
    fb_writec(DEFAULT_SCREEN_MODE);
@@ -1618,9 +1651,6 @@ void fb_destroy() {
 
    // Disable the timer interrupts (flashing colours, cursor, etc)
    RPI_GetIrqController()->Disable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
-
-   // Remove the frame buffer specific SW calls from the SWI handler table
-   fb_remove_swi_handlers();
 
    // Disable the frame buffer
    RPI_PropertyInit();
@@ -1762,32 +1792,28 @@ void fb_writes(const char *string) {
    }
 }
 
-int fb_get_edit_cursor_x() {
-   return e_x_pos;
-}
-
-int fb_get_edit_cursor_y() {
-   return e_y_pos;
-}
-
-int fb_get_edit_cursor_char() {
+int fb_get_cursor_x() {
    if (e_enabled) {
-      return read_character(e_x_pos, e_y_pos);
+      return e_x_pos - t_window.left;
    } else {
-      return 0;
+      return c_x_pos - t_window.left;
    }
 }
 
-int fb_get_text_cursor_x() {
-   return c_x_pos;
+int fb_get_cursor_y() {
+   if (e_enabled) {
+      return e_y_pos - t_window.top;
+   } else {
+      return c_y_pos - t_window.top;
+   }
 }
 
-int fb_get_text_cursor_y() {
-   return c_y_pos;
-}
-
-int fb_get_text_cursor_char() {
-   return read_character(c_x_pos, c_y_pos);
+int fb_get_cursor_char() {
+   if (e_enabled) {
+      return read_character(e_x_pos, e_y_pos);
+   } else {
+      return read_character(c_x_pos, c_y_pos);
+   }
 }
 
 void fb_wait_for_vsync() {
@@ -1809,21 +1835,27 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
    }
 
    font_t *font = screen->font;
-   // Anything in internal coordinates has 0,0 at the top left
-   int ysize = (screen->height << screen->yeigfactor) - 1;
+   // (ic) means internal coordinates: the origin is always the bottom left of the screen.
+   // One unit is one pixel wide and one pixel high.
+   //
+   // (ec) means external coordinates: a pixel is (1 « XEigFactor) units wide and (1 « YEigFactor) units high,
+   // where XEigFactor and YEigFactor are VDU variables.
+
+   // g_window is in (ex) but with the origin applied (so it's neither ic or ec)
+
    switch (v) {
    case V_GWLCOL:
       // Graphics Window – Lefthand Column (ic)
-      return g_window.left;
+      return g_window.left >> screen->xeigfactor;
    case V_GWBROW:
       // Graphics Window – Bottom Row  (ic)
-      return ysize - g_window.bottom;
+      return g_window.bottom >> screen->yeigfactor;
    case V_GWRCOL:
       // Graphics Window – Righthand Column  (ic)
-      return g_window.right;
+      return g_window.right >> screen->xeigfactor;
    case V_GWTROW:
       // Graphics Window – Top Row (ic)
-      return ysize - g_window.top;
+      return g_window.top >> screen->yeigfactor;
    case V_TWLCOL:
       // Text Window – Lefthand Column
       return t_window.left;
@@ -1850,22 +1882,22 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
       return g_y_pos - g_y_origin;
    case V_OLDERCSX:
       // Oldest gr. Cursor X coord (ic)
-      return g_x_pos_last2;
+      return g_x_pos_last2 >> screen->xeigfactor;
    case V_OLDERCSY:
       // Oldest gr. Cursor Y coord (ic)
-      return ysize - g_y_pos_last2;
+      return g_y_pos_last2 >> screen->yeigfactor;
    case V_OLDCSX:
       // Previous gr. Cursor X coord (ic)
-      return g_x_pos_last1;
+      return g_x_pos_last1 >> screen->xeigfactor;
    case V_OLDCSY:
       // Previous gr. Cursor Y coord (ic)
-      return ysize - g_y_pos_last1;
+      return g_y_pos_last1 >> screen->yeigfactor;
    case V_GCSIX:
       // Graphics Cursor X coord (ic)
-      return g_x_pos;
+      return g_x_pos >> screen->xeigfactor;
    case V_GCSIY:
       // Graphics Cursor Y coord (ic)
-      return ysize - g_y_pos;
+      return g_y_pos >> screen->yeigfactor;
    case V_NEWPTX:
       // New point X coord (ic) - TODO: no idea what this is
       return 0;
@@ -1969,6 +2001,137 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
       return text_height;
    }
    return 0;
+}
+
+static uint8_t read_legacy_vdu_variable_helper(vdu_variable_t v, uint8_t offset) {
+   int value = fb_read_vdu_variable(v);
+   if (offset & 1) {
+      return (uint8_t)((value >> 8) & 0xff);
+   } else {
+      return (uint8_t)(value & 0xff);
+   }
+}
+
+uint8_t fb_read_legacy_vdu_variable(uint8_t v) {
+   // VDU Variables are unfortunately platform specific, so try to do some mapping
+   //
+   // Where these correspond to RISCOS VDU variables, we use them directly.
+   switch(v) {
+      // &00/1 Current graphics window left column in pixels
+      // &02/3 Current graphics window bottom row in pixels
+      // &04/5 Current graphics window right column in pixels
+      // &06/7 Current graphics window top row in pixels
+   case 0x00:
+   case 0x01:
+      return read_legacy_vdu_variable_helper(V_GWLCOL, v);
+   case 0x02:
+   case 0x03:
+      return read_legacy_vdu_variable_helper(V_GWBROW, v);
+   case 0x04:
+   case 0x05:
+      return read_legacy_vdu_variable_helper(V_GWRCOL, v);
+   case 0x06:
+   case 0x07:
+      return read_legacy_vdu_variable_helper(V_GWTROW, v);
+      // &08   Current text window left hand column
+      // &09   Current text window bottom row
+      // &0A   Current text window right hand column
+      // &0B   Current text window top column
+   case 0x08:
+      return read_legacy_vdu_variable_helper(V_TWLCOL, 0);
+   case 0x09:
+      return read_legacy_vdu_variable_helper(V_TWBROW, 0);
+   case 0x0A:
+      return read_legacy_vdu_variable_helper(V_TWRCOL, 0);
+   case 0x0B:
+      return read_legacy_vdu_variable_helper(V_TWTROW, 0);
+      // &0C/D Current graphics X origin in external coordinates
+      // &0E/F Current graphics Y origin in external coordinates
+   case 0x0C:
+   case 0x0D:
+      return read_legacy_vdu_variable_helper(V_ORGX, v);
+   case 0x0E:
+   case 0x0F:
+      return read_legacy_vdu_variable_helper(V_ORGY, v);
+      // &10/1 Current graphics X position in external coordinates
+      // &12/3 Current graphics Y position in external coordinates
+   case 0x10:
+   case 0x11:
+      return read_legacy_vdu_variable_helper(V_GCSX, v);
+   case 0x12:
+   case 0x13:
+      return read_legacy_vdu_variable_helper(V_GCSY, v);
+      // &14/5 Old graphics X position in internal coordinates
+      // &16/7 Old graphics Y position in internal coordinates
+   case 0x14:
+   case 0x15:
+      return read_legacy_vdu_variable_helper(V_OLDCSX, v);
+   case 0x16:
+   case 0x17:
+      return read_legacy_vdu_variable_helper(V_OLDCSY, v);
+      // &18 Current absolute text X position (=POS+vduvar &08)
+      // &19 Current absolute text Y position (=VPOS+vduvar &0B)
+   case 0x18:
+      return (uint8_t)((fb_get_cursor_x() + fb_read_vdu_variable(V_TWLCOL)) & 0xff);
+   case 0x19:
+      return (uint8_t)((fb_get_cursor_y() + fb_read_vdu_variable(V_TWTROW)) & 0xff);
+      // &24/5 Current graphics X position in internal coordinates
+      // &26/7 Current graphics Y position in internal coordinates
+   case 0x24:
+   case 0x25:
+      return read_legacy_vdu_variable_helper(V_GCSIX, v);
+   case 0x26:
+   case 0x27:
+      return read_legacy_vdu_variable_helper(V_GCSIY, v);
+      // &4F Bytes per character for current mode
+   case 0x4f:
+      if (screen->mode_flags & F_TELETEXT) {
+         return 1;
+      } else {
+         // Note: the values returned are the same as on the Beeb
+         // and don't actually refect the real frame buffer bit depths
+         // in some cases. Also assumes an 8x8 font.
+         switch (screen->ncolour) {
+         case 0x01:
+            return (uint8_t)8;   // actually 64
+         case 0x03:
+            return (uint8_t)16;  // actually 64
+         case 0x0f:
+            return (uint8_t)32;  // actually 64
+         case 0xff:
+            return (uint8_t)64;
+         case 0xffff:
+            return (uint8_t)128;
+         case 0xffffff:
+            return (uint8_t)0;   // actually 256
+         default:
+            return (uint8_t)0;   // should never hit this case
+         }
+      }
+      // &55 Current screen mode read by OSBYTE &87
+   case 0x55:
+      return (uint8_t)(screen->mode_num & 0xff);
+      // &60 Number logical colours -1
+   case 0x60:
+      return (uint8_t)(screen->ncolour & 0xff);
+      // &61 Pixels per byte -1 (zero if text only mode)
+   case 0x61:
+      if (screen->mode_flags & (F_TELETEXT | F_BBC_GAP)) {
+         return (uint8_t)0;
+      } else {
+         switch (screen->ncolour) {
+         case 0x01:
+            return (uint8_t)7;
+         case 0x03:
+            return (uint8_t)3;
+         case 0x0f:
+            return (uint8_t)1;
+         default:
+            return (uint8_t)0;
+         }
+      }
+   }
+   return (uint8_t) 0x00;
 }
 
 void fb_set_flash_mark_time(uint8_t time) {

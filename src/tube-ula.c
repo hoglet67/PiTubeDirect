@@ -78,6 +78,7 @@ volatile int tube_irq;
 
 // Default value of the VDU property is 0 (off)
 int vdu_enabled = 0;
+uint8_t vdu_var = 0;
 
 // Host end of the fifos are the ones read by the tube isr
 #define PH1_0 tube_regs[1]
@@ -462,13 +463,20 @@ uint8_t tube_parasite_read(uint32_t addr)
    if (vdu_enabled && (addr & 0xFFF8) == 0xFEF0) {
       switch (addr & 7) {
       case 1:
-         temp = (uint8_t)fb_get_edit_cursor_x();
+         // Return the cursor column within the viewport (used for OSBYTE &86)
+         temp = (uint8_t)fb_get_cursor_x();
          break;
       case 2:
-         temp = (uint8_t)fb_get_edit_cursor_y();
+         // Return the cursor row location within the viewport (used for OSBYTE &86)
+         temp = (uint8_t)fb_get_cursor_y();
          break;
       case 3:
-         temp = (uint8_t)fb_get_edit_cursor_char();
+         // Return the character under the cursor (used for OSBYTE &87)
+         temp = (uint8_t)fb_get_cursor_char();
+         break;
+      case 4:
+         // Return the pre-RISCOS VDU variable(used for OSBYTE &A0)
+         temp = fb_read_legacy_vdu_variable(vdu_var);
          break;
       }
       return temp;
@@ -559,6 +567,11 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
   if ((addr & 0xFFF8) == 0xFEF8) {
     // Tube writes get passed on to original code
     tube_parasite_write(addr, val);
+  } else if ((addr & 0xFFF8) == 0xFEF0) {
+     // Writing to FEF4 selects a VDU variable to read
+     if ((addr & 7) == 4) {
+        vdu_var = val;
+     }
   } else if ((addr & 0xFFF8) == 0xFEE0) {
      // Implement write only bank selection registers for 8x 8K pages
      unsigned int logical = (addr & 7) << 1;
