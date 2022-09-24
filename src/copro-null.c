@@ -2,7 +2,7 @@
  * Null Co Processor Emulation
  *
  * (c) 2016 David Banks
- * 
+ *
  */
 
 #include <stdio.h>
@@ -26,10 +26,13 @@ void copro_null_emulator() {
    // then exit on the next reset
    while (1) {
 
-         // Exit on a change of copro ( changed in the FIQ handler)
-         if (copro != last_copro) {
-            return;
+      while (!tube_is_rst_active())
+         asm volatile("wfi");
+      tube_wait_for_rst_release();
 
+      // Exit on a change of copro ( changed in the FIQ handler)
+      if (copro != last_copro) {
+         return;
       }
    }
 }

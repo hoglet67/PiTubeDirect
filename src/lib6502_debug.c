@@ -48,36 +48,36 @@ static int dbg_debug_enable(int newvalue) {
    int oldvalue = lib6502_debug_enabled;
    lib6502_debug_enabled = newvalue;
    return oldvalue;
-};
+}
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
-   return copro_lib6502_mem_read(copro_lib6502_mpu, addr, 0);
-};
+   return (uint32_t)copro_lib6502_mem_read(copro_lib6502_mpu, addr, 0);
+}
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
-   copro_lib6502_mem_write(copro_lib6502_mpu, addr, value);
-};
+   copro_lib6502_mem_write(copro_lib6502_mpu, addr, (uint8_t)value);
+}
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    char instr[64];
-   int oplen = M6502_disassemble(copro_lib6502_mpu, addr, instr);
-   int len = snprintf(buf, bufsize, "%04"PRIx32" ", addr);
+   uint32_t oplen = (uint32_t) M6502_disassemble(copro_lib6502_mpu, (uint16_t)addr, instr);
+   uint32_t len = (uint32_t)snprintf(buf, bufsize, "%04"PRIx32" ", addr);
    buf += len;
-   bufsize -= len;
-   for (int i = 0; i < 3; i++) {
+   bufsize -= (uint32_t)len;
+   for (unsigned int i = 0; i < 3; i++) {
       if (i < oplen) {
-         len = snprintf(buf, bufsize, "%02"PRIx32" ", dbg_memread(addr + i));
+         len = (uint32_t)snprintf(buf, bufsize, "%02"PRIx32" ", dbg_memread(addr + i));
       } else {
-         len = snprintf(buf, bufsize, "   ");
+         len = (uint32_t)snprintf(buf, bufsize, "   ");
       }
       buf += len;
       bufsize -= len;
    }
    strncpy(buf, instr, bufsize);
-   return addr + oplen;
-};
+   return (uint32_t)(addr + oplen);
+}
 
 // Get a register - which is the index into the names above
 static uint32_t dbg_reg_get(int which) {
@@ -97,49 +97,48 @@ static uint32_t dbg_reg_get(int which) {
    default:
       return 0;
    }
-};
+}
 
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
    switch (which) {
    case i_A:
-      copro_lib6502_mpu->registers->a = value;
+      copro_lib6502_mpu->registers->a = (uint8_t)value;
       break;
    case i_X:
-      copro_lib6502_mpu->registers->x = value;
+      copro_lib6502_mpu->registers->x = (uint8_t)value;
       break;
    case i_Y:
-      copro_lib6502_mpu->registers->y = value;
+      copro_lib6502_mpu->registers->y = (uint8_t)value;
       break;
    case i_P:
-      copro_lib6502_mpu->registers->p = value;
+      copro_lib6502_mpu->registers->p = (uint8_t)value;
       break;
    case i_S:
-      copro_lib6502_mpu->registers->s = value;
+      copro_lib6502_mpu->registers->s = (uint8_t)value;
       break;
    case i_PC:
-      copro_lib6502_mpu->registers->pc = value;
+      copro_lib6502_mpu->registers->pc = (uint16_t)value;
       break;
    }
-};
+}
 
 static const char* flagname = "N V * B D I Z C ";
 
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
    if (which == i_P) {
-      int i;
-      int bit;
+      uint32_t bit;
       char c;
       const char *flagnameptr = flagname;
-      int psr = dbg_reg_get(which);
+      uint32_t psr = dbg_reg_get(which);
 
       if (bufsize < 40) {
          strncpy(buf, "buffer too small!!!", bufsize);
       }
 
       bit = 0x80;
-      for (i = 0; i < 8; i++) {
+      for (int i = 0; i < 8; i++) {
          if (psr & bit) {
             c = '1';
          } else {
@@ -156,21 +155,21 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       }
       return strlen(buf);
    } else if (which == i_PC) {
-      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
+      return (size_t)snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which));
    } else {
-      return snprintf(buf, bufsize, "%02"PRIx32, dbg_reg_get(which));
+      return (size_t)snprintf(buf, bufsize, "%02"PRIx32, dbg_reg_get(which));
    }
-};
+}
 
 // Parse a value into a register.
 static void dbg_reg_parse(int which, const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
-};
+}
 
 static uint32_t dbg_get_instr_addr() {
-   return lib6502_last_PC;
+   return (uint32_t)lib6502_last_PC;
 }
 
 cpu_debug_t lib6502_cpu_debug = {

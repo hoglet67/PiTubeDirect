@@ -52,6 +52,8 @@
 #include "tube-isr.h"
 #include "tube-ula.h"
 
+#include "framebuffer/framebuffer.h"
+
 static unsigned int last_copro;
 
 static jmp_buf reboot;
@@ -70,25 +72,25 @@ static const char *prompt = "arm>*";
 
 Environment_type *env = &defaultEnvironment;
 
-static int reset_sent = 0;
-
 /***********************************************************
  * Default Handlers
  ***********************************************************/
 
 // Note: this will be executed in user mode
-static void defaultErrorHandler(const ErrorBuffer_type *eb) {
+static void defaultErrorHandler(unsigned int r0) {
   // TODO: Consider resetting the user stack?
+  const ErrorBuffer_type *eb = &defaultErrorBuffer;
   if (DEBUG_ARM) {
     printf("Error = %p %02x %s\r\n", eb->errorAddr, eb->errorBlock.errorNum, eb->errorBlock.errorMsg);
   }
-  sendString(R1_ID, 0x00, eb->errorBlock.errorMsg);
-  sendString(R1_ID, 0x00, "\n\r");
+  OS_Write0(eb->errorBlock.errorMsg);
+  OS_WriteC(10);
+  OS_WriteC(13);
   OS_Exit();
 }
 
 // Entered with R11 bit 6 as escape status
-// R12 contains 0/-1 if not in/in the kernal presently
+// R12 contains 0/-1 if not in/in the kernel presently
 // R11 and R12 may be altered. Return with MOV PC,R14
 // If R12 contains 1 on return then the Callback will be used
 
@@ -103,7 +105,7 @@ static void defaultEscapeHandler(unsigned int flag, unsigned int workspace) {
 
 // Entered with R0, R1 and R2 containing the A, X and Y parameters. R0,
 // R1, R2, R11 and R12 may be altered. Return with MOV PC, R14
-// R12 contains 0/-1 if not in/in the kernal presently
+// R12 contains 0/-1 if not in/in the kernel presently
 // R13 contains the IRQ handling routine stack. When you return to the
 // system LDMFD R13!, (R0,R1,R2,R11,R12,PC}^ will be executed. If R12
 // contains 1 on return then the Callback will be used.
@@ -197,8 +199,8 @@ static void initEnv() {
   env->handler[                 UPCALL_HANDLER].handler = defaultUpcallHandler;
 
   // Handlers where the handler is just data
-  env->handler[           MEMORY_LIMIT_HANDLER].handler = (EnvironmentHandler_type) (216 * 1024 * 1024); // 216MB
-  env->handler[      APPLICATION_SPACE_HANDLER].handler = (EnvironmentHandler_type) (216 * 1024 * 1024); // 216MB
+  env->handler[           MEMORY_LIMIT_HANDLER].handler = (EnvironmentHandler_type) (200 * 1024 * 1024); // 200MB
+  env->handler[      APPLICATION_SPACE_HANDLER].handler = (EnvironmentHandler_type) (200 * 1024 * 1024); // 200MB
   env->handler[CURRENTLY_ACTIVE_OBJECT_HANDLER].handler = (EnvironmentHandler_type) (0);
 }
 
@@ -214,11 +216,10 @@ static void tube_Reset() {
   }
   sendString(R1_ID, 0x00, banner);
   sendByte(R1_ID, 0x00);
-  reset_sent = 1;
   if (DEBUG_ARM) {
     printf( "Banner sent, awaiting response\r\n" );
   }
-  // Wait for the reponse in R2
+  // Wait for the response in R2
   receiveByte(R2_ID);
   if (DEBUG_ARM) {
     printf( "Received response\r\n" );
@@ -231,7 +232,7 @@ static void tube_Reset() {
  ***********************************************************/
 
 static int cli_loop() {
-  unsigned int flags;
+  unsigned int flags=0;
   int length;
 
   while( 1 ) {
@@ -300,26 +301,25 @@ void copro_armnative_emulator() {
   setjmp(reboot);
 
   if (copro != last_copro) {
-    // Deactive the mailbox
+    // Deactivate the mailbox
     copro_armnative_disable_mailbox();
     // Allow another copro to be selected
     return;
   }
 
-  // Always copy ARM Basic into memory (in case it's been corrupted)
-  copy_armbasic();
+  swi_modules_init(0);
+
+  // If vdu=1 in cmdline.txt
+  if (vdu_enabled) {
+     // Reset all the SWI handlers to the default versions
+     fb_set_vdu_device(VDU_BEEB);
+  }
 
   // Create the startup banner
-  sprintf(banner, "Native ARM Co Processor %dMHz\r\n\n", get_speed());
+  sprintf(banner, "Native ARM Co Processor %"PRId32"MHz\r\n\n", get_speed());
 
   // Initialize the environment structure
   initEnv();
-
-  // Flag to ensure the reset message is only sent once
-  reset_sent = 0;
-
-  // When the default exit handler is called, we return here
-  setjmp(enterOS);
 
   // Enable interrupts!
   _enable_interrupts();
@@ -327,22 +327,29 @@ void copro_armnative_emulator() {
   // Inhibit the language transfer to avoid any BASIC programs getting trashed
   set_ignore_transfer(1);
 
-  if (!reset_sent) {
-     // Log ARM performance counters
-     tube_log_performance_counters();
+  // Log ARM performance counters
+  tube_log_performance_counters();
 
-     // Wait for rst become inactive before continuing to execute
-     tube_wait_for_rst_release();
+  // Wait for rst become inactive before continuing to execute
+  tube_wait_for_rst_release();
 
-     // Reset ARM performance counters
-     tube_reset_performance_counters();
+  // Reset ARM performance counters
+  tube_reset_performance_counters();
 
-     // Send reset message
-     tube_Reset();
-  }
+  // Send reset message
+  tube_Reset();
 
   // Re-enable the language transfer
   set_ignore_transfer(0);
+
+  // Always copy ARM Basic into memory (in case it's been corrupted)
+  copy_armbasic();
+
+  // When the default exit handler is called, we return here
+  setjmp(enterOS);
+
+  // Make sure interrupts are enabled!
+  _enable_interrupts();
 
   // Read the last break type
   OS_Byte(0xfd, 0x00, 0xFF, &last_break, NULL);

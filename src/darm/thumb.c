@@ -59,7 +59,7 @@ static int thumb_disasm(darm_t *d, uint16_t w)
 
         // manually sign-extend it
         if(((d->imm >> 10) & 1) != 0) {
-            d->imm |= ~((1 << 11) - 1);
+            d->imm |= ~((1u << 11) - 1u);
         }
 
         // finally, shift it one byte to the left
@@ -292,11 +292,11 @@ static int thumb_disasm(darm_t *d, uint16_t w)
 
         // for push we have to set LR
         if(d->instr == I_PUSH) {
-            d->reglist |= ((w >> 8) & 1) << LR;
+            d->reglist = (uint16_t) ( d->reglist | (((w >> 8) & 1) << LR) );
         }
         // for pop we have to set PC
         else {
-            d->reglist |= ((w >> 8) & 1) << PC;
+            d->reglist = (uint16_t) ( d->reglist | (((w >> 8) & 1) << PC) );
         }
         return 0;
 
@@ -324,7 +324,7 @@ static int thumb_disasm(darm_t *d, uint16_t w)
         d->Rm = PC;
         d->U = B_SET;
         d->I = B_SET;
-        d->imm = ((w >> 2) & (b11111 << 1)) | ((w >> 3) & (1 << 6));
+        d->imm = ((w >> 2) & (0x1fu << 1)) | ((w >> 3) & (1u << 6));
         return 0;
     }
     return -1;

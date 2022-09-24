@@ -75,4 +75,4 @@ set( CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
 # Add the raspberry-pi 3 definition so conditional compilation works
 add_definitions( -DRPI4=1 )
 
-set( KERNEL_NAME "./kernel8-32.img" )
+set( KERNEL_NAME "./kernelrpi4.img" )

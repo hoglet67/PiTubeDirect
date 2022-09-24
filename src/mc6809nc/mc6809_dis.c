@@ -24,11 +24,11 @@ typedef unsigned short tt_u16;
 typedef signed short tt_s16;
 
 static inline unsigned int get_memw(unsigned int addr) {
-   return (read8(addr) << 8) + read8(addr + 1);
+   return read8((uint16_t)(addr << 8)) | read8((uint16_t)(addr + 1));
 }
 
 static inline unsigned char get_memb(unsigned int addr) {
-   return read8(addr);
+   return read8((uint16_t)addr);
 }
 
 enum opcodes {
@@ -308,9 +308,9 @@ TSTB";
 // The second byte is <length><mode>
 //      modes:
 //      1 immediate
-//      2 direct    
-//      3 indexed   
-//      4 extended  
+//      2 direct
+//      3 indexed
+//      4 extended
 //      5 inherent
 //      6 relative
 
@@ -644,58 +644,58 @@ static void stringInit(char *buf, size_t bufsize) {
 }
 
 static void stringAppend(const char *fmt, ...) {
-   int len;
+   uint32_t len;
    va_list argptr;
    va_start(argptr, fmt);
-   len = vsnprintf(str_buf, str_bufsize, fmt, argptr);
+   len = (uint32_t)vsnprintf(str_buf, str_bufsize, fmt, argptr);
    str_buf += len;
    str_bufsize -= len;
    va_end(argptr);
 }
 
-/* disassemble one instruction at adress adr and return its size */
+/* disassemble one instruction at address adr and return its size */
 
 static char hexdigit(tt_u16 v)
 {
    v &= 0xf;
    if (v <= 9)
-      return '0' + v;
+      return (char) ('0' + v);
    else
-      return 'A' - 10 + v;
+      return (char) ('A' - 10 + v);
 }
 
 static char *hex8str(tt_u8 v)
 {
    static char tmpbuf[3] = "  ";
-   
+
    tmpbuf[1] = hexdigit(v);
    tmpbuf[0] = hexdigit(v >> 4);
-   
+
    return tmpbuf;
 }
 
-static char *hex16str(tt_u16 v)
+static char *hex16str(uint32_t v)
 {
    static char tmpbuf[5] = "    ";
-   
-   tmpbuf[3] = hexdigit(v);
+
+   tmpbuf[3] = hexdigit((tt_u8)v);
    v >>= 4;
-   tmpbuf[2] = hexdigit(v);
+   tmpbuf[2] = hexdigit((tt_u8)v);
    v >>= 4;
-   tmpbuf[1] = hexdigit(v);
+   tmpbuf[1] = hexdigit((tt_u8)v);
    v >>= 4;
-   tmpbuf[0] = hexdigit(v);
-   
+   tmpbuf[0] = hexdigit((tt_u8)v);
+
    return tmpbuf;
 }
 
-const char *statusString = "EFHINZVC";
+static const char *statusString = "EFHINZVC";
 
 static char *ccstr(tt_u8 val)
 {
    static char tempbuf[9] = "        ";
    int i;
-   
+
    for (i = 0; i < 8; i++) {
       if (val & 0x80)
          tempbuf[i] = statusString[i];
@@ -703,32 +703,32 @@ static char *ccstr(tt_u8 val)
          tempbuf[i] = '.';
       val <<= 1;
    }
-   
+
    return tempbuf;
 }
 
 static unsigned int disassemble(unsigned int addr)
 {
    int d = get_memb(addr);
-   int s, i;
+   uint32_t s;
    tt_u8 pb;
    char reg;
    const unsigned char *map = NULL;
-   
+
    // Default for most undefined opcodes
    unsigned char sm = 0x10; // size_mode byte
    unsigned char oi = OP_XX; // opcode index
-   
+
    if (d == 0x10) {
-      d = get_memb(addr + 1); 
+      d = get_memb(addr + 1);
       map = map1;
    }
-   
+
    if (d == 0x11) {
       d = get_memb(addr + 1);
       map = map2;
    }
-   
+
    if (map) {
       // Search for the opcode in map1 or map2
       map -= 3;
@@ -746,26 +746,26 @@ static unsigned int disassemble(unsigned int addr)
       oi = *(map++);
       sm = *(map++);
    }
-   
+
    s = sm >> 4;
-   
+
    stringAppend("%04X ", addr);
-   
-   for (i = 0; i < s; i++) {
+
+   for (uint32_t i = 0; i < s; i++) {
       stringAppend("%s", hex8str(get_memb(addr + i)));
       stringAppend("%c", ' ');
    }
-   for (i = s; i < 4; i++) {
+   for (uint32_t i = s; i < 4; i++) {
       stringAppend("%s", "   ");
    }
-   
-   const char *ip = inst + oi * 4; 
-   for (i = 0; i < 4; i++)
+
+   const char *ip = inst + oi * 4;
+   for (uint32_t i = 0; i < 4; i++)
       stringAppend("%c", *(ip++));
-   
+
    stringAppend("%s", "  ");
-   
-   
+
+
    switch(sm & 15) {
    case 1:             /* immediate */
       stringAppend("%s", "#$");
@@ -781,7 +781,7 @@ static unsigned int disassemble(unsigned int addr)
    case 3:             /* indexed */
       pb = get_memb(addr + s - 1);
       reg = regi[(pb >> 5) & 0x03];
-      
+
       if (!(pb & 0x80)) {       /* n4,R */
          if (pb & 0x10)
             stringAppend("-$%s,%c", hex8str(((pb & 0x0f) ^ 0x0f) + 1), reg);
@@ -851,15 +851,15 @@ static unsigned int disassemble(unsigned int addr)
       switch (d) {
       case 0x1e: case 0x1f:              /* exg tfr */
          stringAppend("%s,%s", exgi[(pb >> 4) & 0x0f], exgi[pb & 0x0f]);
-         break; 
+         break;
       case 0x1a: case 0x1c: case 0x3c:   /* orcc andcc cwai */
          stringAppend("#$%s=%s", hex8str(pb), ccstr(pb));
          break;
       case 0x34:                         /* pshs */
       {
          int p = 0;
-         
-         for (i = 0; i < 8; i++) {
+
+         for (int i = 0; i < 8; i++) {
             if (pb & 0x80) {
                if (p)
                   stringAppend("%c", ',');
@@ -873,8 +873,8 @@ static unsigned int disassemble(unsigned int addr)
       case 0x35:                         /* puls */
       {
          int p = 0;
-         
-         for (i = 7; i >= 0; i--) {
+
+         for (int i = 7; i >= 0; i--) {
             if (pb & 0x01) {
                if (p)
                   stringAppend("%c", ',');
@@ -888,8 +888,8 @@ static unsigned int disassemble(unsigned int addr)
       case 0x36:                         /* pshu */
       {
          int p = 0;
-         
-         for (i = 0; i < 8; i++) {
+
+         for (int i = 0; i < 8; i++) {
             if (pb & 0x80) {
                if (p)
                   stringAppend("%c", ',');
@@ -903,8 +903,8 @@ static unsigned int disassemble(unsigned int addr)
       case 0x37:                         /* pulu */
       {
          int p = 0;
-         
-         for (i = 7; i >= 0; i--) {
+
+         for (int i = 7; i >= 0; i--) {
             if (pb & 0x01) {
                if (p)
                   stringAppend("%c", ',');
@@ -916,20 +916,20 @@ static unsigned int disassemble(unsigned int addr)
       }
       break;
       }
-      break; 
+      break;
    case 6:             /* relative */
    {
       tt_s16 v;
-      
+
       if (s == 2)
          v = (tt_s16)(tt_s8)get_memb(addr + 1);
       else
          v = (tt_s16)get_memw(addr + s - 2);
-      stringAppend("$%s", hex16str(addr + (tt_u16)s + v));
+      stringAppend("$%s", hex16str((uint32_t)(addr + (tt_u16)s + (tt_u16)v)));
       break;
    }
    }
-   
+
    return addr + s;
 }
 

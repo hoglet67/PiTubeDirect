@@ -11,11 +11,11 @@ void opc7_reset();
 void opc7_irq(int id);
 
 // Instruction format (for most instructions!)
-#define PRED    29
-#define OPCODE  24
-#define SRC     16
-#define DST     20
-#define OPERAND  0
+#define PRED    29u
+#define OPCODE  24u
+#define SRC     16u
+#define DST     20u
+#define OPERAND  0u
 
 // PSR flag bits
 #define   Z_FLAG 0
@@ -24,11 +24,11 @@ void opc7_irq(int id);
 #define  EI_FLAG 3
 #define SWI_FLAG 4
 
-#define   Z_MASK (1 <<   Z_FLAG)
-#define   C_MASK (1 <<   C_FLAG)
-#define   S_MASK (1 <<   S_FLAG)
-#define  EI_MASK (1 <<  EI_FLAG)
-#define SWI_MASK (15 << SWI_FLAG)
+#define   Z_MASK (1u <<   Z_FLAG)
+#define   C_MASK (1u <<   C_FLAG)
+#define   S_MASK (1u <<   S_FLAG)
+#define  EI_MASK (1u <<  EI_FLAG)
+#define SWI_MASK (15u << SWI_FLAG)
 
 #define PSR_MASK 0xFF
 

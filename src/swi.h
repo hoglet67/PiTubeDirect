@@ -101,7 +101,7 @@
 #define SWI_OS_ChangeRedirection       0x00005E
 #define SWI_OS_RemoveCallBack          0x00005F
 #define SWI_OS_FindMemMapEntries       0x000060
-#define SWI_OS_SetColourCode           0x000061
+#define SWI_OS_SetColour               0x000061
 #define SWI_OS_ClaimSWI                0x000062
 #define SWI_OS_ReleaseSWI              0x000063
 #define SWI_OS_Pointer                 0x000064
@@ -139,9 +139,11 @@ void OS_WriteC(const char c);
 int  OS_Write0(const char *cptr);
 int  OS_ReadC(unsigned int *flags);
 void OS_CLI(const char *cptr);
+void OS_Word(unsigned int a, unsigned int *block);
 void OS_Byte(unsigned int a, unsigned int x, unsigned int y, unsigned int *retx, unsigned int *rety);
 void OS_ReadLine(const char *buffer, int buflen, int minAscii, int maxAscii, unsigned int *flags, int *length);
 void OS_Exit();
 void OS_GenerateError(const ErrorBlock_type *eblk);
+int  OS_ReadModeVariable(unsigned int mode, int variable);
 
 #endif

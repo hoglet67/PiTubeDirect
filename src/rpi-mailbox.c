@@ -14,6 +14,11 @@ void RPI_Mailbox0Write( mailbox0_channel_t channel, uint32_t *ptr )
     /* For information about accessing mailboxes, see:
        https://github.com/raspberrypi/firmware/wiki/Accessing-mailboxes */
 
+    // Flush any old requests
+    while (!(rpiMailbox0->Status & ARM_MS_EMPTY)) {
+       (void) rpiMailbox0->Data;
+    }
+
     /* Wait until the mailbox becomes available and then write to the mailbox
        channel */
     while( ( rpiMailbox1->Status & ARM_MS_FULL ) != 0 ) { }
@@ -27,11 +32,11 @@ int RPI_Mailbox0Read( mailbox0_channel_t channel )
 {
     /* For information about accessing mailboxes, see:
        https://github.com/raspberrypi/firmware/wiki/Accessing-mailboxes */
-    int value = -1;
+    unsigned int value ;
 
     /* Keep reading the register until the desired channel gives us a value */
-    while( ( value & 0xF ) != channel )
-    {
+   
+    do {
         /* Wait while the mailbox is empty because otherwise there's no value
            to read! */
         while( rpiMailbox0->Status & ARM_MS_EMPTY ) { }
@@ -39,8 +44,8 @@ int RPI_Mailbox0Read( mailbox0_channel_t channel )
         /* Extract the value from the Read register of the mailbox. The value
            is actually in the upper 28 bits */
         value = rpiMailbox0->Data;
-    }
+    }  while( ( value & 0xF ) != channel ) ;
 
     /* Return just the value (the upper 28-bits) */
-    return value >> 4;
+    return (int) (value >> 4);
 }

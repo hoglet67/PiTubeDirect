@@ -5,7 +5,7 @@
 #include "info.h"
 #include "startup.h"
 #include "stdlib.h"
-#include "rpi-systimer.h"
+#include "framebuffer/framebuffer.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "debugger/debugger.h"
@@ -20,28 +20,38 @@
 
 #define TX_BUFFER_SIZE 65536  // Must be a power of 2
 
-static aux_t* auxillary = (aux_t*) AUX_BASE;
-
-aux_t* RPI_GetAux(void)
-{
-  return auxillary;
-}
-
-#if defined(USE_IRQ)
+static aux_t* auxiliary = (aux_t*) AUX_BASE;
 
 #include "rpi-interrupts.h"
 
+#ifdef USE_IRQ
 static char *tx_buffer;
 static volatile int tx_head;
 static volatile int tx_tail;
+#endif // USE_IRQ
 
-static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
+// There is a GCC bug with __attribute__((interrupt("IRQ"))) in that it
+// does not respect registers reserved with -ffixed-reg.
+//
+// So instead, we wrap the C handler in a few lines of assembler:
+//
+//_main_irq_handler:
+//        sub     lr, lr, #4
+//        push    {r0, r1, r2, r3, ip, lr}
+//        bl      RPI_AuxMiniUartIRQHandler
+//        ldm     sp!, {r0, r1, r2, r3, ip, pc}^
 
+void RPI_AuxMiniUartIRQHandler() {
+
+  _data_memory_barrier();
+  RPI_SetGpioHi(TEST3_PIN);
+
+#ifdef USE_IRQ
   _data_memory_barrier();
 
   while (1) {
 
-    int iir = auxillary->MU_IIR;
+    uint32_t iir = auxiliary->MU_IIR;
 
     if (iir & AUX_MUIIR_INT_NOT_PENDING) {
       /* No more interrupts */
@@ -52,10 +62,10 @@ static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
     if (iir & AUX_MUIIR_INT_IS_RX) {
 #ifdef INCLUDE_DEBUGGER
       /* Forward all received characters to the debugger */
-      debugger_rx_char(auxillary->MU_IO & 0xFF);
+      debugger_rx_char(auxiliary->MU_IO & 0xFF);
 #else
       /* Else just exho characters */
-      RPI_AuxMiniUartWrite(auxillary->MU_IO & 0xFF);
+      RPI_AuxMiniUartWrite(auxiliary->MU_IO & 0xFF);
 #endif
     }
 
@@ -64,19 +74,26 @@ static void __attribute__((interrupt("IRQ"))) RPI_AuxMiniUartIRQHandler() {
       if (tx_tail != tx_head) {
         /* Transmit the character */
         tx_tail = (tx_tail + 1) & (TX_BUFFER_SIZE - 1);
-        auxillary->MU_IO = tx_buffer[tx_tail];
+        auxiliary->MU_IO = tx_buffer[tx_tail];
       } else {
         /* Disable TxEmpty interrupt */
-        auxillary->MU_IER &= ~AUX_MUIER_TX_INT;
+        auxiliary->MU_IER &= (uint32_t)~AUX_MUIER_TX_INT;
       }
     }
   }
+#endif // USE_IRQ
+
+  // Periodically also process the VDU Queue
+  fb_process_vdu_queue();
+
+  _data_memory_barrier();
+
+  RPI_SetGpioLo(TEST3_PIN);
 
   _data_memory_barrier();
 }
-#endif
 
-void RPI_AuxMiniUartInit(int baud, int bits)
+void RPI_AuxMiniUartInit(uint32_t baud, uint32_t bits)
 {
   // Data memory barrier need to be places between accesses to different peripherals
   //
@@ -84,8 +101,11 @@ void RPI_AuxMiniUartInit(int baud, int bits)
 
   _data_memory_barrier();
 
-  int sys_freq = get_clock_rate(CORE_CLK_ID);
+  clock_info_t *sys_clock_info = get_clock_rates(CORE_CLK_ID);
 
+  uint32_t sys_freq = sys_clock_info->rate;
+
+  // Sanity-check against zero
   if (!sys_freq) {
      sys_freq = FALLBACK_SYS_FREQ;
   }
@@ -97,14 +117,8 @@ void RPI_AuxMiniUartInit(int baud, int bits)
   RPI_SetGpioPinFunction(RPI_GPIO14, FS_ALT5);
   RPI_SetGpioPinFunction(RPI_GPIO15, FS_ALT5);
 
-  // Enable weak pullups
-  RPI_GpioBase->GPPUD = 2;
-  RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
-
-  RPI_GpioBase->GPPUDCLK0 = (1 << 14) | (1 << 15);
-  RPI_WaitMicroSeconds(2); // wait of 150 cycles needed see datasheet
-
-  RPI_GpioBase->GPPUDCLK0 = 0;
+  RPI_SetGpioPull(RPI_GPIO14, PULL_UP);
+  RPI_SetGpioPull(RPI_GPIO15, PULL_UP);
 
   _data_memory_barrier();
 
@@ -114,45 +128,46 @@ void RPI_AuxMiniUartInit(int baud, int bits)
 
    If the enable bits are clear you will have no access to a
    peripheral. You can not even read or write the registers */
-  auxillary->ENABLES = AUX_ENA_MINIUART;
+  auxiliary->ENABLES = AUX_ENA_MINIUART;
 
   _data_memory_barrier();
 
   /* Disable flow control,enable transmitter and receiver! */
-  auxillary->MU_CNTL = 0;
+  auxiliary->MU_CNTL = 0;
 
   /* Decide between seven or eight-bit mode */
   if (bits == 8)
-    auxillary->MU_LCR = AUX_MULCR_8BIT_MODE;
+    auxiliary->MU_LCR = AUX_MULCR_8BIT_MODE;
   else
-    auxillary->MU_LCR = 0;
+    auxiliary->MU_LCR = 0;
 
-  auxillary->MU_MCR = 0;
+  auxiliary->MU_MCR = 0;
 
   /* Disable all interrupts from MU and clear the fifos */
-  auxillary->MU_IER = 0;
-  auxillary->MU_IIR = 0xC6;
+  auxiliary->MU_IER = 0;
+  auxiliary->MU_IIR = 0xC6;
 
   /* Transposed calculation from Section 2.2.1 of the ARM peripherals manual */
-  auxillary->MU_BAUD = ( sys_freq / (8 * baud)) - 1;
+  auxiliary->MU_BAUD = (( sys_freq / (8 * baud)) - 1);
+
+  extern unsigned int _interrupt_vector_h;
+  _interrupt_vector_h = (uint32_t) _main_irq_handler;
 
 #ifdef USE_IRQ
   {
-    extern unsigned int _interrupt_vector_h;
     tx_buffer = malloc(TX_BUFFER_SIZE);
     tx_head = tx_tail = 0;
-    _interrupt_vector_h = (uint32_t) RPI_AuxMiniUartIRQHandler;
     _data_memory_barrier();
     RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
     _data_memory_barrier();
-    auxillary->MU_IER |= AUX_MUIER_RX_INT;
+    auxiliary->MU_IER |= AUX_MUIER_RX_INT;
   }
 #endif
 
   _data_memory_barrier();
 
   /* Disable flow control,enable transmitter and receiver! */
-  auxillary->MU_CNTL = AUX_MUCNTL_TX_ENABLE | AUX_MUCNTL_RX_ENABLE;
+  auxiliary->MU_CNTL = AUX_MUCNTL_TX_ENABLE | AUX_MUCNTL_RX_ENABLE;
 
   _data_memory_barrier();
 
@@ -165,7 +180,7 @@ void RPI_AuxMiniUartWrite(char c)
 
   /* Test if the buffer is full */
   if (tmp_head == tx_tail) {
-     int cpsr = _get_cpsr();
+     uint32_t cpsr = _get_cpsr();
      if (cpsr & 0x80) {
         /* IRQ disabled: drop the character to avoid deadlock */
         return;
@@ -182,17 +197,17 @@ void RPI_AuxMiniUartWrite(char c)
   _data_memory_barrier();
 
   /* Enable TxEmpty interrupt */
-  auxillary->MU_IER |= AUX_MUIER_TX_INT;
+  auxiliary->MU_IER |= AUX_MUIER_TX_INT;
 
   _data_memory_barrier();
 
 #else
   /* Wait until the UART has an empty space in the FIFO */
-  while ((auxillary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)
+  while ((auxiliary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)
   {
   }
   /* Write the character to the FIFO for transmission */
-  auxillary->MU_IO = c;
+  auxiliary->MU_IO = c;
 #endif
 }
 

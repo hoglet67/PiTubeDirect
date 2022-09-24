@@ -1,8 +1,9 @@
+#include <stdio.h>
 #include <stdint.h>
 
 #include "copro-defs.h"
-
 #include "copro-65tube.h"
+#include "tube-client.h"
 
 #ifndef MINIMAL_BUILD
 
@@ -20,6 +21,7 @@
 #include "copro-65816.h"
 #include "copro-pdp11.h"
 #include "copro-armnative.h"
+#include "copro-65tubejit.h"
 
 #endif
 
@@ -78,28 +80,28 @@ copro_def_t copro_defs[] = {
 #ifndef MINIMAL_BUILD
    ,
    {
-      "Z80",                    // 4
+      "Z80 (1.21)",             // 4
       copro_z80_emulator,
       TYPE_GENERIC,
       DEBUGGER(&simz80_cpu_debug)
    },
    {
-      "Null",                   // 5
-      copro_null_emulator,
-      TYPE_HIDDEN,
-      NO_DEBUGGER
+      "Z80 (2.00)",             // 5
+      copro_z80_emulator,
+      TYPE_GENERIC,
+      DEBUGGER(&simz80_cpu_debug)
    },
    {
-      "Null",                   // 6
-      copro_null_emulator,
-      TYPE_HIDDEN,
-      NO_DEBUGGER
+      "Z80 (2.2c)",             // 6
+      copro_z80_emulator,
+      TYPE_GENERIC,
+      DEBUGGER(&simz80_cpu_debug)
    },
    {
-      "Null",                   // 7
-      copro_null_emulator,
-      TYPE_HIDDEN,
-      NO_DEBUGGER
+      "Z80 (2.30)",             // 7
+      copro_z80_emulator,
+      TYPE_GENERIC,
+      DEBUGGER(&simz80_cpu_debug)
    },
    {
       "80286",                  // 8
@@ -140,7 +142,7 @@ copro_def_t copro_defs[] = {
    {
       "Disable",                // 14 - same as Null but we want it in the list
       copro_null_emulator,
-      TYPE_GENERIC,
+      TYPE_DISABLED,
       NO_DEBUGGER
    },
    {
@@ -150,25 +152,25 @@ copro_def_t copro_defs[] = {
       NO_DEBUGGER
    },
    {
-      "65C02 (lib6502)",        // 16
+      "LIB65C02 64K",           // 16
       copro_lib6502_emulator,
       TYPE_GENERIC,
       DEBUGGER(&lib6502_cpu_debug)
    },
    {
-      "65C02 Turbo (lib6502)",  // 17
+      "LIB65C02 256K Turbo",    // 17
       copro_lib6502_emulator,
       TYPE_TURBO,
       DEBUGGER(&lib6502_cpu_debug)
    },
    {
-      "65C816 (Dominic Beesley)", // 18
+      "65C816 (Dossy)",         // 18
       copro_65816_emulator,
       TYPE_GENERIC,
       DEBUGGER(&w65816_cpu_debug)
    },
    {
-      "65C816 (ReCo)",           // 19
+      "65C816 (ReCo)",          // 19
       copro_65816_emulator,
       TYPE_GENERIC,
       DEBUGGER(&w65816_cpu_debug)
@@ -198,9 +200,9 @@ copro_def_t copro_defs[] = {
       NO_DEBUGGER
    },
    {
-      "Null",                   // 24
-      copro_null_emulator,
-      TYPE_HIDDEN,
+      "65C02 (JIT)",            // 24
+      copro_65tubejit_emulator,
+      TYPE_65TUBE_0,
       NO_DEBUGGER
    },
    {
@@ -254,4 +256,16 @@ unsigned int default_copro() {
 
 unsigned int num_copros() {
    return sizeof(copro_defs) / sizeof(copro_def_t);
+}
+
+char *get_copro_name(unsigned int i, unsigned int maxlen) {
+   static char name[256];
+   if (i == 1u || i == 3u) {
+      sprintf(name, "%s (%uMHz)", copro_defs[i].name, get_copro_mhz(i));
+   } else {
+      sprintf(name, "%s", copro_defs[i].name);
+   }
+   // Make sure name doesn't exceed the required length
+   name[maxlen] = '\0';
+   return name;
 }

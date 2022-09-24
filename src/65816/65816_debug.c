@@ -114,13 +114,13 @@ uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t
     size_t len;
     addr_mode_t addr_mode;
 
-    op = cpu->memread(addr);
+    op = (uint8_t) cpu->memread(addr);
 
     ni = op_816[op];
     addr_mode = am_816[op];
 
     op_name = op_names[ni];
-    len = snprintf(buf, bufsize, "%06"PRIX32": %02x ", addr, op);
+    len = (size_t)snprintf(buf, bufsize, "%06"PRIX32": %02x ", addr, op);
 
     buf += len;
     bufsize -= len;
@@ -135,136 +135,136 @@ uint32_t dbg65816_disassemble(cpu_debug_t *cpu, uint32_t addr, char *buf, size_t
             snprintf(buf, bufsize, "         %s A       ", op_name);
             break;
         case IMM:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s #%02X     ", p1, op_name, p1);
             break;
         case IMV:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             if (w65816p.m || w65816p.e)
                 snprintf(buf, bufsize, "%02X       %s #%02X     ", p1, op_name, p1);
             else {
-                p2 = cpu->memread(addr++);
+                p2 = (uint8_t) cpu->memread(addr++);
                 snprintf(buf, bufsize, "%02X %02X    %s #%02X%02X     ", p1, p2, op_name, p2, p1);
             }
             break;
         case IMX:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             if (w65816p.ex || w65816p.e)
                 snprintf(buf, bufsize, "%02X       %s #%02X     ", p1, op_name, p1);
             else {
-                p2 = cpu->memread(addr++);
+                p2 = (uint8_t) cpu->memread(addr++);
                 snprintf(buf, bufsize, "%02X %02X    %s #%02X%02X     ", p1, p2, op_name, p2, p1);
             }
             break;
         case ZP:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s %02X      ", p1, op_name, p1);
             break;
         case ZPX:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s %02X,X    ", p1, op_name, p1);
             break;
         case ZPY:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s %02X,Y    ", p1, op_name, p1);
             break;
         case IND:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s (%02X)    ", p1, op_name, p1);
             break;
         case INDL:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s [%02X]    ", p1, op_name, p1);
             break;
         case INDX:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s (%02X,X)  ", p1, op_name, p1);
             break;
         case INDY:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s (%02X),Y  ", p1, op_name, p1);
             break;
         case INDYL:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s [%02X],Y  ", p1, op_name, p1);
             break;
         case SR:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s (%02X,S)  ", p1, op_name, p1);
             break;
         case SRY:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s (%02X,S),Y", p1, op_name, p1);
             break;
         case ABS:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X    %s %02X%02X    ", p1, p2, op_name, p2, p1);
             break;
         case ABSL:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
-            p3 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
+            p3 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X %02X %s %02X%02X%02X  ", p1, p2, p3, op_name, p3, p2, p1);
             break;
         case ABSX:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X    %s %02X%02X,X  ", p1, p2, op_name, p2, p1);
             break;
         case ABSY:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X    %s %02X%02X,Y  ", p1, p2, op_name, p2, p1);
             break;
         case ABSXL:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
-            p3 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
+            p3 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X %02X  %s %02X%02X%02X,X  ", p1, p2, p3, op_name, p3, p2, p1);
             break;
         case BM:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X    %s %02X,%02X   ", p1, p2, op_name, p1, p2);
             break;
         case IND16:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X    %s (%02X%02X)  ", p1, p2, op_name, p2, p1);
             break;
         case IND16L:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X    %s [%02X%02X]  ", p1, p2, op_name, p2, p1);
             break;
         case IND1X:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X %02X    %s (%02X%02X,X)", p1, p2, op_name, p2, p1);
             break;
         case PCR:
-            p1 = cpu->memread(addr++);
-            temp = (signed char)p1;
-            temp += addr;
+            p1 = (uint8_t) cpu->memread(addr++);
+            temp = (uint16_t)((signed char)p1);
+            temp += (uint16_t)addr;
             snprintf(buf, bufsize, "%02X       %s %04X    ", p1, op_name, temp);
             break;
         case PCRL:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
-            temp = (int16_t)((uint16_t)p1 | (uint16_t)p2 <<8);
-            temp += addr;
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
+            temp = (uint16_t)(p1 | p2 <<8);
+            temp += (uint16_t)addr;
             snprintf(buf, bufsize, "%02X %02X    %s %04X    ", p1, p2, op_name, temp);
             break;
         case BITC:
-            p1 = cpu->memread(addr++);
+            p1 = (uint8_t) cpu->memread(addr++);
             snprintf(buf, bufsize, "%02X       %s%x %02X", p1, op_name, (op & 0x70) >> 4, p1);
             break;
         case BITB:
-            p1 = cpu->memread(addr++);
-            p2 = cpu->memread(addr++);
-            temp = (signed char)p2;
-            temp += addr;
+            p1 = (uint8_t) cpu->memread(addr++);
+            p2 = (uint8_t) cpu->memread(addr++);
+            temp = (uint16_t)((signed char)p2);
+            temp += (uint16_t)addr;
             snprintf(buf, bufsize, "%02X %02X     %s%x %02X,%04X", p1, p2, op_name, (op & 0x70) >> 4, p1, temp);
             break;
     }

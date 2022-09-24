@@ -54,7 +54,7 @@ void init_ram(void)
    if (copro_memory_size > 0)
    {
       // Ensure RAM size is multiple of 128KB, or the Client ROM memory test gets confused
-      RAM_SIZE = copro_memory_size  & ~((128*1024)-1);
+      RAM_SIZE = copro_memory_size  & (uint32_t)~((128*1024)-1);
       // Limit RAM size to 15MB, so there is space for the tube registers above this
       if (RAM_SIZE > MEG15) {
          RAM_SIZE = MEG15;
@@ -159,7 +159,7 @@ uint16_t read_x16(uint32_t addr)
    }
 #endif
 
-   return read_x8(addr) | (read_x8(addr + 1) << 8);
+   return (uint16_t)(read_x8(addr) | (read_x8(addr + 1) << 8));
 }
 
 uint32_t read_x32(uint32_t addr)
@@ -185,7 +185,7 @@ uint32_t read_x32(uint32_t addr)
    }
 #endif
 
-   return read_x8(addr) | (read_x8(addr + 1) << 8) | (read_x8(addr + 2) << 16) | (read_x8(addr + 3) << 24);
+   return (uint32_t)(read_x8(addr) | (read_x8(addr + 1) << 8) | (read_x8(addr + 2) << 16) | (read_x8(addr + 3) << 24));
 }
 
 uint64_t read_x64(uint32_t addr)
@@ -286,8 +286,8 @@ void write_x16(uint32_t addr, uint16_t val)
    }
 #endif
 
-   write_x8(addr++, val & 0xFF);
-   write_x8(addr, val >> 8);
+   write_x8(addr++,(uint8_t) val);
+   write_x8(addr, (uint8_t)(val >> 8));
 }
 
 void write_x32(uint32_t addr, uint32_t val)
@@ -312,10 +312,10 @@ void write_x32(uint32_t addr, uint32_t val)
    }
 #endif
 
-   write_x8(addr++, val);
-   write_x8(addr++, (val >> 8));
-   write_x8(addr++, (val >> 16));
-   write_x8(addr, (val >> 24));
+   write_x8(addr++,(uint8_t) val);
+   write_x8(addr++,(uint8_t) (val >> 8));
+   write_x8(addr++,(uint8_t) (val >> 16));
+   write_x8(addr, (uint8_t) (val >> 24));
 }
 
 void write_x64(uint32_t addr, uint64_t val)

@@ -48,7 +48,7 @@ void opc7_execute() {
       register int opcode = (instr >> OPCODE) & 0x1f;
 
       // Evaluate the predicate
-      register int pred = (instr >> PRED) & 7;
+      register uint32_t pred = (instr >> PRED) & 7;
       switch (pred) {
       case 0:
          pred = 1; break;
@@ -69,7 +69,7 @@ void opc7_execute() {
       }
 
       // Evaluate the operand (one of two formats; needs sign extension)
-      register int operand;
+      register uint32_t operand;
 
       if (opcode >= op_ljsr){
         operand = instr & 0xfffff;
@@ -100,12 +100,12 @@ void opc7_execute() {
            src = 0;
          }
 
-         uint32_t ea_ed = s.reg[src] + operand;
+         uint32_t ea_ed =  s.reg[src] + operand;
 
          // Setup carry going into the "ALU"
          uint64_t res = 0; // result needs to be wider than the machine we emulate for easy add, sub, cmp
          unsigned int cin = (s.psr & C_MASK ) ? 1 : 0;
-         int cout = cin;
+         int cout = (int) cin;
 
          // When to preserve the flags
          int preserve_flag = 0;
@@ -148,17 +148,19 @@ void opc7_execute() {
             cout = (res >> 32) & 1;
             break;
          case op_bperm: // pick off one of four bytes from source, four times.
-            res = 0;
+		 	{
+            uint32_t result = 0;
             ea_ed = s.reg[src];
-            res |= ((operand & 0xf) == 4) ? 0 : 0xff & (ea_ed >> (8 * (operand & 0xf) ));
+            result |= ((operand & 0xf) == 4) ? 0 : 0xff & (ea_ed >> (8 * (operand & 0xf) ));
             operand >>= 4;
-            res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (8 * (operand & 0xf) ))) << 8;
+            result |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (8 * (operand & 0xf) ))) << 8;
             operand >>= 4;
-            res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (8 * (operand & 0xf) ))) << 16;
+            result |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (8 * (operand & 0xf) ))) << 16;
             operand >>= 4;
-            res |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (8 * (operand & 0xf) ))) << 24;
-            s.reg[dst] = res;
+            result |= ((operand & 0xf) == 4) ? 0 : (0xff & (ea_ed >> (8 * (operand & 0xf) ))) << 24;
+            s.reg[dst] = result;
             break;
+			}
          case op_ror:
             cout = ea_ed & 1;
             s.reg[dst] = (cin << 31) | (ea_ed >> 1);
@@ -178,7 +180,7 @@ void opc7_execute() {
             s.reg[dst] = (ea_ed & 0x80000000) |  (ea_ed >> 1);
             break;
          case op_rol:
-            cout = ea_ed >> 31;
+            cout = (int ) (ea_ed >> 31);
             s.reg[dst] = ea_ed + ea_ed + cin;
             break;
 

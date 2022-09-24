@@ -15,13 +15,13 @@
 #include "65816_debug.h"
 #endif
 
-#define W65816_ROM_SIZE  0x8000
-#define W65816_RAM_SIZE 0x80000
+#define W65816_ROM_SIZE 0x008000
+#define W65816_RAM_SIZE 0x080000
 
 static uint8_t *w65816ram, *w65816rom;
 
 // The bank number to load any native vectors from
-static uint8_t w65816nvb = 0x00;
+static uint32_t w65816nvb = 0x00;
 
 /*Registers*/
 typedef union {
@@ -64,7 +64,7 @@ static uint8_t w65816opcode;
 
 static int cycles = 0;
 
-static int def = 1, divider = 0, banking = 0, banknum = 0;
+static uint8_t def = 1, divider = 0, banking = 0, banknum = 0;
 static uint32_t w65816mask = 0xFFFF;
 static uint32_t toldpc;
 
@@ -79,7 +79,7 @@ static int dbg_debug_enable(int newvalue)
     int oldvalue = dbg_w65816;
     dbg_w65816 = newvalue;
     return oldvalue;
-};
+}
 
 #endif
 
@@ -179,25 +179,25 @@ static void dbg_reg_set(int which, uint32_t value)
 {
     switch (which) {
         case REG_A:
-            w65816a.w = value;
+            w65816a.w = (uint16_t)value;
             break;
         case REG_X:
-            w65816x.w = value;
+            w65816x.w = (uint16_t)value;
             break;
         case REG_Y:
-            w65816y.w = value;
+            w65816y.w = (uint16_t)value;
             break;
         case REG_S:
-            w65816s.w = value;
+            w65816s.w = (uint16_t)value;
             break;
         case REG_P:
-            unpack_flags(value);
+            unpack_flags((uint8_t)value);
             break;
         case REG_PC:
-            pc = value;
+            pc = (uint16_t)value;
             break;
         case REG_DP:
-            dp = value;
+            dp = (uint16_t)value;
             break;
         case REG_DB:
             dbr = value;
@@ -210,7 +210,7 @@ static void dbg_reg_set(int which, uint32_t value)
     }
 }
 
-size_t dbg65816_print_flags(char *buf, size_t bufsize)
+static size_t dbg65816_print_flags(char *buf, size_t bufsize)
 {
     if (bufsize >= 10) {
         *buf++ = p.n  ? 'N' : ' ';
@@ -240,13 +240,13 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize)
         case REG_P:
             return dbg65816_print_flags(buf, bufsize);
         default:
-            return snprintf(buf, bufsize, "%04"PRIX32, dbg_reg_get(which));
+            return (size_t)snprintf(buf, bufsize, "%04"PRIX32, dbg_reg_get(which));
     }
 }
 
 static void dbg_reg_parse(int which, const char *str)
 {
-    uint32_t value = strtol(str, NULL, 16);
+    uint32_t value = (uint32_t)strtol(str, NULL, 16);
     dbg_reg_set(which, value);
 }
 
@@ -283,11 +283,9 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize)
 
 static uint32_t do_readmem65816(uint32_t addr)
 {
-    uint8_t temp;
     addr &= w65816mask;
-    if ((addr & ~7) == 0xFEF8) {
-        temp = tube_parasite_read(addr);
-        return temp;
+    if ((addr & ~7u) == 0xFEF8) {
+        return tube_parasite_read(addr);
     }
     if ((addr & 0x78000) == 0x8000 && (def || (banking & 8)))
         return w65816rom[addr & 0x7FFF];
@@ -300,7 +298,7 @@ static uint32_t do_readmem65816(uint32_t addr)
 
 static uint8_t readmem65816(uint32_t addr)
 {
-    uint32_t value = do_readmem65816(addr);
+    uint8_t value = (uint8_t)do_readmem65816(addr);
     cycles--;
 #ifdef INCLUDE_DEBUGGER
     if (dbg_w65816)
@@ -309,15 +307,15 @@ static uint8_t readmem65816(uint32_t addr)
     return value;
 }
 
-static uint16_t readmemw65816(uint32_t a)
+static uint16_t readmemw65816(uint32_t addr)
 {
     uint16_t value;
 
-    a &= w65816mask;
-    value = do_readmem65816(a) | (do_readmem65816(a + 1) << 8);
+    addr &= w65816mask;
+    value = (uint16_t) (do_readmem65816(addr) | (do_readmem65816(addr + 1) << 8));
 #ifdef INCLUDE_DEBUGGER
     if (dbg_w65816)
-        debug_memread(&w65816_cpu_debug, a, value, 2);
+        debug_memread(&w65816_cpu_debug, addr, value, 2);
 #endif
     return value;
 }
@@ -327,7 +325,7 @@ static int endtimeslice;
 static void do_writemem65816(uint32_t addr, uint32_t val)
 {
     addr &= w65816mask;
-    if ((addr & ~7) == 0xFEF0) {
+    if ((addr & ~7u) == 0xFEF0) {
         switch (val & 7) {
             case 0:
             case 1:
@@ -335,38 +333,38 @@ static void do_writemem65816(uint32_t addr, uint32_t val)
                 break;
             case 2:
             case 3:
-                divider = (divider >> 1) | ((val & 1) << 3);
+                divider = (uint8_t) ((divider >> 1) | ((val & 1) << 3));
                 break;
             case 4:
             case 5:
-                banking = (banking >> 1) | ((val & 1) << 3);
+                banking = (uint8_t) ((banking >> 1) | ((val & 1) << 3));
                 break;
             case 6:
             case 7:
-                banknum = (banknum >> 1) | ((val & 1) << 5);
+                banknum = (uint8_t) ((banknum >> 1) | ((val & 1) << 5));
                 break;
         }
         if (def || !(banking & 4))
             w65816mask = 0xFFFF;
         else
-            w65816mask = 0x7FFFF;
+            w65816mask = W65816_RAM_SIZE - 1;
         printf("def=%x divider=%x banking=%x banknum=%x mask=%"PRIX32"\r\n", def, divider, banking, banknum, w65816mask);
         return;
     }
-    if ((addr & ~7) == 0xFEF8) {
-        tube_parasite_write(addr, val);
+    if ((addr & ~7u) == 0xFEF8) {
+        tube_parasite_write(addr, (uint8_t)val);
         endtimeslice = 1;
         return;
     }
     if ((addr & 0x7C000) == 0x4000 && !def && (banking & 1)) {
-        w65816ram[(addr & 0x3FFF) | ((banknum & 7) << 14)] = val;
+        w65816ram[(addr & 0x3FFF) | ((banknum & 7) << 14)] = (uint8_t)val;
         return;
     }
     if ((addr & 0x7C000) == 0x8000 && !def && (banking & 2)) {
-        w65816ram[(addr & 0x3FFF) | (((banknum >> 3) & 7) << 14)] = val;
+        w65816ram[(addr & 0x3FFF) | (((banknum >> 3) & 7) << 14)] = (uint8_t)val;
         return;
     }
-    w65816ram[addr] = val;
+    w65816ram[addr] = (uint8_t)val;
 }
 
 static void writemem65816(uint32_t addr, uint8_t val)
@@ -379,16 +377,16 @@ static void writemem65816(uint32_t addr, uint8_t val)
     do_writemem65816(addr, val);
 }
 
-static void writememw65816(uint32_t a, uint16_t v)
+static void writememw65816(uint32_t addr, uint16_t v)
 {
 #ifdef INCLUDE_DEBUGGER
     if (dbg_w65816)
-        debug_memwrite(&w65816_cpu_debug, a, v, 2);
+        debug_memwrite(&w65816_cpu_debug, addr, v, 2);
 #endif
-    a &= w65816mask;
+    addr &= w65816mask;
     cycles -= 2;
-    do_writemem65816(a, v);
-    do_writemem65816(a + 1, v >> 8);
+    do_writemem65816(addr, v);
+    do_writemem65816(addr + 1, v >> 8);
 }
 
 #define readmem(a)     readmem65816(a)
@@ -517,8 +515,8 @@ static inline uint32_t indirectxE(void)
 
 static inline uint32_t jindirectx(void)
 {
-    /* JSR (,x) uses PBR instead of DBR, and 2 byte address insted of 1 + dp */
-    uint32_t temp = (readmem(pbr | pc) + (readmem((pbr | pc) + 1) << 8) + x.w) + pbr;
+    /* JSR (,x) uses PBR instead of DBR, and 2 byte address instead of 1 + dp */
+    uint32_t temp = (readmem(pbr | pc) + ((uint32_t)readmem((pbr | pc) + 1) << 8) + x.w) + pbr;
     pc += 2;
     return temp;
 }
@@ -562,7 +560,7 @@ static inline uint32_t indirectl(void)
     uint32_t temp, addr;
     temp = (readmem(pbr | pc) + dp) & 0xFFFF;
     pc++;
-    addr = readmemw(temp) | (readmem(temp + 2) << 16);
+    addr = (uint32_t) (readmemw(temp) | (readmem(temp + 2) << 16));
     return addr;
 }
 
@@ -571,7 +569,7 @@ static inline uint32_t indirectly(void)
     uint32_t temp, addr;
     temp = (readmem(pbr | pc) + dp) & 0xFFFF;
     pc++;
-    addr = (readmemw(temp) | (readmem(temp + 2) << 16)) + y.w;
+    addr =  (uint32_t) ((readmemw(temp) | (readmem(temp + 2) << 16)) + y.w);
     return addr;
 }
 
@@ -593,9 +591,9 @@ static inline void setzn16(uint16_t v)
 
 static inline void adcbin8(uint8_t temp)
 {
-    uint16_t tempw=a.b.l + temp + ((p.c) ? 1 : 0);
+    uint16_t tempw= (uint16_t) (a.b.l + temp + ((p.c) ? 1 : 0));
     p.v = (!((a.b.l ^ temp) & 0x80) && ((a.b.l ^ tempw) & 0x80));
-    a.b.l = tempw & 0xFF;
+    a.b.l = (uint8_t) (tempw);
     setzn8(a.b.l);
     p.c = tempw & 0x100;
 }
@@ -619,7 +617,7 @@ static inline void adcbcd8(uint8_t temp)
         ah -= 10;
         ah &= 0xF;
     }
-    a.b.l = (al & 0xF) | (ah << 4);
+    a.b.l = (uint8_t) ((al & 0xF) | (ah << 4));
     setzn8(a.b.l);
     cycles--;
     clockspc(6);
@@ -635,7 +633,7 @@ static inline void adc8(uint8_t temp)
 
 static inline void adcbin16(uint16_t tempw)
 {
-    uint32_t templ = a.w+tempw + ((p.c) ? 1 : 0);
+    uint32_t templ = (uint32_t) (a.w+tempw + ((p.c) ? 1 : 0));
     p.v = (!((a.w ^ tempw) & 0x8000) && ((a.w ^ templ) & 0x8000));
     a.w = templ & 0xFFFF;
     setzn16(a.w);
@@ -644,7 +642,7 @@ static inline void adcbin16(uint16_t tempw)
 
 static inline void adcbcd16(uint16_t tempw)
 {
-    uint32_t templ = (a.w & 0xF) + (tempw & 0xF) + (p.c ? 1 : 0);
+    uint32_t templ = (uint32_t) ((a.w & 0xF) + (tempw & 0xF) + (p.c ? 1 : 0));
     if (templ > 9)
         templ += 6;
     templ += ((a.w & 0xF0) + (tempw & 0xF0));
@@ -674,9 +672,9 @@ static inline void adc16(uint16_t temp)
 
 static inline void sbcbin8(uint8_t temp)
 {
-    uint16_t tempw = a.b.l - temp - ((p.c) ? 0 : 1);
+    uint16_t tempw = (uint16_t) (a.b.l - temp - ((p.c) ? 0 : 1));
     p.v = (((a.b.l ^ temp) & 0x80) && ((a.b.l ^ tempw) & 0x80));
-    a.b.l = tempw & 0xFF;
+    a.b.l = (uint8_t) (tempw);
     setzn8(a.b.l);
     p.c = tempw <= 0xFF;
 }
@@ -688,7 +686,7 @@ static inline void sbcbcd8(uint8_t temp)
     int32_t tempv;
 
     al = (a.b.l & 0x0f) - (temp & 0x0f) - (p.c ? 0 : 1);
-    tempw = a.b.l - temp - (p.c ? 0 : 1);
+    tempw = (int16_t) (a.b.l - temp - (p.c ? 0 : 1));
     tempv = (signed char)a.b.l - (signed char)temp - (p.c ? 0 : 1);
     p.v = ((tempw & 0x80) > 0) ^ ((tempv & 0x100) != 0);
     p.c = tempw >= 0;
@@ -696,7 +694,7 @@ static inline void sbcbcd8(uint8_t temp)
        tempw -= 0x60;
     if (al < 0)
        tempw -= 0x06;
-    a.b.l = tempw & 0xFF;
+    a.b.l = (uint8_t) (tempw);
     setzn8(a.b.l);
     cycles--;
     clockspc(6);
@@ -712,7 +710,7 @@ static inline void sbc8(uint8_t temp)
 
 static inline void sbcbin16(uint16_t tempw)
 {
-    uint32_t templ = a.w - tempw - ((p.c) ? 0 : 1);
+    uint32_t templ = (uint32_t) (a.w - tempw - ((p.c) ? 0 : 1));
     p.v = (((a.w ^ tempw) & (a.w ^ templ)) & 0x8000);
     a.w = templ & 0xFFFF;
     setzn16(a.w);
@@ -721,7 +719,7 @@ static inline void sbcbin16(uint16_t tempw)
 
 static inline void sbcbcd16(uint16_t tempw)
 {
-    uint32_t templ = (a.w & 0xF) - (tempw & 0xF) - (p.c ? 0 : 1);
+    uint32_t templ = (uint32_t) ((a.w & 0xF) - (tempw & 0xF) - (p.c ? 0 : 1));
     if (templ > 9)
         templ -= 6;
     templ += ((a.w & 0xF0) - (tempw & 0xF0));
@@ -2696,7 +2694,7 @@ static void oraIndirecty16(void)
 
 static void orasIndirecty16(void)
 {
-    a.w |= readmem(sindirecty());
+    a.w |= readmemw(sindirecty());
     setzn16(a.w);
 }
 
@@ -3018,28 +3016,28 @@ static void cmpIndirectLongy16(void)
 static void phb(void)
 {
     readmem(pbr | pc);
-    writemem(s.w, dbr >> 16);
+    writemem(s.w, (uint8_t) (dbr >> 16));
     s.w--;
 }
 
 static void phbe(void)
 {
     readmem(pbr | pc);
-    writemem(s.w, dbr >> 16);
+    writemem(s.w, (uint8_t) (dbr >> 16));
     s.b.l--;
 }
 
 static void phk(void)
 {
     readmem(pbr | pc);
-    writemem(s.w, pbr >> 16);
+    writemem(s.w, (uint8_t) (pbr >> 16));
     s.w--;
 }
 
 static void phke(void)
 {
     readmem(pbr | pc);
-    writemem(s.w, pbr >> 16);
+    writemem(s.w, (uint8_t) (pbr >> 16));
     s.b.l--;
 }
 
@@ -3047,7 +3045,7 @@ static void pea(void)
 {
     uint32_t addr = readmemw(pbr | pc);
     pc += 2;
-    writemem(s.w, addr >> 8);
+    writemem(s.w, (uint8_t) (addr >> 8));
     s.w--;
     writemem(s.w, addr & 0xFF);
     s.w--;
@@ -3056,7 +3054,7 @@ static void pea(void)
 static void pei(void)
 {
     uint32_t addr = indirect();
-    writemem(s.w, addr >> 8);
+    writemem(s.w, (uint8_t) (addr >> 8));
     s.w--;
     writemem(s.w, addr & 0xFF);
     s.w--;
@@ -3067,17 +3065,17 @@ static void per(void)
     uint32_t addr = readmemw(pbr | pc);
     pc += 2;
     addr += pc;
-    writemem(s.w, addr >> 8);
+    writemem(s.w, (uint8_t) (addr >> 8));
     s.w--;
-    writemem(s.w, addr & 0xFF);
+    writemem(s.w, addr & 0xFFu);
     s.w--;
 }
 
 static void phd(void)
 {
-    writemem(s.w, dp >> 8);
+    writemem(s.w, (uint8_t) (dp >> 8));
     s.w--;
-    writemem(s.w, dp & 0xFF);
+    writemem(s.w, dp & 0xFFu);
     s.w--;
 }
 
@@ -3089,7 +3087,7 @@ static void pld(void)
     clockspc(6);
     dp = readmem(s.w);
     s.w++;
-    dp |= (readmem(s.w) << 8);
+    dp |= (uint16_t) (readmem(s.w) << 8);
 }
 
 static void pha8(void)
@@ -3407,9 +3405,8 @@ static void cpyAbs16(void)
 static void bcc(void)
 {
     int8_t temp = (int8_t) readmem(pbr | pc++);
-
     if (!p.c) {
-        pc += temp;
+        pc = (uint16_t) ( pc + temp);
         cycles--;
         clockspc(6);
     }
@@ -3418,9 +3415,8 @@ static void bcc(void)
 static void bcs(void)
 {
     int8_t temp = (int8_t) readmem(pbr | pc++);
-
     if (p.c) {
-        pc += temp;
+        pc = (uint16_t) ( pc + temp);
         cycles--;
         clockspc(6);
     }
@@ -3429,9 +3425,8 @@ static void bcs(void)
 static void beq(void)
 {
     int8_t temp = (int8_t) readmem(pbr | pc++);
-
     if (p.z) {
-        pc += temp;
+        pc = (uint16_t) ( pc + temp);
         cycles--;
         clockspc(6);
     }
@@ -3441,7 +3436,7 @@ static void bne(void)
 {
     int8_t temp = (int8_t) readmem(pbr | pc++);
     if (!p.z) {
-        pc += temp;
+        pc = (uint16_t) ( pc + temp);
         cycles--;
         clockspc(6);
     }
@@ -3451,7 +3446,7 @@ static void bpl(void)
 {
     int8_t temp = (int8_t) readmem(pbr | pc++);
     if (!p.n) {
-        pc += temp;
+        pc = (uint16_t) ( pc + temp);
         cycles--;
         clockspc(6);
     }
@@ -3461,7 +3456,7 @@ static void bmi(void)
 {
     int8_t temp = (int8_t) readmem(pbr | pc++);
     if (p.n) {
-        pc += temp;
+        pc = (uint16_t) ( pc + temp);
         cycles--;
         clockspc(6);
     }
@@ -3471,7 +3466,7 @@ static void bvc(void)
 {
     int8_t temp = (int8_t) readmem(pbr | pc++);
     if (!p.v) {
-        pc += temp;
+        pc = (uint16_t) ( pc + temp);
         cycles--;
         clockspc(6);
     }
@@ -3481,7 +3476,7 @@ static void bvs(void)
 {
     int8_t temp = (int8_t) readmem(pbr | pc++);
     if (p.v) {
-        pc += temp;
+        pc = (uint16_t) ( pc + temp);
         cycles--;
         clockspc(6);
     }
@@ -3490,7 +3485,8 @@ static void bvs(void)
 static void bra(void)
 {
     int8_t temp = (int8_t) readmem(pbr | pc++);
-    pc += temp;
+    //pc += temp;
+    pc = (uint16_t) ( pc + temp);
     cycles--;
     clockspc(6);
 }
@@ -3512,8 +3508,8 @@ static void jmp(void)
 
 static void jmplong(void)
 {
-    uint32_t addr = readmemw(pbr | pc) | (readmem((pbr | pc) + 2) << 16);
-    pc = addr & 0xFFFF;
+    uint32_t addr = (uint32_t) (readmemw(pbr | pc) | (readmem((pbr | pc) + 2) << 16));
+    pc = (uint16_t) (addr & 0xFFFFu);
     pbr = addr & 0xFF0000;
 }
 
@@ -3536,22 +3532,22 @@ static void jmlind(void)
 
 static void jsr(void)
 {
-    uint32_t addr = readmemw(pbr | pc++);
+    uint16_t addr = readmemw(pbr | pc++);
     readmem(pbr | pc);
-    writemem(s.w, pc >> 8);
+    writemem(s.w, (uint8_t) (pc >> 8));
     s.w--;
-    writemem(s.w, pc & 0xFF);
+    writemem(s.w, pc & 0xFFu);
     s.w--;
     pc = addr;
 }
 
 static void jsrE(void)
 {
-    uint32_t addr = readmemw(pbr | pc++);
+    uint16_t addr = readmemw(pbr | pc++);
     readmem(pbr | pc);
-    writemem(s.w, pc >> 8);
+    writemem(s.w, (uint8_t) (pc >> 8));
     s.b.l--;
-    writemem(s.w, pc & 0xFF);
+    writemem(s.w, pc & 0xFFu);
     s.b.l--;
     pc = addr;
 }
@@ -3560,9 +3556,9 @@ static void jsrIndx(void)
 {
     uint32_t addr = jindirectx();
     pc--;
-    writemem(s.w, pc >> 8);
+    writemem(s.w, (uint8_t) (pc >> 8));
     s.w--;
-    writemem(s.w, pc & 0xFF);
+    writemem(s.w, pc & 0xFFu);
     s.w--;
     pc = readmemw(addr);
 }
@@ -3571,9 +3567,9 @@ static void jsrIndxE(void)
 {
     uint32_t addr = jindirectx();
     pc--;
-    writemem(s.w, pc >> 8);
+    writemem(s.w, (uint8_t) (pc >> 8));
     s.b.l--;
-    writemem(s.w, pc & 0xFF);
+    writemem(s.w, pc & 0xFFu);
     s.b.l--;
     pc = readmemw(addr);
 }
@@ -3581,14 +3577,14 @@ static void jsrIndxE(void)
 static void jsl(void)
 {
     uint8_t temp;
-    uint32_t addr = readmemw(pbr | pc);
+    uint16_t addr = readmemw(pbr | pc);
     pc += 2;
     temp = readmem(pbr | pc);
-    writemem(s.w, pbr >> 16);
+    writemem(s.w, (uint8_t) (pbr >> 16));
     s.w--;
-    writemem(s.w, pc >> 8);
+    writemem(s.w, (uint8_t) (pc >> 8));
     s.w--;
-    writemem(s.w, pc & 0xFF);
+    writemem(s.w, pc & 0xFFu);
     s.w--;
     pc = addr;
     pbr = temp << 16;
@@ -3597,14 +3593,14 @@ static void jsl(void)
 static void jslE(void)
 {
     uint8_t temp;
-    uint32_t addr = readmemw(pbr | pc);
+    uint16_t addr = readmemw(pbr | pc);
     pc += 2;
     temp = readmem(pbr | pc);
-    writemem(s.w, pbr >> 16);
+    writemem(s.w, (uint8_t) (pbr >> 16));
     s.b.l--;
-    writemem(s.w, pc >> 8);
+    writemem(s.w, (uint8_t) (pc >> 8));
     s.b.l--;
-    writemem(s.w, pc & 0xFF);
+    writemem(s.w, pc & 0xFFu);
     s.b.l--;
     pc = addr;
     pbr = temp << 16;
@@ -3628,7 +3624,7 @@ static void rtlE(void)
     s.b.l++;
     pc = readmem(s.w);
     s.b.l++;
-    pc |= (readmem(s.w) << 8);
+    pc |= (uint16_t) (readmem(s.w) << 8);
     s.b.l++;
     pbr = readmem(s.w) << 16;
     pc++;
@@ -3650,7 +3646,7 @@ static void rtsE(void)
     s.b.l++;
     pc = readmem(s.w);
     s.b.l++;
-    pc |= (readmem(s.w) << 8);
+    pc |= (uint16_t) (readmem(s.w) << 8);
     pc++;
 }
 
@@ -3663,7 +3659,7 @@ static void rti(void)
     s.w++;
     pc = readmem(s.w);
     s.w++;
-    pc |= (readmem(s.w) << 8);
+    pc |= (uint16_t) (readmem(s.w) << 8);
     s.w++;
     pbr = readmem(s.w) << 16;
     updatecpumode();
@@ -3678,7 +3674,7 @@ static void rtiE(void)
     s.b.l++;
     pc = readmem(s.w);
     s.b.l++;
-    pc |= (readmem(s.w) << 8);
+    pc |= (uint16_t) (readmem(s.w) << 8);
     updatecpumode();
 }
 
@@ -3925,7 +3921,7 @@ static inline uint16_t rol16(uint16_t value)
     value <<= 1;
     if (tempc)
         value |= 1;
-    setzn16(a.w);
+    setzn16(value);
     return value;
 }
 
@@ -4090,7 +4086,7 @@ static void rorAbsx16(void)
 static void xba(void)
 {
     readmem(pbr | pc);
-    a.w = (a.w >> 8) | (a.w << 8);
+    a.w = (uint16_t) ((a.w >> 8) | (a.w << 8));
     setzn8(a.b.l);
 }
 
@@ -4131,7 +4127,7 @@ static inline void trb8(uint32_t addr)
 {
     uint8_t temp = readmem(addr);
     p.z = !(a.b.l & temp);
-    temp &= ~a.b.l;
+    temp &= (uint8_t)~a.b.l;
     cycles--;
     clockspc(6);
     writemem(addr, temp);
@@ -4141,7 +4137,7 @@ static inline void trb16(uint32_t addr)
 {
     uint16_t temp = readmemw(addr);
     p.z = !(a.w & temp);
-    temp &= ~a.w;
+    temp &= (uint16_t)~a.w;
     cycles--;
     clockspc(6);
     writememw(addr, temp);
@@ -4169,7 +4165,7 @@ static void trbAbs16(void)
 
 static inline void tsb8(uint32_t addr)
 {
-    uint16_t temp = readmem(addr);
+    uint8_t temp = readmem(addr);
     p.z = !(a.b.l & temp);
     temp |= a.b.l;
     cycles--;
@@ -4255,9 +4251,9 @@ static void mvn(void)
 static void op_brk(void)
 {
     pc++;
-    writemem(s.w--, pbr >> 16);
-    writemem(s.w--, pc >> 8);
-    writemem(s.w--, pc & 0xFF);
+    writemem(s.w--, (uint8_t) (pbr >> 16));
+    writemem(s.w--, (uint8_t) (pc >> 8));
+    writemem(s.w--, pc & 0xFFu);
     writemem(s.w--, pack_flags());
     pc = readmemw((w65816nvb << 16) | 0xFFE6);
     pbr = 0;
@@ -4268,8 +4264,8 @@ static void op_brk(void)
 static void brkE(void)
 {
     pc++;
-    writemem(s.w--, pc >> 8);
-    writemem(s.w--, pc & 0xFF);
+    writemem(s.w--, (uint8_t) (pc >> 8));
+    writemem(s.w--, pc & 0xFFu);
     writemem(s.w--, pack_flags_em(0x30));
     pc = readmemw(0xFFFE);
     pbr = 0;
@@ -4280,9 +4276,9 @@ static void brkE(void)
 static void cop(void)
 {
     pc++;
-    writemem(s.w--, pbr >> 16);
-    writemem(s.w--, pc >> 8);
-    writemem(s.w--, pc & 0xFF);
+    writemem(s.w--, (uint8_t) (pbr >> 16));
+    writemem(s.w--, (uint8_t) (pc >> 8));
+    writemem(s.w--, pc & 0xFFu);
     writemem(s.w--, pack_flags());
     pc = readmemw((w65816nvb << 16) | 0xFFE4);
     pbr = 0;
@@ -4293,8 +4289,8 @@ static void cop(void)
 static void cope(void)
 {
     pc++;
-    writemem(s.w--, pc >> 8);
-    writemem(s.w--, pc & 0xFF);
+    writemem(s.w--, (uint8_t) (pc >> 8));
+    writemem(s.w--, pc & 0xFFu);
     writemem(s.w--, pack_flags_em(0));
     pc = readmemw(0xFFF4);
     pbr = 0;
@@ -5736,7 +5732,7 @@ static void w65816_loadstate(ZFILE * zfp)
 
 #endif
 
-void w65816_init(void *rom, uint8_t nativeVectBank)
+uint8_t *w65816_init(void *rom, uint32_t nativeVectBank)
 {
     w65816ram = copro_mem_reset(W65816_RAM_SIZE);
     w65816rom = rom;
@@ -5750,6 +5746,7 @@ void w65816_init(void *rom, uint8_t nativeVectBank)
     tube_proc_loadstate = w65816_loadstate;
 #endif
     w65816_reset();
+    return w65816ram;
 }
 
 static void nmi65816(void)
@@ -5761,18 +5758,18 @@ static void nmi65816(void)
         pc++;
     inwai = 0;
     if (!p.e) {
-        writemem(s.w--, pbr >> 16);
-        writemem(s.w--, pc >> 8);
-        writemem(s.w--, pc & 0xFF);
+        writemem(s.w--, (uint8_t) (pbr >> 16));
+        writemem(s.w--, (uint8_t) (pc >> 8));
+        writemem(s.w--, pc & 0xFFu);
         writemem(s.w--, pack_flags());
         pc = readmemw((w65816nvb << 16) | 0xFFEA);
         pbr = 0;
         p.i = 1;
         p.d = 0;
     } else {
-        writemem(s.w, pc >> 8);
+        writemem(s.w, (uint8_t) (pc >> 8));
         s.b.l--;
-        writemem(s.w, pc & 0xFF);
+        writemem(s.w, pc & 0xFFu);
         s.b.l--;
         writemem(s.w, pack_flags_em(0x30));
         s.b.l--;
@@ -5797,18 +5794,18 @@ static void irq65816(void)
         pc++;
     inwai = 0;
     if (!p.e) {
-        writemem(s.w--, pbr >> 16);
-        writemem(s.w--, pc >> 8);
-        writemem(s.w--, pc & 0xFF);
+        writemem(s.w--, (uint8_t) (pbr >> 16));
+        writemem(s.w--, (uint8_t) ( pc >> 8));
+        writemem(s.w--,  pc & 0xFFu);
         writemem(s.w--, pack_flags());
-        pc = readmemw((w65816nvb << 16) | 0xFFEE);
+        pc = readmemw((w65816nvb << 16) | 0xFFEEu);
         pbr = 0;
         p.i = 1;
         p.d = 0;
     } else {
-        writemem(s.w, pc >> 8);
+        writemem(s.w, (uint8_t)(pc >> 8));
         s.b.l--;
-        writemem(s.w, pc & 0xFF);
+        writemem(s.w, pc & 0xFFu);
         s.b.l--;
         writemem(s.w, pack_flags_em(0x20));
         s.b.l--;

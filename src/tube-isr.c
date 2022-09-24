@@ -11,11 +11,11 @@
 #include "tube-ula.h"
 #include "tube-isr.h"
 
-volatile unsigned char *address;
-volatile unsigned int count;
-volatile unsigned int signature;
+volatile unsigned char *tube_address;
+static volatile unsigned int count;
+static volatile unsigned int signature;
 
-ErrorBlock_type isrErrorBlock;
+static ErrorBlock_type isrErrorBlock;
 
 #ifdef TUBE_ISR_STATE_MACHINE
 
@@ -60,24 +60,15 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   static r1_state_type r1_state = IDLE_R1;
   static r4_state_type r4_state = IDLE_R4;
 
-  static unsigned char a;
-  static unsigned char x;
-  static unsigned char y;
   static unsigned char type;
   static ErrorBlock_type *eblk;
-  static char *emsg;
-  static unsigned char id;
-  static unsigned char a3;
-  static unsigned char a2;
-  static unsigned char a1;
-  static unsigned char a0;
+
   static int remaining;
 
   int addr;
   int rnw;
   int ntube;
   int nrst;
-  unsigned char flag;
 
   addr = (mail>>8) & 7;
   rnw   = ( (mail >>11 ) & 1);
@@ -95,12 +86,13 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   // State machine updates on tube write cycles
 
   if (nrst == 1 && ntube == 0 && rnw == 0 && addr == 1) {
-
+    static unsigned char x;
+    static unsigned char y;
     switch (r1_state) {
 
-    case IDLE_R1:
+    case IDLE_R1: {
       // R1 interrupt
-      flag = tubeRead(R1_DATA);
+      unsigned char flag = tubeRead(R1_DATA);
       if (flag & 0x80) {
         // Escape
         // The escape handler is called with the escape flag value in R11
@@ -112,7 +104,7 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         r1_state = EVENT_R1_Y;
       }
       break;
-
+    }
     case EVENT_R1_Y:
       y = tubeRead(R1_DATA);
       r1_state = EVENT_R1_X;
@@ -124,15 +116,19 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
       break;
 
     case EVENT_R1_A:
-      a = tubeRead(R1_DATA);
-      env->handler[EVENT_HANDLER].handler(a, x, y);
+      env->handler[EVENT_HANDLER].handler(tubeRead(R1_DATA), x, y);
       r1_state = IDLE_R1;
       break;
     }
   }
 
   if (nrst == 1 && ntube == 0 && rnw == 0) {
-
+    static unsigned char id;
+    static unsigned char a3;
+    static unsigned char a2;
+    static unsigned char a1;
+    static char *emsg;
+    
     switch (r4_state) {
 
     case IDLE_R4:
@@ -172,9 +168,8 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           r4_state = ERROR_R2_STRING;
         } else {
           r4_state = IDLE_R4;
-          // SWI OS_GenerateError need the error block in R0
-          OS_GenerateError(eblk);
-          // OS_GenerateError() probably never returns
+          generate_error(0, eblk->errorNum, eblk->errorMsg);
+          // generate_error() never returns
         }
       }
       break;
@@ -216,10 +211,10 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
 
     case TRANSFER_R4_A0:
       if (addr == 7) {
-        a0 = tubeRead(R4_DATA);
-        address = (unsigned char *)((a3 << 24) + (a2 << 16) + (a1 << 8) + a0);
+        unsigned char a0 = tubeRead(R4_DATA);
+        tube_address = (unsigned char *)((a3 << 24) + (a2 << 16) + (a1 << 8) + a0);
         if (DEBUG_TRANSFER) {
-          printf("Transfer = %02x %02x %08x\r\n", type, id, (unsigned int)address);
+          printf("Transfer = %02x %02x %08x\r\n", type, id, (unsigned int)tube_address);
         }
         r4_state = TRANSFER_R4_SYNC;
       }
@@ -238,9 +233,9 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
         case 2:
           r4_state = TRANSFER_R3;
           // For a copro->host transfer, send the first byte in response to the sync byte
-          tubeWrite(R3_DATA, *address);
+          tubeWrite(R3_DATA, *tube_address);
           count++;
-          signature += *address++;
+          signature += *tube_address++;
           signature *= 13;
           break;
         case 7:
@@ -268,10 +263,10 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           if (ignore_transfer) {
             signature += tubeRead(R3_DATA);
           } else {
-            *address = tubeRead(R3_DATA);
-            signature += *address;
+            *tube_address = tubeRead(R3_DATA);
+            signature += *tube_address;
           }
-          address++;
+          tube_address++;
           count++;
           signature *= 13;
         }
@@ -300,16 +295,13 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
   // R4_State machine updates on tube read cycles
 
   if (nrst == 1 && ntube == 0 && rnw == 1) {
-
-    switch (r4_state) {
-
-    case TRANSFER_R3:
+    if (r4_state == TRANSFER_R3) {
       if (addr == 5) {
         if (type == 0 || type == 2 || (type == 6 && remaining > 0)) {
           // Write the R3 data register, which should also clear the NMI
-          tubeWrite(R3_DATA, *address);
+          tubeWrite(R3_DATA, *tube_address);
           count++;
-          signature += *address++;
+          signature += *tube_address++;
           signature *= 13;
         }
         if (type == 6 && remaining > 0) {
@@ -319,9 +311,6 @@ void copro_armnative_tube_interrupt_handler(uint32_t mail) {
           }
         }
       }
-      break;
-    default:
-      break;
     }
   }
 }
@@ -347,9 +336,9 @@ void type_0_data_transfer(void) {
       // If there is an NMI condition, handle the byte
       if (intr & 2) {
         // Write the R3 data register, which should also clear the NMI
-        tubeWrite(R3_DATA, *address);
+        tubeWrite(R3_DATA, *tube_address);
         count++;
-        signature += *address++;
+        signature += *tube_address++;
         signature *= 13;
       }
     }
@@ -373,9 +362,9 @@ void type_1_data_transfer(void) {
       // If there is an NMI condition, handle the byte
       if (intr & 2) {
         // Read the R3 data register, which should also clear the NMI
-        *address = tubeRead(R3_DATA);
+        *tube_address = tubeRead(R3_DATA);
         count++;
-        signature += *address++;
+        signature += *tube_address++;
         signature *= 13;
       }
     }
@@ -398,14 +387,14 @@ void type_2_data_transfer(void) {
       // If there is an NMI condition, handle the byte
       if (intr & 2) {
         // Write the R3 data register, which should also clear the NMI
-        tubeWrite(R3_DATA, *address);
+        tubeWrite(R3_DATA, *tube_address);
         count++;
-        signature += *address++;
+        signature += *tube_address++;
         signature *= 13;
         // Write the R3 data register, which should also clear the NMI
-        tubeWrite(R3_DATA, *address);
+        tubeWrite(R3_DATA, *tube_address);
         count++;
-        signature += *address++;
+        signature += *tube_address++;
         signature *= 13;
       }
     }
@@ -428,14 +417,14 @@ void type_3_data_transfer(void) {
       // If there is an NMI condition, handle the byte
       if (intr & 2) {
         // Read the R3 data register, which should also clear the NMI
-        *address = tubeRead(R3_DATA);
+        *tube_address = tubeRead(R3_DATA);
         count++;
-        signature += *address++;
+        signature += *tube_address++;
         signature *= 13;
         // Read the R3 data register, which should also clear the NMI
-        *address = tubeRead(R3_DATA);
+        *tube_address = tubeRead(R3_DATA);
         count++;
-        signature += *address++;
+        signature += *tube_address++;
         signature *= 13;
       }
     }
@@ -454,9 +443,9 @@ void type_6_data_transfer(void) {
       // If there is an NMI condition, handle the byte
       if (intr & 2) {
         // Read the R3 data register, which should also clear the NMI
-        tubeWrite(R3_DATA, *address);
+        tubeWrite(R3_DATA, *tube_address);
         count++;
-        signature += *address++;
+        signature += *tube_address++;
         signature *= 13;
       }
     }
@@ -475,9 +464,9 @@ void type_7_data_transfer(void) {
       // If there is an NMI condition, handle the byte
       if (intr & 2) {
         // Read the R3 data register, which should also clear the NMI
-        *address = tubeRead(R3_DATA);
+        *tube_address = tubeRead(R3_DATA);
         count++;
-        signature += *address++;
+        signature += *tube_address++;
         signature *= 13;
       }
     }
@@ -532,9 +521,9 @@ void copro_armnative_tube_interrupt_handler(void) {
         unsigned char a2 = receiveByte(R4_ID);
         unsigned char a1 = receiveByte(R4_ID);
         unsigned char a0 = receiveByte(R4_ID);
-        address = (unsigned char *)((a3 << 24) + (a2 << 16) + (a1 << 8) + a0);
+        tube_address = (unsigned char *)((a3 << 24) + (a2 << 16) + (a1 << 8) + a0);
         if (DEBUG_TRANSFER) {
-          printf("Transfer = %02x %02x %08x\r\n", type, id, (unsigned int)address);
+          printf("Transfer = %02x %02x %08x\r\n", type, id, (unsigned int)tube_address);
         }
       } else {
         if (DEBUG_TRANSFER) {

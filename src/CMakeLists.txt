@@ -29,7 +29,7 @@
 
 # CMake 2.8.10 Documentation: http://www.cmake.org/cmake/help/v2.8.10/cmake.html
 
-cmake_minimum_required( VERSION 2.8 )
+cmake_minimum_required( VERSION 2.9 )
 
 # Mark the language as C so that CMake doesn't try to test the C++
 # cross-compiler's ability to compile a simple program because that will fail
@@ -39,11 +39,25 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" )
 
 # Add any C compiler flags here. The C flags concerned with processor tuning
 # are in the toolchain files toolchain-arm-none-eabi-bcm2835.cmake, etc.
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2" )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-r7" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fomit-frame-pointer " )
-#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-ip" )
+
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fanalyzer" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto" )
+
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wredundant-decls -Wno-maybe-uninitialized -Wno-long-long -Wpacked -Wundef -Wno-shadow  -Wno-missing-braces -Wno-sign-compare -Wno-multichar -Wnarrowing -Woverflow -Wconversion -Wjump-misses-init -Wlogical-not-parentheses -Wnull-dereference -Winit-self -Wpointer-arith  -Wwrite-strings -Wunreachable-code -Wshadow -Wdouble-promotion  -Wformat-truncation -fstack-usage -Wconversion" )
+
+# other options to try which fail currently :
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-declarations")
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat=2")
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wswitch-enum")
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wstrict-overflow=5")
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wcast-qual")
+
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-delete-null-pointer-checks -fdata-sections -ffunction-sections ")
 
@@ -93,6 +107,20 @@ file( GLOB core_files
     logging.h
     utils.c
     utils.h
+    framebuffer/framebuffer.c
+    framebuffer/framebuffer.h
+    framebuffer/swi_impl.c
+    framebuffer/screen_modes.c
+    framebuffer/screen_modes.h
+    framebuffer/primitives.c
+    framebuffer/primitives.h
+    framebuffer/fonts.c
+    framebuffer/fonts.h
+    framebuffer/teletext.c
+    framebuffer/teletext.h
+    framebuffer/module.h
+    framebuffer/module_colourtrans.c
+    framebuffer/module_colourtrans.h
 )
 
 # 6502 Co Processor using 65tube Implementation
@@ -100,6 +128,9 @@ file( GLOB copro_65tube_files
     copro-65tube.h
     copro-65tube.c
     copro-65tubeasm.S
+    copro-65tubejit.h
+    copro-65tubejit.c
+    jit.S
 )
 
 # 6502 Co Processor using 65tube Implementation
@@ -166,6 +197,8 @@ file( GLOB copro_32016_files
 file( GLOB copro_z80_files
     copro-z80.h
     copro-z80.c
+    tuberom_z80.h
+    tuberom_z80.c
     yaze/simz80.h
     yaze/simz80.c
     yaze/mem_mmu.h

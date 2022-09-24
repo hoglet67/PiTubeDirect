@@ -12,6 +12,7 @@
 #include "info.h"
 #include "rpi-gpio.h"
 #include "rpi-interrupts.h"
+#include "framebuffer/framebuffer.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "cpu_debug.h"
@@ -28,7 +29,7 @@ volatile unsigned int copro_speed;
 volatile unsigned int copro_memory_size = 0;
 unsigned int tube_delay = 0;
 
-int arm_speed;
+unsigned int arm_speed;
 
 static copro_def_t *copro_def;
 
@@ -37,7 +38,7 @@ static copro_def_t *copro_def;
 #define SWI_VECTOR ( _software_interrupt_vector_h)
 #define FIQ_VECTOR ( _fast_interrupt_vector_h)
 
-unsigned char * copro_mem_reset(int length)
+unsigned char * copro_mem_reset(unsigned int length)
 {
      // Wipe memory
      // Memory starts at zero now vectors have moved.
@@ -50,7 +51,15 @@ unsigned char * copro_mem_reset(int length)
    return mpu_memory;
 }
 
-void init_emulator() {
+void copro_memcpy(unsigned char * dst,unsigned char * src,unsigned int length)
+{
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow="
+   memcpy(dst, src, length);
+#pragma GCC diagnostic pop
+}
+
+static void init_emulator() {
    _disable_interrupts();
 
    // Make sure that copro number is valid
@@ -64,22 +73,41 @@ void init_emulator() {
 
    LOG_DEBUG("Raspberry Pi Direct %u %s Client\r\n", copro, copro_def->name);
 
+   // Clear all old interrupts, and set tube_enable appropriately
+   if (copro_def->type == TYPE_HIDDEN || copro_def->type == TYPE_DISABLED) {
+      tube_irq = 0;
+   } else {
+      tube_irq = TUBE_ENABLE_BIT;
+   }
 
-    tube_irq = 0; // Make sure everything is clear
-	// Set up FIQ handler
+   // Set up FIQ handler
 
    FIQ_VECTOR = (uint32_t) arm_fiq_handler_flag1;
    _data_memory_barrier();
-   (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
-    // Direct Mail box to FIQ handler
+
+#ifdef USE_DOORBELL
+   // Direct Doorbell to FIQ handler
 
 #if defined(RPI4)
-    RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_MAILBOX_IRQ ;
+   RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_DOORBELL_1_IRQ;
 #else
-    RPI_GetIrqController()->FIQ_control = 0x80 +65;
+   RPI_GetIrqController()->FIQ_control = 0x80 + 67;
 #endif
 
-    _data_memory_barrier();
+#else
+   // Direct Mail box to FIQ handler
+   (*(volatile uint32_t *)MBOX0_CONFIG) = MBOX0_DATAIRQEN;
+   _data_memory_barrier();
+
+#if defined(RPI4)
+   RPI_GetIrqController()->Enable_Basic_FIQs = RPI_BASIC_ARM_MAILBOX_IRQ;
+#else
+   RPI_GetIrqController()->FIQ_control = 0x80 + 65;
+#endif
+
+#endif
+
+   _data_memory_barrier();
 
 #ifndef MINIMAL_BUILD
    if (copro_def->type == TYPE_ARMNATIVE) {
@@ -95,6 +123,10 @@ void init_emulator() {
 #endif
 
    _enable_interrupts();
+
+   if (vdu_enabled) {
+      fb_show_splash_screen();
+   }
 }
 
 #ifdef HAS_MULTICORE
@@ -144,19 +176,19 @@ static void start_core(int core, func_ptr func) {
 #endif
 
 static unsigned int get_copro_number() {
-   unsigned int copro = default_copro();
+   unsigned int coproc = default_copro();
    char *copro_prop = get_cmdline_prop("copro");
 
    if (copro_prop) {
-      copro = atoi(copro_prop);
+      coproc = (unsigned int) atoi(copro_prop);
    }
-   if (copro >= num_copros()) {
-      copro = default_copro();
+   if (coproc >= num_copros()) {
+      coproc = default_copro();
    }
-   return copro;
+   return coproc;
 }
 
-unsigned int get_copro_mhz(int copro_num) {
+unsigned int get_copro_mhz(unsigned int copro_num) {
    unsigned int copro_mhz = 0; // default
    char *copro_prop = NULL;
    // Note: Co Pro Speed is only implemented in the 65tube Co Processors (copros 0/1/2/3)
@@ -168,7 +200,7 @@ unsigned int get_copro_mhz(int copro_num) {
       copro_prop = get_cmdline_prop("copro3_speed");
    }
    if (copro_prop) {
-      copro_mhz = atoi(copro_prop);
+      copro_mhz = (uint32_t) atoi(copro_prop);
    }
    if (copro_mhz > 255) {
       copro_mhz = 0;
@@ -194,7 +226,7 @@ static void get_copro_memory_size() {
       copro_prop = get_cmdline_prop("copro13_memory_size");
    }
    if (copro_prop) {
-      copro_memory_size = atoi(copro_prop);
+      copro_memory_size = (uint32_t)atoi(copro_prop);
    }
    if (copro_memory_size > 32*1024*1024) {
       copro_memory_size = 0;
@@ -206,7 +238,7 @@ static void get_tube_delay() {
    char *copro_prop = get_cmdline_prop("tube_delay");
    tube_delay = 0; // default
    if (copro_prop) {
-      tube_delay = atoi(copro_prop);
+      tube_delay = (uint32_t)atoi(copro_prop);
    }
    if (tube_delay > 40){
       tube_delay = 40;
@@ -226,7 +258,6 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    arm_speed = get_clock_rate(ARM_CLK_ID);
    get_tube_delay();
-   start_vc_ula();
 
    copro = get_copro_number();
    last_copro = copro +1; // force new core

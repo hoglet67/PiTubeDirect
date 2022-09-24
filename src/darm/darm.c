@@ -35,15 +35,18 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "darm.h"
 #include "darm-internal.h"
 
+static int darm_reglist(uint16_t reglist, char *out);
+
 #define APPEND(out, ptr) \
     do { \
         const char *p = ptr; \
         if(p != NULL) while (*p != 0) *out++ = *p++; \
     } while (0);
 
-static int _utoa(unsigned int value, char *out, int base)
+static int _utoa(unsigned int value, char *out, unsigned int base)
 {
-    char buf[30]; unsigned int i, counter = 0;
+    char buf[30];
+    int  counter = 0;
 
     if(value == 0) {
         buf[counter++] = '0';
@@ -53,7 +56,7 @@ static int _utoa(unsigned int value, char *out, int base)
         buf[counter++] = "0123456789abcdef"[value % base];
     }
 
-    for (i = 0; i < counter; i++) {
+    for (int i = 0; i < counter; i++) {
         out[i] = buf[counter - i - 1];
     }
 
@@ -98,7 +101,7 @@ int darm_disasm(darm_t *d, uint16_t w, uint16_t w2, uint32_t addr)
     if((addr & 1) == 0) {
 
         // disassemble and check for error return values
-        if(darm_armv7_disasm(d, (w2 << 16) | w) < 0) {
+        if(darm_armv7_disasm(d, (uint32_t) ((w2 << 16) | w)) < 0) {
             return 0;
         }
         else {
@@ -107,7 +110,7 @@ int darm_disasm(darm_t *d, uint16_t w, uint16_t w2, uint32_t addr)
     }
 
     // magic table constructed based on section A6.1 of the ARM manual
-    static uint8_t is_thumb2[0x20] = {
+    static const uint8_t is_thumb2[0x20] = {
         [b11101] = 1,
         [b11110] = 1,
         [b11111] = 1,
@@ -134,7 +137,7 @@ int darm_disasm(darm_t *d, uint16_t w, uint16_t w2, uint32_t addr)
     }
 }
 
-int darm_str(const darm_t *d, darm_str_t *str)
+static int darm_str(const darm_t *d, darm_str_t *str)
 {
     int i;
     char ch;
@@ -183,7 +186,7 @@ int darm_str(const darm_t *d, darm_str_t *str)
     default:
         break;
     }
-
+    {
     const char **ptrs = armv7_format_strings[d->instr];
     if(ptrs[0] == NULL) return -1;
 
@@ -204,7 +207,7 @@ int darm_str(const darm_t *d, darm_str_t *str)
             APPEND(args[arg], darm_register_name(d->Rd));
             arg++;
             continue;
-            
+
         case 'z':
             if (d->B == 1)
             {
@@ -223,7 +226,7 @@ int darm_str(const darm_t *d, darm_str_t *str)
                if (d->Rd & 0x8) {APPEND(args[arg], "f")};
             }
             arg++;
-            continue;    
+            continue;
 
         case 'n':
             if(d->Rn == R_INVLD) break;
@@ -291,7 +294,7 @@ int darm_str(const darm_t *d, darm_str_t *str)
 
             if(d->P == B_SET) {
                 // we're still inside the memory address
-                shift = args[arg] - 1;
+                shift = args[arg];
                 *shift++ = ',';
                 *shift++ = ' ';
             }
@@ -331,6 +334,9 @@ int darm_str(const darm_t *d, darm_str_t *str)
                 // reset shift
                 args[arg] = shift;
                 shift = str->shift;
+            }
+            if(d->W == B_SET) {
+                *args[arg]++ = '!';
             }
             continue;
 
@@ -442,9 +448,8 @@ int darm_str(const darm_t *d, darm_str_t *str)
                 args[arg] -= 2;
             }
 
-            // if pre-indexed, close the memory address, but don't increase
-            // arg so we can alter it in the shift handler
-            if(d->P == B_SET) {
+            // if pre-indexed and no shift , close the memory address
+            if( (d->P == B_SET)  && (d->shift_type == S_INVLD) ) {
                 *args[arg]++ = ']';
 
                 // if pre-indexed and write-back, then add an exclamation mark
@@ -454,7 +459,7 @@ int darm_str(const darm_t *d, darm_str_t *str)
             }
             continue;
 
-        case 'b':
+        case 'b':{
             // BLX first checks for branch and only then for the conditional
             // version which takes the Rm as operand, so let's see if the
             // branch stuff has been initialized yet
@@ -464,7 +469,7 @@ int darm_str(const darm_t *d, darm_str_t *str)
             *args[arg]++ = '&';
             args[arg] += _utoa(target, args[arg], 16);
             continue;
-
+            }
         case 'M':
             *args[arg]++ = '[';
             APPEND(args[arg], darm_register_name(d->Rn));
@@ -547,7 +552,7 @@ int darm_str(const darm_t *d, darm_str_t *str)
         if(ptrs[++idx] == NULL || idx == 3) return -1;
         off--;
     }
-
+    }
 finalize:
 
     *mnemonic = *shift = 0;
@@ -574,7 +579,6 @@ finalize:
 
 int darm_str2(const darm_t *d, darm_str_t *str, int lowercase)
 {
-    uint32_t i;
     if(darm_str(d, str) < 0) {
         return -1;
     }
@@ -582,14 +586,14 @@ int darm_str2(const darm_t *d, darm_str_t *str, int lowercase)
     if(lowercase != 0) {
         // just lowercase the entire object, including null-bytes
         char *buf = (char *) str;
-        for (i = 0; i < sizeof(darm_str_t); i++) {
-          buf[i] = tolower((int) buf[i]);
+        for (size_t i = 0; i < sizeof(darm_str_t); i++) {
+          buf[i] = (char) tolower((int) buf[i]);
         }
     }
     return 0;
 }
 
-int darm_reglist(uint16_t reglist, char *out)
+static int darm_reglist(uint16_t reglist, char *out)
 {
     char *base = out;
 
@@ -609,7 +613,7 @@ int darm_reglist(uint16_t reglist, char *out)
 
         for (reg = start; reg == __builtin_ctz(reglist); reg++) {
             // unset this bit
-            reglist &= ~(1 << reg);
+            reglist &= (uint16_t) (~(1u << reg));
         }
 
         // if reg is not start + 1, then this means that a series of
@@ -631,7 +635,7 @@ int darm_reglist(uint16_t reglist, char *out)
     *out = 0;
     return out - base;
 }
-
+#if 0
 void darm_dump(const darm_t *d)
 {
     printf(
@@ -736,3 +740,4 @@ void darm_dump(const darm_t *d)
 
     printf("\n");
 }
+#endif

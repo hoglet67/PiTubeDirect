@@ -39,7 +39,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define BITMSK_8 ((1 << 8) - 1)
 #define ROR(val, rotate) (((val) >> (rotate)) | ((val) << (32 - (rotate))))
-#define SIGN_EXTEND32(v, len) (((int32_t)(v) << (32 - (len))) >> (32 - (len)))
+#define SIGN_EXTEND32(v, len) ((unsigned int)(((int32_t)(v) << (32 - (len))) >> (32 - (len))))
 
 static void thumb2_parse_reg(darm_t *d, uint16_t w, uint16_t w2);
 static void thumb2_parse_imm(darm_t *d, uint16_t w, uint16_t w2);
@@ -49,7 +49,7 @@ static void thumb2_parse_misc(darm_t *d, uint16_t w, uint16_t w2);
 // 12 -> 32 bit expansion function
 // See manual for this
 // We don't care about the carry for the moment (should we?)
-uint32_t thumb_expand_imm(uint16_t imm12)
+static uint32_t thumb_expand_imm(uint16_t imm12)
 {
     uint32_t value = 0;
 
@@ -62,28 +62,28 @@ uint32_t thumb_expand_imm(uint16_t imm12)
             break;
 
         case 1:
-            value = ((imm12 & 0xff) << 16) | (imm12 & 0xff);
+            value = ((imm12 & 0xffu) << 16) | (imm12 & 0xffu);
             break;
 
         case 2:
-            value = ((imm12 & 0xff) << 24) | ((imm12 & 0xff) << 8);
+            value = ((imm12 & 0xffu) << 24) | ((imm12 & 0xffu) << 8);
             break;
 
         case 3:
             imm12 &= 0xff;
-            value = imm12 | (imm12 << 8) | (imm12 << 16) | (imm12 << 24);
+            value = (uint32_t) (imm12 | (imm12 << 8) | (imm12 << 16) | (imm12 << 24));
             break;
         }
     }
     else {
-        uint32_t unrotated = 0x80 | (imm12 & 0x7F);
+        uint32_t unrotated = 0x80u | (imm12 & 0x7Fu);
         value = ROR(unrotated, (imm12 & 0xF80) >> 7);
     }
 
     return value;
 }
 
-void thumb2_decode_immshift(darm_t *d, uint8_t type, uint8_t imm5)
+static void thumb2_decode_immshift(darm_t *d, uint8_t type, uint8_t imm5)
 {
     switch (type) {
     case 0:
@@ -231,7 +231,7 @@ static void thumb2_parse_imm(darm_t *d, uint16_t w, uint16_t w2)
     case T_THUMB2_IMM2_IMM3:
         // 2 and 3 bit immediates
         // (imm3:imm2)
-        d->imm = ((w2 >> 10) & b11100) | ((w2 >> 6) & b11);
+        d->imm = ((w2 >> 10) & 0x1cu) | ((w2 >> 6) & 0x3u);
         break;
 
     case T_THUMB2_IMM1_IMM3_IMM8:
@@ -240,11 +240,10 @@ static void thumb2_parse_imm(darm_t *d, uint16_t w, uint16_t w2)
 
         // if bits 9:8 == '10' then zero extend, otherwise thumb expand
         if((w & 0x300) == 0x200) {
-            d->imm = ((w & 0x400) << 1) | ((w2 & 0x7000) >> 4) | (w2 & 0xff);
+            d->imm = ((w & 0x400u) << 1) | ((w2 & 0x7000u) >> 4) | (w2 & 0xffu);
         }
         else {
-            d->imm = ((w & 0x400) << 1) | ((w2 & 0x7000) >> 4) | (w2 & 0xff);
-            d->imm = thumb_expand_imm(d->imm);
+            d->imm = thumb_expand_imm((uint16_t) (((w & 0x400u) << 1) | ((w2 & 0x7000u) >> 4) | (w2 & 0xffu)));
         }
         break;
 
@@ -280,7 +279,7 @@ static void thumb2_parse_flag(darm_t *d, uint16_t w, uint16_t w2)
     case T_THUMB2_TYPE_FLAG:
         // Type field
         // This is always a T_THUMB2_IMM2_IMM3 type
-        thumb2_decode_immshift(d, (w2 >> 4) & 3, d->imm);
+        thumb2_decode_immshift(d, (w2 >> 4) & 3, (uint8_t) d->imm);
         break;
 
     case T_THUMB2_REGLIST_FLAG:
@@ -303,7 +302,7 @@ static void thumb2_parse_flag(darm_t *d, uint16_t w, uint16_t w2)
     case T_THUMB2_S_TYPE_FLAG:
         // S flag and type field
         d->S = ((w >> 4) & 1 ) ? B_SET : B_UNSET;
-        thumb2_decode_immshift(d, (w2 >> 4) & 3, d->imm);
+        thumb2_decode_immshift(d, (w2 >> 4) & 3, (uint8_t) d->imm);
         break;
 
     default:
@@ -322,11 +321,11 @@ void thumb2_parse_misc(darm_t *d, uint16_t w, uint16_t w2)
             // T3
             // sign_extend(S:J2:J1:imm6:imm11:0, 32)
             d->imm =
-                ((w & 0x400) << 10) |
-                ((w2 & 0x800) << 8) |
-                ((w2 & 0x2000) << 5) |
-                ((w & 0x3F) << 12) |
-                ((w2 & 0x7ff) << 1);
+                ((w & 0x400u) << 10) |
+                ((w2 & 0x800u) << 8) |
+                ((w2 & 0x2000u) << 5) |
+                ((w & 0x3Fu) << 12) |
+                ((w2 & 0x7ffu) << 1);
             d->imm = SIGN_EXTEND32(d->imm, 21);
             d->cond = (w >> 6) & b1111;
         }
@@ -336,11 +335,11 @@ void thumb2_parse_misc(darm_t *d, uint16_t w, uint16_t w2)
             // I2 = not(J2 xor S);
             // imm32 = sign_extend(S:I1:I2:imm10:imm11:0, 32)
             d->imm =
-                ((w & 0x400) << 14) |
+                ((w & 0x400u) << 14) |
                 (((~(w2 >> 13) ^ (w >> 10)) & 1) << 23) |
                 ((~((w2 >> 11) ^ (w >> 10)) & 1) << 22) |
-                ((w & 0x3FF) << 12) |
-                ((w2 & 0x7FF) << 1);
+                ((w & 0x3FFu) << 12) |
+                ((w2 & 0x7FFu) << 1);
             d->imm = SIGN_EXTEND32(d->imm, 25);
         }
         break;
@@ -352,11 +351,11 @@ void thumb2_parse_misc(darm_t *d, uint16_t w, uint16_t w2)
             // BLX
             // I1 = not(J1 xor S); I2 = not(J2 xor S); imm32 = sign_extend(S:I1:I2:imm10H:imm10L:00, 32)
             d->imm =
-                ((w & 0x400) << 14) |
+                ((w & 0x400u) << 14) |
                 ((~((w2 >> 13) ^ (w >> 10)) & 1) << 23) |
                 ((~((w2 >> 11) ^ (w >> 10)) & 1) << 22) |
-                ((w & 0x3FF) << 12) |
-                ((w2 & 0x7FE) << 1);
+                ((w & 0x3FFu) << 12) |
+                ((w2 & 0x7FEu) << 1);
             d->imm = SIGN_EXTEND32(d->imm, 25);
             d->H = (w & 1) ? B_SET : B_UNSET;
         }
@@ -364,11 +363,11 @@ void thumb2_parse_misc(darm_t *d, uint16_t w, uint16_t w2)
             // BL
             // I1 = not(J1 xor S); I2 = not(J2 xor S); imm32 = sign_extend(S:I1:I2:imm10:imm11:0, 32)
             d->imm =
-                ((w & 0x400) << 14) |
+                ((w & 0x400u) << 14) |
                 (((~((w2 >> 13) ^ (w >> 10))) & 1) << 23) |
                 ((~((w2 >> 11) ^ (w >> 10)) & 1) << 22) |
-                ((w & 0x3FF) << 12) |
-                ((w2 & 0x7FF) << 1);
+                ((w & 0x3FFu) << 12) |
+                ((w2 & 0x7FFu) << 1);
             d->imm = SIGN_EXTEND32(d->imm, 25);
         }
         break;
@@ -388,7 +387,7 @@ void thumb2_parse_misc(darm_t *d, uint16_t w, uint16_t w2)
 
     case I_MOVW: case I_MOVT:
         d->imm =
-            ((w & b1111) << 12) |
+            ((w & 0xfu) << 12) |
             ((w & 0x400) << 1) |
             ((w2 & 0x7000) >> 4) |
             (w2 & 0xff);
@@ -479,13 +478,14 @@ void thumb2_parse_misc(darm_t *d, uint16_t w, uint16_t w2)
     case I_MSR:
         d->I = B_SET;
         d->Rn = w & b1111;
-        d->mask = d->imm = (w2 >> 10) & b11;
+        d->mask = (w2 >> 10) & b11;
+        d->imm = (w2 >> 10) & b11;
         break;
 
     case I_PKH:
         // S flag and immediate already set
         d->T = (w2 >> 4) & 1;
-        thumb2_decode_immshift(d, (w2 >> 4) & 2, d->imm);
+        thumb2_decode_immshift(d, (w2 >> 4) & 2,(uint8_t) d->imm);
         break;
 
     case I_PLI:
@@ -552,7 +552,7 @@ void thumb2_parse_misc(darm_t *d, uint16_t w, uint16_t w2)
         break;
 
     case I_SSAT: case I_USAT:
-        thumb2_decode_immshift(d, (w >> 4) & 2, d->imm);
+        thumb2_decode_immshift(d, (w >> 4) & 2, (uint8_t) d->imm);
         d->sat_imm = w2 & 0x1f;
         break;
 
@@ -639,7 +639,7 @@ static char *darm_thumb2_str(const darm_t *d)
 int darm_thumb2_disasm(darm_t *d, uint16_t w, uint16_t w2)
 {
     darm_init(d);
-    d->w = (w << 16) | w2;
+    d->w = ((unsigned int)w << 16) | w2;
 
     // we set all conditional flags to "execute always" by default, as most
     // thumb instructions don't feature a conditional flag

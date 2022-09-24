@@ -18,14 +18,14 @@ const uint8_t FormatSizes[FormatCount + 1] =
 
 #define FUNC(FORMAT, OFFSET) (((FORMAT) << 4) + (OFFSET))
 
-uint8_t GetFunction(uint8_t FirstByte)
+static uint8_t GetFunction(uint32_t FirstByte)
 {
    switch (FirstByte & 0x0F)
    {
       case 0x0A:
-         return FUNC(Format0, FirstByte >> 4);
+         return (uint8_t)FUNC(Format0, FirstByte >> 4);
       case 0x02:
-         return FUNC(Format1, FirstByte >> 4);
+         return (uint8_t)FUNC(Format1, FirstByte >> 4);
 
       case 0x0C:
       case 0x0D:

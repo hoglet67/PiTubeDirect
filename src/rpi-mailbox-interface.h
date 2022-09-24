@@ -38,6 +38,7 @@ typedef enum {
     TAG_GET_CLOCK_STATE = 0x30001,
     TAG_SET_CLOCK_STATE = 0x38001,
     TAG_GET_CLOCK_RATE = 0x30002,
+    TAG_GET_CLOCK_RATE_MEASURED = 0x30047,
     TAG_SET_CLOCK_RATE = 0x38002,
     TAG_GET_MAX_CLOCK_RATE = 0x30004,
     TAG_GET_MIN_CLOCK_RATE = 0x30007,
@@ -56,6 +57,9 @@ typedef enum {
     TAG_UNLOCK_MEMORY = 0x3000E,
     TAG_RELEASE_MEMORY = 0x3000F,
     TAG_EXECUTE_CODE = 0x30010,
+    TAG_EXECUTE_QPU = 0x30011,
+    TAG_ENABLE_GPU = 0x30012,
+    TAG_LAUNCH_VPU1 = 0x30013,
     TAG_GET_DISPMANX_MEM_HANDLE = 0x30014,
     TAG_GET_EDID_BLOCK = 0x30020,
 
@@ -88,8 +92,8 @@ typedef enum {
     TAG_GET_PALETTE = 0x4000B,
     TAG_TEST_PALETTE = 0x4400B,
     TAG_SET_PALETTE = 0x4800B,
-    TAG_SET_CURSOR_INFO = 0x8011,
-    TAG_SET_CURSOR_STATE = 0x8010
+    TAG_SET_CURSOR_INFO = 0x8010,
+    TAG_SET_CURSOR_STATE = 0x8011
 
     } rpi_mailbox_tag_t;
 
@@ -113,36 +117,38 @@ typedef enum {
     } rpi_tag_offset_t;
 
 typedef struct {
-    int tag;
-    int byte_length;
+    unsigned int tag;
+    unsigned int byte_length;
     union {
-        int value_32;
+        uint32_t value_32;
         unsigned char buffer_8[PROP_SIZE];
-        int buffer_32[PROP_SIZE >> 2];
+        uint32_t buffer_32[PROP_SIZE >> 2];
     } data;
     } rpi_mailbox_property_t;
 
 
 /* Clock ID values */
 #define   RES_CLK_ID 0x000000000
-#define  EMMC_CLK_ID 0x000000001 
-#define  UART_CLK_ID 0x000000002 
-#define   ARM_CLK_ID 0x000000003 
-#define  CORE_CLK_ID 0x000000004 
-#define   V3D_CLK_ID 0x000000005 
-#define  H264_CLK_ID 0x000000006 
-#define   ISP_CLK_ID 0x000000007 
-#define SDRAM_CLK_ID 0x000000008 
-#define PIXEL_CLK_ID 0x000000009 
-#define   PWM_CLK_ID 0x00000000a 
+#define  EMMC_CLK_ID 0x000000001
+#define  UART_CLK_ID 0x000000002
+#define   ARM_CLK_ID 0x000000003
+#define  CORE_CLK_ID 0x000000004
+#define   V3D_CLK_ID 0x000000005
+#define  H264_CLK_ID 0x000000006
+#define   ISP_CLK_ID 0x000000007
+#define SDRAM_CLK_ID 0x000000008
+#define PIXEL_CLK_ID 0x000000009
+#define   PWM_CLK_ID 0x00000000a
 
-#define MIN_CLK_ID  0x000000001 
+#define MIN_CLK_ID  0x000000001
 #define MAX_CLK_ID  0x00000000a
 
 extern void RPI_PropertyInit( void );
 extern void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... );
 extern int RPI_PropertyProcess( void );
 extern void RPI_PropertyProcessNoCheck( void );
+extern int RPI_PropertyProcessDebug( void );
+extern void RPI_PropertyProcessNoCheckDebug( void );
 extern rpi_mailbox_property_t* RPI_PropertyGet( rpi_mailbox_tag_t tag );
 
 #endif

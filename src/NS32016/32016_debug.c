@@ -68,23 +68,23 @@ static int dbg_debug_enable(int newvalue) {
    int oldvalue = n32016_debug_enabled;
    n32016_debug_enabled = newvalue;
    return oldvalue;
-};
+}
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
    // use the internal version so the debugger doesn't get notified
    return read_x8_internal(addr);
-};
+}
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
    // use the internal version so the debugger doesn't get notified
-   write_x8_internal(addr, value);
-};
+   write_x8_internal(addr, (uint8_t)value);
+}
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    return n32016_disassemble(addr, buf, bufsize);
-};
+}
 
 // Get a register - which is the index into the names above
 static uint32_t dbg_reg_get(int which) {
@@ -119,7 +119,7 @@ static uint32_t dbg_reg_get(int which) {
    default:
       return 0;
    }
-};
+}
 
 // Set a register.
 static void  dbg_reg_set(int which, uint32_t value) {
@@ -164,18 +164,17 @@ static void  dbg_reg_set(int which, uint32_t value) {
    default:
       break;
    }
-};
+}
 
 static const char* flagname = "****IPSUNZFV*LTC";
 
 // Print register value in CPU standard form.
 static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
-   unsigned int i;
-   int bit;
-   char c;
+   uint32_t bit;
    const char *flagnameptr = flagname;
 
    if (which == i_PSR) {
+      unsigned int i;
       // !       Supervisor Flags        !          User Flags           !
       // +-------------------------------+-------------------------------+
       // ! x   x   x   x ! I ! P ! S ! U ! N ! Z ! F ! V ! x ! L ! T ! C !
@@ -183,14 +182,8 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       //  15                           8   7                           0
       bit = 0x8000;
       for (i = 0; i < 16 * 3 && i < bufsize - 3; i += 3) {
-         if (psr & bit) {
-            c = '1';
-         } else {
-            c = '0';
-         }
-         
          *(buf + i) = *flagnameptr++;
-         *(buf + i + 1) = c;
+         *(buf + i + 1) = (psr & bit)?'1':'0';
          *(buf + i + 2) = ' ';
 
          bit >>= 1;
@@ -201,18 +194,18 @@ static size_t dbg_reg_print(int which, char *buf, size_t bufsize) {
       }
       return i;
    } if (which == i_MOD) {
-      return snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which) & 0xFFFF);       
+      return (size_t)snprintf(buf, bufsize, "%04"PRIx32, dbg_reg_get(which) & 0xFFFF);
    } else {
-      return snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));       
+      return (size_t)snprintf(buf, bufsize, "%08"PRIx32, dbg_reg_get(which));
    }
-};
+}
 
 // Parse a value into a register.
 static void dbg_reg_parse(int which,const char *strval) {
    uint32_t val = 0;
    sscanf(strval, "%"SCNx32, &val);
    dbg_reg_set(which, val);
-};
+}
 
 static uint32_t dbg_get_instr_addr() {
    return n32016_get_startpc();

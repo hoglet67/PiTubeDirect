@@ -25,7 +25,7 @@ typedef struct {
 typedef struct {
    
    // Architecturally visible state
-   int32_t R[8];      // signed integer registers   
+   uint16_t R[8];      // signed integer registers   
    uint16_t PS;       // processor status
    bool curuser;
    bool prevuser;

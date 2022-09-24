@@ -37,20 +37,20 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "thumb2-tbl.h"
 #include "thumb2.h"
 
-darm_instr_t thumb2_load_store_multiple(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_load_store_dual(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_data_shifted_reg(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_coproc_simd(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_modified_immediate(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_plain_immediate(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_branch_misc_ctrl(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_store_single_item(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_data_reg(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_mult_acc_diff(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_long_mult_acc(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_load_byte_hints(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_load_word(darm_t *d, uint16_t w, uint16_t w2);
-darm_instr_t thumb2_load_halfword_hints(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_load_store_multiple(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_load_store_dual(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_data_shifted_reg(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_coproc_simd(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_modified_immediate(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_plain_immediate(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_branch_misc_ctrl(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_store_single_item(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_data_reg(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_mult_acc_diff(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_long_mult_acc(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_load_byte_hints(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_load_word(darm_t *d, uint16_t w, uint16_t w2);
+static darm_instr_t thumb2_load_halfword_hints(darm_t *d, uint16_t w, uint16_t w2);
 
 darm_instr_t thumb2_decode_instruction(darm_t *d, uint16_t w, uint16_t w2)
 {
@@ -137,13 +137,13 @@ darm_instr_t thumb2_decode_instruction(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_load_store_multiple(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_load_store_multiple(darm_t *d, uint16_t w, uint16_t w2)
 {
     (void) w2;
 
     uint32_t op = (w >> 7) & b11;
     uint32_t L = (w >> 4) & b1;
-    uint32_t W_Rn = ((w >> 1) & 0x10) | (w & b1111);
+    uint32_t W_Rn = ((w >> 1) & 0x10u) | (w & 0xfu);
 
     d->instr_type = T_THUMB2_RN_REG;
     d->instr_imm_type = T_THUMB2_NO_IMM;
@@ -189,7 +189,7 @@ darm_instr_t thumb2_load_store_multiple(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_load_store_dual(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_load_store_dual(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 7) & b11;
     uint32_t op2 = (w >> 4) & b11;
@@ -273,12 +273,12 @@ darm_instr_t thumb2_load_store_dual(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_move_shift(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_move_shift(darm_t *d, uint16_t w, uint16_t w2)
 {
     (void) w;
 
     uint32_t type = (w2>>4) & b11;
-    uint32_t imm3_imm2 = ((w2>>10) & 0x1C) | ((w2>>6) & b11);
+    uint32_t imm3_imm2 = ((w2>>10) & 0x1Cu) | ((w2>>6) & 0x3u);
 
     d->instr_type = T_THUMB2_RD_RM_REG;
     d->instr_imm_type = T_THUMB2_IMM2_IMM3;
@@ -311,11 +311,11 @@ darm_instr_t thumb2_move_shift(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_data_shifted_reg(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_data_shifted_reg(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op = (w >> 5) & b1111;
     uint32_t Rn = w & b1111;
-    uint32_t Rd_S = ((w2 >> 7) & 0x1e) | ((w >> 4) & 1);
+    uint32_t Rd_S = ((w2 >> 7) & 0x1eu) | ((w >> 4) & 1u);
 
     d->instr_type = T_THUMB2_RN_RD_RM_REG;
     d->instr_imm_type = T_THUMB2_IMM2_IMM3;
@@ -393,11 +393,11 @@ darm_instr_t thumb2_data_shifted_reg(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_modified_immediate(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_modified_immediate(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op = (w >> 5) & b1111;
     uint32_t Rn = w & b1111;
-    uint32_t Rd_S = ((w2 >> 7) & 0x1e) | ((w >> 4) & 1);
+    uint32_t Rd_S = ((w2 >> 7) & 0x1eu) | ((w >> 4) & 1u);
 
     d->instr_type = T_THUMB2_RN_RD_REG;
     d->instr_imm_type = T_THUMB2_IMM1_IMM3_IMM8;
@@ -472,7 +472,7 @@ darm_instr_t thumb2_modified_immediate(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_plain_immediate(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_plain_immediate(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op = (w >> 4) & 0x1f;
     uint32_t Rn = w & b1111;
@@ -543,7 +543,7 @@ darm_instr_t thumb2_plain_immediate(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_proc_state(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_proc_state(darm_t *d, uint16_t w, uint16_t w2)
 {
     (void) d; (void) w;
 
@@ -580,7 +580,7 @@ darm_instr_t thumb2_proc_state(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_misc_ctrl(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_misc_ctrl(darm_t *d, uint16_t w, uint16_t w2)
 {
     (void) d; (void) w;
     uint32_t op = (w2 >> 4) & b111;
@@ -606,7 +606,7 @@ darm_instr_t thumb2_misc_ctrl(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_branch_misc_ctrl(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_branch_misc_ctrl(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op = (w >> 4) & 0x7f;
     uint32_t op1 = (w2 >> 12) & b111;
@@ -669,7 +669,7 @@ darm_instr_t thumb2_branch_misc_ctrl(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_store_single_item(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_store_single_item(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 5) & b111;
     uint32_t op2 = (w2 >> 6) & 0x3f;
@@ -750,7 +750,7 @@ darm_instr_t thumb2_store_single_item(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_load_byte_hints(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_load_byte_hints(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 7) & b11;
     uint32_t op2 = (w2 >> 6) & 0x3f;
@@ -863,7 +863,7 @@ darm_instr_t thumb2_load_byte_hints(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_load_halfword_hints(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_load_halfword_hints(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 7) & b11;
     uint32_t op2 = (w2 >> 6) & 0x3f;
@@ -972,7 +972,7 @@ darm_instr_t thumb2_load_halfword_hints(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_load_word(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_load_word(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 7) & b11;
     uint32_t op2 = (w2 >> 6) & 0x3f;
@@ -1020,7 +1020,7 @@ darm_instr_t thumb2_load_word(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_parallel_signed(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_parallel_signed(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 4) & b111;
     uint32_t op2 = (w2 >> 4) & b11;
@@ -1096,7 +1096,7 @@ darm_instr_t thumb2_parallel_signed(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_parallel_unsigned(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_parallel_unsigned(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 4) & b111;
     uint32_t op2 = (w2 >> 4) & b11;
@@ -1172,7 +1172,7 @@ darm_instr_t thumb2_parallel_unsigned(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_misc_op(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_misc_op(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 4) & b11;
     uint32_t op2 = (w2 >> 4) & b11;
@@ -1239,7 +1239,7 @@ darm_instr_t thumb2_misc_op(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_data_reg(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_data_reg(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 4) & b1111;
     uint32_t op2 = (w2 >> 4) & b1111;
@@ -1330,7 +1330,7 @@ darm_instr_t thumb2_data_reg(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_nm_decoder(darm_t *d, uint16_t w, uint16_t w2,
+static darm_instr_t thumb2_nm_decoder(darm_t *d, uint16_t w, uint16_t w2,
     darm_instr_t i1, darm_instr_t i2, darm_instr_t i3, darm_instr_t i4)
 {
     (void) d; (void) w;
@@ -1356,7 +1356,7 @@ darm_instr_t thumb2_nm_decoder(darm_t *d, uint16_t w, uint16_t w2,
     return I_INVLD;
 }
 
-darm_instr_t thumb2_mult_acc_diff(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_mult_acc_diff(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 4) & b111;
     uint32_t op2 = (w2 >> 4) & b11;
@@ -1451,7 +1451,7 @@ darm_instr_t thumb2_mult_acc_diff(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_long_mult_acc(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_long_mult_acc(darm_t *d, uint16_t w, uint16_t w2)
 {
     uint32_t op1 = (w >> 4) & b111;
     uint32_t op2 = (w2 >> 4) & b1111;
@@ -1526,7 +1526,7 @@ darm_instr_t thumb2_long_mult_acc(darm_t *d, uint16_t w, uint16_t w2)
     return I_INVLD;
 }
 
-darm_instr_t thumb2_coproc_simd(darm_t *d, uint16_t w, uint16_t w2)
+static darm_instr_t thumb2_coproc_simd(darm_t *d, uint16_t w, uint16_t w2)
 {
     (void) d; (void) w; (void) w2;
 

@@ -3,6 +3,7 @@
 #include "startup.h"
 #include "rpi-base.h"
 #include "cache.h"
+#include "copro-65tubejit.h"
 
 // Historical Note:
 // Were seeing core 3 crashes if inner *and* outer both set to some flavour of WB (i.e. 1 or 3)
@@ -10,16 +11,14 @@
 // At that point, the stack appears to vanish and the data read back is 0x55555555
 // Reason turned out to be failure to correctly invalidate the entire data cache
 
-static const unsigned l1_cached_threshold = L2_CACHED_MEM_BASE >> 20;
-static const unsigned l2_cached_threshold = UNCACHED_MEM_BASE >> 20;
-static const unsigned uncached_threshold = PERIPHERAL_BASE >> 20;
+static volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
+static volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
 
-volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable[4096];
-volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable2[NUM_4K_PAGES];
+static volatile __attribute__ ((aligned (0x4000))) unsigned int PageTable3[256];
 
-static const int aa = 1;
-static const int bb = 1;
-static const int shareable = 1;
+static const unsigned int aa = 1u;
+static const unsigned int bb = 1u;
+static const unsigned int shareable = 1u;
 
 #if defined(RPI2) || defined(RPI3) || defined(RPI4)
 
@@ -99,6 +98,12 @@ void CleanDataCache (void)
       }
    }
 }
+#else
+
+void CleanDataCache (void) {
+   _clean_invalidate_dcache();
+}
+
 #endif
 
 void _clean_cache_area(void * start, unsigned int length)
@@ -120,9 +125,33 @@ void _clean_cache_area(void * start, unsigned int length)
       startptr = startptr + cachelinesize;
    } while ( startptr  < endptr);
 #else
-   asm volatile("mcrr p15,0,%0,%1,c14"::"r" (start+length), "r" (start));
-   _data_memory_barrier();
+   asm volatile("mcrr p15,0,%0,%1,c14"::"r" ((uint32_t)start+length), "r" (start));
 #endif
+   _data_memory_barrier();
+}
+
+void _invalidate_cache_area(void * start, unsigned int length)
+{
+#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+   uint32_t cachelinesize;
+   char * startptr = start;
+   char * endptr;
+   asm volatile ("mrc p15, 0, %0, c0, c0,  1" : "=r" (cachelinesize));
+   cachelinesize = (cachelinesize>> 16 ) & 0xF;
+   cachelinesize = 4<<cachelinesize;
+   endptr = startptr + length;
+
+   // round down start address
+   startptr = (char *)(((uint32_t)start) & ~(cachelinesize - 1));
+
+   do{
+      asm volatile ("mcr     p15, 0, %0, c7, c6, 1" : : "r" (startptr));
+      startptr = startptr + cachelinesize;
+   } while ( startptr  < endptr);
+#else
+   asm volatile("mcrr p15,0,%0,%1,c6"::"r" ((uint32_t)start+length), "r" (start));
+#endif
+   _data_memory_barrier();
 }
 
 // TLB 4KB Section Descriptor format
@@ -135,27 +164,42 @@ void _clean_cache_area(void * start, unsigned int length)
 // 1      1
 // 0      1
 
-void map_4k_page(int logical, int physical) {
-  // Invalidate the data TLB before changing mapping
-  _invalidate_dtlb_mva((void *)(logical << 12));
+static void map_4k_page_quick(unsigned int logical, unsigned int physical) {
   // Setup the 4K page table entry
-  // Second level descriptors use extended small page format so inner/outer cacheing can be controlled
+  // Second level descriptors use extended small page format so inner/outer caching can be controlled
   // Pi 0/1:
   //   XP (bit 23) in SCTRL is 0 so descriptors use ARMv4/5 backwards compatible format
   // Pi 2/3:
   //   XP (bit 23) in SCTRL no longer exists, and we see to be using ARMv6 table formats
   //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
-  //   (this was the cause of issue #27)
+  //   (this was the cause of issue #27)  
 #if defined(RPI2) || defined (RPI3) || defined(RPI4)
-  PageTable2[logical] = (physical<<12) | 0x132 | (bb << 6) | (aa << 2);
+  PageTable2[logical] = (physical<<12) | 0x132u | (bb << 6) | (aa << 2);
 #else
-  PageTable2[logical] = (physical<<12) | 0x133 | (bb << 6) | (aa << 2);
+  PageTable2[logical] = (physical<<12) | 0x133u | (bb << 6) | (aa << 2);
 #endif
+}
+
+void map_4k_page(unsigned int logical, unsigned int physical) {
+   map_4k_page_quick(logical,physical);
+   _invalidate_tlb_mva((void *)(logical << 12));
+}
+
+static void map_4k_pageJIT_quick(unsigned int logical, unsigned int physical) {
+#if defined(RPI2) || defined (RPI3) || defined(RPI4)
+  PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x132u | (bb << 6) | (aa << 2);
+#else
+  PageTable3[logical-(JITTEDTABLE16>>12)] = (physical<<12) | 0x133u | (bb << 6) | (aa << 2);
+#endif
+}
+
+void map_4k_pageJIT(unsigned int logical, unsigned int physical) {
+  map_4k_pageJIT_quick(logical,physical);
+  _invalidate_tlb_mva((void *)(logical << 12));
 }
 
 void enable_MMU_and_IDCaches(void)
 {
-
   LOG_DEBUG("enable_MMU_and_IDCaches\r\n");
   //LOG_DEBUG("cpsr    = %08x\r\n", _get_cpsr());
 
@@ -174,8 +218,8 @@ void enable_MMU_and_IDCaches(void)
   // 9      P     -               - set to 0
   // 8..5   Domain- access domain - set to 0000 as nor using access ctrl
   // 4      XN    - eXecute Never - set to 1 for I/O devices
-  // 3      C     - cacheable     - set to 1 for cachable RAM i
-  // 2      B     - bufferable    - set to 1 for cachable RAM
+  // 3      C     - cacheable     - set to 1 for cacheable RAM i
+  // 2      B     - bufferable    - set to 1 for cacheable RAM
   // 1      1                     - TEX, C, B used together, see below
   // 0      0                     - TEX, C, B used together, see below
 
@@ -198,7 +242,7 @@ void enable_MMU_and_IDCaches(void)
   // 11 = WBNWA (write-back, no write allocate)
   /// TEX = 100; C=0; B=1 (outer non cacheable, inner write-back, write allocate)
 
-  for (base = 0; base < l1_cached_threshold; base++)
+  for (base = 0; base < (L2_CACHED_MEM_BASE >> 20); base++)
   {
     // Value from my original RPI code = 11C0E (outer and inner write back, write allocate, shareable)
     // bits 11..10 are the AP bits, and setting them to 11 enables user mode access as well
@@ -207,14 +251,17 @@ void enable_MMU_and_IDCaches(void)
     // Values from RPI2 = 15C0A (outer write back, write allocate, inner write through, no write allocate, shareable)
     PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12) | (aa << 2);
   }
-  for (; base < l2_cached_threshold; base++)
+#if L2_CACHED_MEM_BASE != UNCACHED_MEM_BASE
+  for (; base < (UNCACHED_MEM_BASE >> 20); base++)
   {
      PageTable[base] = base << 20 | 0x04C02 | (shareable << 16) | (bb << 12);
   }
-  for (; base < uncached_threshold; base++)
+#endif
+  for (; base < (PERIPHERAL_BASE >> 20); base++)
   {
     PageTable[base] = base << 20 | 0x01C02;
   }
+
   for (; base < 4096; base++)
   {
     // shared device, never execute
@@ -225,14 +272,19 @@ void enable_MMU_and_IDCaches(void)
   for (i = 0; i < NUM_4K_PAGES >> 8; i++)
   {
     PageTable[i] = (unsigned int) (&PageTable2[i << 8]);
-    PageTable[i] +=1;
+    PageTable[i] += 1;
   }
 
   // populate the second level page tables
   for (base = 0; base < NUM_4K_PAGES; base++)
-  {
-    map_4k_page(base, base);
-  }
+    map_4k_page_quick(base, base);
+
+  // 6502 jitter needs a second level page table
+  PageTable[(JITTEDTABLE16>>20)] = (unsigned int) (&PageTable3[0]) + 1;
+
+  // populate the second level page tables
+  for (base = 0; base < 256; base++)
+    map_4k_pageJIT_quick((JITTEDTABLE16>>12)+base, (JITTEDTABLE16>>12)+base);
 
 #if defined(RPI3)||defined(RPI4)
   //unsigned cpuextctrl0, cpuextctrl1;
@@ -263,9 +315,9 @@ void enable_MMU_and_IDCaches(void)
   // set TTBR0 - page table walk memory cacheability/shareable
   // [Bit 0, Bit 6] indicates inner cachability: 01 = normal memory, inner write-back write-allocate cacheable
   // [Bit 4, Bit 3] indicates outer cachability: 01 = normal memory, outer write-back write-allocate cacheable
-  // Bit 1 indicates sharable
+  // Bit 1 indicates shareable
   // 4A = 0100 1010
-  int attr = ((aa & 1) << 6) | (bb << 3) | (shareable << 1) | ((aa & 2) >> 1);
+  unsigned int attr = ((aa & 1) << 6) | (bb << 3) | (shareable << 1) | ((aa & 2) >> 1);
   asm volatile ("mcr p15, 0, %0, c2, c0, 0" :: "r" (attr | (unsigned) &PageTable));
 #else
   // set TTBR0 (page table walk inner cacheable, outer non-cacheable, shareable memory)

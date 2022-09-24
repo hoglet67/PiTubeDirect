@@ -4,9 +4,9 @@
 //
 // See lines marked with <<<<<<<<<<<<<<<<<<<<<< below
 //
-// The bug affects all R4 IRQ (data trasfer) with a type 0..5, and the
+// The bug affects all R4 IRQ (data transfer) with a type 0..5, and the
 // affect is that REG0 receives an unnecessary ASL at the end of the
-// IRQ handler (without a preceeding ROR at the start). The result is
+// IRQ handler (without a preceding ROR at the start). The result is
 // the turbo enabble/disable bit becomes indeterminate.
 //
 // This v1.20 ROM has probably never been used in real hardware. Or in
@@ -15,22 +15,22 @@
 // non-turbo apps.
 //
 // TUBADD ROUT
-// 
+//
 //         STA     NMIIND          ; RC from Host
 //         TYA                     ; Save Y
 //         PHA
 //         LDY     NMIIND
-// 
+//
 //         LDAAY   NMILOTAB        ; New NMI routine
 //         STA     NMIIND
 //         LDAAY   NMIHITAB
 //         STA     NMIIND+1
-// 
+//
 //         R4BYTE                  ; Read R4 (Tube owner handle)
-// 
+//
 //         CPYIM   5               ; Reserved RC
 //         BEQ     TYARTI + 3      ; <<<<<<<<<<<<<<<<<<<<<<
-// 
+//
 //         R4BYTE                  ; Ignore just one MSB of hi order addr
 //         R4BYTE                  ; Set up data ptr in &F6
 //         STA     Turbo+dataptr
@@ -38,42 +38,42 @@
 //         STA     dataptr+1
 //         R4BYTE
 //         STA     dataptr
-// 
+//
 //         BIT     R3DATA
 //         BIT     R3DATA
-// 
+//
 //         R4BYTE                  ; Read R4
-// 
+//
 //         CPYIM   6               ; If not RC 6/7 then return
 //         BCC     TYARTI + 3      ; <<<<<<<<<<<<<<<<<<<<<<
 //         BNE     TRC7            ; C set here for RC 6/7
-// 
+//
 // ; .............................................................................
-// 
+//
 // TRC6 ROUT ; 256 byte : Turbo -> Host
-// 
+//
 //         ROR     REG0            ; Turbo on. C set on entry
 //         LDYIM   0
-// 
+//
 // 10TRC6  BIT     R3STAT
 //         BPL     .-3             ; NB. BPL !
 //         LDAIY   dataptr
 //         STA     R3DATA
 //         INY
 //         BNE     #10TRC6
-// 
+//
 //         BIT     R3STAT
 //         BPL     .-3
 //         STA     R3DATA
-// 
+//
 // ; .............................................................................
-// 
+//
 // TYARTI  ASL     REG0            ; Restore Turbo state, Y, A
 //         PLA
 //         TAY
 //         LDA     IRQatmp
 //         RTI
-// 
+//
 
 unsigned char tuberom_6502_turbo[] = {
   0xa2,0x00,0xbd,0x00,0xff,0x9d,0x00,0xff,0xca,0xd0,0xf7,0xa2,0x36,0xbd,0x80,0xff,

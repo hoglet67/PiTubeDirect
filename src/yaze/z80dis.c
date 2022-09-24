@@ -40,18 +40,18 @@ static inline uint32_t unp_misc1(uint32_t addr, uint8_t a, uint8_t d, uint8_t e,
                     *ptr = "EX    AF,AF'";
                     break;
                 case 0x02:
-                    opaddr = addr + 1;
-                    opaddr += (signed char)GetBYTE(addr++);
+                    opaddr = (uint16_t)(addr + 1);
+                    opaddr += (uint16_t)((signed char)GetBYTE(addr++));
                     snprintf(ibuf, IBUF_SIZE, "DJNZ  %4.4Xh", opaddr);
                     break;
                 case 0x03:
-                    opaddr = addr + 1;
-                    opaddr += (signed char)GetBYTE(addr++);
+                    opaddr = (uint16_t)(addr + 1);
+                    opaddr += (uint16_t)((signed char)GetBYTE(addr++));
                     snprintf(ibuf, IBUF_SIZE, "JR    %4.4Xh", opaddr);
                     break;
                 default:
-                    opaddr = addr + 1;
-                    opaddr += (signed char)GetBYTE(addr++);
+                    opaddr = (uint16_t)(addr + 1);
+                    opaddr += (uint16_t)((signed char)GetBYTE(addr++));
                     snprintf(ibuf, IBUF_SIZE, "JR    %s,%4.4Xh", cond[d & 3], opaddr);
                     break;
             }
@@ -61,7 +61,7 @@ static inline uint32_t unp_misc1(uint32_t addr, uint8_t a, uint8_t d, uint8_t e,
                 snprintf(ibuf, IBUF_SIZE, "ADD   HL,%s", dreg1[d >> 1]);
             } else {
                 opaddr = GetBYTE(addr++);
-                opaddr |= (GetBYTE(addr++)<<8);
+                opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
                 snprintf(ibuf, IBUF_SIZE, "LD    %s,%4.4Xh", dreg1[d >> 1], opaddr);
             }
             break;
@@ -81,22 +81,22 @@ static inline uint32_t unp_misc1(uint32_t addr, uint8_t a, uint8_t d, uint8_t e,
                     break;
                 case 0x04:
                     opaddr = GetBYTE(addr++);
-                    opaddr |= (GetBYTE(addr++)<<8);
+                    opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
                     snprintf(ibuf, IBUF_SIZE, "LD    (%4.4Xh),HL", opaddr);
                     break;
                 case 0x05:
                     opaddr = GetBYTE(addr++);
-                    opaddr |= (GetBYTE(addr++)<<8);
+                    opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
                     snprintf(ibuf, IBUF_SIZE, "LD    HL,(%4.4Xh)", opaddr);
                     break;
                 case 0x06:
                     opaddr = GetBYTE(addr++);
-                    opaddr |= (GetBYTE(addr++)<<8);
+                    opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
                     snprintf(ibuf, IBUF_SIZE, "LD    (%4.4Xh),A", opaddr);
                     break;
                 case 0x07:
                     opaddr = GetBYTE(addr++);
-                    opaddr |= (GetBYTE(addr++)<<8);
+                    opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
                     snprintf(ibuf, IBUF_SIZE, "LD    A,(%4.4Xh)", opaddr);
                     break;
             }
@@ -171,7 +171,7 @@ static inline uint32_t pfx_ed(uint32_t addr, const char **ptr, char *ibuf) {
                     break;
                 case 0x03:
                     opaddr = GetBYTE(addr++);
-                    opaddr |= (GetBYTE(addr++)<<8);
+                    opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
                     if (d & 1)
                         snprintf(ibuf, IBUF_SIZE, "LD    %s,(%4.4Xh)", dreg1[d >> 1], opaddr);
                     else
@@ -224,12 +224,12 @@ static inline uint32_t pfx_ireg(uint32_t addr, uint8_t a, const char **ptr, char
             break;
         case 0x21:
             opaddr = GetBYTE(addr++);
-            opaddr |= (GetBYTE(addr++)<<8);
+            opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
             snprintf(ibuf, IBUF_SIZE, "LD    %s,%4.4Xh", ireg, opaddr);
             break;
         case 0x22:
             opaddr = GetBYTE(addr++);
-            opaddr |= (GetBYTE(addr++)<<8);
+            opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
             snprintf(ibuf, IBUF_SIZE, "LD    (%4.4Xh),%s", opaddr, ireg);
             break;
         case 0x23:
@@ -240,7 +240,7 @@ static inline uint32_t pfx_ireg(uint32_t addr, uint8_t a, const char **ptr, char
             break;
         case 0x2A:
             opaddr = GetBYTE(addr++);
-            opaddr |= (GetBYTE(addr++)<<8);
+            opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
             snprintf(ibuf, IBUF_SIZE, "LD    %s,(%4.4Xh)", ireg, opaddr);
             break;
         case 0x2B:
@@ -370,14 +370,14 @@ static uint32_t unp_misc2(uint32_t addr, uint8_t a, uint8_t d, uint8_t e, const 
             break;
         case 0x02:
             opaddr = GetBYTE(addr++);
-            opaddr |= (GetBYTE(addr++)<<8);
+            opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
             snprintf(ibuf, IBUF_SIZE, "JP    %s,%4.4Xh", cond[d], opaddr);
             break;
         case 0x03:
             switch(d) {
                 case 0x00:
                     opaddr = GetBYTE(addr++);
-                    opaddr |= (GetBYTE(addr++)<<8);
+                    opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
                     snprintf(ibuf, IBUF_SIZE, "JP    %4.4Xh", opaddr);
                     break;
                 case 0x01:
@@ -407,7 +407,7 @@ static uint32_t unp_misc2(uint32_t addr, uint8_t a, uint8_t d, uint8_t e, const 
             break;
         case 0x04:
             opaddr = GetBYTE(addr++);
-            opaddr |= (GetBYTE(addr++)<<8);
+            opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
             snprintf(ibuf, IBUF_SIZE, "CALL  %s,%4.4Xh", cond[d], opaddr);
             break;
         case 0x05:
@@ -415,7 +415,7 @@ static uint32_t unp_misc2(uint32_t addr, uint8_t a, uint8_t d, uint8_t e, const 
                 switch(d >> 1) {
                     case 0x00:
                         opaddr = GetBYTE(addr++);
-                        opaddr |= (GetBYTE(addr++)<<8);
+                        opaddr |= (uint16_t)(GetBYTE(addr++)<<8);
                         snprintf(ibuf, IBUF_SIZE, "CALL  %4.4Xh", opaddr);
                         break;
                     case 0x02:
