@@ -1061,22 +1061,22 @@ int M6502_disassemble(M6502 *mpu, word ip, char buffer[64])
     {
 #    define _implied		s[3]=0;					    return 1;
 
-#    define _immediate	s[4]='#'; htos(s+5,b[1]); s[7]=0;	    return 2;
-#    define _zp		      htos(s+4,b[1]); s[6]=0;     return 2;
-#    define _zpx	      htos(s+4,b[1]); s[6]=',';s[7]='X';s[8]=0;return 2;
-#    define _zpy	      htos(s+4,b[1]); s[6]=',';s[7]='Y';s[8]=0; return 2;
-#    define _abs	      htos(s+4,b[2]); htos(s+6,b[1]); s[8]=0;  return 3;
-#    define _absx	      htos(s+4,b[2]); htos(s+6,b[1]); s[8]=',';s[9]='X';s[10]=0;  return 3;
-#    define _absy	      htos(s+4,b[2]); htos(s+6,b[1]); s[8]=',';s[9]='Y';s[10]=0;  return 3;
-#    define _relative   htos(s+4,((byte)((ip + 2 + (int8_t)b[1])>>8))); htos(s+6,(byte)(ip + 2 + (int8_t)b[1])&0xff); s[8]=0;  return 2;
-#    define _zpr	      htos(s+4,b[1]);s[2]=','; htos(s+7,(byte)((ip + 2 + b[1])>>8u)); htos(s+9,(byte)(ip + 2 + (int8_t)b[1])&0xff); s[11]=0;  return 3;
-#    define _indirect	  s[4]='('; htos(s+5,b[2]); htos(s+7,b[1]); s[9]=')';s[10]=0;  return 3;
-#    define _indzp	    s[4]='('; htos(s+5,b[1]); s[7]=')';s[8]=0;  return 2;
-#    define _indx	      s[4]='('; htos(s+5,b[1]); s[7]=',';s[8]='X'; s[9]=')' ;s[10]=0;  return 2;
-#    define _indy	      s[4]='('; htos(s+5,b[1]); s[7]=')';s[8]=','; s[9]='Y' ;s[10]=0;  return 2;
-#    define _indabsx    s[4]='('; htos(s+5,b[2]); htos(s+7,b[1]); s[9]=',';s[10]='X'; s[11]=')' ;s[12]=0;  return 2;
+#    define _immediate	s[3]=' ';s[4]='#'; htos(s+5,b[1]); s[7]=0;	    return 2;
+#    define _zp		      s[3]=' ';htos(s+4,b[1]); s[6]=0;     return 2;
+#    define _zpx	      s[3]=' ';htos(s+4,b[1]); s[6]=',';s[7]='X';s[8]=0;return 2;
+#    define _zpy	      s[3]=' ';htos(s+4,b[1]); s[6]=',';s[7]='Y';s[8]=0; return 2;
+#    define _abs	      s[3]=' ';htos(s+4,b[2]); htos(s+6,b[1]); s[8]=0;  return 3;
+#    define _absx	      s[3]=' ';htos(s+4,b[2]); htos(s+6,b[1]); s[8]=',';s[9]='X';s[10]=0;  return 3;
+#    define _absy	      s[3]=' ';htos(s+4,b[2]); htos(s+6,b[1]); s[8]=',';s[9]='Y';s[10]=0;  return 3;
+#    define _relative   s[3]=' ';htos(s+4,((byte)((ip + 2 + (int8_t)b[1])>>8))); htos(s+6,(byte)(ip + 2 + (int8_t)b[1])&0xff); s[8]=0;  return 2;
+#    define _zpr	      s[3]=' ';htos(s+4,b[1]);s[2]=','; htos(s+7,(byte)((ip + 2 + b[1])>>8u)); htos(s+9,(byte)(ip + 2 + (int8_t)b[1])&0xff); s[11]=0;  return 3;
+#    define _indirect	  s[3]=' ';s[4]='('; htos(s+5,b[2]); htos(s+7,b[1]); s[9]=')';s[10]=0;  return 3;
+#    define _indzp	    s[3]=' ';s[4]='('; htos(s+5,b[1]); s[7]=')';s[8]=0;  return 2;
+#    define _indx	      s[3]=' ';s[4]='('; htos(s+5,b[1]); s[7]=',';s[8]='X'; s[9]=')' ;s[10]=0;  return 2;
+#    define _indy	      s[3]=' ';s[4]='('; htos(s+5,b[1]); s[7]=')';s[8]=','; s[9]='Y' ;s[10]=0;  return 2;
+#    define _indabsx    s[3]=' ';s[4]='('; htos(s+5,b[2]); htos(s+7,b[1]); s[9]=',';s[10]='X'; s[11]=')' ;s[12]=0;  return 2;
 
-#    define disassemble(num, name, mode, cycles) case 0x##num: s[0]=#name[0];s[1]=#name[1];s[2]=#name[2];s[3]=' ';  _##mode
+#    define disassemble(num, name, mode, cycles) case 0x##num: s[0]=#name[0];s[1]=#name[1];s[2]=#name[2];  _##mode
       do_insns(disassemble);
 #    undef _do
     }

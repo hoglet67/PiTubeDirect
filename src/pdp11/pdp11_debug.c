@@ -428,7 +428,7 @@ static uint16_t disasm(char *buf, uint16_t a) {
       __attribute__ ((fallthrough));
    case DD:
       buf += sprintf(buf, " ");
-      buf += disasmaddr(buf, d, a);
+      disasmaddr(buf, d, a);
       // Consume the operand (if there us one)
       a   += disaslen(d);
       break;
@@ -436,18 +436,18 @@ static uint16_t disasm(char *buf, uint16_t a) {
       // this is SOB
       buf += sprintf(buf, " %s,", dbg_reg_names[(ins & 0700) >> 6]);
       o &= 077;
-      buf += sprintf(buf, " %06o", (a - (2 * o)) & 0xffff);
+      sprintf(buf, " %06o", (a - (2 * o)) & 0xffff);
       break;
    case O:
       if (o & 0x80) {
-         buf += sprintf(buf, " %06o", (a - (2 * ((0xFF ^ o) + 1))) & 0xffff);
+         sprintf(buf, " %06o", (a - (2 * ((0xFF ^ o) + 1))) & 0xffff);
       } else {
-         buf += sprintf(buf, " %06o", (a + (2 * o)) & 0xffff);
+         sprintf(buf, " %06o", (a + (2 * o)) & 0xffff);
       };
       break;
    case RR | DD:
       buf += sprintf(buf, " %s, ", dbg_reg_names[(ins & 0700) >> 6]);
-      buf += disasmaddr(buf, d, a);
+      disasmaddr(buf, d, a);
       // Consume the operand (if there us one)
       a   += disaslen(d);
       break;
