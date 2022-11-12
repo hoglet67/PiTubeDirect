@@ -147,7 +147,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define S2  ( 2 )
 #define S3  ( 3 )
 
-// simpify replace algorithm. If we have a replacable flags setting instruction and the next instruction sets the N flag then we can replace the flags setting instruction with a NOP
+// simpify replace algorithm. If we have a replaceable flags setting instruction and the next instruction sets the N flag then we can replace the flags setting instruction with a NOP
 
 #define EF 128
 
@@ -1874,7 +1874,7 @@ cacheflushloopjittable:
    adr   temp1,arm_jit_irq_handler
    str   temp0,old_irq_vector
    str   temp1,[temp]
-   CPSIE if // enable interupts
+   CPSIE if // enable interrupts
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    mov   reg2,#JITLET
    mov   reg4, #2 // constant used by jsr rts
@@ -3227,7 +3227,7 @@ opc_92: // Opcode 92 - STA ($00)
    BEQ  replaceldrh
    ldrb  r7,[r12,r5]
    BL    optimiseflags
-   b   fixupldrh // beq when it becomes faster.
+   beq   fixupldrh // beq when it becomes faster.
    add   r9,r9,#4*4
    LDMIA r9,{r8,r9,r10,r11}
    and   r1, r4, #0xF0
@@ -3699,9 +3699,11 @@ decimal_mode_sbc:
 
 storetest:
    teq   reg0, reg3
-   bxeq  lr
-   add   reg0,jittedtable16ptr, reg1, LSL #JITTEDTABLESHIFT
-   BX   reg0
+   add   reg0, jittedtable16ptr, reg1, LSL #JITTEDTABLESHIFT
+   bne   1f
+   bx    lr
+1:
+   bx  reg0
 
 opc_09: // Opcode 09 - ORA #$00
 opc_29: // Opcode 29 - AND #$00

@@ -949,7 +949,7 @@ static void doCmdStep(const char *params) {
    int i = 1;
    sscanf(params, "%d", &i);
    if (i <= 0) {
-      printf("Number of instuctions must be positive\r\n");
+      printf("Number of instructions must be positive\r\n");
       return;
    }
    stepping = i;
@@ -969,7 +969,7 @@ static void doCmdTrace(const char *params) {
    int i = 1;
    sscanf(params, "%d", &i);
    if (i < 0) {
-      printf("Number of instuctions must be positive or zero\r\n");
+      printf("Number of instructions must be positive or zero\r\n");
       return;
    }
    tracing = i;

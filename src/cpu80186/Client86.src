@@ -83,13 +83,13 @@ PAGE ,255
 ; &8E Tube R4 Data
 ;
 ;
-; Interupt vectors
+; Interrupt vectors
 ; ================
 ; Vectors at 0000-03FF copied from ROM to RAM on RESET
 ;
 ORG  0000h
 DB   64 DUP 0            ; INT &00-&0B - null
-DW   L1FD6, F000h        ; INT &0C - Tube interupt
+DW   L1FD6, F000h        ; INT &0C - Tube interrupt
 DB   188 DUP 0           ; INT &0D-&3F - null
 ;
 ; MOS interface INT vectors
@@ -250,7 +250,7 @@ LOOP L0A28              ; Loop for all 16 vectors
 POP DS
 ;
 L0A30:
-STI                     ; Enable interupts
+STI                     ; Enable interrupts
 MOV  AL,[L05AC]         ; Get 'RAM has been tested' flag
 OR   AL,AL
 JNZ  FirstTime		; If <>&00, RAM has not been tested, skip past
@@ -275,7 +275,7 @@ MOV  [L05A2],CX         ; Set transfer segment as current program
 ; During this wait a data transfer may occur from the host using R3/R4 data
 ; transfer mechanism.
 ; IF acknowledge=&80 THEN code is to be entered at transfer address. Data
-; might not have been transfered, eg on Soft Break host expects Parasite to
+; might not have been transferred, eg on Soft Break host expects Parasite to
 ; enter code sent at last Hard Break.
 ;
 CALL L0D24		; Find how much memory present, store in L0CAF
@@ -311,7 +311,7 @@ CALL L1E17              ; OSBYTE &7A - scan keyboard
 CMP  BL,23h
 JZ   L0AAA              ; If 'T' pressed, go straight to system test
 MOV  AL,0FDh
-MOV  BX,0FF00h            
+MOV  BX,0FF00h
 CALL L1E17              ; OSBYTE &FD - read RESET type
 AND  BL,BL
 JNZ  L0AA3              ; If not Soft Break, don't enter Supervisor
@@ -470,8 +470,8 @@ L0B76:  DB 13,10,"Ram fault type ",0
 ; Ram fault type 00/xxxx        - address where &AA/&55 fill failed
 ; Ram fault type 01/xxxx/xxxx   - address where stepping through address
 ; Ram fault type 02/xxxx/xxxx   -  lines failed
-; Ram fault type 03/xxxx/xxxx   - 
-; Ram fault type 04/xxxx/xxxx   - 
+; Ram fault type 03/xxxx/xxxx   -
+; Ram fault type 04/xxxx/xxxx   -
 ;
 ; Some removed system tests
 ; -------------------------
@@ -510,7 +510,7 @@ JZ   L0BDC              ; Skip past if ADFS present
 INT  4Fh                ; Generate error
 DB   FFh,"Cannot boot DOS - ADFS not present",13,10,0
 ; Will never get to this point if ADFS is not present, as a 'Bad command' error will
-; have occured instead. Should have selected ADFS with OSBYTE 143,18,8 not with a
+; have occurred instead. Should have selected ADFS with OSBYTE 143,18,8 not with a
 ; *FADFS command.
 
 
@@ -536,7 +536,7 @@ JZ   L0BF3              ; No hard drive, skip to check floppy
 ; Check for the presence of file by trying to OPENIN it. This has the
 ; disadvantage of being slow and having to remember to close the handle
 ; later, but has the advantage of not needing any workspace for an OSFILE
-; control block and accidently avoids using the crippled OSFILE routine.
+; control block and accidentally avoids using the crippled OSFILE routine.
 ;
 MOV  AL,40h             ; &40=OPENIN
 MOV  BX,L0CEB           ; BX=>"$.dosboot"
@@ -656,7 +656,7 @@ L0D04:
 SUB  AX,AX              ; AL=0, AH=0 - Read filing system
 JMP  L1F56              ; Jump to do OSARGS
 ;
-; Test for presense of ADFS
+; Test for presence of ADFS
 ; -------------------------
 ; This is the wrong way to do this, an error will be generated if ADFS is not
 ; present. Should try to select ADFS with Service Call 18 not via a command.
@@ -695,7 +695,7 @@ RET                     ; Return Z=FS selected, NZ=FS not selected
 PUSHF                   	; Save flags
 PUSH ES                 	; Save ES
 CLD                     	; Set Direction to forwards
-CLI                     	; Disable interupts
+CLI                     	; Disable interrupts
 MOV  WORD PTR CS:[L0CAD],0400h	; Set num_mmkb to 1024K, max size
 MOV  WORD PTR CS:[L0CA9],FFFFh	; Set memory_top to &FFFF, stop at top segment
 MOV  AX,1000h           	; Start at segment &1000, real address &10000, 64K
@@ -750,7 +750,7 @@ JZ   L0DC1              ; Exit if zero, no leading zeros
 MOV  DX,0000h           ; DX:AX=&0000xxxx
 MOV  BX,000Ah           ; Prepare to divide by 10
 DIV  BX                 ; AX=DX:AX DIV BX, DX=DX:AX MOD BX
-PUSH DX                 ; Push remainer - current digit
+PUSH DX                 ; Push remainder - current digit
 CALL L0DAA              ; Call myself for next digit
 POP  CX                 ; Get current digit back
 ADD  CL,ASC"0"          ; Convert to character
@@ -888,7 +888,7 @@ JZ   L10C6              ; Exit if at end of line with L05DC=&FF
 CALL L189A              ; Read hex value to L05BE
 CMP  AL,0Dh             ; AL=character after hex value
 JZ   L10C6              ; Exit if at end of line with L05DC=&FF
-CMP  AL,ASC":"          ; Is there a segment seperator?
+CMP  AL,ASC":"          ; Is there a segment separator?
 JNZ  L10A7              ; No, jump to see if anything else
 MOV  AX,ES:[L05BE]      ; Get the hex value
 MOV  ES:[L05BC],AX      ; Store it as <segment>
@@ -925,13 +925,13 @@ MOV  AL,FFh
 CMP  AL,ES:[L05DC]      ; Check one of the flags
 JZ   L1135              ; Not enough addresses, jump to error
 CMP  AL,ES:[L05DD]      ; Check the other flag
-JNZ  L10EA              ; 
-JMP  L131B              ; 
+JNZ  L10EA              ;
+JMP  L131B              ;
 L10EA:
 CALL L1B28              ; Skip spaces
 CMP  AL,0Dh
 JZ   L1135              ; If end of line...
-CALL L189A              
+CALL L189A
 CALL L1B28              ; Skip spaces
 CMP  AL,0Dh
 JNZ  L1135              ; Not at end of line
@@ -1505,7 +1505,7 @@ CALL L187C ; check if hex digit  ; F000-165E E8 1B 02     h..
 JNB  L1665                     ; F000-1661 73 02        s.
 CLC                            ; F000-1663 F8           x
 RET                            ; F000-1664 C3           C
-; 
+;
 L1665:
 MOV  CH,AL                     ; F000-1665 8A E8        .&
 SUB  BL,0Bh                    ; F000-1667 80 EB 0B     .k.
@@ -1600,7 +1600,7 @@ ADD  AL,0Bh                    ; F000-1711 04 0B       ..
 MOV  CL,AL                     ; F000-1713 8A C8
 MOV  DL,AL                     ; F000-1715 8A D0
 CALL L17DA                     ; F000-1717 E8 C0 00
-RET                            ; F000-171A C£
+RET                            ; F000-171A Cï¿½
 CALL L17F2                     ; F000-171B E8 D4 00     hT.
 JNB  L173C                     ; F000-171E 73 1C        s.
 CMP  BL,0Bh                    ; F000-1720 80 FB 0B     .{.
@@ -2237,7 +2237,7 @@ POP  BX
 POP  AX
 RET
 ;
-; Enter code transfered by OSCLI command
+; Enter code transferred by OSCLI command
 ; --------------------------------------
 ; On entry, ES=0 to point to Client's workspace
 ;
@@ -2612,7 +2612,7 @@ CALL &1194F   ; Send function  ; F000-1ED2 E8 7A FA     hzz
 SUB BX,BX     ; BX=0           ; F000-1ED5 2B DB        +[
 CMP AH,&081   ; ** This should be &80                        ; F000-1ED7 80 FC 81     .|.
 JB &1EE3      ; Jump with <&81 ; F000-1EDA 72 07        r.
-MOV AL,[SI]   ; Get send lengt& from ctrl blk                ; F000-1EDC 8A 04        ..
+MOV AL,[SI]   ; Get send length from ctrl blk                ; F000-1EDC 8A 04        ..
 MOV DH,[SI+&01] ; Get revieve len from ctrl blk              ; F000-1EDE 8A 74 01     .t.
 JMP &1EF4     ; Jump to use these                            ; F000-1EE1 EB 11        k.
 ;
@@ -2679,7 +2679,7 @@ JMP &119CA                     ; F000-1F4C E9 7B FA     i{z
 ; On entry, AL=function, AH=handle,    BX=>data word
 ; On exit,  AL=result,   AH=corrupted, BX preserved, BX=>updated data word
 .L1F4F
-STI                     ; Disable interupts           ; F000-1F4F FB           {
+STI                     ; Disable interrupts           ; F000-1F4F FB           {
 CALL L1F56              ; Call OSARGS subcode         ; F000-1F50 E8 03 00     h..
 JMP  L19B4              ; Jump to exit from INT       ; F000-1F53 E9 5E FA     i^z
 L1F56:
@@ -2767,7 +2767,7 @@ POP  SI                 ; Restore registers
 POP  CX                 ; Really should either clear or restore AH
 RET
 ;
-; INT &0C - Tube R1 or R4 interupt
+; INT &0C - Tube R1 or R4 interrupt
 ; ================================
 PUSHA                          ; F000-1FD6 60           `
 PUSH DS                        ; F000-1FD7 1E           .
@@ -3261,38 +3261,38 @@ JMP  &03EB8    ; Jump to copy ROM to RAM and continue in RAM                 ; F
 ; ---------------
 ORG 3A6Eh
 L3A6E:
-DB   00h,00h,00h,00h,00h,00h,00h,00  ; CHR$0 
-DB   3Eh,41h,55h,41h,55h,5Dh,41h,3E  ; CHR$1 
-DB   3Eh,7Fh,6Bh,7Fh,6Bh,63h,7Fh,3E  ; CHR$2 
-DB   00h,36h,7Fh,7Fh,7Fh,3Eh,1Ch,08  ; CHR$3 
-DB   08h,1Ch,3Eh,7Fh,3Eh,1Ch,08h,00  ; CHR$4 
-DB   3Eh,3Eh,08h,7Fh,7Fh,08h,08h,00  ; CHR$5 
-DB   08h,1Ch,3Eh,7Fh,6Bh,08h,08h,00  ; CHR$6 
-DB   00h,00h,00h,18h,18h,00h,00h,00  ; CHR$7 
-DB   FFh,FFh,E7h,E7h,FFh,FFh,FFh,FF  ; CHR$8 
-DB   3Eh,63h,63h,63h,63h,63h,3Eh,00  ; CHR$9 
-DB   C1h,9Ch,9Ch,9Ch,9Ch,9Ch,C1h,FF  ; CHR$10 
-DB   3Ch,0Ah,10h,3Ch,66h,66h,3Ch,00  ; CHR$11 
-DB   00h,3Ch,66h,66h,3Ch,18h,7Eh,18  ; CHR$12 
-DB   18h,14h,14h,10h,10h,10h,70h,70  ; CHR$13 
-DB   30h,28h,38h,28h,68h,68h,08h,38  ; CHR$14 
-DB   08h,08h,3Eh,22h,63h,3Eh,08h,08  ; CHR$15 
-DB   00h,C0h,F0h,FEh,F0h,C0h,00h,00  ; CHR$16 
-DB   00h,06h,3Eh,FEh,3Eh,06h,00h,00  ; CHR$17 
-DB   18h,3Ch,5Ah,18h,18h,5Ah,3Ch,18  ; CHR$18 
-DB   66h,66h,66h,66h,66h,00h,66h,00  ; CHR$19 
-DB   3Eh,52h,52h,3Eh,12h,12h,12h,12  ; CHR$20 
-DB   3Ch,62h,60h,3Ch,42h,3Ch,06h,3C  ; CHR$21 
-DB   00h,00h,00h,7Eh,7Eh,00h,00h,00  ; CHR$22 
-DB   18h,3Ch,5Ah,18h,5Ah,3Ch,18h,7E  ; CHR$23 
-DB   18h,3Ch,5Ah,18h,18h,18h,18h,00  ; CHR$24 
-DB   18h,18h,18h,18h,5Ah,3Ch,18h,00  ; CHR$25 
-DB   00h,08h,0Ch,FEh,0Ch,08h,00h,00  ; CHR$26 
-DB   00h,20h,60h,FEh,60h,20h,00h,00  ; CHR$27 
-DB   00h,00h,60h,60h,60h,7Eh,00h,00  ; CHR$28 
-DB   00h,24h,42h,FFh,42h,24h,00h,00  ; CHR$29 
-DB   00h,00h,00h,18h,3Ch,7Eh,00h,00  ; CHR$30 
-DB   00h,00h,7Eh,3Ch,18h,00h,00h,00  ; CHR$31 
+DB   00h,00h,00h,00h,00h,00h,00h,00  ; CHR$0
+DB   3Eh,41h,55h,41h,55h,5Dh,41h,3E  ; CHR$1
+DB   3Eh,7Fh,6Bh,7Fh,6Bh,63h,7Fh,3E  ; CHR$2
+DB   00h,36h,7Fh,7Fh,7Fh,3Eh,1Ch,08  ; CHR$3
+DB   08h,1Ch,3Eh,7Fh,3Eh,1Ch,08h,00  ; CHR$4
+DB   3Eh,3Eh,08h,7Fh,7Fh,08h,08h,00  ; CHR$5
+DB   08h,1Ch,3Eh,7Fh,6Bh,08h,08h,00  ; CHR$6
+DB   00h,00h,00h,18h,18h,00h,00h,00  ; CHR$7
+DB   FFh,FFh,E7h,E7h,FFh,FFh,FFh,FF  ; CHR$8
+DB   3Eh,63h,63h,63h,63h,63h,3Eh,00  ; CHR$9
+DB   C1h,9Ch,9Ch,9Ch,9Ch,9Ch,C1h,FF  ; CHR$10
+DB   3Ch,0Ah,10h,3Ch,66h,66h,3Ch,00  ; CHR$11
+DB   00h,3Ch,66h,66h,3Ch,18h,7Eh,18  ; CHR$12
+DB   18h,14h,14h,10h,10h,10h,70h,70  ; CHR$13
+DB   30h,28h,38h,28h,68h,68h,08h,38  ; CHR$14
+DB   08h,08h,3Eh,22h,63h,3Eh,08h,08  ; CHR$15
+DB   00h,C0h,F0h,FEh,F0h,C0h,00h,00  ; CHR$16
+DB   00h,06h,3Eh,FEh,3Eh,06h,00h,00  ; CHR$17
+DB   18h,3Ch,5Ah,18h,18h,5Ah,3Ch,18  ; CHR$18
+DB   66h,66h,66h,66h,66h,00h,66h,00  ; CHR$19
+DB   3Eh,52h,52h,3Eh,12h,12h,12h,12  ; CHR$20
+DB   3Ch,62h,60h,3Ch,42h,3Ch,06h,3C  ; CHR$21
+DB   00h,00h,00h,7Eh,7Eh,00h,00h,00  ; CHR$22
+DB   18h,3Ch,5Ah,18h,5Ah,3Ch,18h,7E  ; CHR$23
+DB   18h,3Ch,5Ah,18h,18h,18h,18h,00  ; CHR$24
+DB   18h,18h,18h,18h,5Ah,3Ch,18h,00  ; CHR$25
+DB   00h,08h,0Ch,FEh,0Ch,08h,00h,00  ; CHR$26
+DB   00h,20h,60h,FEh,60h,20h,00h,00  ; CHR$27
+DB   00h,00h,60h,60h,60h,7Eh,00h,00  ; CHR$28
+DB   00h,24h,42h,FFh,42h,24h,00h,00  ; CHR$29
+DB   00h,00h,00h,18h,3Ch,7Eh,00h,00  ; CHR$30
+DB   00h,00h,7Eh,3Ch,18h,00h,00h,00  ; CHR$31
 DB   00h,00h,00h,00h,00h,00h,00h,00  ; CHR$32  - ' '
 DB   18h,18h,18h,18h,18h,00h,18h,00  ; CHR$33  - '!'
 DB   6Ch,6Ch,6Ch,00h,00h,00h,00h,00  ; CHR$34  - '"'
@@ -3439,7 +3439,7 @@ MOV ES,AX          ; ES=&0000 - Copy dest segment     ; F000-3EBE 8E C0        .
 MOV AX,F000h       ; AX=&F000 - ROM segment           ; F000-3EC0 B8 00 F0     8.p
 MOV DS,AX          ; DS=&F000 - Copy source segment   ; F000-3EC3 8E D8        .X
 MOV CX,0200h       ; CX=&0200 to copy &400 bytes      ; F000-3EC5 B9 00 02     9..
-REPE MOVSW         ; Copy interupt vectors from F000:0000 to 0000:0000  ; F000-3EC8 F3 A5          s%
+REPE MOVSW         ; Copy interrupt vectors from F000:0000 to 0000:0000  ; F000-3EC8 F3 A5          s%
                    ; Copies &200 words from DS:SI to ES:DI
 MOV SI,L05AE       ; Copy rest of ROM from &05AE onwards  ; F000-3ECA BE AE 05     >..
 MOV DI,SI          ; Dest is same address in RAM          ; F000-3ECD 8B FE        .~

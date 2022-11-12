@@ -232,7 +232,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
             } else {
                // Shift
                len = snprintf(buf, bufsize, "%s   %x %s", shift_names[s * 4 + j], b, op_buf);
-               // TODO: How to distinguise the double length shifts
+               // TODO: How to distinguish the double length shifts
                // as these depend on CR.M. This makes an accurate disassembler
                // impossible!
             }

@@ -2089,7 +2089,7 @@ uint8_t fb_read_legacy_vdu_variable(uint8_t v) {
          return 1;
       } else {
          // Note: the values returned are the same as on the Beeb
-         // and don't actually refect the real frame buffer bit depths
+         // and don't actually reflect the real frame buffer bit depths
          // in some cases. Also assumes an 8x8 font.
          switch (screen->ncolour) {
          case 0x01:
