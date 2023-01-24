@@ -6,7 +6,7 @@
 # (interactive co pro debuggers and debug logging)
 #
 # Uncomment to use debug kernel
-#os_prefix=debug/
+os_prefix=debug/
 
 #
 # Pi VDU Settings
