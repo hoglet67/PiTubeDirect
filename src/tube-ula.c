@@ -621,7 +621,7 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
    int cpsr = _disable_interrupts();
-#ifdef DEBUG_PARASITE
+#ifdef DEBUG_TUBE
    if (tube_debug & DEBUG_PARASITE_WRITE) {
       if (addr & 1) {
          tube_buffer[tube_index++] = (DEBUG_PARASITE_WRITE << 16) | ((addr & 7) << 8) | val;
