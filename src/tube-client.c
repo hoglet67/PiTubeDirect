@@ -246,6 +246,21 @@ static void get_tube_delay() {
    LOG_DEBUG("Tube ULA sample delay  %u\r\n", tube_delay);
 }
 
+#ifdef DEBUG_TUBE
+static void get_tube_debug() {
+   char *copro_prop = get_cmdline_prop("tube_debug");
+   unsigned int tube_debug = 0;
+   if (copro_prop) {
+      tube_debug = (unsigned int)atoi(copro_prop);
+   }
+   if (tube_debug > 15) {
+      tube_debug = 15;
+   }
+   LOG_DEBUG("Tube Debug  %u\r\n", tube_debug);
+   set_tube_debug(tube_debug);
+}
+#endif
+
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
    unsigned int last_copro;
@@ -258,6 +273,9 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    arm_speed = get_clock_rate(ARM_CLK_ID);
    get_tube_delay();
+#ifdef DEBUG_TUBE
+   get_tube_debug();
+#endif
 
    copro = get_copro_number();
    last_copro = copro +1; // force new core

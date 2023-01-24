@@ -11,7 +11,12 @@
 // #define DEBUG_TRANSFERS
 
 // Uncomment to log all tube FIFO reads/writes (excluding status only)
-// #define DEBUG_TUBE
+#define DEBUG_TUBE
+
+#ifdef DEBUG_TUBE
+#define TUBE_DEBUG_SIZE 0x20000
+void set_tube_debug(unsigned int flags);
+#endif
 
 extern int vdu_enabled;
 

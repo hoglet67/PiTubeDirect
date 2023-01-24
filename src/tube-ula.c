@@ -107,26 +107,40 @@ unsigned long int count_p = 0;
 #endif
 
 #ifdef DEBUG_TUBE
+#define DEBUG_PARASITE_READ  0x8
+#define DEBUG_PARASITE_WRITE 0x4
+#define DEBUG_HOST_READ      0x2
+#define DEBUG_HOST_WRITE     0x1
+#define DEBUG_ANY            0xF
 
-#define  TUBE_READ_MARKER 0x80000000
-#define TUBE_WRITE_MARKER 0x40000000
+unsigned int tube_debug = 0;
 
 unsigned int tube_index;
-unsigned int tube_buffer[0x10000];
+unsigned int tube_buffer[TUBE_DEBUG_SIZE];
+
+void set_tube_debug(unsigned int flags) {
+   tube_debug = flags;
+}
 
 void tube_dump_buffer() {
    int i;
    LOG_INFO("tube_index = %u\r\n", tube_index);
    for (i = 0; i < tube_index; i++) {
-      if (tube_buffer[i] & (TUBE_READ_MARKER | TUBE_WRITE_MARKER)) {
-         if (tube_buffer[i] & TUBE_READ_MARKER) {
-            LOG_INFO("Rd R");
+      if (tube_buffer[i] & (DEBUG_ANY << 16)) {
+         if (tube_buffer[i] & (DEBUG_PARASITE_READ << 16)) {
+            LOG_INFO("PR");
          }
-         if (tube_buffer[i] & TUBE_WRITE_MARKER) {
-            LOG_INFO("Wr R");
+         if (tube_buffer[i] & (DEBUG_PARASITE_WRITE << 16)) {
+            LOG_INFO("PW");
+         }
+         if (tube_buffer[i] & (DEBUG_HOST_READ << 16)) {
+            LOG_INFO("HR");
+         }
+         if (tube_buffer[i] & (DEBUG_HOST_WRITE << 16)) {
+            LOG_INFO("HW");
          }
          // Convert address (1,3,5,7) to R1,R2,R3,R4
-         LOG_INFO("%u = %02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
+         LOG_INFO("%u=%02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
       } else {
          LOG_INFO("?? %08x\r\n", tube_buffer[i]);
       }
@@ -136,7 +150,7 @@ void tube_dump_buffer() {
 void tube_reset_buffer() {
    int i;
    tube_index = 0;
-   for (i = 0; i < 0x10000; i++) {
+   for (i = 0; i < TUBE_DEBUG_SIZE; i++) {
       tube_buffer[i] = 0;
    }
 }
@@ -255,6 +269,14 @@ static void tube_reset()
 
 static void tube_host_read(uint32_t addr)
 {
+#ifdef DEBUG_TUBE
+   if (tube_debug & DEBUG_HOST_READ) {
+      if (addr & 1) {
+         tube_buffer[tube_index++] = (DEBUG_HOST_READ << 16) | ((addr & 7) << 8) | WORD_TO_BYTE(tube_regs[addr & 7]);
+         tube_index &= TUBE_DEBUG_SIZE - 1;
+      }
+   }
+#endif
    switch (addr & 7)
    {
    case 1: /*Register 1*/
@@ -305,6 +327,14 @@ static void tube_host_read(uint32_t addr)
 
 static void tube_host_write(uint32_t addr, uint8_t val)
 {
+#ifdef DEBUG_TUBE
+   if (tube_debug & DEBUG_HOST_WRITE) {
+      if (addr & 1) {
+         tube_buffer[tube_index++] = (DEBUG_HOST_WRITE << 16) | ((addr & 7) << 8) | val;
+         tube_index &= TUBE_DEBUG_SIZE - 1;
+      }
+   }
+#endif
    switch (addr & 7)
    {
    case 0: /*Register 1 control/status*/
@@ -548,9 +578,11 @@ uint8_t tube_parasite_read(uint32_t addr)
    }
 
 #ifdef DEBUG_TUBE
-   if (addr & 1) {
-      tube_buffer[tube_index++] = TUBE_READ_MARKER | ((addr & 7) << 8) | temp;
-      tube_index &= 0xffff;
+   if (tube_debug & DEBUG_PARASITE_READ) {
+      if (addr & 1) {
+         tube_buffer[tube_index++] = (DEBUG_PARASITE_READ << 16) | ((addr & 7) << 8) | temp;
+         tube_index &= TUBE_DEBUG_SIZE - 1;
+      }
    }
 #endif
    if ((cpsr & 0xc0) != 0xc0) {
@@ -589,10 +621,12 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
    int cpsr = _disable_interrupts();
-#ifdef DEBUG_TUBE
-   if (addr & 1) {
-      tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & 7) << 8) | val;
-      tube_index &= 0xffff;
+#ifdef DEBUG_PARASITE
+   if (tube_debug & DEBUG_PARASITE_WRITE) {
+      if (addr & 1) {
+         tube_buffer[tube_index++] = (DEBUG_PARASITE_WRITE << 16) | ((addr & 7) << 8) | val;
+         tube_index &= TUBE_DEBUG_SIZE - 1;
+      }
    }
 #endif
    switch (addr & 7)
