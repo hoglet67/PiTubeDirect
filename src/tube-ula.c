@@ -139,8 +139,7 @@ void tube_dump_buffer() {
          if (tube_buffer[i] & (DEBUG_HOST_WRITE << 16)) {
             LOG_INFO("HW");
          }
-         // Convert address (1,3,5,7) to R1,R2,R3,R4
-         LOG_INFO("%u=%02x\r\n", 1 + ((tube_buffer[i] & 0xF00) >> 9), tube_buffer[i] & 0xFF);
+         LOG_INFO("%u=%02x\r\n", (tube_buffer[i] >> 8) & 7, tube_buffer[i] & 0xFF);
       } else {
          LOG_INFO("?? %08x\r\n", tube_buffer[i]);
       }
@@ -271,10 +270,8 @@ static void tube_host_read(uint32_t addr)
 {
 #ifdef DEBUG_TUBE
    if (tube_debug & DEBUG_HOST_READ) {
-      if (addr & 1) {
-         tube_buffer[tube_index++] = (DEBUG_HOST_READ << 16) | ((addr & 7) << 8) | WORD_TO_BYTE(tube_regs[addr & 7]);
-         tube_index &= TUBE_DEBUG_SIZE - 1;
-      }
+      tube_buffer[tube_index++] = (DEBUG_HOST_READ << 16) | ((addr & 7) << 8) | WORD_TO_BYTE(tube_regs[addr & 7]);
+      tube_index &= TUBE_DEBUG_SIZE - 1;
    }
 #endif
    switch (addr & 7)
@@ -329,10 +326,8 @@ static void tube_host_write(uint32_t addr, uint8_t val)
 {
 #ifdef DEBUG_TUBE
    if (tube_debug & DEBUG_HOST_WRITE) {
-      if (addr & 1) {
-         tube_buffer[tube_index++] = (DEBUG_HOST_WRITE << 16) | ((addr & 7) << 8) | val;
-         tube_index &= TUBE_DEBUG_SIZE - 1;
-      }
+      tube_buffer[tube_index++] = (DEBUG_HOST_WRITE << 16) | ((addr & 7) << 8) | val;
+      tube_index &= TUBE_DEBUG_SIZE - 1;
    }
 #endif
    switch (addr & 7)
