@@ -149,8 +149,8 @@ _reset_:
     // HYP mode: cpsr ends with 1a3
     adr     lr , _reset_continue
     msr     spsr_cxsf, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVR
-    msr     ELR_hyp , lr
-    eret
+    .word 0xE12EF30E  // msr_elr_hyp lr ( gcc armv7 doesn't support these instructions)
+    .word 0xE160006E  // eret
 _reset_continue:
 #endif
 
