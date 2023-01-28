@@ -26,7 +26,7 @@ static void write_string(char *ptr) {
 // ==========================================================================
 // Implementation of SWIs that write to the VDU
 // ==========================================================================
-
+// cppcheck-suppress constParameter
 static void OS_WriteC_impl(unsigned int *reg) {
    fb_writec((char)(reg[0] & 0xff));
 }

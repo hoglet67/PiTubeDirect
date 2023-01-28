@@ -31,7 +31,7 @@ static const unsigned int shareable = 1u;
 #define L1_SETWAY_WAY_SHIFT        30   // 32-Log2(L1_DATA_CACHE_WAYS)
 #define L1_SETWAY_SET_SHIFT         6   // Log2(L1_DATA_CACHE_LINE_LENGTH)
 
-#if defined(RPI2)
+#if (__ARM_ARCH == 7 )
 // 8 ways x 1024 sets x 64 bytes per line = 512KB
 #define L2_CACHE_SETS            1024
 #define L2_CACHE_WAYS               8
@@ -119,7 +119,7 @@ void _clean_invalidate_dcache_area(void * start, unsigned int length)
    endptr = startptr + length;
    // round down start address
    startptr = (char *)(((uint32_t)start) & ~(cachelinesize - 1));
-   
+
    do{
       asm volatile ("mcr     p15, 0, %0, c7, c14, 1" : : "r" (startptr));
       startptr = startptr + cachelinesize;
@@ -171,7 +171,7 @@ static void map_4k_page_quick(unsigned int logical, unsigned int physical) {
   // Pi 2/3:
   //   XP (bit 23) in SCTRL no longer exists, and we see to be using ARMv6 table formats
   //   this means bit 0 of the page table is actually XN and must be clear to allow native ARM code to execute
-  //   (this was the cause of issue #27)  
+  //   (this was the cause of issue #27)
 #if (__ARM_ARCH >= 7 )
   PageTable2[logical] = (physical<<12) | 0x132u | (bb << 6) | (aa << 2);
 #else

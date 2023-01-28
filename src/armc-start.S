@@ -36,7 +36,7 @@
 .equ    C0_ABORT_STACK,      STACK_SIZE*5
 .equ    C0_UNDEFINED_STACK,  STACK_SIZE*6
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
 .equ    C1_SVR_STACK,        STACK_SIZE*7
 .equ    C1_IRQ_STACK,        STACK_SIZE*8
 .equ    C1_FIQ_STACK,        STACK_SIZE*9
@@ -71,7 +71,7 @@
 .global _interrupt_vector_h
 .global _fast_interrupt_vector_h
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
 .global _get_core
 .global _init_core
 .global _spin_core
@@ -306,13 +306,13 @@ _invalidate_dcache:
 
 .section ".text._invalidate_tlb_mva"
 _invalidate_tlb_mva:
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
     dsb
 #endif
 
     mcr     p15, 0, r0, c8, c7, 1  // invalidate tlb
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
     MCR p15, 0, r0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
     dsb
     isb
@@ -321,7 +321,7 @@ _invalidate_tlb_mva:
 
 .section ".text._data_memory_barrier"
 _data_memory_barrier:
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
     dmb
 #else
     mov     r0, #0
@@ -331,7 +331,7 @@ _data_memory_barrier:
 
 .section ".text._data_synchronization_barrier"
 _data_synchronization_barrier:
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
     dsb
 #else
     mov     r0, #0
@@ -360,9 +360,9 @@ _init_core:
     // SVC mode: cpsr ends with 1d3
     // HYP mode: cpsr ends with 1a3
     adr     lr , _init_continue
-    msr     spsr_cxsf, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVC
-    msr     ELR_hyp , lr
-    eret
+    msr     spsr_cxsf, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT | CPSR_MODE_SVR
+    .word 0xE12EF30E  // msr_elr_hyp lr ( gcc armv7 doesn't support these instructions)
+    .word 0xE160006E  // eret
 _init_continue:
 #endif
 
@@ -400,7 +400,7 @@ _init_continue:
     bl      run_core
 #endif
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
 .section ".text._spin_core"
     // If main does return for some reason, just catch it and stay here.
 _spin_core:

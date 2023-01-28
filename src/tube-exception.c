@@ -17,7 +17,7 @@ static void reboot_now(void)
   while(1);
 }
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
 static void dump_digit(unsigned int c) {
    c &= 15;
    if (c < 10) {
@@ -52,7 +52,7 @@ static void dump_info(unsigned int *context, int offset, const char *type) {
   // The stacked LR points one or two words after the exception address
   addr = (unsigned int *)((reg[13] & ~3u) - (uint32_t)offset);
   dump_hex((unsigned int)addr,32);
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
   dump_string(" on core ",0);
   dump_digit(_get_core());
 #endif
@@ -121,19 +121,23 @@ static void dump_info(unsigned int *context, int offset, const char *type) {
   while( tube_is_rst_active() );
   reboot_now();
 }
-
+// Called from assembler
+// cppcheck-suppress unusedFunction
 void undefined_instruction_handler(unsigned int *context) {
   dump_info(context, 4, "Undefined Instruction");
 }
-
+// Called from assembler
+// cppcheck-suppress unusedFunction
 void prefetch_abort_handler(unsigned int *context) {
   dump_info(context, 4, "Prefetch Abort");
 }
-
+// Called from assembler
+// cppcheck-suppress unusedFunction
 void data_abort_handler(unsigned int *context) {
   dump_info(context, 8, "Data Abort");
 }
-
+// Called from assembler
+// cppcheck-suppress unusedFunction
 void swi_handler(unsigned int *context) {
   dump_info(context, 4, "SWI");
 }

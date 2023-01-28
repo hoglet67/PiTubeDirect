@@ -4,7 +4,7 @@
 #include "info.h"
 #include "startup.h"
 #include "tube-pins.h"
-#include "stdlib.h"
+#include <stdlib.h>
 #include "framebuffer/framebuffer.h"
 
 #ifdef INCLUDE_DEBUGGER
@@ -80,6 +80,7 @@ void RPI_AuxMiniUartWrite(char c)
 //        bl      RPI_AuxMiniUartIRQHandler
 //        ldm     sp!, {r0, r1, r2, r3, ip, pc}^
 
+// cppcheck-suppress unusedFunction
 void RPI_AuxMiniUartIRQHandler() {
 
   //_data_memory_barrier();

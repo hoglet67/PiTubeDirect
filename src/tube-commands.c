@@ -11,7 +11,7 @@
 #include "darm/darm.h"
 #include "tube-defs.h"
 #include "tube-ula.h"
-#include "gitversion.h"
+#include "scripts/gitversion.h"
 #include "copro-defs.h"
 #include "utils.h"
 #include "programs.h"

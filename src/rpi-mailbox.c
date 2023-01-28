@@ -4,14 +4,13 @@
 
 /* Define a structure which defines the register access to a mailbox.
    Not all mailboxes support the full register set! */
-// cppcheck-suppress unusedStructMember
 typedef struct {
     rpi_reg_rw_t Data;
-    rpi_reg_ro_t reserved1[3];
-    rpi_reg_ro_t Poll;
-    rpi_reg_ro_t Sender;
+    rpi_reg_ro_t reserved1[3]; // cppcheck-suppress unusedStructMember
+    rpi_reg_ro_t Poll; // cppcheck-suppress unusedStructMember
+    rpi_reg_ro_t Sender; // cppcheck-suppress unusedStructMember
     rpi_reg_ro_t Status;
-    rpi_reg_rw_t Configuration;
+    rpi_reg_rw_t Configuration; // cppcheck-suppress unusedStructMember
     } mailbox_t;
 
 /* Mailbox 0 mapped to it's base address */

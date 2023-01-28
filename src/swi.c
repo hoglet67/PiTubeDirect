@@ -130,7 +130,7 @@ __attribute__ ((noinline)) void OS_Exit() {
      :   // clobber
      );
 }
-
+#if 0
 __attribute__ ((noinline)) void OS_GenerateError(const ErrorBlock_type *eblk) {
   asm volatile
     (
@@ -143,7 +143,7 @@ __attribute__ ((noinline)) void OS_GenerateError(const ErrorBlock_type *eblk) {
      :   // clobber
      );
 }
-
+#endif
 __attribute__ ((noinline)) int OS_ReadModeVariable(unsigned int mode, int variable) {
   asm volatile
     (

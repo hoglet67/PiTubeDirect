@@ -27,18 +27,18 @@
 
 #ifdef INCLUDE_DEBUGGER
 
-#include "../lib6502_debug.h"
-#include "../yaze/simz80.h"
-#include "../cpu80186/cpu80186_debug.h"
-#include "../mc6809nc/mc6809_debug.h"
-#include "../mame/arm_debug.h"
-#include "../NS32016/32016_debug.h"
-#include "../opc5ls/opc5ls_debug.h"
-#include "../opc6/opc6_debug.h"
-#include "../opc7/opc7_debug.h"
-#include "../pdp11/pdp11_debug.h"
-#include "../f100/f100_debug.h"
-#include "../65816/65816_debug.h"
+#include "lib6502_debug.h"
+#include "yaze/simz80.h"
+#include "cpu80186/cpu80186_debug.h"
+#include "mc6809nc/mc6809_debug.h"
+#include "mame/arm_debug.h"
+#include "NS32016/32016_debug.h"
+#include "opc5ls/opc5ls_debug.h"
+#include "opc6/opc6_debug.h"
+#include "opc7/opc7_debug.h"
+#include "pdp11/pdp11_debug.h"
+#include "f100/f100_debug.h"
+#include "65816/65816_debug.h"
 
 #define DEBUGGER(n) (n)
 #define NO_DEBUGGER (NULL)

@@ -3,7 +3,7 @@
 #ifndef PERFORMANCE_H
 #define PERFORMANCE_H
 
-#if defined(RPI3) ||  defined(RPI2) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
 
 // TODO - More work is needed on the RPI2 performance metrics
 

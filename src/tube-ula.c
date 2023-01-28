@@ -157,6 +157,8 @@ static void tube_updateints_NMI()
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 }
 */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 void tube_enable_fast6502(void)
 {
    int cpsr = _disable_interrupts();
@@ -165,7 +167,8 @@ void tube_enable_fast6502(void)
     _enable_interrupts();
    }
 }
-
+// Called from assembler
+// cppcheck-suppress unusedFunction
 void tube_disable_fast6502(void)
 {
    int cpsr = _disable_interrupts();
@@ -742,6 +745,7 @@ void tube_init_hardware()
          // Write 1 to the LED init nibble in the Function Select GPIO
          // peripheral register to enable LED pin as an output
          RPI_GpioBase-> GPFSEL[1] |= 1<<18;
+         // cppcheck-suppress badBitmaskCheck
          host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
          RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
          RPI_SetGpioPinFunction(A1_PIN_26PIN, FS_INPUT);
@@ -846,7 +850,7 @@ void tube_init_hardware()
    }
 
    // Initialize performance counters
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if(__ARM_ARCH >= 7 )
    pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
    pct.type[1] = PERF_TYPE_L1I_CACHE_REFILL;

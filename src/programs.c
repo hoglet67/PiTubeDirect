@@ -5,7 +5,7 @@
 #include "tube.h"
 #include "tube-client.h"
 #include "tube-defs.h"
-#include "gitversion.h"
+#include "scripts/gitversion.h"
 #include "copro-defs.h"
 
 //  SPHERE

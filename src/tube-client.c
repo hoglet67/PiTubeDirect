@@ -133,7 +133,7 @@ static void init_emulator() {
    }
 }
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
 
 #if 0
 
@@ -172,11 +172,11 @@ void run_core() {
    } while (1);
 }
 #endif
-
 static void start_core(int core, func_ptr func) {
    LOG_DEBUG("starting core %d\r\n", core);
    *(unsigned int *)(0x4000008C + 0x10 * core) = (unsigned int) func;
 }
+
 #endif
 
 static unsigned int get_copro_number() {
@@ -249,7 +249,8 @@ static void get_tube_delay() {
    }
    LOG_DEBUG("Tube ULA sample delay  %u\r\n", tube_delay);
 }
-
+// Called from assembler
+// cppcheck-suppress unusedFunction
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
    unsigned int last_copro;
@@ -268,7 +269,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
   benchmark();
 #endif
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
   LOG_DEBUG("main running on core %u\r\n", _get_core());
   start_core(1, _spin_core);
   start_core(2, _spin_core);

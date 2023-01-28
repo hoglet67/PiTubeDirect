@@ -214,16 +214,19 @@ FILE *lndebug_fp = NULL;
  * the user is typing, the terminal will just display a corresponding
  * number of asterisks, like "****". This is useful for passwords and other
  * secrets that should not be displayed. */
+// cppcheck-suppress unusedFunction
 void linenoiseMaskModeEnable(void) {
     maskmode = 1;
 }
 
 /* Disable mask mode. */
+// cppcheck-suppress unusedFunction
 void linenoiseMaskModeDisable(void) {
     maskmode = 0;
 }
 
 /* Set if to use or not the multi line mode. */
+// cppcheck-suppress unusedFunction
 void linenoiseSetMultiLine(int ml) {
     mlmode = ml;
 }
@@ -431,12 +434,14 @@ static signed char completeLine(struct linenoiseState *ls) {
 }
 
 /* Register a callback function to be called for tab-completion. */
+// cppcheck-suppress unusedFunction
 void linenoiseSetCompletionCallback(linenoiseCompletionCallback *fn) {
     completionCallback = fn;
 }
 
 /* Register a hits function to be called to show hits to the user at the
  * right of the prompt. */
+// cppcheck-suppress unusedFunction
 void linenoiseSetHintsCallback(linenoiseHintsCallback *fn) {
     hintsCallback = fn;
 }
@@ -451,6 +456,7 @@ void linenoiseSetFreeHintsCallback(linenoiseFreeHintsCallback *fn) {
  * in order to add completion options given the input string when the
  * user typed <tab>. See the example.c source code for a very easy to
  * understand example. */
+// cppcheck-suppress unusedFunction
 void linenoiseAddCompletion(linenoiseCompletions *lc, const char *str) {
     size_t len = strlen(str);
     char *copy, **cvec;
@@ -1120,6 +1126,7 @@ static char *linenoiseNoTTY(void) {
  * for a blacklist of stupid terminals, and later either calls the line
  * editing function or uses dummy fgets() so that you will be able to type
  * something even in the most desperate of the conditions. */
+// cppcheck-suppress unusedFunction
 char *linenoise(const char *prompt) {
     char buf[LINENOISE_MAX_LINE];
     int count;
@@ -1151,6 +1158,7 @@ char *linenoise(const char *prompt) {
  * the linenoise returned buffer is freed with the same allocator it was
  * created with. Useful when the main program is using an alternative
  * allocator. */
+// cppcheck-suppress unusedFunction
 void linenoiseFree(void *ptr) {
     free(ptr);
 }
@@ -1217,6 +1225,7 @@ int linenoiseHistoryAdd(const char *line) {
  * if there is already some history, the function will make sure to retain
  * just the latest 'len' elements if the new history length value is smaller
  * than the amount of items already inside the history. */
+// cppcheck-suppress unusedFunction
 int linenoiseHistorySetMaxLen(int len) {
     char **new;
 
@@ -1247,6 +1256,7 @@ int linenoiseHistorySetMaxLen(int len) {
 
 /* Save the history in the specified file. On success 0 is returned
  * otherwise -1 is returned. */
+// cppcheck-suppress unusedFunction
 int linenoiseHistorySave(const char *filename) {
     mode_t old_umask = umask(S_IXUSR|S_IRWXG|S_IRWXO);
     FILE *fp;
@@ -1271,6 +1281,7 @@ int linenoiseHistorySave(const char *filename) {
  *
  * If the file exists and the operation succeeded 0 is returned, otherwise
  * on error -1 is returned. */
+// cppcheck-suppress unusedFunction
 int linenoiseHistoryLoad(const char *filename) {
     FILE *fp = fopen(filename,"r");
     char buf[LINENOISE_MAX_LINE];

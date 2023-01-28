@@ -28,7 +28,8 @@ void tubeWrite(unsigned char addr, unsigned char byte)
     _enable_interrupts();
   }
 }
-
+// this is only used for debug
+// cppcheck-suppress unusedFunction
 void setTubeLibDebug(int d)
 {
   debug = d;

@@ -76,6 +76,8 @@ char **environ = __env;
 
 /* Never return from _exit as there's no OS to exit to, so instead we trap
  here */
+ // Called from assembler
+// cppcheck-suppress unusedFunction
 void _exit(int status)
 {
   /* Stop the compiler complaining about unused variables by "using" it */
@@ -89,6 +91,8 @@ void _exit(int status)
 
 /* There's currently no implementation of a file system because there's no
  file system! */
+ // Called from assembler
+// cppcheck-suppress unusedFunction
 int _close(int file)
 {
   return -1;
@@ -104,6 +108,8 @@ int execve(const char *name, char * const *argv, char * const *env)
 
 /* Create a new process. Minimal implementation (for a system without
  processes): */
+ // Called from assembler
+// cppcheck-suppress unusedFunction
 int fork(void)
 {
   errno = EAGAIN;
@@ -114,6 +120,8 @@ int fork(void)
  in these examples, all files are regarded as character special devices. The
  sys/stat.h header file required is distributed in the include subdirectory
  for this C library. */
+ // Called from assembler
+// cppcheck-suppress unusedFunction
 __attribute__((used)) int _fstat(int file, struct stat *st)
 {
   st->st_mode = S_IFCHR;
@@ -123,6 +131,8 @@ __attribute__((used)) int _fstat(int file, struct stat *st)
 /* Process-ID; this is sometimes used to generate strings unlikely to conflict
  with other processes. Minimal implementation, for a system without
  processes: */
+ // Called from assembler
+// cppcheck-suppress unusedFunction
 int getpid(void)
 {
   return 1;
@@ -131,12 +141,16 @@ int getpid(void)
 /* Query whether output stream is a terminal. For consistency with the other
  minimal implementations, which only support output to stdout, this minimal
  implementation is suggested: */
+ // Called from assembler
+// cppcheck-suppress unusedFunction
 __attribute__((used)) int _isatty(int file)
 {
   return 1;
 }
 
 /* Send a signal. Minimal implementation: */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 int kill(int pid, int sig)
 {
   errno = EINVAL;
@@ -144,6 +158,8 @@ int kill(int pid, int sig)
 }
 
 /* Establish a new name for an existing file. Minimal implementation: */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 int link( char *old, char *new )
 {
   errno = EMLINK;
@@ -151,18 +167,24 @@ int link( char *old, char *new )
 }
 
 /* Set position in a file. Minimal implementation: */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 int _lseek(int file, int ptr, int dir)
 {
   return 0;
 }
 
 /* Open a file. Minimal implementation: */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 int open(const char *name, int flags, int mode)
 {
   return -1;
 }
 
 /* Read from a file. Minimal implementation: */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 int _read(int file, char *ptr, int len)
 {
   return 0;
@@ -172,6 +194,8 @@ int _read(int file, char *ptr, int len)
  it is useful to have a working implementation. The following suffices for a
  standalone system; it exploits the symbol _end automatically defined by the
  GNU linker. */
+ // Called from assembler
+// cppcheck-suppress unusedFunction
 caddr_t _sbrk(int incr)
 {
   extern char _end;
@@ -188,6 +212,8 @@ caddr_t _sbrk(int incr)
 }
 
 /* Status of a file (by name). Minimal implementation: */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 int stat(const char *file, struct stat *st)
 {
   st->st_mode = S_IFCHR;
@@ -195,12 +221,16 @@ int stat(const char *file, struct stat *st)
 }
 
 /* Timing information for current process. Minimal implementation: */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 clock_t times(struct tms *buf)
 {
   return (clock_t)-1;
 }
 
 /* Remove a file's directory entry. Minimal implementation: */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 int unlink(char *name)
 {
   errno = ENOENT;
@@ -208,6 +238,8 @@ int unlink(char *name)
 }
 
 /* Wait for a child process. Minimal implementation: */
+// Called from assembler
+// cppcheck-suppress unusedFunction
 int wait(int *status)
 {
   errno = ECHILD;
