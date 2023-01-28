@@ -1337,7 +1337,7 @@ int32_t fb_read_mode_variable(mode_variable_t v, screen_mode_t *screen) {
       return (screen->height >> 3) - 1;
    case M_NCOLOUR:
       // Maximum logical colour
-      return screen->ncolour;
+      return (int32_t) screen->ncolour;
    case M_XEIGFACTOR:
       // Conversion factor between OS units and pixels
       return screen->xeigfactor;

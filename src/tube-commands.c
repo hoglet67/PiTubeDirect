@@ -184,7 +184,7 @@ static int doCmdHelp(const char *params) {
         maxlen = len;
       }
     }
-    for (int i = 0; i < NUM_CMDS; i++) {
+    for (unsigned int i = 0; i < NUM_CMDS; i++) {
       // Skip vdu specific commands if vdu=0 in cmdline.txt
       if (cmds[i].vdu && !vdu_enabled) {
         continue;
@@ -193,7 +193,7 @@ static int doCmdHelp(const char *params) {
       OS_Write0(cmds[i].name);
       unsigned int optlen = strlen(cmds[i].options);
       if (optlen > 0) {
-         for (int pad = 0; pad <= maxlen - strlen(cmds[i].name); pad++) {
+         for (unsigned int pad = 0; pad <= maxlen - strlen(cmds[i].name); pad++) {
           OS_WriteC(' ');
         }
       }

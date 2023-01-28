@@ -1306,7 +1306,7 @@ static void op_idiv16(uint32_t valdiv, uint16_t divisor)
   d1 = s1 / s2;
   d2 = s1 % s2;
   // Check for overflow in the 16-bit quotient (-32678 to 32767)
-  if (d1 > (32767 + (sign1 ^ sign2)))
+  if (d1 > (32767UL + (uint32_t)(sign1 ^ sign2)))
   {
     intcall86(0);
     return;

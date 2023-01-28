@@ -125,7 +125,7 @@ static const char * type_names[] = {
 #endif
 
 static const char *type_lookup(unsigned int type) {
-   int num_types = sizeof(type_names) / sizeof(type_names[0]);
+   unsigned int num_types = sizeof(type_names) / sizeof(type_names[0]);
    if (type < num_types) {
       return type_names[type];
    } else {
@@ -208,13 +208,12 @@ static char* uint64ToDecimal(uint64_t v) {
 }
 
 void print_performance_counters(const perf_counters_t *pct) {
-   int i;
    uint64_t cycle_counter = pct->cycle_counter;
    cycle_counter *= 64;
    // newlib-nano doesn't appear to support 64-bit printf/scanf on 32-bit systems
    // printf("%26s = %"PRIu64"\r\n", "cycle counter", cycle_counter);
    printf("%26s = %s\r\n", "cycle counter", uint64ToDecimal(cycle_counter));
-   for (i = 0; i < pct->num_counters; i++) {
+   for (uint32_t i = 0; i < pct->num_counters; i++) {
       printf("%26s = %u\r\n", type_lookup(pct->type[i]), pct->counter[i]);
    }
 }

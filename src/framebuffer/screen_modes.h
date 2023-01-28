@@ -88,7 +88,7 @@ typedef struct screen_mode {
    int log2bpp;     // log2 of the number bits per pixel (8->3,16->4,32->5)
    int log2bpc;     // log2 of the number bytes per text character (normally same as log2pbb, except in double pixel modes)
 
-   int ncolour;     // maximum logical colour
+   unsigned int  ncolour;     // maximum logical colour
 
    float par;       // ideal pixel aspect ratio
 

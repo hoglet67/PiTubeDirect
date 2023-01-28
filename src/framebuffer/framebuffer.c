@@ -1683,7 +1683,7 @@ void fb_custom_mode(int x_pixels, int y_pixels, unsigned int n_colours) {
       new_screen->yeigfactor++;
       y_pixels <<= 1;
    } while (y_pixels < 1024);
-   new_screen->ncolour = (int)(n_colours - 1);
+   new_screen->ncolour = n_colours - 1;
    change_mode(new_screen);
 }
 
