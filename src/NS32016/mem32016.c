@@ -249,7 +249,7 @@ void write_x8_internal(uint32_t addr, uint8_t val)
    if (addr == 0xF90000)
    {
 #ifdef PANDORA_ROM_PAGE_OUT
-      PiTRACE("Pandora ROM no longer occupying the entire memory space!")
+      PiTRACE("Pandora ROM no longer occupying the entire memory space!");
       memset(ns32016ram, 0, RAM_SIZE);
 #else
       PiTRACE("Pandora ROM write to 0xF90000");
