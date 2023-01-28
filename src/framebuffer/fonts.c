@@ -58,7 +58,7 @@ __attribute__ ((section (".noinit"))) static font_t current_font;
 // Font Definitions
 // ==========================================================================
 
-static const font_t font_catalog[] = {
+static const font_catalog_t font_catalog[] = {
    //                                              scale_h
    //                                           scale_w  |
    //                                      spacing_h  |  |
@@ -113,7 +113,7 @@ static const font_t font_catalog[] = {
    {"6847",     font6847, 12, 128, 0, 0, 8, 12, 0, 0, 1, 1}
 };
 
-#define NUM_FONTS (sizeof(font_catalog) / sizeof(font_t))
+#define NUM_FONTS (sizeof(font_catalog) / sizeof(font_catalog_t))
 
 #define MAX_CHARACTERS 256u
 
@@ -267,14 +267,16 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y, 
    int *dp = screendata;
    int width  = font->width  << font->rounding;
    int height = font->height << font->rounding;
-   for (int i = 0; i < height * font->scale_h; i += font->scale_h) {
+   int h = 0;
+   for (int i = 0; i < height ; i +=1) {
       int row = 0;
       for (int j = 0; j < width * font->scale_w; j += font->scale_w) {
          row <<= 1;
-         if (screen->get_pixel(screen, x + j, y - i) != bg_col) {
+         if (screen->get_pixel(screen, x + j, y - h) != bg_col) {
             row |= 1;
          }
       }
+      h += font->scale_h;
       *dp++ = row;
    }
    // Match against font
@@ -295,7 +297,7 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y, 
 // More Static Methods
 // ==========================================================================
 
-static font_t *initialize_font(const font_t * catalog, uint32_t num) {
+static font_t *initialize_font(const font_catalog_t * catalog, uint32_t num) {
 
    // Always return a copy, rather than the entry in the catalog
    //
@@ -306,7 +308,7 @@ static font_t *initialize_font(const font_t * catalog, uint32_t num) {
    font_t *font = &current_font;
 
    // Copy the default metrics etc from the catalog
-   memcpy(font, catalog, sizeof(font_t));
+   memcpy(font, catalog, sizeof(font_catalog_t));
 
    // The factor of 2 allows for character rounding to be enabled
    size_t size = (size_t)((size_t)font->height * MAX_CHARACTERS * 2 * sizeof(uint16_t));
@@ -352,7 +354,7 @@ static font_t *initialize_font(const font_t * catalog, uint32_t num) {
 // ==========================================================================
 
 const char * get_font_name(uint32_t num) {
-   const font_t *font = &font_catalog[DEFAULT_FONT];
+   const font_catalog_t *font = &font_catalog[DEFAULT_FONT];
    if (num < NUM_FONTS) {
       font = &font_catalog[num];
    }
@@ -360,7 +362,7 @@ const char * get_font_name(uint32_t num) {
 }
 
 font_t *get_font_by_number(uint32_t num) {
-   const font_t *font = &font_catalog[DEFAULT_FONT];
+   const font_catalog_t *font = &font_catalog[DEFAULT_FONT];
    if (num < NUM_FONTS) {
       font = &font_catalog[num];
    }
@@ -375,7 +377,7 @@ font_t *get_font_by_name(const char *name) {
          break;
       }
    }
-   const font_t *font = font_catalog + num;
+   const font_catalog_t *font = font_catalog + num;
    return initialize_font(font, num);
 }
 

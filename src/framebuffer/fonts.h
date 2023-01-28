@@ -7,6 +7,24 @@
 
 #define MAX_FONT_HEIGHT 32
 
+typedef struct font_cat {
+   // The raw font data itself
+   const char *name;   // (max) 8 character ASCII name of the font
+   const uint8_t *data;      // pointer to the raw font data
+   int bytes_per_char; // Number of bytes of raw data per character
+   int num_chars;      // Number of characters in the character set
+   int offset;         // Offset (in bytes) to the first row of the character
+   int shift;          // Offset (in bits) to the first column of the character
+   int width;          // Width (in pixels) of the character
+   int height;         // Height(in pixels) of the character
+
+   // These control the way the font is rendered
+   int spacing_w;
+   int spacing_h;
+   int scale_w;
+   int scale_h;
+} font_catalog_t;
+
 typedef struct font {
    // The raw font data itself
    const char *name;   // (max) 8 character ASCII name of the font
