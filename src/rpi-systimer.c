@@ -3,7 +3,7 @@
 #include "rpi-base.h"
 
 #define RPI_SYSTIMER_BASE       ( PERIPHERAL_BASE + 0x3000 )
-
+// cppcheck-suppress unusedStructMember
 typedef struct {
     volatile uint32_t control_status;
     volatile uint32_t counter_lo;

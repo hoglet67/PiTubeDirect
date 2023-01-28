@@ -2690,7 +2690,7 @@ void n32016_exec()
             temp = ReadGen(1); // offset is always 8 bits (also the result)
             // find the first set bit, starting at offset
             for (; temp < numbits && !(temp2 & BIT(temp)); temp++)
-            {
+            {  // cppcheck-suppress redundantContinue
                continue;                  // No Body!
             }
 

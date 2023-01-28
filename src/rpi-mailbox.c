@@ -4,6 +4,7 @@
 
 /* Define a structure which defines the register access to a mailbox.
    Not all mailboxes support the full register set! */
+// cppcheck-suppress unusedStructMember
 typedef struct {
     rpi_reg_rw_t Data;
     rpi_reg_ro_t reserved1[3];
