@@ -433,6 +433,7 @@ static void DIV(uint16_t instr) {
    uint8_t d = instr & 077;
    uint8_t s = (instr & 07700) >> 6;
    int32_t val1 = (cpu.R[s & 7] << 16) | (cpu.R[(s & 7) | 1]);
+   uint32_t uval1 = (cpu.R[s & 7] << 16) | (cpu.R[(s & 7) | 1]);
    uint8_t l = (uint8_t) (2 - (instr >> 15));
    uint16_t da = aget(d, l);
    int32_t val2 = memread16(da);
@@ -445,7 +446,7 @@ static void DIV(uint16_t instr) {
       cpu.PS |= FLAGZ; // J11,11/70 compat
       return;
    }
-   if (val2 == 0xffff && val1 == -2147483648) {
+   if (val2 == 0xffff && uval1 == 0x80000000) {
       // divide largest negative integer by -1
       cpu.PS |= FLAGV; // J11,11/70 compat
       return;
