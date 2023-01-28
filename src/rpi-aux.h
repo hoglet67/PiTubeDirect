@@ -33,6 +33,7 @@
 
 extern void dump_hex(unsigned int value, int bits);
 extern void dump_string( const char * string, int padding);
+extern void padding(int padding);
 
 extern void RPI_AuxMiniUartInit(uint32_t baud);
 extern void RPI_AuxMiniUartWrite(char c);

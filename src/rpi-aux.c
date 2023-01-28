@@ -239,3 +239,12 @@ void dump_string( const char * string, int padding)
       i++;
    }
 }
+
+void padding(int padding)
+{
+     int i=0;
+     while ( i<padding) {
+      RPI_AuxMiniUartWrite(' ');
+      i++;
+   }
+}
