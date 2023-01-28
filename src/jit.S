@@ -24,7 +24,7 @@
 // instruction doesn't need to set the flags. This can help to remove pipeline stalls
 // especially after a ldrb instruction
 
-#define JITDEBUG 1
+#define JITDEBUG 0
 //#define DORMANN_TEST 1
 //#define DEBUG_TIMING 1
 #define OPTIMISMISE 1
@@ -188,7 +188,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro READ_CYCLE_COUNT
-#if defined(RPI2)|| defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
    mrc   p15, 0, r0, c9, c13, 0
 #else
    MRC   p15, 0, r0, c15, c12, 1    // Read Cycle Counter Register
@@ -223,7 +223,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro DEJITCLEAN count=0
 
-#if defined(RPI4)|| defined(RPI3)
+#if (__ARM_ARCH >= 8 )
    MCR p15, 0, reg12, c7, c11, 1 // clean data cache line
    DSB
    MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line
@@ -233,13 +233,13 @@ then return to our secret stack This relies on instructions being re entrant , b
       ISB
    .endif
 #else
-   #if defined(RPI2)
+   #if (__ARM_ARCH == 7 )
       DSB
    #endif
 
    MCR p15, 0, reg12, c7, c10, 1 // clean data cache line
 
-   #if defined(RPI2)
+   #if (__ARM_ARCH == 7 )
       MCR p15, 0, reg12, c7, c5, 1 // invalidate I cache line
       MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
       DSB
@@ -263,7 +263,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DEJITCLEANMID
-   #if defined(RPI4)|| defined(RPI3) || defined(RPI2)
+   #if (__ARM_ARCH >= 7 )
       MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
    #else
       MCR p15, 0, reg12, c7, c5, 7 // invalidate BTB entry
@@ -1720,7 +1720,7 @@ exec_65tubejit:
 
 // setup ARM cycle counter
 
-#if defined(RPI2)|| defined(RPI3)||defined(RPI4)
+#if (__ARM_ARCH >= 7 )
    mrc   p15 ,0, r12, c9, c12, 0
    BIC   r12, r12, #8
    mcr   p15, 0, r12, c9, c12, 0
@@ -1779,7 +1779,7 @@ loopioregion:
 
 // flush caches
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
    DSB
 // this would be faster to flush the cache by way instead of VA
    mrc   p15, 0,r12,cr0,cr0,1
@@ -2821,7 +2821,7 @@ dojitexit :
    add r2,r2,r5
    sub r2,r2,#1   // move end pointer to the last byte
 // flush BTB icache dcache it might be better to just invalidate a few lines
-#if defined(RPI4)|| defined(RPI3)||defined(RPI2)
+#if (__ARM_ARCH >= 7 )
    DSB // might not be needed
 
    // Clean data cache both JITLET
