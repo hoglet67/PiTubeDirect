@@ -41,24 +41,35 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" )
 # are in the toolchain files toolchain-arm-none-eabi-bcm2835.cmake, etc.
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-r7" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast" )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wmaybe-uninitialized" )
+
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fomit-frame-pointer " )
 
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wredundant-decls -Wno-maybe-uninitialized -Wno-long-long -Wpacked -Wundef -Wno-shadow  -Wno-missing-braces -Wno-sign-compare -Wno-multichar -Wnarrowing -Woverflow -Wconversion -Wjump-misses-init -Wlogical-not-parentheses -Wnull-dereference -Winit-self -Wpointer-arith  -Wwrite-strings -Wunreachable-code -Wshadow -Wdouble-promotion  -Wformat-truncation -fstack-usage -Wconversion" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wredundant-decls -Wpacked -Wundef -Wshadow  -Wmissing-braces -Wmultichar")
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wnarrowing -Woverflow -Wconversion -Wjump-misses-init")
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wlogical-not-parentheses -Wnull-dereference -Winit-self")
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith -Wwrite-strings -Wunreachable-code")
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wdouble-promotion -Wformat-truncation -fstack-usage" )
+
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat=2")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wcast-qual")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-conversion ")
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-compare" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wlong-long" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-field-initializers" )
 
-#turn off array bounds checking as gcc12 give false positive in mailbox code.
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Warray-bounds=0")
+# needed to remove warnings
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter" )
+
 # other options to try which fail currently :
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wswitch-enum")
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wstrict-overflow=5")
 
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fanalyzer" )
-#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto" )
+
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto" )
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-delete-null-pointer-checks -fdata-sections -ffunction-sections ")
 
@@ -68,7 +79,9 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --specs=nano.specs --specs=nosys.specs -u _
 
 #set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -Wl,--print-gc-sections -Wl,-unresolved-symbols=ignore-in-object-files -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
 
-set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
+set( CMAKE_EXE_LINKER_FLAGS "-Wl,--no-warn-rwx-segments" ) # fix binbutils 2.39 warning in gcc 12
+
+set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
 
 
 file( GLOB core_files
@@ -338,6 +351,8 @@ file( GLOB debugger_files
     cpu_debug.h
     lib6502_debug.c
     lib6502_debug.h
+    jit_debug.c
+    jit_debug.h
     yaze/z80dis.c
     yaze/z80dis.h
     NS32016/32016_debug.c
