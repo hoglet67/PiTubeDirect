@@ -170,7 +170,7 @@ _user_exec:
     mrs      r0, spsr             // Get spsr
     stmfd    sp!, {r0}            // Save spsr, as this (and lr) will be corrupted by nested swis
 
-#if defined(RPI2) || defined(RPI3) || defined(RPI4)
+#if (__ARM_ARCH >= 7 )
     stmfd    sp!, {r0-r3}         // Save the _user_exec params
     bl       CleanDataCache
     ldmfd    sp!, {r0-r3}         // Restore the _user_exec params

@@ -100,6 +100,8 @@ int _close(int file)
 
 /* Transfer control to a new process. Minimal implementation (for a system
  without processes): */
+ // Called from assembler
+// cppcheck-suppress unusedFunction
 int execve(const char *name, char * const *argv, char * const *env)
 {
   errno = ENOMEM;
@@ -258,6 +260,8 @@ static void outbyte(char b)
  incomplete example; it relies on a outbyte subroutine (not shown; typically,
  you must write this in assembler from examples provided by your hardware
  manufacturer) to actually perform the output. */
+ // Called from assembler
+// cppcheck-suppress unusedFunction
 int _write(int file, char *ptr, int len)
 {
   int todo;

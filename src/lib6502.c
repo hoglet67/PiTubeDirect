@@ -37,7 +37,6 @@
 #include <string.h>
 
 #include "lib6502.h"
-static void   M6502_dump(M6502 *mpu, char buffer[124]);
 
 #ifdef INCLUDE_DEBUGGER
 #include "lib6502_debug.h"
@@ -73,8 +72,6 @@ enum {
 #define setZ(Z)            (P= (byte)((P & (byte)~(                flagZ        )) |                       ((Z)?flagZ:0)                ))
 #define setC(C)            (P= (byte)((P & (byte)~(                        flagC)) |                                       ((C)?flagC:0)))
 #define NAND(P, Q)	(!((P) & (Q)))
-
-static int elapsed;
 
 #ifdef notick
 #define tick(n)
@@ -937,15 +934,15 @@ void M6502_reset(M6502 *mpu)
 }
 
 
-/* the compiler should eliminate all calls to this function */
-/*
+/* the compiler should eliminate all calls to these function */
+#if 0
 static void oops(void)
 {
   fprintf(stderr, "\noops -- instruction dispatch missing\n");
 }
-*/
-static int previousPC;
 
+static int previousPC;
+static void   M6502_dump(M6502 *mpu, char buffer[124]);
 void M6502_trace(M6502 *mpu)
 {
   if(elapsed > 40123000){
@@ -961,7 +958,7 @@ void M6502_trace(M6502 *mpu)
   }
   previousPC = mpu->registers->pc;
 }
-
+#endif
 void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 //void M6502_run(M6502 *mpu)
 {
@@ -1055,6 +1052,7 @@ static void htos( char *s, byte b)
 int M6502_disassemble(M6502 *mpu, word ip, char buffer[64])
 {
   char *s= buffer;
+  // cppcheck-suppress ctuuninitvar
   byte *b= mpu->memory + ip;
 
   switch (b[0])
@@ -1083,7 +1081,8 @@ int M6502_disassemble(M6502 *mpu, word ip, char buffer[64])
 
   return 0;
 }
-
+#if 0
+static int elapsed;
 static void M6502_dump(M6502 *mpu, char buffer[124])
 {
   M6502_Registers *r= mpu->registers;
@@ -1097,7 +1096,7 @@ static void M6502_dump(M6502 *mpu, char buffer[124])
 	  );
 # undef P
 }
-
+#endif
 
 static void outOfMemory(void)
 {

@@ -1643,7 +1643,7 @@ void fb_initialize() {
    RPI_GetIrqController()->Enable_IRQs_2 = RPI_VSYNC_IRQ;
 
 }
-
+#if 0
 void fb_destroy() {
 
    // Disable the VSync Interrupt
@@ -1657,7 +1657,7 @@ void fb_destroy() {
    RPI_PropertyAddTag(TAG_RELEASE_BUFFER);
    RPI_PropertyProcess();
 }
-
+#endif
 void fb_custom_mode(int x_pixels, int y_pixels, unsigned int n_colours) {
    screen_mode_t *new_screen;
    if (n_colours > 0x10000) {

@@ -91,7 +91,8 @@ void darm_init(darm_t *d)
     d->CRn = d->CRm = d->CRd = R_INVLD;
     d->firstcond = C_INVLD, d->mask = 0;
 }
-
+// real unused function, but might be useful in the future
+// cppcheck-suppress unusedFunction
 int darm_disasm(darm_t *d, uint16_t w, uint16_t w2, uint32_t addr)
 {
     // if the least significant bit is not set, then this is

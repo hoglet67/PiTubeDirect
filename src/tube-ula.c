@@ -850,8 +850,8 @@ void tube_init_hardware()
    }
 
    // Initialize performance counters
+   pct.num_counters = MAX_COUNTERS;
 #if(__ARM_ARCH >= 7 )
-   pct.num_counters = 6;
    pct.type[0] = PERF_TYPE_L1I_CACHE;
    pct.type[1] = PERF_TYPE_L1I_CACHE_REFILL;
    pct.type[2] = PERF_TYPE_L1D_CACHE;
@@ -865,7 +865,6 @@ void tube_init_hardware()
    pct.counter[4] = 0;
    pct.counter[5] = 0;
 #else
-   pct.num_counters = 2;
    pct.type[0] = PERF_TYPE_I_CACHE_MISS;
    pct.type[1] = PERF_TYPE_D_CACHE_MISS;
    pct.counter[0] = 0;

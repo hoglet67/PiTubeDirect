@@ -5655,14 +5655,14 @@ void w65816_reset(void)
     p.ex = p.m = 1;
     cycles = 0;
 }
-
+#if 0
 void w65816_close(void)
 {
    //    if (w65816ram)
    //        free(w65816ram);
 }
 
-#if 0
+
 static inline unsigned char *save_reg(unsigned char *ptr, reg * rp)
 {
     *ptr++ = rp->b.l;

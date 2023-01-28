@@ -661,11 +661,11 @@ void prim_set_bg_plotmode(screen_mode_t *screen, plotmode_t plotmode) {
 plotmode_t prim_get_bg_plotmode() {
    return g_bg_plotmode;
 }
-
+#if 0
 pixel_t prim_get_bg_col() {
    return g_bg_col;
 }
-
+#endif
 void prim_set_ecf_mode(screen_mode_t *screen, int ecf_mode) {
    g_ecf_mode = ecf_mode;
 }
@@ -860,11 +860,11 @@ void prim_set_pixel(screen_mode_t *screen, int x, int y, plotcol_t colour) {
 pixel_t prim_get_pixel(screen_mode_t *screen, int x, int y) {
    return get_pixel(screen, x, y);
 }
-
+#if 0
 int prim_on_screen(screen_mode_t *screen, int x, int y) {
    return x >= g_x_min && x <= g_x_max && y >= g_y_min && y <= g_y_max;
 }
-
+#endif
 // Rodders: Line mode support
 // Implementation of Bresenham's line drawing algorithm from here:
 // http://tech-algorithm.com/articles/drawing-line-using-bresenham-algorithm/

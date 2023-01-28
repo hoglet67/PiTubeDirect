@@ -126,8 +126,9 @@
 
 #define LINENOISE_DEFAULT_HISTORY_MAX_LEN 100
 #define LINENOISE_MAX_LINE 4096
-static const char *unsupported_term[] = {"dumb","cons25","emacs",NULL};
+#if 0
 static linenoiseCompletionCallback *completionCallback = NULL;
+#endif
 static linenoiseHintsCallback *hintsCallback = NULL;
 static linenoiseFreeHintsCallback *freeHintsCallback = NULL;
 
@@ -214,25 +215,27 @@ FILE *lndebug_fp = NULL;
  * the user is typing, the terminal will just display a corresponding
  * number of asterisks, like "****". This is useful for passwords and other
  * secrets that should not be displayed. */
-// cppcheck-suppress unusedFunction
+#if 0
 void linenoiseMaskModeEnable(void) {
     maskmode = 1;
 }
 
 /* Disable mask mode. */
-// cppcheck-suppress unusedFunction
+
 void linenoiseMaskModeDisable(void) {
     maskmode = 0;
 }
 
 /* Set if to use or not the multi line mode. */
-// cppcheck-suppress unusedFunction
+
 void linenoiseSetMultiLine(int ml) {
     mlmode = ml;
 }
 
 /* Return true if the terminal name is in the list of terminals we know are
  * not able to understand basic escape sequences. */
+static const char *unsupported_term[] = {"dumb","cons25","emacs",NULL};
+
 static int isUnsupportedTerm(void) {
     char *term = getenv("TERM");
     int j;
@@ -242,7 +245,7 @@ static int isUnsupportedTerm(void) {
         if (!strcasecmp(term,unsupported_term[j])) return 1;
     return 0;
 }
-
+#endif
 /* Raw mode: 1960 magic shit. */
 #ifdef DMB_DISABLE
 static int enableRawMode(int fd) {
@@ -353,7 +356,7 @@ void linenoiseClearScreen(void) {
         /* nothing to do, just to avoid warning. */
     }
 }
-
+#if 0
 /* Beep, used for completion when there is nothing to complete or when all
  * the choices were already shown. */
 static void linenoiseBeep(void) {
@@ -434,14 +437,12 @@ static signed char completeLine(struct linenoiseState *ls) {
 }
 
 /* Register a callback function to be called for tab-completion. */
-// cppcheck-suppress unusedFunction
 void linenoiseSetCompletionCallback(linenoiseCompletionCallback *fn) {
     completionCallback = fn;
 }
 
 /* Register a hits function to be called to show hits to the user at the
  * right of the prompt. */
-// cppcheck-suppress unusedFunction
 void linenoiseSetHintsCallback(linenoiseHintsCallback *fn) {
     hintsCallback = fn;
 }
@@ -456,7 +457,7 @@ void linenoiseSetFreeHintsCallback(linenoiseFreeHintsCallback *fn) {
  * in order to add completion options given the input string when the
  * user typed <tab>. See the example.c source code for a very easy to
  * understand example. */
-// cppcheck-suppress unusedFunction
+
 void linenoiseAddCompletion(linenoiseCompletions *lc, const char *str) {
     size_t len = strlen(str);
     char *copy, **cvec;
@@ -472,7 +473,7 @@ void linenoiseAddCompletion(linenoiseCompletions *lc, const char *str) {
     lc->cvec = cvec;
     lc->cvec[lc->len++] = copy;
 }
-
+#endif
 /* =========================== Line editing ================================= */
 
 /* We define a very simple "append buffer" structure, that is an heap
@@ -556,6 +557,7 @@ static void refreshSingleLine(struct linenoiseState *l) {
     abAppend(&ab,seq,strlen(seq));
     /* Write the prompt and the current buffer content */
     abAppend(&ab,l->prompt,strlen(l->prompt));
+    // cppcheck-suppress knownConditionTrueFalse
     if (maskmode == 1) {
         while (len--) abAppend(&ab,"*",1);
     } else {
@@ -615,6 +617,7 @@ static void refreshMultiLine(struct linenoiseState *l) {
 
     /* Write the prompt and the current buffer content */
     abAppend(&ab,l->prompt,strlen(l->prompt));
+    // cppcheck-suppress knownConditionTrueFalse
     if (maskmode == 1) {
         size_t i;
         for (i = 0; i < l->len; i++) abAppend(&ab,"*",1);
@@ -688,6 +691,7 @@ static int linenoiseEditInsert(struct linenoiseState *l, char c) {
             if ((!mlmode && l->plen+l->len < l->cols && !hintsCallback)) {
                 /* Avoid a full update of the line in the
                  * trivial case. */
+                // cppcheck-suppress knownConditionTrueFalse
                 char d = (maskmode==1) ? '*' : c;
                 if (write(l->ofd,&d,1) == -1) return -1;
             } else {
@@ -996,7 +1000,7 @@ static int linenoiseProcessChar(struct linenoiseState *l, char c) {
 
    return -2;
 }
-
+#if 0
 static int linenoiseEdit(int stdin_fd, int stdout_fd, char *buf, size_t buflen, const char *prompt)
 {
 
@@ -1032,7 +1036,7 @@ static int linenoiseEdit(int stdin_fd, int stdout_fd, char *buf, size_t buflen, 
     }
     return (int)l.len;
 }
-
+#endif
 /* This special mode is used by linenoise in order to print scan codes
  * on screen for debugging / development purposes. It is implemented
  * by the linenoise_example program using the --keycodes option. */
@@ -1062,7 +1066,7 @@ void linenoisePrintKeyCodes(void) {
     disableRawMode(STDIN_FILENO);
 }
 #endif
-
+#if 0
 /* This function calls the line editing function linenoiseEdit() using
  * the STDIN file descriptor set in raw mode. */
 static int linenoiseRaw(char *buf, size_t buflen, const char *prompt) {
@@ -1126,7 +1130,7 @@ static char *linenoiseNoTTY(void) {
  * for a blacklist of stupid terminals, and later either calls the line
  * editing function or uses dummy fgets() so that you will be able to type
  * something even in the most desperate of the conditions. */
-// cppcheck-suppress unusedFunction
+
 char *linenoise(const char *prompt) {
     char buf[LINENOISE_MAX_LINE];
     int count;
@@ -1158,11 +1162,10 @@ char *linenoise(const char *prompt) {
  * the linenoise returned buffer is freed with the same allocator it was
  * created with. Useful when the main program is using an alternative
  * allocator. */
-// cppcheck-suppress unusedFunction
 void linenoiseFree(void *ptr) {
     free(ptr);
 }
-
+#endif
 /* ================================ History ================================= */
 
 /* Free the history, but does not reset it. Only used when we have to
@@ -1225,7 +1228,7 @@ int linenoiseHistoryAdd(const char *line) {
  * if there is already some history, the function will make sure to retain
  * just the latest 'len' elements if the new history length value is smaller
  * than the amount of items already inside the history. */
-// cppcheck-suppress unusedFunction
+#if 0
 int linenoiseHistorySetMaxLen(int len) {
     char **new;
 
@@ -1256,7 +1259,7 @@ int linenoiseHistorySetMaxLen(int len) {
 
 /* Save the history in the specified file. On success 0 is returned
  * otherwise -1 is returned. */
-// cppcheck-suppress unusedFunction
+
 int linenoiseHistorySave(const char *filename) {
     mode_t old_umask = umask(S_IXUSR|S_IRWXG|S_IRWXO);
     FILE *fp;
@@ -1281,7 +1284,7 @@ int linenoiseHistorySave(const char *filename) {
  *
  * If the file exists and the operation succeeded 0 is returned, otherwise
  * on error -1 is returned. */
-// cppcheck-suppress unusedFunction
+
 int linenoiseHistoryLoad(const char *filename) {
     FILE *fp = fopen(filename,"r");
     char buf[LINENOISE_MAX_LINE];
@@ -1299,7 +1302,7 @@ int linenoiseHistoryLoad(const char *filename) {
     fclose(fp);
     return 0;
 }
-
+#endif
 /* ========================= Asynchronous Interface ========================= */
 
 static char ln_buf[LINENOISE_MAX_LINE];
