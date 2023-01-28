@@ -1604,7 +1604,7 @@ void fb_show_splash_screen() {
    fb_writes("  CALL &300 to install OSWRCH redirector\r\n");
    fb_writes("  CALL &2000 to list available Co Pros\r\n\n");
 
-   sprintf(buffer, "This is mode %d: %dx%d with %d colours",
+   sprintf(buffer, "This is mode %d: %dx%d with %u colours",
            screen->mode_num, screen->width, screen->height, screen->ncolour + 1);
    fb_writes(buffer);
 
