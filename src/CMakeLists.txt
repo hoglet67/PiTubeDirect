@@ -79,8 +79,6 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --specs=nano.specs --specs=nosys.specs -u _
 
 #set( CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -Wl,--print-gc-sections -Wl,-unresolved-symbols=ignore-in-object-files -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
 
-set( CMAKE_EXE_LINKER_FLAGS "-Wl,--no-warn-rwx-segments" ) # fix binbutils 2.39 warning in gcc 12
-
 set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -Wl,-T,${PROJECT_SOURCE_DIR}/rpi.ld" )
 
 
