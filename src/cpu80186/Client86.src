@@ -462,7 +462,7 @@ CALL L19F7              ; Print "/"
 L0B6F:
 MOV  BX,SI
 CALL L185A              ; Print fault address in hex
-CLI                     ; Disable interupts
+CLI                     ; Disable interrupts
 HLT                     ; And stop.
 L0B76:  DB 13,10,"Ram fault type ",0
 ;
