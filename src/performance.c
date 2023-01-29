@@ -170,8 +170,7 @@ void reset_performance_counters(perf_counters_t *pct) {
 #else
 
    // Only two counters (0 and 1) are supported on the arm11
-   // cppcheck false positives
-   ctrl |= pct->type[0] << 20; // cppcheck-suppress ctuuninitvar
+   ctrl |= pct->type[0] << 20;
    ctrl |= pct->type[1] << 12;
    asm volatile ("mcr p15,0,%0,c15,c12,0" :: "r" (ctrl) : "memory");
 #endif

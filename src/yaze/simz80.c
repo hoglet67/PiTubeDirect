@@ -2086,7 +2086,6 @@ simz80_execute(int tube_cycles)
       case 0x40:         /* IN B,(C) */
          temp = Input(BC);
          Sethreg(BC, temp);
-         // cppcheck-suppress badBitmaskCheck
          AF = (AF & (uint32_t)~0xfe) | (temp & 0xa8) |
             (uint32_t)(((temp & 0xff) == 0) << 6) |
             parity(temp);
@@ -2147,7 +2146,6 @@ simz80_execute(int tube_cycles)
       case 0x48:         /* IN C,(C) */
          temp = Input(BC);
          Setlreg(BC, temp);
-         // cppcheck-suppress badBitmaskCheck
          AF = (AF & (uint32_t)~0xfe) | (temp & 0xa8) |
             (uint32_t)(((temp & 0xff) == 0) << 6) |
             parity(temp);
@@ -2177,7 +2175,6 @@ simz80_execute(int tube_cycles)
       case 0x50:         /* IN D,(C) */
          temp = Input(BC);
          Sethreg(DE, temp);
-         // cppcheck-suppress badBitmaskCheck
          AF = (AF & (uint32_t)~0xfe) | (temp & 0xa8) |
             (uint32_t)(((temp & 0xff) == 0) << 6) |
             parity(temp);
@@ -2211,7 +2208,6 @@ simz80_execute(int tube_cycles)
       case 0x58:         /* IN E,(C) */
          temp = Input(BC);
          Setlreg(DE, temp);
-         // cppcheck-suppress badBitmaskCheck
          AF = (AF & (uint32_t)~0xfe) | (temp & 0xa8) |
             (uint32_t)(((temp & 0xff) == 0) << 6) |
             parity(temp);
@@ -2246,7 +2242,6 @@ simz80_execute(int tube_cycles)
       case 0x60:         /* IN H,(C) */
          temp = Input(BC);
          Sethreg(HL, temp);
-         // cppcheck-suppress badBitmaskCheck
          AF = (AF & (uint32_t)~0xfe) | (temp & 0xa8) |
             (uint32_t)(((temp & 0xff) == 0) << 6) |
             parity(temp);
@@ -2280,7 +2275,6 @@ simz80_execute(int tube_cycles)
       case 0x68:         /* IN L,(C) */
          temp = Input(BC);
          Setlreg(HL, temp);
-         // cppcheck-suppress badBitmaskCheck
          AF = (AF & (uint32_t)~0xfe) | (temp & 0xa8) |
             (uint32_t)(((temp & 0xff) == 0) << 6) |
             parity(temp);
@@ -2314,7 +2308,6 @@ simz80_execute(int tube_cycles)
       case 0x70:         /* IN F,(C) */
          temp = Input(BC);
          Setlreg(temp, temp);
-         // cppcheck-suppress badBitmaskCheck
          AF = (AF &(uint32_t) ~0xfe) | (temp & 0xa8) |
             (uint32_t)(((temp & 0xff) == 0) << 6) |
             parity(temp);
@@ -2341,7 +2334,6 @@ simz80_execute(int tube_cycles)
       case 0x78:         /* IN A,(C) */
          temp = Input(BC);
          Sethreg(AF, temp);
-         // cppcheck-suppress badBitmaskCheck
          AF = (AF & (uint32_t)~0xfe) | (temp & 0xa8) |
             (uint32_t)(((temp & 0xff) == 0) << 6) |
             parity(temp);
