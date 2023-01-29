@@ -38,7 +38,7 @@ enum register_numbers {
 };
 
 // NULL pointer terminated list of register names.
-static const char *dbg_reg_names[] = {
+static const char * const dbg_reg_names[] = {
    "R0",
    "R1",
    "R2",
@@ -62,7 +62,7 @@ static const char *dbg_reg_names[] = {
 };
 
 
-static const char *opcode_names[] = {
+static const char * const opcode_names[] = {
    "mov",
    "movt",
    "xor",
@@ -97,7 +97,7 @@ static const char *opcode_names[] = {
    "lld"
 };
 
-static const char *pred_names[] = {
+static const char * const pred_names[] = {
    "",
    "0.",
    "z.",
@@ -109,7 +109,7 @@ static const char *pred_names[] = {
 };
 
 // NULL pointer terminated list of trap names.
-static const char *dbg_trap_names[] = {
+static const char * const dbg_trap_names[] = {
    NULL
 };
 

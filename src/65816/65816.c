@@ -51,7 +51,7 @@ static int inwai;
               4 = emulation*/
 
 static int cpumode;
-static void (**modeptr)(void);
+static void (* const *modeptr)(void);
 
 /*Current opcode*/
 static uint8_t w65816opcode;
@@ -73,7 +73,7 @@ static uint32_t toldpc;
 
 #ifdef INCLUDE_DEBUGGER
 
-static const char *dbg65816_reg_names[] = { "AB", "X", "Y", "S", "P", "PC", "DP", "DB", "PB", NULL };
+static const char * const dbg65816_reg_names[] = { "AB", "X", "Y", "S", "P", "PC", "DP", "DB", "PB", NULL };
 
 static int dbg_w65816 = 0;
 
@@ -4315,7 +4315,7 @@ static void stp(void)
 }
 
 /*Opcode table*/
-static void (*opcodes[5][256])() =
+static void (* const opcodes[5][256])() =
 {
     {
         op_brk,             /* X1M1 00 */

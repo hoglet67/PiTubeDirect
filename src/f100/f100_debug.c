@@ -23,7 +23,7 @@ enum register_numbers {
 };
 
 // NULL pointer terminated list of register names.
-static const char *dbg_reg_names[] = {
+static const char * const dbg_reg_names[] = {
    "ACC",
    "OR",
    "PC",
@@ -32,21 +32,21 @@ static const char *dbg_reg_names[] = {
 };
 
 
-static const char *bit_names[] = {
+static const char * const bit_names[] = {
    "???",    // F=0; T=0; S=3; J=0 (Not to be used)
    "???",    // F=0; T=0; S=3; J=1 (Not to be used)
    "SET",    // F=0; T=0; S=3; J=2
    "CLR"     // F=0; T=0; S=3; J=3
 };
 
-static const char *jmp_names[] = {
+static const char * const jmp_names[] = {
    "JBC",    // F=0; T=0; S=2; J=0
    "JBS",    // F=0; T=0; S=2; J=1
    "JCS",    // F=0; T=0; S=2; J=2
    "JSC"     // F=0; T=0; S=2; J=3
  };
 
-static const char *shift_names[] = {
+static const char * const shift_names[] = {
    "SRA",    // F=0; T=0; S=0; J=0
    "SRA",    // F=0; T=0; S=0; J=1
    "SRL",    // F=0; T=0; S=0; J=2
@@ -57,12 +57,12 @@ static const char *shift_names[] = {
    "SLE"     // F=0; T=0; S=1; J=3
 };
 
-static const char *rtn_names[] = {
+static const char * const rtn_names[] = {
    "RTN",    // F=3; I=0
    "RTC",    // F=3; I=1
  };
 
-static const char *opcode_names[] = {
+static const char * const opcode_names[] = {
    "",       // F=0 - broken out above
    "SJM",    // F=1
    "CAL",    // F=2

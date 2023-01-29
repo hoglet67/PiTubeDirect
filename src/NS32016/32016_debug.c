@@ -37,7 +37,7 @@ enum register_numbers {
 };
 
 // NULL pointer terminated list of register names.
-static const char *dbg_reg_names[] = {
+static const char * const dbg_reg_names[] = {
    "PC",
    "R0",
    "R1",
@@ -225,4 +225,3 @@ const cpu_debug_t n32016_cpu_debug = {
    .get_instr_addr = dbg_get_instr_addr,
    .trap_names     = dbg_trap_names
 };
-

@@ -41,7 +41,7 @@ extern unsigned int copro;
 #define MODE_BREAK    2
 
 // Breakpoint Mode Strings, should match the modes above
-static const char *modeStrings[NUM_MODES] = {
+static const char * const modeStrings[NUM_MODES] = {
    "<internal>",
    "watchpoint",
    "breakpoint"
@@ -753,7 +753,7 @@ static void doCmdHelp(const char *params) {
 
 static void doCmdRegs(const char *params) {
    const cpu_debug_t *cpu = getCpu();
-   const char **reg = cpu->reg_names;
+   const char * const *reg = cpu->reg_names;
    char name[100];
    char value[100];
    int num_params = sscanf(params, "%99s %99s", name, value);
@@ -792,7 +792,7 @@ static void doCmdRegs(const char *params) {
 
 static void doCmdTraps(const char *params) {
    const cpu_debug_t *cpu = getCpu();
-   const char **trap = cpu->trap_names;
+   const char * const *trap = cpu->trap_names;
    if (*trap) {
       while (*trap) {
          printf("%s\r\n", *trap);

@@ -629,11 +629,11 @@ static const unsigned char map2[] = {
 
 static const char regi[] = { 'X', 'Y', 'U', 'S' };
 
-static const char *exgi[] = { "D", "X", "Y", "U", "S", "PC", "??", "??", "A",
+static const char * const exgi[] = { "D", "X", "Y", "U", "S", "PC", "??", "??", "A",
                               "B", "CC", "DP", "??", "??", "??", "??" };
 
-static const char *pshsregi[] = { "PC", "U", "Y", "X", "DP", "B", "A", "CC" };
-static const char *pshuregi[] = { "PC", "S", "Y", "X", "DP", "B", "A", "CC" };
+static const char * const pshsregi[] = { "PC", "U", "Y", "X", "DP", "B", "A", "CC" };
+static const char * const pshuregi[] = { "PC", "S", "Y", "X", "DP", "B", "A", "CC" };
 
 static char *str_buf;
 static size_t str_bufsize;
@@ -938,4 +938,3 @@ uint32_t mc6809_disassemble(uint32_t addr, char *buf, size_t bufsize)
    stringInit(buf, bufsize);
    return disassemble(addr);
 }
-

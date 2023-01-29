@@ -38,7 +38,7 @@ enum register_numbers {
 };
 
 // NULL pointer terminated list of register names.
-static const char *dbg_reg_names[] = {
+static const char * const dbg_reg_names[] = {
    "IP",
    "FLAGS",
    "AX",

@@ -964,7 +964,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 {
 #if defined(__GNUC__) && !defined(__STRICT_ANSI__)
 
-  static void *itab[256]= { &&_00, &&_01, &&_02, &&_03, &&_04, &&_05, &&_06, &&_07, &&_08, &&_09, &&_0a, &&_0b, &&_0c, &&_0d, &&_0e, &&_0f,
+  static const void *itab[256]= { &&_00, &&_01, &&_02, &&_03, &&_04, &&_05, &&_06, &&_07, &&_08, &&_09, &&_0a, &&_0b, &&_0c, &&_0d, &&_0e, &&_0f,
 			    &&_10, &&_11, &&_12, &&_13, &&_14, &&_15, &&_16, &&_17, &&_18, &&_19, &&_1a, &&_1b, &&_1c, &&_1d, &&_1e, &&_1f,
 			    &&_20, &&_21, &&_22, &&_23, &&_24, &&_25, &&_26, &&_27, &&_28, &&_29, &&_2a, &&_2b, &&_2c, &&_2d, &&_2e, &&_2f,
 			    &&_30, &&_31, &&_32, &&_33, &&_34, &&_35, &&_36, &&_37, &&_38, &&_39, &&_3a, &&_3b, &&_3c, &&_3d, &&_3e, &&_3f,
@@ -981,8 +981,8 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 			    &&_e0, &&_e1, &&_e2, &&_e3, &&_e4, &&_e5, &&_e6, &&_e7, &&_e8, &&_e9, &&_ea, &&_eb, &&_ec, &&_ed, &&_ee, &&_ef,
 			    &&_f0, &&_f1, &&_f2, &&_f3, &&_f4, &&_f5, &&_f6, &&_f7, &&_f8, &&_f9, &&_fa, &&_fb, &&_fc, &&_fd, &&_fe, &&_ff };
 
-  register void **itabp= &itab[0];
-  register void  *tpc;
+  //register const void **itabp= &itab[0];
+  //register void  *tpc;
 
 #ifdef INCLUDE_DEBUGGER
 # define debug() 	   if (lib6502_debug_enabled) { lib6502_last_PC = PC; externalise(); debug_preexec(&lib6502_cpu_debug, PC); internalise(); }
@@ -993,7 +993,7 @@ void M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll)
 # define pollints()        if (tube_irq & 7) { externalise(); if (poll(mpu)) return; internalise(); }
 # define begin()				fetch();  next()
 # define fetch()
-# define next()            debug(); pollints(); tpc= itabp[MEM(PC++)]; goto *tpc
+# define next()            debug(); pollints(); goto *itab[MEM(PC++)]; // tpc= itabp[MEM(PC++)]; goto *tpc
 # define dispatch(num, name, mode, cycles)	_##num: name(cycles, mode) //oops();  next()
 # define end()
 

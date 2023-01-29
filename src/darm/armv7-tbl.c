@@ -230,7 +230,7 @@ const darm_instr_t type_pusr_instr_lookup[] = {
     I_UXTAB16, I_UXTB16, I_INVLD, I_INVLD, I_UXTAB, I_UXTB, I_UXTAH, I_UXTH
 };
 
-const char *armv7_format_strings[479][3] = {
+const char * const armv7_format_strings[479][3] = {
     [I_ADC] = {"scdnmS", "scdni"},
     [I_ADD] = {"scdnmS", "scdni"},
     [I_ADR] = {"cdb"},

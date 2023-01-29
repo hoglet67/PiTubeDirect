@@ -45,5 +45,5 @@ extern const darm_instr_t type_pas_instr_lookup[64];
 extern const darm_instr_t type_sat_instr_lookup[4];
 extern const darm_instr_t type_sync_instr_lookup[16];
 extern const darm_instr_t type_pusr_instr_lookup[16];
-extern const char *armv7_format_strings[479][3];
+extern const char * const armv7_format_strings[479][3];
 #endif
