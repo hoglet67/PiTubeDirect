@@ -12,9 +12,6 @@ typedef struct {
 } clock_info_t;
 
 /* Cached on boot, so this is safe to call at any time */
-extern void init_info();
-
-/* Cached on boot, so this is safe to call at any time */
 extern uint32_t get_speed();
 
 /* Cached on boot, so this is safe to call at any time */

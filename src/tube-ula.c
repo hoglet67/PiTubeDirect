@@ -804,6 +804,7 @@ void tube_init_hardware()
          break;
 
       case 0x110: // RPI 4B
+      case 0x140: // CM4
          led_type = 4;
          RPI_SetGpioPinFunction(42, FS_OUTPUT); // LED is GPIO 42
          break;
@@ -839,9 +840,6 @@ void tube_init_hardware()
 
    // Run out Tube Handler code on 2nd VPU Core
    start_vc_ula();
-
-   // Initialise the info system with cached values (as we break the GPU property interface)
-   init_info();
 
 #ifdef DEBUG
    dump_useful_info();

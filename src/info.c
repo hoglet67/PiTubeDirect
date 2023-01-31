@@ -249,9 +249,3 @@ void dump_useful_info() {
       cs = "0 (default)";
    LOG_INFO("               COPRO : %s\r\n", cs);
 }
-
-extern void init_info() {
-  get_speed();
-  get_info_string();
-  get_cmdline();
-}
