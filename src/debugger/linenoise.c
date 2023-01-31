@@ -1309,18 +1309,13 @@ static char ln_buf[LINENOISE_MAX_LINE];
 
 char *linenoise_async_rxchar(char c, const char *prompt) {
 
-    static int initmode = 1;
-    static int initline = 1;
+    static int initline = 0;
     static struct linenoiseState l;
 
-    if (initmode) {
-        initmode = 0;
-    }
-
-    if (initline) {
+    if (!initline) {
         linenoiseInitLine(&l, STDIN_FILENO, STDOUT_FILENO,  ln_buf, sizeof(ln_buf), prompt);
         refreshLine(&l);
-        initline = 0;
+        initline = 1;
     }
 
     int ret = linenoiseProcessChar(&l, c);
@@ -1331,7 +1326,7 @@ char *linenoise_async_rxchar(char c, const char *prompt) {
         printf("An error has occurred in linenoise\r\n");
         return NULL;
     } else {
-        initline = 1;
+        initline = 0;
         linenoiseHistoryAdd(ln_buf);
         return ln_buf;
     }

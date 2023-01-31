@@ -740,11 +740,17 @@ void tube_init_hardware()
    // early 26pin pins have a slightly different pin out
    switch (revision)
       {
-      case 0x02:
-      case 0x03:
-         // Write 1 to the LED init nibble in the Function Select GPIO
-         // peripheral register to enable LED pin as an output
-         RPI_GpioBase-> GPFSEL[1] |= 1<<18;
+      case 0x02:  // rpi1 rev 1.0
+      case 0x03:  // rpi1 rev 1.0
+      case 0x04:  // rpi1 rev 2.0
+      case 0x05:  // rpi1 rev 2.0
+      case 0x06:  // rpi1 rev 2.0
+      case 0x07:  // rpi1 rev 2.0
+      case 0x08:  // rpi1 rev 2.0
+      case 0x09:  // rpi1 rev 2.0
+      case 0x0D:  // rpi1 rev 2.0
+      case 0x0E:  // rpi1 rev 2.0
+      case 0x0F:  // rpi1 rev 2.0
          // cppcheck-suppress badBitmaskCheck
          host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
          RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
@@ -776,43 +782,44 @@ void tube_init_hardware()
    // LED type 2 means no LED supported (Pi 3)
    // LED type 3 is GPIO 29
    // LED type 4 is GPIO 42
-   switch (revision) {
+   switch (revision)
+   {
+      case 0x02:  // rpi1 rev 1.0
+      case 0x03:  // rpi1 rev 1.0
+      case 0x04:  // rpi1 rev 2.0
+      case 0x05:  // rpi1 rev 2.0
+      case 0x06:  // rpi1 rev 2.0
+      case 0x07:  // rpi1 rev 2.0
+      case 0x08:  // rpi1 rev 2.0
+      case 0x09:  // rpi1 rev 2.0
+      case 0x0D:  // rpi1 rev 2.0
+      case 0x0E:  // rpi1 rev 2.0
+      case 0x0F:  // rpi1 rev 2.0
+         led_type = 0;
+         RPI_SetGpioPinFunction(16, FS_OUTPUT); // LED is GPIO 16
+         break;
 
-   case 0x02:  // rpi1 rev 1.0
-   case 0x03:  // rpi1 rev 1.0
-   case 0x04:  // rpi1 rev 2.0
-   case 0x05:  // rpi1 rev 2.0
-   case 0x06:  // rpi1 rev 2.0
-   case 0x07:  // rpi1 rev 2.0
-   case 0x08:  // rpi1 rev 2.0
-   case 0x09:  // rpi1 rev 2.0
-   case 0x0D:  // rpi1 rev 2.0
-   case 0x0E:  // rpi1 rev 2.0
-   case 0x0F:  // rpi1 rev 2.0
-      led_type = 0;
-      break;
+      case 0x080: // RPI 3B (no LED supported)
+         led_type = 2;
+         break;
 
-   case 0x080: // RPI 3B (no LED supported)
-      led_type = 2;
-      break;
+      case 0x110: // RPI 4B
+         led_type = 4;
+         RPI_SetGpioPinFunction(42, FS_OUTPUT); // LED is GPIO 42
+         break;
 
-   case 0x110: // RPI 4B
-      led_type = 4;
-      RPI_GpioBase-> GPFSEL[4] |= 1<<6; // LED is GPIO 42
-      break;
+      case 0x0e0 : // RPI 3A+
+      case 0x0d0 : // RPI 3B+
+      case 0x120 : // RPI Zero 2 W
+         led_type = 3;
+         RPI_SetGpioPinFunction(29, FS_OUTPUT); // LED is GPIO 29
+         break;
 
-   case 0x0e0 : // RPI 3A+
-   case 0x0d0 : // RPI 3B+
-   case 0x120 : // RPI Zero 2 W
-      led_type = 3;
-      RPI_GpioBase-> GPFSEL[2] |= 1<<27; // LED is GPIO 29
-      break;
-
-   default :
-      // All other models
-      led_type = 1;
-      RPI_GpioBase-> GPFSEL[4] |= 1<<21; // LED is GPIO 47
-      break;
+      default :
+         // All other models
+         led_type = 1;
+         RPI_SetGpioPinFunction(29, FS_OUTPUT); // LED is GPIO 47
+         break;
    }
 
    // Configure our pins as inputs
