@@ -474,55 +474,27 @@ void linenoiseAddCompletion(linenoiseCompletions *lc, const char *str) {
     lc->cvec[lc->len++] = copy;
 }
 #endif
-/* =========================== Line editing ================================= */
-
-/* We define a very simple "append buffer" structure, that is an heap
- * allocated string where we can append to. This is useful in order to
- * write all the escape sequences in a buffer and flush them to the standard
- * output in a single call, to avoid flickering effects. */
-struct abuf {
-    char *b;
-    unsigned int len;
-};
-
-static void abInit(struct abuf *ab) {
-    ab->b = NULL;
-    ab->len = 0;
-}
-
-static void abAppend(struct abuf *ab, const char *s, unsigned int len) {
-    char *new = realloc(ab->b,ab->len+len);
-
-    if (new == NULL) return;
-    memcpy(new+ab->len,s,len);
-    ab->b = new;
-    ab->len += len;
-}
-
-static void abFree(struct abuf *ab) {
-    free(ab->b);
-}
 
 /* Helper of refreshSingleLine() and refreshMultiLine() to show hints
  * to the right of the prompt. */
-static void refreshShowHints(struct abuf *ab, struct linenoiseState *l, size_t plen) {
-    if (hintsCallback && plen+l->len < l->cols) {
+static void refreshShowHints(struct linenoiseState *l) {
+    if (hintsCallback && l->plen+l->len < l->cols) {
         int color = -1, bold = 0;
         char *hint = hintsCallback(l->buf,&color,&bold);
         if (hint) {
-            char seq[64];
             size_t hintlen = strlen(hint);
-            size_t hintmaxlen = l->cols-(plen+l->len);
+            size_t hintmaxlen = l->cols-(l->plen+l->len);
             if (hintlen > hintmaxlen) hintlen = hintmaxlen;
             if (bold == 1 && color == -1) color = 37;
             if (color != -1 || bold != 0)
-                snprintf(seq,64,"\033[%d;%d;49m",bold,color);
-            else
-                seq[0] = '\0';
-            abAppend(ab,seq,strlen(seq));
-            abAppend(ab,hint,hintlen);
+                {
+                    char seq[64];
+                    snprintf(seq,64,"\033[%d;%d;49m",bold,color);
+                    if (write(l->ofd,seq,strlen(seq)) == -1) {} /* Can't recover from write error. */
+                }
+            if (write(l->ofd,hint,hintlen) == -1) {} /* Can't recover from write error. */
             if (color != -1 || bold != 0)
-                abAppend(ab,"\033[0m",4);
+                if (write(l->ofd,"\033[0m",4) == -1) {} /* Can't recover from write error. */
             /* Call the function to free the hint returned. */
             if (freeHintsCallback) freeHintsCallback(hint);
         }
@@ -535,44 +507,35 @@ static void refreshShowHints(struct abuf *ab, struct linenoiseState *l, size_t p
  * cursor position, and number of columns of the terminal. */
 static void refreshSingleLine(struct linenoiseState *l) {
     char seq[64];
-    size_t plen = strlen(l->prompt);
-    int fd = l->ofd;
     char *buf = l->buf;
     size_t len = l->len;
     size_t pos = l->pos;
-    struct abuf ab;
 
-    while((plen+pos) >= l->cols) {
+    while((l->plen+pos) >= l->cols) {
         buf++;
         len--;
         pos--;
     }
-    while (plen+len > l->cols) {
+    while (l->plen+len > l->cols) {
         len--;
     }
-
-    abInit(&ab);
     /* Cursor to left edge */
-    snprintf(seq,64,"\r");
-    abAppend(&ab,seq,strlen(seq));
+    if (write(l->ofd,"\r",1) == -1) {} /* Can't recover from write error. */
     /* Write the prompt and the current buffer content */
-    abAppend(&ab,l->prompt,strlen(l->prompt));
+    if (write(l->ofd,l->prompt,l->plen) == -1) {} /* Can't recover from write error. */
     // cppcheck-suppress knownConditionTrueFalse
     if (maskmode == 1) {
-        while (len--) abAppend(&ab,"*",1);
+        while (len--) { if (write(l->ofd,"*",1) == -1) {} }
     } else {
-        abAppend(&ab,buf,len);
+        if (write(l->ofd,buf,len) == -1) {} /* Can't recover from write error. */
     }
     /* Show hits if any. */
-    refreshShowHints(&ab,l,plen);
+    refreshShowHints(l);
     /* Erase to right */
-    snprintf(seq,64,"\x1b[0K");
-    abAppend(&ab,seq,strlen(seq));
+    if (write(l->ofd,"\x1b[0K",4) == -1) {} /* Can't recover from write error. */
     /* Move cursor to original position. */
-    snprintf(seq,64,"\r\x1b[%dC", (int)(pos+plen));
-    abAppend(&ab,seq,strlen(seq));
-    if (write(fd,ab.b,ab.len) == -1) {} /* Can't recover from write error. */
-    abFree(&ab);
+    snprintf(seq,64,"\r\x1b[%dC", (int)(pos+l->plen));
+    if (write(l->ofd,seq,strlen(seq)) == -1) {} /* Can't recover from write error. */
 }
 
 /* Multi line low level line refresh.
@@ -581,92 +544,80 @@ static void refreshSingleLine(struct linenoiseState *l) {
  * cursor position, and number of columns of the terminal. */
 static void refreshMultiLine(struct linenoiseState *l) {
     char seq[64];
-    size_t plen = strlen(l->prompt);
-    size_t rows = (plen+l->len+l->cols-1)/l->cols; /* rows used by current buf. */
-    size_t rpos = (plen+l->oldpos+l->cols)/l->cols; /* cursor relative row. */
+    size_t rows = (l->plen+l->len+l->cols-1)/l->cols; /* rows used by current buf. */
+    size_t rpos = (l->plen+l->oldpos+l->cols)/l->cols; /* cursor relative row. */
     size_t rpos2; /* rpos after refresh. */
     size_t col; /* column position, zero-based. */
     size_t old_rows = l->maxrows;
-    int fd = l->ofd;
     size_t j;
-    struct abuf ab;
 
     /* Update maxrows if needed. */
     if (rows > l->maxrows) l->maxrows = rows;
 
     /* First step: clear all the lines used before. To do so start by
      * going to the last row. */
-    abInit(&ab);
     if (old_rows-rpos > 0) {
         lndebug("go down %d", old_rows-rpos);
         snprintf(seq,64,"\x1b[%uB", (unsigned int)(old_rows-rpos));
-        abAppend(&ab,seq,strlen(seq));
+        if (write(l->ofd,seq,strlen(seq)) == -1) {} /* Can't recover from write error. */
     }
 
     /* Now for every row clear it, go up. */
     for (j = 0; j < old_rows-1; j++) {
         lndebug("clear+up");
-        snprintf(seq,64,"\r\x1b[0K\x1u[1A");
-        abAppend(&ab,seq,strlen(seq));
+        if (write(l->ofd,"\r\x1b[0K\x1u[1A",10) == -1) {} /* Can't recover from write error. */
     }
 
     /* Clean the top line. */
     lndebug("clear");
-    snprintf(seq,64,"\r\x1b[0K");
-    abAppend(&ab,seq,strlen(seq));
+    if (write(l->ofd,"\r\x1b[0K",5) == -1) {} /* Can't recover from write error. */
 
     /* Write the prompt and the current buffer content */
-    abAppend(&ab,l->prompt,strlen(l->prompt));
+    if (write(l->ofd,l->prompt,l->plen) == -1) {} /* Can't recover from write error. */
     // cppcheck-suppress knownConditionTrueFalse
     if (maskmode == 1) {
-        size_t i;
-        for (i = 0; i < l->len; i++) abAppend(&ab,"*",1);
+        for ( size_t i = 0; i < l->len; i++) {if (write(l->ofd,"*",1) == -1) {} }
     } else {
-        abAppend(&ab,l->buf,l->len);
+        if (write(l->ofd,l->buf,l->len) == -1) {} /* Can't recover from write error. */
     }
 
     /* Show hits if any. */
-    refreshShowHints(&ab,l,plen);
+    refreshShowHints(l);
 
     /* If we are at the very end of the screen with our prompt, we need to
      * emit a newline and move the prompt to the first column. */
     if (l->pos &&
         l->pos == l->len &&
-        (l->pos+plen) % l->cols == 0)
+        (l->pos+l->plen) % l->cols == 0)
     {
         lndebug("<newline>");
-        abAppend(&ab,"\n",1);
-        snprintf(seq,64,"\r");
-        abAppend(&ab,seq,strlen(seq));
+        if (write(l->ofd,"\n\r",2) == -1) {} /* Can't recover from write error. */
         rows++;
         if (rows > l->maxrows) l->maxrows = rows;
     }
 
     /* Move cursor to right position. */
-    rpos2 = (plen+l->pos+l->cols)/l->cols; /* current cursor relative row. */
+    rpos2 = (l->plen+l->pos+l->cols)/l->cols; /* current cursor relative row. */
     lndebug("rpos2 %d", rpos2);
 
     /* Go up till we reach the expected position. */
     if (rows-rpos2 > 0) {
         lndebug("go-up %d", rows-rpos2);
         snprintf(seq,64,"\x1b[%uA", (unsigned int)(rows-rpos2));
-        abAppend(&ab,seq,strlen(seq));
+        if (write(l->ofd,seq,strlen(seq)) == -1) {} /* Can't recover from write error. */
     }
 
     /* Set column. */
-    col = (plen+l->pos) % l->cols;
+    col = (l->plen+l->pos) % l->cols;
     lndebug("set col %d", 1+col);
     if (col)
         snprintf(seq,64,"\r\x1b[%uC", (unsigned int)col);
     else
         snprintf(seq,64,"\r");
-    abAppend(&ab,seq,strlen(seq));
+    if (write(l->ofd,seq,strlen(seq)) == -1) {} /* Can't recover from write error. */
 
     lndebug("\n");
     l->oldpos = l->pos;
-
-    if (write(fd,ab.b,ab.len) == -1) {} /* Can't recover from write error. */
-    abFree(&ab);
 }
 
 /* Calls the two low level functions refreshSingleLine() or
@@ -1305,7 +1256,7 @@ int linenoiseHistoryLoad(const char *filename) {
 #endif
 /* ========================= Asynchronous Interface ========================= */
 
-static char ln_buf[LINENOISE_MAX_LINE];
+__attribute__ ((section (".noinit")))  static char ln_buf[LINENOISE_MAX_LINE];
 
 char *linenoise_async_rxchar(char c, const char *prompt) {
 
