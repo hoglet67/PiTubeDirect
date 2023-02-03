@@ -62,6 +62,9 @@ typedef enum {
     TAG_GET_DISPMANX_MEM_HANDLE = 0x30014,
     TAG_GET_EDID_BLOCK = 0x30020,
 
+    TAG_GET_GPIO_STATE  = 0x00030041,
+    TAG_SET_GPIO_STATE  = 0x00038041,
+
     /* Framebuffer */
     TAG_ALLOCATE_BUFFER = 0x40001,
     TAG_RELEASE_BUFFER = 0x48001,
@@ -146,6 +149,7 @@ typedef struct {
 
 extern void RPI_PropertyInit( void );
 extern void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... );
+extern void RPI_PropertySetWord(rpi_mailbox_tag_t tag, uint32_t id, uint32_t data);
 extern int RPI_PropertyProcess( void );
 extern void RPI_PropertyProcessNoCheck( void );
 extern int RPI_PropertyProcessDebug( void );

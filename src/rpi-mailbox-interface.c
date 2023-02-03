@@ -226,6 +226,16 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
     va_end( vl );
 }
 
+void RPI_PropertySetWord(rpi_mailbox_tag_t tag, uint32_t id, uint32_t data)
+{
+    pt_index = 2;
+    pt[pt_index++] = tag;
+    pt[pt_index++] = 8;
+    pt[pt_index++] = 0; /* Request */
+    pt[pt_index++] = id;
+    pt[pt_index++] = data;
+    RPI_PropertyProcess();
+}
 
 static int RPI_PropertyProcessInternal(int debug)
 {
@@ -260,8 +270,9 @@ static int RPI_PropertyProcessInternal(int debug)
     // This caused two issues:
     // - the info debug command would sometimes include null data
     // - a framebuffer mode change would sometimes get a incorrect framebuffer address
+#if defined(RPI4)
     _invalidate_cache_area(pt, pt[0]);
-
+#endif
     if (debug) {
        for (unsigned int i = 0; i < (pt[PT_OSIZE] >> 2); i++ ) {
           LOG_INFO( "Response: %3d %8.8"PRIX32"\r\n", i, pt[i] );
@@ -324,7 +335,7 @@ rpi_mailbox_property_t* RPI_PropertyGet( rpi_mailbox_tag_t tag)
         if( pt[index] == tag )
         {
            tag_buffer = (rpi_mailbox_property_t *)&pt[index];
-           tag_buffer->byte_length = tag_buffer->byte_length &0xFFFF; 
+           tag_buffer->byte_length = tag_buffer->byte_length &0xFFFF;
            break;
         }
 

@@ -733,8 +733,8 @@ void tube_init_hardware()
       // New revision codes, we only care about type
       revision &= 0xFF0;
    } else {
-      // Old revision codes were only 16 bits
-      revision &= 0xFFFF;
+      // Old revision codes only used 5bits
+      revision &= 0x1F;
    }
 
    // early 26pin pins have a slightly different pin out
@@ -801,25 +801,38 @@ void tube_init_hardware()
 
       case 0x080: // RPI 3B (no LED supported)
          led_type = 2;
+         RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off BT
+         RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off Wifi
          break;
 
       case 0x110: // RPI 4B
       case 0x140: // CM4
          led_type = 4;
          RPI_SetGpioPinFunction(42, FS_OUTPUT); // LED is GPIO 42
+         RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off BT
+         RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off Wifi
          break;
 
       case 0x0e0 : // RPI 3A+
       case 0x0d0 : // RPI 3B+
+         RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off BT
+         RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off Wifi
+         led_type = 3;
+         RPI_SetGpioPinFunction(29, FS_OUTPUT); // LED is GPIO 29
+         break;
       case 0x120 : // RPI Zero 2 W
          led_type = 3;
          RPI_SetGpioPinFunction(29, FS_OUTPUT); // LED is GPIO 29
+         RPI_SetGpioLo(41); // turn off Wifi if exists
+         RPI_SetGpioLo(42); // turn off BT  if exists
          break;
 
       default :
          // All other models
          led_type = 1;
          RPI_SetGpioPinFunction(29, FS_OUTPUT); // LED is GPIO 47
+         RPI_SetGpioLo(41); // turn off Wifi if exists
+         RPI_SetGpioLo(45); // turn off BT  if exists
          break;
    }
 
