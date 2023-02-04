@@ -1153,9 +1153,8 @@ int linenoiseHistoryAdd(const char *line) {
 
     /* Initialization on first call. */
     if (history == NULL) {
-        history = malloc(sizeof(char*)*(size_t)history_max_len);
+        history = calloc((size_t)history_max_len,sizeof(char*)); // only neeed to null first element
         if (history == NULL) return 0;
-        memset(history,0,(sizeof(char*)*(size_t)history_max_len));
     }
 
     /* Don't add duplicated lines. */
