@@ -102,21 +102,20 @@ void dissall(unsigned int addr, unsigned length)
          darm_t dis;
          darm_str_t dis_str;
          if (i ==0)
-         {
             dis6502( addr, 12);
-         }
          else
             padding(17);
+
+         dump_hex(jitletaddr,32);
+         RPI_AuxMiniUartWrite(' ');
 
          unsigned int instr = * (unsigned int *) (jitletaddr);
          if (darm_armv7_disasm(&dis, instr) == 0) {
             dis.addr = (jitletaddr);
             darm_str2(&dis, &dis_str, 0);
+            RPI_AuxMiniUartString(dis_str.total,0);
          }
 
-         dump_hex(jitletaddr,32);
-         RPI_AuxMiniUartWrite(' ');
-         RPI_AuxMiniUartString(dis_str.total,0);
          //dump_string(dis_str.total,30);
          /*
          unsigned int tableaddr = (JITTEDTABLE16+(addr<<2));

@@ -23,7 +23,7 @@ void copro_f100_write_mem(uint16_t addr, uint16_t data) {
    }
 #endif
    if ((addr & 0x7FF8) == 0x7EF8) {
-      tube_parasite_write(addr & 7, (uint8_t)data);
+      tube_parasite_write(addr & 7, (uint8_t)(data &0xFF));
       DBG_PRINT("write: %d = %x\r\n", addr & 7, data);
    } else {
      memory[addr] = data;

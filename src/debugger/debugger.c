@@ -712,7 +712,7 @@ static void doCmdWidth(const char *params) {
       i = -1;
    }
    int min = (cpu->mem_width > cpu->io_width) ? cpu->mem_width : cpu->io_width;
-   if (i < min) {
+   if ((i==-1) || (i < min)) {
       printf("Unsupported width, legal values for this Co Pro are\r\n");
       for (i = min; i <= WIDTH_32BITS; i++) {
          printf("    %s\r\n", width_names[i]);
