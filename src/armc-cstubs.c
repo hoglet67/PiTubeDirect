@@ -201,11 +201,8 @@ int _read(int file, char *ptr, int len)
 caddr_t _sbrk(int incr)
 {
   extern char _end;
-  static char* heap_end = 0;
+  static char* heap_end =  &_end;
   char* prev_heap_end;
-
-  if (heap_end == 0)
-    heap_end = &_end;
 
   prev_heap_end = heap_end;
   heap_end += incr;
@@ -248,11 +245,6 @@ int wait(int *status)
   return -1;
 }
 
-static void outbyte(char b)
-{
-  RPI_AuxMiniUartWrite(b);
-}
-
 /* Write to a file. libc subroutines will use this system routine for output to
  all files, including stdout—so if you need to generate any output, for
  example to a serial port for debugging, you should make your minimal write
@@ -264,10 +256,6 @@ static void outbyte(char b)
 // cppcheck-suppress unusedFunction
 int _write(int file, char *ptr, int len)
 {
-  int todo;
-
-  for (todo = 0; todo < len; todo++)
-    outbyte(*ptr++);
-
+  if (len) RPI_AuxMiniUartString( ptr, len);
   return len;
 }

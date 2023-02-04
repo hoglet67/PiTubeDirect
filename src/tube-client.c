@@ -145,14 +145,10 @@ void run_core() {
    // In case the VFP unit is not enabled
 #ifdef DEBUG
    int i;
-   RPI_AuxMiniUartWrite('C');
-   RPI_AuxMiniUartWrite('O');
-   RPI_AuxMiniUartWrite('R');
-   RPI_AuxMiniUartWrite('E');
+   RPI_AuxMiniUartString("CORE",4);
    i = _get_core();
    RPI_AuxMiniUartWrite('0' + i);
-   RPI_AuxMiniUartWrite('\r');
-   RPI_AuxMiniUartWrite('\n');
+   RPI_AuxMiniUartString("\r\n",2);
 #endif
 
    enable_MMU_and_IDCaches();

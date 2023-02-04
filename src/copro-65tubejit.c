@@ -116,7 +116,7 @@ void dissall(unsigned int addr, unsigned length)
 
          dump_hex(jitletaddr,32);
          RPI_AuxMiniUartWrite(' ');
-         dump_string(dis_str.total,0);
+         RPI_AuxMiniUartString(dis_str.total,0);
          //dump_string(dis_str.total,30);
          /*
          unsigned int tableaddr = (JITTEDTABLE16+(addr<<2));
@@ -125,10 +125,8 @@ void dissall(unsigned int addr, unsigned length)
             darm_str2(&dis, &dis_str, 0);
             tableaddr+=4;
          }
-         dump_string(dis_str.total,0);*/
-
-         RPI_AuxMiniUartWrite('\r');
-         RPI_AuxMiniUartWrite('\n');
+         RPI_AuxMiniUartString(dis_str.total,0);*/
+         RPI_AuxMiniUartString("\r\n", 2);
          jitletaddr+=4;
       }
    }

@@ -362,10 +362,7 @@ static void noprompt() {
 }
 
 static void prompt() {
-   int i=0;
-   while ( prompt_str[i] )  {
-      RPI_AuxMiniUartWrite(prompt_str[i++]);
-   }
+   RPI_AuxMiniUartString( prompt_str, 0);
 }
 
 static void cpu_stop() {
@@ -1199,8 +1196,7 @@ void debugger_rx_char(char c) {
       } else {
          cmd[i] = 0;
       }
-      RPI_AuxMiniUartWrite(10);
-      RPI_AuxMiniUartWrite(13);
+      RPI_AuxMiniUartString("\r\n", 2);
       dispatchCmd(cmd);
       prompt();
       i = 0;
