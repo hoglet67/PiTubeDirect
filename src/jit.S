@@ -2008,7 +2008,7 @@ handle_nmi:
 arm_jit_irq_handler:
    sub   lr, lr, #4
    push  {r0, r1, r2, r3, ip, lr}
-   bl    RPI_AuxMiniUartIRQHandler
+   bl    IRQHandler_main
 
    CPSID f
    ldrb  r0,fiqirqflag
