@@ -50,7 +50,7 @@ static void start_vc_ula();
 #include "startup.h"
 
 int test_pin;
-static uint32_t led_type=0;
+static uint32_t led_pin=0;
 
 static volatile uint32_t *tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
 static uint32_t host_addr_bus;
@@ -773,42 +773,16 @@ void tube_init_hardware()
          break;
       }
 
-   // Write 1 to the LED init nibble in the Function Select GPIO
-   // peripheral register to enable LED pin as an output, and set
-   // the appropriate LED type (for the GPU code).
-   //
-   // LED type 0 is GPIO 16
-   // LED type 1 is GPIO 47
-   // LED type 2 means no LED supported (Pi 3)
-   // LED type 3 is GPIO 29
-   // LED type 4 is GPIO 42
+// Turn off Wireless interface
    switch (revision)
    {
-      case 0x02:  // rpi1 rev 1.0
-      case 0x03:  // rpi1 rev 1.0
-      case 0x04:  // rpi1 rev 2.0
-      case 0x05:  // rpi1 rev 2.0
-      case 0x06:  // rpi1 rev 2.0
-      case 0x07:  // rpi1 rev 2.0
-      case 0x08:  // rpi1 rev 2.0
-      case 0x09:  // rpi1 rev 2.0
-      case 0x0D:  // rpi1 rev 2.0
-      case 0x0E:  // rpi1 rev 2.0
-      case 0x0F:  // rpi1 rev 2.0
-         led_type = 0;
-         RPI_SetGpioPinFunction(16, FS_OUTPUT); // LED is GPIO 16
-         break;
-
       case 0x080: // RPI 3B (no LED supported)
-         led_type = 2;
          RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off BT
          RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off Wifi
          break;
 
       case 0x110: // RPI 4B
       case 0x140: // CM4
-         led_type = 4;
-         RPI_SetGpioPinFunction(42, FS_OUTPUT); // LED is GPIO 42
          RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off BT
          RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off Wifi
          break;
@@ -817,24 +791,32 @@ void tube_init_hardware()
       case 0x0d0 : // RPI 3B+
          RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off BT
          RPI_PropertySetWord(TAG_SET_GPIO_STATE, 128+0, 0); // turn off Wifi
-         led_type = 3;
-         RPI_SetGpioPinFunction(29, FS_OUTPUT); // LED is GPIO 29
          break;
       case 0x120 : // RPI Zero 2 W
-         led_type = 3;
-         RPI_SetGpioPinFunction(29, FS_OUTPUT); // LED is GPIO 29
          RPI_SetGpioLo(41); // turn off Wifi if exists
          RPI_SetGpioLo(42); // turn off BT  if exists
          break;
 
       default :
          // All other models
-         led_type = 1;
-         RPI_SetGpioPinFunction(29, FS_OUTPUT); // LED is GPIO 47
          RPI_SetGpioLo(41); // turn off Wifi if exists
          RPI_SetGpioLo(45); // turn off BT  if exists
          break;
    }
+
+  // enable overriding default LED option using cmdline.txt
+  // depending on the pi use either bcm2708.disk_led_gpio=xx or bcm2709.disk_led_gpio=xx
+   char *prop = get_cmdline_prop("disk_led_gpio");
+   if (prop)
+   {
+      led_pin = (uint8_t)atoi(prop);
+      if ( led_pin < 54 )
+         RPI_SetGpioOutput(led_pin);
+      else
+         led_pin = 255;
+   }
+   else
+      led_pin = 255;
 
    // Configure our pins as inputs
    RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
@@ -976,7 +958,7 @@ static void start_vc_ula()
    func =  (uint32_t)&tubevc_mailbox_asm[0];
 #endif
    r0   =  GPU_TUBE_REG_ADDR;       // address of tube register block in IO space
-   r1   = led_type;
+   r1   = led_pin;
    r2   = tube_delay;
 
    r3   = host_addr_bus;

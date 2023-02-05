@@ -8,7 +8,7 @@
 # gpfsel_data_idle setup
 
 #  r0 - pointer to shared memory ( VC address) of tube registers
-#  r1 - LEDTYPE
+#  r1 - LED_PIN
 #  r2 - tube_delay
 #  r3 - GPIO mapping of address lines - 0x00<A2><A1><A0> where A2, A1 and A0 are the numbers of the respective GPIOs
 #  r4 - unused
@@ -25,18 +25,17 @@
 #  r7 - scratch register
 #  r8 - A1 GPIO bit number
 #  r9 - A2 GPIO bit number
-# r10 - data bus driving values idle
-# r11 - data bus driving values idle
-# r12 - data bus driving values idle
-# r13 - data bus driving values
+# r10 - LED BIT
+# r11 - LED address
+# r12 - LED Toggle number
+# r13 - A0 GPIO bit number
 # r14 - data bus driving values
 # r15 - data bus driving values
-# r16 - A0 GPIO bit number
-# r17 - spare
-# r18 - spare
-# r19 - LED BIT
-# r20 - LED address
-# r21 - LED Toggle number
+# r16 - data bus driving values
+# r17 - data bus driving values idle
+# r18 - data bus driving values idle
+# r19 - data bus driving values idle
+
 # r22 - doorbell
 
 # r25 - (SP)
@@ -53,24 +52,9 @@
 .equ GPLEV0_offset, 0x34
 .equ GPEDS0_offset, 0x40
 
-# LED type 0 is GPIO 16
-.equ LED_TYPE0_BIT, 16
-
-# LED type 1 is GPIO 47 (15 and use SEL1)
-.equ LED_TYPE1_BIT, 15
-
-# LED type 2 means no LED supported (Pi 3)
-
-# LED type 3 is GPIO 29
-.equ LED_TYPE3_BIT, 29
-
-# LED type 4 is GPIO 42 (10 and use SEL1)
-.equ LED_TYPE4_BIT, 10
-
 .equ GPU_ARM_MBOX, 0x7E00B880
 .equ GPU_ARM_DBELL, 0x7E00B844       # Doorbell1
 .equ GPU_ARM_DBELLDATA, 0x7E20C014   # Hijack PWM_DAT1 for Doorbel1 Data
-
 
 # fixed pin bit positions (A2..0, TEST passed in dynamically)
 .equ nRST,          4
@@ -103,19 +87,19 @@
 
 
 .macro TOGGLE_LED
-   st     r19,(r20)
-   eor    r20,r21
+   st     r10,(r11)
+   eor    r11,r12
 .endm
 
 .org 0
-  di
+   di
    mov    r6, GPFSEL0
- 
+
    mov    r7, (0xF<<D0D3_shift) + (0xF<<D4D7_shift) # all the databus
    st     r7, GPCLR0_offset(r6) # clear databus
-   
-   lsr    r16, r3, 0   # Extract GPIO number of A0
-   and    r16, 31
+
+   lsr    r13, r3, 0  # Extract GPIO number of A0
+   and    r13, 31
    lsr    r8, r3, 8   # Extract GPIO number of A1
    and    r8, 31
    lsr    r9, r3, 16  # Extract GPIO number of A2
@@ -130,74 +114,64 @@
 
    # read GPIO function registers to capture the bus idle state
 
-   ld     r10,  (r6)
-   ld     r11, 4(r6)
-   ld     r12, 8(r6)
+   ld     r17,  (r6)
+   ld     r18, 4(r6)
+   ld     r19, 8(r6)
    # setup the databus drive states
-   mov    r13, MAGIC_C0
-   mov    r14, MAGIC_C1
-   mov    r15, MAGIC_C2 | MAGIC_C3
-   or     r13, r10
-   or     r14, r11
-   or     r15, r12
-   
+   mov    r14, MAGIC_C0
+   mov    r15, MAGIC_C1
+   mov    r16, MAGIC_C2 | MAGIC_C3
+   or     r14, r17
+   or     r15, r18
+   or     r16, r19
+
 # setup the LED toggling
 
-setupLEDToggle:
-   mov    r19,0 # 0 zero as writing a zero won't be dsitructive
-   add    r20,r6,GPCLR0_offset
+   add    r11,r6,GPSET0_offset
 
-   tbb r1
-ledswitchtable:      
-.byte (led_type0-ledswitchtable)/2
-.byte (led_type1-ledswitchtable)/2
-.byte (led_type2-ledswitchtable)/2
-.byte (led_type3-ledswitchtable)/2
-.byte (led_type4-ledswitchtable)/2
-.align 1
+# R1 LED pin 0-53
+# 0 - 31 GPIO bank 0
+# 32 - 63 GPIO bank 1
+# >63 no led defined.
 
-led_type2:
-   # must be led_type2
-   # only on raspberry pi 3
+   cmp   r1,31
+   ble   led_bank0
+   sub   r1,32
+# led bank 1 or LED_PIN to to great and R10 becomes 0 and so has not effect
+   add   r11,GPSET1_offset-GPSET0_offset  # 4
 
-   mov    r21,0
-   B setupLEDToggledone
+led_bank0:
+   mov   r10,1
+   lsl   r10,r1
+no_led:
+   add   r12,r11,GPCLR0_offset-GPSET0_offset  # 12
+   eor   r12,r11
 
-# led_type 0 found on 26 pin raspberry pis
-led_type0:
-   bset   r19, LED_TYPE0_BIT
-   mov    r21,GPCLR0_offset^GPSET0_offset 
-   B setupLEDToggledone
+   rsb   r2, 40
+   B     Poll_loop
 
-# led_type 1 found on most 40 pin raspberry pis
-led_type1:
-   bset    r19, LED_TYPE1_BIT
-   B setupLEDToggledbank1
-   
-# led_type 3 found on rpi3b+ GPIO29
-led_type3:
-   bset    r19, LED_TYPE3_BIT
-   mov    r21,GPCLR0_offset^GPSET0_offset 
-   B setupLEDToggledone
+# Post a message to indicate a reset
+post_reset:
+   mov    r7, 1<<RESET_MAILBOX_BIT
+.if USE_DOORBELL
+   st     r7, (r22)             # store in register we are using for doorbell data
+.endif
+   st     r7, (r3)
+   TOGGLE_LED
+# Wait for reset to be released (so we don't overflow the mailbox)
+post_reset_loop:
+   ld     r7, GPLEV0_offset(r6)
+   btst   r7, nRST
+   beq    post_reset_loop
+   b      Poll_loop
 
-# led_type 4 found on the Pi 4
-led_type4:
-   bset    r19, LED_TYPE4_BIT
-setupLEDToggledbank1:
-   add    r20,GPCLR1_offset-GPCLR0_offset
-   mov    r21,GPCLR1_offset^GPSET1_offset 
-
-setupLEDToggledone:
-
-   rsb    r2, 40
-   B Poll_loop
 # poll for nTube being low ( aligned to word boundary
 .align 2
 Poll_loop:
-   
+
 Poll_tube_low:
    ld     r1, GPLEV0_offset(r6)
-# hide some code in the stall    
+# hide some code in the stall
    mov    r4, r2
    mov    r7, r0
    btst   r1, nRST
@@ -214,13 +188,13 @@ delay_done:
 
    # sort out the address bus
 
-   btst   r1, r16
+   btst   r1, r13
    orne   r7, 4
    btst   r1, r8
    orne   r7, 8
    btst   r1, r9
    orne   r7, 16
-   
+
    ld     r4, (r7)               # Read word from tube register
    btst   r1, nTUBE
    bne    Poll_loop
@@ -229,10 +203,10 @@ delay_done:
 
    # So we are in a read cycle
 
-   st     r13, (r6)              # Drive data bus
-   st     r14, 4(r6)             # Drive data bus
-   st     r15, 8(r6)             # Drive data bus
-   or     r4, r5				 # add debug pin 
+   st     r14, (r6)              # Drive data bus
+   st     r15, 4(r6)             # Drive data bus
+   st     r16, 8(r6)             # Drive data bus
+   or     r4, r5				      # add debug pin
    st     r4, GPSET0_offset(r6)  # Write word to data bus
 
   # spin waiting for clk high
@@ -240,12 +214,12 @@ rd_wait_for_clk_high1:
    ld     r1, GPLEV0_offset(r6)
    btst   r1, CLK
    beq    rd_wait_for_clk_high1
-# we now have half a cycle to do post mail 
+# we now have half a cycle to do post mail
 
    btst   r7, 2                 # no need to post mail if A0 = 0
    beq    rd_wait_for_clk_low
    sub    r7, r0                # just get the address bits
-   lsl    r7, 6                 # put address bits in correct place   
+   lsl    r7, 6                 # put address bits in correct place
 
    bset   r7, RW_MAILBOX_BIT    # set read bit
 
@@ -262,10 +236,10 @@ rd_wait_for_clk_low:
    bne    rd_wait_for_clk_low
 
 # stop driving databus
-   st     r10, (r6)  # Stop Driving data bus
-   st     r11, 4(r6)
-   st     r12, 8(r6)
-   st     r4, GPCLR0_offset(r6) #clear databus ready for next time and debug pin
+   st     r17, (r6)  # Stop Driving data bus
+   st     r18, 4(r6)
+   st     r19, 8(r6)
+   st     r4, GPCLR0_offset(r6) # clear databus ready for next time and debug pin
 
 # detect dummy read
 # spin waiting for clk high
@@ -303,14 +277,14 @@ wr_wait_for_clk_low:
    or     r7, r4
 
 #  move address bit to correct position
-   btst   r1, r16
+   btst   r1, r13
    bsetne r7, 8
    btst   r1, r8
    bsetne r7, 9
    btst   r1, r9
    bsetne r7, 10
 
-#check clock is still low this filters out clock glitches
+# check clock is still low this filters out clock glitches
    ld     r1, GPLEV0_offset(r6)
    btst   r1, CLK
    bne    wr_wait_for_clk_low
@@ -318,21 +292,6 @@ wr_wait_for_clk_low:
 .if USE_DOORBELL
    st     r7, (r22)             # store in register we are using for doorbell data
 .endif
-   st     r7, (r3)      # post mail
+   st     r7, (r3)               # post mail
    TOGGLE_LED
-   b      Poll_loop
-
-# Post a message to indicate a reset
-post_reset:
-   mov    r7, 1<<RESET_MAILBOX_BIT
-.if USE_DOORBELL
-   st     r7, (r22)             # store in register we are using for doorbell data
-.endif
-   st     r7, (r3)
-   TOGGLE_LED
-# Wait for reset to be released (so we don't overflow the mailbox)
-post_reset_loop:
-   ld     r7, GPLEV0_offset(r6)
-   btst   r7, nRST
-   beq    post_reset_loop
    b      Poll_loop

@@ -269,9 +269,17 @@ static void get_tube_delay() {
 // cppcheck-suppress unusedFunction
 void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 {
+
+   unsigned int baud_rate;
    unsigned int last_copro;
 
-   RPI_AuxMiniUartInit( 115200 );
+   char *prop = get_cmdline_prop("baud_rate");
+   if (prop)
+      baud_rate = (uint8_t)atoi(prop);
+   else
+      baud_rate = 115200;
+
+   RPI_AuxMiniUartInit( baud_rate );
    enable_MMU_and_IDCaches();
    tube_init_hardware();
 
