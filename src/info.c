@@ -110,18 +110,19 @@ static char *get_cmdline() {
    return cmdline;
 }
 
+extern char * strcasestr(const char *, const char *);
+
 char *get_cmdline_prop(const char *prop) {
    __attribute__ ((section (".noinit"))) static char ret[PROP_SIZE];
    char *retptr = ret;
    char *cmdptr = get_cmdline();
-   uint32_t proplen = strlen(prop);
 
-   // continue until the end terminator
-   while (cmdptr && *cmdptr) {
-      // compare the property name
-      if (strncasecmp(cmdptr, prop, proplen) == 0) {
-         // check for an equals in the expected place
-         if (*(cmdptr + proplen) == '=') {
+   cmdptr = strcasestr(cmdptr, prop);
+
+   if (cmdptr != 0) {
+      size_t proplen = strlen(prop);
+      // check for an equals in the expected place
+      if (*(cmdptr + proplen) == '=') {
             // skip the equals
             cmdptr += proplen + 1;
             // copy the property value to the return buffer
@@ -131,12 +132,6 @@ char *get_cmdline_prop(const char *prop) {
             *retptr = '\0';
             return ret;
          }
-      }
-      // Skip to the next property
-      cmdptr = strchr(cmdptr, ' ');
-      while (cmdptr && *cmdptr == ' ') {
-         cmdptr++;
-      }
    }
    return NULL;
 }
