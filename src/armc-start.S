@@ -79,7 +79,6 @@
 
 .global _fast_scroll
 .global _fast_clear
-.global _main_irq_handler
 .global _main_irq_r9_regsp
 
 // From the ARM ARM (Architecture Reference Manual). Make sure you get the
@@ -473,9 +472,9 @@ _fast_clear_loop:
         bne     _fast_clear_loop
         pop     {r4, r5, r6, r8, r9, r10, r11, pc}
 
-.section ".text._main_irq_handler"
-_main_irq_handler:
+.section ".text.arm_irq_handler"
+arm_irq_handler:
         sub     lr, lr, #4
         push    {r0, r1, r2, r3, ip, lr}
-        bl      RPI_AuxMiniUartIRQHandler
+        bl      IRQHandler_main
         ldm     sp!, {r0, r1, r2, r3, ip, pc}^

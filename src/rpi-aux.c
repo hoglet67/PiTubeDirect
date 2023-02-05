@@ -1,12 +1,9 @@
-#include <stdio.h>
 #include "rpi-auxreg.h"
 #include "rpi-gpio.h"
 #include "info.h"
 #include "startup.h"
 #include "tube-pins.h"
-#include <stdlib.h>
 #include <limits.h>
-#include "framebuffer/framebuffer.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "debugger/debugger.h"
@@ -123,18 +120,7 @@ int RPI_AuxMiniUartString(const char *c, int len)
   return count;
 }
 
-// There is a GCC bug with __attribute__((interrupt("IRQ"))) in that it
-// does not respect registers reserved with -ffixed-reg.
-//
-// So instead, we wrap the C handler in a few lines of assembler:
-//
-//_main_irq_handler:
-//        sub     lr, lr, #4
-//        push    {r0, r1, r2, r3, ip, lr}
-//        bl      RPI_AuxMiniUartIRQHandler
-//        ldm     sp!, {r0, r1, r2, r3, ip, pc}^
 
-// cppcheck-suppress unusedFunction
 void RPI_AuxMiniUartIRQHandler() {
 
   //_data_memory_barrier();
@@ -177,17 +163,10 @@ void RPI_AuxMiniUartIRQHandler() {
   }
 #endif // USE_IRQ
 
-  // Periodically also process the VDU Queue
-  fb_process_vdu_queue();
-
-  _data_memory_barrier();
-
  // RPI_SetGpioLo(TEST3_PIN);
 
  // _data_memory_barrier();
 }
-
-
 
 void RPI_AuxMiniUartInit(uint32_t baud)
 {
@@ -242,9 +221,6 @@ void RPI_AuxMiniUartInit(uint32_t baud)
 
   /* Transposed calculation from Section 2.2.1 of the ARM peripherals manual */
   auxiliary->MU_BAUD = (( sys_freq / (8 * baud)) - 1);
-
-  extern unsigned int _interrupt_vector_h;
-  _interrupt_vector_h = (uint32_t) _main_irq_handler;
 
 #ifdef USE_IRQ
   {

@@ -133,6 +133,26 @@ static void init_emulator() {
    }
 }
 
+// There is a GCC bug with __attribute__((interrupt("IRQ"))) in that it
+// does not respect registers reserved with -ffixed-reg.
+//
+// So instead, we wrap the C handler in a few lines of assembler:
+//
+//_main_irq_handler:
+//        sub     lr, lr, #4
+//        push    {r0, r1, r2, r3, ip, lr}
+//        bl      IRQHandler_main
+//        ldm     sp!, {r0, r1, r2, r3, ip, pc}^
+
+// cppcheck-suppress unusedFunction
+void IRQHandler_main() {
+   RPI_AuxMiniUartIRQHandler();
+  // Periodically also process the VDU Queue
+  fb_process_vdu_queue();
+
+  _data_memory_barrier();
+}
+
 #if (__ARM_ARCH >= 7 )
 
 #if 0

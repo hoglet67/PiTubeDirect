@@ -53,6 +53,4 @@ arm_fiq_handler_flag1:
 
 arm_fiq_handler:
 
-arm_irq_handler:
-
       subs    pc, lr, #4
