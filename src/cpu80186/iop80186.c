@@ -27,6 +27,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdio.h>
 #include "../copro-80186.h"
 #include "iop80186.h"
+#include "mem80186.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "../cpu_debug.h"
@@ -35,6 +36,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define TUBE_ACCESS(ADDRESS)	(((ADDRESS) & 0xFFF1) == 0x0080)
 #define TUBE_CONVERT(PORT) 	(((PORT) >> 1) & 0x0007)
+
+
+
+static uint32_t x86sa,x86ss,x86src;
+static uint32_t x86da,x86ds,x86dst;
+static uint32_t x86ena;
+static uint16_t x86imask=0;
+
 
 // I/O locations
 // =============
@@ -47,6 +56,20 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 // &8C Tube R4 Status
 // &8E Tube R4 Data
 
+void x86_dma()
+{
+    if (!(x86ena & 2)) {
+        return;
+    }        
+    if (x86src < 0x100) {
+        write86(x86dst, portin((uint16_t) x86src));
+        x86dst++;
+    } else {
+        portout((uint16_t) x86dst, read86(x86src));
+        x86src++;
+    }
+}
+
 void portout(uint16_t portnum, uint8_t value)
 {
 #ifdef INCLUDE_DEBUGGER
@@ -54,6 +77,20 @@ void portout(uint16_t portnum, uint8_t value)
       debug_iowrite(&cpu80186_cpu_debug, portnum, value, 1);
    }
 #endif
+    switch (portnum)
+    {
+        case 0xFF28: x86imask = value; return;
+        case 0xFFC0: x86sa  = (x86sa  & 0xFF00) |  value;       x86src = x86sa + ((x86ss & 0xF) << 16); return;
+        case 0xFFC1: x86sa  = (x86sa  & 0x00FF) | (value << 8); x86src = x86sa + ((x86ss & 0xF) << 16); return;
+        case 0xFFC2: x86ss  = (x86ss  & 0xFF00) |  value;       x86src = x86sa + ((x86ss & 0xF) << 16); return;
+        case 0xFFC3: x86ss  = (x86ss  & 0x00FF) | (value << 8); x86src = x86sa + ((x86ss & 0xF) << 16); return;
+        case 0xFFC4: x86da  = (x86da  & 0xFF00) |  value;       x86dst = x86da + ((x86ds & 0xF) << 16); return;
+        case 0xFFC5: x86da  = (x86da  & 0x00FF) | (value << 8); x86dst = x86da + ((x86ds & 0xF) << 16); return;
+        case 0xFFC6: x86ds  = (x86ds  & 0xFF00) |  value;       x86dst = x86da + ((x86ds & 0xF) << 16); return;
+        case 0xFFC7: x86ds  = (x86ds  & 0x00FF) | (value << 8); x86dst = x86da + ((x86ds & 0xF) << 16); return;
+        case 0xFFCA: x86ena = (x86ena & 0xFF00) |  value;                                               return;
+        case 0xFFCB: x86ena = (x86ena & 0x00FF) | (value << 8);                                         return;
+    }
 	if (TUBE_ACCESS(portnum)) {
 		copro_80186_tube_write(TUBE_CONVERT(portnum), value);
 	}
