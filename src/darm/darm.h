@@ -29,7 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef __DARM__
 #define __DARM__
-
+#include <inttypes.h>
 #include "armv7-tbl.h"
 
 #ifndef ARRAYSIZE

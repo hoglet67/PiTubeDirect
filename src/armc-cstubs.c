@@ -259,3 +259,11 @@ int _write(int file, char *ptr, int len)
   if (len) RPI_AuxMiniUartString( ptr, len);
   return len;
 }
+
+void _getpid_r()
+{
+}
+
+void _kill_r()
+{
+}

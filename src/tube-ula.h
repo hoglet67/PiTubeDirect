@@ -2,7 +2,7 @@
 
 #ifndef TUBE_ULA_H
 #define TUBE_ULA_H
-
+#include <inttypes.h>
 // Uncomment to checksum tube transfers
 // #define DEBUG_TRANSFERS
 

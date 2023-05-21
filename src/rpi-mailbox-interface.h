@@ -3,7 +3,7 @@
 
 #define PROP_SIZE        1024
 #define PROP_BUFFER_SIZE ((PROP_SIZE>>2)+2)
-
+#include <inttypes.h>
 /**
     @brief An enum of the RPI->Videocore firmware mailbox property interface
     properties. Further details are available from
