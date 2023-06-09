@@ -1,6 +1,8 @@
 #ifndef __INC_65816_H
 #define __INC_65816_H
 
+#include <stdint.h>
+
 enum register_numbers {
     REG_A,
     REG_X,

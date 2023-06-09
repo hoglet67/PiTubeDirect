@@ -31,6 +31,8 @@
 #ifndef RPI_AUX_H
 #define RPI_AUX_H
 
+#include <stdint.h>
+
 extern void RPI_AuxMiniUartIRQHandler();
 extern void RPI_AuxMiniUartInit(uint32_t baud);
 extern void RPI_AuxMiniUartWrite(char c);

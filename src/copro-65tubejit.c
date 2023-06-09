@@ -97,7 +97,7 @@ void dissall(unsigned int addr, unsigned length)
    {
       unsigned int jitletaddr = JITLET+ ( addr<<3);
 
-      for ( uint i = 0; i < length ; i++)
+      for ( unsigned int i = 0; i < length ; i++)
       {
          darm_t dis;
          darm_str_t dis_str;
