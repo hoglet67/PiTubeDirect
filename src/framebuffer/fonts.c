@@ -51,12 +51,16 @@
 #include "fonts/saa5056.fnt.h"
 #include "fonts/saa5057.fnt.h"
 
-
-__attribute__ ((section (".noinit"))) static font_t current_font;
+// This needs to be in initialized memory, otherwise inialize_font()
+// will not allocate an initial buffer
+static font_t current_font;
 
 // ==========================================================================
 // Font Definitions
 // ==========================================================================
+
+// This is used to size the character buffer in current_font
+#define MAX_HEIGHT 14
 
 static const font_catalog_t font_catalog[] = {
    //                                              scale_h
@@ -311,7 +315,7 @@ static font_t *initialize_font(const font_catalog_t * catalog, uint32_t num) {
    memcpy(font, catalog, sizeof(font_catalog_t));
 
    // The factor of 2 allows for character rounding to be enabled
-   size_t size = (size_t)((size_t)font->height * MAX_CHARACTERS * 2 * sizeof(uint16_t));
+   size_t size = (size_t)((size_t)MAX_HEIGHT * MAX_CHARACTERS * 2 * sizeof(uint16_t));
    if (font->buffer == NULL) {
       font->buffer = (uint16_t *)calloc(size, 1);
    }

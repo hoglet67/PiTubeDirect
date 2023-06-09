@@ -93,7 +93,9 @@ typedef struct {
    void *data;
 } sprite_t;
 
-__attribute__ ((section (".noinit"))) static sprite_t sprites[NUM_SPRITES];
+// This needs to be in initialized memory, otherwise prim_reset_sprites()
+// will erroneously call free on memory that wasn't malloced.
+static sprite_t sprites[NUM_SPRITES];
 
 // ==========================================================================
 // Static methods (operate at screen resolution)
