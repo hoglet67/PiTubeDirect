@@ -2266,7 +2266,7 @@ void exec86(uint32_t tube_cycles)
         break;
 
         case 0x54: /* 54 PUSH eSP */
-        push(getreg16(regsp));  // 8086 and intel 80186 have a bug where sp-2
+        push(getreg16(regsp) - 2);  // 8086 and intel 80186 have a bug where sp-2
                                 // is push on the stack. AMD 80186 and 286
                                 // onwards doesn't have the -2 bug. This bug
                                 // is used to detect the 186 by the TubeOS

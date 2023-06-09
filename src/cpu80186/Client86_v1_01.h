@@ -1,4 +1,4 @@
-#define PATCH_FOR_80286
+//#define PATCH_FOR_80286
 
 const uint8_t Client86_v1_01[] =
 {

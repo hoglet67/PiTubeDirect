@@ -4,6 +4,7 @@
 #include "tube-ula.h"
 #include "cpu80186/cpu80186.h"
 #include "cpu80186/mem80186.h"
+#include "cpu80186/iop80186.h"
 #include "startup.h"
 #include "utils.h"
 
@@ -61,7 +62,8 @@ void copro_80186_emulator()
 
          // NMI is edge sensitive, so only check after mailbox activity
          if (tube_irq_copy & NMI_BIT) {
-            intcall86(2);
+            // intcall86(2);
+            x86_dma();
             tube_ack_nmi();
          }
 

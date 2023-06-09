@@ -2,6 +2,9 @@
 # config.txt for PiTubeDirect (https://github.com/hoglet67/PiTubeDirect)
 #
 
+# Configure a pullup on nTUBE (see BeebFpga issue # 25)
+gpio=17=pu
+
 # Debug Kernel (needs a 115200 serial connection)
 # (interactive co pro debuggers and debug logging)
 #
