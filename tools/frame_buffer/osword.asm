@@ -119,54 +119,14 @@ clear &300, &3FF
 
     JMP init
 
-.osword6
-    STA osword6_data
-    LDA #6
-    LDX #LO(osword6_param)
-    LDY #HI(osword6_param)
-    JSR osword
-    INC osword6_addr_lo
-    RTS
-
-.newosbyte
-    CMP #&86
-    BEQ osbyte86
-    CMP #&87
-    BEQ osbyte87
-    CMP #&A0
-    BEQ osbyteA0
-
-    EQUB &4C ; JMP
-
-.oldosbyte
-    NOP
-    NOP
-
-.osbyte86
-    LDX char_cursor_x
-    LDY char_cursor_y
-    RTS
-
-.osbyte87
-    LDX #&55-1
-    JSR osbyteA0
-    LDX char_at_cursor
-    RTS
-
-.osbyteA0
-    INX
-    STX vdu_var_addr
-    LDY vdu_var_data
-    DEX
-    STX vdu_var_addr
-    LDX vdu_var_data
-    RTS
-
 ;; Host-side OSWRCH Redirector
 ;;
 ;; This redirects OSWRCH calls on the host back over to the Pi VDU driver
 ;;
 ;; It's used for the output of MOS command (like *CAT, *HELP, etc)
+;;
+;; IMPORTANT: This must start at &303 and be position independant
+;; as it's used by the Native Arm Co Pro in *PIVDU 2
 
 .host_oswrch_start
     ;; Stack the character to be printed
@@ -215,6 +175,49 @@ clear &300, &3FF
 .oldosword
     NOP
     NOP
+
+.osword6
+    STA osword6_data
+    LDA #6
+    LDX #LO(osword6_param)
+    LDY #HI(osword6_param)
+    JSR osword
+    INC osword6_addr_lo
+    RTS
+
+.newosbyte
+    CMP #&86
+    BEQ osbyte86
+    CMP #&87
+    BEQ osbyte87
+    CMP #&A0
+    BEQ osbyteA0
+
+    EQUB &4C ; JMP
+
+.oldosbyte
+    NOP
+    NOP
+
+.osbyte86
+    LDX char_cursor_x
+    LDY char_cursor_y
+    RTS
+
+.osbyte87
+    LDX #&55-1
+    JSR osbyteA0
+    LDX char_at_cursor
+    RTS
+
+.osbyteA0
+    INX
+    STX vdu_var_addr
+    LDY vdu_var_data
+    DEX
+    STX vdu_var_addr
+    LDX vdu_var_data
+    RTS
 
 ;; X/Y Param Block points to
 ;;
