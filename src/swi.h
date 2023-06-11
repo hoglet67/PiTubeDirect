@@ -136,7 +136,7 @@
 #define swi(code) asm volatile ("svc %[immediate]"::[immediate] "I" (code))
 
 void OS_WriteC(const char c);
-int  OS_Write0(const char *cptr);
+void OS_Write0(const char *cptr);
 int  OS_ReadC(unsigned int *flags);
 void OS_CLI(const char *cptr);
 void OS_Word(unsigned int a, unsigned int *block);

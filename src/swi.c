@@ -1,159 +1,177 @@
 #include "swi.h"
 
-__attribute__ ((noinline)) void OS_WriteC(const char c) {
+void OS_WriteC(const char c) {
+  register const char r0 asm("r0") = c;
   asm volatile
     (
-     "push    {r4,lr}          \r\n"
      "svc     %[swinum]        \r\n"
-     "pop     {r4,lr}          \r\n"
      :   // outputs
      :   // inputs
-         [swinum]  "I" (SWI_OS_WriteC)
+        "r" (r0),
+        [swinum]  "I" (SWI_OS_WriteC)
      :   // clobber
+        "r14"
      );
 }
 
-#pragma GCC diagnostic ignored "-Wreturn-type"
-__attribute__ ((noinline)) int OS_Write0(const char *cptr) {
+void OS_Write0(const char *cptr) {
+  register const char *r0 asm("r0") = cptr;
   asm volatile
     (
-     "push    {r4,lr}          \r\n"
      "svc     %[swinum]        \r\n"
-     "pop     {r4,lr}          \r\n"
      :   // outputs
      :   // inputs
-         [swinum]  "I" (SWI_OS_Write0)
+        "r" (r0),
+        [swinum]  "I" (SWI_OS_Write0)
      :   // clobber
+       "r14"
      );
 }
 
-#pragma GCC diagnostic ignored "-Wreturn-type"
-__attribute__ ((noinline)) int OS_ReadC(unsigned int *flags) {
+int OS_ReadC(unsigned int *flags) {
+  register int r0 asm("r0");
+  register unsigned int r2 asm("r2");
   asm volatile
     (
-     "push    {r4,lr}          \r\n"
      "svc     %[swinum]        \r\n"
-     "pop     {r4,lr}          \r\n"
      "mrs     r2, cpsr         \r\n"
-     "ldr     r1, %[flags]     \r\n"
-     "teq     r1, #0           \r\n" // Skip updating flags if it's zero
-     "strne   r2, [r1]         \r\n"
+     :   // outputs
+        "=r" (r0),
+        "=r" (r2)
+     :   // inputs
+         [swinum]  "I" (SWI_OS_ReadC)
+     :   // clobber
+         "lr",
+         "cc"
+     );
+    if (*flags)
+      *flags = r2;
+     return r0;
+}
+
+void OS_CLI(const char *cptr) {
+  register const char *r0 asm("r0") = cptr;
+  asm volatile
+    (
+     "svc     %[swinum]        \r\n"
      :   // outputs
      :   // inputs
-         [swinum]  "I" (SWI_OS_ReadC),
-         [flags]   "m" (flags)
+        "r" (r0),
+        [swinum]  "I" (SWI_OS_CLI)
      :   // clobber
-         //"r0", "r1", "r2", "r3"
+        "lr"
      );
 }
 
-__attribute__ ((noinline)) void OS_CLI(const char *cptr) {
-  asm volatile
-    (
-     "push    {r4,lr}          \r\n"
-     "svc     %[swinum]        \r\n"
-     "pop     {r4,lr}          \r\n"
-     :   // outputs
-     :   // inputs
-         [swinum]  "I" (SWI_OS_CLI)
-     :   // clobber
-     );
-}
+void OS_Word(unsigned int a, unsigned int *block) {
+  register unsigned int r0 asm("r0") = a;
+  register unsigned int *r1 asm("r1") = block;
 
-__attribute__ ((noinline)) void OS_Word(unsigned int a, unsigned int *block) {
   asm volatile
     (
-     "push    {r4,lr}          \r\n"
      "svc     %[swinum]        \r\n"
-     "pop     {r4,lr}          \r\n"
      :   // outputs
      :   // inputs
+          "r" (r0),
+          "r" (r1),
          [swinum]  "I" (SWI_OS_Word)
      :   // clobber
+         "lr",
+         "memory"
      );
 }
 
-__attribute__ ((noinline)) void OS_Byte(unsigned int a, unsigned int x, unsigned int y, unsigned int *retx, unsigned int *rety) {
+void OS_Byte(unsigned int a, unsigned int x, unsigned int y, unsigned int *retx, unsigned int *rety) {
+  register unsigned int r0 asm("r0") = a;
+  register unsigned int r1 asm("r1") = x;
+  register unsigned int r2 asm("r2") = y;
   asm volatile
     (
-     "push    {r4,lr}          \r\n"
      "svc     %[swinum]        \r\n" // Call osbyte with r0=a, r1=x and r2=y
-     "pop     {r4,lr}          \r\n"
-     "ldr     r0, %[retx]      \r\n"
-     "teq     r0, #0           \r\n" // Skip updating retx if it's zero
-     "strne   r1, [r0]         \r\n"
-     "ldr     r0, %[rety]      \r\n"
-     "teq     r0, #0           \r\n" // Skip updating rety if it's zero
-     "strne   r2, [r0]         \r\n"
      :   // outputs
+        "+r" (r1),
+        "+r" (r2)
      :   // inputs
-         [swinum]  "I" (SWI_OS_Byte),
-         [retx]    "m" (retx),
-         [rety]    "m" (rety)
+        "r"  (r0),
+         [swinum]  "I" (SWI_OS_Byte)
      :   // clobber
-         "r0", "r1", "r2", "r3"
+        "lr"
      );
+     if (*retx)
+        *retx = r1;
+     if (*rety)
+        *rety = r2;
 }
 
-__attribute__ ((noinline)) void OS_ReadLine(const char *buffer, int buflen, int minAscii, int maxAscii, unsigned int *flags, int *length) {
+void OS_ReadLine(const char *buffer, int buflen, int minAscii, int maxAscii, unsigned int *flags, int *length) {
+  register const char *r0 asm("r0") = buffer;
+  register int r1 asm("r1") = buflen;
+  register int r2 asm("r2") = minAscii;
+  register int r3 asm("r3") = maxAscii;
+
   asm volatile
     (
-     "push    {r4,lr}          \r\n"
-     "svc     %[swinum]        \r\n" // Call osreadline with r0=a, r1=x and r2=y
-     "pop     {r4,lr}          \r\n"
-     "ldr     r0, %[length]    \r\n"
-     "teq     r0, #0           \r\n" // Skip updating length if it's zero
-     "strne   r1, [r0]         \r\n"
-     "mrs     r1, cpsr         \r\n"
-     "ldr     r0, %[flags]     \r\n"
-     "teq     r0, #0           \r\n" // Skip updating flags if it's zero
-     "strne   r1, [r0]         \r\n"
+     "svc     %[swinum]        \r\n" // Call osreadline
+     "mrs     r0, cpsr         \r\n"
      :   // outputs
+        "+r" (r0),
+        "+r" (r1)
      :   // inputs
-         [swinum]  "I" (SWI_OS_ReadLine),
-         [flags]   "m" (flags),
-         [length]  "m" (length)
+        "r" (r2),
+        "r" (r3),
+        [swinum]  "I" (SWI_OS_ReadLine)
      :   // clobber
-         "r0", "r1", "r2", "r3"
+         "r4","lr","cc"
      );
+    if (*flags)
+      *flags = (unsigned int ) r0;
+    if (*length)
+      *length = r1;
 }
 
-__attribute__ ((noinline)) void OS_Exit() {
+void OS_Exit() {
   asm volatile
     (
-     "push    {r4,lr}          \r\n"
      "svc     %[swinum]        \r\n"
-     "pop     {r4,lr}          \r\n"
      :   // outputs
      :   // inputs
          [swinum]  "I" (SWI_OS_Exit)
      :   // clobber
+         "lr"
      );
 }
+
 #if 0
-__attribute__ ((noinline)) void OS_GenerateError(const ErrorBlock_type *eblk) {
+void OS_GenerateError(const ErrorBlock_type *eblk) {
+    register const ErrorBlock_type *r0 asm("r0") = eblk;
   asm volatile
     (
-     "push    {r4,lr}          \r\n"
      "svc     %[swinum]        \r\n"
-     "pop     {r4,lr}          \r\n"
      :   // outputs
      :   // inputs
+        "r" (r0),
          [swinum]  "I" (SWI_OS_GenerateError)
      :   // clobber
+        "lr"
      );
 }
 #endif
-__attribute__ ((noinline)) int OS_ReadModeVariable(unsigned int mode, int variable) {
+
+int OS_ReadModeVariable(unsigned int mode, int variable) {
+  register unsigned int r0 asm("r0") = mode;
+  register          int r1 asm("r1") = variable;
+  register          int r2 asm("r2");
   asm volatile
     (
-     "push    {r4,lr}          \r\n"
      "svc     %[swinum]        \r\n"
-     "pop     {r4,lr}          \r\n"
-     "mov     r0, r2           \r\n"
      :   // outputs
+          "=r" (r2)
      :   // inputs
+          "r" (r0),
+          "r" (r1),
          [swinum]  "I" (SWI_OS_ReadModeVariable)
      :   // clobber
+         "lr", "cc"
      );
+  return r2;
 }
