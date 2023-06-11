@@ -478,7 +478,7 @@ int doCmdPiVDU(const char *params) {
    }
    if (device == VDU_PI || device == VDU_BOTH) {
       // *FX 4,1 to disable cursor editing
-      OS_Byte(4, 1, 0,NULL, NULL;
+      OS_Byte(4, 1, 0,NULL, NULL);
    } else {
       // *FX 4,0 to enable cursor editing
       OS_Byte(4, 0, 0,NULL, NULL);
