@@ -258,9 +258,11 @@ static int doCmdFX(const char *params) {
   unsigned int a = 0;
   unsigned int x = 0;
   unsigned int y = 0;
+  unsigned int retx = 0;
+  unsigned int rety = 0;
   params = copy_string(params);
   sscanf(params, "%ud%*c%ud%*c%ud", &a, &x, &y);
-  OS_Byte(a, x, y, &x, &y);
+  OS_Byte(a, x, y, &retx, &rety);
   return 0;
 }
 
@@ -282,8 +284,10 @@ static int doCmdFill(const char *params) {
 
 static int doCmdMem(const char *params) {
   unsigned char c;
+  unsigned int retx = 0;
+  unsigned int rety = 0;
   char *ptr;
-  unsigned int flags=0;
+  unsigned int flags=1;
   unsigned int memAddr;
   char line[256];
   params = copy_string(params);
@@ -316,15 +320,17 @@ static int doCmdMem(const char *params) {
     }
     OS_ReadC(&flags);
   } while ((flags & CARRY_MASK) == 0);
-  OS_Byte(0x7e, 0x00, 0x00, NULL, NULL);
+  OS_Byte(0x7e, 0x00, 0x00, &retx, &rety);
   return 0;
 }
 
 static int doCmdDis(const char *params) {
+  unsigned int retx = 0;
+  unsigned int rety = 0;
   darm_t d;
   darm_str_t str;
   int i;
-  unsigned int flags=0;
+  unsigned int flags=1;
   unsigned int opcode;
   unsigned int memAddr;
   params = copy_string(params);
@@ -350,7 +356,7 @@ static int doCmdDis(const char *params) {
     }
     OS_ReadC(&flags);
   } while ((flags & CARRY_MASK) == 0);
-  OS_Byte(0x7e, 0x00, 0x00, NULL, NULL);
+  OS_Byte(0x7e, 0x00, 0x00, &retx, &rety);
   return 0;
 }
 
@@ -450,6 +456,8 @@ static void pi_cursor(int on) {
 }
 
 int doCmdPiVDU(const char *params) {
+   unsigned int retx = 0;
+   unsigned int rety = 0;
    static int saved_state = -1;
    int d;
    params = copy_string(params);
@@ -478,10 +486,10 @@ int doCmdPiVDU(const char *params) {
    }
    if (device == VDU_PI || device == VDU_BOTH) {
       // *FX 4,1 to disable cursor editing
-      OS_Byte(4, 1, 0, NULL, NULL);
+      OS_Byte(4, 1, 0, &retx, &rety);
    } else {
       // *FX 4,0 to enable cursor editing
-      OS_Byte(4, 0, 0, NULL, NULL);
+      OS_Byte(4, 0, 0, &retx, &rety);
    }
 
    // Set the VDU device variable
@@ -566,6 +574,7 @@ int doCmdPiVDU(const char *params) {
 }
 
 int doCmdPiLIFE(const char *params) {
+   unsigned int retx = 0;
    unsigned int mode = 1;
 
    int generations = 0;
@@ -586,7 +595,7 @@ int doCmdPiLIFE(const char *params) {
    }
 
    // Read the current screen mode
-   OS_Byte(135, 0, 0, NULL, &mode);
+   OS_Byte(135, 0, 0, &retx, &mode);
 
    // Read the s/y eigfactors
    int xeigfactor = OS_ReadModeVariable(mode, 4);

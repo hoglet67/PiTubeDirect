@@ -236,6 +236,8 @@ static int cli_loop() {
   while( 1 ) {
     unsigned int flags=1;
     int length=0;
+    unsigned int retx=0;
+    unsigned int rety=0;
 
     // In debug mode, print the mode (which should be user mode...)
     if (DEBUG_ARM) {
@@ -258,7 +260,7 @@ static int cli_loop() {
       if (DEBUG_ARM) {
         printf("Acknowledging Escape\r\n");
       }
-      OS_Byte(0x7e, 0x00, 0x00, NULL, NULL);
+      OS_Byte(0x7e, 0x00, 0x00, &retx, &rety);
 
     } else {
       // No, so execute the command using OSCLI
@@ -283,7 +285,8 @@ void copro_armnative_reset() {
  ***********************************************************/
 
 void copro_armnative_emulator() {
-  unsigned int last_break;
+  unsigned int last_break=1;
+  unsigned int rety=0;
 
   // Disable interrupts!
   _disable_interrupts();
@@ -352,7 +355,7 @@ void copro_armnative_emulator() {
   _enable_interrupts();
 
   // Read the last break type
-  OS_Byte(0xfd, 0x00, 0xFF, &last_break, NULL);
+  OS_Byte(0xfd, 0x00, 0xFF, &last_break, &rety);
 
   // If hard or power up break, then don't re-enter ARM Basic
   if ((last_break & 0xff) > 0) {
