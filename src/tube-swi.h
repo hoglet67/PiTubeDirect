@@ -23,11 +23,8 @@
 
 
 // Macro allowing SWI calls to be made from C
-// Note: stacking lr prevents corruption of lr when invoker in supervisor mode
 #define SWI(NUM) \
-  asm volatile("stmfd sp!,{lr}"); \
-  asm volatile("swi "#NUM);       \
-  asm volatile("ldmfd sp!,{lr}")  \
+  asm volatile("swi %[swinum]" :: [swinum]  "I" (NUM):"lr");
 
 // Type definition for a SWI handler
 typedef void (*SWIHandler_Type) (unsigned int *reg);

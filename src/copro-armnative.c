@@ -233,10 +233,9 @@ static void tube_Reset() {
  ***********************************************************/
 
 static int cli_loop() {
-  unsigned int flags=0;
-  int length;
-
   while( 1 ) {
+    unsigned int flags=1;
+    int length=0;
 
     // In debug mode, print the mode (which should be user mode...)
     if (DEBUG_ARM) {
