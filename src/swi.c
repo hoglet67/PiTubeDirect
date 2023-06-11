@@ -44,7 +44,7 @@ int OS_ReadC(unsigned int *flags) {
          "lr",
          "cc"
      );
-    if (*flags)
+    if (flags)
       *flags = r2;
      return r0;
 }
@@ -97,9 +97,9 @@ void OS_Byte(unsigned int a, unsigned int x, unsigned int y, unsigned int *retx,
      :   // clobber
         "lr"
      );
-     if (*retx)
+     if (retx)
         *retx = r1;
-     if (*rety)
+     if (rety)
         *rety = r2;
 }
 
@@ -123,9 +123,9 @@ void OS_ReadLine(const char *buffer, int buflen, int minAscii, int maxAscii, uns
      :   // clobber
          "r4","lr","cc"
      );
-    if (*flags)
+    if (flags)
       *flags = (unsigned int ) r0;
-    if (*length)
+    if (length)
       *length = r1;
 }
 
