@@ -283,7 +283,7 @@ static int doCmdFill(const char *params) {
 static int doCmdMem(const char *params) {
   unsigned char c;
   char *ptr;
-  unsigned int flags;
+  unsigned int flags=0;
   unsigned int memAddr;
   char line[256];
   params = copy_string(params);
@@ -324,7 +324,7 @@ static int doCmdDis(const char *params) {
   darm_t d;
   darm_str_t str;
   int i;
-  unsigned int flags;
+  unsigned int flags=0;
   unsigned int opcode;
   unsigned int memAddr;
   params = copy_string(params);
