@@ -2,8 +2,14 @@
 # config.txt for PiTubeDirect (https://github.com/hoglet67/PiTubeDirect)
 #
 
-# Configure a pullup on nTUBE (see BeebFpga issue # 25)
-gpio=17=pu
+# Settings for PiTubeDirect detection in Spectrum Next
+# (this places a pattern of 0x55 on the data bus)
+
+# Configure pullups on D6,D4,D2,D0,nTUBE
+gpio=24,22,10,8,17=pu
+
+# Configure pulldowns on D7,D5,D3,D1
+gpio=25,23,11,9=pd
 
 # Debug Kernel (needs a 115200 serial connection)
 # (interactive co pro debuggers and debug logging)
