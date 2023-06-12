@@ -3245,12 +3245,6 @@ arm_fiq_handler_fast6502:
       tstne    r12,#RESET_BIT+NMI_BIT+IRQ_BIT
       orrne    copro6502asm_instruction_table, copro6502asm_instruction_table, #copro6502asm_instruction_size
 
-// fall into return
-
-// Default handlers for FIQ/IRQ do nothing
-
-arm_fiq_handler:
-
       subs    pc, lr, #4
 
 old_fiq_vector:
