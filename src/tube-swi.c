@@ -29,7 +29,7 @@
 
 #include "copro-armnative.h"
 
-#include "startup.h"
+#include "rpi-asm-helpers.h"
 #include "tube-lib.h"
 #include "tube-commands.h"
 #include "tube-env.h"

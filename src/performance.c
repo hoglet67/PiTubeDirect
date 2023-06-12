@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
-#include "startup.h"
 #include "performance.h"
 
 #if(__ARM_ARCH >= 8 )

@@ -8,7 +8,6 @@
 #include <string.h>
 #include "tube.h"
 #include "tube-ula.h"
-#include "startup.h"
 #include "tuberom_6809.h"
 
 #include "copro-mc6809nc.h"

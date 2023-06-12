@@ -7,6 +7,7 @@
 #include "tube.h"
 #include "tube-ula.h"
 #include "startup.h"
+#include "rpi-asm-helpers.h"
 #include "rpi-aux.h"
 #include "cache.h"
 #include "performance.h"

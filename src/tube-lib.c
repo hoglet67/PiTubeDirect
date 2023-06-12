@@ -2,7 +2,7 @@
 
 #include "copro-armnative.h"
 
-#include "startup.h"
+#include "rpi-asm-helpers.h"
 #include "tube-lib.h"
 #include "tube-isr.h"
 #include "tube-ula.h"
@@ -12,7 +12,7 @@ static int debug = 0;
 unsigned char tubeRead(unsigned char addr)
 {
   unsigned char ret;
-  int cpsr = _disable_interrupts();
+  unsigned int cpsr = _disable_interrupts_cspr();
   ret = tube_parasite_read(addr);
   if ((cpsr & 0xc0) != 0xc0) {
     _enable_interrupts();
@@ -22,7 +22,7 @@ unsigned char tubeRead(unsigned char addr)
 
 void tubeWrite(unsigned char addr, unsigned char byte)
 {
-  int cpsr = _disable_interrupts();
+  unsigned int cpsr = _disable_interrupts_cspr();
   tube_parasite_write(addr, byte);
   if ((cpsr & 0xc0) != 0xc0) {
     _enable_interrupts();

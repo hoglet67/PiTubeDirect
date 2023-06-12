@@ -1,7 +1,7 @@
 #include "rpi-auxreg.h"
 #include "rpi-gpio.h"
 #include "info.h"
-#include "startup.h"
+#include "rpi-asm-helpers.h"
 #include "tube-pins.h"
 #include <limits.h>
 

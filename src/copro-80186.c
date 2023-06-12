@@ -5,7 +5,6 @@
 #include "cpu80186/cpu80186.h"
 #include "cpu80186/mem80186.h"
 #include "cpu80186/iop80186.h"
-#include "startup.h"
 #include "utils.h"
 
 extern uint8_t Client86_v1_01[];

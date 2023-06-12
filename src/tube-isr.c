@@ -3,7 +3,6 @@
 
 #include "copro-armnative.h"
 
-#include "startup.h"
 #include "swi.h"
 #include "tube-lib.h"
 #include "tube-env.h"

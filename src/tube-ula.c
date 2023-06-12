@@ -17,6 +17,7 @@
 #include "tube-ula.h"
 #include "rpi-gpio.h"
 #include "rpi-interrupts.h"
+#include "rpi-asm-helpers.h"
 #include "cache.h"
 #include "info.h"
 #include "performance.h"
@@ -47,7 +48,6 @@ static void start_vc_ula();
 #define ARM_TUBE_REG_ADDR ((GPU_TUBE_REG_ADDR & 0x00FFFFFF) | PERIPHERAL_BASE)
 
 #include "tubevc.h"
-#include "startup.h"
 
 int test_pin;
 static uint32_t led_pin=0;
@@ -161,7 +161,7 @@ static void tube_updateints_NMI()
 // cppcheck-suppress unusedFunction
 void tube_enable_fast6502(void)
 {
-   int cpsr = _disable_interrupts();
+   unsigned int cpsr = _disable_interrupts_cspr();
    tube_irq |= FAST6502_BIT;
    if ((cpsr & 0xc0) != 0xc0) {
     _enable_interrupts();
@@ -171,7 +171,7 @@ void tube_enable_fast6502(void)
 // cppcheck-suppress unusedFunction
 void tube_disable_fast6502(void)
 {
-   int cpsr = _disable_interrupts();
+   unsigned int cpsr = _disable_interrupts_cspr();
    tube_irq &= ~FAST6502_BIT;
    if ((cpsr & 0xc0) != 0xc0) {
     _enable_interrupts();
@@ -180,7 +180,7 @@ void tube_disable_fast6502(void)
 
 void tube_ack_nmi(void)
 {
-   int cpsr = _disable_interrupts();
+   unsigned int cpsr = _disable_interrupts_cspr();
    tube_irq &= ~NMI_BIT;
    if ((cpsr & 0xc0) != 0xc0) {
     _enable_interrupts();
@@ -483,7 +483,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       }
       return temp;
    }
-   int cpsr = _disable_interrupts();
+   unsigned int cpsr = _disable_interrupts_cspr();
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
@@ -590,7 +590,7 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
 
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
-   int cpsr = _disable_interrupts();
+   unsigned int cpsr = _disable_interrupts_cspr();
 #ifdef DEBUG_TUBE
    if (addr & 1) {
       tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & 7) << 8) | val;

@@ -14,7 +14,6 @@
 #include "mame/arm.h"
 #include "tuberom_arm.h"
 #include "copro-arm2.h"
-#include "startup.h"
 #include "tube-client.h"
 
 #ifdef INCLUDE_DEBUGGER

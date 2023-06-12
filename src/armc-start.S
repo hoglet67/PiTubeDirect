@@ -54,32 +54,17 @@
 .global _start
 .global __bss_start__
 .global __bss_end__
-.global _get_cpsr
-.global _get_stack_pointer
-.global _exception_table
-.global _enable_interrupts
-.global _set_interrupts
-.global _disable_interrupts
-.global _enable_l1_cache
-.global _invalidate_icache
-.global _invalidate_dcache
-.global _invalidate_tlb_mva
-.global _data_memory_barrier
-.global _data_synchronization_barrier
 
 .global _software_interrupt_vector_h
 .global _interrupt_vector_h
 .global _fast_interrupt_vector_h
 
 #if (__ARM_ARCH >= 7 )
-.global _get_core
 .global _init_core
 .global _spin_core
 #endif
 
 .global _fast_scroll
-.global _fast_clear
-.global _main_irq_r9_regsp
 
 // From the ARM ARM (Architecture Reference Manual). Make sure you get the
 // ARMv5 documentation which includes the ARMv6 documentation which is the
@@ -129,7 +114,17 @@ _reset_:
     mov     r5,#0
 	str     r5,[r4]		// disable GIC on rpi4
 #endif
-    BL _enable_l1_cache
+
+    // R0 = System Control Register
+    mrc p15,0,r4,c1,c0,0
+
+    // Enable caches and branch prediction
+    orr r4,#SCTLR_ENABLE_BRANCH_PREDICTION
+    orr r4,#SCTLR_ENABLE_DATA_CACHE
+    orr r4,#SCTLR_ENABLE_INSTRUCTION_CACHE
+
+    // System Control Register = R0
+    mcr p15,0,r4,c1,c0,0
 
     //1. Set the CPACR for access to CP10 and CP11, and clear the ASEDIS and D32DIS bits:
     ldr     r4, =(0xf << 20)
@@ -201,46 +196,29 @@ _reset_continue:
     // memset which uses byte writes
     // As _fast_clear round lengths down to 64 byte boundaries we need to
     // round up. It doesn't matter if we go too far as we just zero part of the heap.
-    push    {r0-r3}
-    ldr     r0,=__bss_start__
-    ldr     r2,=__bss_end__+64
-    mov     r1,#0
-    sub     r2,r2,r0
+    ldr     r12,=__bss_start__
+    ldr     r14,=__bss_end__+64
+    sub     r14,r14,r12
 
-    BL      _fast_clear
-    pop     {r0-r3}
+// R0 = dst
+// R14 = number of bytes, must be a multiple of 64
+_fast_clear:
+    mov     r4, #0
+    mov     r5, #0
+    mov     r6, #0
+    mov     r7, #0
+    mov     r8, #0
+    mov     r9, #0
+    mov     r10, #0
+    mov     r11, #0
+    bic     r14, r14, #0x3F
+_fast_clear_loop:
+    stmia   r12!,{r4, r5, r6, r7, r8, r9, r10, r11}
+    subs    r14, r14, #64
+    stmia   r12!,{r4, r5, r6, r7, r8, r9, r10, r11}
+    bne     _fast_clear_loop
+
     b       kernel_main
-
-
-.section ".text._get_stack_pointer"
-_get_stack_pointer:
-    mov     r0, sp
-    bx      lr
-
-.section ".text._get_cpsr"
-_get_cpsr:
-    mrs     r0, cpsr
-    bx      lr
-
-.section ".text._set_interrupts"
-_set_interrupts:
-    and     r0, r0, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT    // extract the IRQ/FIQ bits from the value of cpsr passed in
-    mrs     r1, cpsr
-    bic     r1, r1, #CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT
-    orr     r1, r1, r0
-    msr     cpsr_c, r1
-    bx      lr
-
-.section ".text._enable_interrupts"
-_enable_interrupts:
-    CPSIE   if
-    bx      lr
-
-.section ".text._disable_interrupts"
-_disable_interrupts:
-    mrs     r0, cpsr
-    CPSID   if
-    bx      lr
 
 .section ".text._undefined_instruction_handler_"
 _undefined_instruction_handler_:
@@ -274,70 +252,6 @@ _swi_handler_:
     mov      r0, sp
     bl       swi_handler
 
-    // Enable L1 Cache -------------------------------------------------------
-.section ".text._enable_l1_cache"
-_enable_l1_cache:
-
-    // R0 = System Control Register
-    mrc p15,0,r4,c1,c0,0
-
-    // Enable caches and branch prediction
-    orr r4,#SCTLR_ENABLE_BRANCH_PREDICTION
-    orr r4,#SCTLR_ENABLE_DATA_CACHE
-    orr r4,#SCTLR_ENABLE_INSTRUCTION_CACHE
-
-    // System Control Register = R0
-    mcr p15,0,r4,c1,c0,0
-
-    bx      lr
-
-.section ".text._invalidate_icache"
-_invalidate_icache:
-    mov     r0, #0
-    mcr     p15, 0, r0, c7, c5, 0
-    bx      lr
-
-.section ".text._invalidate_dcache"
-_invalidate_dcache:
-    mov     r0, #0
-    mcr     p15, 0, r0, c7, c6, 0
-    bx      lr
-
-.section ".text._invalidate_tlb_mva"
-_invalidate_tlb_mva:
-#if (__ARM_ARCH >= 7 )
-    dsb
-#endif
-
-    mcr     p15, 0, r0, c8, c7, 1  // invalidate tlb
-
-#if (__ARM_ARCH >= 7 )
-    MCR p15, 0, r0, c7, c5, 6 //; invalidate all of the BTB (BPIALL)
-    dsb
-    isb
-#endif
-    bx      lr
-
-.section ".text._data_memory_barrier"
-_data_memory_barrier:
-#if (__ARM_ARCH >= 7 )
-    dmb
-#else
-    mov     r0, #0
-    mcr     p15, 0, r0, c7, c10, 5 // DMB
-#endif
-    bx      lr
-
-.section ".text._data_synchronization_barrier"
-_data_synchronization_barrier:
-#if (__ARM_ARCH >= 7 )
-    dsb
-#else
-    mov     r0, #0
-    mcr     p15, 0, r0, c7, c10, 4
-#endif
-    bx      lr
-
 #ifdef USE_MULTICORE
 +.section ".text._init_core"
 _init_core:
@@ -351,8 +265,6 @@ _init_core:
     mov     r0, #0x40000000
     vmsr    fpexc, r0
 
-#if (__ARM_ARCH >= 7 )
-
     // enter in HYP mode and need to force a switch to SVC mode
     //
     // The logs show:
@@ -363,7 +275,6 @@ _init_core:
     .word 0xE12EF30E  // msr_elr_hyp lr ( gcc armv7 doesn't support these instructions)
     .word 0xE160006E  // eret
 _init_continue:
-#endif
 
     ldr  r4,=_start
     // Initialise Stack Pointers ---------------------------------------------
@@ -424,12 +335,6 @@ _spin_core1:
     wfi
     b       _spin_core1
 
-.section ".text._get_core"
-_get_core:
-    mrc     p15, 0, r0, c0, c0, 5
-    and     r0, #3
-    bx      lr
-
 #endif
 
 .section ".text._fast_scroll"
@@ -450,27 +355,7 @@ _fast_scroll_loop:
         pop     {r4, r5, r6, r8, r9, r10, r11, pc}
 
 .section ".text._fast_clear"
-// R0 = dst
-// R1 = val
-// R2 = number of bytes, must be a multiple of 64
-// Note: R7 reserved by Fast 6502 FIQ handler, so avoid
-_fast_clear:
-        push    {r4, r5, r6, r8, r9, r10, r11, lr}
-        mov     r3, r1
-        mov     r4, r1
-        mov     r5, r1
-        mov     r6, r1
-        mov     r8, r1
-        mov     r9, r1
-        mov     r10, r1
-        mov     r11, r1
-        bic     r2, r2, #0x3F
-_fast_clear_loop:
-        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
-        subs    r2, r2, #64
-        stmia   r0!,{r3, r4, r5, r6, r8, r9, r10, r11}
-        bne     _fast_clear_loop
-        pop     {r4, r5, r6, r8, r9, r10, r11, pc}
+
 
 .section ".text.arm_irq_handler"
 arm_irq_handler:

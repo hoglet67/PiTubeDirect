@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../startup.h"
+#include "../rpi-asm-helpers.h"
 #include "../swi.h"
 #include "../tube-lib.h"
 #include "../tube-swi.h"
