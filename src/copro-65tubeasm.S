@@ -7,6 +7,9 @@
 // - significant changes to optimise for ARMv6 CPUs
 
 #include "copro-65tubeasm.h"
+#include "tube-irqbits.h"
+#include "rpi-base-asm.h"
+#include "rpi-mailboxregs.h"
 
 // FIX_STACK_WRAP_BUG adds code to make JSR/RTS wrap correctly on the stack boundary.
 // On the Pi Zero this reduces the CLOCKS4 benchmark from 280.72MHz to 272.41MHz.
@@ -3153,7 +3156,15 @@ exec_65tube:
         movs    R1,R1
         orrne   instt, instt, #EVENT_HANDLER_FLAG+EVENT_HANDLER_SLOW_FLAG
 
-        BL      tube_enable_fast6502
+// install our FIQ handler
+        CPSID if
+        ldr   temp2,=_fast_interrupt_vector_h
+        ldr   r0,[temp2]
+        adr   temp1,arm_fiq_handler_fast6502
+        str   r0,old_fiq_vector
+        str   temp1,[temp2]
+
+        CPSIE if // enable interupts
 
         ldr     tregs, =(0x0000fee0 >> 5)  // initialize the constant in tregs
 
@@ -3194,8 +3205,56 @@ handle_rst:
         FETCH_NEXT_3B_MERGED  SUBPC     // Start executing instructions
 
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
-        bl      tube_disable_fast6502
+
+        CPSID if
+        ldr   r0,=_fast_interrupt_vector_h
+        ldr   temp1,old_fiq_vector
+        str   temp1,[r0]
+        CPSIE if
+
         pop     {r4-r11,pc}
+
+// ARM FIQ handler
+arm_fiq_handler_fast6502:
+
+#ifdef USE_DOORBELL
+      ldr      r12, =DOORBELL          // Read the GPU doorbell
+      ldr      r11, =DOORBELLDATA
+      push     {r0-r3,r14}
+      ldr      r10,=tube_irq
+      ldr      r0, [r12]               // Get Mailbox data
+      ldr      r0, [r11]               // Get Mailbox data
+
+#else
+      ldr      r12, =MBOX0_READ        // Read the GPU mailbox
+
+      push     {r0-r3,r14}
+      ldr      r10,=tube_irq
+      ldr      r0, [r12]               // Get Mailbox data
+
+      tst      r0, #0x0F               // Discard if the channel bits are non-zero
+      popne    {r0-r3,r14}             // Clean up the stack
+      subnes   pc, lr, #4              // And return without invoking the handler
+#endif
+
+      bl       tube_io_handler
+
+      ldr      r12,[r10]
+      pop      {r0-r3,r14}
+      tst      r12, #FAST6502_BIT      // see if we should signal the 6502 Core
+      tstne    r12,#RESET_BIT+NMI_BIT+IRQ_BIT
+      orrne    copro6502asm_instruction_table, copro6502asm_instruction_table, #copro6502asm_instruction_size
+
+// fall into return
+
+// Default handlers for FIQ/IRQ do nothing
+
+arm_fiq_handler:
+
+      subs    pc, lr, #4
+
+old_fiq_vector:
+       .word 0
 
 // 6502 Event handler
 // if USE_MULTICORE is defined, we have come here only from fetch_next above.
