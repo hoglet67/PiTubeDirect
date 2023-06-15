@@ -39,7 +39,7 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" )
 
 # Add any C compiler flags here. The C flags concerned with processor tuning
 # are in the toolchain files toolchain-arm-none-eabi-bcm2835.cmake, etc.
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-r7" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffixed-r7" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wmaybe-uninitialized" )
 
@@ -56,7 +56,7 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat=2")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wcast-qual")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-conversion ")
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-compare" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-compare -Wenum-int-mismatch -Wxor-used-as-pow -fstrict-flex-arrays -Warray-bounds=2" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wlong-long" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-field-initializers" )
 
@@ -100,6 +100,7 @@ file( GLOB core_files
     rpi-gpio.h
     rpi-aux.c
     rpi-aux.h
+    rpi-asm-helpers.c
     rpi-interrupts.c
     rpi-interrupts.h
     rpi-mailbox.c
