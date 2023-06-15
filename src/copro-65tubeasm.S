@@ -10,6 +10,7 @@
 #include "tube-irqbits.h"
 #include "rpi-base-asm.h"
 #include "rpi-mailboxregs.h"
+#include "tube-defs.h"
 
 // FIX_STACK_WRAP_BUG adds code to make JSR/RTS wrap correctly on the stack boundary.
 // On the Pi Zero this reduces the CLOCKS4 benchmark from 280.72MHz to 272.41MHz.
@@ -3156,14 +3157,14 @@ exec_65tube:
         movs    R1,R1
         orrne   instt, instt, #EVENT_HANDLER_FLAG+EVENT_HANDLER_SLOW_FLAG
 
-// install our FIQ handler
+// install our IRQ and FIQ handler
         CPSID if
-        ldr   temp2,=_fast_interrupt_vector_h
-        ldr   r0,[temp2]
-        adr   temp1,arm_fiq_handler_fast6502
-        str   r0,old_fiq_vector
-        str   temp1,[temp2]
-
+        ldr   r2,=_interrupt_vector_h
+        adr   r0,arm_irq_handler_fast6502
+        adr   r1,arm_fiq_handler_fast6502
+        ldrd  r4,[r2]
+        strd  r0,[r2]
+        strd  r4,old_irq_vector
         CPSIE if // enable interupts
 
         ldr     tregs, =(0x0000fee0 >> 5)  // initialize the constant in tregs
@@ -3207,9 +3208,9 @@ handle_rst:
 exec_65tube_exit:                       // We get here from the Event handler when RST is detected
 
         CPSID if
-        ldr   r0,=_fast_interrupt_vector_h
-        ldr   temp1,old_fiq_vector
-        str   temp1,[r0]
+        ldr   r0,=_interrupt_vector_h
+        ldrd  r2,old_irq_vector
+        strd  r2,[r0]
         CPSIE if
 
         pop     {r4-r11,pc}
@@ -3247,8 +3248,34 @@ arm_fiq_handler_fast6502:
 
       subs    pc, lr, #4
 
+
+arm_irq_handler_fast6502:
+   sub   lr, lr, #4
+   push  {r0, r1, r2, r3, ip, lr}
+   ldr   r0,=tube_irq
+   CPSID f
+   ldr   r1,[r0]
+   bic   r1,r1, #FAST6502_BIT      //  disable
+   str   r1,[r0]
+   CPSIE f
+   bl    IRQHandler_main
+
+   ldr   r0,=tube_irq
+   CPSID f
+   ldr   r1,[r0]
+   orr   r1,r1, #FAST6502_BIT      //  enable
+   str   r1,[r0]
+
+   tst   r1,#RESET_BIT+NMI_BIT+IRQ_BIT
+   orrne    copro6502asm_instruction_table, copro6502asm_instruction_table, #copro6502asm_instruction_size
+
+   ldm sp!, {r0, r1, r2, r3, ip, pc}^
+        .align 3
+old_irq_vector:
+       .word 0
 old_fiq_vector:
        .word 0
+
 
 // 6502 Event handler
 // if USE_MULTICORE is defined, we have come here only from fetch_next above.
@@ -3409,26 +3436,29 @@ execute_one_instruction:
 tube_load_handler_regA_flags:
         push    {r3,next_instr,r12}
         mrs     next_instr, CPSR               // Save 6502 flags
+        CPSID   if
         bl      tube_parasite_read
         sxtb    regA,operand
-        msr     CPSR_flg, next_instr
+        msr     CPSR_cf, next_instr
         pop     {r3,next_instr,r12}
         FLAGS_QUICK_FETCH012   regA
 
 tube_load_handler:
         push    {operand,r3,next_instr,r12,lr}
         mrs     next_instr, CPSR               // Save 6502 flags
+        CPSID   if
         bl      tube_parasite_read
         mov     temp1,operand
-        msr     CPSR_flg, next_instr
+        msr     CPSR_cf, next_instr
         pop     {operand,r3,next_instr,r12,pc}
 
 tube_load_handler_sign:
         push    {operand,r3,next_instr,r12,lr}
         mrs     next_instr, CPSR               // Save 6502 flags
+        CPSID   if
         bl      tube_parasite_read
         sxtb    temp1,operand
-        msr     CPSR_flg, next_instr
+        msr     CPSR_cf, next_instr
         pop     {operand,r3,next_instr,r12,pc}
 
 tube_store_handler_regA:
@@ -3436,10 +3466,11 @@ tube_store_handler_regA:
 tube_store_handler:
         push    {r2-r3,r12}
         and     r1, #0xff
+        CPSID   if
         bl      tube_parasite_write_banksel
         pop     {r2-r3,r12}
         FETCH_NEXT_STAGE_0
-        msr     CPSR_flg, r2           // restore 6502 flags, including ARM
+        msr     CPSR_cf, r2           // restore 6502 flags, including ARM
         FETCH_NEXT_STAGE_12
 
 //
