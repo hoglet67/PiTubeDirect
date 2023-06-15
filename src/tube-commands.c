@@ -259,7 +259,7 @@ static int doCmdFX(const char *params) {
   unsigned int x = 0;
   unsigned int y = 0;
   params = copy_string(params);
-  sscanf(params, "%ud%*c%ud%*c%ud", &a, &x, &y);
+  sscanf(params, "%u%*c%u%*c%u", &a, &x, &y);
   OS_Byte(a, x, y, NULL, NULL);
   return 0;
 }
