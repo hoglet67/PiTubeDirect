@@ -20,29 +20,22 @@ CACHELINE_ALIGN = 5
 arm_fiq_handler_flag1:
 
 #ifdef USE_DOORBELL
-      ldr      r12, =DOORBELL          // Read the GPU doorbell
-      ldr      r11, =DOORBELLDATA
+      ldrd     r10, doorbell_const      // Read the GPU doorbell
       push     {r0-r3,r14}
-      ldr      r10,=tube_irq
-      ldr      r0, [r12]               // Get Mailbox data
+      ldr      r1, [r10]               // Get Mailbox data
       ldr      r0, [r11]               // Get Mailbox data
-
+      bl       tube_io_handler
+      pop      {r0-r3,r14}
 #else
       ldr      r12, =MBOX0_READ        // Read the GPU mailbox
 
       push     {r0-r3,r14}
-      ldr      r10,=tube_irq
       ldr      r0, [r12]               // Get Mailbox data
 
       tst      r0, #0x0F               // Discard if the channel bits are non-zero
-      popne    {r0-r3,r14}             // Clean up the stack
-      subnes   pc, lr, #4              // And return without invoking the handler
-#endif
-
-      bl       tube_io_handler
-
-      ldr      r12,[r10]
+      bleq     tube_io_handler
       pop      {r0-r3,r14}
+#endif
 
 // fall into return
 
@@ -51,3 +44,9 @@ arm_fiq_handler_flag1:
 arm_fiq_handler:
 
       subs    pc, lr, #4
+#ifdef USE_DOORBELL
+.align 3
+doorbell_const:
+      .word DOORBELL
+      .word DOORBELLDATA
+#endif
