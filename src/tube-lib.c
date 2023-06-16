@@ -14,9 +14,7 @@ unsigned char tubeRead(unsigned char addr)
   unsigned char ret;
   unsigned int cpsr = _disable_interrupts_cspr();
   ret = tube_parasite_read(addr);
-  if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
-  }
+  _set_interrupts(cpsr);
   return ret;
 }
 
@@ -24,9 +22,7 @@ void tubeWrite(unsigned char addr, unsigned char byte)
 {
   unsigned int cpsr = _disable_interrupts_cspr();
   tube_parasite_write(addr, byte);
-  if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
-  }
+  _set_interrupts(cpsr);
 }
 // this is only used for debug
 // cppcheck-suppress unusedFunction
