@@ -157,34 +157,12 @@ static void tube_updateints_NMI()
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 }
 */
-// Called from assembler
-// cppcheck-suppress unusedFunction
-void tube_enable_fast6502(void)
-{
-   unsigned int cpsr = _disable_interrupts_cspr();
-   tube_irq |= FAST6502_BIT;
-   if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
-   }
-}
-// Called from assembler
-// cppcheck-suppress unusedFunction
-void tube_disable_fast6502(void)
-{
-   unsigned int cpsr = _disable_interrupts_cspr();
-   tube_irq &= ~FAST6502_BIT;
-   if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
-   }
-}
 
 void tube_ack_nmi(void)
 {
    unsigned int cpsr = _disable_interrupts_cspr();
    tube_irq &= ~NMI_BIT;
-   if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
-   }
+  _set_interrupts(cpsr);
 }
 
 static void copro_command_excute(unsigned char copro_comm,unsigned char val)
