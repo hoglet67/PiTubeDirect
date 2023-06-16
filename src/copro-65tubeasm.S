@@ -78,7 +78,7 @@
 #define regSP     r9
 #define regPC     r10
 #define memry     r11
-#define instt     copro6502asm_instruction_table
+#define instt     r7
 #define next_op   r2
 #else
 #define operand   r0
@@ -93,7 +93,7 @@
 #define regSP     r9
 #define regPC     r10
 #define memry     r11
-#define instt     copro6502asm_instruction_table
+#define instt     r7
 #define next_op   r14
 #endif
 
@@ -3159,12 +3159,12 @@ exec_65tube:
 
 // install our IRQ and FIQ handler
         CPSID if
-        ldr   r2,=_interrupt_vector_h
+        ldr   r4,=_interrupt_vector_h
         adr   r0,arm_irq_handler_fast6502
         adr   r1,arm_fiq_handler_fast6502
-        ldrd  r4,[r2]
-        strd  r0,[r2]
-        strd  r4,old_irq_vector
+        ldrd  r2,[r4]
+        strd  r0,[r4]
+        strd  r2,old_irq_vector
         CPSIE if // enable interupts
 
         ldr     tregs, =(0x0000fee0 >> 5)  // initialize the constant in tregs
@@ -3191,6 +3191,8 @@ exec_65tube:
         ldr      temp2,=copro_speed
         ldr      temp2,[temp2]
         str      temp2,copro_speed6502
+
+        str     memry,fiq_status
 
 handle_rst:
         orr     flags, flags, #I_FLAG6502   // Set the I bit
@@ -3219,19 +3221,18 @@ exec_65tube_exit:                       // We get here from the Event handler wh
 arm_fiq_handler_fast6502:
 
 #ifdef USE_DOORBELL
-      ldr      r12, =DOORBELL          // Read the GPU doorbell
-      ldr      r11, =DOORBELLDATA
+      ldrd     r10, doorbell_const      // Read the GPU doorbell
       push     {r0-r3,r14}
-      ldr      r10,=tube_irq
-      ldr      r0, [r12]               // Get Mailbox data
+      ldr      r12,=tube_irq
+      ldr      r1, [r10]               // Get Mailbox data
       ldr      r0, [r11]               // Get Mailbox data
 
 #else
-      ldr      r12, =MBOX0_READ        // Read the GPU mailbox
+      ldr      r10, =MBOX0_READ        // Read the GPU mailbox
 
       push     {r0-r3,r14}
-      ldr      r10,=tube_irq
-      ldr      r0, [r12]               // Get Mailbox data
+      ldr      r12,=tube_irq
+      ldr      r0, [r10]               // Get Mailbox data
 
       tst      r0, #0x0F               // Discard if the channel bits are non-zero
       popne    {r0-r3,r14}             // Clean up the stack
@@ -3240,83 +3241,33 @@ arm_fiq_handler_fast6502:
 
       bl       tube_io_handler
 
-      ldr      r12,[r10]
+      ldr      r9,fiq_status
+      ldr      r12,[r12]
       pop      {r0-r3,r14}
-      tst      r12, #FAST6502_BIT      // see if we should signal the 6502 Core
+      tst      r9,memry
       tstne    r12,#RESET_BIT+NMI_BIT+IRQ_BIT
-      orrne    copro6502asm_instruction_table, copro6502asm_instruction_table, #copro6502asm_instruction_size
+      orrne    instt, instt, #copro6502asm_instruction_size
 
       subs    pc, lr, #4
 
-
 arm_irq_handler_fast6502:
-   sub   lr, lr, #4
-   push  {r0, r1, r2, r3, ip, lr}
-   ldr   r0,=tube_irq
-   CPSID f
-   ldr   r1,[r0]
-   bic   r1,r1, #FAST6502_BIT      //  disable
-   str   r1,[r0]
-   CPSIE f
-   bl    IRQHandler_main
+        sub   lr, lr, #4
+        push  {r0, r1, r2, r3, r4, ip, lr}
+        ldr   r4,fiq_status
+        str   instt,fiq_status
 
-   ldr   r0,=tube_irq
-   CPSID f
-   ldr   r1,[r0]
-   orr   r1,r1, #FAST6502_BIT      //  enable
-   str   r1,[r0]
+        bl    IRQHandler_main
 
-   tst   r1,#RESET_BIT+NMI_BIT+IRQ_BIT
-   orrne    copro6502asm_instruction_table, copro6502asm_instruction_table, #copro6502asm_instruction_size
+        ldr   r0,=tube_irq
 
-   ldm sp!, {r0, r1, r2, r3, ip, pc}^
-        .align 3
-old_irq_vector:
-       .word 0
-old_fiq_vector:
-       .word 0
+        str   r4,fiq_status
+        ldr   r1,[r0]
 
+        tst   r4,memry
+        tstne   r1,#RESET_BIT+NMI_BIT+IRQ_BIT
+        orrne    instt, instt, #copro6502asm_instruction_size
 
-// 6502 Event handler
-// if USE_MULTICORE is defined, we have come here only from fetch_next above.
-// if USE_MULTICORE is not defined, we have come here via a branch from the second instruction table
-
-        .balign I_ALIGN
-Event_Handler:
-
-        tst     operand, #2                  // Bit 1 set indicate NMI is active
-        bne     handle_nmi              // Take the NMI interrupt
-
-        tst     flags, #I_FLAG6502      // Test whether interrupts are enabled (bit 2 = 0)
-        bne     noirq
-        tst     operand, #1                  // Bit 0 set indicate IRQ is active
-        bne     handle_irq              // Take the IRQ interrupt
-
-noirq:
-        FETCH_NEXT_3B_STAGE_0  SUBPC
-        msr     CPSR, temp2                // restore the 6502 flags and re-enable ARM interrupts
-        FETCH_NEXT_STAGE_012            // go back to executing 6502 instructions
-
-handle_irq_adjust_regPC:
-        sub     regPC, regPC ,#1
-        msr     CPSR_flg, temp2            // Safely restore the 6502 flags and prepare to
-        INTR    -2, 0
-        FETCH_NEXT_3B_MERGED SUBPC
-
-handle_irq:
-        msr     CPSR, temp2                // Restore the 6502 flags and re-enable ARM interrupts
-        INTR    -2, 0
-        FETCH_NEXT_3B_MERGED SUBPC
-
-handle_nmi:
-        orr     operand,temp2, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
-        msr     CPSR_c,operand               // Disable interrupts
-        ldr     operand,[temp1]                 // load tube_irq again as it might have changed
-        BIC     operand,operand,#2                // clear NMI flag
-        str     operand,[temp1]                 // Store it back again
-        msr     CPSR_cf, temp2             // Restore the 6502 flags and re-enable ARM interrupts
-        INTR    -6, 0
-        FETCH_NEXT_3B_MERGED SUBPC
+        ldm sp!, {r0, r1, r2, r3, r4, ip, pc}^
 
 lastPC:
    .word 0
@@ -3325,6 +3276,17 @@ targettime:
 
 copro_speed6502:
    .word 0
+fiq_status:
+        .word 0
+
+        .align 3
+doorbell_const:
+        .word DOORBELL
+        .word DOORBELLDATA
+old_irq_vector:
+        .word 0
+old_fiq_vector:
+        .word 0
 
 // In slowdown we patch the event handler dispatch table to a special event handler (below)
 //
@@ -3436,42 +3398,125 @@ execute_one_instruction:
 tube_load_handler_regA_flags:
         push    {r3,next_instr,r12}
         mrs     next_instr, CPSR               // Save 6502 flags
-        CPSID   if
+
+        str     instt,fiq_status
+
         bl      tube_parasite_read
+
+        ldr     r14,=tube_irq
+        str     memry,fiq_status
+
+        ldr     r1,[r14]
+
+        tst     r1,#RESET_BIT+NMI_BIT+IRQ_BIT
+        orrne   instt, instt, #copro6502asm_instruction_size
+
         sxtb    regA,operand
-        msr     CPSR_cf, next_instr
+        msr     CPSR_f, next_instr
         pop     {r3,next_instr,r12}
         FLAGS_QUICK_FETCH012   regA
 
 tube_load_handler:
         push    {operand,r3,next_instr,r12,lr}
         mrs     next_instr, CPSR               // Save 6502 flags
-        CPSID   if
+
+        str     instt,fiq_status
+
         bl      tube_parasite_read
+
+        ldr     r14,=tube_irq
+        str     memry,fiq_status
+
+        ldr     r1,[r14]
+
+        tst     r1,#RESET_BIT+NMI_BIT+IRQ_BIT
+        orrne   instt, instt, #copro6502asm_instruction_size
+
         mov     temp1,operand
-        msr     CPSR_cf, next_instr
+        msr     CPSR_f, next_instr
         pop     {operand,r3,next_instr,r12,pc}
 
 tube_load_handler_sign:
         push    {operand,r3,next_instr,r12,lr}
         mrs     next_instr, CPSR               // Save 6502 flags
-        CPSID   if
+        str     instt,fiq_status
+
         bl      tube_parasite_read
+
+        ldr     r14,=tube_irq
+        str     memry,fiq_status
+
+        ldr     r1,[r14]
+
+        tst     r1,#RESET_BIT+NMI_BIT+IRQ_BIT
+        orrne   instt, instt, #copro6502asm_instruction_size
+
         sxtb    temp1,operand
-        msr     CPSR_cf, next_instr
+        msr     CPSR_f, next_instr
         pop     {operand,r3,next_instr,r12,pc}
 
 tube_store_handler_regA:
         mov     temp1, regA
 tube_store_handler:
         push    {r2-r3,r12}
-        and     r1, #0xff
-        CPSID   if
+        and     r1, r1, #0xff
+
+        str     instt,fiq_status
+
         bl      tube_parasite_write_banksel
+
+        ldr     r14,=tube_irq
+        str     memry,fiq_status
+
+        ldr     r1,[r14]
+
+        tst     r1,#RESET_BIT+NMI_BIT+IRQ_BIT
+        orrne   instt, instt, #copro6502asm_instruction_size
         pop     {r2-r3,r12}
         FETCH_NEXT_STAGE_0
-        msr     CPSR_cf, r2           // restore 6502 flags, including ARM
+        msr     CPSR_f, r2           // restore 6502 flags, including ARM
         FETCH_NEXT_STAGE_12
+
+// 6502 Event handler
+// if USE_MULTICORE is defined, we have come here only from fetch_next above.
+// if USE_MULTICORE is not defined, we have come here via a branch from the second instruction table
+
+        .balign I_ALIGN
+Event_Handler:
+
+        tst     operand, #2                  // Bit 1 set indicate NMI is active
+        bne     handle_nmi              // Take the NMI interrupt
+
+        tst     flags, #I_FLAG6502      // Test whether interrupts are enabled (bit 2 = 0)
+        bne     noirq
+        tst     operand, #1                  // Bit 0 set indicate IRQ is active
+        bne     handle_irq              // Take the IRQ interrupt
+
+noirq:
+        FETCH_NEXT_3B_STAGE_0  SUBPC
+        msr     CPSR, temp2                // restore the 6502 flags and re-enable ARM interrupts
+        FETCH_NEXT_STAGE_012            // go back to executing 6502 instructions
+
+handle_irq_adjust_regPC:
+        sub     regPC, regPC ,#1
+        msr     CPSR_flg, temp2            // Safely restore the 6502 flags and prepare to
+        INTR    -2, 0
+        FETCH_NEXT_3B_MERGED SUBPC
+
+handle_irq:
+        msr     CPSR, temp2                // Restore the 6502 flags and re-enable ARM interrupts
+        INTR    -2, 0
+        FETCH_NEXT_3B_MERGED SUBPC
+
+handle_nmi:
+        orr     operand,temp2, #(CPSR_FIQ_INHIBIT | CPSR_IRQ_INHIBIT)
+        msr     CPSR_c,operand               // Disable interrupts
+        ldr     operand,[temp1]                 // load tube_irq again as it might have changed
+        BIC     operand,operand,#2                // clear NMI flag
+        str     operand,[temp1]                 // Store it back again
+        msr     CPSR_cf, temp2             // Restore the 6502 flags and re-enable ARM interrupts
+        INTR    -6, 0
+        FETCH_NEXT_3B_MERGED SUBPC
 
 //
 // Decimal mode functions
