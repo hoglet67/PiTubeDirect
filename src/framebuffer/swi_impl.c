@@ -98,7 +98,7 @@ static void OS_Byte_impl(unsigned int *reg) {
 
    case 19:
       // Wait for VSYNC
-      _enable_interrupts(); // re-enable interrupts or we'll hang fr ever
+      _enable_interrupts(); // re-enable interrupts or we'll hang forever
       fb_wait_for_vsync();  // wait for the vsync flag to be set by the ISR
       return; // parasite only
 

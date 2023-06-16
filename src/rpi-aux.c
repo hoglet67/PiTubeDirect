@@ -144,7 +144,7 @@ void RPI_AuxMiniUartIRQHandler() {
       /* Forward all received characters to the debugger */
       debugger_rx_char(auxiliary->MU_IO & 0xFF);
 #else
-      /* Else just exho characters */
+      /* Else just echo characters */
       RPI_AuxMiniUartWrite(auxiliary->MU_IO & 0xFF);
 #endif
     }
