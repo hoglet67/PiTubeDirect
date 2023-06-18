@@ -26,6 +26,28 @@ unsigned int _get_stack_pointer(void)
 return result;
 }
 
+void _enable_FIQ(void)
+{
+    asm volatile
+    (
+        "CPSIE f \r\n"
+    :
+    :
+    :
+    );
+}
+
+void _disable_FIQ(void)
+{
+    asm volatile
+    (
+        "CPSID f \r\n"
+    :
+    :
+    :
+    );
+}
+
 void _enable_interrupts(void)
 {
     asm volatile
