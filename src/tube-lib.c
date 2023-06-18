@@ -72,7 +72,7 @@ unsigned char receiveByte(unsigned char reg)
 }
 
 // Reg is 1..4
-void sendStringWithoutTerminator(unsigned char reg, const volatile char *buf)
+void sendStringWithoutTerminator(unsigned char reg, const char *buf)
 {
   unsigned char c;
   while ((c = ((unsigned char)*buf)) >= 0x20)
@@ -83,7 +83,7 @@ void sendStringWithoutTerminator(unsigned char reg, const volatile char *buf)
 }
 
 // Reg is 1..4
-void sendString(unsigned char reg, unsigned char terminator, const volatile char *buf)
+void sendString(unsigned char reg, unsigned char terminator, const char *buf)
 {
   char c;
   do
@@ -95,7 +95,7 @@ void sendString(unsigned char reg, unsigned char terminator, const volatile char
 }
 
 // Reg is 1..4
-unsigned int receiveString(unsigned char reg, unsigned char terminator, volatile char *buf)
+unsigned int receiveString(unsigned char reg, unsigned char terminator, char *buf)
 {
   unsigned int i = 0;
   unsigned char c;

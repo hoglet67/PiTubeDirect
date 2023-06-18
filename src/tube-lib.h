@@ -35,11 +35,11 @@ void sendByte(unsigned char reg, unsigned char byte);
 
 unsigned char receiveByte(unsigned char reg);
 
-void sendStringWithoutTerminator(unsigned char reg, const volatile char *buf);
+void sendStringWithoutTerminator(unsigned char reg, const char *buf);
 
-void sendString(unsigned char reg, unsigned char terminator, const volatile char *buf);
+void sendString(unsigned char reg, unsigned char terminator, const char *buf);
 
-unsigned int receiveString(unsigned char reg, unsigned char terminator, volatile char *buf);
+unsigned int receiveString(unsigned char reg, unsigned char terminator, char *buf);
 
 void sendBlock(unsigned char reg, unsigned int len, const unsigned char *buf);
 
