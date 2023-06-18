@@ -7,7 +7,7 @@
 #include "tube-isr.h"
 #include "tube-ula.h"
 
-static int debug = 2;
+static int debug = 0;
 
 unsigned char tubeRead(unsigned char addr)
 {
@@ -18,12 +18,7 @@ unsigned char tubeRead(unsigned char addr)
 
 void tubeWrite(unsigned char addr, unsigned char byte)
 {
-  // unsigned int cpsr = _disable_interrupts_cspr();
-  //if (cpsr & 0xc0)
-  //  printf("IRQs disabled %x", cpsr & 0xC0);
   tube_parasite_write(addr, byte);
-  // there is a possible bug soemwhere requiring IRQs to be reenabled here not just restored
- _enable_interrupts();//  _set_interrupts(cpsr);
 }
 // this is only used for debug
 // cppcheck-suppress unusedFunction
