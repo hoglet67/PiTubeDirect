@@ -407,7 +407,7 @@ static inline breakpoint_t *check_for_breakpoints(uint32_t addr, breakpoint_t *p
 
 static inline void generic_memory_access(const cpu_debug_t *cpu, uint32_t addr, uint32_t value, uint8_t size,
                                          const char *type, breakpoint_t *list) {
-   breakpoint_t *ptr = check_for_breakpoints(addr, list);
+   const breakpoint_t * const ptr = check_for_breakpoints(addr, list);
    if (ptr) {
       uint32_t pc = cpu->get_instr_addr();
       if (ptr->mode == MODE_BREAK) {
@@ -508,7 +508,7 @@ void debug_preexec (const cpu_debug_t *cpu, uint32_t addr) {
       show = 1;
 
    } else {
-      breakpoint_t *ptr = check_for_breakpoints(addr, exec_breakpoints);
+     const breakpoint_t * const ptr = check_for_breakpoints(addr, exec_breakpoints);
 
       if (ptr) {
          if (ptr->mode == MODE_BREAK) {
@@ -1165,7 +1165,7 @@ static void dispatchCmd(const char *cmd) {
 #ifdef USE_LINENOISE
 
 void debugger_rx_char(char c) {
-   char *buf = linenoise_async_rxchar(c, prompt_str);
+   const char * const buf = linenoise_async_rxchar(c, prompt_str);
    if (buf) {
       printf("\r\n");
       if (buf[0]) {

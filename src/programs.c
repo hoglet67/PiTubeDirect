@@ -3003,9 +3003,9 @@ void copy_test_programs(uint8_t *memory) {
 
    const char *start_message = "Started testing";
 
-   unsigned int    base[]  = {          D6502_START,           D65C02_START};
-   const uint8_t * data[]  = {        dormann_d6502,         dormann_d65c02};
-   unsigned int    dsize[] = {sizeof(dormann_d6502), sizeof(dormann_d65c02)};
+   const unsigned int    base[]     = {          D6502_START,           D65C02_START};
+   const uint8_t * data[]           = {        dormann_d6502,         dormann_d65c02};
+   const unsigned int dsize[] = {sizeof(dormann_d6502), sizeof(dormann_d65c02)};
 
    // jmp[0] will be the address of the JMP start at the end of the 6502 tests
    // jmp[1] will be the address of the JMP start at the end of the 65C02 tests

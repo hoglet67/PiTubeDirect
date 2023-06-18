@@ -1049,10 +1049,9 @@ static void htos( char *s, byte b)
   s[1] = (b<10)?(b+'0'):b+'A'-10;
 }
 
-int M6502_disassemble(M6502 *mpu, word ip, char buffer[64])
+int M6502_disassemble(const M6502 * const mpu, word ip, char buffer[64])
 {
   char *s= buffer;
-  // cppcheck-suppress ctuuninitvar
   byte *b= mpu->memory + ip;
 
   switch (b[0])
@@ -1108,7 +1107,7 @@ static void outOfMemory(void)
 
 M6502 *M6502_new(M6502_Registers *registers, M6502_Memory memory, M6502_Callbacks *callbacks)
 {
-  M6502 *mpu= calloc(1, sizeof(M6502));
+  M6502 * const mpu= calloc(1, sizeof(M6502));
   if (!mpu) {outOfMemory(); return NULL;}
 
   if (!registers)  { registers = (M6502_Registers *)calloc(1, sizeof(M6502_Registers));  mpu->flags |= M6502_RegistersAllocated; }

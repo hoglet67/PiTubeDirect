@@ -191,7 +191,7 @@ void RPI_PropertyAddTag( rpi_mailbox_tag_t tag, ... )
             pt[pt_index++] = 0; /* Request */
             pt[pt_index++] = offset;                   // Offset to first colour
             pt[pt_index++] = num_colours;              // Number of colours
-            uint32_t *palette = va_arg( vl, uint32_t *);
+            const uint32_t * const palette = va_arg( vl, uint32_t *);
             for (uint32_t i = 0; i < num_colours; i++) {
                pt[pt_index++] = palette[offset + i];
             }

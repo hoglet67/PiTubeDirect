@@ -254,16 +254,16 @@ int wait(int *status)
  manufacturer) to actually perform the output. */
  // Called from assembler
 // cppcheck-suppress unusedFunction
-int _write(int file, char *ptr, int len)
+int _write(int file, const char * const ptr, int len)
 {
   if (len) RPI_AuxMiniUartString( ptr, len);
   return len;
 }
-
+// cppcheck-suppress unusedFunction
 void _getpid_r()
 {
 }
-
+// cppcheck-suppress unusedFunction
 void _kill_r()
 {
 }

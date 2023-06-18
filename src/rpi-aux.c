@@ -176,7 +176,7 @@ void RPI_AuxMiniUartInit(uint32_t baud)
 
   _data_memory_barrier();
 
-  clock_info_t *sys_clock_info = get_clock_rates(CORE_CLK_ID);
+  const clock_info_t * const sys_clock_info = get_clock_rates(CORE_CLK_ID);
 
   uint32_t sys_freq = sys_clock_info->rate;
 

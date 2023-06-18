@@ -543,7 +543,7 @@ static void handler_not_defined(unsigned int num) {
 
 // For an unimplemented SWI
 static void tube_SWI_Not_Known(unsigned int *reg) {
-  unsigned int *lr = (unsigned int *)reg[13];
+  const unsigned int * const lr = (unsigned int *)reg[13];
   printf("%08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3]);
   unsigned int num = *(lr - 1) & 0xFFFFFF;
   char *name = lookup_swi_name(num);
@@ -722,7 +722,6 @@ static char *write_string(char *ptr) {
 // OSFILE   R2: &14 block string &0D A            A block
 // OSGBPB   R2: &16 block A                       block Cy A
 
-// cppcheck-suppress constParameter
 static void tube_WriteC(unsigned int *reg) {
   sendByte(R1_ID, (unsigned char)((reg[0]) & 0xff));
 }
@@ -1200,7 +1199,7 @@ static void tube_Mouse(unsigned int *reg) {
 
 static void tube_GenerateError(unsigned int *reg) {
   // The error block is passed to the SWI in reg 0
-  ErrorBlock_type *eblk = (ErrorBlock_type *)reg[0];
+  const ErrorBlock_type * const eblk = (ErrorBlock_type *)reg[0];
   // Error address from the stacked link register
   generate_error((void *)reg[13], eblk->errorNum, eblk->errorMsg);
 }

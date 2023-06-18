@@ -76,7 +76,7 @@ extern void   M6502_nmi(M6502 *mpu);
 extern void   M6502_irq(M6502 *mpu);
 extern void   M6502_run(M6502 *mpu, M6502_PollInterruptsCallback poll);
 //extern void   M6502_run(M6502 *mpu);
-extern int    M6502_disassemble(M6502 *mpu, uint16_t ip, char buffer[64]);
+extern int    M6502_disassemble(const M6502 * const mpu, uint16_t ip, char buffer[64]);
 
 extern void   M6502_delete(M6502 *mpu);
 
