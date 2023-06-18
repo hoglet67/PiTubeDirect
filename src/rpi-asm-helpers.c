@@ -69,7 +69,7 @@ void _disable_interrupts(void)
     :
     );
 }
-
+// cppcheck-suppress unusedFunction
 unsigned int _disable_interrupts_cspr(void)
 {
 unsigned int result;
@@ -86,7 +86,7 @@ return result;
 }
 #define  CPSR_IRQ_INHIBIT       0x80
 #define  CPSR_FIQ_INHIBIT       0x40
-
+// cppcheck-suppress unusedFunction
 void _set_interrupts(unsigned int cpsr)
 {
     cpsr = cpsr & (CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT );
