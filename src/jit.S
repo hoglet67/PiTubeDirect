@@ -942,25 +942,25 @@ Bopc_8C: // Opcode 8C - STY $0000
    JITABSSTORE regY
 Bopc_8C_io: // Opcode 8C - STY $0000
    JITABS reg0
-   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mov   reg12,#1
    mov   reg1,regY,LSR #24
-   CPSID if                 // Disable FIQ/IRQ at the same time
+   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
 Bopc_8D: // Opcode 8D - STA $0000
    JITABSSTORE regA
 Bopc_8D_io: // Opcode 8D - STA $0000
    JITABS reg0
-   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mov   reg12,#1
    and   reg1,regA,#0xFF
-   CPSID if                 // Disable FIQ/IRQ at the same time
+   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
 Bopc_8E: // Opcode 8E - STX $0000
    JITABSSTORE regX
 Bopc_8E_io: // Opcode 8E - STX $0000
    JITABS reg0
-   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mov   reg12,#1
    mov   reg1,regX,LSR #24
-   CPSID if                 // Disable FIQ/IRQ at the same time
+   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
 Bopc_8F: // Opcode 8F - BBS0
    JITBBS 0
@@ -1016,9 +1016,9 @@ Bopc_9C: // Opcode 9C - STZ $0000
    JITABSSTORE ram6502
 Bopc_9C_iostore:
    JITABS reg0
-   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mov   reg12,#1
    mov   reg1,#0
-   CPSID if                 // Disable FIQ/IRQ at the same time
+   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
 Bopc_9D: // Opcode 9D - STA $0000,X
    JITABSXYST regA regX
@@ -1091,7 +1091,7 @@ Bopc_AC_io:
    JITABS r0
    .word ioload-16
    mov   regY,r0,LSL #24
-   mov   reg4, #2 // constant used by jsr rts
+   msr   CPSR, reg12         // Restore 6502 flags and FIQ/IRQ bits
    teq   regY,#0
 Bopc_AD: // Opcode AD - LDA $0000
    MOVR1HIGH
@@ -1102,7 +1102,7 @@ Bopc_AD_io: // Opcode AD - LDA $0000
    JITABS reg0
    .word ioload-16
    sxtb  regA,reg0
-   mov   reg4, #2 // constant used by jsr rts
+   msr   CPSR, reg12         // Restore 6502 flags and FIQ/IRQ bits
    teq   regA,#0
 Bopc_AE: // Opcode AE - LDX $0000
    JITABSLDRB
@@ -1113,7 +1113,7 @@ Bopc_AE_io:
    JITABS reg0
    .word ioload-16
    mov   regX,reg0,LSL #24
-   mov   reg4, #2 // constant used by jsr rts
+   msr   CPSR, reg12         // Restore 6502 flags and FIQ/IRQ bits
    teq   regX,#0
 Bopc_AF: // Opcode AF - BBS2
    JITBBS 2
@@ -1994,8 +1994,9 @@ noirq:
    RFEFD r13!                 // return from ISR
 
 handle_nmi:
+   ldr   temp1, =tube_irq     // Get IRQ status
    BIC   r0,r0,#NMI_BIT       // clear NMI flag
-   str   r0,[r12]             // Store it back again
+   str   r0,[temp1]           // Store it back again
    msr   CPSR_flg, r12        // Restore the 6502 flags
    INTR  -6, 0, FAKE
 
@@ -2015,6 +2016,32 @@ arm_jit_irq_handler:
 // we are in IRQ mode and have had a FIQ event
    ldm   sp!, {r0, r1, r2, r3, ip, lr}
    B fiq_during_irq
+
+ioload:
+   mrs   reg12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   push  {reg12,lr}
+   CPSID if                 // Disable FIQ/IRQ at the same time
+
+   bl    tube_parasite_read // Call up to C code to handle parasite read
+
+   ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
+   mov   reg2, #JITLET
+   add   reg2,reg2,#NEXTJITLET
+   pop   {reg12, pc}               // Restore registers and return
+
+indirectiostore:
+   sub   reg0,reg0,jittedtable16ptr
+   and   reg1,regA,#0xFF    // This is an assumption that the value is in regA
+   mov   reg0,reg0,LSR #JITTEDTABLESHIFT
+   mov   reg12,#1
+   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+
+iostore:
+   strb  reg12,fiqjitflag
+   push  {lr}
+   bl    tube_parasite_write_banksel // Call up to C code to handle parasite write
+   pop   {r3}
+   b     testforirq
 
 // **** dejit functions
 
@@ -2118,14 +2145,13 @@ dejit16bit31: // reg1 , reg1+4, reg1 + 8
 
 // **** jit up to a branch or jsr rts rti
 dojit:
+   mov   r0,#1
+   strb  r0,fiqjitflag
 // r14 has address of instruction
-   mrs r4, CPSR                   // Save interrupt state (restored by dojitexit)
+   mrs   r4, CPSR                   // Save interrupt state (restored by dojitexit)
 
-   mov r0,#1
-   strb r0,fiqjitflag
-
-   sub r3,r14,#4                  // return address ( first address of jitted code)
-   push {r3-r11}
+   sub   r3,r14,#4                  // return address ( first address of jitted code)
+   push  {r3-r11}
 #ifdef DEBUG_TIMING
       ldr     r8, =ASS_GPSET0     // timing debug code
       mov     r7, #TEST2_MASK
@@ -2927,11 +2953,13 @@ cacheflushloopI:
 #if __ARM_ARCH>6
    PLI   [r3]
 #endif
+testforirq:
    CPSID f
    ldrb  r0, fiqjitflag
+   mov   reg12, r4
+   mov   r1, #0
+   strb  r1, fiqjitflag
    cmp   r0, #2
-   mov   r0, #0
-   strb  r0, fiqjitflag
    blt   noirq_jit
 
 irqoccured:
@@ -2950,11 +2978,11 @@ handle_irq_jit:
 // deal with IRQ during jitter
    SUB   temp1,r3,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
-   msr   CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    mov   reg2,#JITLET
    mov   reg4, #2 // constant used by jsr rts
    add   reg2,reg2,#NEXTJITLET
+   msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    INTR  -2, 0
 
 handle_nmi_jit:
@@ -2963,20 +2991,21 @@ handle_nmi_jit:
    str   r0,[r1]   // Store it back again
    SUB   temp1,r3,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
-   msr   CPSR, r4  // Restore the 6502 flags, and interrupt state present on entry
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    mov   reg2,#JITLET
    mov   reg4, #2 // constant used by jsr rts
    add   reg2,reg2,#NEXTJITLET
+   msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    INTR  -4, 0
 
 noirq_jit:
-   msr   CPSR, r4
+
    mov   reg2,#JITLET
    mov   r14, r3
    mov   reg4, #2 // constant used by jsr rts
    add   reg2,reg2,#NEXTJITLET
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
+   msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    bx    r14   // this is slow on some system , but we have just flushed the cache which is slow
 
 debugopcode:
@@ -3303,33 +3332,6 @@ optimiseflagsexit:
 #endif
    bx    LR
 
-ioload:
-   push  {lr}               // ram6502 (r6) is used as a working register
-   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
-   CPSID if                 // Disable FIQ/IRQ at the same time
-   bl    tube_parasite_read // Call up to C code to handle parasite read
-   ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2, #JITLET
-   msr   CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
-   add   reg2,reg2,#NEXTJITLET
-   pop   {pc}               // Restore registers and return
-
-indirectiostore:
-   sub   reg0,reg0,jittedtable16ptr
-   and   reg1,regA,#0xFF    // This is an assumption that the value is in regA
-   mov   reg0,reg0,LSR #JITTEDTABLESHIFT
-   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
-   CPSID if                 // Disable FIQ/IRQ at the same time
-iostore:
-   push  {lr}               // ram6502 (r6) is used as a working register
-   bl    tube_parasite_write_banksel // Call up to C code to handle parasite write
-   msr   CPSR, reg4         // Restore 6502 flags and FIQ/IRQ bits
-   ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2,#JITLET
-   mov   reg4, #2 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
-   pop   {pc}               // Restore registers and return
-
 // Jits overflow
 
 brk:
@@ -3517,7 +3519,7 @@ rola:
 bitioload: //2c
    push  {r14}
    BL    ioload
-   mov   reg4, #2 // constant used by jsr rts
+   msr   CPSR, reg12         // Restore 6502 flags and FIQ/IRQ bits
    pop   {r14}
 
 bitadjustr14:
