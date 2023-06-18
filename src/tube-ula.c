@@ -160,9 +160,9 @@ static void tube_updateints_NMI()
 
 void tube_ack_nmi(void)
 {
-   unsigned int cpsr = _disable_interrupts_cspr();
+   _disable_FIQ();
    tube_irq &= ~NMI_BIT;
-  _set_interrupts(cpsr);
+   _enable_FIQ();
 }
 
 static void copro_command_excute(unsigned char copro_comm,unsigned char val)
@@ -468,77 +468,68 @@ uint8_t tube_parasite_read(uint32_t addr)
       temp = (uint8_t)(PSTAT1 | (WORD_TO_BYTE(HSTAT1) & 0x3F));
       break;
    case 1: /*Register 1*/
+      temp = hp1;
+      if (PSTAT1 & 0x80)
       {
-         unsigned int cpsr = _disable_interrupts_cspr();
-         temp = hp1;
-         if (PSTAT1 & 0x80)
-         {
-            PSTAT1 &= (uint8_t)~0x80;
-            HSTAT1 |=  HBIT_6;
-            //clear irq if required reg 4 isn't irqing
-            if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT;
-         }
-         _set_interrupts(cpsr);
+         _disable_FIQ();
+         PSTAT1 &= (uint8_t)~0x80;
+         HSTAT1 |=  HBIT_6;
+         //clear irq if required reg 4 isn't irqing
+         if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT;
+         _enable_FIQ();
       }
       break;
    case 2: /*Register 2 stat*/
       temp = PSTAT2;
       break;
    case 3: /*Register 2*/
+      temp = hp2;
+      if (PSTAT2 & 0x80)
       {
-         unsigned int cpsr = _disable_interrupts_cspr();
-         temp = hp2;
-         if (PSTAT2 & 0x80)
-         {
-            PSTAT2 &= (uint8_t)~0x80;
-            HSTAT2 |=  HBIT_6;
-         }
-         _set_interrupts(cpsr);
+         _disable_FIQ();
+         PSTAT2 &= (uint8_t)~0x80;
+         HSTAT2 |=  HBIT_6;
+         _enable_FIQ();
       }
       break;
    case 4: /*Register 3 stat*/
       temp = PSTAT3;
       break;
    case 5: /*Register 3*/
-      {
-         unsigned int cpsr = _disable_interrupts_cspr();
-         temp = hp3[0];
+      _disable_FIQ();
+      temp = hp3[0];
 #ifdef DEBUG_TRANSFERS
       checksum_p *= 13;
       checksum_p += temp;
       count_p ++;
 #endif
-
-         if (hp3pos>0)
+      if (hp3pos>0)
+      {
+         hp3[0] = hp3[1];
+         hp3pos--;
+         if (!hp3pos)
          {
-            hp3[0] = hp3[1];
-            hp3pos--;
-            if (!hp3pos)
-            {
-               HSTAT3 |=  HBIT_6;
-               PSTAT3 &= (uint8_t)~0x80;
-            }
-            // here we want to only clear NMI if required
-            if ( ( !(ph3pos == 0) ) && ( (!(HSTAT1 & HBIT_4) && (!(hp3pos >0))) || (HSTAT1 & HBIT_4) ) ) tube_irq &= ~NMI_BIT;
+            HSTAT3 |=  HBIT_6;
+            PSTAT3 &= (uint8_t)~0x80;
          }
-         _set_interrupts(cpsr);
+         // here we want to only clear NMI if required
+         if ( ( !(ph3pos == 0) ) && ( (!(HSTAT1 & HBIT_4) && (!(hp3pos >0))) || (HSTAT1 & HBIT_4) ) ) tube_irq &= ~NMI_BIT;
       }
+      _enable_FIQ();
       break;
    case 6: /*Register 4 stat*/
       temp = PSTAT4;
       break;
    case 7: /*Register 4*/
+      temp = hp4;
+      if (PSTAT4 & 0x80)
       {
-         unsigned int cpsr = _disable_interrupts_cspr();
-         temp = hp4;
-         if (PSTAT4 & 0x80)
-         {
-            PSTAT4 &= (uint8_t)~0x80;
-            HSTAT4 |=  HBIT_6;
-            // clear irq if  reg 1 isn't irqing
-            if (!(PSTAT1 & 128)) tube_irq &= ~IRQ_BIT;
-         }
-         _set_interrupts(cpsr);
+         _disable_FIQ();
+         PSTAT4 &= (uint8_t)~0x80;
+         HSTAT4 |=  HBIT_6;
+         // clear irq if  reg 1 isn't irqing
+         if (!(PSTAT1 & 128)) tube_irq &= ~IRQ_BIT;
+         _enable_FIQ();
       }
       break;
    }
@@ -596,77 +587,69 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
       }
       break;
    case 1: /*Register 1*/
+      _disable_FIQ();
+      if (ph1len < 24)
       {
-         unsigned int cpsr = _disable_interrupts_cspr();
-         if (ph1len < 24)
-         {
-            if (ph1len == 0) {
-               PH1_0 = BYTE_TO_WORD(val);
-            } else {
-               ph1[ph1wrpos] = val;
-               if (ph1wrpos== 23)
-                  ph1wrpos =0;
-               else
-                  ph1wrpos++;
-            }
-
-            ph1len++;
-            HSTAT1 |= HBIT_7;
-            if (ph1len == 24) PSTAT1 &= (uint8_t)~0x40;
+         if (ph1len == 0) {
+            PH1_0 = BYTE_TO_WORD(val);
+         } else {
+            ph1[ph1wrpos] = val;
+            if (ph1wrpos== 23)
+               ph1wrpos =0;
+            else
+               ph1wrpos++;
          }
-      _set_interrupts(cpsr);
+
+         ph1len++;
+         HSTAT1 |= HBIT_7;
+         if (ph1len == 24) PSTAT1 &= (uint8_t)~0x40;
       }
+      _enable_FIQ();
       break;
    case 3: /*Register 2*/
-      {
-         unsigned int cpsr = _disable_interrupts_cspr();
-         PH2 = BYTE_TO_WORD(val);
-         HSTAT2 |=  HBIT_7;
-         PSTAT2 &= (uint8_t)~0x40;
-         _set_interrupts(cpsr);
-      }
+      _disable_FIQ();
+      PH2 = BYTE_TO_WORD(val);
+      HSTAT2 |=  HBIT_7;
+      PSTAT2 &= (uint8_t)~0x40;
+      _enable_FIQ();
       break;
    case 5: /*Register 3*/
+      _disable_FIQ();
+      if (HSTAT1 & HBIT_4)
       {
-         unsigned int cpsr = _disable_interrupts_cspr();
-         if (HSTAT1 & HBIT_4)
-         {
-            if (ph3pos < 2) {
-               if (ph3pos == 0) {
-                  PH3_0 = BYTE_TO_WORD(val);
-               } else {
-                  PH3_1 = val;
-               }
-               ph3pos++;
+         if (ph3pos < 2) {
+            if (ph3pos == 0) {
+               PH3_0 = BYTE_TO_WORD(val);
+            } else {
+               PH3_1 = val;
             }
-            if (ph3pos == 2)
-            {
-               HSTAT3 |=  HBIT_7;
-               PSTAT3 &= (uint8_t)~0xC0;
-            }
-            //NMI if other case isn't setting it
-            if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
+            ph3pos++;
          }
-         else
+         if (ph3pos == 2)
          {
-            PH3_0 = BYTE_TO_WORD(val);
-            ph3pos = 1;
             HSTAT3 |=  HBIT_7;
             PSTAT3 &= (uint8_t)~0xC0;
-            //NMI if other case isn't setting it
-            if (!(hp3pos > 0) ) tube_irq &= ~NMI_BIT;
          }
-         _set_interrupts(cpsr);
+         //NMI if other case isn't setting it
+         if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
       }
+      else
+      {
+         PH3_0 = BYTE_TO_WORD(val);
+         ph3pos = 1;
+         HSTAT3 |=  HBIT_7;
+         PSTAT3 &= (uint8_t)~0xC0;
+         //NMI if other case isn't setting it
+         if (!(hp3pos > 0) ) tube_irq &= ~NMI_BIT;
+      }
+      _enable_FIQ();
       break;
    case 7: /*Register 4*/
-      {
-         unsigned int cpsr = _disable_interrupts_cspr();
-         PH4 = BYTE_TO_WORD(val);
-         HSTAT4 |=  HBIT_7;
-         PSTAT4 &= (uint8_t)~0x40;
-         _set_interrupts(cpsr);
-      }
+      _disable_FIQ();
+      PH4 = BYTE_TO_WORD(val);
+      HSTAT4 |=  HBIT_7;
+      PSTAT4 &= (uint8_t)~0x40;
+      _enable_FIQ();
       break;
    }
 }
