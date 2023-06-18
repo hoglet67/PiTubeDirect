@@ -72,7 +72,7 @@ static perf_counters_t pct;
 
 static uint8_t ph1[24],ph3_1;
 static uint8_t hp1,hp2,hp3[2],hp4;
-static uint8_t pstat[4];
+static volatile uint8_t pstat[4];
 static uint8_t ph3pos,hp3pos;
 static uint8_t ph1rdpos,ph1wrpos,ph1len;
 volatile int tube_irq;

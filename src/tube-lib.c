@@ -12,17 +12,17 @@ static int debug = 0;
 unsigned char tubeRead(unsigned char addr)
 {
   unsigned char ret;
-  unsigned int cpsr = _disable_interrupts_cspr();
+//  unsigned int cpsr = _disable_interrupts_cspr();
   ret = tube_parasite_read(addr);
-  _set_interrupts(cpsr);
+//  _set_interrupts(cpsr);
   return ret;
 }
 
 void tubeWrite(unsigned char addr, unsigned char byte)
 {
-  unsigned int cpsr = _disable_interrupts_cspr();
+//  unsigned int cpsr = _disable_interrupts_cspr();
   tube_parasite_write(addr, byte);
-  _set_interrupts(cpsr);
+//  _set_interrupts(cpsr);
 }
 // this is only used for debug
 // cppcheck-suppress unusedFunction
