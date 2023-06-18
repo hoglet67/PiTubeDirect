@@ -276,7 +276,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
 
    char *prop = get_cmdline_prop("baud_rate");
    if (prop)
-      baud_rate = (uint8_t)atoi(prop);
+      baud_rate = (uint32_t)atoi(prop);
    else
       baud_rate = 115200;
 
