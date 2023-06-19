@@ -2006,7 +2006,7 @@ arm_jit_irq_handler:
    push  {r0, r1, r2, r3, ip, lr}
    bl    IRQHandler_main
 
-   CPSID f
+   CPSID if                   // irqs should already be disabled , but just to be sure
    ldrb  r0,fiqirqflag
    movs  r0,r0
    ldmeq sp!, {r0, r1, r2, r3, ip, pc}^
@@ -2954,7 +2954,7 @@ cacheflushloopI:
    PLI   [r3]
 #endif
 testforirq:
-   CPSID f
+   CPSID if                      // IRQs must also be disabled if FIQs are disabled
    ldrb  r0, fiqjitflag
    mov   reg12, r4
    mov   r1, #0
