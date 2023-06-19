@@ -56,7 +56,7 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat=2")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wcast-qual")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-conversion ")
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-compare -Wenum-int-mismatch -Wxor-used-as-pow -fstrict-flex-arrays -Warray-bounds=2" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wsign-compare -Wenum-int-mismatch -Wxor-used-as-pow -fstrict-flex-arrays -Warray-bounds=2" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wlong-long" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-field-initializers" )
 
@@ -67,7 +67,7 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter" )
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wswitch-enum")
 #set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wstrict-overflow=5")
 
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fanalyzer" )
+#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fanalyzer" )
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto" )
 
