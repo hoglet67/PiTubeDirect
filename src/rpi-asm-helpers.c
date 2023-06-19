@@ -26,28 +26,6 @@ unsigned int _get_stack_pointer(void)
 return result;
 }
 
-void _enable_FIQ(void)
-{
-    asm volatile
-    (
-        "CPSIE f \r\n"
-    :
-    :
-    :
-    );
-}
-
-void _disable_FIQ(void)
-{
-    asm volatile
-    (
-        "CPSID f \r\n"
-    :
-    :
-    :
-    );
-}
-
 void _enable_interrupts(void)
 {
     asm volatile
@@ -69,10 +47,10 @@ void _disable_interrupts(void)
     :
     );
 }
-// cppcheck-suppress unusedFunction
+
 unsigned int _disable_interrupts_cspr(void)
 {
-unsigned int result;
+    unsigned int result;
     asm volatile
     (
         "mrs     %[result], cpsr \r\n"
@@ -82,8 +60,9 @@ unsigned int result;
     :
     :
     );
-return result;
+    return result;
 }
+
 #define  CPSR_IRQ_INHIBIT       0x80
 #define  CPSR_FIQ_INHIBIT       0x40
 // cppcheck-suppress unusedFunction
@@ -91,6 +70,18 @@ void _set_interrupts(unsigned int cpsr)
 {
     cpsr = cpsr & (CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT );
     cpsr = cpsr | (_get_cpsr()& (unsigned int)~(CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT ));
+    asm volatile
+    (
+        "msr cpsr_c,%[cpsr]"
+    :
+    :
+        [cpsr] "r" (cpsr)
+    :
+    );
+}
+
+void _restore_cpsr(unsigned int cpsr)
+{
     asm volatile
     (
         "msr cpsr_c,%[cpsr]"

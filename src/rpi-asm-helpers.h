@@ -4,9 +4,8 @@
 void _enable_interrupts( void );
 void _set_interrupts( unsigned int cpsr );
 void  _disable_interrupts( void );
-void _enable_FIQ(void);
-void _disable_FIQ(void);
 unsigned int _disable_interrupts_cspr(void);
+void _restore_cpsr(unsigned int cpsr);
 unsigned int _get_cpsr();
 unsigned int _get_stack_pointer();
 void _invalidate_icache();
