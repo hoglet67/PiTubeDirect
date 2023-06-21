@@ -465,8 +465,12 @@ static int darm_str(const darm_t *d, darm_str_t *str)
             // version which takes the Rm as operand, so let's see if the
             // branch stuff has been initialized yet
             if(d->instr == I_BLX && d->H == B_INVLD) break;
-
-            uint32_t target = (d->addr + 8 + d->imm) & 0xfffffffc;
+            uint32_t target;
+            if(d->U == B_UNSET) {
+                target = (d->addr + 8 - d->imm) & 0xfffffffc;
+            } else {
+                target = (d->addr + 8 + d->imm) & 0xfffffffc;
+            }
             *args[arg]++ = '&';
             args[arg] += _utoa(target, args[arg], 16);
             continue;
