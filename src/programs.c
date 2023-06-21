@@ -7,6 +7,7 @@
 #include "tube-defs.h"
 #include "scripts/gitversion.h"
 #include "copro-defs.h"
+#include "utils.h"
 
 //  SPHERE
 //  Benchmark and demo from a Solidisk disc, via Michael Firth
@@ -2960,6 +2961,11 @@ void copy_test_programs(uint8_t *memory) {
    memcpy(memory + 0x1000, clocksp, sizeof(clocksp));
 
    memcpy(memory + 0x2000, coprolist, sizeof(coprolist));
+   // Patch *FX 151 to *FX 147 in elk mode
+   if (get_elk_mode()) {
+      *(memory + 0x2046) = '4';
+      *(memory + 0x2047) = '7';
+   }
 
    // add list of copros to end of code
    unsigned char *list_end = memory + 0x2000 + sizeof(coprolist);
