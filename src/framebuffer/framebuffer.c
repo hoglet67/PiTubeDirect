@@ -23,6 +23,8 @@
 static screen_mode_t *screen = NULL;
 
 // Current font
+static font_t font_normal;
+static font_t font_teletext;
 static int font_width;
 static int font_height;
 static int text_height; // of whole screen
@@ -544,7 +546,11 @@ static void change_mode(screen_mode_t *new_screen) {
    // Possibly re-initialize the screen
    if (new_screen && (new_screen != screen || new_screen->mode_num >= CUSTOM_8BPP_SCREEN_MODE)) {
       screen = new_screen;
-      screen->init(screen);
+      if (screen->mode_flags & F_TELETEXT) {
+         screen->init(screen, &font_teletext);
+      } else {
+         screen->init(screen, &font_normal);
+      }
    }
    // reset the screen to it's default state
    screen->reset(screen);
@@ -943,39 +949,33 @@ static void vdu23_19(const uint8_t *buf) {
    // On enter, buf points to 19, so increment
    buf++;
 
-   font_t *font = screen->font;
+   font_t *font = &font_normal;
 
    if (buf[0] >= 'A' && buf[0] <= 'Z') {
       // Select the font by name (up to 8 upper case characters)
-      font = get_font_by_name((const char *)buf);
-      if (font != NULL) {
-         screen->font = font;
-      }
+      initialize_font_by_name((const char *)buf, font);
    } else {
       switch (buf[0]) {
       case 0:
          // Select the font by number
-         font = get_font_by_number(buf[1]);
-         if (font != NULL) {
-            if (buf[2] != 0 && buf[3] != 0) {
-               // Parse the extended form
-               if (buf[2] != 0xff) {
-                  font->set_scale_w(font, buf[2]);
-               }
-               if (buf[3] != 0xff) {
-                  font->set_scale_h(font, buf[3]);
-               }
-               if (buf[4] != 0xff) {
-                  font->set_spacing_w(font, buf[4]);
-               }
-               if (buf[5] != 0xff) {
-                  font->set_spacing_h(font, buf[5]);
-               }
-               if (buf[6] <= 2) {
-                  font->set_rounding(font, buf[6]);
-               }
+         initialize_font_by_number(buf[1], font);
+         if (buf[2] != 0 && buf[3] != 0) {
+            // Parse the extended form
+            if (buf[2] != 0xff) {
+               font->set_scale_w(font, buf[2]);
             }
-            screen->font = font;
+            if (buf[3] != 0xff) {
+               font->set_scale_h(font, buf[3]);
+            }
+            if (buf[4] != 0xff) {
+               font->set_spacing_w(font, buf[4]);
+            }
+            if (buf[5] != 0xff) {
+               font->set_spacing_h(font, buf[5]);
+            }
+            if (buf[6] <= 2) {
+               font->set_rounding(font, buf[6]);
+            }
          }
          break;
       case 1:
@@ -1174,7 +1174,7 @@ static void vdu_23(const uint8_t *buf) {
 #endif
    // User defined characters
    if (buf[1] >= 32) {
-      define_character(screen->font, buf[1], buf + 2);
+      define_character(&font_normal, buf[1], buf + 2);
    } else {
       switch (buf[1]) {
       case  0: vdu23_0 (buf + 1); break;
@@ -1624,6 +1624,10 @@ void fb_initialize() {
       vdu_operation_table[i].len = 0;
       vdu_operation_table[i].handler = vdu_default;
    }
+
+   // Fonts
+   initialize_font_by_number(DEFAULT_FONT, &font_normal);
+   initialize_font_by_name("SAA5050", &font_teletext);
 
    // Select the default screen mode
    fb_writec(22);

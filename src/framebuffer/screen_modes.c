@@ -901,7 +901,7 @@ static void null_handler() {
 
 // These are non static so it can be called by custom modes
 
-void default_init_screen(screen_mode_t *screen) {
+void default_init_screen(screen_mode_t *screen, font_t *font) {
 
     rpi_mailbox_property_t *mp;
 
@@ -1006,6 +1006,7 @@ void default_init_screen(screen_mode_t *screen) {
     fb = (unsigned char *)(((unsigned int) fb) & 0x3fffffff);
 
     // Initialize colour table and palette
+    screen->font = font;
     screen->reset(screen);
 
     /* Clear the screen to the background colour */
@@ -1020,9 +1021,8 @@ void default_reset_screen(screen_mode_t *screen) {
     screen->update_palette(screen, 0);
 
     /* Initialize the font */
-    font_t *font = get_font_by_number(DEFAULT_FONT);
+    font_t *font = screen->font;
     font->set_spacing_h(font, (screen->mode_flags & (F_BBC_GAP | F_GAP)) ? 2 : 0);
-    screen->font = font;
 }
 
 void default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {

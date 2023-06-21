@@ -142,9 +142,9 @@ static void set_font(screen_mode_t *screen, int num) {
    // This screen mode always uses the SAA505x family of fonts
    char name[] = "SAA5050";
    name[6] += (num & 7);
-   font_t *font = get_font_by_name(name);
+   font_t *font = screen->font;
+   initialize_font_by_name(name, font);
    font->set_rounding(font, TRUE);
-   screen->font = font;
 }
 
 screen_mode_t *tt_get_screen_mode(int mode_num) {

@@ -51,10 +51,6 @@
 #include "fonts/saa5056.fnt.h"
 #include "fonts/saa5057.fnt.h"
 
-// This needs to be in initialized memory, otherwise inialize_font()
-// will not allocate an initial buffer
-static font_t current_font;
-
 // ==========================================================================
 // Font Definitions
 // ==========================================================================
@@ -301,15 +297,7 @@ static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y, 
 // More Static Methods
 // ==========================================================================
 
-static font_t *initialize_font(const font_catalog_t * catalog, uint32_t num) {
-
-   // Always return a copy, rather than the entry in the catalog
-   //
-   // TODO: Probably better to have the caller pass a font structure
-   // in, as that would allow each mode to have it's own metrics
-   // but for now let's go with this...
-
-   font_t *font = &current_font;
+static void initialize_font(const font_catalog_t * catalog, uint32_t num, font_t *font) {
 
    // Copy the default metrics etc from the catalog
    memcpy(font, catalog, sizeof(font_catalog_t));
@@ -348,8 +336,6 @@ static font_t *initialize_font(const font_catalog_t * catalog, uint32_t num) {
 
    // Record the font number
    font->number = num;
-
-   return font;
 }
 
 
@@ -365,15 +351,15 @@ const char * get_font_name(uint32_t num) {
    return font->name;
 }
 
-font_t *get_font_by_number(uint32_t num) {
-   const font_catalog_t *font = &font_catalog[DEFAULT_FONT];
+void initialize_font_by_number(uint32_t num, font_t *font) {
+   const font_catalog_t *font_cat = &font_catalog[DEFAULT_FONT];
    if (num < NUM_FONTS) {
-      font = &font_catalog[num];
+      font_cat = &font_catalog[num];
    }
-   return initialize_font(font, num);
+   initialize_font(font_cat, num, font);
 }
 
-font_t *get_font_by_name(const char *name) {
+void initialize_font_by_name(const char *name, font_t *font) {
    uint32_t num = DEFAULT_FONT;
    for (uint32_t i = 0; i < NUM_FONTS; i++) {
       if (!strncasecmp(name, font_catalog[i].name, 8)) {
@@ -381,8 +367,8 @@ font_t *get_font_by_name(const char *name) {
          break;
       }
    }
-   const font_catalog_t *font = font_catalog + num;
-   return initialize_font(font, num);
+   const font_catalog_t *font_cat = font_catalog + num;
+   initialize_font(font_cat, num, font);
 }
 
 void define_character(font_t *font, uint8_t c, const  uint8_t *data) {

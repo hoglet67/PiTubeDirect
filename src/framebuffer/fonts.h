@@ -72,9 +72,9 @@ typedef struct font {
 
 const char * get_font_name(uint32_t num);
 
-font_t *get_font_by_number(uint32_t num);
+void initialize_font_by_number(uint32_t num, font_t *font);
 
-font_t *get_font_by_name(const char *name);
+void initialize_font_by_name(const char *name, font_t *font);
 
 void define_character(font_t *font, uint8_t c, const uint8_t *data);
 

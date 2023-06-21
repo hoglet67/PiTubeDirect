@@ -98,7 +98,7 @@ typedef struct screen_mode {
 
    struct font *font; // the current font for this screen mode
 
-   void                     (*init)(struct screen_mode *screen);
+   void                     (*init)(struct screen_mode *screen, struct font *font);
    void                    (*reset)(struct screen_mode *screen);
    void                    (*clear)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col);
    void                   (*scroll)(struct screen_mode *screen, t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir);
@@ -121,7 +121,7 @@ typedef struct screen_mode {
 
 // These are non static so it can be called by custom modes
 
-void         default_init_screen(screen_mode_t *screen);
+void         default_init_screen(screen_mode_t *screen, struct font *font);
 void        default_reset_screen(screen_mode_t *screen);
 void        default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
 void       default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir);
