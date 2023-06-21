@@ -23,16 +23,16 @@
 
 copro_armnative_enable_mailbox:
 #ifndef USE_DOORBELL
-        mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
         ldr     r1, =MBOX0_CONFIG       // to generate interrupts when data is present
+        mov     r0, #MBOX0_DATAIRQEN    // if the slow flag is not set, then enable mailbox hardware
         str     r0, [r1]
 #endif
         bx      lr
 
 copro_armnative_disable_mailbox:
 #ifndef USE_DOORBELL
-        mov     r0, #0                  // disable mailbox hardware to generate interrupts
         ldr     r1, =MBOX0_CONFIG       // when data is present
+        mov     r0, #0                  // disable mailbox hardware to generate interrupts
         str     r0, [r1]
 #endif
         bx      lr
@@ -115,29 +115,26 @@ in_tube_intr_flag:
 
 copro_armnative_fiq_handler:
 
-        push    {r0-r7, lr}            // Save everything that is not shadowed
-
 #ifdef USE_DOORBELL
-        ldr     r1, =DOORBELL          // Read the GPU doorbell
-        ldr     r0, [r1]
-        ldr     r1, =DOORBELLDATA      // Read the GPU doorbell
+        ldrd    r10, doorbell_const    // Read the GPU doorbell
+        ldr     r9, [r10]
 #else
-        ldr     r1, =MBOX0_READ        // Read the GPU mailbox
+        ldr     r11, =MBOX0_READ       // Read the GPU mailbox
 #endif
-        ldr     r0, [r1]
+        ldr     r8, [r11]
 
-        push    {r0}
+        sub     lr, lr, #4
+        push    {r0-r3, lr}            // Save everything that is not shadowed
+
+        mov     r0,r8
         bl      tube_io_handler        // Update the Tube ULA emulation
         and     r1, r0, #4             // Get Reset bit which might have come from
                                        // write to register
-        pop     {r0}
-        orr     r0, r0, r1, LSL #12-2
+        orr     r0, r8, r1, LSL #12-2
 
         bl      copro_armnative_tube_interrupt_handler
 
-        pop     {r0-r7, lr}
-        subs    pc, lr, #4             // Return from ISR
-
+        ldm sp!, {r0, r1, r2, r3, pc}^ // Return from ISR
 
 #endif
 
@@ -264,3 +261,8 @@ _exit_handler_wrapper:
 
     // Continue execution of the exit handler
     bx       r1
+
+        .align 3
+doorbell_const:
+        .word DOORBELL
+        .word DOORBELLDATA

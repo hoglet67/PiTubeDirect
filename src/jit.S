@@ -1915,6 +1915,10 @@ fiqirqflag:
 ram6502store:
    .word 0
 
+        .align 3
+doorbell_const:
+        .word DOORBELL
+        .word DOORBELLDATA
 
 CACHELINE_ALIGN = 5
 .equ    CPSR_MODE_USER,         0x10
@@ -1928,17 +1932,16 @@ CACHELINE_ALIGN = 5
 // ARM FIQ handler (in FIQ mode)
 arm_fiq_handler_jit:
 #ifdef USE_DOORBELL
-   ldr   r12, =DOORBELL
-   ldr   r11, =DOORBELLDATA
-   ldr   r10, =tube_irq
+   ldrd     r10, doorbell_const      // Read the GPU doorbell
    push  {r0-r3,r14}
-   ldr   r0, [r12]               // read doorbell
+   ldr   r1, [r10]               // read doorbell
 #else
    ldr   r11, =MBOX0_READ        // Read the GPU mailbox
    push  {r0-r3,r14}
-   ldr   r10, =tube_irq
+
 #endif
    ldr   r0, [r11]               // Get data
+   ldr   r10, =tube_irq
    BL    tube_io_handler
    ldr   r12,[r10]
    pop   {r0-r3,r14}

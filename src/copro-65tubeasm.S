@@ -3217,7 +3217,7 @@ arm_fiq_handler_fast6502:
 #ifdef USE_DOORBELL
       ldrd     r10, doorbell_const      // Read the GPU doorbell
       push     {r0-r3,r14}
-      ldr      r12,=tube_irq
+
       ldr      r1, [r10]               // Get Mailbox data
       ldr      r0, [r11]               // Get Mailbox data
 
@@ -3225,7 +3225,6 @@ arm_fiq_handler_fast6502:
       ldr      r10, =MBOX0_READ        // Read the GPU mailbox
 
       push     {r0-r3,r14}
-      ldr      r12,=tube_irq
       ldr      r0, [r10]               // Get Mailbox data
 
       tst      r0, #0x0F               // Discard if the channel bits are non-zero
@@ -3233,6 +3232,7 @@ arm_fiq_handler_fast6502:
       subnes   pc, lr, #4              // And return without invoking the handler
 #endif
 
+      ldr      r12,=tube_irq
       bl       tube_io_handler
 
       ldr      r9,fiq_status
