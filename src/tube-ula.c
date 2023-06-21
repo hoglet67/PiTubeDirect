@@ -17,6 +17,7 @@
 #include "tube-ula.h"
 #include "rpi-gpio.h"
 #include "rpi-interrupts.h"
+#include "rpi-asm-helpers.h"
 #include "cache.h"
 #include "info.h"
 #include "performance.h"
@@ -47,7 +48,6 @@ static void start_vc_ula();
 #define ARM_TUBE_REG_ADDR ((GPU_TUBE_REG_ADDR & 0x00FFFFFF) | PERIPHERAL_BASE)
 
 #include "tubevc.h"
-#include "startup.h"
 
 int test_pin;
 static uint32_t led_pin=0;
@@ -72,7 +72,7 @@ static perf_counters_t pct;
 
 static uint8_t ph1[24],ph3_1;
 static uint8_t hp1,hp2,hp3[2],hp4;
-static uint8_t pstat[4];
+static volatile uint8_t pstat[4];
 static uint8_t ph3pos,hp3pos;
 static uint8_t ph1rdpos,ph1wrpos,ph1len;
 volatile int tube_irq;
@@ -157,34 +157,12 @@ static void tube_updateints_NMI()
    if ((HSTAT1 & HBIT_3) &&  (HSTAT1 & HBIT_4) && ((hp3pos > 1) || (ph3pos == 0))) tube_irq|=2;
 }
 */
-// Called from assembler
-// cppcheck-suppress unusedFunction
-void tube_enable_fast6502(void)
-{
-   int cpsr = _disable_interrupts();
-   tube_irq |= FAST6502_BIT;
-   if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
-   }
-}
-// Called from assembler
-// cppcheck-suppress unusedFunction
-void tube_disable_fast6502(void)
-{
-   int cpsr = _disable_interrupts();
-   tube_irq &= ~FAST6502_BIT;
-   if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
-   }
-}
 
 void tube_ack_nmi(void)
 {
-   int cpsr = _disable_interrupts();
+   unsigned int cpsr = _disable_interrupts_cspr();
    tube_irq &= ~NMI_BIT;
-   if ((cpsr & 0xc0) != 0xc0) {
-    _enable_interrupts();
-   }
+   _restore_cpsr(cpsr);
 }
 
 static void copro_command_excute(unsigned char copro_comm,unsigned char val)
@@ -483,7 +461,7 @@ uint8_t tube_parasite_read(uint32_t addr)
       }
       return temp;
    }
-   int cpsr = _disable_interrupts();
+
    switch (addr & 7)
    {
    case 0: /*Register 1 stat*/
@@ -493,10 +471,12 @@ uint8_t tube_parasite_read(uint32_t addr)
       temp = hp1;
       if (PSTAT1 & 0x80)
       {
+         unsigned int cpsr = _disable_interrupts_cspr();
          PSTAT1 &= (uint8_t)~0x80;
          HSTAT1 |=  HBIT_6;
-         //tube_updateints_IRQ(); // clear irq if required reg 4 isn't irqing
+         //clear irq if required reg 4 isn't irqing
          if (!(PSTAT4 & 128)) tube_irq &= ~IRQ_BIT;
+         _restore_cpsr(cpsr);
       }
       break;
    case 2: /*Register 2 stat*/
@@ -506,14 +486,17 @@ uint8_t tube_parasite_read(uint32_t addr)
       temp = hp2;
       if (PSTAT2 & 0x80)
       {
+         unsigned int cpsr = _disable_interrupts_cspr();
          PSTAT2 &= (uint8_t)~0x80;
          HSTAT2 |=  HBIT_6;
+         _restore_cpsr(cpsr);
       }
       break;
    case 4: /*Register 3 stat*/
       temp = PSTAT3;
       break;
    case 5: /*Register 3*/
+
       temp = hp3[0];
 #ifdef DEBUG_TRANSFERS
       checksum_p *= 13;
@@ -522,6 +505,7 @@ uint8_t tube_parasite_read(uint32_t addr)
 #endif
       if (hp3pos>0)
       {
+         unsigned int cpsr = _disable_interrupts_cspr();
          hp3[0] = hp3[1];
          hp3pos--;
          if (!hp3pos)
@@ -529,9 +513,9 @@ uint8_t tube_parasite_read(uint32_t addr)
             HSTAT3 |=  HBIT_6;
             PSTAT3 &= (uint8_t)~0x80;
          }
-         //tube_updateints_NMI();
          // here we want to only clear NMI if required
          if ( ( !(ph3pos == 0) ) && ( (!(HSTAT1 & HBIT_4) && (!(hp3pos >0))) || (HSTAT1 & HBIT_4) ) ) tube_irq &= ~NMI_BIT;
+         _restore_cpsr(cpsr);
       }
       break;
    case 6: /*Register 4 stat*/
@@ -541,10 +525,12 @@ uint8_t tube_parasite_read(uint32_t addr)
       temp = hp4;
       if (PSTAT4 & 0x80)
       {
+         unsigned int cpsr = _disable_interrupts_cspr();
          PSTAT4 &= (uint8_t)~0x80;
          HSTAT4 |=  HBIT_6;
-         //tube_updateints_IRQ(); // clear irq if  reg 1 isn't irqing
+         // clear irq if  reg 1 isn't irqing
          if (!(PSTAT1 & 128)) tube_irq &= ~IRQ_BIT;
+         _restore_cpsr(cpsr);
       }
       break;
    }
@@ -555,9 +541,6 @@ uint8_t tube_parasite_read(uint32_t addr)
       tube_index &= 0xffff;
    }
 #endif
-   if ((cpsr & 0xc0) != 0xc0) {
-      _set_interrupts(cpsr);
-   }
    return temp;
 }
 
@@ -590,7 +573,6 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
 
 void tube_parasite_write(uint32_t addr, uint8_t val)
 {
-   int cpsr = _disable_interrupts();
 #ifdef DEBUG_TUBE
    if (addr & 1) {
       tube_buffer[tube_index++] = TUBE_WRITE_MARKER | ((addr & 7) << 8) | val;
@@ -599,75 +581,85 @@ void tube_parasite_write(uint32_t addr, uint8_t val)
 #endif
    switch (addr & 7)
    {
-   case 1: /*Register 1*/
-      if (ph1len < 24)
-      {
-         if (ph1len == 0) {
-            PH1_0 = BYTE_TO_WORD(val);
-         } else {
-            ph1[ph1wrpos] = val;
-            if (ph1wrpos== 23)
-               ph1wrpos =0;
-            else
-               ph1wrpos++;
-         }
-
-         ph1len++;
-         HSTAT1 |= HBIT_7;
-         if (ph1len == 24) PSTAT1 &= (uint8_t)~0x40;
+   case 0:
+      if (vdu_enabled ) {
+         // Write to &FEF8
+         fb_writec(val);
       }
-      // tube_updateints_IRQ(); // the above can't change the IRQ flags
+      break;
+   case 1: /*Register 1*/
+      {
+         unsigned int cpsr = _disable_interrupts_cspr();
+         if (ph1len < 24)
+         {
+            if (ph1len == 0) {
+               PH1_0 = BYTE_TO_WORD(val);
+            } else {
+               ph1[ph1wrpos] = val;
+               if (ph1wrpos== 23)
+                  ph1wrpos =0;
+               else
+                  ph1wrpos++;
+            }
+
+            ph1len++;
+            HSTAT1 |= HBIT_7;
+            if (ph1len == 24) PSTAT1 &= (uint8_t)~0x40;
+         }
+         _restore_cpsr(cpsr);
+      }
       break;
    case 3: /*Register 2*/
-      PH2 = BYTE_TO_WORD(val);
-      HSTAT2 |=  HBIT_7;
-      PSTAT2 &= (uint8_t)~0x40;
+      {
+         unsigned int cpsr = _disable_interrupts_cspr();
+         PH2 = BYTE_TO_WORD(val);
+         HSTAT2 |=  HBIT_7;
+         PSTAT2 &= (uint8_t)~0x40;
+         _restore_cpsr(cpsr);
+      }
       break;
    case 5: /*Register 3*/
-      if (HSTAT1 & HBIT_4)
       {
-         if (ph3pos < 2) {
-            if (ph3pos == 0) {
-               PH3_0 = BYTE_TO_WORD(val);
-            } else {
-               PH3_1 = val;
-            }
-            ph3pos++;
-         }
-         if (ph3pos == 2)
+         unsigned int cpsr = _disable_interrupts_cspr();
+         if (HSTAT1 & HBIT_4)
          {
+            if (ph3pos < 2) {
+               if (ph3pos == 0) {
+                  PH3_0 = BYTE_TO_WORD(val);
+               } else {
+                  PH3_1 = val;
+               }
+               ph3pos++;
+            }
+            if (ph3pos == 2)
+            {
+               HSTAT3 |=  HBIT_7;
+               PSTAT3 &= (uint8_t)~0xC0;
+            }
+            //NMI if other case isn't setting it
+            if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
+         }
+         else
+         {
+            PH3_0 = BYTE_TO_WORD(val);
+            ph3pos = 1;
             HSTAT3 |=  HBIT_7;
             PSTAT3 &= (uint8_t)~0xC0;
+            //NMI if other case isn't setting it
+            if (!(hp3pos > 0) ) tube_irq &= ~NMI_BIT;
          }
-         //NMI if other case isn't setting it
-         if (!(hp3pos > 1) ) tube_irq &= ~NMI_BIT;
+         _restore_cpsr(cpsr);
       }
-      else
-      {
-         PH3_0 = BYTE_TO_WORD(val);
-         ph3pos = 1;
-         HSTAT3 |=  HBIT_7;
-         PSTAT3 &= (uint8_t)~0xC0;
-         //NMI if other case isn't setting it
-         if (!(hp3pos > 0) ) tube_irq &= ~NMI_BIT;
-      }
-      //tube_updateints_NMI();
-      // here we want to only clear NMI if required
-
       break;
    case 7: /*Register 4*/
-      PH4 = BYTE_TO_WORD(val);
-      HSTAT4 |=  HBIT_7;
-      PSTAT4 &= (uint8_t)~0x40;
-      // tube_updateints_IRQ(); // the above can't change IRQ flag
+      {
+         unsigned int cpsr = _disable_interrupts_cspr();
+         PH4 = BYTE_TO_WORD(val);
+         HSTAT4 |=  HBIT_7;
+         PSTAT4 &= (uint8_t)~0x40;
+         _restore_cpsr(cpsr);
+      }
       break;
-   }
-   if ((cpsr & 0xc0) != 0xc0) {
-      _set_interrupts(cpsr);
-   }
-   if (vdu_enabled && (addr & 7) == 0) {
-      // Write to &FEF8
-      fb_writec(val);
    }
 }
 

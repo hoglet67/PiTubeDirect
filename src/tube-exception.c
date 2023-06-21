@@ -1,7 +1,7 @@
 #include "rpi-base.h"
 #include "rpi-aux.h"
 #include "tube-ula.h"
-#include "startup.h"
+#include "rpi-asm-helpers.h"
 
 // From here: https://www.raspberrypi.org/forums/viewtopic.php?f=72&t=53862
 static void reboot_now(void)

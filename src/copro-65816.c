@@ -12,7 +12,6 @@
 #include "tube-ula.h"
 #include "65816/65816.h"
 #include "65816/tuberom_65816.h"
-#include "startup.h"
 #include "programs.h"
 
 static void copro_65816_poweron_reset(int romset) {

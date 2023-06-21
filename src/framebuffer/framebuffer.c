@@ -10,7 +10,7 @@
 #include "../rpi-aux.h"
 #include "../rpi-base.h"
 #include "../rpi-interrupts.h"
-#include "../startup.h"
+#include "../rpi-asm-helpers.h"
 #include "../tube.h"
 #include "../copro-defs.h"
 #include "../tube-defs.h"

@@ -10,7 +10,6 @@
 #include "tube.h"
 #include "tube-ula.h"
 #include "copro-null.h"
-#include "startup.h"
 
 void copro_null_emulator() {
    // Remember the current copro so we can exit if it changes

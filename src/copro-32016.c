@@ -12,7 +12,6 @@
 #include "tube-ula.h"
 #include "NS32016/32016.h"
 #include "NS32016/mem32016.h"
-#include "startup.h"
 
 int tubecycles = 0;
 

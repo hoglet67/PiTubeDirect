@@ -152,6 +152,7 @@ copro_armnative_swi_handler:
     bic      r0, r0, #0xFF000000  // Mask off top 8 bits of instruction to give SWI number.
                                   // r0 now contains SWI number
                                   // r1 now contains pointer to stacked registers
+    CPSIE    i                    // re-enable IRQ interrupts as some SWI calls (like OS_ReadLine) block
     bl       C_SWI_Handler        // Call C routine to handle the SWI.
     ldmfd    sp!, {r0,r3}         // Get spsr from stack.
     msr      spsr_cf, r0          // Restore spsr.

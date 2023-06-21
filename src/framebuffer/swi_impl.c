@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../startup.h"
+#include "../rpi-asm-helpers.h"
 #include "../swi.h"
 #include "../tube-lib.h"
 #include "../tube-swi.h"
@@ -26,7 +26,6 @@ static void write_string(char *ptr) {
 // ==========================================================================
 // Implementation of SWIs that write to the VDU
 // ==========================================================================
-// cppcheck-suppress constParameter
 static void OS_WriteC_impl(unsigned int *reg) {
    fb_writec((char)(reg[0] & 0xff));
 }
@@ -98,7 +97,7 @@ static void OS_Byte_impl(unsigned int *reg) {
 
    case 19:
       // Wait for VSYNC
-      _enable_interrupts(); // re-enable interrupts or we'll hang fr ever
+      _enable_interrupts(); // re-enable interrupts or we'll hang forever
       fb_wait_for_vsync();  // wait for the vsync flag to be set by the ISR
       return; // parasite only
 
@@ -400,7 +399,6 @@ static void OS_ReadPoint_impl(unsigned int *reg) {
 //        bit 5 = 0:r1 = colour number, 1:r1 = ECF pattern (ignored)
 //        bit 6 = 0:graphics, 1:text
 //        bit 7 = 0:write, 1:read (ginored)
-// cppcheck-suppress constParameter
 static void OS_SetColour_impl(unsigned int *reg) {
    unsigned int flags = reg[0];
    pixel_t colour     = reg[1];

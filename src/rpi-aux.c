@@ -1,7 +1,7 @@
 #include "rpi-auxreg.h"
 #include "rpi-gpio.h"
 #include "info.h"
-#include "startup.h"
+#include "rpi-asm-helpers.h"
 #include "tube-pins.h"
 #include <limits.h>
 
@@ -144,7 +144,7 @@ void RPI_AuxMiniUartIRQHandler() {
       /* Forward all received characters to the debugger */
       debugger_rx_char(auxiliary->MU_IO & 0xFF);
 #else
-      /* Else just exho characters */
+      /* Else just echo characters */
       RPI_AuxMiniUartWrite(auxiliary->MU_IO & 0xFF);
 #endif
     }
@@ -176,7 +176,7 @@ void RPI_AuxMiniUartInit(uint32_t baud)
 
   _data_memory_barrier();
 
-  clock_info_t *sys_clock_info = get_clock_rates(CORE_CLK_ID);
+  const clock_info_t * const sys_clock_info = get_clock_rates(CORE_CLK_ID);
 
   uint32_t sys_freq = sys_clock_info->rate;
 

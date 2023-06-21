@@ -18,7 +18,6 @@
 #include "lib6502.h"
 #include "programs.h"
 #include "copro-lib6502.h"
-#include "startup.h"
 #include "copro-defs.h"
 
 #ifdef INCLUDE_DEBUGGER

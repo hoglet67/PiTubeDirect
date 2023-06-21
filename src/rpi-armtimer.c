@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "rpi-base.h"
 #include "rpi-armtimer.h"
-#include "startup.h"
+#include "rpi-asm-helpers.h"
 
 static rpi_arm_timer_t* rpiArmTimer = (rpi_arm_timer_t*)RPI_ARMTIMER_BASE;
 

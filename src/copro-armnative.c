@@ -44,7 +44,7 @@
 #include "rpi-systimer.h"
 
 #include "info.h"
-#include "startup.h"
+#include "rpi-asm-helpers.h"
 #include "swi.h"
 #include "tube.h"
 #include "tube-lib.h"

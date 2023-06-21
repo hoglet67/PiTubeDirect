@@ -1,11 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../startup.h"
 #include "../rpi-mailbox.h"
 #include "../rpi-mailbox-interface.h"
 #include "../rpi-base.h"
-
+#include "../startup.h"
 #include "screen_modes.h"
 #include "fonts.h"
 #include "teletext.h"

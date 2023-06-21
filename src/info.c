@@ -217,7 +217,7 @@ void dump_useful_info() {
    RPI_PropertyProcess();
 
    for (i = 0; i < n; i++) {
-      rpi_mailbox_property_t *buf = RPI_PropertyGet(tags[i]);
+      const rpi_mailbox_property_t * const buf = RPI_PropertyGet(tags[i]);
       print_tag_value(tagnames[i], buf, 1);
    }
 
