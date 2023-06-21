@@ -31,6 +31,7 @@ static int text_height; // of whole screen
 static int text_width;  // of whole screen
 static int cursor_start;
 static int cursor_end;
+static int cursor_off;  // controlled by VDU 23,0,10
 
 // Text area clip window
 static t_clip_window_t t_window;
@@ -316,7 +317,10 @@ static void set_default_colours() {
 
 static void init_variables() {
 
-   // Cursor position
+   // Seperate global cursor disabled flag
+   cursor_off = 0;
+
+   // Text cursor
    c_enabled = 1;
 
    // Edit cursor
@@ -421,7 +425,7 @@ static void update_cursors() {
 }
 
 static void enable_cursors() {
-   c_enabled = 1;
+   c_enabled = !cursor_off;
 }
 
 static int disable_cursors() {
@@ -790,6 +794,8 @@ static void vdu23_0(const uint8_t *buf) {
          cursor_end = buf[2] & 0x1f;
       } else {
          cursor_start = buf[2] & 0x1f;
+         // Writing x01x xxxx turns off the cursor
+         cursor_off = (buf[2] & 0x60) == 0x20;
       }
       if (tmp) {
          enable_cursors();
