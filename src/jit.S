@@ -18,6 +18,10 @@
 // This table also needs to wrap at 256K to cope with 65535 wrapping
 // This is done with the MMU just like the RAM
 
+// 0x0C200000 - duplicate 6502 stack pointer for ARM stack
+//              normal r13 stack can't be used unless FIQs are disabled
+//              regSP needs to be in anb unbalnked regsiters
+
 // NB this code starts 0x0D400000 + xxx so the above tables are close enough to jump to
 
 // Very simple optimiser such that if the next instruction also sets the NZ flags then the current
@@ -61,10 +65,10 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define reg4      r4
 #define jittedtable16ptr     r5
 #define ram6502   r6
+#define regSP     r7
 
-#define flags     r7
 #define regY      r8
-#define regSP     r9
+#define flags     r9
 #define regA      r10
 #define regX      r11
 
@@ -74,6 +78,8 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define temp1 r1
 #define temp2 r2
 #define temp r12
+
+#define FAKESTACK 0x0C200000
 
 #define JITLETSHIFT 3
 
@@ -270,12 +276,12 @@ then return to our secret stack This relies on instructions being re entrant , b
    #endif
 .endm
 
-.macro DEBUG_REG reg
+.macro DEBUG_REG reg bits
    push  {r0-r4,r14}
    mrs   r4, CPSR               // Save 6502 flags
    CPSID if
    mov   r0,\reg
-   mov   r1,#8
+   mov   r1,#\bits
    BL    dump_hex
    msr   CPSR, r4
    pop   {r0-r4,r14}
@@ -521,7 +527,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 // RTI is executed. We leave IRQ masked at this point to avoid the possibility
 // of a re-entrant IRQ, which IRQ handler should not have to deal with.
 .ifc \fake, FAKE
-   CPSIE if  // enable ARM FIQ interrupts only
+   CPSIE f  // enable ARM FIQ interrupts only
 .endif
 .if \setbrk
    CPSIE if  // enable both ARM IRQ and FIQ interrupts
@@ -1879,8 +1885,6 @@ cacheflushloopjittable:
 
 //*************************************************************
 reset_handler:
-   pop   {r0-r12,r14}        // unstack everything
-   pop   {r0-r1}
 
 reset_handler_jit:
 // release interrupt handler
@@ -1898,8 +1902,18 @@ reset_handler_jit:
 old_irq_vector:
    .word 0
 old_fiq_vector:
+        .align 3
+doorbell_const:
+        .word DOORBELL
+        .word DOORBELLDATA
+fiqtemp:
+   .word 0
+   .word 0
+   .word 0
    .word 0
 stackptr:
+   .word 0
+ram6502store:
    .word 0
 cachelineD:
    .byte 0
@@ -1911,14 +1925,6 @@ fiqjitflag:
    .byte 0
 fiqirqflag:
    .byte 0
-.align
-ram6502store:
-   .word 0
-
-        .align 3
-doorbell_const:
-        .word DOORBELL
-        .word DOORBELLDATA
 
 CACHELINE_ALIGN = 5
 .equ    CPSR_MODE_USER,         0x10
@@ -1963,20 +1969,31 @@ arm_fiq_handler_jit:
    subeqs pc,lr,#4
 
    sub   r14,r14,#4
-fiq_during_irq:
-   SRSFD r13!,#CPSR_MODE_SVR  // saves lr and SPSR to user mode stack
+
+fiq_during_irq:               // we can get here from ARM FIQ or ARM IRQ handler
+
+   strd  r0,fiqtemp           // store r0,r1 to give register space
+   strd  r2,fiqtemp+8
+   mov   r0, #FAKESTACK
+   orr   r0, r0, regSP, LSL #6
+   mrs   r1 , SPSR
+   STMFD r0!,{r1}             // save CPSR to FAKE FIQ stack
+   STMFD r0!, {r14}           // save lr to FAKE FIQ stack
 
    CPS   #CPSR_MODE_SVR       // drop to user mode
 
-   push  {r0-r12,r14}         // stack everything onto user stack
+   STMFD r0!,{r2-r12,r14}     // save everything to FAKE FIQ stack
+   ldrd  r2,fiqtemp
+   STMFD r0!,{r2,r3}          // save R0,r1 on FAKE FIQ stack
 
-   ldr   reg0, =tube_irq             // Get IRQ status
-   mrs   reg12,CPSR
+   ldr   reg0, =tube_irq      // Get IRQ status
+   ldrd  r2,fiqtemp+8         // restore r2,r3
+   mrs   reg12, CPSR
 
 rtiended:
    CPSID if                   // could come from rti
 
-   ldr   r0, [r0]            // Get Mailbox data
+   ldr   r0, [r0]             // Get Mailbox data
 
 // process events
 
@@ -1987,13 +2004,24 @@ rtiended:
    tst   flags, #I_FLAG6502   // Test whether interrupts are enabled (bit 2 = 0)
    bne   noirq
    tst   r0, #IRQ_BIT         // Bit 0 set indicate IRQ is active
-   beq   noirq                // Take the IRQ interrupt
+   beq   noirq
 
    msr   CPSR_flg, reg12      // Restore the 6502 flags
-   INTR  -2, 0, FAKE
+   INTR  -2, 0, FAKE          // Interrupt
 
 noirq:
-   pop   {r0-r12,r14}
+
+   mov   reg12, #FAKESTACK
+   orr   reg12, regSP, LSL #6
+
+   ldrd  r0,[reg12,#-8]       // get SPSR and lr
+
+   SUB   lr, reg12, #16*4     // move pointer to the end of data
+   PUSH  {r0,r1}              // push on to stack ready for RFEFD
+
+
+   ldmfd lr,{r0-r12,r14}      // restore all the registers
+
    RFEFD r13!                 // return from ISR
 
 handle_nmi:
@@ -2018,12 +2046,12 @@ arm_jit_irq_handler:
 
 // we are in IRQ mode and have had a FIQ event
    ldm   sp!, {r0, r1, r2, r3, ip, lr}
-   B fiq_during_irq
+   B     fiq_during_irq
 
 ioload:
    mrs   reg12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
-   push  {reg12,lr}
    CPSID if                 // Disable FIQ/IRQ at the same time
+   push  {reg12,lr}
 
    bl    tube_parasite_read // Call up to C code to handle parasite read
 
@@ -3520,10 +3548,11 @@ rola:
    bx lr
 
 bitioload: //2c
-   push  {r14}
+   mov   reg4,r14
    BL    ioload
+   mov   r14,reg4
+   mov   reg4,#2
    msr   CPSR, reg12         // Restore 6502 flags and FIQ/IRQ bits
-   pop   {r14}
 
 bitadjustr14:
    add   r14,r14,#16
@@ -3627,7 +3656,7 @@ replacementldrh:
 //
 // TODO **** sort out registers *****
 ADCload:
-        ldrb   reg12,[reg1]
+        ldrb    reg12,[reg1]
 ADC0:
         tst     flags, #D_FLAG6502
 ADC1:
