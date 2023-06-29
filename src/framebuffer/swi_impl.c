@@ -320,7 +320,7 @@ static void OS_ScreenMode_impl(unsigned int *reg) {
 static void OS_ReadModeVariable_impl(unsigned int *reg) {
    int mode = (int) reg[0];
    screen_mode_t *screen = (mode < 0) ? fb_get_current_screen_mode() : get_screen_mode(mode);
-   // Return carry set if the screen mode could not be found, or unkonw VDU variable
+   // Return carry set if the screen mode could not be found, or unknown VDU variable
    if (screen == NULL || reg[1] >= NUM_MODE_VARS) {
       updateCarry(1, reg);
    } else {

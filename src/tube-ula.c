@@ -900,7 +900,7 @@ void tube_wait_for_rst_release() {
       while (tube_is_rst_active());
       // Make sure RST stays continuously high for a further 100us
       for (i = 0; i < DEBOUNCE_TIME && !tube_is_rst_active(); i++);
-      // Loop back if we exit the debouce loop prematurely because RST has gone active again
+      // Loop back if we exit the debounce loop prematurely because RST has gone active again
    } while (i < DEBOUNCE_TIME);
    // Reset all the TUBE ULA registers
    tube_reset();

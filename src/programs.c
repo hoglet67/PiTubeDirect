@@ -2923,7 +2923,7 @@ static const unsigned char osword_driver[] = {
   0xb0, 0x9d, 0x20, 0xe7, 0xff, 0xa5, 0xff, 0x2a, 0xa9, 0x00, 0x60
 };
 
-// The osword driver is assembed at 0x280, and the host oswrch code is
+// The osword driver is assembled at 0x280, and the host oswrch code is
 // fixes to start at 0x303, hence the 0x83 offset.
 const unsigned char *host_oswrch_redirector = osword_driver + 0x83;
 

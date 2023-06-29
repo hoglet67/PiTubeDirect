@@ -338,7 +338,7 @@
 
 // Macro for tracing execution
 // Add to FETCH_NEXT
-// This is currently broken with all the pipline changes that have been done
+// This is currently broken with all the pipeline changes that have been done
 .macro TRACE_65TUBE
         add     r0, regPC, #1
         ldrb    temp1, [regPC, #1]
@@ -355,7 +355,7 @@
 
 // Macro to maintain a histogram of opcodes in memory
 // Add to FETCH_NEXT
-// This is currently broken with all the pipline changes that have been done
+// This is currently broken with all the pipeline changes that have been done
 .macro HISTOGRAM_65TUBE
         push    {r0-r1}
         ldr     r1, =histogram_memory

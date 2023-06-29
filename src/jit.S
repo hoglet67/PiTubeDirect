@@ -20,7 +20,7 @@
 
 // 0x0C200000 - duplicate 6502 stack pointer for ARM stack
 //              normal r13 stack can't be used unless FIQs are disabled
-//              regSP needs to be in anb unbalnked regsiters
+//              regSP needs to be in an unbanked registers
 
 // NB this code starts 0x0D400000 + xxx so the above tables are close enough to jump to
 

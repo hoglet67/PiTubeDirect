@@ -946,7 +946,7 @@ static void MTPI(uint16_t instr) {
          }
       }
    } else if (isReg(da)) {
-      printf("invalid MTPI instrution\r\n");
+      printf("invalid MTPI instruction\r\n");
       trap(INTBUS);
    } else {
       write16((uint16_t)da, uval);

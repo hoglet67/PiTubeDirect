@@ -317,7 +317,7 @@ static void set_default_colours() {
 
 static void init_variables() {
 
-   // Seperate global cursor disabled flag
+   // Separate global cursor disabled flag
    cursor_off = 0;
 
    // Text cursor
