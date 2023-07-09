@@ -705,26 +705,23 @@ static byte tmpr;
   fetch();						\
   next();
 
-#define jsr(ticks, adrmode)				\
-  PC++;							\
-  push((byte)(PC >> 8));					\
-  push((byte) PC );					\
-  PC--;							\
-  adrmode(ticks);					\
-  if (mpu->callbacks->call[ea])				\
-    {							\
-      word addr;					\
-      externalise();					\
-      if ((addr= (word)mpu->callbacks->call[ea](mpu, ea, 0)))	\
-	{						\
-	  internalise();				\
-	  PC= addr;					\
-	  fetch();					\
-	  next();					\
-	}						\
-    }							\
-  PC=(word)ea;						\
-  fetch();						\
+#define jsr(ticks, adrmode) \
+  ea= (word)(MEM(PC));      \
+  PC++;                     \
+  push((byte)(PC >> 8));    \
+  push((byte) PC );         \
+  tick(ticks);              \
+  ea|=(word) (MEM(PC) << 8);\
+  if (mpu->callbacks->call[ea]) \
+    {                       \
+      externalise(); \
+      if ((ea= (word)mpu->callbacks->call[ea](mpu, ea, 0))) \
+        { \
+          internalise(); \
+        } \
+    } \
+  PC=(word)ea; \
+  fetch(); \
   next();
 
 #define rts(ticks, adrmode)			\

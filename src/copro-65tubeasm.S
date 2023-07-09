@@ -1203,6 +1203,7 @@ opcode_20:
 #if defined(FIX_STACK_WRAP_BUG)
         mov     temp1, regPC, LSR #8
         strb    temp1, [regSP], #-1    // high byte
+        ldrb    next_instr, [regPC,#0]
         orr     regSP, #0x0100
         strb    regPC, [regSP], #-1    // low byte
         orr     regSP, #0x0100
