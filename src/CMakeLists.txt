@@ -265,6 +265,16 @@ file( GLOB copro_opc7_files
     opc7/tuberom.c
 )
 
+# RISCV
+file( GLOB copro_riscv_files
+    copro-riscv.h
+    copro-riscv.c
+    riscv/riscv.h
+    riscv/riscv.c
+    riscv/tuberom.h
+    riscv/tuberom.c
+)
+
 # F100
 file( GLOB copro_f100_files
     copro-f100.h
@@ -372,6 +382,10 @@ file( GLOB debugger_files
     opc6/opc6_debug.h
     opc7/opc7_debug.c
     opc7/opc7_debug.h
+    riscv/riscv_debug.c
+    riscv/riscv_debug.h
+    riscv/riscv_disas.c
+    riscv/riscv_disas.h
     pdp11/pdp11_debug.c
     pdp11/pdp11_debug.h
     f100/f100_debug.c
@@ -421,6 +435,7 @@ else()
             ${copro_opc5ls_files}
             ${copro_opc6_files}
             ${copro_opc7_files}
+            ${copro_riscv_files}
             ${copro_f100_files}
             ${copro_65816_files}
             ${copro_pdp11_files}
@@ -447,6 +462,7 @@ else()
             ${copro_opc5ls_files}
             ${copro_opc6_files}
             ${copro_opc7_files}
+            ${copro_riscv_files}
             ${copro_f100_files}
             ${copro_65816_files}
             ${copro_pdp11_files}
