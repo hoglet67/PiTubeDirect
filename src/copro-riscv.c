@@ -158,7 +158,7 @@ static void copro_riscv_poweron_reset() {
    memory = copro_mem_reset(MINI_RV32_RAM_SIZE);
 
    // Copy over client ROM
-   copro_memcpy((void *) (memory + 0x00000000), (const void *)tuberom_riscv, sizeof(tuberom_riscv));
+   copro_memcpy((void *) (memory + 0x00000000), (const void *)tuberom_riscv_bin, (size_t) tuberom_riscv_bin_len);
 
    // Reset all of the riscv state to 0
    memset((void *)riscv_state, 0, sizeof(struct MiniRV32IMAState));

@@ -1,8 +1,7 @@
 #ifndef TUBEROM_RISCV_H
 #define TUBEROM_RISCV_H
 
-#include <stdint.h>
-
-extern const uint32_t tuberom_riscv[0x800];
+extern unsigned char tuberom_riscv_bin[];
+extern unsigned int tuberom_riscv_bin_len;
 
 #endif
