@@ -207,6 +207,12 @@ void copro_riscv_emulator()
                       1              // int count
                       );
 
+#ifdef INCLUDE_DEBUGGER
+      if (riscv_debug_enabled)
+      {
+         debug_preexec(&riscv_cpu_debug, riscv_state->pc);
+      }
+#endif
 
       int tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
       if (tube_irq_copy) {
