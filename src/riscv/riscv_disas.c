@@ -2076,6 +2076,12 @@ static void decode_inst_format(char *buf, size_t buflen, size_t tab, rv_decode *
     const char *fmt;
 
     size_t len = riscv_inst_length(dec->inst);
+
+    *buf = 0;
+
+#if 0
+    // riscv_debug already generates the address and instruction
+    // (also printing 64 bit hex ints doesn't see to work)
     switch (len) {
     case 2:
         snprintf(buf, buflen, INST_FMT_2, dec->inst);
@@ -2090,6 +2096,7 @@ static void decode_inst_format(char *buf, size_t buflen, size_t tab, rv_decode *
         snprintf(buf, buflen, INST_FMT_8, dec->inst);
         break;
     }
+#endif
 
     fmt = opcode_data[dec->op].format;
     while (*fmt) {
@@ -2141,8 +2148,9 @@ static void decode_inst_format(char *buf, size_t buflen, size_t tab, rv_decode *
             while (strlen(buf) < tab * 2) {
                 append(buf, " ", buflen);
             }
-            snprintf(tmp, sizeof(tmp), "# 0x%" PRIx64,
-                dec->pc + dec->imm);
+            // DMB: Changed to PRIx32 as PRIx64 doesn't work (and we are only interested in rv32i)
+            snprintf(tmp, sizeof(tmp), "# 0x%" PRIx32,
+                     (uint32_t) (dec->pc + dec->imm));
             append(buf, tmp, buflen);
             break;
         case 'c': {
@@ -2272,5 +2280,5 @@ void riscv_disasm_inst(char *buf, size_t buflen, rv_isa isa, uint64_t pc, rv_ins
     decode_inst_operands(&dec);
     decode_inst_decompress(&dec, isa);
     decode_inst_lift_pseudo(&dec);
-    decode_inst_format(buf, buflen, 32, &dec);
+    decode_inst_format(buf, buflen, 10, &dec);
 }

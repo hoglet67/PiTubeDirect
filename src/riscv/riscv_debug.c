@@ -144,8 +144,11 @@ static void dbg_memwrite(uint32_t addr, uint32_t value) {
 }
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
-   rv_inst inst = (uint64_t) copro_riscv_read_mem32(addr);
-   riscv_disasm_inst(buf, bufsize, rv32, (uint64_t) addr, inst);
+   uint32_t inst = copro_riscv_read_mem32(addr);
+   uint32_t len = (uint32_t)snprintf(buf, bufsize, "%08"PRIx32" %08"PRIx32" ", addr, inst);
+   buf += len;
+   bufsize -= len;
+   riscv_disasm_inst(buf, bufsize, rv32, (uint64_t) addr, (uint64_t) inst);
    return addr + 4;
 }
 
