@@ -10,13 +10,19 @@
    .equ    r4status, 24
    .equ      r4data, 28
 
+   .globl _start
+
+   .section .text
+
+_start:
+
 Reset:
    li    sp, STACK
    li    gp, TUBE
 
    la    a1, BannerMessage
 BannerLoop:
-   lw    a0, a1
+   lw    a0, (a1)
    jal   ra, do_wrch
    addi  a1, a1, 1
    bne   a0, zero, BannerLoop
@@ -38,6 +44,4 @@ do_wrch:
 # -----------------------------------------------------------------------------
 
 BannerMessage:
-   .byte   0x0a
-   .string "RISCV Co Processor"
-   .byte   0x0a, 0x0a, 0x0d, 0x00
+   .string "\nRISCV Co Processor\n\n\r"
