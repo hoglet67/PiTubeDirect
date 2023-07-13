@@ -22,7 +22,7 @@ Reset:
 
    la    a1, BannerMessage
 BannerLoop:
-   lw    a0, (a1)
+   lb    a0, (a1)
    jal   ra, do_wrch
    addi  a1, a1, 1
    bne   a0, zero, BannerLoop
