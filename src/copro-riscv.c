@@ -72,6 +72,26 @@ void copro_riscv_write_mem32(uint32_t addr, uint32_t data) {
    }
 }
 
+void copro_riscv_write_mem16(uint32_t addr, uint32_t data) {
+   addr &= ADDR_MASK;
+#ifdef INCLUDE_DEBUGGER
+   if (riscv_debug_enabled) {
+      debug_memwrite(&riscv_cpu_debug, addr, data, 4);
+   }
+#endif
+   *(uint16_t *)(memory + addr) = (uint16_t) data;
+}
+
+void copro_riscv_write_mem8(uint32_t addr, uint32_t data) {
+   addr &= ADDR_MASK;
+#ifdef INCLUDE_DEBUGGER
+   if (riscv_debug_enabled) {
+      debug_memwrite(&riscv_cpu_debug, addr, data, 1);
+   }
+#endif
+   *(uint8_t *)(memory + addr) = (uint8_t)data;
+}
+
 uint32_t copro_riscv_read_mem32(uint32_t addr) {
    addr &= ADDR_MASK;
    uint32_t data;
@@ -89,19 +109,9 @@ uint32_t copro_riscv_read_mem32(uint32_t addr) {
    return data;
 }
 
-void copro_riscv_write_mem16(uint32_t addr, uint16_t data) {
+uint32_t copro_riscv_read_mem16(uint32_t addr) {
    addr &= ADDR_MASK;
-#ifdef INCLUDE_DEBUGGER
-   if (riscv_debug_enabled) {
-      debug_memwrite(&riscv_cpu_debug, addr, data, 4);
-   }
-#endif
-   *(uint16_t *)(memory + addr) = data;
-}
-
-uint16_t copro_riscv_read_mem16(uint32_t addr) {
-   addr &= ADDR_MASK;
-   uint16_t data = *(uint16_t *)(memory + addr);
+   uint32_t data = *(uint16_t *)(memory + addr);
 #ifdef INCLUDE_DEBUGGER
    if (riscv_debug_enabled) {
       debug_memread(&riscv_cpu_debug, addr, data, 2);
@@ -110,30 +120,23 @@ uint16_t copro_riscv_read_mem16(uint32_t addr) {
    return data;
 }
 
-int16_t copro_riscv_read_mem16_signed(uint32_t addr) {
+uint32_t copro_riscv_read_mem16_signed(uint32_t addr) {
    addr &= ADDR_MASK;
-   int16_t data = *(int16_t *)(memory + addr);
+   uint32_t data = *(uint16_t *)(memory + addr);
 #ifdef INCLUDE_DEBUGGER
    if (riscv_debug_enabled) {
       debug_memread(&riscv_cpu_debug, addr, (uint16_t) data, 2);
    }
 #endif
+   if (data & 0x8000) {
+      data |= 0xffff0000;
+   }
    return data;
 }
 
-void copro_riscv_write_mem8(uint32_t addr, uint8_t data) {
+uint32_t copro_riscv_read_mem8(uint32_t addr) {
    addr &= ADDR_MASK;
-#ifdef INCLUDE_DEBUGGER
-   if (riscv_debug_enabled) {
-      debug_memwrite(&riscv_cpu_debug, addr, data, 1);
-   }
-#endif
-   *(uint8_t *)(memory + addr) = data;
-}
-
-uint8_t copro_riscv_read_mem8(uint32_t addr) {
-   addr &= ADDR_MASK;
-   uint8_t data = *(uint8_t *)(memory + addr);
+   uint32_t data = *(uint8_t *)(memory + addr);
 #ifdef INCLUDE_DEBUGGER
    if (riscv_debug_enabled) {
       debug_memread(&riscv_cpu_debug, addr, data, 1);
@@ -142,14 +145,17 @@ uint8_t copro_riscv_read_mem8(uint32_t addr) {
    return data;
 }
 
-int8_t copro_riscv_read_mem8_signed(uint32_t addr) {
+uint32_t copro_riscv_read_mem8_signed(uint32_t addr) {
    addr &= ADDR_MASK;
-   int8_t data = *(int8_t *)(memory + addr);
+   uint32_t data = *(uint8_t *)(memory + addr);
 #ifdef INCLUDE_DEBUGGER
    if (riscv_debug_enabled) {
       debug_memread(&riscv_cpu_debug, addr, (uint8_t) data, 1);
    }
 #endif
+   if (data & 0x80) {
+      data |= 0xffffff00;
+   }
    return data;
 }
 
