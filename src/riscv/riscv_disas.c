@@ -1,5 +1,16 @@
 // Based on https://github.com/andportnoy/riscv-disassembler
 
+// TODO: Opcodes in Mini-rv32ima that need adding to the disassembler
+//
+// RV32M Multiply extension (opcode 0x33)
+//    MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU
+//
+// RV32A Atomic extension (opcode 0x2f)
+//    LR, SC, AMISWAP, AMOADD, AMOXOR, AMIAND, AMOOR, AMOMIN, AMOMAX, AMOMINU, AMOMAXU
+//
+// Certain priviliged instructions (opcode 0x73)
+//    WFI, MRET, ...
+
 #include <stdio.h>
 
 #include "riscv_disas.h"
