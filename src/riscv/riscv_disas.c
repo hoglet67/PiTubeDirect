@@ -97,44 +97,43 @@ int format(uint8_t opcode) {
    return -1;
 }
 
-const char *name(uint32_t insn) {
-   union encoding e = {insn};
-   switch (format(e.opcode)) {
-   case R: switch (e.funct3) {
-      case 0: return e.funct7? "sub": "add";
+const char *name(int fmt, union encoding *e) {
+   switch (fmt) {
+   case R: switch (e->funct3) {
+      case 0: return e->funct7? "sub": "add";
       case 1: return "sll";
       case 2: return "slt";
       case 3: return "sltu";
       case 4: return "xor";
-      case 5: return e.funct7? "sra": "srl";
+      case 5: return e->funct7? "sra": "srl";
       case 6: return "or";
       case 7: return "and";
       } break;
-   case I: switch(e.opcode) {
+   case I: switch(e->opcode) {
       case 0x67: return "jalr";
-      case 0x03: switch (e.funct3) {
+      case 0x03: switch (e->funct3) {
          case 0: return "lb";
          case 1: return "lh";
          case 2: return "lw";
          case 4: return "lbu";
          case 5: return "lhu";
          } break;
-      case 0x13: switch (e.funct3) {
+      case 0x13: switch (e->funct3) {
          case 0: return "addi";
          case 1: return "slli";
          case 2: return "slti";
          case 3: return "sltiu";
          case 4: return "xori";
-         case 5: return e.funct7? "srai": "srli";
+         case 5: return e->funct7? "srai": "srli";
          case 6: return "ori";
          case 7: return "andi";
          } break;
-      case 0x0f: switch (e.funct3) {
+      case 0x0f: switch (e->funct3) {
          case 0: return "fence";
          case 1: return "fence.i";
          } break;
-      case 0x73: switch (e.funct3) {
-         case 0: return e.rs2? "ebreak": "ecall";
+      case 0x73: switch (e->funct3) {
+         case 0: return e->rs2? "ebreak": "ecall";
          case 1: return "csrrw";
          case 2: return "csrrs";
          case 3: return "csrrc";
@@ -143,12 +142,12 @@ const char *name(uint32_t insn) {
          case 7: return "csrrci";
          } break;
       } break;
-   case S: switch(e.funct3) {
+   case S: switch(e->funct3) {
       case 0: return "sb";
       case 1: return "sh";
       case 2: return "sw";
       } break;
-   case B: switch(e.funct3) {
+   case B: switch(e->funct3) {
       case 0: return "beq";
       case 1: return "bne";
       case 4: return "blt";
@@ -156,7 +155,7 @@ const char *name(uint32_t insn) {
       case 6: return "bltu";
       case 7: return "bgeu";
       } break;
-   case U: switch(e.opcode) {
+   case U: switch(e->opcode) {
       case 0x37: return "lui";
       case 0x17: return "auipc";
       } break;
@@ -166,64 +165,61 @@ const char *name(uint32_t insn) {
    return NULL;
 }
 
-const char *op0(uint32_t insn) {
-   union encoding e = {insn};
-   switch (format(e.opcode)) {
+const char *op0(int fmt, union encoding *e) {
+   switch (fmt) {
    case R:
    case I:
-      return reg_name[e.rd];
+      return reg_name[e->rd];
    case S:
-      return reg_name[e.rs2];
+      return reg_name[e->rs2];
    case B:
-      return reg_name[e.rs1];
+      return reg_name[e->rs1];
    case U:
    case J:
-      return reg_name[e.rd];
+      return reg_name[e->rd];
    default:
       return unimplemented;
    }
 }
 
-const char *op1(uint32_t insn) {
-   union encoding e = {insn};
+const char *op1(int fmt, union encoding *e) {
    static char imm[32];
-   switch (format(e.opcode)) {
+   switch (fmt) {
    case R:
    case I:
    case S:
-      return reg_name[e.rs1];
+      return reg_name[e->rs1];
    case B:
-      return reg_name[e.rs2];
+      return reg_name[e->rs2];
    case U:
-      sprintf(imm, "0x%x", e.u.i31_12);
+      sprintf(imm, "0x%x", e->u.i31_12);
       return imm;
    case J:
-      sprintf(imm, "%d", (e.j.i20    <<20) |
-                         (e.j.i19_12 <<12) |
-                         (e.j.i11    <<11) |
-                         (e.j.i10_1  << 1));
+      sprintf(imm, "%d", (e->j.i20    <<20) |
+                         (e->j.i19_12 <<12) |
+                         (e->j.i11    <<11) |
+                         (e->j.i10_1  << 1));
       return imm;
    }
    return unimplemented;
 }
 
-const char *op2(uint32_t insn) {
-   union encoding e = {insn};
+const char *op2(int fmt, union encoding *e) {
    static char imm[32];
-   switch (format(e.opcode)) {
+   switch (fmt) {
    case R:
-      return reg_name[e.rs2];
+      return reg_name[e->rs2];
    case I:
-      sprintf(imm, "%d", e.i.i11_0);
+      sprintf(imm, "%d", e->i.i11_0);
       return imm;
    case S:
-      sprintf(imm, "%d", (e.s.i11_5<<5) | e.s.i4_0);
+      sprintf(imm, "%d", (e->s.i11_5<<5) | e->s.i4_0);
       return imm;
    case B:
-      sprintf(imm, "%d", (e.b.i12   <<12) |
-                         (e.b.i11   <<11) |
-                         (e.b.i10_5 << 5) |
-                         (e.b.i4_1  << 1));
+      sprintf(imm, "%d", (e->b.i12   <<12) |
+                         (e->b.i11   <<11) |
+                         (e->b.i10_5 << 5) |
+                         (e->b.i4_1  << 1));
       return imm;
    case U:
    case J:
@@ -233,10 +229,13 @@ const char *op2(uint32_t insn) {
 }
 
 void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
-   const char *n = name(inst);
-   const char *p0 = op0(inst);
-   const char *p1 = op1(inst);
-   const char *p2 = op2(inst);
+
+   union encoding e = {inst};
+   int fmt = format(e.opcode);
+   const char *n = name(fmt, &e);
+   const char *p0 = op0(fmt, &e);
+   const char *p1 = op1(fmt, &e);
+   const char *p2 = op2(fmt, &e);
 
    if (p2) {
       snprintf(buf, buflen, "%-8s %s,%s,%s", n, p0, p1, p2);
