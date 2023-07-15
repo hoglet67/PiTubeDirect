@@ -46,7 +46,7 @@ union encoding {
       uint32_t rd     :5;
       uint32_t funct3 :3;
       uint32_t rs1    :5;
-      int32_t i11_0  :12; /* sign extension */
+      int32_t  i11_0  :12; /* sign extension */
    } i;
    struct {
       uint32_t opcode :7;
@@ -54,7 +54,7 @@ union encoding {
       uint32_t funct3 :3;
       uint32_t rs1    :5;
       uint32_t rs2    :5;
-      int32_t i11_5  :7; /* sign extension */
+      int32_t  i11_5  :7; /* sign extension */
    } s;
    struct {
       uint32_t opcode :7;
@@ -64,7 +64,7 @@ union encoding {
       uint32_t rs1    :5;
       uint32_t rs2    :5;
       uint32_t i10_5  :6;
-      int32_t i12    :1; /* sign extension */
+      int32_t  i12    :1; /* sign extension */
    } b;
    struct {
       uint32_t opcode :7;
@@ -77,7 +77,7 @@ union encoding {
       uint32_t i19_12 :8;
       uint32_t i11    :1;
       uint32_t i10_1  :10;
-      int32_t i20    :1; /* sign extension */
+      int32_t  i20    :1; /* sign extension */
    } j;
 };
 
@@ -181,9 +181,9 @@ const char *op1(uint32_t insn) {
    case B: sprintf(name, "x%d", e.rs2);            break;
    case U: sprintf(name, "0x%x", e.u.i31_12);      break;
    case J: sprintf(name, "%d", (e.j.i20    <<20) |
-                   (e.j.i19_12 <<12) |
-                   (e.j.i11    <<11) |
-                   (e.j.i10_1  << 1)); break;
+                               (e.j.i19_12 <<12) |
+                               (e.j.i11    <<11) |
+                               (e.j.i10_1  << 1)); break;
    }
    return name;
 }
@@ -196,9 +196,9 @@ const char *op2(uint32_t insn) {
    case I: sprintf(name, "%d", e.i.i11_0);                 break;
    case S: sprintf(name, "%d", (e.s.i11_5<<5) | e.s.i4_0); break;
    case B: sprintf(name, "%d", (e.b.i12   <<12) |
-                   (e.b.i11   <<11) |
-                   (e.b.i10_5 << 5) |
-                   (e.b.i4_1  << 1));          break;
+                               (e.b.i11   <<11) |
+                               (e.b.i10_5 << 5) |
+                               (e.b.i4_1  << 1));          break;
    case U:                                                 break;
    case J:                                                 break;
    }
@@ -206,7 +206,7 @@ const char *op2(uint32_t insn) {
 }
 
 void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
-   snprintf(buf, buflen, "%-8s %3s %3s %3s\n",
+   snprintf(buf, buflen, "%-8s %3s %3s %3s",
             name(inst),
             op0(inst),
             op1(inst),
