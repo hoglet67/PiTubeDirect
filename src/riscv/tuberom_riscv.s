@@ -44,4 +44,4 @@ do_wrch:
 # -----------------------------------------------------------------------------
 
 BannerMessage:
-   .string "\nRISCV Co Processor\n\n\r"
+   .string "\nRISC-V Co Processor\n\n\r"
