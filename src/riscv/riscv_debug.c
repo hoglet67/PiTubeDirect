@@ -148,7 +148,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    uint32_t len = (uint32_t)snprintf(buf, bufsize, "%08"PRIx32" %08"PRIx32" ", addr, inst);
    buf += len;
    bufsize -= len;
-   riscv_disasm_inst(buf, bufsize, rv32, (uint64_t) addr, (uint64_t) inst);
+   riscv_disasm_inst(buf, bufsize, addr, inst);
    return addr + 4;
 }
 
