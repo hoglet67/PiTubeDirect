@@ -6,6 +6,15 @@
 
 enum format {R, I, S, B, U, J};
 
+static const char reg_name[32][5] = {
+    "zero", "ra",   "sp",   "gp",   "tp",   "t0",   "t1",   "t2",
+    "s0",   "s1",   "a0",   "a1",   "a2",   "a3",   "a4",   "a5",
+    "a6",   "a7",   "s2",   "s3",   "s4",   "s5",   "s6",   "s7",
+    "s8",   "s9",   "s10",  "s11",  "t3",   "t4",   "t5",   "t6",
+};
+
+static const char unimplemented[] = "?";
+
 struct {
    uint8_t opcode; /* 7-bit */
    enum format fmt;
@@ -159,56 +168,79 @@ const char *name(uint32_t insn) {
 
 const char *op0(uint32_t insn) {
    union encoding e = {insn};
-   static char name[32];
    switch (format(e.opcode)) {
    case R:
-   case I: sprintf(name, "x%d", e.rd);  break;
-   case S: sprintf(name, "x%d", e.rs2); break;
-   case B: sprintf(name, "x%d", e.rs1); break;
+   case I:
+      return reg_name[e.rd];
+   case S:
+      return reg_name[e.rs2];
+   case B:
+      return reg_name[e.rs1];
    case U:
-   case J: sprintf(name, "x%d", e.rd);  break;
+   case J:
+      return reg_name[e.rd];
+   default:
+      return unimplemented;
    }
-   return name;
 }
 
 const char *op1(uint32_t insn) {
    union encoding e = {insn};
-   static char name[32];
+   static char imm[32];
    switch (format(e.opcode)) {
    case R:
    case I:
-   case S: sprintf(name, "x%d", e.rs1);            break;
-   case B: sprintf(name, "x%d", e.rs2);            break;
-   case U: sprintf(name, "0x%x", e.u.i31_12);      break;
-   case J: sprintf(name, "%d", (e.j.i20    <<20) |
-                               (e.j.i19_12 <<12) |
-                               (e.j.i11    <<11) |
-                               (e.j.i10_1  << 1)); break;
+   case S:
+      return reg_name[e.rs1];
+   case B:
+      return reg_name[e.rs2];
+   case U:
+      sprintf(imm, "0x%x", e.u.i31_12);
+      return imm;
+   case J:
+      sprintf(imm, "%d", (e.j.i20    <<20) |
+                         (e.j.i19_12 <<12) |
+                         (e.j.i11    <<11) |
+                         (e.j.i10_1  << 1));
+      return imm;
    }
-   return name;
+   return unimplemented;
 }
 
 const char *op2(uint32_t insn) {
    union encoding e = {insn};
-   static char name[32];
+   static char imm[32];
    switch (format(e.opcode)) {
-   case R: sprintf(name, "x%d", e.rs2);                    break;
-   case I: sprintf(name, "%d", e.i.i11_0);                 break;
-   case S: sprintf(name, "%d", (e.s.i11_5<<5) | e.s.i4_0); break;
-   case B: sprintf(name, "%d", (e.b.i12   <<12) |
-                               (e.b.i11   <<11) |
-                               (e.b.i10_5 << 5) |
-                               (e.b.i4_1  << 1));          break;
-   case U:                                                 break;
-   case J:                                                 break;
+   case R:
+      return reg_name[e.rs2];
+   case I:
+      sprintf(imm, "%d", e.i.i11_0);
+      return imm;
+   case S:
+      sprintf(imm, "%d", (e.s.i11_5<<5) | e.s.i4_0);
+      return imm;
+   case B:
+      sprintf(imm, "%d", (e.b.i12   <<12) |
+                         (e.b.i11   <<11) |
+                         (e.b.i10_5 << 5) |
+                         (e.b.i4_1  << 1));
+      return imm;
+   case U:
+   case J:
+      return NULL;
    }
-   return name;
+   return unimplemented;
 }
 
 void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
-   snprintf(buf, buflen, "%-8s %3s %3s %3s",
-            name(inst),
-            op0(inst),
-            op1(inst),
-            op2(inst));
+   const char *n = name(inst);
+   const char *p0 = op0(inst);
+   const char *p1 = op1(inst);
+   const char *p2 = op2(inst);
+
+   if (p2) {
+      snprintf(buf, buflen, "%-8s %s,%s,%s", n, p0, p1, p2);
+   } else {
+      snprintf(buf, buflen, "%-8s %s,%s", n, p0, p1);
+   }
 }
