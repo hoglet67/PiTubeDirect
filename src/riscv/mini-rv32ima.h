@@ -38,19 +38,19 @@
 #endif
 
 #ifndef MINIRV32_HANDLE_MEM_STORE_CONTROL
-   #define MINIRV32_HANDLE_MEM_STORE_CONTROL(...);
+   #define MINIRV32_HANDLE_MEM_STORE_CONTROL(...) {};
 #endif
 
 #ifndef MINIRV32_HANDLE_MEM_LOAD_CONTROL
-   #define MINIRV32_HANDLE_MEM_LOAD_CONTROL(...);
+   #define MINIRV32_HANDLE_MEM_LOAD_CONTROL(...) {};
 #endif
 
 #ifndef MINIRV32_OTHERCSR_WRITE
-   #define MINIRV32_OTHERCSR_WRITE(...);
+   #define MINIRV32_OTHERCSR_WRITE(...) {};
 #endif
 
 #ifndef MINIRV32_OTHERCSR_READ
-   #define MINIRV32_OTHERCSR_READ(...);
+   #define MINIRV32_OTHERCSR_READ(...) {};
 #endif
 
 #ifndef MINIRV32_CUSTOM_MEMORY_BUS
@@ -63,6 +63,8 @@
    #define MINIRV32_LOAD2_SIGNED( ofs ) *(int16_t*)(image + ofs)
    #define MINIRV32_LOAD1_SIGNED( ofs ) *(int8_t*)(image + ofs)
 #endif
+
+#define INVERSE(i) (0xFFFFFFFF - (i))
 
 // As a note: We quouple-ify these, because in HLSL, we will be operating with
 // uint4's.  We are going to uint4 data to/from system RAM.
@@ -124,11 +126,11 @@ MINIRV32_STEPPROTO
    // Handle Timer interrupt.
    if( ( CSR( timerh ) > CSR( timermatchh ) || ( CSR( timerh ) == CSR( timermatchh ) && CSR( timerl ) > CSR( timermatchl ) ) ) && ( CSR( timermatchh ) || CSR( timermatchl ) ) )
    {
-      CSR( extraflags ) &= ~4; // Clear WFI
+      CSR( extraflags ) &= INVERSE(4); // Clear WFI
       CSR( mip ) |= 1<<7; //MTIP of MIP // https://stackoverflow.com/a/61916199/2926815  Fire interrupt.
    }
    else
-      CSR( mip ) &= ~(1<<7);
+      CSR( mip ) &= INVERSE(1<<7);
 
    // If WFI, don't run processor.
    if( CSR( extraflags ) & 4 )
@@ -178,8 +180,8 @@ MINIRV32_STEPPROTO
                break;
             case 0x6F: // JAL (0b1101111)
             {
-               int32_t reladdy = ((ir & 0x80000000)>>11) | ((ir & 0x7fe00000)>>20) | ((ir & 0x00100000)>>9) | ((ir&0x000ff000));
-               if( reladdy & 0x00100000 ) reladdy |= 0xffe00000; // Sign extension.
+               uint32_t reladdy = ((ir & 0x80000000)>>11) | ((ir & 0x7fe00000)>>20) | ((ir & 0x00100000)>>9) | ((ir&0x000ff000));
+               if (reladdy & 0x00100000) reladdy |= 0xffe00000; // Sign extension.
                rval = pc + 4;
                pc = pc + reladdy - 4;
                break;
@@ -187,17 +189,17 @@ MINIRV32_STEPPROTO
             case 0x67: // JALR (0b1100111)
             {
                uint32_t imm = ir >> 20;
-               int32_t imm_se = imm | (( imm & 0x800 )?0xfffff000:0);
+               if (imm & 0x800) imm |= 0xfffff000;
                rval = pc + 4;
-               pc = ( (REG( (ir >> 15) & 0x1f ) + imm_se) & ~1) - 4;
+               pc = ( (REG( (ir >> 15) & 0x1f ) + imm) & INVERSE(1)) - 4;
                break;
             }
             case 0x63: // Branch (0b1100011)
             {
                uint32_t immm4 = ((ir & 0xf00)>>7) | ((ir & 0x7e000000)>>20) | ((ir & 0x80) << 4) | ((ir >> 31)<<12);
                if( immm4 & 0x1000 ) immm4 |= 0xffffe000;
-               int32_t rs1 = REG((ir >> 15) & 0x1f);
-               int32_t rs2 = REG((ir >> 20) & 0x1f);
+               int32_t rs1 = (int32_t) REG((ir >> 15) & 0x1f);
+               int32_t rs2 = (int32_t) REG((ir >> 20) & 0x1f);
                immm4 = pc + immm4 - 4;
                rdid = 0;
                switch( ( ir >> 12 ) & 0x7 )
@@ -217,8 +219,8 @@ MINIRV32_STEPPROTO
             {
                uint32_t rs1 = REG((ir >> 15) & 0x1f);
                uint32_t imm = ir >> 20;
-               int32_t imm_se = imm | (( imm & 0x800 )?0xfffff000:0);
-               uint32_t rsval = rs1 + imm_se;
+               if (imm & 0x800) imm |= 0xfffff000;
+               uint32_t rsval = rs1 + imm;
 
                rsval -= MINIRV32_RAM_IMAGE_OFFSET;
                if( rsval >= MINI_RV32_RAM_SIZE-3 )
@@ -276,7 +278,7 @@ MINIRV32_STEPPROTO
                      else if( addy == 0x11100000 ) //SYSCON (reboot, poweroff, etc.)
                      {
                         SETCSR( pc, pc + 4 );
-                        return rs2; // NOTE: PC will be PC of Syscon.
+                        return (int) rs2; // NOTE: PC will be PC of Syscon.
                      }
                      else
                         MINIRV32_HANDLE_MEM_STORE_CONTROL( addy, rs2 );
@@ -315,15 +317,15 @@ MINIRV32_STEPPROTO
                   {
                      case 0: rval = rs1 * rs2; break; // MUL
 #ifndef CUSTOM_MULH // If compiling on a system that doesn't natively, or via libgcc support 64-bit math.
-                     case 1: rval = ((int64_t)((int32_t)rs1) * (int64_t)((int32_t)rs2)) >> 32; break; // MULH
-                     case 2: rval = ((int64_t)((int32_t)rs1) * (uint64_t)rs2) >> 32; break; // MULHSU
-                     case 3: rval = ((uint64_t)rs1 * (uint64_t)rs2) >> 32; break; // MULHU
+                     case 1: rval = (uint32_t)(((int64_t)((int32_t)rs1) * (int64_t)((int32_t)rs2)) >> 32); break; // MULH
+                     case 2: rval = (uint32_t)(((int64_t)((int32_t)rs1) * (int64_t)rs2) >> 32); break; // MULHSU
+                     case 3: rval = (uint32_t)(((uint64_t)rs1 * (uint64_t)rs2) >> 32); break; // MULHU
 #else
                      CUSTOM_MULH
 #endif
-                     case 4: if( rs2 == 0 ) rval = -1; else rval = ((int32_t)rs1 == INT32_MIN && (int32_t)rs2 == -1) ? rs1 : ((int32_t)rs1 / (int32_t)rs2); break; // DIV
+                     case 4: if( rs2 == 0 ) rval = 0xffffffff; else rval = ((int32_t)rs1 == INT32_MIN && (int32_t)rs2 == -1) ? rs1 : ((uint32_t)((int32_t)rs1 / (int32_t)rs2)); break; // DIV
                      case 5: if( rs2 == 0 ) rval = 0xffffffff; else rval = rs1 / rs2; break; // DIVU
-                     case 6: if( rs2 == 0 ) rval = rs1; else rval = ((int32_t)rs1 == INT32_MIN && (int32_t)rs2 == -1) ? 0 : ((uint32_t)((int32_t)rs1 % (int32_t)rs2)); break; // REM
+                     case 6: if( rs2 == 0 ) rval = rs1; else rval = ((int32_t)rs1 == INT32_MIN && (int32_t)rs2 == -1) ? 0   : ((uint32_t)((int32_t)rs1 % (int32_t)rs2)); break; // REM
                      case 7: if( rs2 == 0 ) rval = rs1; else rval = rs1 % rs2; break; // REMU
                   }
                }
@@ -336,7 +338,8 @@ MINIRV32_STEPPROTO
                      case 2: rval = (int32_t)rs1 < (int32_t)rs2; break;
                      case 3: rval = rs1 < rs2; break;
                      case 4: rval = rs1 ^ rs2; break;
-                     case 5: rval = (ir & 0x40000000 ) ? ( ((int32_t)rs1) >> (rs2 & 0x1F) ) : ( rs1 >> (rs2 & 0x1F) ); break;
+                     // DMB: Note, >> of a signed integer is implementation defined in C
+                     case 5: rval = (ir & 0x40000000 ) ? (uint32_t) ( ((int32_t)rs1) >> (rs2 & 0x1F) ) : ( rs1 >> (rs2 & 0x1F) ); break;
                      case 6: rval = rs1 | rs2; break;
                      case 7: rval = rs1 & rs2; break;
                   }
@@ -352,7 +355,7 @@ MINIRV32_STEPPROTO
                uint32_t microop = ( ir >> 12 ) & 0x7;
                if( (microop & 3) ) // It's a Zicsr function.
                {
-                  int rs1imm = (ir >> 15) & 0x1f;
+                  uint32_t rs1imm = (ir >> 15) & 0x1f;
                   uint32_t rs1 = REG(rs1imm);
                   uint32_t writeval = rs1;
 
@@ -383,12 +386,12 @@ MINIRV32_STEPPROTO
 
                   switch( microop )
                   {
-                     case 1: writeval = rs1; break;         //CSRRW
-                     case 2: writeval = rval | rs1; break;     //CSRRS
-                     case 3: writeval = rval & ~rs1; break;    //CSRRC
-                     case 5: writeval = rs1imm; break;         //CSRRWI
-                     case 6: writeval = rval | rs1imm; break;  //CSRRSI
-                     case 7: writeval = rval & ~rs1imm; break; //CSRRCI
+                     case 1: writeval = rs1; break;                    //CSRRW
+                     case 2: writeval = rval | rs1; break;             //CSRRS
+                     case 3: writeval = rval & INVERSE(rs1); break;    //CSRRC
+                     case 5: writeval = rs1imm; break;                 //CSRRWI
+                     case 6: writeval = rval | rs1imm; break;          //CSRRSI
+                     case 7: writeval = rval & INVERSE(rs1imm); break; //CSRRCI
                   }
 
                   switch( csrno )
@@ -431,7 +434,7 @@ MINIRV32_STEPPROTO
                      uint32_t startmstatus = CSR( mstatus );
                      uint32_t startextraflags = CSR( extraflags );
                      SETCSR( mstatus , (( startmstatus & 0x80) >> 4) | ((startextraflags&3) << 11) | 0x80 );
-                     SETCSR( extraflags, (startextraflags & ~3) | ((startmstatus >> 11) & 3) );
+                     SETCSR( extraflags, (startextraflags & INVERSE(3)) | ((startmstatus >> 11) & 3) );
                      pc = CSR( mepc ) -4;
                   }
                   else
