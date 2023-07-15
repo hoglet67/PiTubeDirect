@@ -237,7 +237,9 @@ void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
    const char *p1 = op1(fmt, &e);
    const char *p2 = op2(fmt, &e);
 
-   if (p2) {
+   if (e.opcode == 0x03 || e.opcode == 0x23) {
+      snprintf(buf, buflen, "%-8s %s,%s(%s)", n, p0, p2, p1);
+   } else if (p2) {
       snprintf(buf, buflen, "%-8s %s,%s,%s", n, p0, p1, p2);
    } else {
       snprintf(buf, buflen, "%-8s %s,%s", n, p0, p1);
