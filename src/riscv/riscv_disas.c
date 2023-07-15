@@ -148,12 +148,12 @@ const char *name(int fmt, union encoding *e) {
       case 2: return "sw";
       } break;
    case B: switch(e->funct3) {
-      case 0: return "beq";
-      case 1: return "bne";
-      case 4: return "blt";
-      case 5: return "bge";
-      case 6: return "bltu";
-      case 7: return "bgeu";
+      case 0: return e->rs2 ? "beq"  : "beqz";
+      case 1: return e->rs2 ? "bne"  : "bnez";
+      case 4: return e->rs2 ? "blt"  : "bltz";
+      case 5: return e->rs2 ? "bge"  : "bgez";
+      case 6: return e->rs2 ? "bltu" : "bltuz";
+      case 7: return e->rs2 ? "bgeu" : "bgeuz";
       } break;
    case U: switch(e->opcode) {
       case 0x37: return "lui";
@@ -162,7 +162,7 @@ const char *name(int fmt, union encoding *e) {
    case J: return "jal";
    }
 
-   return NULL;
+   return "???";
 }
 
 const char *op0(int fmt, union encoding *e) {
@@ -190,9 +190,13 @@ const char *op1(int fmt, union encoding *e) {
    case S:
       return reg_name[e->rs1];
    case B:
-      return reg_name[e->rs2];
+      if (e->rs2) {
+         return reg_name[e->rs2];
+      } else {
+         return NULL;
+      }
    case U:
-      sprintf(imm, "0x%x", e->u.i31_12);
+      sprintf(imm, "0x%x", e->u.i31_12 << 12);
       return imm;
    case J:
       sprintf(imm, "%d", (e->j.i20    <<20) |
@@ -237,11 +241,25 @@ void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
    const char *p1 = op1(fmt, &e);
    const char *p2 = op2(fmt, &e);
 
+   size_t len = (size_t) snprintf(buf, buflen, "%-8s %s", n, p0);
+   buf += len;
+   buflen -= len;
+
    if (e.opcode == 0x03 || e.opcode == 0x23) {
-      snprintf(buf, buflen, "%-8s %s,%s(%s)", n, p0, p2, p1);
-   } else if (p2) {
-      snprintf(buf, buflen, "%-8s %s,%s,%s", n, p0, p1, p2);
+      // special case load/store
+      len = (size_t) snprintf(buf, buflen, ", %s(%s)", p2, p1);
+      buf += len;
+      buflen -= len;
    } else {
-      snprintf(buf, buflen, "%-8s %s,%s", n, p0, p1);
+      if (p1) {
+         len = (size_t) snprintf(buf, buflen, ", %s", p1);
+         buf += len;
+         buflen -= len;
+      }
+      if (p2) {
+         len = (size_t) snprintf(buf, buflen, ", %s", p2);
+         buf += len;
+         buflen -= len;
+      }
    }
 }
