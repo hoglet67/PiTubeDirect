@@ -12,6 +12,7 @@
 //    WFI, MRET, ...
 
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "riscv_disas.h"
 
@@ -193,7 +194,7 @@ const char *op0(int fmt, union encoding *e) {
    }
 }
 
-const char *op1(int fmt, union encoding *e) {
+const char *op1(int fmt, union encoding *e, uint32_t pc) {
    static char imm[32];
    switch (fmt) {
    case R:
@@ -210,16 +211,15 @@ const char *op1(int fmt, union encoding *e) {
       sprintf(imm, "0x%x", e->u.i31_12 << 12);
       return imm;
    case J:
-      sprintf(imm, "%d", (e->j.i20    <<20) |
-                         (e->j.i19_12 <<12) |
-                         (e->j.i11    <<11) |
-                         (e->j.i10_1  << 1));
+      sprintf(imm, "%08" PRIx32,
+              (uint32_t)((e->j.i20 << 20) | (e->j.i19_12 << 12) | (e->j.i11 << 11) | (e->j.i10_1  << 1)) + pc
+              );
       return imm;
    }
    return unimplemented;
 }
 
-const char *op2(int fmt, union encoding *e) {
+const char *op2(int fmt, union encoding *e, uint32_t pc) {
    static char imm[32];
    switch (fmt) {
    case R:
@@ -231,10 +231,9 @@ const char *op2(int fmt, union encoding *e) {
       sprintf(imm, "%d", (e->s.i11_5<<5) | e->s.i4_0);
       return imm;
    case B:
-      sprintf(imm, "%d", (e->b.i12   <<12) |
-                         (e->b.i11   <<11) |
-                         (e->b.i10_5 << 5) |
-                         (e->b.i4_1  << 1));
+      sprintf(imm, "%08"PRIx32,
+              (uint32_t)((e->b.i12 << 12) | (e->b.i11 << 11) | (e->b.i10_5 << 5) | (e->b.i4_1 << 1)) + pc
+              );
       return imm;
    case U:
    case J:
@@ -249,8 +248,8 @@ void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
    int fmt = format(e.opcode);
    const char *n = name(fmt, &e);
    const char *p0 = op0(fmt, &e);
-   const char *p1 = op1(fmt, &e);
-   const char *p2 = op2(fmt, &e);
+   const char *p1 = op1(fmt, &e, pc);
+   const char *p2 = op2(fmt, &e, pc);
 
    size_t len = (size_t) snprintf(buf, buflen, "%-8s %s", n, p0);
    buf += len;
