@@ -18,7 +18,7 @@
 //
 // 0x00000000 - RAM
 // 0x00FFFFE0 - Tube R1 Status
-// 0x00FFFF4E - Tube R1 Data
+// 0x00FFFFE4 - Tube R1 Data
 // 0x00FFFFE8 - Tube R2 Status
 // 0x00FFFFEC - Tube R2 Data
 // 0x00FFFFF0 - Tube R3 Status
@@ -65,8 +65,7 @@ void copro_riscv_write_mem32(uint32_t addr, uint32_t data) {
    }
 #endif
    if ((addr & TUBE_MASK) == TUBE_MASK) {
-      addr = (addr >> 2) & 7;
-      tube_parasite_write(addr, (uint8_t) data);
+      tube_parasite_write((addr >> 2) & 7, (uint8_t) data);
    } else {
       *(uint32_t *)(memory + addr) = data;
    }
@@ -96,8 +95,7 @@ uint32_t copro_riscv_read_mem32(uint32_t addr) {
    addr &= ADDR_MASK;
    uint32_t data;
    if ((addr & TUBE_MASK) == TUBE_MASK) {
-      addr = (addr >> 2) & 7;
-      data = tube_parasite_read(addr);
+      data = tube_parasite_read((addr >> 2) & 7);
    } else {
       data = *(uint32_t *)(memory + addr);
    }
