@@ -1,5 +1,7 @@
 
-.equ       STACK, 0x000EFFFC
+.equ       STACK, 0x0000FFFC
+.equ     MEM_BOT, 0x00010000
+.equ     MEM_TOP, 0x000F0000
 .equ        TUBE, 0x00FFFFE0
 
 .equ    R1STATUS, 0
@@ -16,13 +18,13 @@
 .globl _start
 
 .macro PUSH reg
-    sw      \reg, 0(sp)
     addi    sp, sp, -4
+    sw      \reg, 0(sp)
 .endm
 
 .macro POP reg
-    addi    sp, sp, 4
     lw      \reg, 0(sp)
+    addi    sp, sp, 4
 .endm
 
 .macro JMPI addr
@@ -31,12 +33,11 @@
     jalr    zero, (t0)
 .endm
 
-.macro CLC
-# TODO
-.endm
-
-.macro SEC
-# TODO
+.macro ERROR address
+    la      t0, \address
+    la      t1, LAST_ERR
+    sw      t0, (t1)
+    j       ErrorHandler
 .endm
 
 .section .text
@@ -80,13 +81,14 @@ INPBUF:
 INPEND:
 
 ADDR:       .word 0 # tube execution address
-TMP_R1:     .word 0 # tmp store for R1 during IRQ
+TMP_DBG:    .word 0 # tmp store for debugging
 LAST_ERR:   .word 0 # last error
 ESCAPE_FLAG:.word 0 # escape flag
 
 ResetHandler:
     li      gp, TUBE                    # setup the register that points to the tube (TODO: Probably a bad idea to use a register like this!)
     li      sp, STACK                   # setup the stack
+
 
     la      t1, DefaultVectors          # copy the vectors
     la      t2, USERV
@@ -99,9 +101,14 @@ InitVecLoop:
     addi    t3, t3, -1
     bnez    t3, InitVecLoop
 
-#     EI      ()                        # enable interrupts
+    la      t0, InterruptHandler        # install the interrupt/exception handler
+    csrw    mtvec, t0
+    li      t0, 1 << 11                 # mie.MEIE=1 (enable external interrupts)
+    csrrs   zero, mie, t0
+    li      t0, 1 << 3                  # mstatus.MIE=1 (enable interrupts)
+    csrrs   zero, mstatus, t0
 
-    la      a1, BannerMessage           # send the reset message
+    la      a0, BannerMessage           # send the reset message
     jal     print_string
 
     mv      a0, zero                    # send the terminator
@@ -120,16 +127,16 @@ CmdOSLoop:
 
     jal     OSWORD
 
-#     c.mov   pc, r0, CmdOSEscape
+    bltz    a2, CmdOSEscape
 
     la      a0, INPBUF
     jal     OS_CLI
     j       CmdOSLoop
 
-# CmdOSEscape:
-#     mov     r1, r0, 0x7e
-#     JSR     (OSBYTE)
-#     ERROR   (EscapeError)
+CmdOSEscape:
+    li      a0, 0x7e
+    jal     OSBYTE
+    ERROR   EscapeError
 
 # --------------------------------------------------------------
 # MOS interface
@@ -154,8 +161,19 @@ ErrorHandler:
 #     add      r1, r0, 1                  # Skip over error num
 #     JSR     (print_string)              # Print error string
 #     JSR     (OSNEWL)
-
 #     mov     pc, r0, CmdPrompt           # Jump to command prompt
+
+    li      sp, STACK                   # setup the stack
+    jal     OSNEWL
+    la      a0, LAST_ERR
+    lw      a0, (a0)
+    addi    a0, a0, 1
+    jal     print_string
+    jal     OSNEWL
+
+    li      t0, 1 << 3                  # mstatus.MIE=1 (enable interrupts)
+    csrrs   zero, mstatus, t0
+
     j       CmdPrompt
 
 # --------------------------------------------------------------
@@ -180,11 +198,11 @@ osBPUT:
 
 # OSBYTE - Byte MOS functions
 # ===========================
-# On entry, r1, r2, r3=OSBYTE parameters
-# On exit,  r1  preserved
-#           If r1<$80, r2=returned value
-#           If r1>$7F, r2, r3, Carry=returned values
-#
+# On entry, a0, a1, r2=OSBYTE parameters
+# On exit, a0  preserved
+#           If a0<$80, a1=returned value
+#           If a0>$7F, a1, a2, Carry=returned values
+
 osBYTE:
 #     PUSH    (r13)
 #     cmp     r1, r0, 0x80        # Jump for long OSBYTEs
@@ -204,6 +222,25 @@ osBYTE:
 #     mov     r2, r1
 #     POP     (r1)
 #     POP     (r13)
+
+    PUSH    ra
+    li      t0, 0x80                    # Jump for long OSBYTEs
+    bge     a0, t0, ByteHigh
+
+# Tube data  $04 X A    --  X
+
+    PUSH    a0
+    li      a0, 0x04
+    jal     SendByteR2                  # Send command &04 - OSBYTELO
+    mv      a0, a1
+    jal     SendByteR2                  # Send single parameter
+    POP     a0
+    PUSH    a0
+    jal     SendByteR2                  # Send function
+    jal     WaitByteR2                  # Get return value
+    mv      a1, a0
+    POP     a0
+    POP     ra
     ret
 
 # ByteHigh:
@@ -214,8 +251,17 @@ osBYTE:
 #     cmp     r1, r0, 0x84        # Read top of memory
 #     z.mov   pc, r0, Byte84
 #
+
+ByteHigh:
+    li      t0, 0x82
+    beq     a0, t0, Byte82
+    li      t0, 0x83
+    beq     a0, t0, Byte83
+    li      t0, 0x84
+    beq     a0, t0, Byte84
+
 # Tube data  $06 X Y A  --  Cy Y X
-#
+
 
 #     PUSH    (r1)
 #     mov     r1, r0, 0x06
@@ -242,6 +288,27 @@ osBYTE:
 #     POP     (r13)
 #     RTS     ()
 
+
+    PUSH    a0
+    li      a0, 0x06
+    jal     SendByteR2                  # Send command &06 - OSBYTEHI
+    mv      a0, a1
+    jal     SendByteR2                  # Send parameter 1
+    mv      a0, a2
+    jal     SendByteR2                  # Send parameter 2
+    POP     a0
+    PUSH    a0
+    jal     SendByteR2                  # Send function
+    jal     WaitByteR2                  # Get carry - from bit 7
+    mv      a3, a0
+    jal     WaitByteR2                  # Get high byte
+    mv      a2, a0
+    jal     WaitByteR2                  # Get low byte
+    mv      a1, a0
+    POP     a0
+    POP     ra
+    ret
+
 # Byte84:                         # Read top of memory
 #     mov      r1, r0, MEM_TOP
 #     POP     (r13)
@@ -250,11 +317,24 @@ osBYTE:
 #     mov     r1, r0, MEM_BOT
 #     POP     (r13)
 #     RTS     ()
-
 # Byte82:                         # Return &0000 as memory high word
 #     mov     r1, r0
 #     POP     (r13)
 #     RTS     ()
+
+
+Byte84:                         # Read top of memory
+    li      a1, MEM_TOP
+    POP     ra
+    ret
+Byte83:                         # Read bottom of memory
+    li      a1, MEM_BOT
+    POP     ra
+    ret
+Byte82:                         # Return &0000 as memory high word
+    mv      a1, zero
+    POP     ra
+    ret
 
 # --------------------------------------------------------------
 
@@ -1071,11 +1151,10 @@ RdLineLp:
     li      t0, 0x0d                    # Compare against terminator and loop back
     bne     a0, t0, RdLineLp
 
-    CLC                                 # Clear "carry" to indicate not-escape
     j       RdLineExit
 
 RdLineEscape:
-    SEC                                 # Set "carry" to indicate not-escape
+    li      a2, -1                      # Set "carry" to indicate not-escape
 RdLineExit:
     POP     a1
     POP     ra
@@ -1124,13 +1203,13 @@ osWRCH:
 #     RTS     ()
 
 osRDCH:
-    push    ra
+    PUSH    ra
     mv      a0, zero                    # Send command &00 - OSRDCH
     jal     SendByteR2
     jal     WaitByteR2                  # Receive carry
-                                        # What to do with carry? (escape)
+    mv      a1, a0
     jal     WaitByteR2                  # Receive A
-    pop     ra
+    POP     ra
     ret
 
 # --------------------------------------------------------------
@@ -1139,8 +1218,7 @@ osRDCH:
 # Interrupts handlers
 # -----------------------------------------------------------------------------
 
-IRQ1Handler:
-    ret
+# InterruptHandler:
 #     IN      (r1, r4status)
 #     and     r1, r0, 0x80
 #     nz.mov  pc, r0, r4_irq
@@ -1149,6 +1227,20 @@ IRQ1Handler:
 #     nz.mov  pc, r0, r1_irq
 #     ld      pc, r0, IRQ2V
 
+InterruptHandler:
+IRQ1Handler:
+    PUSH    t0
+
+    lb      t0, R4STATUS(gp)            # sign extend to 32 bits
+    bltz    t0, r4_irq                  # branch if data available in R4
+
+    lb      t0, R1STATUS(gp)            # sign extend to 32 bits
+    bltz    t0, r1_irq                  # branch if data available in R1
+
+
+IRQ2:
+    j IRQ2
+    JMPI    IRQ2V
 
 # -----------------------------------------------------------------------------
 # Interrupt generated by data in Tube R1
@@ -1185,6 +1277,37 @@ IRQ1Handler:
 #     ld     r1, r0, TMP_R1 # restore R1 from tmp location
 #     rti    pc, pc         # rti
 
+
+r1_irq:
+    lb      t0, R1DATA(gp)
+    bltz    t0, r1_irq_escape
+    PUSH    ra                          # Save registers
+    PUSH    a1
+    PUSH    a2
+    jal     WaitByteR1                  # Get Y parameter from Tube R1
+    mv      a2, a0
+    jal     WaitByteR1                  # Get X parameter from Tube R1
+    mv      a1, a0
+    jal     WaitByteR1                  # Get event number from Tube R1
+    jal     LFD36                       # Dispatch event
+    POP     a2                          # restore registers
+    POP     a1
+    POP     ra
+    POP     t0
+    mret
+
+LFD36:
+    JMPI    EVNTV
+
+r1_irq_escape:
+    PUSH    t1
+    add     t0, t0, t0
+    la      t1, ESCAPE_FLAG
+    sb      t0, (t1)
+    POP     t1
+    POP     t0
+    mret
+
 # -----------------------------------------------------------------------------
 # Interrupt generated by data in Tube R4
 # -----------------------------------------------------------------------------
@@ -1218,6 +1341,28 @@ IRQ1Handler:
 #     nz.mov  pc, r0, err_loop
 
 #     ERROR   (ERRBUF)
+
+
+r4_irq:
+    lb      t0, R4DATA(gp)
+    bgez    t0, LFD65                   # b7=0, jump for data transfer
+
+# Error    R4: &FF R2: &00 err string &00
+
+    PUSH    ra
+    PUSH    a0
+    PUSH    t1
+    jal     WaitByteR2                  # Skip data in Tube R2 - should be 0x00
+    la      t1, ERRBUF
+    jal     WaitByteR2                  # Get error number
+    sb      a0, (t1)
+err_loop:
+    addi    t1, t1, 1
+    jal     WaitByteR2                  # Get error message bytes
+    sb      a0, (t1)
+    bnez    a0, err_loop
+
+    ERROR   ERRBUF
 
 #
 # Transfer R4: action ID block sync R3: data
@@ -1267,6 +1412,15 @@ IRQ1Handler:
 #     ld      r1, r0, TMP_R1 # restore R1 from tmp location
 #     rti     pc, pc         # rti
 
+
+LFD65:
+    PUSH    ra
+    PUSH    a0
+    jal     WaitByteR4
+    POP     a0
+    POP     ra
+    POP     t0
+    mret
 
 # TransferHandlerTable:
 #     WORD    Type0
@@ -1453,7 +1607,7 @@ IRQ1Handler:
 # Initial interrupt handler, called from 0x0002 (or 0xfffe in PTD)
 # -----------------------------------------------------------------------------
 
-# InterruptHandler:
+#InterruptHandler:
 #     sto     r1, r0, TMP_R1
 #     GETPSR  (r1)
 #     and     r1, r0, SWI_MASK
@@ -1556,6 +1710,15 @@ DefaultVectors:
 #     IN     (r1, r1data)    # Fetch byte from Tube R1 and return
 #     RTS    ()
 
+
+# --------------------------------------------------------------
+
+WaitByteR1:
+    lb      t0, R1STATUS(gp)
+    bgez    t0, WaitByteR1
+    lw      a0, R1DATA(gp)
+    ret
+
 # --------------------------------------------------------------
 
 # WaitByteR2:
@@ -1566,9 +1729,8 @@ DefaultVectors:
 #     RTS     ()
 
 WaitByteR2:
-    lw    t0, R2STATUS(gp)
-    andi  t0, t0, 0x80
-    beqz  t0, WaitByteR2
+    lb    t0, R2STATUS(gp)
+    bgez  t0, WaitByteR2
     lw    a0, R2DATA(gp)
     ret
 
@@ -1580,6 +1742,12 @@ WaitByteR2:
 #     z.mov   pc, r0, WaitByteR4
 #     IN      (r1, r4data)
 #     RTS     ()
+
+WaitByteR4:
+    lb    t0, R4STATUS(gp)
+    bgez  t0, WaitByteR4
+    lw    a0, R4DATA(gp)
+    ret
 
 # --------------------------------------------------------------
 
@@ -1605,7 +1773,7 @@ SendByteR2:
 # Prints the zero terminated ASCII string
 #
 # Entry:
-# - a1 points to the zero terminated string
+# - a0 points to the zero terminated string
 #
 # Exit:
 # - all other registers preserved
@@ -1613,11 +1781,14 @@ SendByteR2:
 
 print_string:
     PUSH    ra
+    mv      t0, a0
 print_string_loop:
-    lb      a0, (a1)
+    lb      a0, (t0)
     beqz    a0, print_string_exit
+    PUSH    t0
     jal     OSWRCH
-    addi    a1, a1, 1
+    POP     t0
+    addi    t0, t0, 1
     j       print_string_loop
 print_string_exit:
     POP     ra
@@ -1671,17 +1842,9 @@ BannerMessage:
    .string "\nRISC-V Co Processor\n\n\r"
 
 
-# EscapeError:
-#     WORD    17
-#     STRING "Escape"
-#     WORD    0x00
-
-# Currently about 10 words free
-
-# Limit check to precent code running into next block...
-
-# Limit2:
-#     EQU dummy, 0 if (Limit2 < 0xFFC8) else limit2_error
+EscapeError:
+    .byte 17
+    .string "Escape"
 
 # -----------------------------------------------------------------------------
 # MOS interface
