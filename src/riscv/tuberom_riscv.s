@@ -1416,21 +1416,49 @@ err_loop:
 LFD65:
     PUSH    ra
     PUSH    a0
+    PUSH    t1           # working register for transfer type
+    PUSH    t2           # working register for transfer address
+
+    mv      t1, t0       # save transfer type
+
     jal     WaitByteR4
+    li      t0, 0x05
+    beq     t1, t0, Release
+    jal     WaitByteR4   # block address MSB
+    slli    t2, t2, 8
+    or      t2, t2, a0
+    jal     WaitByteR4   # block address ...
+    slli    t2, t2, 8
+    or      t2, t2, a0
+    jal     WaitByteR4   # block address ...
+    slli    t2, t2, 8
+    or      t2, t2, a0
+    jal     WaitByteR4   # block address LSB
+    slli    t2, t2, 8
+    or      t2, t2, a0
+    lw      t0, R3DATA(gp)
+    lw      t0, R3DATA(gp)
+    jal     WaitByteR4   # sync
+
+    # TODO Install NMI Handler
+
+Release:
+    POP     t2
+    POP     t1
     POP     a0
     POP     ra
     POP     t0
     mret
 
-# TransferHandlerTable:
-#     WORD    Type0
-#     WORD    Type1
-#     WORD    Type2
-#     WORD    Type3
-#     WORD    Type4
-#     WORD    Release # not actually used
-#     WORD    Type6
-#     WORD    Type7
+#TransferHandlerTable:
+#    .word    Type0
+#    .word    Type1
+#    .word    Type2
+#    .word    Type3
+#    .word    Type4
+#    .word    Release # not actually used
+#    .word    Type6
+#    .word    Type7
 
 # ============================================================
 # Type 0 transfer: 1-byte parasite -> host (SAVE)
