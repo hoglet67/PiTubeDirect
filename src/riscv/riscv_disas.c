@@ -145,7 +145,12 @@ const char *name(int fmt, union encoding *e) {
          case 1: return "fence.i";
          } break;
       case 0x73: switch (e->funct3) {
-         case 0: return e->rs2? "ebreak": "ecall";
+         case 0: switch (e->i.i11_0) {
+            case 0x000: return "ecall";
+            case 0x001: return "ebreak";
+            case 0x302: return "mret";
+            default: return "???";
+            }
          case 1: return "csrrw";
          case 2: return "csrrs";
          case 3: return "csrrc";
