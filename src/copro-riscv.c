@@ -45,6 +45,8 @@
 #define MINIRV32_LOAD2_SIGNED( ofs ) copro_riscv_read_mem16_signed(ofs)
 #define MINIRV32_LOAD1_SIGNED( ofs ) copro_riscv_read_mem8_signed(ofs)
 
+#define MINIRV32_POSTEXEC( pc, ir, trap ) { if ((CSR(mstatus & (1<<3))) && ((CSR(mip) & CSR(mie) & (1<<11)))) { trap = 0x8000000B; pc -= 4; } }
+
 #include "copro-riscv.h"
 
 static struct MiniRV32IMAState state;
@@ -75,10 +77,14 @@ void copro_riscv_write_mem16(uint32_t addr, uint32_t data) {
    addr &= ADDR_MASK;
 #ifdef INCLUDE_DEBUGGER
    if (riscv_debug_enabled) {
-      debug_memwrite(&riscv_cpu_debug, addr, data, 4);
+      debug_memwrite(&riscv_cpu_debug, addr, data, 2);
    }
 #endif
-   *(uint16_t *)(memory + addr) = (uint16_t) data;
+   if ((addr & TUBE_MASK) == TUBE_MASK) {
+      tube_parasite_write((addr >> 2) & 7, (uint8_t) data);
+   } else {
+      *(uint16_t *)(memory + addr) = (uint16_t) data;
+   }
 }
 
 void copro_riscv_write_mem8(uint32_t addr, uint32_t data) {
@@ -88,7 +94,11 @@ void copro_riscv_write_mem8(uint32_t addr, uint32_t data) {
       debug_memwrite(&riscv_cpu_debug, addr, data, 1);
    }
 #endif
-   *(uint8_t *)(memory + addr) = (uint8_t)data;
+   if ((addr & TUBE_MASK) == TUBE_MASK) {
+      tube_parasite_write((addr >> 2) & 7, (uint8_t) data);
+   } else {
+      *(uint8_t *)(memory + addr) = (uint8_t)data;
+   }
 }
 
 uint32_t copro_riscv_read_mem32(uint32_t addr) {
@@ -109,7 +119,12 @@ uint32_t copro_riscv_read_mem32(uint32_t addr) {
 
 uint32_t copro_riscv_read_mem16(uint32_t addr) {
    addr &= ADDR_MASK;
-   uint32_t data = *(uint16_t *)(memory + addr);
+   uint32_t data;
+   if ((addr & TUBE_MASK) == TUBE_MASK) {
+      data = tube_parasite_read((addr >> 2) & 7);
+   } else {
+      data = *(uint16_t *)(memory + addr);
+   }
 #ifdef INCLUDE_DEBUGGER
    if (riscv_debug_enabled) {
       debug_memread(&riscv_cpu_debug, addr, data, 2);
@@ -120,21 +135,31 @@ uint32_t copro_riscv_read_mem16(uint32_t addr) {
 
 uint32_t copro_riscv_read_mem16_signed(uint32_t addr) {
    addr &= ADDR_MASK;
-   uint32_t data = *(uint16_t *)(memory + addr);
-#ifdef INCLUDE_DEBUGGER
-   if (riscv_debug_enabled) {
-      debug_memread(&riscv_cpu_debug, addr, (uint16_t) data, 2);
+   uint32_t data;
+   if ((addr & TUBE_MASK) == TUBE_MASK) {
+      data = tube_parasite_read((addr >> 2) & 7);
+   } else {
+      data = *(uint16_t *)(memory + addr);
    }
-#endif
    if (data & 0x8000) {
       data |= 0xffff0000;
    }
+#ifdef INCLUDE_DEBUGGER
+   if (riscv_debug_enabled) {
+      debug_memread(&riscv_cpu_debug, addr, data, 2);
+   }
+#endif
    return data;
 }
 
 uint32_t copro_riscv_read_mem8(uint32_t addr) {
    addr &= ADDR_MASK;
-   uint32_t data = *(uint8_t *)(memory + addr);
+   uint32_t data;
+   if ((addr & TUBE_MASK) == TUBE_MASK) {
+      data = tube_parasite_read((addr >> 2) & 7);
+   } else {
+      data = *(uint8_t *)(memory + addr);
+   }
 #ifdef INCLUDE_DEBUGGER
    if (riscv_debug_enabled) {
       debug_memread(&riscv_cpu_debug, addr, data, 1);
@@ -145,15 +170,20 @@ uint32_t copro_riscv_read_mem8(uint32_t addr) {
 
 uint32_t copro_riscv_read_mem8_signed(uint32_t addr) {
    addr &= ADDR_MASK;
-   uint32_t data = *(uint8_t *)(memory + addr);
-#ifdef INCLUDE_DEBUGGER
-   if (riscv_debug_enabled) {
-      debug_memread(&riscv_cpu_debug, addr, (uint8_t) data, 1);
+   uint32_t data;
+   if ((addr & TUBE_MASK) == TUBE_MASK) {
+      data = tube_parasite_read((addr >> 2) & 7);
+   } else {
+      data = *(uint8_t *)(memory + addr);
    }
-#endif
    if (data & 0x80) {
       data |= 0xffffff00;
    }
+#ifdef INCLUDE_DEBUGGER
+   if (riscv_debug_enabled) {
+      debug_memread(&riscv_cpu_debug, addr, data, 1);
+   }
+#endif
    return data;
 }
 
@@ -230,16 +260,18 @@ void copro_riscv_emulator()
             copro_riscv_reset();
          }
 
-         // TODO: Not sure how the MiniRV32 core implements interrupts yet
-
          // NMI is edge sensitive
          if (tube_irq_copy & NMI_BIT) {
             // arm2_execute_set_input(ARM_FIRQ_LINE, 1);
             tube_ack_nmi();
          }
+      }
 
-         // IRQ is level sensitive, so check between every instruction
-         //arm2_execute_set_input(ARM_IRQ_LINE, tube_irq_copy & IRQ_BIT);
+      // IRQ is level sensitive, so check between every instruction
+      if (tube_irq_copy & IRQ_BIT) {
+         riscv_state->mip |= 0x00000800; // set bit 11 (external interrupt)
+      } else {
+         riscv_state->mip &= 0xfffff7ff; // clear bit 11 (external interrupt)
       }
    }
 }
