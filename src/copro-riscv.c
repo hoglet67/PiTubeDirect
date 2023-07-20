@@ -249,7 +249,7 @@ void copro_riscv_emulator()
                       );
 
 
-      int tube_irq_copy = tube_irq & ( RESET_BIT + NMI_BIT + IRQ_BIT);
+      int tube_irq_copy = tube_irq & ( RESET_BIT + IRQ_BIT);
       if (tube_irq_copy) {
          // Reset the processor on active edge of rst
          if ( tube_irq_copy & RESET_BIT ) {
@@ -258,12 +258,6 @@ void copro_riscv_emulator()
                break;
             }
             copro_riscv_reset();
-         }
-
-         // NMI is edge sensitive
-         if (tube_irq_copy & NMI_BIT) {
-            // arm2_execute_set_input(ARM_FIRQ_LINE, 1);
-            tube_ack_nmi();
          }
       }
 

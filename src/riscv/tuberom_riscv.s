@@ -1440,7 +1440,11 @@ LFD65:
     lw      t0, R3DATA(gp)
     jal     WaitByteR4   # sync
 
-    # TODO Install NMI Handler
+    la      t0, TransferHandlerTable
+    slli    t1, t1, 2
+    add     t0, t0, t1
+    lw      t0, (t0)
+    jalr    zero, t0
 
 Release:
     POP     t2
@@ -1450,186 +1454,68 @@ Release:
     POP     t0
     mret
 
-#TransferHandlerTable:
-#    .word    Type0
-#    .word    Type1
-#    .word    Type2
-#    .word    Type3
-#    .word    Type4
-#    .word    Release # not actually used
-#    .word    Type6
-#    .word    Type7
+TransferHandlerTable:
+    .word    Type0
+    .word    Type1
+    .word    Type2
+    .word    Type3
+    .word    Type4
+    .word    Release    # not actually used
+    .word    Type6
+    .word    Type7
 
 # ============================================================
 # Type 0 transfer: 1-byte parasite -> host (SAVE)
 #
-# r1 - scratch register
-# r2 - data register (16-bit data value read from memory)
-# r3 - address register (16-bit memory address)
+# t0 - scratch register
+# t2 - address register (memory address)
 # ============================================================
 
-# TODO: we should be able to have one common implementation
-# i.e. the 16-bit should be a degenerate case of 32-bit
+Type0:
+    lb      t0, R4STATUS(gp)        # Test for an pending interrupt signalling end of transfer
+    bltz    t0, Release
+    lb      t0, R3STATUS(gp)
+    andi    t0, t0, 0x40
+    beqz    t0, Type0
+    lb      t0, (t2)
+    sw      t0, R3DATA(gp)
+    addi    t2, t2, 1
+    j       Type0
 
-# Type0:
-##ifdef CPU_OPC7
-
-# r2 also tracks when we need load a new word, because
-# we cycle a ff through from the MSB. So the continuation
-# test sees one of the following:
-#    ff 33 22 11     (3 bytes remaining)
-#    00 ff 33 22     (2 bytes remaining)
-#    00 00 ff 33     (1 bytes remaining)
-#    00 00 00 ff     (0 bytes remaining, need to reload)
-
-#     mov     r2, r0                # clear the continuation flag
-
-# Type0_loop:
-#     IN      (r1, r4status)        # Test for an pending interrupt signalling end of transfer
-#     and     r1, r0, 0x80
-#     nz.mov  pc, r0, Release
-
-#     IN      (r1, r3status)        # Wait for Tube R3 free
-#     and     r1, r0, 0x40
-#     z.mov   pc, r0, Type0_loop
-
-#     bperm   r1, r2, 0x3214        # test continuation flag, more efficient than mov r1, r2 + and r1, r0, 0xffffff00
-#     nz.mov  pc, r0, Type0_continuation
-
-#     ld      r2, r3                # Read word from memory, increment memory pointer
-#     mov     r3, r3, 1
-#     OUT     (r2, r3data)          # Send LSB to Tube R3
-#     or      r2, r0, 0xff          # set the continuation flag
-#     bperm   r2, r2, 0x0321        # cyclic rotate, r2 = ff 33 22 11
-#     mov     pc, r0, Type0_loop
-
-# Type0_continuation:
-
-#     OUT     (r2, r3data)         # Send odd byte to Tube R3
-#     bperm   r2, r2, 0x4321       # shift right one byte
-#     mov     pc, r0, Type0_loop   # loop back, clearing odd byte flag
-
-##else
-
-#     mov     r2, r0                # clean the odd byte flag (start with an even byte)
-
-# Type0_loop:
-#     IN      (r1, r4status)        # Test for an pending interrupt signalling end of transfer
-#     and     r1, r0, 0x80
-#     nz.mov  pc, r0, Release
-
-#     IN      (r1, r3status)        # Wait for Tube R3 free
-#     and     r1, r0, 0x40
-#     z.mov   pc, r0, Type0_loop
-
-#     and     r2, r2                # test odd byte flag
-#     mi.mov  pc, r0, Type0_odd_byte
-
-#     ld      r2, r3                # Read word from memory, increment memory pointer
-#     mov     r3, r3, 1
-#     OUT     (r2, r3data)          # Send even byte to Tube R3
-#     bswp    r2, r2
-#     or      r2, r0, 0x8000        # set the odd byte flag
-#     mov     pc, r0, Type0_loop
-
-# Type0_odd_byte:
-#     OUT     (r2, r3data)         # Send odd byte to Tube R3
-#     mov     pc, r0, Type0        # loop back, clearing odd byte flag
-
-##endif
 
 # ============================================================
 # Type 1 transfer: 1-byte host -> parasite (LOAD)
 #
-# r1 - scratch register
-# r2 - data register (16-bit data value read from memory)
-# r3 - address register (16-bit memory address)
+# t0 - scratch register
+# t2 - address register (memory address)
 # ============================================================
 
-# TODO: we should be able to have one common implementation
-# i.e. the 16-bit should be a degenerate case of 32-bit
+Type1:
+    lb      t0, R4STATUS(gp)        # Test for an pending interrupt signalling end of transfer
+    bltz    t0, Release
+    lb      t0, R3STATUS(gp)
+    bgez    t0, Type1
+    lw      t0, R3DATA(gp)
+    sb      t0, (t2)
+    addi    t2, t2, 1
+    j       Type1
 
-# Type1:
-##ifdef CPU_OPC7
+Type2:
+    j       Release
 
-#     mov     r2, r0, 0xff          # set the last byte flag in byte 0
+Type3:
+    j       Release
 
-# Type1_loop:
-#     IN      (r1, r4status)        # Test for an pending interrupt signalling end of transfer
-#     and     r1, r0, 0x80
-#     nz.mov  pc, r0, Release
+Type4:
+    la      t0, ADDR
+    sw      t2, (t0)
+    j       Release
 
-#     IN      (r1, r3status)        # Wait for Tube R3 free
-#     and     r1, r0, 0x80
-#     z.mov   pc, r0, Type1_loop
+ Type6:
+    j       Release
 
-#     IN      (r1, r3data)          # Read the last byte from Tube T3
-
-#     and     r2, r2                # test last byte flag
-#     mi.mov  pc, r0, Type1_last_byte
-
-#     bperm   r2, r2, 0x2104
-#     or      r2, r1
-#     mov     pc, r0, Type1_loop
-
-# Type1_last_byte:
-
-#     bperm   r2, r2, 0x2104
-#     or      r2, r1
-#     bperm   r2, r2, 0x0123        # byte swap to make it little endian
-
-#     sto     r2, r3                # Write word to memory, increment memory pointer
-#     mov     r3, r3, 1
-#     mov     pc, r0, Type1         # loop back, clearing last byte flag
-
-##else
-
-#     mov     r2, r0                # clean the odd byte flag (start with an even byte)
-
-# Type1_loop:
-#     IN      (r1, r4status)        # Test for an pending interrupt signalling end of transfer
-#     and     r1, r0, 0x80
-#     nz.mov  pc, r0, Release
-
-#     IN      (r1, r3status)        # Wait for Tube R3 free
-#     and     r1, r0, 0x80
-#     z.mov   pc, r0, Type1_loop
-
-#     and     r2, r2                # test odd byte flag
-#     mi.mov  pc, r0, Type1_odd_byte
-
-#     IN      (r2, r3data)          # Read the even byte from Tube T3
-#     or      r2, r0, 0x8000        # set the odd byte flag
-#     mov     pc, r0, Type1_loop
-
-# Type1_odd_byte:
-
-#     IN      (r1, r3data)          # Read the odd byte from Tube T3
-#     bswp    r1, r1                # Shift it to the upper byte
-#     and     r2, r0, 0x00FF        # Clear the odd byte flag
-#     or      r2, r1                # Or the odd byte in the MSB
-
-#     sto     r2, r3                # Write word to memory, increment memory pointer
-#     mov     r3, r3, 1
-#     mov     pc, r0, Type1         # loop back, clearing odd byte flag
-
-##endif
-
-# Type2:
-#     mov     pc, r0, Release
-
-# Type3:
-#     mov     pc, r0, Release
-
-# Type4:
-#     sto     r3, r0, ADDR
-#     mov     pc, r0, Release
-
-# Type6:
-#     mov     pc, r0, Release
-
-# Type7:
-#     mov     pc, r0, Release
+ Type7:
+    j       Release
 
 # -----------------------------------------------------------------------------
 # Initial interrupt handler, called from 0x0002 (or 0xfffe in PTD)
@@ -1650,29 +1536,6 @@ Release:
 #     sto     r1, r0, LAST_ERR     # save the address of the last error
 #     EI      ()                   # re-enable interrupts
 #     ld      pc, r0, BRKV         # invoke the BRK handler
-
-##ifdef CPU_OPC5LS
-
-# Limit check to precent code running into next block...
-
-# Limit1:
-#     EQU dummy, 0 if (Limit1 < 0xFEF8) else limit1_error
-
-# -----------------------------------------------------------------------------
-# TUBE ULA registers
-# -----------------------------------------------------------------------------
-
-# ORG TUBE
-#     WORD 0x0000     # 0xFEF8
-#     WORD 0x0000     # 0xFEF9
-#     WORD 0x0000     # 0xFEFA
-#     WORD 0x0000     # 0xFEFB
-#     WORD 0x0000     # 0xFEFC
-#     WORD 0x0000     # 0xFEFD
-#     WORD 0x0000     # 0xFEFE
-#     WORD 0x0000     # 0xFEFF
-
-##endif
 
 # -----------------------------------------------------------------------------
 # DEFAULT VECTOR TABLE
@@ -1712,6 +1575,9 @@ DefaultVectors:
 # -----------------------------------------------------------------------------
 
 # Wait for byte in Tube R1 while allowing requests via Tube R4
+#
+# Used during the event R1 IRQ to service R4 IRQs in a timely manner
+
 # WaitByteR1:
 #     IN      (r12, r1status)
 #     and     r12, r0, 0x80
