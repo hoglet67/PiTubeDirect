@@ -135,12 +135,12 @@ static int dbg_debug_enable(int newvalue) {
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
-   return copro_riscv_read_mem32(addr);
+   return copro_riscv_read_mem8(addr);
 }
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
-   copro_riscv_write_mem32(addr, value);
+   copro_riscv_write_mem8(addr, value);
 }
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
@@ -234,6 +234,5 @@ cpu_debug_t const riscv_cpu_debug = {
    .reg_print      = dbg_reg_print,
    .reg_parse      = dbg_reg_parse,
    .get_instr_addr = dbg_get_instr_addr,
-   .trap_names     = dbg_trap_names,
-   .mem_width      = WIDTH_32BITS,
+   .trap_names     = dbg_trap_names
 };
