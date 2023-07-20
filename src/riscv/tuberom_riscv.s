@@ -109,6 +109,7 @@ InitVecLoop:
     csrrs   zero, mstatus, t0
 
     la      a0, BannerMessage           # send the reset message
+
     jal     print_string
 
     mv      a0, zero                    # send the terminator
@@ -346,21 +347,16 @@ Byte82:                         # Return &0000 as memory high word
 #
 
 osCLI:
-#     PUSH    (r13)
-#     PUSH    (r2)
+    PUSH    ra
+    PUSH    a0                          # save the string pointer
+    jal     cmdLocal                    # try to handle the command locally
+    beqz    a0, dontEnterCode           # was command handled locally? (r1 = 0)
 
-    mv        a1, a0
-    PUSH      ra
-
-#     PUSH    (r1)                    # save the string pointer
-#     JSR     (cmdLocal)              # try to handle the command locally
-#     cmp     r1, r0                  # was command handled locally? (r1 = 0)
-#     z.mov   pc, r0, dontEnterCode   # yes, then nothing more to do
-#     POP     (r1)                    # restore the string pointer
-
-    PUSH    a1
     li      a0, 0x02                    # Send command &02 - OSCLI
     jal     SendByteR2
+
+    POP     a0                          # restore the string pointer
+    PUSH    a0
     jal     SendStringR2
 
 osCLI_Ack:
@@ -369,14 +365,12 @@ osCLI_Ack:
     li      t0, 0x80
     blt     a0, t0, dontEnterCode
 
-    POP     a1
-    PUSH    a1
 #     JSR     (prep_env)
 
 #     JSR     (enterCode)
 
 dontEnterCode:
-    POP     a1
+    POP     a0
     POP     ra
     ret
 
@@ -444,112 +438,113 @@ dontEnterCode:
 # Local Command Processor
 #
 # On Entry:
-# - r1 points to the user command
+# - a0 points to the user command
 #
 # On Exit:
-# - r1 == 0 if command successfully processed locally
-# - r1 != 0 if command should be
+# - a0 == 0 if command successfully processed locally
+# - a0 != 0 if command should be
 #
 # Register usage:
-# r1 points to start of user command
-# r2 points within command table
-# r3 points within user command
-# r4 is current character in command table
-# r5 is current character in user command
+# a0 points to start of user command
+# a1 points within user command
+# a2 points within command string table
+# a3 points within command address
+# t1 is current character in user command
+# t2 is current character in command string table
 
-# cmdLocal:
-#     PUSH    (r2)
-#     PUSH    (r3)
-#     PUSH    (r4)
-#     PUSH    (r5)
-#     PUSH    (r13)
+cmdLocal:
+    PUSH    a1
+    PUSH    a2
+    PUSH    a3
+    PUSH    ra
 
-#     sub     r1, r0, 1
-# cmdLoop0:
-#     add     r1, r0, 1
-#     JSR     (skip_spaces)           # skip leading spaces
-#     cmp     r2, r0, ord('*')        # also skip leading *
-#     z.mov   pc, r0, cmdLoop0
+    addi    a0, a0, -1
+cmdLoop0:
+    addi    a0, a0, 1
+    jal     skip_spaces                 # skip leading spaces
+    li      t0, '*'
+    beq     a1, t0, cmdLoop0            # also skip leading *
 
-#     mov     r2, r0, cmdTable-1      # initialize command table pointer (to char before)
+    la      a2, cmdStrings-1            # initialize command string pointer (to char before)
+    la      a3, cmdAddresses-4          # initialize command address pointer (to word before)
 
-# cmdLoop1:
-#     mov     r3, r1, -1              # initialize user command pointer (to char before)
+cmdLoop1:
+    addi    a1, a0, -1                  # initialize user command pointer (to char before)
+    addi    a3, a3, 4                   # move to the next command address
 
-# cmdLoop2:
-#     add     r2, r0, 1               # increment command table pointer
-#     add     r3, r0, 1               # increment user command pointer
-#     ld      r5, r3                  # read next character from user command
-#     or      r5, r0, 0x20            # convert to lower case
-#     ld      r4, r2                  # read next character from command table
-#     mi.mov  pc, r0, cmdCheck        # if an address, then we are done matching
-#     cmp     r5, r4                  # compare the characters
-#     z.mov   pc, r0, cmdLoop2        # if a match, loop back for more
+cmdLoop2:
+    addi    a1, a1, 1                   # increment user command pointer
+    addi    a2, a2, 1                   # increment command table pointer
+    lb      t1, (a1)                    # read next character from user command
+    ori     t1, t1, 0x20                # convert to lower case
+    lb      t2, (a2)                    # read next character from command table
+    beqz    t2, cmdCheck                # zero then we are done matching
+    beq     t1, t2, cmdLoop2            # if a match, loop back for more
 
-#     sub     r2, r0, 1
-# cmdLoop3:                           # skip to the end of the command in the table
-#     add     r2, r0, 1
-#     ld      r4, r2
-#     pl.mov  pc, r0, cmdLoop3
+cmdLoop3:                               # skip to the end of the command in the table
+    addi    a2, a2, 1
+    lb      t2, (a2)
+    bnez    t2, cmdLoop3
 
-#     cmp     r5, r0, ord('.')        # was the mis-match a '.'
-#     nz.mov  pc, r0, cmdLoop1        # no, then start again with next command
+    li      t0, '.'                     # was the mis-match a '.'
+    bne     t1, t0, cmdLoop1            # no, then start again with next command
 
-#     add     r3, r0, 1               # increment user command pointer past the '.'
+    addi    a1, a1, 1                   # increment user command pointer past the '.'
 
-# cmdExec:
+cmdExec:
 
-#     mov     r1, r3                  # r1 = the command pointer to the params
-#     mov     r2, r4                  # r2 = the execution address
+    mv      a0, a1                      # a0 = the command pointer to the params
+    lw      a1, (a3)                    # a1 = the execution address
+    jal     cmdExecA1
 
-#     JSR     (cmdExecR2)
+cmdExit:
+    POP     ra
+    POP     a3
+    POP     a2
+    POP     a1
+    ret
 
-# cmdExit:
-#     POP     (r13)
-#     POP     (r5)
-#     POP     (r4)
-#     POP     (r3)
-#     POP     (r2)
-#     RTS     ()
-#                                     # Additional code to make the match non-greedy
-#                                     # e.g. *MEMORY should not match against the MEM command
-#                                     #      also exclude *MEM.
-# cmdCheck:
-#     cmp     r5, r0, ord('.')        # check the first non-matching user char against '.'
-#     z.mov   pc, r0, cmdReject       # if == '.' then reject the command
-#     cmp     r5, r0, ord('a')        # check the first non-matching user char against 'a'
-#     nc.mov  pc, r0, cmdExec         # if < 'a' then execute the local command
-#     cmp     r5, r0, ord('z')+1      # check the first non-matching user char against 'z'
-#     c.mov   pc, r0, cmdExec         # if >= 'z'+1 then execute the local command
-# cmdReject:
-#     mov     r1, r0, 1               # flag command as not handled here then return
-#     mov     pc, r0, cmdExit         # allowing the command to be handled elsewhere
+# Additional code to make the match non-greedy
+# e.g. *MEMORY should not match against the MEM command
+#      also exclude *MEM.
+
+cmdCheck:
+    li      t0, '.'                     # check the first non-matching user char against '.'
+    beq     t1, t0, cmdReject           # if == '.' then reject the command
+    li      t0, 'a'                     # check the first non-matching user char against 'a'
+    blt     t1, t0, cmdExec             # if < 'a' then execute the local command
+    li      t0, 'z'                     # check the first non-matching user char against 'z'
+    bgt     t1, t0, cmdExec             # if >= 'z'+1 then execute the local command
+cmdReject:
+    li      a0, 1                       # flag command as not handled here then return
+    j       cmdExit                     # allowing the command to be handled elsewhere
 
 # --------------------------------------------------------------
 
-# cmdGo:
-#     PUSH    (r13)
-#     JSR     (read_hex)
-#     JSR     (cmdExecR2)
-#     mov     r1, r0
-#     POP     (r13)
-#     RTS     ()
+cmdGo:
+    PUSH    ra
+    jal     skip_spaces
+    jal     read_hex_8
+    jal     cmdExecA1
+    mv      a0, zero
+    POP     ra
+    ret
 
 # --------------------------------------------------------------
 
 # cmdMem:
-#     PUSH    (r13)
+#     PUSH    (ra)
 #     JSR     (read_hex)
 #     mov     r1, r2
 #     JSR     (dump_mem)
 #     mov     r1, r0
-#     POP     (r13)
+#     POP     (ra)
 #     RTS     ()
 
 # --------------------------------------------------------------
 
 # cmdDis:
-#     PUSH    (r13)
+#     PUSH    (ra)
 #     JSR     (read_hex)
 
 #     mov     r3, r0, 16
@@ -561,28 +556,23 @@ dontEnterCode:
 #     DEC     (r3, 1)
 #     nz.mov  pc, r0, dis_loop
 #     mov     r1, r0
-#     POP     (r13)
+#     POP     (ra)
 #     RTS     ()
 
 # --------------------------------------------------------------
 
-# cmdHelp:
-#     PUSH   (r13)
-#     mov    r1, r0, msgHelp
-#     JSR    (print_string)
-#     mov    r1, r0, 1
-#     POP    (r13)
-#     RTS    ()
-
-# msgHelp:
-#     CPU_STRING()
-#     STRING   " 0.55"
-#     WORD     10, 13, 0
+cmdHelp:
+    PUSH   ra
+    la     a0, HelpMessage
+    jal    print_string
+    li     a0, 1
+    POP    ra
+    ret
 
 # --------------------------------------------------------------
 
 # cmdTest:
-#     PUSH   (r13)
+#     PUSH   (ra)
 #     JSR    (read_hex)
 
 #     # Save param
@@ -624,7 +614,7 @@ dontEnterCode:
 #     JSR    (OSNEWL)
 
 #     mov    r1, r0
-#     POP    (r13)
+#     POP    (ra)
 #     RTS    ()
 
 # osword_pblock:
@@ -640,7 +630,7 @@ dontEnterCode:
 #     EQU       p, 0x1000
 
 # pi_calc:
-#     PUSH   (r13)
+#     PUSH   (ra)
 
 #     # r1 = ndigits
 #     # psize calculated dynamicaly as = 1 + ndigits * 10 / 3
@@ -723,7 +713,7 @@ dontEnterCode:
 #     nz.mov pc, r0, l1          # bne l1
 #     JSR    (OSWRCH)
 #     mov    r0, r0, 3142        # RTS()
-#     POP    (r13)
+#     POP    (ra)
 #     RTS    ()
 
 # init:
@@ -769,7 +759,7 @@ dontEnterCode:
 # ---------------------------------------------------------
 
 # cmdSrec:
-#     PUSH   (r13)
+#     PUSH   (ra)
 #     JSR    (srec_load)
 #     cmp    r1, r0, 1
 #     z.mov  pc, r0, CmdOSEscape
@@ -777,7 +767,7 @@ dontEnterCode:
 #     z.mov  pc, r0, cmdSrecChecksumError
 #     cmp    r1, r0
 #     nz.mov pc, r0, cmdSrecBadFormatError
-#     POP    (r13)
+#     POP    (ra)
 #     RTS    ()
 
 # cmdSrecChecksumError:
@@ -798,33 +788,14 @@ dontEnterCode:
 
 # ---------------------------------------------------------
 
-# cmdEnd:
-#     mov    r1, r0, 1
-#     RTS    ()
+cmdEnd:
+    li      a0, 1
+    ret
 
 # --------------------------------------------------------------
 
-# cmdExecR2:
-#     mov    pc, r2
-
-# --------------------------------------------------------------
-
-# cmdTable:
-#     STRING  "."
-#     WORD    cmdEnd  | END_MARKER
-#     STRING  "go"
-#     WORD    cmdGo   | END_MARKER
-#     STRING  "mem"
-#     WORD    cmdMem  | END_MARKER
-#     STRING  "dis"
-#     WORD    cmdDis  | END_MARKER
-#     STRING  "help"
-#     WORD    cmdHelp | END_MARKER
-#     STRING  "test"
-#     WORD    cmdTest | END_MARKER
-#     STRING  "srec"
-#     WORD    cmdSrec | END_MARKER
-#     WORD    cmdEnd  | END_MARKER
+cmdExecA1:
+    jalr   zero, a1
 
 # --------------------------------------------------------------
 
@@ -1574,6 +1545,145 @@ DefaultVectors:
 # Helper methods
 # -----------------------------------------------------------------------------
 
+# --------------------------------------------------------------
+# skip_space
+#
+# Entry:
+# - a0 is the address of the string
+#
+# Exit:
+# - a0 is updated to skip and spaces
+# - a1 is non-space character
+
+skip_spaces:
+    addi    a0, a0, -1
+skip_spaces_loop:
+    addi    a0, a0, 1
+    lb      a1, (a0)
+    li      t0, 0x20
+    beq     a1, t0, skip_spaces_loop
+    ret
+
+# --------------------------------------------------------------
+#
+# read_hex_8
+#
+# Read a 8-digit hex value
+#
+# Entry:
+# - a0 is the address of the hex string
+#
+# Exit:
+# - a0 is updated after processing the string
+# - a1 contains the hex value
+# - carry set if there was an error
+# - all registers preserved
+
+read_hex_8:
+    PUSH    ra
+    mv      a1, zero          # a1 is will contain the hex value
+    jal     read_hex_1
+    jal     read_hex_1
+    jal     read_hex_1
+    jal     read_hex_1
+    jal     read_hex_1
+    jal     read_hex_1
+    jal     read_hex_1
+    jal     read_hex_1
+    POP     ra
+    ret
+# --------------------------------------------------------------
+#
+# read_hex_4
+#
+# Read a 4-digit hex value
+#
+# Entry:
+# - a0 is the address of the hex string
+#
+# Exit:
+# - a0 is updated after processing the string
+# - a1 contains the hex value
+# - carry set if there was an error
+# - all registers preserved
+
+read_hex_4:
+    PUSH    ra
+    mv      a1, zero          # a1 is will contain the hex value
+    jal     read_hex_1
+    jal     read_hex_1
+    jal     read_hex_1
+    jal     read_hex_1
+    POP     ra
+    ret
+
+# --------------------------------------------------------------
+#
+# read_hex_2
+#
+# Read a 2-digit hex value
+#
+# Entry:
+# - a0 is the address of the hex string
+#
+# Exit:
+# - a0 is updated after processing the string
+# - a1 contains the hex value
+# - carry set if there was an error
+# - all registers preserved
+
+read_hex_2:
+    PUSH    ra
+    mv      a1, zero                    # a1 will contain the hex value
+    jal     read_hex_1
+    jal     read_hex_1
+    POP     ra
+    ret
+
+# --------------------------------------------------------------
+#
+# read_hex_1
+#
+# Read a 1-digit hex value
+#
+# Entry:
+# - a0 is the address of the hex string
+#
+# Exit:
+# - a0 is updated after processing the string
+# - a1 contains the hex value
+# - carry set if there was an error
+# - all registers preserved
+
+read_hex_1:
+    PUSH    a2
+    lb      a2, (a0)
+    li      t0, '0'
+    blt     a2, t0, read_hex_1_invalid
+    li      t0, '9'
+    ble     a2, t0, read_hex_1_valid
+    andi    a2, a2, 0xdf
+    li      t0, 'A'
+    blt     a2, t0, read_hex_1_invalid
+    li      t0, 'F'
+    bgt     a2, t0, read_hex_1_invalid
+    addi    a2, a2, -('A'-'9'-1)
+
+read_hex_1_valid:
+    slli    a1, a1, 4
+    andi    a2, a2, 0x0F
+    add     a1, a1, a2
+
+    addi    a0, a0, 1
+#   CLC                                 # TODO
+    POP     a2
+    ret
+
+read_hex_1_invalid:
+#   SEC                                 # TODO
+    POP     a2
+    ret
+
 # Wait for byte in Tube R1 while allowing requests via Tube R4
 #
 # Used during the event R1 IRQ to service R4 IRQs in a timely manner
@@ -1691,7 +1801,7 @@ print_string_exit:
 # --------------------------------------------------------------
 
 # SendStringR2:
-#     PUSH    (r13)
+#     PUSH    (ra)
 #     PUSH    (r2)
 
 # SendStringR2Lp:
@@ -1701,19 +1811,22 @@ print_string_exit:
 #     cmp     r1, r0, 0x0d
 #     nz.mov  pc, r0, SendStringR2Lp
 #     POP     (r2)
-#     POP     (r13)
+#     POP     (ra)
 #     RTS     ()
 
-# Send 0D terminated string pointed to by a1 to Tube R2
+# Send 0D terminated string pointed to by a0 to Tube R2
 
 SendStringR2:
     PUSH    ra
+    PUSH    a1
+    mv      a1, a0
 SendStringR2Lp:
     lb      a0, (a1)
     jal     SendByteR2
     addi    a1, a1, 1
     li      t0, 0x0d
     bne     a0, t0, SendStringR2Lp
+    POP     a1
     POP     ra
     ret
 
@@ -1727,18 +1840,6 @@ osnewl_code:
     jal     OSWRCH
     POP     ra
     ret
-
-# -----------------------------------------------------------------------------
-# Messages
-# -----------------------------------------------------------------------------
-
-BannerMessage:
-   .string "\nRISC-V Co Processor\n\n\r"
-
-
-EscapeError:
-    .byte 17
-    .string "Escape"
 
 # -----------------------------------------------------------------------------
 # MOS interface
@@ -1825,21 +1926,42 @@ OSBYTE:                      # &FFF4
 OS_CLI:                      # &FFF7
     JMPI CLIV
 
+# -----------------------------------------------------------------------------
+# Command Table
+# -----------------------------------------------------------------------------
+
+cmdAddresses:
+    .word    cmdEnd
+    .word    cmdGo
+    .word    cmdHelp
+#   .word    cmdMem
+#   .word    cmdDis
+#   .word    cmdTest
+#   .word    cmdSrec
+    .word    cmdEnd
+
+cmdStrings:
+    .string  "."
+    .string  "go"
+    .string  "help"
+#   .string  "mem"
+#   .string  "dis"
+#   .string  "test"
+#   .string  "srec"
+
+    .byte 0
 
 # -----------------------------------------------------------------------------
-# Reset vectors, used by PiTubeDirect
+# Messages
 # -----------------------------------------------------------------------------
 
-# ORG MOS + (0xFA-0xC8)
+BannerMessage:
+   .string "\nRISC-V Co Processor\n\n\r"
 
-# NMI_ENTRY:                   # &FFFA
 
-# ORG MOS + (0xFC-0xC8)
+EscapeError:
+    .byte 17
+    .string "Escape"
 
-# RST_ENTRY:                   # &FFFC
-#     mov     pc, r0, ResetHandler
-
-# ORG MOS + (0xFE-0xC8)
-
-# IRQ_ENTRY:                   # &FFFE
-#     mov     pc, r0, InterruptHandler
+HelpMessage:
+    .string "RISC-V 0.10\n\r"
