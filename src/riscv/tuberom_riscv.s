@@ -157,15 +157,6 @@ Unsupported:
 
 ErrorHandler:
 
-#     mov     r14, r0, STACK              # Clear the stack
-
-#     JSR     (OSNEWL)
-#     ld       r1, r0, LAST_ERR           # Address of the last error: <error num> <err string> <00>
-#     add      r1, r0, 1                  # Skip over error num
-#     JSR     (print_string)              # Print error string
-#     JSR     (OSNEWL)
-#     mov     pc, r0, CmdPrompt           # Jump to command prompt
-
     li      sp, STACK                   # setup the stack
     jal     OSNEWL
     la      a0, LAST_ERR
@@ -207,24 +198,6 @@ osBPUT:
 #           If a0>$7F, a1, a2, Carry=returned values
 
 osBYTE:
-#     PUSH    (r13)
-#     cmp     r1, r0, 0x80        # Jump for long OSBYTEs
-#     c.mov   pc, r0, ByteHigh
-#
-# Tube data  $04 X A    --  X
-#
-#     PUSH    (r1)
-#     mov     r1, r0, 0x04        # Send command &04 - OSBYTELO
-#     JSR     (SendByteR2)
-#     mov     r1, r2
-#     JSR     (SendByteR2)        # Send single parameter
-#     POP     (r1)
-#     PUSH    (r1)
-#     JSR     (SendByteR2)        # Send function
-#     JSR     (WaitByteR2)        # Get return value
-#     mov     r2, r1
-#     POP     (r1)
-#     POP     (r13)
 
     PUSH    ra
     li      t0, 0x80                    # Jump for long OSBYTEs
@@ -246,15 +219,6 @@ osBYTE:
     POP     ra
     ret
 
-# ByteHigh:
-#     cmp     r1, r0, 0x82        # Read memory high word
-#     z.mov   pc, r0, Byte82
-#     cmp     r1, r0, 0x83        # Read bottom of memory
-#     z.mov   pc, r0, Byte83
-#     cmp     r1, r0, 0x84        # Read top of memory
-#     z.mov   pc, r0, Byte84
-#
-
 ByteHigh:
     li      t0, 0x82
     beq     a0, t0, Byte82
@@ -264,33 +228,6 @@ ByteHigh:
     beq     a0, t0, Byte84
 
 # Tube data  $06 X Y A  --  Cy Y X
-
-
-#     PUSH    (r1)
-#     mov     r1, r0, 0x06
-#     JSR     (SendByteR2)        # Send command &06 - OSBYTEHI
-#     mov     r2, r1
-#     JSR     (SendByteR2)        # Send parameter 1
-#     mov     r3, r1
-#     JSR     (SendByteR2)        # Send parameter 2
-#     POP     (r1)
-#     PUSH    (r1)
-#     JSR     (SendByteR2)        # Send function
-#   cmp     r1, r0, 0x8e        # If select language, check to enter code
-#   z.mov   pc, r0, CheckAck
-#     cmp     r1, r0, 0x9d        # Fast return with Fast BPUT
-#     z.mov   pc, r0, FastReturn
-#     JSR     (WaitByteR2)        # Get carry - from bit 7
-#     add     r1, r0, -0x80
-#     JSR     (WaitByteR2)        # Get high byte
-#     mov     r3, r1
-#     JSR     (WaitByteR2)        # Get low byte
-#     mov     r2, r1
-# FastReturn:
-#     POP     (r1)                # restore original r1
-#     POP     (r13)
-#     RTS     ()
-
 
     PUSH    a0
     li      a0, 0x06
@@ -312,28 +249,16 @@ ByteHigh:
     POP     ra
     ret
 
-# Byte84:                         # Read top of memory
-#     mov      r1, r0, MEM_TOP
-#     POP     (r13)
-#     RTS     ()
-# Byte83:                         # Read bottom of memory
-#     mov     r1, r0, MEM_BOT
-#     POP     (r13)
-#     RTS     ()
-# Byte82:                         # Return &0000 as memory high word
-#     mov     r1, r0
-#     POP     (r13)
-#     RTS     ()
-
-
 Byte84:                         # Read top of memory
     li      a1, MEM_TOP
     POP     ra
     ret
+
 Byte83:                         # Read bottom of memory
     li      a1, MEM_BOT
     POP     ra
     ret
+
 Byte82:                         # Return &0000 as memory high word
     mv      a1, zero
     POP     ra
@@ -494,7 +419,6 @@ cmdLoop3:                               # skip to the end of the command in the 
     addi    a1, a1, 1                   # increment user command pointer past the '.'
 
 cmdExec:
-
     mv      a0, a1                      # a0 = the command pointer to the params
     lw      a1, (a3)                    # a1 = the execution address
     jal     cmdExecA1
@@ -531,35 +455,6 @@ cmdGo:
     mv      a0, zero
     POP     ra
     ret
-
-# --------------------------------------------------------------
-
-# cmdMem:
-#     PUSH    (ra)
-#     JSR     (read_hex)
-#     mov     r1, r2
-#     JSR     (dump_mem)
-#     mov     r1, r0
-#     POP     (ra)
-#     RTS     ()
-
-# --------------------------------------------------------------
-
-# cmdDis:
-#     PUSH    (ra)
-#     JSR     (read_hex)
-
-#     mov     r3, r0, 16
-# dis_loop:
-#     mov     r1, r2
-#     JSR     (disassemble)
-#     mov     r2, r1
-#     JSR     (OSNEWL)
-#     DEC     (r3, 1)
-#     nz.mov  pc, r0, dis_loop
-#     mov     r1, r0
-#     POP     (ra)
-#     RTS     ()
 
 # --------------------------------------------------------------
 
@@ -627,36 +522,6 @@ osword_pblock:
 
 # ---------------------------------------------------------
 
-# cmdSrec:
-#     PUSH   (ra)
-#     JSR    (srec_load)
-#     cmp    r1, r0, 1
-#     z.mov  pc, r0, CmdOSEscape
-#     cmp    r1, r0, 2
-#     z.mov  pc, r0, cmdSrecChecksumError
-#     cmp    r1, r0
-#     nz.mov pc, r0, cmdSrecBadFormatError
-#     POP    (ra)
-#     RTS    ()
-
-# cmdSrecChecksumError:
-#     ERROR   (checksumError)
-
-# checksumError:
-#     WORD    17                    # TODO assign proper error code
-#     STRING "Checksum Mismatch"
-#     WORD    0x00
-
-# cmdSrecBadFormatError:
-#     ERROR   (badFormatError)
-
-# badFormatError:
-#     WORD    17                    # TODO assign proper error code
-#     STRING "Bad Format"
-#     WORD    0x00
-
-# ---------------------------------------------------------
-
 cmdEnd:
     li      a0, 1
     ret
@@ -669,19 +534,19 @@ cmdExecA1:
 # --------------------------------------------------------------
 
 osFILE:
-#     # TODO
+    # TODO
     ret
 
 # --------------------------------------------------------------
 
 osFIND:
-    #     # TODO
+    # TODO
     ret
 
 # --------------------------------------------------------------
 
 osGBPB:
-#     # TODO
+    # TODO
     ret
 
 # --------------------------------------------------------------
@@ -893,16 +758,6 @@ osword0_param_block:
 
 # --------------------------------------------------------------
 
-# osWRCH:
-#     PUSH    (r12)
-# osWRCH1:
-#     IN      (r12, r1status)
-#     and     r12, r0, 0x40
-#     z.mov   pc, r0, osWRCH1
-#     OUT     (r1, r1data)
-#     POP     (r12)
-#     RTS     ()
-
 osWRCH:
     lw      t0, R1STATUS(gp)
     andi    t0, t0, 0x40
@@ -911,16 +766,6 @@ osWRCH:
     ret
 
 # --------------------------------------------------------------
-
-# osRDCH:
-#     PUSH    (r13)
-#     mov     r1, r0        # Send command &00 - OSRDCH
-#     jal     SendByteR2
-#     JSR     (WaitByteR2)  # Receive carry
-#     add     r1, r0, -0x80
-#     JSR     (WaitByteR2)  # Receive A
-#     POP     (r13)
-#     RTS     ()
 
 osRDCH:
     PUSH    ra
@@ -932,20 +777,9 @@ osRDCH:
     POP     ra
     ret
 
-# --------------------------------------------------------------
-
 # -----------------------------------------------------------------------------
 # Interrupts handlers
 # -----------------------------------------------------------------------------
-
-# InterruptHandler:
-#     IN      (r1, r4status)
-#     and     r1, r0, 0x80
-#     nz.mov  pc, r0, r4_irq
-#     IN      (r1, r1status)
-#     and     r1, r0, 0x80
-#     nz.mov  pc, r0, r1_irq
-#     ld      pc, r0, IRQ2V
 
 InterruptHandler:
 IRQ1Handler:
@@ -965,38 +799,6 @@ IRQ2:
 # -----------------------------------------------------------------------------
 # Interrupt generated by data in Tube R1
 # -----------------------------------------------------------------------------
-
-# r1_irq:
-#     IN      (r1, r1data)
-#     cmp     r1, r0, 0x80
-#     c.mov   pc, r0, r1_irq_escape
-
-#     PUSH   (r13)          # Save registers
-#     PUSH   (r2)
-#     PUSH   (r3)
-#     JSR    (WaitByteR1)   # Get Y parameter from Tube R1
-#     mov    r3, r1
-#     JSR    (WaitByteR1)   # Get X parameter from Tube R1
-#     mov    r2, r1
-#     JSR    (WaitByteR1)   # Get event number from Tube R1
-#     JSR    (LFD36)        # Dispatch event
-#     POP    (r3)           # restore registers
-#     POP    (r2)
-#     POP    (r13)
-
-#     ld     r1, r0, TMP_R1 # restore R1 from tmp location
-#     rti    pc, pc         # rti
-
-# LFD36:
-#     ld     pc, r0, EVNTV
-
-# r1_irq_escape:
-#     add    r1, r1
-#     sto    r1, r0, ESCAPE_FLAG
-
-#     ld     r1, r0, TMP_R1 # restore R1 from tmp location
-#     rti    pc, pc         # rti
-
 
 r1_irq:
     lb      t0, R1DATA(gp)
@@ -1032,37 +834,6 @@ r1_irq_escape:
 # Interrupt generated by data in Tube R4
 # -----------------------------------------------------------------------------
 
-# r4_irq:
-
-#     IN      (r1, r4data)
-#     cmp     r1, r0, 0x80
-#     nc.mov  pc, r0, LFD65  # b7=0, jump for data transfer
-
-#
-# Error    R4: &FF R2: &00 err string &00
-#
-
-#     PUSH    (r2)
-#     PUSH    (r13)
-
-#     JSR     (WaitByteR2)   # Skip data in Tube R2 - should be 0x00
-
-#     mov    r2, r0, ERRBUF
-
-#     JSR     (WaitByteR2)   # Get error number
-#     sto     r1, r2
-#     mov     r2, r2, 1
-
-# err_loop:
-#     JSR     (WaitByteR2)   # Get error message bytes
-#     sto     r1, r2
-#     mov     r2, r2, 1
-#     cmp     r1, r0
-#     nz.mov  pc, r0, err_loop
-
-#     ERROR   (ERRBUF)
-
-
 r4_irq:
     lb      t0, R4DATA(gp)
     bgez    t0, LFD65                   # b7=0, jump for data transfer
@@ -1087,51 +858,6 @@ err_loop:
 #
 # Transfer R4: action ID block sync R3: data
 #
-
-# LFD65:
-#     PUSH    (r13)
-#     PUSH    (r2)           # working register for transfer type
-#     PUSH    (r3)           # working register for transfer address
-#     mov     r2, r1
-#     JSR     (WaitByteR4)
-#     cmp     r2, r0, 0x05
-#     z.mov   pc, r0, Release
-##ifdef CPU_OPC7
-#     JSR     (WaitByteR4)   # block address MSB
-#     bperm   r3, r1, 0x4404
-#     JSR     (WaitByteR4)   # block address ...
-#     or      r3, r1
-#     bperm   r3, r3, 0x2104
-#     JSR     (WaitByteR4)   # block address ...
-#     or      r3, r1
-#     bperm   r3, r3, 0x2104
-#     JSR     (WaitByteR4)   # block address LSB
-#     or      r3, r1
-##else
-#     JSR     (WaitByteR4)   # block address MSB - ignored
-#     JSR     (WaitByteR4)   # block address ... - ignored
-#     JSR     (WaitByteR4)   # block address ...
-#     bswp    r1, r1
-#     mov     r3, r1
-#     JSR     (WaitByteR4)   # block address LSB
-#     or      r3, r1
-##endif
-#     IN      (r1, r3data)
-#     IN      (r1, r3data)
-
-#     JSR     (WaitByteR4)   # sync
-
-#     add     r2, r0, TransferHandlerTable
-#     ld      pc, r2
-
-# Release:
-#     POP     (r3)
-#     POP     (r2)
-#     POP     (r13)
-
-#     ld      r1, r0, TMP_R1 # restore R1 from tmp location
-#     rti     pc, pc         # rti
-
 
 LFD65:
     PUSH    ra
@@ -1221,9 +947,11 @@ Type1:
     j       Type1
 
 Type2:
+    # TODO
     j       Release
 
 Type3:
+    # TODO
     j       Release
 
 Type4:
@@ -1231,10 +959,12 @@ Type4:
     sw      t2, (t0)
     j       Release
 
- Type6:
+Type6:
+    # TODO
     j       Release
 
- Type7:
+Type7:
+    # TODO
     j       Release
 
 # -----------------------------------------------------------------------------
@@ -1510,6 +1240,7 @@ read_hex_8:
     jal     read_hex_1
     POP     ra
     ret
+
 # --------------------------------------------------------------
 #
 # read_hex_4
@@ -1643,13 +1374,6 @@ WaitByteR1:
 
 # --------------------------------------------------------------
 
-# WaitByteR2:
-#     IN      (r1, r2status)
-#     and     r1, r0, 0x80
-#     z.mov   pc, r0, WaitByteR2
-#     IN      (r1, r2data)
-#     RTS     ()
-
 WaitByteR2:
     lb    t0, R2STATUS(gp)
     bgez  t0, WaitByteR2
@@ -1657,13 +1381,6 @@ WaitByteR2:
     ret
 
 # --------------------------------------------------------------
-
-# WaitByteR4:
-#     IN      (r1, r4status)
-#     and     r1, r0, 0x80
-#     z.mov   pc, r0, WaitByteR4
-#     IN      (r1, r4data)
-#     RTS     ()
 
 WaitByteR4:
     lb    t0, R4STATUS(gp)
@@ -1673,20 +1390,12 @@ WaitByteR4:
 
 # --------------------------------------------------------------
 
-# SendByteR2:
-#     IN      (r12, r2status)       # Wait for Tube R2 free
-#     and     r12, r0, 0x40
-#     z.mov   pc, r0, SendByteR2
-#     OUT     (r1, r2data)          # Send byte to Tube R2
-#     RTS()
-
 SendByteR2:
     lw    t0, R2STATUS(gp)
     andi  t0, t0, 0x40
     beqz  t0, SendByteR2
     sw    a0, R2DATA(gp)
     ret
-
 
 # --------------------------------------------------------------
 #
@@ -1717,20 +1426,6 @@ print_string_exit:
     ret
 
 # --------------------------------------------------------------
-
-# SendStringR2:
-#     PUSH    (ra)
-#     PUSH    (r2)
-
-# SendStringR2Lp:
-#     ld      r1, r2
-#     JSR     (SendByteR2)
-#     mov     r2, r2, 1
-#     cmp     r1, r0, 0x0d
-#     nz.mov  pc, r0, SendStringR2Lp
-#     POP     (r2)
-#     POP     (ra)
-#     RTS     ()
 
 # Send 0D terminated string pointed to by a0 to Tube R2
 
@@ -1853,9 +1548,6 @@ cmdAddresses:
     .word    cmdGo
     .word    cmdHelp
     .word    cmdTest
-#   .word    cmdMem
-#   .word    cmdDis
-#   .word    cmdSrec
     .word    cmdEnd
 
 cmdStrings:
@@ -1863,10 +1555,6 @@ cmdStrings:
     .string  "go"
     .string  "help"
     .string  "test"
-#   .string  "mem"
-#   .string  "dis"
-#   .string  "srec"
-
     .byte 0
 
 # -----------------------------------------------------------------------------
