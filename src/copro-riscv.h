@@ -2,7 +2,7 @@
 #ifndef COPRO_RISCV_H
 #define COPRO_RISCV_H
 
-#define RESET_ADDRESS 0x000F0000
+#define RESET_ADDRESS 0x00F00000
 
 extern void copro_riscv_write_mem32(uint32_t addr, uint32_t data);
 extern void copro_riscv_write_mem16(uint32_t addr, uint32_t data);
