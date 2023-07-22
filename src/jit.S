@@ -39,6 +39,8 @@
 If an interrupt occurs try putting the current ARM PC and registers on to another stack and put fake address ( e.g. 0xFFFF) and status onto 65C02 stack jump off to vectors
 Intercept the RTI instruction we could check for 0xFFFF on stack , restore status.
 then return to our secret stack This relies on instructions being re entrant , but this should be fine
+
+Also it is important that regSP always points to a valid stack location as an interrupt can occur at any time
 */
 
 // Instructions that get used in smaller chunks to save a jump ( overlapping )
@@ -101,6 +103,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define BPLINSTRUCTION 0x5A000000
 #define BINSTRUCTION   0xEA000000
 #define BLINSTRUCTION  0xEB000000
+#define BLGEINSTRUCTION  0xAB000000
 // bx lr      0xe12fff1e
 // mov pc,r14 0xe1a0f00e  // This is very slow on Pi3B+
 #define MOVPCR14INSTRUCTION 0xe12fff1e
@@ -297,10 +300,10 @@ then return to our secret stack This relies on instructions being re entrant , b
    pop   {r0-r4,r14}
 .endm
 
-.macro MAKEBRANCHLINK reg
+.macro MAKEBRANCHLINK reg branch=BLINSTRUCTION
    mov   \reg,\reg,LSR #BYTEWORDSHIFT
    sub   \reg,\reg,r6,LSR #BYTEWORDSHIFT
-   ORR   \reg,\reg,#BLINSTRUCTION
+   ORR   \reg,\reg,#\branch
 .endm
 
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
@@ -500,13 +503,18 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro INTR vector setbrk  fake     // vector is -2 for IRQ/BRK or -6 for NMI
                                 // setbrk should be 1 for BRK, 0 for IRQ/NMI
-   sub   regSP, regSP, #2
    mov   temp, #0x10000
 .ifc \fake, FAKE
    sub   temp1,temp,#1         // 0xFFFF
+   orr   regSP, regSP, #0x100        // there is a risk that the stack pointer hasn't been wrapped when we are called so fix it
 .endif
-   strh  temp1, [regSP,#1]         // slight risk of over running the stack
-   orr   regSP, #0x0100
+
+   mov   temp0, temp1, LSR #8        // stack PC
+   strb  temp0, [regSP],#-1
+   orr   regSP, regSP, #0x100
+   strb  temp1, [regSP],#-1
+   orr   regSP, regSP, #0x100
+
    ldrh  temp0, [temp, #\vector]     // Fetch the vector address
 
 .if \setbrk
@@ -646,11 +654,13 @@ Bopc_1F: // Opcode 1F - BBR1
    JITBBR 1
 
 Bopc_20: // Opcode 20 - JSR $0000
-   usub8  regSP, regSP, r4
-   JITABS
-   strh  reg1,[regSP,#1]
-   .word JITLET-24
-   nop
+   usub8  regSP, regSP, reg4           // sub 2 but wrap stack
+   cmp    regSP, reg2                  // compare with 0x1FE
+   mov    reg1, PC, LSR #JITLETSHIFT
+   .word  jsrwrap-20 // BLGE
+   strlth reg1, [regSP,#1]
+   .word  JITLET-28
+
 Bopc_21: // Opcode 21 - AND ($00,X)
    JITINDXLOGICAL ands
 Bopc_24: // Opcode 24 - BIT $00
@@ -1016,8 +1026,8 @@ Bopc_98: // Opcode 98 - TYA
 Bopc_99: // Opcode 99 - STA $0000,Y
    JITABSXYST regA regY
 Bopc_9A: // Opcode 9A - TXS
-   bic   regSP, regSP, #0xFF             // clear lower nibble
-   orr   regSP, regSP, regX, lsr #24     // put X in lower nibble
+   orr   reg0, ram6502, #0x100
+   orr   regSP, reg0, regX, lsr #24     // put X in lower nibble
 Bopc_9C: // Opcode 9C - STZ $0000
    JITABSSTORE ram6502
 Bopc_9C_iostore:
@@ -1542,19 +1552,19 @@ nop_end:
    B     dojitloop
 
 opc_20: // Opcode 20 - JSR $0000
-   LDMIA r9,{r7,r8,r9,r10,r11}
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
    orr   r4, r4, r5, LSL #8
-   add   temp0,temp2,#2
-   and   temp1,temp0,#0xFF
-   orr   r8,r8,temp0,LSR #8
-   orr   r9,r9,temp1
+   //add   temp0,temp2,#2
+   //and   temp1,temp0,#0xFF
+   //orr   r8,r8,temp0,LSR #8
+   //orr   r9,r9,temp1
+   MAKEBRANCHLINK r10 BLGEINSTRUCTION
+   add   r12,r12,r4,LSL #JITLETSHIFT
 
-   add   r11,r11,r4,LSL #JITLETSHIFT
-
-   sub   r11,r11,r6
-   mov   r11,r11,LSR #BYTEWORDSHIFT
-   BIC   r11,r11,#0xFF000000
-   ORR   r11,r11,#BINSTRUCTION
+   sub   r12,r12,r6
+   mov   r12,r12,LSR #BYTEWORDSHIFT
+   BIC   r12,r12,#0xFF000000
+   ORR   r12,r12,#BINSTRUCTION
    B     jitend3byteexitstore6
 
 opc_24: // Opcode 24 - BIT $00
@@ -1853,8 +1863,6 @@ cacheflushloopjittable:
    orr   temp,temp,#0x60<<8
    strh  temp,[temp1,#-2] // 0x7FFE
 
-   add   regSP,ram6502, #0x1F0
-
    mov   flags, #0x00   // Initialize flags (flags) to zero on power up
                         // This was added to fix a bug where the language transfer
                         // would fail if exec_65tube was entered with certain
@@ -1878,9 +1886,9 @@ cacheflushloopjittable:
    strd  r2,old_irq_vector
    CPSIE if // enable interrupts
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2,#JITLET
-   mov   reg4, #2 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
+   mov   reg4, #2                   // constant used by jsr rts
+   rsb   reg2,reg4,#0x200           // constant used by jsr
+   add   regSP,ram6502, reg2        // stack pointer = 0x1FE
    bx    r14
 
 //*************************************************************
@@ -1975,7 +1983,8 @@ fiq_during_irq:               // we can get here from ARM FIQ or ARM IRQ handler
    strd  r0,fiqtemp           // store r0,r1 to give register space
    strd  r2,fiqtemp+8
    mov   r0, #FAKESTACK
-   orr   r0, r0, regSP, LSL #6
+   orr   r1, regSP, #0x100    // ensure stack point is in stack space
+   orr   r0, r0, r1, LSL #6   // ARM register size
    mrs   r1 , SPSR
    STMFD r0!,{r1}             // save CPSR to FAKE FIQ stack
    STMFD r0!, {r14}           // save lr to FAKE FIQ stack
@@ -2056,8 +2065,7 @@ ioload:
    bl    tube_parasite_read // Call up to C code to handle parasite read
 
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2, #JITLET
-   add   reg2,reg2,#NEXTJITLET
+   rsb   reg2,reg4,#0x200           // constant used by jsr
    pop   {reg12, pc}               // Restore registers and return
 
 indirectiostore:
@@ -3010,9 +3018,8 @@ handle_irq_jit:
    SUB   temp1,r3,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2,#JITLET
-   mov   reg4, #2 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
+   mov   reg4, #2                   // constant used by jsr rts
+   rsb   reg2,reg4,#0x200           // constant used by jsr
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    INTR  -2, 0
 
@@ -3023,19 +3030,17 @@ handle_nmi_jit:
    SUB   temp1,r3,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2,#JITLET
-   mov   reg4, #2 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
+   mov   reg4, #2                   // constant used by jsr rts
+   rsb   reg2,reg4,#0x200           // constant used by jsr
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    INTR  -4, 0
 
 noirq_jit:
 
-   mov   reg2,#JITLET
    mov   r14, r3
-   mov   reg4, #2 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
+   mov   reg4, #2                   // constant used by jsr rts
+   rsb   reg2,reg4,#0x200           // constant used by jsr
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    bx    r14   // this is slow on some system , but we have just flushed the cache which is slow
 
@@ -3373,9 +3378,16 @@ brk:
 
 rti:
    PLP
-   ldrh  reg1, [regSP, #1]
 
-   UADD8 regSP, regSP, reg4
+   mov   reg0, #1
+   uadd8 reg1, regSP, reg0     // add 1 and wrap
+   ldrb  reg1, [reg1]          // low byte
+
+   uadd8 reg0, regSP, reg4     // add 1 and wrap
+   ldrb  reg0, [reg0]          // high byte
+   UADD8 regSP, regSP, reg4    // add 2 and wrap
+
+   orr   reg1, reg0, LSL #8    // combine to make 16bits
 
    add   reg0,reg1,#1
    cmp   reg0,#0x10000
@@ -3389,8 +3401,8 @@ rti:
    tst   reg0, #1                    // Test for IRQ
    bne   handle_irqrti
 dontdoirqnow:
-   mov   reg1,reg1,LSL #JITLETSHIFT
-   add   reg1,reg1,#JITLET
+   mov   reg1, reg1, LSL #JITLETSHIFT
+   add   reg1, reg1, #JITLET
    msr   CPSR_flg, reg12              // Restore the 6502 flags
    bx    reg1
 
@@ -3523,9 +3535,34 @@ pla:
    teq   regA, #0
    bx lr
 
+jsrwrap:
+   // SP = 0x1FF or 0x1FE
+   uadd8  reg0, regSP, reg4
+   mov   reg12, reg1, LSR #8
+   strb  reg12, [reg0], #-1
+   orr   reg0, reg0, #0x100
+   strb  reg1, [reg0]
+   bx    lr
+
 rts:
-   add   reg12,reg2,reg0,LSL #JITLETSHIFT
-   UADD8 regSP, regSP, reg4
+   mov   reg12, #JITLET
+   add   reg12, reg12, #NEXTJITLET
+   add   reg12, reg12, reg0, LSL #JITLETSHIFT
+   cmp   regSP, reg2
+   UADD8LT regSP, regSP, reg4   // Add 2 and wrap
+   bxlt  reg12
+
+   mov   reg0, #1
+   uadd8 reg12, regSP, reg0       // add 1 and wrap
+   ldrb  reg1, [reg12]          // low byte
+
+   uadd8 reg12, reg12, reg0       // add 1 and wrap
+   ldrb  reg0, [reg12]          // high byte
+   UADD8 regSP, regSP, reg4     // add 2 and wrap
+   mov   reg12, #JITLET
+   orr   reg1, reg0, LSL #8     // combine to make 16bits
+   add   reg12, reg12, #NEXTJITLET
+   add   reg12, reg12, reg1, LSL #JITLETSHIFT
    bx    reg12
 
 rora:
