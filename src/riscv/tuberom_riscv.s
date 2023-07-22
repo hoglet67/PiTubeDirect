@@ -13,13 +13,28 @@
 .equ    R4STATUS, 24
 .equ      R4DATA, 28
 
-.equ NUM_VECTORS, 27           # number of vectors in DefaultVectors table
+.equ NUM_HANDLERS, 12      # number of vectors in DefaultHandlers table
 
-.equ  NUM_ECALLS, 16
+.equ NUM_ECALLS      , 16
+
+.equ OS_QUIT         ,  0
+.equ OS_CLI          ,  1
+.equ OS_BYTE         ,  2
+.equ OS_WORD         ,  3
+.equ OS_WRCH         ,  4
+.equ OS_NEWL         ,  5
+.equ OS_RDCH         ,  6
+.equ OS_FILE         ,  7
+.equ OS_ARGS         ,  8
+.equ OS_BGET         ,  9
+.equ OS_BPUT         , 10
+.equ OS_GBPB         , 11
+.equ OS_FIND         , 12
+.equ OS_SYS_CTRL     , 13
+.equ OS_SET_HANDLERS , 14
+.equ OS_ERROR        , 15
 
 .globl _start
-
-.globl OSWRCH
 
 .macro PUSH reg
     addi    sp, sp, -4
@@ -37,11 +52,18 @@
     jalr    zero, t0
 .endm
 
+# TODO: Error message should really follow the osERROR system call
+
 .macro ERROR address
     la      t0, \address
     la      t1, LAST_ERR
     sw      t0, (t1)
-    j       ErrorHandler
+    SYS     OS_ERROR
+.endm
+
+.macro SYS number
+    li      a7, \number
+    ecall
 .endm
 
 .section .text
@@ -49,33 +71,23 @@
 _start:
     j       ResetHandler
 
-USERV:      .word  0
-BRKV:       .word  0
-IRQ1V:      .word  0
-IRQ2V:      .word  0
-CLIV:       .word  0
-BYTEV:      .word  0
-WORDV:      .word  0
-WRCHV:      .word  0
-RDCHV:      .word  0
-FILEV:      .word  0
-ARGSV:      .word  0
-BGETV:      .word  0
-BPUTV:      .word  0
-GBPBV:      .word  0
-FINDV:      .word  0
-FSCV:       .word  0
-EVNTV:      .word  0
-UPTV:       .word  0
-NETV:       .word  0
-VDUV:       .word  0
-KEYV:       .word  0
-INSV:       .word  0
-REMV:       .word  0
-CNPV:       .word  0
-IND1V:      .word  0
-IND2V:      .word  0
-IND3V:      .word  0
+# Handlers are patterned on JHG's pdp11 client ROM
+#
+
+Handlers:
+
+EXITV:      .word 0                     # Address of exit handler
+EXITADDR:   .word 0                     # unused
+ESCV:       .word 0                     # Address of escape handler
+ESCADDR:    .word 0                     # Address of escape flag
+ERRV:       .word 0                     # Address of error handler
+ERRADDR:    .word 0                     # Address of error buffer
+EVENTV:     .word 0                     # Address of event handler
+EVENTADDR:  .word 0                     # unused
+IRQV:       .word 0                     # Address of unknown IRQ handler
+IRQADDR:    .word 0                     # Data transfer address within IRQ handler
+ECALLV:     .word 0                     # Old SP within ECall handler
+ECALLADDR:  .word 0                     # Address of ECall dispatch table
 
 .align 8
 
@@ -93,10 +105,9 @@ ResetHandler:
     li      gp, TUBE                    # setup the register that points to the tube (TODO: Probably a bad idea to use a register like this!)
     li      sp, STACK                   # setup the stack
 
-
-    la      t1, DefaultVectors          # copy the vectors
-    la      t2, USERV
-    li      t3, NUM_VECTORS - 1
+    la      t1, DefaultHandlers         # copy the handlers
+    la      t2, Handlers
+    li      t3, NUM_HANDLERS - 1
 InitVecLoop:
     lw      t0, (t1)
     sw      t0, (t2)
@@ -117,77 +128,101 @@ InitVecLoop:
     jal     print_string
 
     mv      a0, zero                    # send the terminator
-    jal     OSWRCH
+    SYS     OS_WRCH
 
     jal     WaitByteR2                  # wait for the response and ignore
 
-CmdPrompt:
+DefaultExitHandler:
+
+    li      sp, STACK                   # reset the stack - TODO: what else?
+
+    li      t0, 1 << 3                  # enable interrupts
+    csrrs   zero, mstatus, t0
 
 CmdOSLoop:
     li      a0, 0x2a
-    jal     OSWRCH
+    SYS     OS_WRCH
 
     mv      a0, zero
     la      a1, osword0_param_block
-
-    jal     OSWORD
+    SYS     OS_WORD
 
     bltz    a2, CmdOSEscape
 
     la      a0, INPBUF
-    jal     OS_CLI
+    SYS     OS_CLI
+
     j       CmdOSLoop
 
 CmdOSEscape:
     li      a0, 0x7e
-    jal     OSBYTE
+    SYS     OS_BYTE
     ERROR   EscapeError
+
+DefaultErrorHandler:
+    li      sp, STACK                   # setup the stack
+    SYS     OS_NEWL
+    la      a0, LAST_ERR
+    lw      a0, (a0)
+    addi    a0, a0, 1
+    jal     print_string
+    SYS     OS_NEWL
+    j       DefaultExitHandler
+
+DefaultEscapeHandler:
+    add     a0, a0, a0
+    la      t0, ESCAPE_FLAG             # TODO: need one level of indirection
+    sb      a0, (t0)
+    ret
+
+DefaultIRQHandler:
+    mret
+
+DefaultEventHandler:
+    ret
 
 # --------------------------------------------------------------
 # MOS interface
 # --------------------------------------------------------------
 
-NullReturn:
+# --------------------------------------------------------------
+
+osQUIT:
+    JMPI    EXITV
+
+# --------------------------------------------------------------
+
+osERROR:
+    JMPI    ERRV
+
+# --------------------------------------------------------------
+
+osSYSCTRL:
+    # TODO
     ret
 
 # --------------------------------------------------------------
 
-Unsupported:
+osSETHANDLERS:
+    # TODO
     ret
-
-# --------------------------------------------------------------
-
-ErrorHandler:
-
-    li      sp, STACK                   # setup the stack
-    jal     OSNEWL
-    la      a0, LAST_ERR
-    lw      a0, (a0)
-    addi    a0, a0, 1
-    jal     print_string
-    jal     OSNEWL
-
-    li      t0, 1 << 3                  # mstatus.MIE=1 (enable interrupts)
-    csrrs   zero, mstatus, t0
-
-    j       CmdPrompt
 
 # --------------------------------------------------------------
 
 osARGS:
-#     # TODO
+    # TODO
     ret
 
 # --------------------------------------------------------------
 
 osBGET:
-#     # TODO
+    # TODO
     ret
 
 # --------------------------------------------------------------
 
 osBPUT:
-#     # TODO
+    # TODO
     ret
 
 # --------------------------------------------------------------
@@ -483,7 +518,7 @@ cmdTest:
     la      a1, osword_pblock
     sw      zero, 0(a1)
     sw      zero, 4(a1)
-    jal     OSWORD
+    SYS     OS_WORD
 
     # Restore param
     POP     a0
@@ -492,25 +527,25 @@ cmdTest:
     # Print param (in a1)
     jal     print_hex_word_spc
     jal     print_dec_word
-    jal     OSNEWL
+    SYS     OS_NEWL
 
     # Restore param
     pop     a0                          # ndigits
     li      a1, 0                       # some memory to use as workspace
     # Do some real work
     jal     pi_calc
-    jal     OSNEWL
+    SYS     OS_NEWL
 
     # Read TIME using OSWORD 1
     li      a0, 0x01
     la      a1, osword_pblock
-    jal     OSWORD
+    SYS     OS_WORD
 
     # Print the LS word in decimal
     la      a1, osword_pblock
     lw      a0, (a1)
     jal     print_dec_word
-    jal     OSNEWL
+    SYS     OS_NEWL
 
     mv      a0, zero
     POP     ra
@@ -769,6 +804,19 @@ osWRCH:
 
 # --------------------------------------------------------------
 
+osNEWL:
+    PUSH    a0
+    PUSH    ra
+    li      a0, 0x0a
+    jal     osWRCH
+    li      a0, 0x0d
+    jal     osWRCH
+    POP     ra
+    POP     a0
+    ret
+
+# --------------------------------------------------------------
+
 osRDCH:
     PUSH    ra
     mv      a0, zero                    # Send command &00 - OSRDCH
@@ -783,7 +831,7 @@ osRDCH:
 # Interrupts handlers
 # -----------------------------------------------------------------------------
 
-ECallHandler:
+DefaultECallHandler:
 
     # TODO: Check mcause = 11 (machine mode environment call)
 
@@ -826,47 +874,27 @@ BadECall:
 
 ECallHandlerTable:
 
-#   .word EMT0      # ECALL  0 - QUIT
-#   .word _CLI      # ECALL  1 - OSCLI
-#   .word _BYTE     # ECALL  2 - OSBYTE
-#   .word _WORD     # ECALL  3 - OSWORD
-#   .word _WRCH     # ECALL  4 - OSWRCH
-#   .word _NEWL     # ECALL  5 - OSNEWL
-#   .word _RDCH     # ECALL  6 - OSRDCH
-#   .word _FILE     # ECALL  7 - OSFILE
-#   .word _ARGS     # ECALL  8 - OSARGS
-#   .word _BGET     # ECALL  9 - OSBGET
-#   .word _BPUT     # ECALL 10 - OSBPUT
-#   .word _GBPB     # ECALL 11 - OSGBPB
-#   .word _FIND     # ECALL 12 - OSFIND
-#   .word EMT13     # ECALL 13 - System control
-#   .word EMT14     # ECALL 14 - Set handlers
-#   .word EMT15     # ECALL 15 - ERROR
-
-    .word 0
-    .word 0
-    .word 0
-    .word 0
-    .word osWRCH
-    .word 0
-    .word 0
-    .word 0
-    .word 0
-    .word 0
-    .word 0
-    .word 0
-    .word 0
-    .word 0
-    .word 0
-    .word 0
-
+    .word osQUIT        # ECALL  0
+    .word osCLI         # ECALL  1
+    .word osBYTE        # ECALL  2
+    .word osWORD        # ECALL  3
+    .word osWRCH        # ECALL  4
+    .word osNEWL        # ECALL  5
+    .word osRDCH        # ECALL  6
+    .word osFILE        # ECALL  7
+    .word osARGS        # ECALL  8
+    .word osBGET        # ECALL  9
+    .word osBPUT        # ECALL 10
+    .word osGBPB        # ECALL 11
+    .word osFIND        # ECALL 12
+    .word osSYSCTRL     # ECALL 13
+    .word osSETHANDLERS # ECALL 14
+    .word osERROR       # ECALL 15
 
 InterruptHandler:
     PUSH    t0
     csrr    t0, mcause
-    bgez    t0, ECallHandler
-
-IRQ1Handler:
+    bgez    t0, DefaultECallHandler     # TODO indirect through ecall vector??
 
     # TODO: Check mcause = 11 (machine external interrupt) otherwise log
 
@@ -876,12 +904,8 @@ IRQ1Handler:
     lb      t0, R1STATUS(gp)            # sign extend to 32 bits
     bltz    t0, r1_irq                  # branch if data available in R1
 
-IRQ2:
-
-    # TODO: Adopt PDP11 IRQV pattern
-
-    j IRQ2
-    JMPI    IRQ2V
+    POP     t0
+    JMPI    IRQV
 
 # -----------------------------------------------------------------------------
 # Interrupt generated by data in Tube R1
@@ -899,7 +923,11 @@ r1_irq:
     jal     WaitByteR1                  # Get X parameter from Tube R1
     mv      a1, a0
     jal     WaitByteR1                  # Get event number from Tube R1
-    jal     LFD36                       # Dispatch event
+
+    la      t0, EVENTV
+    lw      t0, (t0)
+    jalr    ra, t0                      # indirect through the event vector
+
     POP     a2                          # restore registers
     POP     a1
     POP     a0
@@ -907,15 +935,15 @@ r1_irq:
     POP     t0
     mret
 
-LFD36:
-    JMPI    EVNTV
-
 r1_irq_escape:
-    PUSH    t1
-    add     t0, t0, t0
-    la      t1, ESCAPE_FLAG
-    sb      t0, (t1)
-    POP     t1
+    PUSH    a0
+    PUSH    ra
+    mv      a0, t0                      # copy escape flag into a0
+    la      t0, ESCV
+    lw      t0, (t0)
+    jalr    ra, t0                      # indirect call to the escape vector
+    POP     ra
+    POP     a0
     POP     t0
     mret
 
@@ -1061,39 +1089,23 @@ Type7:
 # DEFAULT VECTOR TABLE
 # -----------------------------------------------------------------------------
 
-DefaultVectors:
-     .word Unsupported    # &200 - USERV
-     .word ErrorHandler   # &202 - BRKV
-     .word IRQ1Handler    # &204 - IRQ1V
-     .word Unsupported    # &206 - IRQ2V
-     .word osCLI          # &208 - CLIV
-     .word osBYTE         # &20A - BYTEV
-     .word osWORD         # &20C - WORDV
-     .word osWRCH         # &20E - WRCHV
-     .word osRDCH         # &210 - RDCHV
-     .word osFILE         # &212 - FILEV
-     .word osARGS         # &214 - ARGSV
-     .word osBGET         # &216 - BGetV
-     .word osBPUT         # &218 - BPutV
-     .word osGBPB         # &21A - GBPBV
-     .word osFIND         # &21C - FINDV
-     .word Unsupported    # &21E - FSCV
-     .word NullReturn     # &220 - EVNTV
-     .word Unsupported    # &222 - UPTV
-     .word Unsupported    # &224 - NETV
-     .word Unsupported    # &226 - VduV
-     .word Unsupported    # &228 - KEYV
-     .word Unsupported    # &22A - INSV
-     .word Unsupported    # &22C - RemV
-     .word Unsupported    # &22E - CNPV
-     .word NullReturn     # &230 - IND1V
-     .word NullReturn     # &232 - IND2V
-     .word NullReturn     # &234 - IND3V
+DefaultHandlers:
+    .word   DefaultExitHandler
+    .word   0
+    .word   DefaultEscapeHandler
+    .word   0
+    .word   DefaultErrorHandler
+    .word   0
+    .word   DefaultEventHandler
+    .word   0
+    .word   DefaultIRQHandler
+    .word   0
+    .word   DefaultECallHandler
+    .word   0
 
 # -----------------------------------------------------------------------------
 # Helper methods
 # -----------------------------------------------------------------------------
-
 
 # --------------------------------------------------------------
 #
@@ -1149,7 +1161,7 @@ print_hex_1:
     addi    a0, a0, 'A'-'9'-1
 print_hex_0_9:
     add     a0, a0, '0'
-    jal     OSWRCH
+    SYS     OS_WRCH
     POP     ra
     ret
 
@@ -1188,7 +1200,7 @@ print_spc:
     PUSH    ra
     PUSH    a0
     li      a0, 0x20
-    jal     OSWRCH
+    SYS     OS_WRCH
     POP     a0
     POP     ra
     ret
@@ -1238,7 +1250,7 @@ print_dec_word_3:
 
 print_dec_word_4:
     addi    a0, a0, 0x30
-    jal     OSWRCH
+    SYS     OS_WRCH
     j       print_dec_word_1
 
 print_dec_word_5:
@@ -1487,7 +1499,7 @@ print_string_loop:
     lb      a0, (t0)
     beqz    a0, print_string_exit
     PUSH    t0
-    jal     OSWRCH
+    SYS     OS_WRCH
     POP     t0
     addi    t0, t0, 1
     j       print_string_loop
@@ -1513,102 +1525,6 @@ SendStringR2Lp:
     POP     ra
     ret
 
-# --------------------------------------------------------------
-
-osnewl_code:
-    PUSH    ra
-    li      a0, 0x0a
-    jal     OSWRCH
-    li      a0, 0x0d
-    jal     OSWRCH
-    POP     ra
-    ret
-
-# -----------------------------------------------------------------------------
-# MOS interface
-# -----------------------------------------------------------------------------
-
-# ORG MOS
-
-NVRDCH:                      # &FFC8
-     j     osRDCH
-
-# ORG MOS + (0xCB-0xC8)
-
-NVWRCH:                      # &FFCB
-     j     osWRCH
-
-# ORG MOS + (0xCE-0xC8)
-
-OSFIND:                      # &FFCE
-    JMPI FINDV
-
-# ORG MOS + (0xD1-0xC8)
-
-OSGBPB:                      # &FFD1
-    JMPI GBPBV
-
-# ORG MOS + (0xD4-0xC8)
-
-OSBPUT:                      # &FFD4
-    JMPI BPUTV
-
-# ORG MOS + (0xD7-0xC8)
-
-OSBGET:                      # &FFD7
-    JMPI BGETV
-
-# ORG MOS + (0xDA-0xC8)
-
-OSARGS:                      # &FFDA
-    JMPI ARGSV
-
-# ORG MOS + (0xDD-0xC8)
-
-OSFILE:                      # &FFDD
-    JMPI FILEV
-
-# ORG MOS + (0xE0-0xC8)
-
-OSRDCH:                      # &FFE0
-    JMPI RDCHV
-
-# ORG MOS + (0xE3-0xC8)
-
-OSASCI:                      # &FFE3
-    li     t0, 0x0d
-    bne    a0, t0, OSWRCH
-
-# ORG MOS + (0xE7-0xC8)
-
-OSNEWL:                      # &FFE7
-    j       osnewl_code
-
-# ORG MOS + (0xEC-0xC8)
-
-OSWRCR:                      # &FFEC
-    li      a0, 0x0D
-
-# ORG MOS + (0xEE-0xC8)
-
-OSWRCH:                      # &FFEE
-    JMPI WRCHV
-
-# ORG MOS + (0xF1-0xC8)
-
-OSWORD:                      # &FFF1
-    JMPI WORDV
-
-# ORG MOS + (0xF4-0xC8)
-
-OSBYTE:                      # &FFF4
-    JMPI BYTEV
-
-# ORG MOS + (0xF7-0xC8)
-
-OS_CLI:                      # &FFF7
-    JMPI CLIV
-
 # -----------------------------------------------------------------------------
 # Command Table
 # -----------------------------------------------------------------------------
@@ -1633,7 +1549,6 @@ cmdStrings:
 
 BannerMessage:
    .string "\nRISC-V Co Processor\n\n\r"
-
 
 EscapeError:
     .byte 17
