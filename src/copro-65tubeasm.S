@@ -629,10 +629,14 @@
         ldrh    regPC, [temp2, #\vector]     // Fetch the vector address
         add     regPC, regPC, memry
 #else
-        sub     regSP, regSP, #2
         mov     temp2, #0x10000
-        strh    regPC, [regSP,#1]         // slight risk of over running the stack
-        orr     regSP, #0x0100
+
+        mov     operand, regPC, LSR #8    // stack PC
+        strb    operand, [regSP],#-1
+        orr     regSP, regSP, #0x100
+        strb    regPC, [regSP],#-1
+        orr     regSP, regSP, #0x100
+
         ldrh    regPC, [temp2, #\vector]     // Fetch the vector address
 #endif
 
