@@ -1,4 +1,13 @@
-extern int OSWRCH(int c);
+#ifdef __riscv
+static int putchar(int c) {
+	register int a0 asm ("a0") = c;
+	register int a7 asm ("a7") = 4;
+	asm volatile ("ecall"
+                 : "+r" (a0)
+                 : "r"  (a7)
+                 );
+}
+#endif
 
 // Print i as 0000.9999
 void print4(int i) {
@@ -10,7 +19,7 @@ void print4(int i) {
          digit++;
       }
       p /= 10;
-      OSWRCH(digit);
+      putchar(digit);
    } while (p);
 }
 

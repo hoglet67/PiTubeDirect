@@ -15,6 +15,8 @@
 
 .equ NUM_VECTORS, 27           # number of vectors in DefaultVectors table
 
+.equ  NUM_ECALLS, 16
+
 .globl _start
 
 .globl OSWRCH
@@ -32,7 +34,7 @@
 .macro JMPI addr
     la      t0, \addr
     lw      t0, (t0)
-    jalr    zero, (t0)
+    jalr    zero, t0
 .endm
 
 .macro ERROR address
@@ -781,9 +783,92 @@ osRDCH:
 # Interrupts handlers
 # -----------------------------------------------------------------------------
 
+ECallHandler:
+
+    # TODO: Check mcause = 11 (machine mode environment call)
+
+    # A7 contains the system call number
+    li      t0, NUM_ECALLS
+    bgeu    a7, t0, BadECallError
+
+    la      t0, ECallHandlerTable
+    add     t0, t0, a7
+    add     t0, t0, a7
+    add     t0, t0, a7
+    add     t0, t0, a7
+    lw      t0, (t0)
+
+    beqz    t0, BadECall
+
+    PUSH    ra
+    csrr    ra, mstatus                 # push critical machine state
+    PUSH    ra
+    csrr    ra, mepc
+    PUSH    ra
+
+    li      ra, 1 << 3                  # re-enable interrupts
+    csrrs   zero, mstatus, ra
+
+    jalr    ra, t0
+
+    POP     ra
+    addi    ra, ra, 4                   # return to instruction after the ecall
+    csrw    mepc, ra
+    POP     ra
+    csrw    mstatus, ra
+    POP     ra
+
+    POP     t0
+    mret
+
+BadECall:
+    ERROR   BadECallError
+
+ECallHandlerTable:
+
+#   .word EMT0      # ECALL  0 - QUIT
+#   .word _CLI      # ECALL  1 - OSCLI
+#   .word _BYTE     # ECALL  2 - OSBYTE
+#   .word _WORD     # ECALL  3 - OSWORD
+#   .word _WRCH     # ECALL  4 - OSWRCH
+#   .word _NEWL     # ECALL  5 - OSNEWL
+#   .word _RDCH     # ECALL  6 - OSRDCH
+#   .word _FILE     # ECALL  7 - OSFILE
+#   .word _ARGS     # ECALL  8 - OSARGS
+#   .word _BGET     # ECALL  9 - OSBGET
+#   .word _BPUT     # ECALL 10 - OSBPUT
+#   .word _GBPB     # ECALL 11 - OSGBPB
+#   .word _FIND     # ECALL 12 - OSFIND
+#   .word EMT13     # ECALL 13 - System control
+#   .word EMT14     # ECALL 14 - Set handlers
+#   .word EMT15     # ECALL 15 - ERROR
+
+    .word 0
+    .word 0
+    .word 0
+    .word 0
+    .word osWRCH
+    .word 0
+    .word 0
+    .word 0
+    .word 0
+    .word 0
+    .word 0
+    .word 0
+    .word 0
+    .word 0
+    .word 0
+    .word 0
+
+
 InterruptHandler:
-IRQ1Handler:
     PUSH    t0
+    csrr    t0, mcause
+    bgez    t0, ECallHandler
+
+IRQ1Handler:
+
+    # TODO: Check mcause = 11 (machine external interrupt) otherwise log
 
     lb      t0, R4STATUS(gp)            # sign extend to 32 bits
     bltz    t0, r4_irq                  # branch if data available in R4
@@ -791,8 +876,10 @@ IRQ1Handler:
     lb      t0, R1STATUS(gp)            # sign extend to 32 bits
     bltz    t0, r1_irq                  # branch if data available in R1
 
-
 IRQ2:
+
+    # TODO: Adopt PDP11 IRQV pattern
+
     j IRQ2
     JMPI    IRQ2V
 
@@ -804,6 +891,7 @@ r1_irq:
     lb      t0, R1DATA(gp)
     bltz    t0, r1_irq_escape
     PUSH    ra                          # Save registers
+    PUSH    a0
     PUSH    a1
     PUSH    a2
     jal     WaitByteR1                  # Get Y parameter from Tube R1
@@ -814,6 +902,7 @@ r1_irq:
     jal     LFD36                       # Dispatch event
     POP     a2                          # restore registers
     POP     a1
+    POP     a0
     POP     ra
     POP     t0
     mret
@@ -967,25 +1056,6 @@ Type7:
     # TODO
     j       Release
 
-# -----------------------------------------------------------------------------
-# Initial interrupt handler, called from 0x0002 (or 0xfffe in PTD)
-# -----------------------------------------------------------------------------
-
-#InterruptHandler:
-#     sto     r1, r0, TMP_R1
-#     GETPSR  (r1)
-#     and     r1, r0, SWI_MASK
-#     nz.mov  pc, r0, SWIHandler
-#     ld      pc, r0, IRQ1V        # invoke the IRQ handler
-
-# SWIHandler:
-#     GETPSR  (r1)
-#     and     r1, r0, ~SWI_MASK
-#     PUTPSR  (r1)
-#     ld      r1, r0, TMP_R1       # restore R1 from tmp location
-#     sto     r1, r0, LAST_ERR     # save the address of the last error
-#     EI      ()                   # re-enable interrupts
-#     ld      pc, r0, BRKV         # invoke the BRK handler
 
 # -----------------------------------------------------------------------------
 # DEFAULT VECTOR TABLE
@@ -1568,6 +1638,10 @@ BannerMessage:
 EscapeError:
     .byte 17
     .string "Escape"
+
+BadECallError:
+    .byte 255                           # re-use "Bad" error code
+    .string "Bad ECall"
 
 HelpMessage:
     .string "RISC-V 0.10\n\r"

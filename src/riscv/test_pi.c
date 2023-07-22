@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define OSWRCH putchar
-
 #include "tuberom_pi.c"
 
 int main(int argc, char **argv) {
