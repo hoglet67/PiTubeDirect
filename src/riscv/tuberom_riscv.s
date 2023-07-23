@@ -285,6 +285,9 @@ osCLI_Ack:
     li      t0, 0x80
     blt     a0, t0, dontEnterCode
 
+    POP     a0                          # restore the string pointer
+    PUSH    a0
+
     jal     prep_env
 
     la      t0, IRQADDR
