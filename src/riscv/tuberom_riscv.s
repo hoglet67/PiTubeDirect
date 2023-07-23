@@ -514,12 +514,18 @@ cmdReject:
 
 cmdGo:
     PUSH    ra
-    jal     skip_spaces
-    jal     read_hex_8
+    jal     read_hex
+    beqz    a2, BadAddress
     jal     cmdExecA1
     mv      a0, zero
     POP     ra
     ret
+
+BadAddress:
+    SYS     OS_ERROR
+    .byte   252
+    .string "Bad address"
+    .align  2,0
 
 # --------------------------------------------------------------
 
@@ -535,8 +541,23 @@ cmdHelp:
 
 cmdTest:
     PUSH    ra
-    jal     skip_spaces
-    jal     read_hex_8
+    jal     read_hex
+    beqz    a2, BadAddress
+    jal     print_hex_word
+    li      a0, ' '
+    SYS     OS_WRCH
+    jal     print_dec_word
+    SYS     OS_NEWL
+    mv      a0, zero
+    POP     ra
+    ret
+
+# --------------------------------------------------------------
+
+cmdPi:
+    PUSH    ra
+    jal     read_dec
+    beqz    a2, BadNumber
 
     # Save param
     PUSH    a1
@@ -553,7 +574,6 @@ cmdTest:
     PUSH    a0
 
     # Print param (in a1)
-    jal     print_hex_word_spc
     jal     print_dec_word
     SYS     OS_NEWL
 
@@ -578,6 +598,12 @@ cmdTest:
     mv      a0, zero
     POP     ra
     ret
+
+BadNumber:
+    SYS     OS_ERROR
+    .byte   252
+    .string "Bad number"
+    .align  2,0
 
 # 8 bytes, to keep everything word aligned
 
@@ -1273,46 +1299,6 @@ print_hex_0_9:
 
 # --------------------------------------------------------------
 #
-# print_hex_word_spc
-#
-# Prints a 4-digit hex value followed by a space
-#
-# Entry:
-# - a0 is the value to be printed
-#
-# Exit:
-# - all registers preserved
-
-print_hex_word_spc:
-    PUSH    ra
-    jal     print_hex_word
-    jal     print_spc
-    POP     ra
-    ret
-
-# --------------------------------------------------------------
-#
-# print_spc
-#
-# Prints a space
-#
-# Entry:
-# - a0 is the value to be printed
-#
-# Exit:
-# - all registers preserved
-
-print_spc:
-    PUSH    ra
-    PUSH    a0
-    li      a0, 0x20
-    SYS     OS_WRCH
-    POP     a0
-    POP     ra
-    ret
-
-# --------------------------------------------------------------
-#
 # print_dec_word
 #
 # Prints a word sized value as decimal
@@ -1402,38 +1388,9 @@ skip_spaces_loop:
 
 # --------------------------------------------------------------
 #
-# read_hex_8
+# read_hex
 #
-# Read a 8-digit hex value
-#
-# Entry:
-# - a0 is the address of the hex string
-#
-# Exit:
-# - a0 is updated after processing the string
-# - a1 contains the hex value
-# - carry set if there was an error
-# - all registers preserved
-
-read_hex_8:
-    PUSH    ra
-    mv      a1, zero                    # a1 is will contain the hex value
-    jal     read_hex_1
-    jal     read_hex_1
-    jal     read_hex_1
-    jal     read_hex_1
-    jal     read_hex_1
-    jal     read_hex_1
-    jal     read_hex_1
-    jal     read_hex_1
-    POP     ra
-    ret
-
-# --------------------------------------------------------------
-#
-# read_hex_4
-#
-# Read a 4-digit hex value
+# Read a hex value
 #
 # Entry:
 # - a0 is the address of the hex string
@@ -1441,85 +1398,80 @@ read_hex_8:
 # Exit:
 # - a0 is updated after processing the string
 # - a1 contains the hex value
-# - carry set if there was an error
+# - a2 contains the number of digits processed
 # - all registers preserved
 
-read_hex_4:
+read_hex:
     PUSH    ra
-    mv      a1, zero                    # a1 is will contain the hex value
-    jal     read_hex_1
-    jal     read_hex_1
-    jal     read_hex_1
-    jal     read_hex_1
-    POP     ra
-    ret
-
-# --------------------------------------------------------------
-#
-# read_hex_2
-#
-# Read a 2-digit hex value
-#
-# Entry:
-# - a0 is the address of the hex string
-#
-# Exit:
-# - a0 is updated after processing the string
-# - a1 contains the hex value
-# - carry set if there was an error
-# - all registers preserved
-
-read_hex_2:
-    PUSH    ra
+    jal     skip_spaces
     mv      a1, zero                    # a1 will contain the hex value
-    jal     read_hex_1
-    jal     read_hex_1
+    mv      a2, zero                    # a2 will contain the number of digtis read
+read_hex_lp:
+    lb      t1, (a0)
+    li      t0, '0'
+    blt     t1, t0, read_hex_done
+    li      t0, '9'
+    ble     t1, t0, read_hex_valid
+    andi    t1, t1, 0xdf
+    li      t0, 'A'
+    blt     t1, t0, read_hex_done
+    li      t0, 'F'
+    bgt     t1, t0, read_hex_done
+    addi    t1, t1, -('A'-'9'-1)
+
+read_hex_valid:
+    slli    a1, a1, 4
+    andi    t1, t1, 0x0F
+    add     a1, a1, t1
+    addi    a0, a0, 1
+    addi    a2, a2, 1
+    j       read_hex_lp
+
+read_hex_done:
     POP     ra
     ret
 
 # --------------------------------------------------------------
 #
-# read_hex_1
+# read_dec
 #
-# Read a 1-digit hex value
+# Read a decimal value
 #
 # Entry:
-# - a0 is the address of the hex string
+# - a0 is the address of the decimal string
 #
 # Exit:
 # - a0 is updated after processing the string
 # - a1 contains the hex value
-# - carry set if there was an error
+# - a2 contains the number of digits processed
 # - all registers preserved
 
-read_hex_1:
-    PUSH    a2
-    lb      a2, (a0)
+read_dec:
+    PUSH    ra
+    jal     skip_spaces
+    mv      a1, zero                    # a1 will contain the dec value
+    mv      a2, zero                    # a2 will contain the number of digtis read
+read_dec_lp:
+    lb      t1, (a0)
     li      t0, '0'
-    blt     a2, t0, read_hex_1_invalid
+    blt     t1, t0, read_dec_done
     li      t0, '9'
-    ble     a2, t0, read_hex_1_valid
-    andi    a2, a2, 0xdf
-    li      t0, 'A'
-    blt     a2, t0, read_hex_1_invalid
-    li      t0, 'F'
-    bgt     a2, t0, read_hex_1_invalid
-    addi    a2, a2, -('A'-'9'-1)
+    bgt     t1, t0, read_dec_done
 
-read_hex_1_valid:
-    slli    a1, a1, 4
-    andi    a2, a2, 0x0F
-    add     a1, a1, a2
-
+read_dec_valid:
+    li      t0, 10
+    mul     a1, a1, t0
+    andi    t1, t1, 0x0F
+    add     a1, a1, t1
     addi    a0, a0, 1
-#   CLC                                 # TODO
-    POP     a2
+    addi    a2, a2, 1
+    j       read_dec_lp
+
+read_dec_done:
+    POP     ra
     ret
 
-read_hex_1_invalid:
-#   SEC                                 # TODO
-    POP     a2
-    ret
+# --------------------------------------------------------------
 
 # Wait for byte in Tube R1 while allowing requests via Tube R4
 #
@@ -1640,6 +1592,7 @@ cmdAddresses:
     .word    cmdGo
     .word    cmdHelp
     .word    cmdTest
+    .word    cmdPi
     .word    cmdEnd
 
 cmdStrings:
@@ -1647,6 +1600,7 @@ cmdStrings:
     .string  "go"
     .string  "help"
     .string  "test"
+    .string  "pi"
     .byte 0
 
 # -----------------------------------------------------------------------------
