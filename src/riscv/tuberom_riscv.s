@@ -251,16 +251,17 @@ ECallHandlerTable:
     .word   osERROR                     # ECALL 15
 
 # --------------------------------------------------------------
-# ECall 0 - OS QUIT
+# ECall 0 - OSQUIT - Exit current program
 # --------------------------------------------------------------
 
 osQUIT:
     JMPI    EXITV
 
 # --------------------------------------------------------------
-# ECall 1 - OS CLI
-#
-# On entry, a0=>command string
+# ECall 1 - OSCLI - Send command line to host
+# --------------------------------------------------------------
+# On entry: a0=>command string
+# On exit:  a0=return value
 # --------------------------------------------------------------
 
 osCLI:
@@ -354,9 +355,8 @@ dontEnterCode:
 #     WORD    0
 
 # --------------------------------------------------------------
-# ECall 2 - OS BYTE
-#
-#
+# ECall 2 - OSBYTE
+# --------------------------------------------------------------
 # On entry, a0, a1, r2=OSBYTE parameters
 # On exit, a0  preserved
 #           If a0<$80, a1=returned value
@@ -431,11 +431,12 @@ Byte82:                                 # Return &0000 as memory high word
     ret
 
 # --------------------------------------------------------------
-# ECall 2 - OS BYTE
-#
-# On entry:
-#   a0 is the osword number
-#   a1 points to the paramater block in memory
+# ECall 3 - OSWORD
+# --------------------------------------------------------------
+# On entry: a0,a1,a2=OSBYTE parameters
+# On exit:  a0 preserved
+#           If a0<&80, a1=returned value
+#           If a0>&7F, a1, a2, Carry=returned values
 # --------------------------------------------------------------
 
 osWORD:
@@ -573,10 +574,8 @@ word_out_len:
     .byte 0                             # padding
 
 # --------------------------------------------------------------
-
-#
-# RDLINE - Read a line of text
-# ============================
+# ECall 3 continued - OSWORD0 - Read a line of text
+# --------------------------------------------------------------
 # On entry, a0 = 0
 #           a1 = control block
 #
@@ -586,7 +585,7 @@ word_out_len:
 #           Cy=0 ok, Cy=1 Escape
 #
 # Tube data  &0A block  --  &FF or &7F string &0D
-#
+# --------------------------------------------------------------
 RDLINE:
     PUSH    ra
     PUSH    a1
@@ -629,7 +628,10 @@ RdLineExit:
     ret
 
 # --------------------------------------------------------------
-# ECall 4 - OS WRCH
+# ECall 4 - OSWRCH
+# --------------------------------------------------------------
+# On entry: a0=char
+# On exit: a0 preserved
 # --------------------------------------------------------------
 
 osWRCH:
@@ -640,7 +642,9 @@ osWRCH:
     ret
 
 # --------------------------------------------------------------
-# ECall 5 - OS NEWL
+# ECall 5 - OSNEWL
+# --------------------------------------------------------------
+# On exit: a0 preserved
 # --------------------------------------------------------------
 
 osNEWL:
@@ -655,11 +659,14 @@ osNEWL:
     ret
 
 # --------------------------------------------------------------
-# ECall 6 - OS RDCH
+# ECall 6 - OSRDCH - Wait for character from input stream
+# --------------------------------------------------------------
+# On exit: a0=char, a1=carry
 # --------------------------------------------------------------
 
 osRDCH:
     PUSH    ra
+    #  Tube data: &00  --  Carry Char
     mv      a0, zero                    # Send command &00 - OSRDCH
     jal     SendByteR2
     jal     WaitByteR2                  # Receive carry
@@ -669,51 +676,90 @@ osRDCH:
     ret
 
 # --------------------------------------------------------------
-# ECall 7 - OS FILE
+# ECall 7 - OSFILE - Operate on whole files
+# --------------------------------------------------------------
+# On entry: a0=function
+#           a1=>control block
+# On exit:  a0=result
+#           a1 preserved
+#           control block updated
 # --------------------------------------------------------------
 
 osFILE:
     # TODO
+    # Tube data: &14 block string &0D A            A block
     ret
 
 # --------------------------------------------------------------
-# ECall 8 - OS ARGS
+# ECall 8 - OSARGS - Read info on open file or filing system
+# --------------------------------------------------------------
+# On entry: a0=function
+#           a1=handle
+#           a2=>control block
+# On exit:  a0=returned value
+#           a1 preserved
+#           a2 preserved
 # --------------------------------------------------------------
 
 osARGS:
     # TODO
+    # Tube data: &0C Y block A                     A block
     ret
 
 # --------------------------------------------------------------
-# ECall 9 - OS BGET
+# ECall 9 - OSBGET - Get a byte from open file
+# --------------------------------------------------------------
+# On entry: a1=handle
+# On exit:  a0=byte Read
+#           a1=preserved
+#           Cy set if EOF
 # --------------------------------------------------------------
 
 osBGET:
     # TODO
+    # Tube data: &0E Y                             Cy A
     ret
 
 # --------------------------------------------------------------
-# ECall 10  - OS BPUT
+# ECall 10  - OSBPUT - Put a byte to an open file
+# --------------------------------------------------------------
+# On entry: a0=byte to write
+#           a1=handle
+# On exit:  a0=preserved
+#           a1=preserved
 # --------------------------------------------------------------
 
 osBPUT:
     # TODO
+    # Tube data: &10 Y A                           &7F
     ret
 
 # --------------------------------------------------------------
-# ECall 11 - OS GBPB
+# ECall 11 - OSGBPB - Multiple byte read and write
+# --------------------------------------------------------------
+# On entry: a0=function
+#           a1=>control block
+# On exit:  a0=returned value
+#              control block updated
 # --------------------------------------------------------------
 
 osGBPB:
     # TODO
+    # Tube data: &16 block A                       block Cy A
     ret
 
 # --------------------------------------------------------------
-# ECall 12  - OS FIND
+# ECall 12  - OSFIND - Open or Close a file
+# --------------------------------------------------------------
+# On entry: a0=function
+#           a1=handle or =>filename
+# On exit:  a0=zero or handle
 # --------------------------------------------------------------
 
 osFIND:
     # TODO
+    # Tube data: &12 &00 Y                         &7F
+    # Tube data: &12 A string &0D                  A
     ret
 
 # --------------------------------------------------------------
