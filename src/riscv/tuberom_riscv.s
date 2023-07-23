@@ -285,17 +285,16 @@ osCLI_Ack:
     li      t0, 0x80
     blt     a0, t0, dontEnterCode
 
-#     JSR     (prep_env)
+    jal     prep_env
 
-#     JSR     (enterCode)
+    la      t0, IRQADDR
+    lw      t0, (t0)
+    jalr    ra, t0
 
 dontEnterCode:
     POP     a0
     POP     ra
     ret
-
-# enterCode:
-#     ld      pc, r0, ADDR
 
 # Find the start of the command string
 #
@@ -312,47 +311,45 @@ dontEnterCode:
 # - skip any form of *RUN, followed by trailing spaces
 # - leave the environment point at the first character of filename
 
-# prep_env:
-#     PUSH    (r13)
-#     DEC     (r1, 1)
-# prep_env_1:                         # skip leading space or * characters
-#     INC     (r1, 1)
-#     JSR     (skip_spaces)
-#     cmp     r2, r0, 0x2A            # *
-#     z.mov   pc, r0, prep_env_1
+prep_env:
+    PUSH    ra
+    addi    a0, a0, -1
+prep_env_1:                                 # skip leading space or * characters
+    addi    a0, a0, 1
+    jal     skip_spaces
+    li      t0, '*'
+    beq     a1, t0, prep_env_1
 
-#     cmp     r2, r0, 0x2F            # /
-#     z.mov   pc, r0, prep_env_4
+    li      t0, '/'
+    beq     a1, a0, prep_env_4
 
-#     mov     r2, r0, run_string - 1
-#     mov     r3, r1, -1
-# prep_env_2:                         # skip a possibly abbreviated RUN
-#     INC     (r2, 1)
-#     ld      r4, r2                  # Read R U N <0>
-#     z.mov   pc, r0, prep_env_3
-#     INC     (r3, 1)
-#     ld      r5, r3
-#     cmp     r5, r0, 0x2E            # .
-#     z.mov   pc, r0, prep_env_3
-#     and     r5, r0, 0xDF            # force upper case
-#     cmp     r4, r5                  # match against R U N
-#     nz.mov  pc, r0, prep_env_5
-#     mov     pc, r0, prep_env_2      # loop back for more characters
+    la      a1, run_string - 1
+    addi    a2, a0, -1
+prep_env_2:                                 # skip a possibly abbreviated RUN
+    addi    a1, a1, 1
+    lbu     a3, (a1)                        # Read R U N <0>
+    beqz    a3, prep_env_3
+    addi    a2, a2, 1
+    lbu     a4, (a2)
+    li      t0, '.'
+    beq     a4, t0, prep_env_3
+    andi    a4, a4, 0xdf                    # force upper case
+    bne     a3, a4, prep_env_5              # match against R U N
+    j        prep_env_2                     # loop back for more characters
 
-# prep_env_3:
-#     mov     r1, r3
+prep_env_3:
+    mv      a0, a2
 
-# prep_env_4:
-#     INC     (r1, 1)
+prep_env_4:
+    addi    a0, a0, 1
 
-# prep_env_5:
-#     JSR     (skip_spaces)
-#     POP     (r13)
-#     RTS     ()
+prep_env_5:
+    jal     skip_spaces
+    POP     ra
+    ret
 
-# run_string:
-#     STRING  "RUN"
-#     WORD    0
+run_string:
+    .string "RUN"
 
 # --------------------------------------------------------------
 # ECall 2 - OSBYTE
