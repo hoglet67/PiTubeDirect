@@ -13,7 +13,7 @@
 .equ    R4STATUS, 24
 .equ      R4DATA, 28
 
-.equ NUM_HANDLERS, 12      # number of vectors in DefaultHandlers table
+.equ NUM_HANDLERS    , 12               # number of vectors in DefaultHandlers table
 
 .equ NUM_ECALLS      , 16
 
@@ -96,10 +96,10 @@ INPBUF:
             .zero 0x80
 INPEND:
 
-ADDR:       .word 0 # tube execution address
-TMP_DBG:    .word 0 # tmp store for debugging
-LAST_ERR:   .word 0 # last error
-ESCAPE_FLAG:.word 0 # escape flag
+ADDR:       .word 0                     # tube execution address
+TMP_DBG:    .word 0                     # tmp store for debugging
+LAST_ERR:   .word 0                     # last error
+ESCAPE_FLAG:.word 0                     # escape flag
 
 ResetHandler:
     li      gp, TUBE                    # setup the register that points to the tube (TODO: Probably a bad idea to use a register like this!)
@@ -286,17 +286,17 @@ ByteHigh:
     POP     ra
     ret
 
-Byte84:                         # Read top of memory
+Byte84:                                 # Read top of memory
     li      a1, MEM_TOP
     POP     ra
     ret
 
-Byte83:                         # Read bottom of memory
+Byte83:                                 # Read bottom of memory
     li      a1, MEM_BOT
     POP     ra
     ret
 
-Byte82:                         # Return &0000 as memory high word
+Byte82:                                 # Return &0000 as memory high word
     mv      a1, zero
     POP     ra
     ret
@@ -676,56 +676,56 @@ ReceiveBlockDone:
     ret
 
 word_in_len:
-    .byte 16   # OSWORD default
-    .byte 0    #  1  =TIME
-    .byte 5    #  2  TIME=
-    .byte 0    #  3  =IntTimer
-    .byte 5    #  4  IntTimer=
-    .byte 4    #  5  =IOMEM   JGH: must send full 4-byte address
-    .byte 5    #  6  IOMEM=
-    .byte 8    #  7  SOUND
-    .byte 14   #  8  ENVELOPE
-    .byte 4    #  9  =POINT()
-    .byte 1    # 10  =CHR$()
-    .byte 1    # 11  =Palette
-    .byte 5    # 12  Pallette=
-    .byte 0    # 13  =Coords
-    .byte 8    # 14  =RTC
-    .byte 25   # 15  RTC=
-    .byte 16   # 16  NetTx
-    .byte 13   # 17  NetRx
-    .byte 0    # 18  NetArgs
-    .byte 8    # 19  NetInfo
-    .byte 128  # 20  NetFSOp
-    .byte 0    # padding
-    .byte 0    # padding
-    .byte 0    # padding
+    .byte 16                            # OSWORD default
+    .byte 0                             #  1  =TIME
+    .byte 5                             #  2  TIME=
+    .byte 0                             #  3  =IntTimer
+    .byte 5                             #  4  IntTimer=
+    .byte 4                             #  5  =IOMEM   JGH: must send full 4-byte address
+    .byte 5                             #  6  IOMEM=
+    .byte 8                             #  7  SOUND
+    .byte 14                            #  8  ENVELOPE
+    .byte 4                             #  9  =POINT()
+    .byte 1                             # 10  =CHR$()
+    .byte 1                             # 11  =Palette
+    .byte 5                             # 12  Pallette=
+    .byte 0                             # 13  =Coords
+    .byte 8                             # 14  =RTC
+    .byte 25                            # 15  RTC=
+    .byte 16                            # 16  NetTx
+    .byte 13                            # 17  NetRx
+    .byte 0                             # 18  NetArgs
+    .byte 8                             # 19  NetInfo
+    .byte 128                           # 20  NetFSOp
+    .byte 0                             # padding
+    .byte 0                             # padding
+    .byte 0                             # padding
 
 word_out_len:
-    .byte 16   # OSWORD default
-    .byte 5    #  1  =TIME
-    .byte 0    #  2  TIME=
-    .byte 5    #  3  =IntTimer
-    .byte 0    #  4  IntTimer=
-    .byte 5    #  5  =IOMEM
-    .byte 0    #  6  IOMEM=
-    .byte 0    #  7  SOUND
-    .byte 0    #  8  ENVELOPE
-    .byte 5    #  9  =POINT()
-    .byte 9    # 10  =CHR$()
-    .byte 5    # 11  =Palette
-    .byte 0    # 12  Palette=
-    .byte 8    # 13  =Coords
-    .byte 25   # 14  =RTC
-    .byte 1    # 15  RTC=
-    .byte 13   # 16  NetTx
-    .byte 13   # 17  NetRx
-    .byte 128  # 18  NetArgs
-    .byte 8    # 19  NetInfo
-    .byte 128  # 20  NetFSOp
-    .byte 0    # padding
-    .byte 0    # padding
-    .byte 0    # padding
+    .byte 16                            # OSWORD default
+    .byte 5                             #  1  =TIME
+    .byte 0                             #  2  TIME=
+    .byte 5                             #  3  =IntTimer
+    .byte 0                             #  4  IntTimer=
+    .byte 5                             #  5  =IOMEM
+    .byte 0                             #  6  IOMEM=
+    .byte 0                             #  7  SOUND
+    .byte 0                             #  8  ENVELOPE
+    .byte 5                             #  9  =POINT()
+    .byte 9                             # 10  =CHR$()
+    .byte 5                             # 11  =Palette
+    .byte 0                             # 12  Palette=
+    .byte 8                             # 13  =Coords
+    .byte 25                            # 14  =RTC
+    .byte 1                             # 15  RTC=
+    .byte 13                            # 16  NetTx
+    .byte 13                            # 17  NetRx
+    .byte 128                           # 18  NetArgs
+    .byte 8                             # 19  NetInfo
+    .byte 128                           # 20  NetFSOp
+    .byte 0                             # padding
+    .byte 0                             # padding
+    .byte 0                             # padding
 
 # --------------------------------------------------------------
 
@@ -979,29 +979,29 @@ err_loop:
 LFD65:
     PUSH    ra
     PUSH    a0
-    PUSH    t1           # working register for transfer type
-    PUSH    t2           # working register for transfer address
+    PUSH    t1                          # working register for transfer type
+    PUSH    t2                          # working register for transfer address
 
-    mv      t1, t0       # save transfer type
+    mv      t1, t0                      # save transfer type
 
     jal     WaitByteR4
     li      t0, 0x05
     beq     t1, t0, Release
-    jal     WaitByteR4   # block address MSB
+    jal     WaitByteR4                  # block address MSB
     slli    t2, t2, 8
     or      t2, t2, a0
-    jal     WaitByteR4   # block address ...
+    jal     WaitByteR4                  # block address ...
     slli    t2, t2, 8
     or      t2, t2, a0
-    jal     WaitByteR4   # block address ...
+    jal     WaitByteR4                  # block address ...
     slli    t2, t2, 8
     or      t2, t2, a0
-    jal     WaitByteR4   # block address LSB
+    jal     WaitByteR4                  # block address LSB
     slli    t2, t2, 8
     or      t2, t2, a0
     lw      t0, R3DATA(gp)
     lw      t0, R3DATA(gp)
-    jal     WaitByteR4   # sync
+    jal     WaitByteR4                  # sync
 
     la      t0, TransferHandlerTable
     slli    t1, t1, 2
@@ -1023,7 +1023,7 @@ TransferHandlerTable:
     .word    Type2
     .word    Type3
     .word    Type4
-    .word    Release    # not actually used
+    .word    Release                    # not actually used
     .word    Type6
     .word    Type7
 
@@ -1035,7 +1035,7 @@ TransferHandlerTable:
 # ============================================================
 
 Type0:
-    lb      t0, R4STATUS(gp)        # Test for an pending interrupt signalling end of transfer
+    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
     bltz    t0, Release
     lb      t0, R3STATUS(gp)
     andi    t0, t0, 0x40
@@ -1054,7 +1054,7 @@ Type0:
 # ============================================================
 
 Type1:
-    lb      t0, R4STATUS(gp)        # Test for an pending interrupt signalling end of transfer
+    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
     bltz    t0, Release
     lb      t0, R3STATUS(gp)
     bgez    t0, Type1
@@ -1155,7 +1155,7 @@ print_hex_word_loop:
 
 print_hex_1:
     PUSH    ra
-    andi    a0, a0, 0x0F                    # mask off everything but the bottom nibble
+    andi    a0, a0, 0x0F                # mask off everything but the bottom nibble
     li      t0, 0x0A
     blt     a0, t0, print_hex_0_9
     addi    a0, a0, 'A'-'9'-1
@@ -1311,7 +1311,7 @@ skip_spaces_loop:
 
 read_hex_8:
     PUSH    ra
-    mv      a1, zero          # a1 is will contain the hex value
+    mv      a1, zero                    # a1 is will contain the hex value
     jal     read_hex_1
     jal     read_hex_1
     jal     read_hex_1
@@ -1340,7 +1340,7 @@ read_hex_8:
 
 read_hex_4:
     PUSH    ra
-    mv      a1, zero          # a1 is will contain the hex value
+    mv      a1, zero                    # a1 is will contain the hex value
     jal     read_hex_1
     jal     read_hex_1
     jal     read_hex_1
