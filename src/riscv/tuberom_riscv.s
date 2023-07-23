@@ -127,9 +127,7 @@ InitVecLoop:
     jal     WaitByteR2                  # wait for the response and ignore
 
 DefaultExitHandler:
-
     li      sp, STACK                   # reset the stack - TODO: what else?
-
     li      t0, 1 << 3                  # enable interrupts
     csrrs   zero, mstatus, t0
 
@@ -148,14 +146,41 @@ CmdOSLoop:
 
     j       CmdOSLoop
 
+osword0_param_block:
+     .word CLIBUF
+     .word BUFSIZE
+     .word 0x20
+     .word 0xFF
+
 CmdOSEscape:
     li      a0, 0x7e
     SYS     OS_BYTE
-
     SYS     OS_ERROR
     .byte   17
     .string "Escape"
+
+BannerMessage:
+    .string "\nRISC-V Co Processor\n\n\r"
+
     .align  2,0
+
+# -----------------------------------------------------------------------------
+# DEFAULT Handler TABLE
+# -----------------------------------------------------------------------------
+
+DefaultHandlers:
+    .word   DefaultExitHandler
+    .word   VERSION
+    .word   DefaultEscapeHandler
+    .word   ESCFLG
+    .word   DefaultErrorHandler
+    .word   ERRBLK
+    .word   DefaultEventHandler
+    .word   0
+    .word   DefaultIRQHandler
+    .word   0
+    .word   DefaultECallHandler
+    .word   ECallHandlerTable
 
 # --------------------------------------------------------------
 # Default Error Handler
@@ -207,142 +232,44 @@ DefaultIRQHandler:
 # MOS interface
 # --------------------------------------------------------------
 
+ECallHandlerTable:
+    .word   osQUIT                      # ECALL  0
+    .word   osCLI                       # ECALL  1
+    .word   osBYTE                      # ECALL  2
+    .word   osWORD                      # ECALL  3
+    .word   osWRCH                      # ECALL  4
+    .word   osNEWL                      # ECALL  5
+    .word   osRDCH                      # ECALL  6
+    .word   osFILE                      # ECALL  7
+    .word   osARGS                      # ECALL  8
+    .word   osBGET                      # ECALL  9
+    .word   osBPUT                      # ECALL 10
+    .word   osGBPB                      # ECALL 11
+    .word   osFIND                      # ECALL 12
+    .word   osSYSCTRL                   # ECALL 13
+    .word   osSETHANDLERS               # ECALL 14
+    .word   osERROR                     # ECALL 15
+
+# --------------------------------------------------------------
+# ECall 0 - OS QUIT
 # --------------------------------------------------------------
 
 osQUIT:
     JMPI    EXITV
 
 # --------------------------------------------------------------
-
-osERROR:
-    lw     a0, (sp)                     # (sp) holds the stacked mepc which is the ecall address
-    addi   a0, a0, 4                    # step past the ecall instruction
-    la     t0, ERRV
-    lw     t0, (t0)
-    addi   t0, t0, -4
-    sw     t0, 0(sp)                    # force ecall handler to return to the error handler
-    ret                                 # rather than the original user program
-
-# --------------------------------------------------------------
-
-osSYSCTRL:
-    # TODO
-    ret
-
-# --------------------------------------------------------------
-
-osSETHANDLERS:
-    # TODO
-    ret
-
-# --------------------------------------------------------------
-
-osARGS:
-    # TODO
-    ret
-
-# --------------------------------------------------------------
-
-osBGET:
-    # TODO
-    ret
-
-# --------------------------------------------------------------
-
-osBPUT:
-    # TODO
-    ret
-
-# --------------------------------------------------------------
-
-# OSBYTE - Byte MOS functions
-# ===========================
-# On entry, a0, a1, r2=OSBYTE parameters
-# On exit, a0  preserved
-#           If a0<$80, a1=returned value
-#           If a0>$7F, a1, a2, Carry=returned values
-
-osBYTE:
-
-    PUSH    ra
-    li      t0, 0x80                    # Jump for long OSBYTEs
-    bge     a0, t0, ByteHigh
-
-# Tube data  $04 X A    --  X
-
-    PUSH    a0
-    li      a0, 0x04
-    jal     SendByteR2                  # Send command &04 - OSBYTELO
-    mv      a0, a1
-    jal     SendByteR2                  # Send single parameter
-    POP     a0
-    PUSH    a0
-    jal     SendByteR2                  # Send function
-    jal     WaitByteR2                  # Get return value
-    mv      a1, a0
-    POP     a0
-    POP     ra
-    ret
-
-ByteHigh:
-    li      t0, 0x82
-    beq     a0, t0, Byte82
-    li      t0, 0x83
-    beq     a0, t0, Byte83
-    li      t0, 0x84
-    beq     a0, t0, Byte84
-
-# Tube data  $06 X Y A  --  Cy Y X
-
-    PUSH    a0
-    li      a0, 0x06
-    jal     SendByteR2                  # Send command &06 - OSBYTEHI
-    mv      a0, a1
-    jal     SendByteR2                  # Send parameter 1
-    mv      a0, a2
-    jal     SendByteR2                  # Send parameter 2
-    POP     a0
-    PUSH    a0
-    jal     SendByteR2                  # Send function
-    jal     WaitByteR2                  # Get carry - from bit 7
-    mv      a3, a0
-    jal     WaitByteR2                  # Get high byte
-    mv      a2, a0
-    jal     WaitByteR2                  # Get low byte
-    mv      a1, a0
-    POP     a0
-    POP     ra
-    ret
-
-Byte84:                                 # Read top of memory
-    li      a1, MEM_TOP
-    POP     ra
-    ret
-
-Byte83:                                 # Read bottom of memory
-    li      a1, MEM_BOT
-    POP     ra
-    ret
-
-Byte82:                                 # Return &0000 as memory high word
-    mv      a1, zero
-    POP     ra
-    ret
-
-# --------------------------------------------------------------
-
-# OSCLI - Send command line to host
-# =================================
+# ECall 1 - OS CLI
+#
 # On entry, a0=>command string
-#
-# Tube data  &02 string &0D  --  &7F or &80
-#
+# --------------------------------------------------------------
 
 osCLI:
     PUSH    ra
     PUSH    a0                          # save the string pointer
     jal     cmdLocal                    # try to handle the command locally
     beqz    a0, dontEnterCode           # was command handled locally? (r1 = 0)
+
+# Tube data  &02 string &0D  --  &7F or &80
 
     li      a0, 0x02                    # Send command &02 - OSCLI
     jal     SendByteR2
@@ -427,225 +354,89 @@ dontEnterCode:
 #     WORD    0
 
 # --------------------------------------------------------------
-# Local Command Processor
+# ECall 2 - OS BYTE
 #
-# On Entry:
-# - a0 points to the user command
 #
-# On Exit:
-# - a0 == 0 if command successfully processed locally
-# - a0 != 0 if command should be
-#
-# Register usage:
-# a0 points to start of user command
-# a1 points within user command
-# a2 points within command string table
-# a3 points within command address
-# t1 is current character in user command
-# t2 is current character in command string table
-
-cmdLocal:
-    PUSH    a1
-    PUSH    a2
-    PUSH    a3
-    PUSH    ra
-
-    addi    a0, a0, -1
-cmdLoop0:
-    addi    a0, a0, 1
-    jal     skip_spaces                 # skip leading spaces
-    li      t0, '*'
-    beq     a1, t0, cmdLoop0            # also skip leading *
-
-    la      a2, cmdStrings-1            # initialize command string pointer (to char before)
-    la      a3, cmdAddresses-4          # initialize command address pointer (to word before)
-
-cmdLoop1:
-    addi    a1, a0, -1                  # initialize user command pointer (to char before)
-    addi    a3, a3, 4                   # move to the next command address
-
-cmdLoop2:
-    addi    a1, a1, 1                   # increment user command pointer
-    addi    a2, a2, 1                   # increment command table pointer
-    lb      t1, (a1)                    # read next character from user command
-    ori     t1, t1, 0x20                # convert to lower case
-    lb      t2, (a2)                    # read next character from command table
-    beqz    t2, cmdCheck                # zero then we are done matching
-    beq     t1, t2, cmdLoop2            # if a match, loop back for more
-
-cmdLoop3:                               # skip to the end of the command in the table
-    addi    a2, a2, 1
-    lb      t2, (a2)
-    bnez    t2, cmdLoop3
-
-    li      t0, '.'                     # was the mis-match a '.'
-    bne     t1, t0, cmdLoop1            # no, then start again with next command
-
-    addi    a1, a1, 1                   # increment user command pointer past the '.'
-
-cmdExec:
-    mv      a0, a1                      # a0 = the command pointer to the params
-    lw      a1, (a3)                    # a1 = the execution address
-    jal     cmdExecA1
-
-cmdExit:
-    POP     ra
-    POP     a3
-    POP     a2
-    POP     a1
-    ret
-
-# Additional code to make the match non-greedy
-# e.g. *MEMORY should not match against the MEM command
-#      also exclude *MEM.
-
-cmdCheck:
-    li      t0, '.'                     # check the first non-matching user char against '.'
-    beq     t1, t0, cmdReject           # if == '.' then reject the command
-    li      t0, 'a'                     # check the first non-matching user char against 'a'
-    blt     t1, t0, cmdExec             # if < 'a' then execute the local command
-    li      t0, 'z'                     # check the first non-matching user char against 'z'
-    bgt     t1, t0, cmdExec             # if >= 'z'+1 then execute the local command
-cmdReject:
-    li      a0, 1                       # flag command as not handled here then return
-    j       cmdExit                     # allowing the command to be handled elsewhere
-
+# On entry, a0, a1, r2=OSBYTE parameters
+# On exit, a0  preserved
+#           If a0<$80, a1=returned value
+#           If a0>$7F, a1, a2, Carry=returned values
 # --------------------------------------------------------------
 
-cmdGo:
+osBYTE:
+
     PUSH    ra
-    jal     read_hex
-    beqz    a2, BadAddress
-    jal     cmdExecA1
-    mv      a0, zero
-    POP     ra
-    ret
+    li      t0, 0x80                    # Jump for long OSBYTEs
+    bge     a0, t0, ByteHigh
 
-BadAddress:
-    SYS     OS_ERROR
-    .byte   252
-    .string "Bad address"
-    .align  2,0
+# Tube data  $04 X A    --  X
 
-# --------------------------------------------------------------
-
-cmdHelp:
-    PUSH     ra
-    la      a0, HelpMessage
-    jal     print_string
-    li      a0, 1
-    POP     ra
-    ret
-
-# --------------------------------------------------------------
-
-cmdTest:
-    PUSH    ra
-    jal     read_hex
-    beqz    a2, BadAddress
-    jal     print_hex_word
-    li      a0, ' '
-    SYS     OS_WRCH
-    jal     print_dec_word
-    SYS     OS_NEWL
-    mv      a0, zero
-    POP     ra
-    ret
-
-# --------------------------------------------------------------
-
-cmdPi:
-    PUSH    ra
-    jal     read_dec
-    beqz    a2, BadNumber
-
-    # Save param
-    PUSH    a1
-
-    # Set TIME to using OSWORD 2
-    li      a0, 0x02
-    la      a1, osword_pblock
-    sw      zero, 0(a1)
-    sw      zero, 4(a1)
-    SYS     OS_WORD
-
-    # Restore param
+    PUSH    a0
+    li      a0, 0x04
+    jal     SendByteR2                  # Send command &04 - OSBYTELO
+    mv      a0, a1
+    jal     SendByteR2                  # Send single parameter
     POP     a0
     PUSH    a0
-
-    # Print param (in a1)
-    jal     print_dec_word
-    SYS     OS_NEWL
-
-    # Restore param
-    pop     a0                          # ndigits
-    li      a1, 0                       # some memory to use as workspace
-    # Do some real work
-    jal     pi_calc
-    SYS     OS_NEWL
-
-    # Read TIME using OSWORD 1
-    li      a0, 0x01
-    la      a1, osword_pblock
-    SYS     OS_WORD
-
-    # Print the LS word in decimal
-    la      a1, osword_pblock
-    lw      a0, (a1)
-    jal     print_dec_word
-    SYS     OS_NEWL
-
-    mv      a0, zero
+    jal     SendByteR2                  # Send function
+    jal     WaitByteR2                  # Get return value
+    mv      a1, a0
+    POP     a0
     POP     ra
     ret
 
-BadNumber:
-    SYS     OS_ERROR
-    .byte   252
-    .string "Bad number"
-    .align  2,0
+ByteHigh:
+    li      t0, 0x82
+    beq     a0, t0, Byte82
+    li      t0, 0x83
+    beq     a0, t0, Byte83
+    li      t0, 0x84
+    beq     a0, t0, Byte84
 
-# 8 bytes, to keep everything word aligned
+# Tube data  $06 X Y A  --  Cy Y X
 
-osword_pblock:
-    .word 0
-    .word 0
+    PUSH    a0
+    li      a0, 0x06
+    jal     SendByteR2                  # Send command &06 - OSBYTEHI
+    mv      a0, a1
+    jal     SendByteR2                  # Send parameter 1
+    mv      a0, a2
+    jal     SendByteR2                  # Send parameter 2
+    POP     a0
+    PUSH    a0
+    jal     SendByteR2                  # Send function
+    jal     WaitByteR2                  # Get carry - from bit 7
+    mv      a3, a0
+    jal     WaitByteR2                  # Get high byte
+    mv      a2, a0
+    jal     WaitByteR2                  # Get low byte
+    mv      a1, a0
+    POP     a0
+    POP     ra
+    ret
 
-# ---------------------------------------------------------
+Byte84:                                 # Read top of memory
+    li      a1, MEM_TOP
+    POP     ra
+    ret
 
-cmdEnd:
-    li      a0, 1
+Byte83:                                 # Read bottom of memory
+    li      a1, MEM_BOT
+    POP     ra
+    ret
+
+Byte82:                                 # Return &0000 as memory high word
+    mv      a1, zero
+    POP     ra
     ret
 
 # --------------------------------------------------------------
-
-cmdExecA1:
-    jalr   zero, a1
-
-# --------------------------------------------------------------
-
-osFILE:
-    # TODO
-    ret
-
-# --------------------------------------------------------------
-
-osFIND:
-    # TODO
-    ret
-
-# --------------------------------------------------------------
-
-osGBPB:
-    # TODO
-    ret
-
-# --------------------------------------------------------------
-
-
+# ECall 2 - OS BYTE
+#
 # On entry:
 #   a0 is the osword number
 #   a1 points to the paramater block in memory
+# --------------------------------------------------------------
 
 osWORD:
     beqz    a0, RDLINE
@@ -837,16 +628,8 @@ RdLineExit:
     mv      a0, zero                    # Clear r0 to be tidy
     ret
 
-# -------------------------------------------------------------
-# Control block for command prompt input
 # --------------------------------------------------------------
-
-osword0_param_block:
-     .word CLIBUF
-     .word BUFSIZE
-     .word 0x20
-     .word 0xFF
-
+# ECall 4 - OS WRCH
 # --------------------------------------------------------------
 
 osWRCH:
@@ -856,6 +639,8 @@ osWRCH:
     sb      a0, R1DATA(gp)
     ret
 
+# --------------------------------------------------------------
+# ECall 5 - OS NEWL
 # --------------------------------------------------------------
 
 osNEWL:
@@ -870,6 +655,8 @@ osNEWL:
     ret
 
 # --------------------------------------------------------------
+# ECall 6 - OS RDCH
+# --------------------------------------------------------------
 
 osRDCH:
     PUSH    ra
@@ -881,8 +668,301 @@ osRDCH:
     POP     ra
     ret
 
+# --------------------------------------------------------------
+# ECall 7 - OS FILE
+# --------------------------------------------------------------
+
+osFILE:
+    # TODO
+    ret
+
+# --------------------------------------------------------------
+# ECall 8 - OS ARGS
+# --------------------------------------------------------------
+
+osARGS:
+    # TODO
+    ret
+
+# --------------------------------------------------------------
+# ECall 9 - OS BGET
+# --------------------------------------------------------------
+
+osBGET:
+    # TODO
+    ret
+
+# --------------------------------------------------------------
+# ECall 10  - OS BPUT
+# --------------------------------------------------------------
+
+osBPUT:
+    # TODO
+    ret
+
+# --------------------------------------------------------------
+# ECall 11 - OS GBPB
+# --------------------------------------------------------------
+
+osGBPB:
+    # TODO
+    ret
+
+# --------------------------------------------------------------
+# ECall 12  - OS FIND
+# --------------------------------------------------------------
+
+osFIND:
+    # TODO
+    ret
+
+# --------------------------------------------------------------
+# ECall 13 - OS SYSTEM CONTROL
+# --------------------------------------------------------------
+
+osSYSCTRL:
+    # TODO
+    ret
+
+# --------------------------------------------------------------
+# ECall 15 - OS SET HANDLERS
+# --------------------------------------------------------------
+
+osSETHANDLERS:
+    # TODO
+    ret
+
+# --------------------------------------------------------------
+# ECall 15 - OS ERROR
+# --------------------------------------------------------------
+
+osERROR:
+    lw     a0, (sp)                     # (sp) holds the stacked mepc which is the ecall address
+    addi   a0, a0, 4                    # step past the ecall instruction
+    la     t0, ERRV
+    lw     t0, (t0)
+    addi   t0, t0, -4
+    sw     t0, 0(sp)                    # force ecall handler to return to the error handler
+    ret                                 # rather than the original user program
+
+# --------------------------------------------------------------
+# Local Command Processor
+#
+# On Entry:
+# - a0 points to the user command
+#
+# On Exit:
+# - a0 == 0 if command successfully processed locally
+# - a0 != 0 if command should be
+#
+# Register usage:
+# a0 points to start of user command
+# a1 points within user command
+# a2 points within command string table
+# a3 points within command address
+# t1 is current character in user command
+# t2 is current character in command string table
+
+cmdLocal:
+    PUSH    a1
+    PUSH    a2
+    PUSH    a3
+    PUSH    ra
+
+    addi    a0, a0, -1
+cmdLoop0:
+    addi    a0, a0, 1
+    jal     skip_spaces                 # skip leading spaces
+    li      t0, '*'
+    beq     a1, t0, cmdLoop0            # also skip leading *
+
+    la      a2, cmdStrings-1            # initialize command string pointer (to char before)
+    la      a3, cmdAddresses-4          # initialize command address pointer (to word before)
+
+cmdLoop1:
+    addi    a1, a0, -1                  # initialize user command pointer (to char before)
+    addi    a3, a3, 4                   # move to the next command address
+
+cmdLoop2:
+    addi    a1, a1, 1                   # increment user command pointer
+    addi    a2, a2, 1                   # increment command table pointer
+    lb      t1, (a1)                    # read next character from user command
+    ori     t1, t1, 0x20                # convert to lower case
+    lb      t2, (a2)                    # read next character from command table
+    beqz    t2, cmdCheck                # zero then we are done matching
+    beq     t1, t2, cmdLoop2            # if a match, loop back for more
+
+cmdLoop3:                               # skip to the end of the command in the table
+    addi    a2, a2, 1
+    lb      t2, (a2)
+    bnez    t2, cmdLoop3
+
+    li      t0, '.'                     # was the mis-match a '.'
+    bne     t1, t0, cmdLoop1            # no, then start again with next command
+
+    addi    a1, a1, 1                   # increment user command pointer past the '.'
+
+cmdExec:
+    mv      a0, a1                      # a0 = the command pointer to the params
+    lw      a1, (a3)                    # a1 = the execution address
+    jalr    ra, a1                      # execute the command
+
+cmdExit:
+    POP     ra
+    POP     a3
+    POP     a2
+    POP     a1
+    ret
+
+# Additional code to make the match non-greedy
+# e.g. *MEMORY should not match against the MEM command
+#      also exclude *MEM.
+
+cmdCheck:
+    li      t0, '.'                     # check the first non-matching user char against '.'
+    beq     t1, t0, cmdReject           # if == '.' then reject the command
+    li      t0, 'a'                     # check the first non-matching user char against 'a'
+    blt     t1, t0, cmdExec             # if < 'a' then execute the local command
+    li      t0, 'z'                     # check the first non-matching user char against 'z'
+    bgt     t1, t0, cmdExec             # if >= 'z'+1 then execute the local command
+cmdReject:
+    li      a0, 1                       # flag command as not handled here then return
+    j       cmdExit                     # allowing the command to be handled elsewhere
+
 # -----------------------------------------------------------------------------
-# Interrupts handlers
+# Command Table
+# -----------------------------------------------------------------------------
+
+cmdAddresses:
+    .word   cmdEnd
+    .word   cmdGo
+    .word   cmdHelp
+    .word   cmdTest
+    .word   cmdPi
+    .word   cmdEnd
+
+cmdStrings:
+    .string "."
+    .string "go"
+    .string "help"
+    .string "test"
+    .string "pi"
+    .byte   0
+    .align  2,0
+
+# ---------------------------------------------------------
+
+cmdEnd:
+    li      a0, 1
+    ret
+
+# --------------------------------------------------------------
+
+cmdGo:
+    PUSH    ra
+    jal     read_hex
+    beqz    a2, BadAddress
+    jalr    ra, a1
+    mv      a0, zero
+    POP     ra
+    ret
+
+BadAddress:
+    SYS     OS_ERROR
+    .byte   252
+    .string "Bad address"
+    .align  2,0
+
+# --------------------------------------------------------------
+
+cmdHelp:
+    PUSH     ra
+    la      a0, HelpMessage
+    jal     print_string
+    li      a0, 1
+    POP     ra
+    ret
+
+# TODO: Version should come from VERSION definition
+
+HelpMessage:
+    .string "RISC-V 0.20\n\r"
+    .align  2,0
+
+# --------------------------------------------------------------
+
+cmdTest:
+    PUSH    ra
+    jal     read_hex
+    beqz    a2, BadAddress
+    jal     print_hex_word
+    li      a0, ' '
+    SYS     OS_WRCH
+    jal     print_dec_word
+    SYS     OS_NEWL
+    mv      a0, zero
+    POP     ra
+    ret
+
+# --------------------------------------------------------------
+
+cmdPi:
+    PUSH    ra
+    jal     read_dec
+    beqz    a2, BadNumber
+
+    # Save param
+    PUSH    a1
+
+    # Set TIME to using OSWORD 2
+    li      a0, 0x02
+    la      a1, osword_pblock
+    sw      zero, 0(a1)
+    sw      zero, 4(a1)
+    SYS     OS_WORD
+
+    # Restore param
+    POP     a0
+    PUSH    a0
+
+    # Print param (in a1)
+    jal     print_dec_word
+    SYS     OS_NEWL
+
+    # Restore param
+    pop     a0                          # ndigits
+    li      a1, 0                       # some memory to use as workspace
+    # Do some real work
+    jal     pi_calc
+    SYS     OS_NEWL
+
+    # Read TIME using OSWORD 1
+    li      a0, 0x01
+    la      a1, osword_pblock
+    SYS     OS_WORD
+
+    # Print the LS word in decimal
+    la      a1, osword_pblock
+    lw      a0, (a1)
+    jal     print_dec_word
+    SYS     OS_NEWL
+
+    mv      a0, zero
+    POP     ra
+    ret
+
+BadNumber:
+    SYS     OS_ERROR
+    .byte   252
+    .string "Bad number"
+    .align  2,0
+
+osword_pblock:
+    .word 0
+    .word 0
+
+# -----------------------------------------------------------------------------
+# Exception handler
 # -----------------------------------------------------------------------------
 
 DefaultECallHandler:
@@ -929,23 +1009,9 @@ BadECall:
     .string "Bad ECall"
     .align  2,0
 
-ECallHandlerTable:
-    .word   osQUIT                      # ECALL  0
-    .word   osCLI                       # ECALL  1
-    .word   osBYTE                      # ECALL  2
-    .word   osWORD                      # ECALL  3
-    .word   osWRCH                      # ECALL  4
-    .word   osNEWL                      # ECALL  5
-    .word   osRDCH                      # ECALL  6
-    .word   osFILE                      # ECALL  7
-    .word   osARGS                      # ECALL  8
-    .word   osBGET                      # ECALL  9
-    .word   osBPUT                      # ECALL 10
-    .word   osGBPB                      # ECALL 11
-    .word   osFIND                      # ECALL 12
-    .word   osSYSCTRL                   # ECALL 13
-    .word   osSETHANDLERS               # ECALL 14
-    .word   osERROR                     # ECALL 15
+# -----------------------------------------------------------------------------
+# Interrupt handler
+# -----------------------------------------------------------------------------
 
 InterruptHandler:
     PUSH    t0
@@ -1009,7 +1075,7 @@ r1_irq_escape:
 
 r4_irq:
     lb      t0, R4DATA(gp)
-    bgez    t0, LFD65                   # b7=0, jump for data transfer
+    bgez    t0, r4_datatransfer         # b7=0, jump for data transfer
 
 # Error    R4: &FF R2: &00 err string &00
 
@@ -1039,7 +1105,7 @@ err_loop:
 # Transfer R4: action ID block sync R3: data
 #
 
-LFD65:
+r4_datatransfer:
     PUSH    ra
     PUSH    a0
     PUSH    t1                          # working register for transfer type
@@ -1217,23 +1283,6 @@ Type7lp:
     bgez    t1, Type7lp
     j       Release
 
-# -----------------------------------------------------------------------------
-# DEFAULT VECTOR TABLE
-# -----------------------------------------------------------------------------
-
-DefaultHandlers:
-    .word   DefaultExitHandler
-    .word   VERSION
-    .word   DefaultEscapeHandler
-    .word   ESCFLG
-    .word   DefaultErrorHandler
-    .word   ERRBLK
-    .word   DefaultEventHandler
-    .word   0
-    .word   DefaultIRQHandler
-    .word   0
-    .word   DefaultECallHandler
-    .word   ECallHandlerTable
 
 # -----------------------------------------------------------------------------
 # Helper methods
@@ -1582,35 +1631,3 @@ SendStringR2Lp:
     POP     a1
     POP     ra
     ret
-
-# -----------------------------------------------------------------------------
-# Command Table
-# -----------------------------------------------------------------------------
-
-cmdAddresses:
-    .word    cmdEnd
-    .word    cmdGo
-    .word    cmdHelp
-    .word    cmdTest
-    .word    cmdPi
-    .word    cmdEnd
-
-cmdStrings:
-    .string  "."
-    .string  "go"
-    .string  "help"
-    .string  "test"
-    .string  "pi"
-    .byte 0
-
-# -----------------------------------------------------------------------------
-# Messages
-# -----------------------------------------------------------------------------
-
-BannerMessage:
-   .string "\nRISC-V Co Processor\n\n\r"
-
-# TODO: Version should come from VERSION definition
-
-HelpMessage:
-    .string "RISC-V 0.20\n\r"
