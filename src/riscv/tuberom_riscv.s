@@ -824,10 +824,10 @@ osword0_param_block:
 # --------------------------------------------------------------
 
 osWRCH:
-    lw      t0, R1STATUS(gp)
+    lb      t0, R1STATUS(gp)
     andi    t0, t0, 0x40
     beq     t0, zero, osWRCH
-    sw      a0, R1DATA(gp)
+    sb      a0, R1DATA(gp)
     ret
 
 # --------------------------------------------------------------
@@ -1036,8 +1036,8 @@ LFD65:
     jal     WaitByteR4                  # block address LSB
     slli    t2, t2, 8
     or      t2, t2, a0
-    lw      t0, R3DATA(gp)
-    lw      t0, R3DATA(gp)
+    lb      t0, R3DATA(gp)
+    lb      t0, R3DATA(gp)
     jal     WaitByteR4                  # sync
 
     la      t0, TransferHandlerTable
@@ -1078,10 +1078,9 @@ Type0:
     andi    t0, t0, 0x40
     beqz    t0, Type0
     lb      t0, (t2)
-    sw      t0, R3DATA(gp)
+    sb      t0, R3DATA(gp)
     addi    t2, t2, 1
     j       Type0
-
 
 # ============================================================
 # Type 1 transfer: 1-byte host -> parasite (LOAD)
@@ -1095,32 +1094,102 @@ Type1:
     bltz    t0, Release
     lb      t0, R3STATUS(gp)
     bgez    t0, Type1
-    lw      t0, R3DATA(gp)
+    lb      t0, R3DATA(gp)
     sb      t0, (t2)
     addi    t2, t2, 1
     j       Type1
 
+# ============================================================
+# Type 2 transfer: 2-byte parasite -> host (SAVE)
+#
+# t0 - scratch register
+# t2 - address register (memory address)
+# ============================================================
+
 Type2:
-    # TODO
-    j       Release
+    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
+    bltz    t0, Release
+    lb      t0, R3STATUS(gp)
+    andi    t0, t0, 0x40
+    beqz    t0, Type2
+    lh      t0, (t2)                    # load half word from memory
+    sb      t0, R3DATA(gp)              # store lo byte to tube
+    srli    t0, t0, 8
+    sb      t0, R3DATA(gp)              # store hi byte to tube
+    addi    t2, t2, 2
+    j       Type2
+
+# ============================================================
+# Type 3 transfer: 2-byte host -> parasite (LOAD)
+#
+# t0 - scratch register
+# t2 - address register (memory address)
+# ============================================================
 
 Type3:
-    # TODO
-    j       Release
+    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
+    bltz    t0, Release
+    lb      t0, R3STATUS(gp)
+    bgez    t0, Type3
+    lb      t0, R3DATA(gp)
+    sb      t0, (t2)                    # store lo byte to memory
+    lb      t1, R3DATA(gp)
+    sb      t0, 1(t2)                   # store hi byte to memory
+    addi    t2, t2, 2
+    j       Type3
+
+# ============================================================
+# Type 4 transfer: Execute Code
+#
+# t0 - scratch register
+# t2 - address register (memory address)
+# ============================================================
 
 Type4:
     la      t0, IRQADDR
     sw      t2, (t0)
     j       Release
 
+# ============================================================
+# Type 6 transfer: 256-byte parasite -> host
+#
+# t0 - scratch register
+# t1 - loop counter
+# t2 - address register (memory address)
+# ============================================================
+
 Type6:
-    # TODO
+    li      t1, 0xff
+Type6lp:
+    lb      t0, R3STATUS(gp)
+    andi    t0, t0, 0x40
+    beqz    t0, Type6lp
+    lb      t0, (t2)
+    sb      t0, R3DATA(gp)
+    addi    t2, t2, 1
+    addi    t1, t1, -1
+    bgez    t1, Type6lp
     j       Release
+
+# ============================================================
+# Type 7 transfer: 256-byte host -> parasite
+#
+# t0 - scratch register
+# t1 - loop counter
+# t2 - address register (memory address)
+# ============================================================
 
 Type7:
-    # TODO
+    li      t1, 0xff
+Type7lp:
+    lb      t0, R3STATUS(gp)
+    bgez    t0, Type7lp
+    lb      t0, R3DATA(gp)
+    sb      t0, (t2)
+    addi    t2, t2, 1
+    addi    t1, t1, -1
+    bgez    t1, Type7lp
     j       Release
-
 
 # -----------------------------------------------------------------------------
 # DEFAULT VECTOR TABLE
@@ -1488,7 +1557,7 @@ read_hex_1_invalid:
 WaitByteR1:
     lb      t0, R1STATUS(gp)
     bgez    t0, WaitByteR1
-    lw      a0, R1DATA(gp)
+    lbu     a0, R1DATA(gp)
     ret
 
 # --------------------------------------------------------------
@@ -1496,7 +1565,7 @@ WaitByteR1:
 WaitByteR2:
     lb    t0, R2STATUS(gp)
     bgez  t0, WaitByteR2
-    lw    a0, R2DATA(gp)
+    lbu   a0, R2DATA(gp)
     ret
 
 # --------------------------------------------------------------
@@ -1504,7 +1573,7 @@ WaitByteR2:
 WaitByteR4:
     lb    t0, R4STATUS(gp)
     bgez  t0, WaitByteR4
-    lw    a0, R4DATA(gp)
+    lbu   a0, R4DATA(gp)
     ret
 
 # --------------------------------------------------------------
@@ -1513,7 +1582,7 @@ SendByteR2:
     lw    t0, R2STATUS(gp)
     andi  t0, t0, 0x40
     beqz  t0, SendByteR2
-    sw    a0, R2DATA(gp)
+    sb    a0, R2DATA(gp)
     ret
 
 # --------------------------------------------------------------
