@@ -1,3 +1,4 @@
+.equ     VERSION, 0x0020
 
 .equ     MEM_BOT, 0x00000000
 .equ     MEM_TOP, 0x00F00000
@@ -34,6 +35,8 @@
 .equ OS_SET_HANDLERS , 14
 .equ OS_ERROR        , 15
 
+.equ BUFSIZE         , 0x80             # size of the Error buffer and Input Buffer
+
 .globl _start
 
 .macro PUSH reg
@@ -52,15 +55,6 @@
     jalr    zero, t0
 .endm
 
-# TODO: Error message should really follow the osERROR system call
-
-.macro ERROR address
-    la      t0, \address
-    la      t1, LAST_ERR
-    sw      t0, (t1)
-    SYS     OS_ERROR
-.endm
-
 .macro SYS number
     li      a7, \number
     ecall
@@ -71,7 +65,11 @@
 _start:
     j       ResetHandler
 
-# Handlers are patterned on JHG's pdp11 client ROM
+ESCFLG:     .word 0                     # escape flag
+
+#
+# Handlers are patterned on JGH's pdp11 client ROM:
+# https://mdfs.net/Software/Tube/PDP11/Tube11.src
 #
 
 Handlers:
@@ -85,21 +83,17 @@ ERRADDR:    .word 0                     # Address of error buffer
 EVENTV:     .word 0                     # Address of event handler
 EVENTADDR:  .word 0                     # unused
 IRQV:       .word 0                     # Address of unknown IRQ handler
-IRQADDR:    .word 0                     # Data transfer address within IRQ handler
+IRQADDR:    .word 0                     # Tube Execution Address
 ECALLV:     .word 0                     # Old SP within ECall handler
 ECALLADDR:  .word 0                     # Address of ECall dispatch table
 
-.align 8
+    .align  8,0
 
-ERRBUF:
-INPBUF:
-            .zero 0x80
-INPEND:
+ERRBLK:
+    .zero   BUFSIZE
 
-ADDR:       .word 0                     # tube execution address
-TMP_DBG:    .word 0                     # tmp store for debugging
-LAST_ERR:   .word 0                     # last error
-ESCAPE_FLAG:.word 0                     # escape flag
+CLIBUF:
+    .zero   BUFSIZE
 
 ResetHandler:
     li      gp, TUBE                    # setup the register that points to the tube (TODO: Probably a bad idea to use a register like this!)
@@ -149,7 +143,7 @@ CmdOSLoop:
 
     bltz    a2, CmdOSEscape
 
-    la      a0, INPBUF
+    la      a0, CLIBUF
     SYS     OS_CLI
 
     j       CmdOSLoop
@@ -157,29 +151,57 @@ CmdOSLoop:
 CmdOSEscape:
     li      a0, 0x7e
     SYS     OS_BYTE
-    ERROR   EscapeError
+
+    SYS     OS_ERROR
+    .byte   17
+    .string "Escape"
+    .align  2,0
+
+# --------------------------------------------------------------
+# Default Error Handler
+#
+# On Entry:
+#   a0 points to the error block
 
 DefaultErrorHandler:
     li      sp, STACK                   # setup the stack
     SYS     OS_NEWL
-    la      a0, LAST_ERR
-    lw      a0, (a0)
     addi    a0, a0, 1
     jal     print_string
     SYS     OS_NEWL
     j       DefaultExitHandler
 
+# --------------------------------------------------------------
+# Default Escape Handler
+#
+# On Entry:
+#   a0 is the escape flag value byte as transferred over the tube (b7=1 b6=flag)
+
 DefaultEscapeHandler:
     add     a0, a0, a0
-    la      t0, ESCAPE_FLAG             # TODO: need one level of indirection
+    la      t0, ESCADDR                 # ESCADDR holds the address of the escape flag
+    lw      t0, (t0)                    # so an extra indirection is required
     sb      a0, (t0)
     ret
 
-DefaultIRQHandler:
-    mret
+# --------------------------------------------------------------
+# Default Event Handler
+#
+# On Entry:
+#   a0 is the event number    (A)
+#   a1 is the first parameter (X)
+#   a2 is the first parameter (Y)
 
 DefaultEventHandler:
     ret
+
+# --------------------------------------------------------------
+# Default Interrupt Handler
+#
+# This is called when an unrecognised interrupt is detected
+
+DefaultIRQHandler:
+    mret
 
 # --------------------------------------------------------------
 # MOS interface
@@ -193,7 +215,13 @@ osQUIT:
 # --------------------------------------------------------------
 
 osERROR:
-    JMPI    ERRV
+    lw     a0, (sp)                     # (sp) holds the stacked mepc which is the ecall address
+    addi   a0, a0, 4                    # step past the ecall instruction
+    la     t0, ERRV
+    lw     t0, (t0)
+    addi   t0, t0, -4
+    sw     t0, 0(sp)                    # force ecall handler to return to the error handler
+    ret                                 # rather than the original user program
 
 # --------------------------------------------------------------
 
@@ -788,8 +816,8 @@ RdLineExit:
 # --------------------------------------------------------------
 
 osword0_param_block:
-     .word INPBUF
-     .word INPEND - INPBUF
+     .word CLIBUF
+     .word BUFSIZE
      .word 0x20
      .word 0xFF
 
@@ -837,7 +865,7 @@ DefaultECallHandler:
 
     # A7 contains the system call number
     li      t0, NUM_ECALLS
-    bgeu    a7, t0, BadECallError
+    bgeu    a7, t0, BadECall
 
     la      t0, ECallHandlerTable
     add     t0, t0, a7
@@ -870,26 +898,28 @@ DefaultECallHandler:
     mret
 
 BadECall:
-    ERROR   BadECallError
+    SYS     OS_ERROR
+    .byte   255                         # re-use "Bad" error code
+    .string "Bad ECall"
+    .align  2,0
 
 ECallHandlerTable:
-
-    .word osQUIT        # ECALL  0
-    .word osCLI         # ECALL  1
-    .word osBYTE        # ECALL  2
-    .word osWORD        # ECALL  3
-    .word osWRCH        # ECALL  4
-    .word osNEWL        # ECALL  5
-    .word osRDCH        # ECALL  6
-    .word osFILE        # ECALL  7
-    .word osARGS        # ECALL  8
-    .word osBGET        # ECALL  9
-    .word osBPUT        # ECALL 10
-    .word osGBPB        # ECALL 11
-    .word osFIND        # ECALL 12
-    .word osSYSCTRL     # ECALL 13
-    .word osSETHANDLERS # ECALL 14
-    .word osERROR       # ECALL 15
+    .word   osQUIT                      # ECALL  0
+    .word   osCLI                       # ECALL  1
+    .word   osBYTE                      # ECALL  2
+    .word   osWORD                      # ECALL  3
+    .word   osWRCH                      # ECALL  4
+    .word   osNEWL                      # ECALL  5
+    .word   osRDCH                      # ECALL  6
+    .word   osFILE                      # ECALL  7
+    .word   osARGS                      # ECALL  8
+    .word   osBGET                      # ECALL  9
+    .word   osBPUT                      # ECALL 10
+    .word   osGBPB                      # ECALL 11
+    .word   osFIND                      # ECALL 12
+    .word   osSYSCTRL                   # ECALL 13
+    .word   osSETHANDLERS               # ECALL 14
+    .word   osERROR                     # ECALL 15
 
 InterruptHandler:
     PUSH    t0
@@ -958,10 +988,10 @@ r4_irq:
 # Error    R4: &FF R2: &00 err string &00
 
     PUSH    ra
-    PUSH    a0
     PUSH    t1
     jal     WaitByteR2                  # Skip data in Tube R2 - should be 0x00
-    la      t1, ERRBUF
+    la      t1, ERRADDR                 # ERRADDR is the address of the error buffer
+    lw      t1, (t1)                    # so an extra level of indirection is required
     jal     WaitByteR2                  # Get error number
     sb      a0, (t1)
 err_loop:
@@ -969,8 +999,15 @@ err_loop:
     jal     WaitByteR2                  # Get error message bytes
     sb      a0, (t1)
     bnez    a0, err_loop
-
-    ERROR   ERRBUF
+    POP     t1
+    POP     ra
+    la      a0, ERRADDR                 # ERRADDR is the address of the error buffer
+    lw      a0, (a0)                    # so an extra level of indirection is required
+    la      t0, ERRV
+    lw      t0, (t0)
+    csrw    mepc, t0                    # replace interrupt return address with that of error handler
+    POP     t0
+    mret
 
 #
 # Transfer R4: action ID block sync R3: data
@@ -1072,7 +1109,7 @@ Type3:
     j       Release
 
 Type4:
-    la      t0, ADDR
+    la      t0, IRQADDR
     sw      t2, (t0)
     j       Release
 
@@ -1091,17 +1128,17 @@ Type7:
 
 DefaultHandlers:
     .word   DefaultExitHandler
-    .word   0
+    .word   VERSION
     .word   DefaultEscapeHandler
-    .word   0
+    .word   ESCFLG
     .word   DefaultErrorHandler
-    .word   0
+    .word   ERRBLK
     .word   DefaultEventHandler
     .word   0
     .word   DefaultIRQHandler
     .word   0
     .word   DefaultECallHandler
-    .word   0
+    .word   ECallHandlerTable
 
 # -----------------------------------------------------------------------------
 # Helper methods
@@ -1550,13 +1587,7 @@ cmdStrings:
 BannerMessage:
    .string "\nRISC-V Co Processor\n\n\r"
 
-EscapeError:
-    .byte 17
-    .string "Escape"
-
-BadECallError:
-    .byte 255                           # re-use "Bad" error code
-    .string "Bad ECall"
+# TODO: Version should come from VERSION definition
 
 HelpMessage:
-    .string "RISC-V 0.10\n\r"
+    .string "RISC-V 0.20\n\r"
