@@ -3033,7 +3033,7 @@ handle_nmi_jit:
    mov   reg4, #2                   // constant used by jsr rts
    rsb   reg2,reg4,#0x200           // constant used by jsr
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
-   INTR  -4, 0
+   INTR  -6, 0
 
 noirq_jit:
 
