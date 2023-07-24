@@ -14,7 +14,7 @@
 #  r4 - unused
 #  r5 - debug pin mask (0 = no debug  xx= debug pin e.g 1<<21)
 
-# Intenal register allocation
+# Internal register allocation
 #  r0 - pointer to shared memory ( VC address) of tube registers
 #  r1 - scratch
 #  r2 - tube_delay
