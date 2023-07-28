@@ -609,17 +609,14 @@ int user_exec_fn(FunctionPtr_Type f, unsigned int param ) {
   // setTubeLibDebug(1);
   // The machine code version in copro-armnativeasm.S does the real work
   // of dropping down to user mode
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-  ret = _user_exec((unsigned char *)f, param, 0, 0);
-#pragma GCC diagnostic pop
+  ret = _user_exec_fn(f, param, 0, 0);
   if (DEBUG_ARM) {
     printf("Execution returned from %08x ret = %08x cpsr = %08x\r\n", (unsigned int)f, ret, _get_cpsr());
   }
   return ret;
 }
 
-void user_exec_raw(volatile unsigned char *address) {
+void user_exec_raw(unsigned char * address) {
   unsigned int off;
   unsigned int carry = 0, r0 = 0, r1 = 0, r12 = 0; // Entry parameters
   if (DEBUG_ARM) {
@@ -641,10 +638,7 @@ void user_exec_raw(volatile unsigned char *address) {
   if (address[off+0]==0 && address[off+1]=='(' && address[off+2]=='C' && address[off+3]==')') {
     // BBC header
     if ((address[6] & 0x4F) != 0x4D) {
-      #pragma GCC diagnostic push
-      #pragma GCC diagnostic ignored "-Wcast-qual"
       generate_error((void *) address, 249, "This is not ARM code");
-      #pragma GCC diagnostic pop
       return;
     } else {
       r0 = 1;       // Entering code with a BBC header

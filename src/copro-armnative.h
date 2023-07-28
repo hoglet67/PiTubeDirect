@@ -19,12 +19,14 @@
 #if !defined(__ASSEMBLER__)
 
 #include "tube-env.h"
+#include "tube-swi.h"
 
 extern void copro_armnative_fiq_handler();
 extern void copro_armnative_swi_handler();
 extern void copro_armnative_enable_mailbox();
 extern void copro_armnative_disable_mailbox();
-extern int  _user_exec(volatile unsigned char *address, unsigned int r0, unsigned int r1, unsigned int r2);
+extern int  _user_exec(unsigned char* address, unsigned int r0, unsigned int r1, unsigned int r2);
+extern int  _user_exec_fn(FunctionPtr_Type address, unsigned int r0, unsigned int r1, unsigned int r2);
 extern void _error_handler_wrapper(unsigned int r0, unsigned int r12, EnvironmentHandler_type errorHandler);
 extern void _escape_handler_wrapper(unsigned int flag, unsigned int workspace, EnvironmentHandler_type escapeHandler);
 extern void _exit_handler_wrapper(unsigned int r12, EnvironmentHandler_type exitHandler);

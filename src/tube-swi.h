@@ -46,7 +46,7 @@ typedef int (*FunctionPtr_Type) ();
 
 // Function prototypes
 int  user_exec_fn(FunctionPtr_Type f, unsigned int param);
-void user_exec_raw(volatile unsigned char *address);
+void user_exec_raw(unsigned char * address);
 void handler_not_implemented(const char *type);
 void generate_error(void * address, unsigned int errorNum, const char *errorMsg);
 

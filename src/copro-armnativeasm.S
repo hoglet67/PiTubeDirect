@@ -9,6 +9,7 @@
 .global copro_armnative_swi_handler
 
 .global _user_exec
+.global _user_exec_fn
 .global _error_handler_wrapper
 .global _escape_handler_wrapper
 .global _exit_handler_wrapper
@@ -155,6 +156,7 @@ copro_armnative_swi_handler:
     msr      spsr_cf, r0          // Restore spsr.
     ldmfd    sp!, {r0-r11,r12,pc}^// Restore registers and return.
 
+_user_exec_fn:
 _user_exec:
 
     // This must only be called from supervisor mode....

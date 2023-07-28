@@ -10,7 +10,7 @@
 #include "tube-ula.h"
 #include "tube-isr.h"
 
-volatile unsigned char *tube_address;
+unsigned char *tube_address;
 static unsigned int count;
 static unsigned int signature;
 
