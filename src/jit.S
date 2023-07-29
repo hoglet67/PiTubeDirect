@@ -28,6 +28,11 @@
 // instruction doesn't need to set the flags. This can help to remove pipeline stalls
 // especially after a ldrb instruction
 
+// known issues
+//     JSR/RTS doesn't handle stack wrapping correctly
+//     Using JSR / PHA / PHX /PHY to create self modifying code on the stack doesn't work
+//
+
 #define JITDEBUG 0
 //#define DORMANN_TEST 1
 //#define DEBUG_TIMING 1
@@ -500,13 +505,18 @@ then return to our secret stack This relies on instructions being re entrant , b
 
 .macro INTR vector setbrk  fake     // vector is -2 for IRQ/BRK or -6 for NMI
                                 // setbrk should be 1 for BRK, 0 for IRQ/NMI
-   sub   regSP, regSP, #2
    mov   temp, #0x10000
 .ifc \fake, FAKE
    sub   temp1,temp,#1         // 0xFFFF
-.endif
-   strh  temp1, [regSP,#1]         // slight risk of over running the stack
    orr   regSP, #0x0100
+.endif
+
+   mov     temp0, temp1, LSR #8    // stack PC
+   strb    temp0, [regSP],#-1
+   orr     regSP, regSP, #0x100
+   strb    temp1, [regSP],#-1
+   orr     regSP, regSP, #0x100
+
    ldrh  temp0, [temp, #\vector]     // Fetch the vector address
 
 .if \setbrk
@@ -537,9 +547,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro  PLP
-   uadd8 reg0,regSP,reg12
+   uadd8 reg0,regSP,reg1
    ldrb  reg0, [reg0]
-   uadd8 regSP,regSP,reg12
+   uadd8 regSP,regSP,reg1
 
    and   reg12, flags, #0xffffff00
    orr   reg12, reg12, reg0        // preserve the other bits in flags, e.g. the slowdown bit
@@ -646,11 +656,15 @@ Bopc_1F: // Opcode 1F - BBR1
    JITBBR 1
 
 Bopc_20: // Opcode 20 - JSR $0000
-   usub8  regSP, regSP, r4
+   usub8  regSP, regSP, reg4
    JITABS
    strh  reg1,[regSP,#1]
    .word JITLET-24
    nop
+Bopc_20_complex
+
+
+
 Bopc_21: // Opcode 21 - AND ($00,X)
    JITINDXLOGICAL ands
 Bopc_24: // Opcode 24 - BIT $00
@@ -674,7 +688,7 @@ Bopc_26_fast: // Opcode 26 - ROL $00
 Bopc_27: // Opcode 27 - RMB2 $00
    JITRMB 2
 Bopc_28: // Opcode 28 - PLP
-   mov   reg12, #1
+   mov   reg1, #1
    .word plp-12
 
 Bopc_2A: // Opcode 2A - ROL A
@@ -734,7 +748,7 @@ Bopc_3F: // Opcode 3F - BBR3
    JITBBR 3
 
 Bopc_40: // Opcode 40 - RTI
-   mov   reg12,#1
+   mov   reg1,#1
    .word rti-12
 Bopc_41: // Opcode 41 - EOR ($00,X)
    JITINDXLOGICAL eors
@@ -1016,8 +1030,8 @@ Bopc_98: // Opcode 98 - TYA
 Bopc_99: // Opcode 99 - STA $0000,Y
    JITABSXYST regA regY
 Bopc_9A: // Opcode 9A - TXS
-   bic   regSP, regSP, #0xFF             // clear lower nibble
-   orr   regSP, regSP, regX, lsr #24     // put X in lower nibble
+   add   reg12, ram6502, #0x0100
+   orr   regSP, reg12, regX, lsr #24     // put X in lower nibble
 Bopc_9C: // Opcode 9C - STZ $0000
    JITABSSTORE ram6502
 Bopc_9C_iostore:
@@ -1542,7 +1556,15 @@ nop_end:
    B     dojitloop
 
 opc_20: // Opcode 20 - JSR $0000
+   // if we are doing JSR which is in the stack area of memory we need to use a
+   // sub optimal version to work around the issue BigEd discovered.
    LDMIA r9,{r7,r8,r9,r10,r11}
+
+   CMP   R6,#0x200<<JITLETSHIFT
+   blt   complexjsr
+   CMP   R6,#0x0FE<<JITLETSHIFT
+   bge   complexjsr
+
    orr   r4, r4, r5, LSL #8
    add   temp0,temp2,#2
    and   temp1,temp0,#0xFF
@@ -1556,6 +1578,10 @@ opc_20: // Opcode 20 - JSR $0000
    BIC   r11,r11,#0xFF000000
    ORR   r11,r11,#BINSTRUCTION
    B     jitend3byteexitstore6
+
+complexjsr:
+
+  B     jitend3byteexitstore6
 
 opc_24: // Opcode 24 - BIT $00
    ldrd  r8,[r9]
@@ -1975,6 +2001,7 @@ fiq_during_irq:               // we can get here from ARM FIQ or ARM IRQ handler
    strd  r0,fiqtemp           // store r0,r1 to give register space
    strd  r2,fiqtemp+8
    mov   r0, #FAKESTACK
+   orr   regSP, regSP, #0x100
    orr   r0, r0, regSP, LSL #6
    mrs   r1 , SPSR
    STMFD r0!,{r1}             // save CPSR to FAKE FIQ stack
@@ -2012,6 +2039,7 @@ rtiended:
 noirq:
 
    mov   reg12, #FAKESTACK
+   orr   regSP, regSP, #0x100
    orr   reg12, regSP, LSL #6
 
    ldrd  r0,[reg12,#-8]       // get SPSR and lr
@@ -3045,17 +3073,17 @@ debugopcode:
 #endif
    bx    lr
 
+opc_00: // Opcode 00 - BRK
+   ldrd  r8,[r9]
+   MAKEBRANCHLINK r9
+   B singleopcodeexitstore
+
+opc_40: // Opcode 40 - RTI
 opc_60: // Opcode 60 - RTS
    ldrd r8,[r9]
    sub r9,r9,r6
    mov r9,r9,LSR #BYTEWORDSHIFT
    ORR r9,r9,#BINSTRUCTION
-   B singleopcodeexitstore
-
-opc_00: // Opcode 00 - BRK
-opc_40: // Opcode 40 - RTI
-   ldrd  r8,[r9]
-   MAKEBRANCHLINK r9
 singleopcodeexitstore:
    BL    fillinjittabledejit16bit1store
    B     dojitexit
@@ -3373,9 +3401,16 @@ brk:
 
 rti:
    PLP
-   ldrh  reg1, [regSP, #1]
+   uadd8 reg0,regSP,reg1
+   ldrb  reg0, [reg0]
+   uadd8 regSP,regSP,reg1
 
-   UADD8 regSP, regSP, reg4
+   uadd8 r14,regSP,reg1
+   ldrb  r14, [reg1]
+
+   uadd8 regSP,regSP,reg1
+
+   orr   reg1, reg0, r14, LSL #8
 
    add   reg0,reg1,#1
    cmp   reg0,#0x10000
