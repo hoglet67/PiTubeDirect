@@ -464,7 +464,9 @@ add_custom_command(
     TARGET tube-client POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} ./tube-client -O binary ${KERNEL_NAME}
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Convert the ELF output file to a binary image" )
+    COMMENT "Convert the ELF output file to a binary image"
+    COMMAND rm *.su
+    )
 
 # Generate a header file with the current git version in it
 
