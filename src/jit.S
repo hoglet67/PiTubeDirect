@@ -119,7 +119,10 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define ADDR1REGYCONST .word 0xe2881400
 #define MOVREGXCONST   .word 0xe3a0b400
 #define MOVREGYCONST   .word 0xe3a08400
+#define MOVR0CONSTLSB  .word 0xe3a00000
+#define MOVR1CONSTLSB  .word 0xe3a01000
 #define MOVR1CONST     .word 0xe3a01400
+#define MOVR12CONST     .word 0xe3a0C400
 #define CMPREGXCONST   .word 0xe35b0400
 #define CMPREGYCONST   .word 0xe3580400
 //   mov reg1,#0xFF<<8
@@ -306,6 +309,12 @@ then return to our secret stack This relies on instructions being re entrant , b
    mov   \reg,\reg,LSR #BYTEWORDSHIFT
    sub   \reg,\reg,r6,LSR #BYTEWORDSHIFT
    ORR   \reg,\reg,#BLINSTRUCTION
+.endm
+
+.macro MAKEBRANCH reg
+   mov   \reg,\reg,LSR #BYTEWORDSHIFT
+   sub   \reg,\reg,r6,LSR #BYTEWORDSHIFT
+   ORR   \reg,\reg,#BINSTRUCTION
 .endm
 
 // Macro for pushing a byte to the stack, whilst correctly handing wrapping
@@ -661,9 +670,13 @@ Bopc_20: // Opcode 20 - JSR $0000
    strh  reg1,[regSP,#1]
    .word JITLET-24
    nop
-Bopc_20_complex
-
-
+Bopc_20_jsronstack:
+   MOVR0CONSTLSB  // PC MSB
+   MOVR1CONSTLSB  // PC LSB
+   strb  r0, [ regSP],#-1
+   MOVR0CONSTLSB  // LSB opcode
+   orr   regSP, regSP, #0x100
+   .word jsr_onstack-28
 
 Bopc_21: // Opcode 21 - AND ($00,X)
    JITINDXLOGICAL ands
@@ -1558,30 +1571,33 @@ nop_end:
 opc_20: // Opcode 20 - JSR $0000
    // if we are doing JSR which is in the stack area of memory we need to use a
    // sub optimal version to work around the issue BigEd discovered.
+   sub   temp0,temp2,#0x0FE
+   CMP   temp0,#0x100
+   blt   make_jsr_onstack
+
    LDMIA r9,{r7,r8,r9,r10,r11}
-
-   CMP   R6,#0x200<<JITLETSHIFT
-   blt   complexjsr
-   CMP   R6,#0x0FE<<JITLETSHIFT
-   bge   complexjsr
-
    orr   r4, r4, r5, LSL #8
    add   temp0,temp2,#2
    and   temp1,temp0,#0xFF
    orr   r8,r8,temp0,LSR #8
    orr   r9,r9,temp1
-
    add   r11,r11,r4,LSL #JITLETSHIFT
-
    sub   r11,r11,r6
    mov   r11,r11,LSR #BYTEWORDSHIFT
    BIC   r11,r11,#0xFF000000
    ORR   r11,r11,#BINSTRUCTION
    B     jitend3byteexitstore6
 
-complexjsr:
-
-  B     jitend3byteexitstore6
+make_jsr_onstack:
+   add   r9,r9,#6*4
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   add   temp0,temp2,#2
+   and   temp1,temp0,#0xFF
+   orr   r7,r7,temp0,LSR #8
+   orr   r8,r8,temp1
+   orr   r10, r10, r4 // LSB of opcode
+   MAKEBRANCH r12
+   B     jitend3byteexitstore6
 
 opc_24: // Opcode 24 - BIT $00
    ldrd  r8,[r9]
@@ -3399,6 +3415,15 @@ brk:
    add   reg1,reg1,#1
    INTR  -2, 1
 
+jsr_onstack:
+   strb  reg1, [ regSP],#-1
+   ldrb  reg1, [reg1,#0x100]
+   orr   regSP, regSP, #0x100
+   orr   reg1,reg0,reg1,LSL #8
+   mov   reg0,#JITLET
+   add   reg0,reg0,reg1,LSL #JITLETSHIFT
+   bx    reg0
+
 rti:
    PLP
    uadd8 reg0,regSP,reg1
@@ -3406,7 +3431,7 @@ rti:
    uadd8 regSP,regSP,reg1
 
    uadd8 r14,regSP,reg1
-   ldrb  r14, [reg1]
+   ldrb  r14,[r14]
 
    uadd8 regSP,regSP,reg1
 
