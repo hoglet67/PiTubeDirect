@@ -32,7 +32,7 @@
 .equ OS_GBPB         , 11
 .equ OS_FIND         , 12
 .equ OS_SYS_CTRL     , 13
-.equ OS_SET_HANDLERS , 14
+.equ OS_HANDLERS     , 14
 .equ OS_ERROR        , 15
 
 .equ BUFSIZE         , 0x80             # size of the Error buffer and Input Buffer
@@ -247,7 +247,7 @@ ECallHandlerTable:
     .word   osGBPB                      # ECALL 11
     .word   osFIND                      # ECALL 12
     .word   osSYSCTRL                   # ECALL 13
-    .word   osSETHANDLERS               # ECALL 14
+    .word   osHANDLERS                  # ECALL 14
     .word   osERROR                     # ECALL 15
 
 # --------------------------------------------------------------
@@ -772,11 +772,87 @@ osSYSCTRL:
     ret
 
 # --------------------------------------------------------------
-# ECall 15 - OS SET HANDLERS
+# ECall 15 - OS HANDLERS
+#
+# Based on JGH's notes from:
+#     https://mdfs.net/Docs/Books/PDP11CoPro/Technical
+#
+# Reads and writes handlers and EMT dispatch table entries.
+#     a0>=0 - reads or writes EMT dispatch address:
+#             a0=EMT number
+#             a1=address of EMT routine, or zero to read
+#     On exit:
+#             a0 preserved
+#             a1 previous EMT dispatch address
+#
+#      a0<0 - reads or writes environment handler:
+#             a0=Environment handler number
+#             a1=address of environment hander or zero to read
+#             a2=address of environment data block or zero to read
+#     On exit:
+#             a0 preserved
+#             a1=previous environment handler address
+#             a2=previous environment data address
+#
+#     Environment handler numbers are:
+#       a0     a1                   a2
+#       &FFFF  Exit handler         version
+#       &FFFE  Escape handler       Escape flag (one byte)
+#       &FFFD  Error handler        Error buffer (256 bytes)
+#       &FFFC  Event handler        unused
+#       &FFFB  Unknown IRQ handler  (used during data transfer)
+#       &FFFA  (used during EMT)    EMT dispatch table (512 bytes)
+#
+#     Internal handlers:
+#       &FFF9  LPTR                 ADDRHI
+#       &FFF8  MEMBOT               MEMTOP
+#       &FFFA  ADDR                 TRANS
+#       &FFFB  PROG                 MISC+ESCFLG
+#
+#     The Exit handler is entered with a0=return value.
+#
+#     The Escape handler is entered with a0=new escape state in
+#     b6, must preserve all registers other than a0 and return
+#     with RTS PC.
+#
+#     The Error handler is entered with a0=>error block. Note that
+#     this may not be the address of the error buffer, the error
+#     buffer is used for dynamically generated error messages.
+#
+#     The Event handler is entered with a0,a1,a2 holding the event
+#     parameters, must preserve all registers, and return with RTS PC.
+#
+#     The Unknown IRQ handler must preserve all registers, and
+#     return with RTI.
+
 # --------------------------------------------------------------
 
-osSETHANDLERS:
-    # TODO
+# TODO: Implement R/W of ecall dispatch table
+
+osHANDLERS:
+    li      t0, 0xfffa
+    bltu    a0, t0, oshdone
+    li      t0, 0xffff
+    bgtu    a0, t0, oshdone
+
+    sub     a0, t0, a0                  # a0: 0,1,2,3,4,5
+    slli    a0, a0, 3                   # a0: 0,8,16,24,32,40
+    la      t0, Handlers
+    add     a0, a0, t0                  # a0: entry in handlers table
+
+    lw      t0, 0(a0)
+    beqz    a1, skip_write_a1
+    sw      a1, 0(a0)
+skip_write_a1:
+    mv      a1, t0
+
+    lw      t0, 4(a0)
+    beqz    a2, skip_write_a2
+    sw      a2, 4(a0)
+skip_write_a2:
+    mv      a2, t0
+
+oshdone:
     ret
 
 # --------------------------------------------------------------
