@@ -433,7 +433,8 @@ Byte82:                                 # Return &0000 as memory high word
 # --------------------------------------------------------------
 # ECall 3 - OSWORD
 # --------------------------------------------------------------
-# On entry: a0,a1,a2=OSBYTE parameters
+# On entry: a0 OSWORD number
+#           a1 OSWORD block
 # On exit:  a0 preserved
 #           If a0<&80, a1=returned value
 #           If a0>&7F, a1, a2, Carry=returned values
@@ -1050,9 +1051,36 @@ DefaultECallHandler:
     mret
 
 BadECall:
+    csrr    a0, mepc
+    jal     print_hex_word
+    li      a0, ':'
+    SYS     OS_WRCH
+    mv      a0, a7
+    jal     print_hex_word
+    li      a0, ':'
+    SYS     OS_WRCH
     SYS     OS_ERROR
     .byte   255                         # re-use "Bad" error code
     .string "Bad ECall"
+    .align  2,0
+
+# -----------------------------------------------------------------------------
+# Uncaught Exception Handler
+# -----------------------------------------------------------------------------
+
+UncaughtExceptionHandler:
+    push    t0
+    csrr    a0, mepc
+    jal     print_hex_word
+    li      a0, ':'
+    SYS     OS_WRCH
+    pop     a0
+    jal     print_hex_word
+    li      a0, ':'
+    SYS     OS_WRCH
+    SYS     OS_ERROR
+    .byte   255                         # re-use "Bad" error code
+    .string "Uncaught Exception"
     .align  2,0
 
 # -----------------------------------------------------------------------------
@@ -1062,7 +1090,10 @@ BadECall:
 InterruptHandler:
     PUSH    t0
     csrr    t0, mcause
-    bgez    t0, DefaultECallHandler     # TODO indirect through ecall vector??
+    addi    t0, t0, -11
+    beqz    t0, DefaultECallHandler     # TODO indirect through ecall vector??
+    csrr    t0, mcause
+    bgez    t0, UncaughtExceptionHandler
 
     # TODO: Check mcause = 11 (machine external interrupt) otherwise log
 
