@@ -582,8 +582,7 @@ word_out_len:
 #
 # On exit,  a0 = 0
 #           a1 = control block
-#           a2 = length of returned string
-#           Cy=0 ok, Cy=1 Escape
+#           a2 = length of returned string, or -1 to indicate escape
 #
 # Tube data  &0A block  --  &FF or &7F string &0D
 # --------------------------------------------------------------
@@ -662,7 +661,7 @@ osNEWL:
 # --------------------------------------------------------------
 # ECall 6 - OSRDCH - Wait for character from input stream
 # --------------------------------------------------------------
-# On exit: a0=char, a1=carry
+# On exit: a0=char, -1 if escape pressed
 # --------------------------------------------------------------
 
 osRDCH:
@@ -671,8 +670,13 @@ osRDCH:
     mv      a0, zero                    # Send command &00 - OSRDCH
     jal     SendByteR2
     jal     WaitByteR2                  # Receive carry
-    mv      a1, a0
+    PUSH    a0
     jal     WaitByteR2                  # Receive A
+    POP     t0
+    andi    t0, t0, 0x80
+    beqz    t0, rdch_done
+    li      a0, -1                      # -1 indicates EOF reached
+rdch_done:
     POP     ra
     ret
 
