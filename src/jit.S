@@ -557,9 +557,9 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro  PLP
-   uadd8 reg0,regSP,reg1
+   uadd8 reg0,regSP,reg4
    ldrb  reg0, [reg0]
-   uadd8 regSP,regSP,reg1
+   uadd8 regSP,regSP,reg4
 
    and   reg12, flags, #0xffffff00
    orr   reg12, reg12, reg0        // preserve the other bits in flags, e.g. the slowdown bit
@@ -3507,8 +3507,7 @@ rti:
    tst   reg0, #1                    // Test for IRQ
    bne   handle_irqrti
 dontdoirqnow:
-   mov   reg1,reg1,LSL #JITLETSHIFT
-   add   reg1,reg1,#JITLET
+   add   reg1,reg2,reg1,LSL #JITLETSHIFT
    msr   CPSR_flg, reg12              // Restore the 6502 flags
    bx    reg1
 
@@ -3647,9 +3646,9 @@ rts:
    uadd8 reg1,regSP,reg4
    ldrb  reg1, [reg1]
    uadd8 regSP,regSP,reg4
-   orr   reg0, reg0, reg1, LSL #8
-   add   reg12,reg2,reg0,LSL #JITLETSHIFT
-   bx    reg12
+   orr   reg1, reg0, reg1, LSL #8
+   add   reg1,reg2,reg1,LSL #JITLETSHIFT
+   bx    reg1
 
 rora:
    subcs   regA, regA, #0x100   // if Carry set all other bits ie sign extend
