@@ -735,14 +735,27 @@ osARGS:
 # ECall 9 - OSBGET - Get a byte from open file
 # --------------------------------------------------------------
 # On entry: a1=handle
-# On exit:  a0=byte Read
+# On exit:  a0=byte Read (0..255), or -1 if EOF reached
 #           a1=preserved
-#           Cy set if EOF
 # --------------------------------------------------------------
 
 osBGET:
-    # TODO
     # Tube data: &0E Y                             Cy A
+    PUSH    ra
+    li      a0, 0x0e
+    jal     SendByteR2                  # 0x0e
+    mv      a0, a1
+    jal     SendByteR2                  # Y
+
+    jal     WaitByteR2                  # Cy
+    PUSH    a0
+    jal     WaitByteR2                  # A
+    POP     t0
+    andi    t0, t0, 0x80
+    beqz    t0, bget_done
+    li      a0, -1                      # -1 indicates EOF reached
+bget_done:
+    POP     ra
     ret
 
 # --------------------------------------------------------------
@@ -782,9 +795,26 @@ osGBPB:
 # --------------------------------------------------------------
 
 osFIND:
-    # TODO
-    # Tube data: &12 &00 Y                         &7F
     # Tube data: &12 A string &0D                  A
+    PUSH    ra
+    PUSH    a0
+    li      a0, 0x12
+    jal     SendByteR2                      # 0x12
+    POP     a0
+    jal     SendByteR2                      # function
+    beqz    a0, osfind_close
+    mv      a0, a1
+    jal     SendStringR2                    # filename
+    jal     WaitByteR2                      # A
+    POP     ra
+    ret
+osfind_close:
+    # Tube data: &12 &00 Y                         &7F
+    mv      a0, a1
+    jal     SendByteR2                      # handle
+    jal     WaitByteR2
+    li      a0, 0
+    POP     ra
     ret
 
 # --------------------------------------------------------------
