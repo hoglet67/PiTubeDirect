@@ -679,16 +679,40 @@ osRDCH:
 # --------------------------------------------------------------
 # ECall 7 - OSFILE - Operate on whole files
 # --------------------------------------------------------------
-# On entry: a0=function
-#           a1=>control block
+# On entry: a0=reason
+#           a1=filename
+#           a2=block address
 # On exit:  a0=result
 #           a1 preserved
+#           a2 preserved
 #           control block updated
 # --------------------------------------------------------------
 
 osFILE:
-    # TODO
     # Tube data: &14 block string &0D A            A block
+    PUSH    ra
+    PUSH    a2                          # Save original a2
+    PUSH    a1                          # Save original a1
+    PUSH    a0                          # reason
+    PUSH    a1                          # filename
+    li      a0, 0x14
+    jal     SendByteR2                  # Send command &14 - OSFILE
+    li      a0, 16
+    mv      a1, a2
+    jal     SendBlockR2
+    POP     a0                          # filename
+    jal     SendStringR2
+    POP     a0                          # reason
+    jal     SendByteR2
+    jal     WaitByteR2
+    PUSH    a0                          # result
+    li      a0, 16
+    mv      a1, a2
+    jal     ReceiveBlockR2
+    POP     a0                          # result
+    POP     a1                          # restore original a1
+    POP     a2                          # restore original a2
+    POP     ra
     ret
 
 # --------------------------------------------------------------
