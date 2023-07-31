@@ -31,7 +31,7 @@
 // known issues
 //     JSR/RTS doesn't handle stack wrapping correctly
 //     Using JSR / PHA / PHX /PHY to create self modifying code on the stack doesn't work
-//
+//     indirect INC ( F6) /DEC self modifying code
 
 #define JITDEBUG 0
 //#define DORMANN_TEST 1
@@ -121,6 +121,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define MOVREGYCONST   .word 0xe3a08400
 #define MOVR0CONSTLSB  .word 0xe3a00000
 #define MOVR1CONSTLSB  .word 0xe3a01000
+#define MOVR12CONSTLSB .word 0xe3a0C000
 #define MOVR1CONST     .word 0xe3a01400
 #define MOVR12CONST     .word 0xe3a0C400
 #define CMPREGXCONST   .word 0xe35b0400
@@ -665,18 +666,32 @@ Bopc_1F: // Opcode 1F - BBR1
    JITBBR 1
 
 Bopc_20: // Opcode 20 - JSR $0000
-   usub8  regSP, regSP, reg4
-   JITABS
-   strh  reg1,[regSP,#1]
-   .word JITLET-24
-   nop
+   //usub8  regSP, regSP, reg4
+   //JITABS
+   //strh  reg1,[regSP,#1]
+   //.word JITLET-24
+   //nop
+   MOVR0CONSTLSB  // PC MSB
+   strb  reg0, [ regSP],#-1
+   MOVR0CONSTLSB  // PC LSB
+   orr   regSP, regSP, #0x100
+   .word jsrpush-24
+   .word JITLET-28
+
 Bopc_20_jsronstack:
    MOVR0CONSTLSB  // PC MSB
    MOVR1CONSTLSB  // PC LSB
-   strb  r0, [ regSP],#-1
+   strb  reg0, [ regSP],#-1
    MOVR0CONSTLSB  // LSB opcode
    orr   regSP, regSP, #0x100
    .word jsr_onstack-28
+
+//   add   reg0,jittedtable16ptr,regSP,LSL#JITTEDTABLESHIFT
+//   MOVR12CONSTLSB  // PC MSB
+//   MOVR1CONSTLSB  // PC LSB
+//   blx   reg0
+   .word jsr-24
+   .word JITLET-28
 
 Bopc_21: // Opcode 21 - AND ($00,X)
    JITINDXLOGICAL ands
@@ -825,7 +840,8 @@ Bopc_5F: // Opcode 5F - BBR5
    JITBBR 5
 
 Bopc_60: // Opcode 60 - RTS
-   ldrh  reg0,[regSP,#1]
+   //ldrh  reg0,[regSP,#1]
+   uadd8 reg0,regSP,reg4
    .word rts-12
 Bopc_61: // Opcode 61 - ADC ($00,X)
    ADDR1REGXZP
@@ -1575,6 +1591,35 @@ opc_20: // Opcode 20 - JSR $0000
    CMP   temp0,#0x100
    blt   make_jsr_onstack
 
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   orr   r4, r4, r5, LSL #8
+   add   temp0,temp2,#2
+   and   temp1,temp0,#0xFF
+   orr   r7,r7,temp0,LSR #8
+   orr   r9,r9,temp1
+   MAKEBRANCHLINK R11
+   add   r12,r12,r4,LSL #JITLETSHIFT
+   sub   r12,r12,r6
+   mov   r12,r12,LSR #BYTEWORDSHIFT
+   BIC   r12,r12,#0xFF000000
+   ORR   r12,r12,#BINSTRUCTION
+   B     jitend3byteexitstore6
+/*
+   LDMIA r9,{r7,r8,r9,r10,r11,r12}
+   orr   r4, r4, r5, LSL #8
+   add   temp0,temp2,#2
+   and   temp1,temp0,#0xFF
+   orr   r8,r8,temp0,LSR #8
+   orr   r9,r9,temp1
+   MAKEBRANCHLINK R11
+   add   r12,r12,r4,LSL #JITLETSHIFT
+   sub   r12,r12,r6
+   mov   r12,r12,LSR #BYTEWORDSHIFT
+   BIC   r12,r12,#0xFF000000
+   ORR   r12,r12,#BINSTRUCTION
+   B     jitend3byteexitstore6
+*/
+/*
    LDMIA r9,{r7,r8,r9,r10,r11}
    orr   r4, r4, r5, LSL #8
    add   temp0,temp2,#2
@@ -1587,7 +1632,7 @@ opc_20: // Opcode 20 - JSR $0000
    BIC   r11,r11,#0xFF000000
    ORR   r11,r11,#BINSTRUCTION
    B     jitend3byteexitstore6
-
+*/
 make_jsr_onstack:
    add   r9,r9,#6*4
    LDMIA r9,{r7,r8,r9,r10,r11,r12}
@@ -1921,7 +1966,7 @@ cacheflushloopjittable:
    CPSIE if // enable interrupts
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    mov   reg2,#JITLET
-   mov   reg4, #2 // constant used by jsr rts
+   mov   reg4, #1 // constant used by jsr rts
    add   reg2,reg2,#NEXTJITLET
    bx    r14
 
@@ -3055,7 +3100,7 @@ handle_irq_jit:
    mov   temp1,temp1,LSR #JITLETSHIFT
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    mov   reg2,#JITLET
-   mov   reg4, #2 // constant used by jsr rts
+   mov   reg4, #1 // constant used by jsr rts
    add   reg2,reg2,#NEXTJITLET
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    INTR  -2, 0
@@ -3068,7 +3113,7 @@ handle_nmi_jit:
    mov   temp1,temp1,LSR #JITLETSHIFT
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    mov   reg2,#JITLET
-   mov   reg4, #2 // constant used by jsr rts
+   mov   reg4, #1 // constant used by jsr rts
    add   reg2,reg2,#NEXTJITLET
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    INTR  -6, 0
@@ -3077,7 +3122,7 @@ noirq_jit:
 
    mov   reg2,#JITLET
    mov   r14, r3
-   mov   reg4, #2 // constant used by jsr rts
+   mov   reg4, #1 // constant used by jsr rts
    add   reg2,reg2,#NEXTJITLET
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
@@ -3415,6 +3460,19 @@ brk:
    add   reg1,reg1,#1
    INTR  -2, 1
 
+jsrpush:
+   strb  reg0, [ regSP],#-1
+   orr   regSP, regSP, #0x100
+   bx    lr
+
+jsr:
+   strb  reg12, [ regSP],#-1
+   orr   regSP, regSP, #0x100
+   add   reg0,jittedtable16ptr,regSP,LSL#JITTEDTABLESHIFT
+   strb  reg1, [ regSP],#-1
+   orr   regSP, regSP, #0x100
+   bx    reg0
+
 jsr_onstack:
    strb  reg1, [ regSP],#-1
    ldrb  reg1, [reg1,#0x100]
@@ -3584,8 +3642,13 @@ pla:
    bx lr
 
 rts:
+   ldrb  reg0, [reg0]
+   uadd8 regSP,regSP,reg4
+   uadd8 reg1,regSP,reg4
+   ldrb  reg1, [reg1]
+   uadd8 regSP,regSP,reg4
+   orr   reg0, reg0, reg1, LSL #8
    add   reg12,reg2,reg0,LSL #JITLETSHIFT
-   UADD8 regSP, regSP, reg4
    bx    reg12
 
 rora:
@@ -3611,7 +3674,7 @@ bitioload: //2c
    mov   reg4,r14
    BL    ioload
    mov   r14,reg4
-   mov   reg4,#2
+   mov   reg4,#1
    msr   CPSR, reg12         // Restore 6502 flags and FIQ/IRQ bits
 
 bitadjustr14:
