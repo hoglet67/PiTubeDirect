@@ -3484,16 +3484,16 @@ jsr_onstack:
 
 rti:
    PLP
-   uadd8 reg0,regSP,reg1
+   uadd8 reg0,regSP,reg4
    ldrb  reg0, [reg0]
-   uadd8 regSP,regSP,reg1
+   uadd8 regSP,regSP,reg4
 
-   uadd8 r14,regSP,reg1
-   ldrb  r14,[r14]
+   uadd8 reg1,regSP,reg4
+   ldrb  reg1,[reg1]
 
-   uadd8 regSP,regSP,reg1
+   uadd8 regSP,regSP,reg4
 
-   orr   reg1, reg0, r14, LSL #8
+   orr   reg1, reg0, reg1, LSL #8
 
    add   reg0,reg1,#1
    cmp   reg0,#0x10000
