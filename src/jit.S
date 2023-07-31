@@ -3506,7 +3506,8 @@ rti:
    tst   reg0, #1                    // Test for IRQ
    bne   handle_irqrti
 dontdoirqnow:
-   add   reg1,reg2,reg1,LSL #JITLETSHIFT
+   mov   reg1,reg1,LSL #JITLETSHIFT
+   add   reg1,reg1,#JITLET
    msr   CPSR_flg, reg12              // Restore the 6502 flags
    bx    reg1
 
