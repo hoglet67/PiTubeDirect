@@ -1,5 +1,6 @@
+#include <stdlib.h>
+
 int pi_calc(int n, int *r);
-static int atoi(char *c);
 
 int _start(char *params) {
    // Skip the filename
@@ -18,7 +19,7 @@ int _start(char *params) {
    }
    return 0;
 }
-
+#if 0
 static int atoi(char *c) {
    int res = 0;
    while (*c >= '0' && *c <= '9') {
@@ -27,3 +28,4 @@ static int atoi(char *c) {
    }
    return res;
 }
+#endif
