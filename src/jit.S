@@ -557,7 +557,6 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro  PLP
-   uadd8 reg0,regSP,reg4
    ldrb  reg0, [reg0]
    uadd8 regSP,regSP,reg4
 
@@ -716,7 +715,7 @@ Bopc_26_fast: // Opcode 26 - ROL $00
 Bopc_27: // Opcode 27 - RMB2 $00
    JITRMB 2
 Bopc_28: // Opcode 28 - PLP
-   mov   reg1, #1
+   uadd8 reg0,regSP,reg4
    .word plp-12
 
 Bopc_2A: // Opcode 2A - ROL A
@@ -776,7 +775,7 @@ Bopc_3F: // Opcode 3F - BBR3
    JITBBR 3
 
 Bopc_40: // Opcode 40 - RTI
-   mov   reg1,#1
+   uadd8 reg0,regSP,reg4
    .word rti-12
 Bopc_41: // Opcode 41 - EOR ($00,X)
    JITINDXLOGICAL eors
