@@ -664,11 +664,6 @@ Bopc_1F: // Opcode 1F - BBR1
    JITBBR 1
 
 Bopc_20: // Opcode 20 - JSR $0000
-   //usub8  regSP, regSP, reg4
-   //JITABS
-   //strh  reg1,[regSP,#1]
-   //.word JITLET-24
-   //nop
    MOVR0CONSTLSB  // PC MSB
    strb  reg0, [ regSP],#-1
    MOVR0CONSTLSB  // PC LSB
@@ -838,7 +833,6 @@ Bopc_5F: // Opcode 5F - BBR5
    JITBBR 5
 
 Bopc_60: // Opcode 60 - RTS
-   //ldrh  reg0,[regSP,#1]
    uadd8 reg0,regSP,reg4
    .word rts-12
 Bopc_61: // Opcode 61 - ADC ($00,X)
