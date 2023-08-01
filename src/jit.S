@@ -3075,6 +3075,9 @@ testforirq:
    CPSID if                      // IRQs must also be disabled if FIQs are disabled
    ldrb  r0, fiqjitflag
    mov   reg12, r4
+   mov   reg2,#JITLET
+   mov   reg4, #1 // constant used by jsr rts
+   add   reg2,reg2,#NEXTJITLET
    mov   r1, #0
    strb  r1, fiqjitflag
    cmp   r0, #2
@@ -3097,9 +3100,6 @@ handle_irq_jit:
    SUB   temp1,r3,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2,#JITLET
-   mov   reg4, #1 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    INTR  -2, 0
 
@@ -3110,18 +3110,11 @@ handle_nmi_jit:
    SUB   temp1,r3,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2,#JITLET
-   mov   reg4, #1 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    INTR  -6, 0
 
 noirq_jit:
-
-   mov   reg2,#JITLET
    mov   r14, r3
-   mov   reg4, #1 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    bx    r14   // this is slow on some system , but we have just flushed the cache which is slow
@@ -3633,7 +3626,6 @@ ply:
    bx lr
 
 pla:
-
    ldrsb regA, [regA]
    uadd8 regSP,regSP,reg4
    teq   regA, #0
