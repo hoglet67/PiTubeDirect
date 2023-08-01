@@ -934,7 +934,7 @@ Bopc_79: // Opcode 79 - ADC $0000,Y
    bic   flags, #V_FLAG6502
    .word ADC2-28
 Bopc_7A: // Opcode 7A - PLY
-   mov   reg1,#1
+   uadd8 regY,regSP,reg4
    .word ply-12
 Bopc_7C: // Opcode 7C - JMP ($0000,X)
    mov   reg1, regX, LSR #24
@@ -1465,7 +1465,7 @@ Bopc_F9: // Opcode F9 - SBC $0000,Y
    .word SBC2-28
 
 Bopc_FA: // Opcode FA - PLX
-   mov   reg1,#1
+   uadd8 regX,regSP,reg4
    .word plx-12
 Bopc_FB: // Opcode FB - NOP6
 #if defined(TIMING_INSTRUCTION)
@@ -3610,17 +3610,15 @@ incstore:
    bx lr
 
 plx:
-   uadd8 regX,regSP,reg1
    ldrsb  regX, [regX]
-   uadd8 regSP,regSP,reg1
+   uadd8 regSP,regSP,reg4
    teq   regX, #0
    mov   regX, regX, LSL #24
    bx lr
 
 ply:
-   uadd8 regY,regSP,reg1
    ldrsb  regY, [regY]
-   uadd8 regSP,regSP,reg1
+   uadd8 regSP,regSP,reg4
    teq   regY, #0
    mov   regY, regY, LSL #24
    bx lr
