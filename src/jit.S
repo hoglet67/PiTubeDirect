@@ -29,7 +29,6 @@
 // especially after a ldrb instruction
 
 // known issues
-//     JSR/RTS doesn't handle stack wrapping correctly
 //     Using JSR / PHA / PHX /PHY to create self modifying code on the stack doesn't work
 //     indirect INC ( F6) /DEC self modifying code
 
@@ -689,8 +688,8 @@ Bopc_20_jsronstack:
 //   MOVR12CONSTLSB  // PC MSB
 //   MOVR1CONSTLSB  // PC LSB
 //   blx   reg0
-   .word jsr-24
-   .word JITLET-28
+//   .word jsr-24
+//   .word JITLET-28
 
 Bopc_21: // Opcode 21 - AND ($00,X)
    JITINDXLOGICAL ands
@@ -867,7 +866,7 @@ Bopc_66: // Opcode 66 - ROR $00
 Bopc_67: // Opcode 67 - RMB6 $00
    JITRMB 6
 Bopc_68: // Opcode 68 - PLA
-   mov   reg1,#1
+   uadd8 regA,regSP,reg4
    .word pla-12
 Bopc_69: // Opcode 69 - ADC #$00
    mov   reg12,#00 // NB could save a cycle later on
@@ -3634,9 +3633,9 @@ ply:
    bx lr
 
 pla:
-   uadd8 regA,regSP,reg1
+
    ldrsb regA, [regA]
-   uadd8 regSP,regSP,reg1
+   uadd8 regSP,regSP,reg4
    teq   regA, #0
    bx lr
 
@@ -3670,10 +3669,16 @@ rola:
    bx lr
 
 bitioload: //2c
-   mov   reg4,r14
-   BL    ioload
-   mov   r14,reg4
-   mov   reg4,#1
+   mrs   reg12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   CPSID if                 // Disable FIQ/IRQ at the same time
+   push  {reg12,lr}
+
+   bl    tube_parasite_read // Call up to C code to handle parasite read
+
+   ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
+   mov   reg2, #JITLET
+   add   reg2,reg2,#NEXTJITLET
+   pop   {reg12, lr}               // Restore registers and return
    msr   CPSR, reg12         // Restore 6502 flags and FIQ/IRQ bits
 
 bitadjustr14:
