@@ -989,7 +989,7 @@ Bopc_8C: // Opcode 8C - STY $0000
    JITABSSTORE regY
 Bopc_8C_io: // Opcode 8C - STY $0000
    JITABS reg0
-   mov   reg12,#1
+   strb  reg4,fiqjitflag
    mov   reg1,regY,LSR #24
    mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
@@ -997,7 +997,7 @@ Bopc_8D: // Opcode 8D - STA $0000
    JITABSSTORE regA
 Bopc_8D_io: // Opcode 8D - STA $0000
    JITABS reg0
-   mov   reg12,#1
+   strb  reg4,fiqjitflag
    and   reg1,regA,#0xFF
    mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
@@ -1005,7 +1005,7 @@ Bopc_8E: // Opcode 8E - STX $0000
    JITABSSTORE regX
 Bopc_8E_io: // Opcode 8E - STX $0000
    JITABS reg0
-   mov   reg12,#1
+   strb  reg4,fiqjitflag
    mov   reg1,regX,LSR #24
    mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
@@ -1063,7 +1063,7 @@ Bopc_9C: // Opcode 9C - STZ $0000
    JITABSSTORE ram6502
 Bopc_9C_iostore:
    JITABS reg0
-   mov   reg12,#1
+   strb  reg4,fiqjitflag
    mov   reg1,#0
    mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
@@ -2151,11 +2151,10 @@ indirectiostore:
    sub   reg0,reg0,jittedtable16ptr
    and   reg1,regA,#0xFF    // This is an assumption that the value is in regA
    mov   reg0,reg0,LSR #JITTEDTABLESHIFT
-   mov   reg12,#1
+   strb  reg4,fiqjitflag
    mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
 
 iostore:
-   strb  reg12,fiqjitflag
    push  {lr}
    bl    tube_parasite_write_banksel // Call up to C code to handle parasite write
    pop   {r3}
