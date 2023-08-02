@@ -847,6 +847,9 @@ Bopc_64_fast: // Opcode 64 - STZ $00
    strb  ram6502, [ram6502,#00]
    teq   reg0, reg3
    .word storestable-20
+Bopc_64_noSMC:
+   SPACE_THREE_ARM_WORDS
+   strb  ram6502,[ram6502,#0x00]
 Bopc_65: // Opcode 65 - ADC $00
    ldrb  reg12,[ram6502,#0x00]
    tst   flags, #D_FLAG6502
@@ -964,6 +967,11 @@ Bopc_85_fast: // Opcode 85 - STA $00
    strb  regA, [ram6502,#00]
    teq   reg0, reg3
    .word storestable-20
+Bopc_85_noSMC:
+   SPACE_THREE_ARM_WORDS
+   strb  regA,[ram6502,#0x00]
+
+
 Bopc_86: // Opcode 86 - STX $00
    JITZPST regX
 Bopc_87: // Opcode 87 - SMB0 $00
@@ -1017,6 +1025,7 @@ Bopc_91_fast: // Opcode 91 - STA ($00),Y
    strb  regA,[reg1,regY,LSR #24]!
    ldr   reg0, [jittedtable16ptr, reg1, LSL #JITTEDTABLESHIFT]
    .word  storetest-20
+
 Bopc_92: // Opcode 92 - STA ($00)
    ldrh  reg1,[ram6502,#00]
    strb  regA,[reg1]
@@ -1793,31 +1802,8 @@ opc_FE: // Opcode FE - INC $0000,X
 // End of opcode implementations
 // **********************************************
 
-// **********************************************
-// Entry point to emulator
-// **********************************************
-//
-// R0 Points to memory
-
-exec_65tubejit:
-   push  {r4-r11,lr}
-   mov   ram6502,r0  // this is assumed to be zero
-
-// setup ARM cycle counter
-
-#if (__ARM_ARCH >= 7 )
-   mrc   p15 ,0, r12, c9, c12, 0
-   BIC   r12, r12, #8
-   mcr   p15, 0, r12, c9, c12, 0
-#else
-   MRC   p15, 0, r12, c15, c12, 0   // Read Performance Monitor Control Register
-   BIC   r12 ,r12, #8               // clear div 64 bit
-   MCR   p15, 0, r12, c15, c12, 0   // Write Performance Monitor Control Register
-   //mrc   p15, 0, r12, c1, c0, 1     // Read Auxiliary Register Errata 714068 ( cache lock up bug)
-   //orr   r0, r0, #0x10000000        // Set PHD bit ( reduces performance by 10% !!)
-   //mcr   p15, 0, r0, c1, c0, 1      // Write Auxiliary Control Register
-#endif
-
+setupjitram:
+   push  {r0,r1,r2,r3,r4,r5,r12}
 // setup table JITLET ( 64K x bl JITLET)
 // setup JITTEDTABLE16 with 64K x mov pc,r14
    ldr   temp2,=dojit-JITLET-8
@@ -1907,6 +1893,39 @@ cacheflushloopjittable:
    MCR   p15, 0, temp, c7, c10, 0 //; clean data cache
    MCR   p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
 #endif
+   pop  {r0,r1,r2,r3,r4,r5,r12}
+   bx    lr
+
+
+// **********************************************
+// Entry point to emulator
+// **********************************************
+//
+// R0 Points to memory
+
+exec_65tubejit:
+   push  {r4-r11,lr}
+   mov   ram6502,r0  // this is assumed to be zero
+
+// setup ARM cycle counter
+
+#if (__ARM_ARCH >= 7 )
+   mrc   p15 ,0, r12, c9, c12, 0
+   BIC   r12, r12, #8
+   mcr   p15, 0, r12, c9, c12, 0
+#else
+   MRC   p15, 0, r12, c15, c12, 0   // Read Performance Monitor Control Register
+   BIC   r12 ,r12, #8               // clear div 64 bit
+   MCR   p15, 0, r12, c15, c12, 0   // Write Performance Monitor Control Register
+   //mrc   p15, 0, r12, c1, c0, 1     // Read Auxiliary Register Errata 714068 ( cache lock up bug)
+   //orr   r0, r0, #0x10000000        // Set PHD bit ( reduces performance by 10% !!)
+   //mcr   p15, 0, r0, c1, c0, 1      // Write Auxiliary Control Register
+#endif
+
+   BL setupjitram
+
+   mov   temp,#0
+   str   temp, SMBT
 
 // run dormann tests directly
 #ifdef DORMANN_TEST
@@ -1993,6 +2012,8 @@ fiqtemp:
 stackptr:
    .word 0
 ram6502store:
+   .word 0
+SMBT:
    .word 0
 cachelineD:
    .byte 0
@@ -2296,6 +2317,8 @@ opc_F2: // Opcode F2 - SBC ($00)
 
 opc_85: // Opcode 85 - STA $00
 opc_64: // Opcode 64 - STZ $00
+   tst   r11,#1
+   beq   opc_85_noSMC
    ldrb  r7,[r12,r5]
    BL    optimiseflags
    beq   opc_86
@@ -2308,8 +2331,11 @@ opc_64: // Opcode 64 - STZ $00
    sub   r11,r11,r6,LSR #BYTEWORDSHIFT
    ORR   r11,r11,#0x1B000000 // BLNE
    B     jitend2bytestore4
-
-
+opc_85_noSMC:
+   add   r9,r9,#8*4
+   LDMIA r9,{r8,r9,r10,r11}
+   orr   r11,r11,r4
+   B     jitend2bytestore4
 opc_84: // Opcode 84 - STY $00
 opc_86: // Opcode 86 - STX $00
    LDMIA r9,{r8,r9,r10,r11}
@@ -2383,6 +2409,7 @@ dojitloop:
    DEBUGDISS
 jitentry:
    ldrb  r10,[temp2,r5]!
+   ldr   r11,SMBT
    mov   r6,temp2,LSL#JITLETSHIFT
    adr   temp0,opcode_table
    add   r6,r6,#JITLET
@@ -2391,6 +2418,26 @@ jitentry:
    ldrb  r4,[temp2,#1]
    ldrb  r5,[temp2,#2]
    adr   r12,flags_table
+   tst   r11,#1
+   BNE   teststackpage
+   CMP   r2,#0x100
+   BGE   teststackpage
+
+   orr   r11,r11,#1
+   str   r11,SMBT
+// dejit everything
+   bx    r8
+teststackpage:
+   tst   r11,#2
+   bxne  r8
+   CMP   r2,#0x200
+   BXGE  r8
+   orr   r11,r11,#2
+   str   r11,SMBT
+// dejit everything
+
+   BL setupjitram
+
    bx    r8
 // entry regs
 // r0
@@ -2401,6 +2448,8 @@ jitentry:
 // r5 operand byte 2
 // r6 Address to write to JITLET code to
 // r7,r8,r9,r10,r11,r12 six registers for COPY6
+// r11 SMBT ( Self Modifingy Bits table)
+// r12 flagstable
 // exit with r5 being the length of the 6502 instruction
 .balign 8
 flags_table:
