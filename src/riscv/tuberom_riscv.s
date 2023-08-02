@@ -731,8 +731,29 @@ osFILE:
 # --------------------------------------------------------------
 
 osARGS:
-    # TODO
     # Tube data: &0C Y block A                     A block
+    PUSH    ra
+    PUSH    a2
+    PUSH    a1
+    PUSH    a0
+    li      a0, 0x0C
+    jal     SendByteR2                  # 0x0c
+    mv      a0, a1
+    jal     SendByteR2                  # handle
+    li      a0, 4
+    mv      a1, a2
+    jal     SendBlockR2                 # control block
+    POP     a0
+    jal     SendBlockR2                 # function
+    jal     WaitByteR2                  # result
+    PUSH    a0
+    li      a0, 4
+    mv      a1, a2
+    jal     ReceiveBlockR2              # block
+    POP     a0
+    POP     a1
+    POP     a2
+    POP     ra
     ret
 
 # --------------------------------------------------------------
@@ -772,8 +793,19 @@ bget_done:
 # --------------------------------------------------------------
 
 osBPUT:
-    # TODO
     # Tube data: &10 Y A                           &7F
+    PUSH    ra
+    PUSH    a0
+    PUSH    a0
+    li      a0, 0x10
+    jal     SendByteR2                  # 0x10
+    mv      a0, a1
+    jal     SendByteR2                  # Y
+    POP     a0
+    jal     SendByteR2                  # A
+    jal     WaitByteR2
+    POP     a0
+    POP     ra
     ret
 
 # --------------------------------------------------------------
@@ -786,8 +818,27 @@ osBPUT:
 # --------------------------------------------------------------
 
 osGBPB:
-    # TODO
     # Tube data: &16 block A                       block Cy A
+    PUSH    ra
+    PUSH    a1
+    PUSH    a0
+    li      a0, 0x0C
+    jal     SendByteR2                  # 0x16
+    li      a0, 16
+    jal     SendBlockR2                 # control block
+    POP     a0
+    jal     SendByteR2                  # function
+
+    li      a0, 16
+    POP     a1
+    PUSH    a1
+    jal     ReceiveBlockR2              # control block
+    jal     WaitByteR2                  # cy
+    andi    a0, a0, 0x80
+    mv      a2, a0
+    jal     WaitByteR2                  # a
+    POP     a1
+    POP     ra
     ret
 
 # --------------------------------------------------------------
