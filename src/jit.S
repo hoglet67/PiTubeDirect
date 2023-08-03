@@ -833,7 +833,7 @@ Bopc_5F: // Opcode 5F - BBR5
    JITBBR 5
 
 Bopc_60: // Opcode 60 - RTS
-   uadd8 reg0,regSP,reg4
+   uadd8 reg12,regSP,reg4
    .word rts-12
 Bopc_61: // Opcode 61 - ADC ($00,X)
    ADDR1REGXZP
@@ -1976,9 +1976,9 @@ exec_65tubejit:
    strd  r2,old_irq_vector
    CPSIE if // enable interrupts
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2,#JITLET
+   //mov   reg2,#JITLET
    mov   reg4, #1 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
+   //add   reg2,reg2,#NEXTJITLET
    bx    r14
 
 //*************************************************************
@@ -2158,8 +2158,8 @@ ioload:
    bl    tube_parasite_read // Call up to C code to handle parasite read
 
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2, #JITLET
-   add   reg2,reg2,#NEXTJITLET
+   //mov   reg2, #JITLET
+   //add   reg2,reg2,#NEXTJITLET
    pop   {reg12, pc}               // Restore registers and return
 
 indirectiostore:
@@ -3117,9 +3117,9 @@ testforirq:
    CPSID if                      // IRQs must also be disabled if FIQs are disabled
    ldrb  r0, fiqjitflag
    mov   reg12, r4
-   mov   reg2,#JITLET
+   //mov   reg2,#JITLET
    mov   reg4, #1 // constant used by jsr rts
-   add   reg2,reg2,#NEXTJITLET
+   //add   reg2,reg2,#NEXTJITLET
    mov   r1, #0
    strb  r1, fiqjitflag
    cmp   r0, #2
@@ -3672,14 +3672,15 @@ pla:
    bx lr
 
 rts:
-   ldrb  reg0, [reg0]
-   uadd8 regSP,regSP,reg4
-   uadd8 reg1,regSP,reg4
-   ldrb  reg1, [reg1]
-   uadd8 regSP,regSP,reg4
-   orr   reg1, reg0, reg1, LSL #8
-   add   reg1,reg2,reg1,LSL #JITLETSHIFT
-   bx    reg1
+   ldrb  reg0, [reg12]
+   uadd8 reg12,reg12,reg4
+   mov   reg2, #JITLET
+   ldrb  reg1, [reg12]
+   add   reg2,reg2,#NEXTJITLET
+   mov   regSP,reg12
+   add   reg0, reg2, reg0, LSL #JITLETSHIFT
+   add   reg0, reg0, reg1, LSL #JITLETSHIFT+8
+   bx    reg0
 
 rora:
    subcs   regA, regA, #0x100   // if Carry set all other bits ie sign extend
@@ -3708,8 +3709,8 @@ bitioload: //2c
    bl    tube_parasite_read // Call up to C code to handle parasite read
 
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   mov   reg2, #JITLET
-   add   reg2,reg2,#NEXTJITLET
+   //mov   reg2, #JITLET
+   //add   reg2,reg2,#NEXTJITLET
    pop   {reg12, lr}               // Restore registers and return
    msr   CPSR, reg12         // Restore 6502 flags and FIQ/IRQ bits
 
