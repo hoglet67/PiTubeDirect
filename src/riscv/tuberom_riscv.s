@@ -5,7 +5,7 @@
 # gcc apparantly requires it to be 16-byte aligned, it works if 8-byte
 # aligned, and definitely break if 4-byte aligned (PRINT 100 in BBC Basic
 # produces a result of 0).
-#   
+#
 # When using *GO to launch BBC Basic we have currently have:
 #  gp
 #  t0
@@ -22,7 +22,7 @@
 # by pure fluke, this is 12 things, maintains the 16-byte alignment
 #
 # TODO: Force 16-byte stack alignment before launching an external app
-   
+
 .equ     MEM_BOT, 0x00000000
 .equ     MEM_TOP, 0x00F00000
 .equ       STACK, 0x00F7FFF0    # 16 byte aligned
@@ -143,7 +143,7 @@ InitVecLoop:
     li      gp, TUBE
     jal     WaitByteR2                  # wait for the response and ignore
     li      gp, 0
-    
+
 DefaultExitHandler:
     li      sp, STACK                   # reset the stack - TODO: what else?
     li      t0, 1 << 3                  # enable interrupts
@@ -1294,9 +1294,9 @@ UncaughtExceptionHandler:
 # -----------------------------------------------------------------------------
 
 InterruptHandler:
-    PUSH    gp  
+    PUSH    gp
     PUSH    t0
-    li      gp, TUBE                    # setup a register that points to the tube   
+    li      gp, TUBE                    # setup a register that points to the tube
     csrr    t0, mcause
     addi    t0, t0, -11
     beqz    t0, DefaultECallHandler     # TODO indirect through ecall vector??
@@ -1316,7 +1316,7 @@ InterruptHandler:
     lw      t0, (t0)
     jalr    ra, t0
     POP     ra
-    
+
     POP     t0
     POP     gp
     mret
