@@ -84,6 +84,8 @@ _start:
 
 ESCFLG:     .word 0                     # escape flag
 
+ARGSBLK:    .word 0                     # block used for os args
+
 #
 # Handlers are patterned on JGH's pdp11 client ROM:
 # https://mdfs.net/Software/Tube/PDP11/Tube11.src
@@ -509,7 +511,7 @@ osWORD_1:
 
 SendBlockR2:
     PUSH    ra
-    add     a1, a1, a0                  # calculate address of word containing last byte
+    add     a1, a1, a0                  # a1 = block + length
     mv      t1, a0                      # use t1 as a loop counter
 SendBlockR2lp:
     addi    a1, a1, -1
@@ -529,7 +531,7 @@ SendBlockDone:
 
 ReceiveBlockR2:
     PUSH    ra
-    add     a1, a1, a0                  # calculate address of word containing last byte
+    add     a1, a1, a0                  # a1 = block + length
     mv      t1, a0                      # use t1 as a loop counter
 ReceiveBlockR2lp:
     addi    a1, a1, -1
@@ -744,16 +746,15 @@ osFILE:
 # --------------------------------------------------------------
 # On entry: a0=function
 #           a1=handle
-#           a2=>control block
+#           a2=block
 # On exit:  a0=returned value
 #           a1 preserved
-#           a2 preserved
+#           a2 returned block
 # --------------------------------------------------------------
 
 osARGS:
     # Tube data: &0C Y block A                     A block
     PUSH    ra
-    PUSH    a2
     PUSH    a1
     PUSH    a0
     li      a0, 0x0C
@@ -761,18 +762,20 @@ osARGS:
     mv      a0, a1
     jal     SendByteR2                  # handle
     li      a0, 4
-    mv      a1, a2
+    la      a1, ARGSBLK
+    sw      a2, (a1)
     jal     SendBlockR2                 # control block
     POP     a0
-    jal     SendBlockR2                 # function
+    jal     SendByteR2                  # function
     jal     WaitByteR2                  # result
     PUSH    a0
     li      a0, 4
-    mv      a1, a2
+    la      a1, ARGSBLK
     jal     ReceiveBlockR2              # block
+    la      a1, ARGSBLK
+    lw      a2, (a1)
     POP     a0
     POP     a1
-    POP     a2
     POP     ra
     ret
 
@@ -834,7 +837,8 @@ osBPUT:
 # On entry: a0=function
 #           a1=>control block
 # On exit:  a0=returned value
-#              control block updated
+#           a1->control block (which has been updated)
+#           a2=carry
 # --------------------------------------------------------------
 
 osGBPB:
@@ -842,19 +846,19 @@ osGBPB:
     PUSH    ra
     PUSH    a1
     PUSH    a0
-    li      a0, 0x0C
+    li      a0, 0x16
     jal     SendByteR2                  # 0x16
-    li      a0, 16
+    li      a0, 13
     jal     SendBlockR2                 # control block
     POP     a0
     jal     SendByteR2                  # function
 
-    li      a0, 16
+    li      a0, 13
     POP     a1
     PUSH    a1
     jal     ReceiveBlockR2              # control block
     jal     WaitByteR2                  # cy
-    andi    a0, a0, 0x80
+    srli    a0, a0, 7
     mv      a2, a0
     jal     WaitByteR2                  # a
     POP     a1
@@ -1547,7 +1551,7 @@ Type4:
 # ============================================================
 
 Type6:
-    li      t1, 0xff
+    li      t1, 0x100
 Type6lp:
     lb      t0, R3STATUS(gp)
     andi    t0, t0, 0x40
@@ -1556,7 +1560,12 @@ Type6lp:
     sb      t0, R3DATA(gp)
     addi    t2, t2, 1
     addi    t1, t1, -1
-    bgez    t1, Type6lp
+    bnez    t1, Type6lp
+Type6sync:
+    lb      t0, R3STATUS(gp)
+    andi    t0, t0, 0x40
+    beqz    t0, Type6sync
+    sb      zero, R3DATA(gp)
     j       Release
 
 # ============================================================
@@ -1568,7 +1577,7 @@ Type6lp:
 # ============================================================
 
 Type7:
-    li      t1, 0xff
+    li      t1, 0x100
 Type7lp:
     lb      t0, R3STATUS(gp)
     bgez    t0, Type7lp
@@ -1576,7 +1585,7 @@ Type7lp:
     sb      t0, (t2)
     addi    t2, t2, 1
     addi    t1, t1, -1
-    bgez    t1, Type7lp
+    bnez    t1, Type7lp
     j       Release
 
 
