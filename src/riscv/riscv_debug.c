@@ -76,7 +76,7 @@ static const char * const dbg_reg_names[] = {
    "tp",   // X4
    "t0",   // X5
    "t1",   // X6
-   "r2",   // X7
+   "t2",   // X7
    "s0",   // X8
    "s1",   // X9
    "a0",   // X10
