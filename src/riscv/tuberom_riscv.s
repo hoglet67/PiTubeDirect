@@ -1,28 +1,5 @@
 .equ     VERSION, 0x0020
 
-# TODO: Stack alignment is currently very sketchy
-#
-# gcc apparantly requires it to be 16-byte aligned, it works if 8-byte
-# aligned, and definitely break if 4-byte aligned (PRINT 100 in BBC Basic
-# produces a result of 0).
-#
-# When using *GO to launch BBC Basic we have currently have:
-#  gp
-#  t0
-#  mstatus
-#  mepc
-#  ra
-#  ra (oscli)
-#  a0 (oscli)
-#  a1 (cmdlocal)
-#  a2 (cmdlocal)
-#  a3 (cmdlocal)
-#  ra (cmdlocal)
-#  ra (cmdgo)
-# by pure fluke, this is 12 things, maintains the 16-byte alignment
-#
-# TODO: Force 16-byte stack alignment before launching an external app
-
 .equ     MEM_BOT, 0x00000000
 .equ     MEM_TOP, 0x00F00000
 .equ       STACK, 0x00F7FFF0    # 16 byte aligned
@@ -62,14 +39,58 @@
 
 .globl _start
 
-.macro PUSH reg
-    addi    sp, sp, -4
-    sw      \reg, 0(sp)
+# Macros to maintain 16-byte stack alignment at all times
+
+.macro PUSH1 reg1
+    addi    sp, sp, -16
+    sw      \reg1, 12(sp)
 .endm
 
-.macro POP reg
-    lw      \reg, 0(sp)
-    addi    sp, sp, 4
+.macro PUSH2 reg1, reg2
+    addi    sp, sp, -16
+    sw      \reg1, 12(sp)
+    sw      \reg2,  8(sp)
+.endm
+
+.macro PUSH3 reg1, reg2, reg3
+    addi    sp, sp, -16
+    sw      \reg1, 12(sp)
+    sw      \reg2,  8(sp)
+    sw      \reg3,  4(sp)
+.endm
+
+.macro PUSH4 reg1, reg2, reg3, reg4
+    addi    sp, sp, -16
+    sw      \reg1, 12(sp)
+    sw      \reg2,  8(sp)
+    sw      \reg3,  4(sp)
+    sw      \reg4,  0(sp)
+.endm
+
+.macro POP1 reg1
+    lw      \reg1, 12(sp)
+    addi    sp, sp, 16
+.endm
+
+.macro POP2 reg1, reg2
+    lw      \reg1, 12(sp)
+    lw      \reg2,  8(sp)
+    addi    sp, sp, 16
+.endm
+
+.macro POP3 reg1, reg2, reg3
+    lw      \reg1, 12(sp)
+    lw      \reg2,  8(sp)
+    lw      \reg3,  4(sp)
+    addi    sp, sp, 16
+.endm
+
+.macro POP4 reg1, reg2, reg3, reg4
+    lw      \reg1, 12(sp)
+    lw      \reg2,  8(sp)
+    lw      \reg3,  4(sp)
+    lw      \reg4,  0(sp)
+    addi    sp, sp, 16
 .endm
 
 .macro SYS number
@@ -287,8 +308,8 @@ osQUIT:
 # --------------------------------------------------------------
 
 osCLI:
-    PUSH    ra
-    PUSH    a0                          # save the string pointer
+    PUSH2   ra, a0
+
     jal     cmdLocal                    # try to handle the command locally
     beqz    a0, dontEnterCode           # was command handled locally? (r1 = 0)
 
@@ -297,8 +318,7 @@ osCLI:
     li      a0, 0x02                    # Send command &02 - OSCLI
     jal     SendByteR2
 
-    POP     a0                          # restore the string pointer
-    PUSH    a0
+    lw      a0, 8(sp)                   # restore the string pointer a0
     jal     SendStringR2
 
 osCLI_Ack:
@@ -307,9 +327,7 @@ osCLI_Ack:
     li      t0, 0x80
     blt     a0, t0, dontEnterCode
 
-    POP     a0                          # restore the string pointer
-    PUSH    a0
-
+    lw      a0, 8(sp)                   # restore the string pointer a0
     jal     prep_env
 
     la      t0, IRQADDR
@@ -317,8 +335,7 @@ osCLI_Ack:
     jalr    ra, t0
 
 dontEnterCode:
-    POP     a0
-    POP     ra
+    POP2    ra, a0
     ret
 
 # Find the start of the command string
@@ -337,7 +354,7 @@ dontEnterCode:
 # - leave the environment point at the first character of filename
 
 prep_env:
-    PUSH    ra
+    PUSH1   ra
     addi    a0, a0, -1
 prep_env_1:                                 # skip leading space or * characters
     addi    a0, a0, 1
@@ -370,7 +387,7 @@ prep_env_4:
 
 prep_env_5:
     jal     skip_spaces
-    POP     ra
+    POP1    ra
     ret
 
 run_string:
@@ -387,24 +404,24 @@ run_string:
 
 osBYTE:
 
-    PUSH    ra
+    PUSH2   ra, a0
     li      t0, 0x80                    # Jump for long OSBYTEs
     bge     a0, t0, ByteHigh
 
 # Tube data  $04 X A    --  X
 
-    PUSH    a0
     li      a0, 0x04
     jal     SendByteR2                  # Send command &04 - OSBYTELO
     mv      a0, a1
     jal     SendByteR2                  # Send single parameter
-    POP     a0
-    PUSH    a0
+
+    lw      a0, 8(sp)                   # OSBYTE parameter a0
     jal     SendByteR2                  # Send function
     jal     WaitByteR2                  # Get return value
     mv      a1, a0
-    POP     a0
-    POP     ra
+
+ByteReturn:
+    POP2    ra, a0
     ret
 
 ByteHigh:
@@ -417,15 +434,13 @@ ByteHigh:
 
 # Tube data  $06 X Y A  --  Cy Y X
 
-    PUSH    a0
     li      a0, 0x06
     jal     SendByteR2                  # Send command &06 - OSBYTEHI
     mv      a0, a1
     jal     SendByteR2                  # Send parameter 1
     mv      a0, a2
     jal     SendByteR2                  # Send parameter 2
-    POP     a0
-    PUSH    a0
+    lw      a0, 8(sp)                   # OSBYTE parameter a0
     jal     SendByteR2                  # Send function
     jal     WaitByteR2                  # Get carry - from bit 7
     mv      a3, a0
@@ -433,24 +448,19 @@ ByteHigh:
     mv      a2, a0
     jal     WaitByteR2                  # Get low byte
     mv      a1, a0
-    POP     a0
-    POP     ra
-    ret
+    j       ByteReturn
 
 Byte84:                                 # Read top of memory
     li      a1, MEM_TOP
-    POP     ra
-    ret
+    j       ByteReturn
 
 Byte83:                                 # Read bottom of memory
     li      a1, MEM_BOT
-    POP     ra
-    ret
+    j       ByteReturn
 
 Byte82:                                 # Return &0000 as memory high word
     mv      a1, zero
-    POP     ra
-    ret
+    j       ByteReturn
 
 # --------------------------------------------------------------
 # ECall 3 - OSWORD
@@ -465,26 +475,22 @@ Byte82:                                 # Return &0000 as memory high word
 osWORD:
     beqz    a0, RDLINE
 
-    PUSH    ra
-    PUSH    a0                          # save calling param (osword number)
-    PUSH    a1                          # save calling param (block)
-    PUSH    a2                          # a2 used as a scratch register
-    PUSH    a3                          # a3 used as a scratch register
+    PUSH4   ra, a0, a1, a2              # save calling params: a0->8(sp) and a1->4(sp)
 
-    mv      a2, a0                      # save osword number
-    mv      a3, a1                      # save parameter block
     li      a0, 8
     jal     SendByteR2                  # Send command &08 - OSWORD
-    mv      a0, a2
+    lw      a0, 8(sp)
     jal     SendByteR2                  # Send osword number
+
     li      t0, 0x15                    # Compute index into length table
-    blt     a0, t0, osWORD_1
+    mv      a2, a0                      # osword number
+    blt     a2, t0, osWORD_1
     mv      a2, zero                    # >= OSWORD 0x15, use slot 0
 osWORD_1:
     la      a0, word_in_len
     add     a0, a0, a2
     lbu     a0, (a0)                    # a0 = block length
-    mv      a1, a3                      # a1 = buffer address
+    lw      a1, 4(sp)                   # a1 = buffer address
 
     jal     SendByteR2                  # Send request block length
     jal     SendBlockR2                 # Send request block
@@ -492,16 +498,12 @@ osWORD_1:
     la      a0, word_out_len
     add     a0, a0, a2
     lbu     a0, (a0)                    # a0 = block length
-    mv      a1, a3                      # a1 = buffer address
+    lw      a1, 4(sp)                   # a1 = buffer address
 
     jal     SendByteR2                  # Send response block length
     jal     ReceiveBlockR2              # Receive response block
 
-    POP     a3
-    POP     a2
-    POP     a1
-    POP     a0
-    POP     ra
+    POP4    ra, a0, a1, a2
     ret
 
 # Send a defined size block to tube FIFO R2
@@ -510,7 +512,7 @@ osWORD_1:
 # The complexity here is the block needs to be sent backwards!
 
 SendBlockR2:
-    PUSH    ra
+    PUSH1   ra
     add     a1, a1, a0                  # a1 = block + length
     mv      t1, a0                      # use t1 as a loop counter
 SendBlockR2lp:
@@ -521,7 +523,7 @@ SendBlockR2lp:
     addi    t1, t1, -1
     j       SendBlockR2lp
 SendBlockDone:
-    POP     ra
+    POP1    ra
     ret
 
 # Receive a defined size block from tube FIFO R2
@@ -530,7 +532,7 @@ SendBlockDone:
 # The complexity here is the block is sent backwards!
 
 ReceiveBlockR2:
-    PUSH    ra
+    PUSH1   ra
     add     a1, a1, a0                  # a1 = block + length
     mv      t1, a0                      # use t1 as a loop counter
 ReceiveBlockR2lp:
@@ -541,7 +543,7 @@ ReceiveBlockR2lp:
     addi    t1, t1, -1
     j       ReceiveBlockR2lp
 ReceiveBlockDone:
-    POP     ra
+    POP1    ra
     ret
 
 word_in_len:
@@ -609,8 +611,7 @@ word_out_len:
 # Tube data  &0A block  --  &FF or &7F string &0D
 # --------------------------------------------------------------
 RDLINE:
-    PUSH    ra
-    PUSH    a1
+    PUSH2   ra, a1
     li      a0, 0x0a
     jal     SendByteR2                  # Send command &0A - RDLINE
 
@@ -644,8 +645,7 @@ RdLineLp:
 RdLineEscape:
     li      a2, -1                      # Set "carry" to indicate not-escape
 RdLineExit:
-    POP     a1
-    POP     ra
+    POP2    ra, a1
     mv      a0, zero                    # Clear r0 to be tidy
     ret
 
@@ -670,14 +670,12 @@ osWRCH:
 # --------------------------------------------------------------
 
 osNEWL:
-    PUSH    a0
-    PUSH    ra
+    PUSH2   ra, a0
     li      a0, 0x0a
     jal     osWRCH
     li      a0, 0x0d
     jal     osWRCH
-    POP     ra
-    POP     a0
+    POP2    ra, a0
     ret
 
 # --------------------------------------------------------------
@@ -687,19 +685,18 @@ osNEWL:
 # --------------------------------------------------------------
 
 osRDCH:
-    PUSH    ra
+    PUSH1   ra
     #  Tube data: &00  --  Carry Char
     mv      a0, zero                    # Send command &00 - OSRDCH
     jal     SendByteR2
     jal     WaitByteR2                  # Receive carry
-    PUSH    a0
+    mv      t1, a0
     jal     WaitByteR2                  # Receive A
-    POP     t0
-    andi    t0, t0, 0x80
-    beqz    t0, rdch_done
+    andi    t1, t1, 0x80
+    beqz    t1, rdch_done
     li      a0, -1                      # -1 indicates EOF reached
 rdch_done:
-    POP     ra
+    POP1    ra
     ret
 
 # --------------------------------------------------------------
@@ -716,29 +713,22 @@ rdch_done:
 
 osFILE:
     # Tube data: &14 block string &0D A            A block
-    PUSH    ra
-    PUSH    a2                          # Save original a2
-    PUSH    a1                          # Save original a1
-    PUSH    a0                          # reason
-    PUSH    a1                          # filename
+    PUSH4   ra, a0, a1, a2
     li      a0, 0x14
     jal     SendByteR2                  # Send command &14 - OSFILE
     li      a0, 16
     mv      a1, a2
     jal     SendBlockR2
-    POP     a0                          # filename
+    lw      a0, 4(sp)                   # filename
     jal     SendStringR2
-    POP     a0                          # reason
+    lw      a0, 8(sp)                   # reason
     jal     SendByteR2
     jal     WaitByteR2
-    PUSH    a0                          # result
+    sw      a0, 8(sp)                   # result
     li      a0, 16
     mv      a1, a2
     jal     ReceiveBlockR2
-    POP     a0                          # result
-    POP     a1                          # restore original a1
-    POP     a2                          # restore original a2
-    POP     ra
+    POP4    ra, a0, a1, a2
     ret
 
 # --------------------------------------------------------------
@@ -754,9 +744,7 @@ osFILE:
 
 osARGS:
     # Tube data: &0C Y block A                     A block
-    PUSH    ra
-    PUSH    a1
-    PUSH    a0
+    PUSH3   ra, a0, a1
     li      a0, 0x0C
     jal     SendByteR2                  # 0x0c
     mv      a0, a1
@@ -765,18 +753,16 @@ osARGS:
     la      a1, ARGSBLK
     sw      a2, (a1)
     jal     SendBlockR2                 # control block
-    POP     a0
+    lw      a0, 8(sp)
     jal     SendByteR2                  # function
     jal     WaitByteR2                  # result
-    PUSH    a0
+    sw      a0, 8(sp)
     li      a0, 4
     la      a1, ARGSBLK
     jal     ReceiveBlockR2              # block
     la      a1, ARGSBLK
     lw      a2, (a1)
-    POP     a0
-    POP     a1
-    POP     ra
+    POP3    ra, a0, a1
     ret
 
 # --------------------------------------------------------------
@@ -789,21 +775,20 @@ osARGS:
 
 osBGET:
     # Tube data: &0E Y                             Cy A
-    PUSH    ra
+    PUSH1   ra
     li      a0, 0x0e
     jal     SendByteR2                  # 0x0e
     mv      a0, a1
     jal     SendByteR2                  # Y
 
     jal     WaitByteR2                  # Cy
-    PUSH    a0
+    mv      t1, a0
     jal     WaitByteR2                  # A
-    POP     t0
-    andi    t0, t0, 0x80
-    beqz    t0, bget_done
+    andi    t1, t1, 0x80
+    beqz    t1, bget_done
     li      a0, -1                      # -1 indicates EOF reached
 bget_done:
-    POP     ra
+    POP1    ra
     ret
 
 # --------------------------------------------------------------
@@ -817,18 +802,15 @@ bget_done:
 
 osBPUT:
     # Tube data: &10 Y A                           &7F
-    PUSH    ra
-    PUSH    a0
-    PUSH    a0
+    PUSH2   ra, a0
     li      a0, 0x10
     jal     SendByteR2                  # 0x10
     mv      a0, a1
     jal     SendByteR2                  # Y
-    POP     a0
+    lw      a0, 8(sp)
     jal     SendByteR2                  # A
     jal     WaitByteR2
-    POP     a0
-    POP     ra
+    POP2    ra, a0
     ret
 
 # --------------------------------------------------------------
@@ -843,26 +825,23 @@ osBPUT:
 
 osGBPB:
     # Tube data: &16 block A                       block Cy A
-    PUSH    ra
-    PUSH    a1
-    PUSH    a0
+    PUSH3   ra, a0, a1
     li      a0, 0x16
     jal     SendByteR2                  # 0x16
     li      a0, 13
     jal     SendBlockR2                 # control block
-    POP     a0
+    lw      a0, 8(sp)
     jal     SendByteR2                  # function
 
     li      a0, 13
-    POP     a1
-    PUSH    a1
+    lw      a1, 4(sp)
     jal     ReceiveBlockR2              # control block
     jal     WaitByteR2                  # cy
     srli    a0, a0, 7
     mv      a2, a0
-    jal     WaitByteR2                  # a
-    POP     a1
-    POP     ra
+    jal     WaitByteR2                  # result in a0
+    sw      a0, 8(sp)                   # store result in stack frame so it's returned in a0
+    POP3    ra, a0, a1
     ret
 
 # --------------------------------------------------------------
@@ -875,25 +854,27 @@ osGBPB:
 
 osFIND:
     # Tube data: &12 A string &0D                  A
-    PUSH    ra
-    PUSH    a0
+    PUSH2   ra, a0
     li      a0, 0x12
     jal     SendByteR2                      # 0x12
-    POP     a0
+    lw      a0, 8(sp)
     jal     SendByteR2                      # function
     beqz    a0, osfind_close
     mv      a0, a1
     jal     SendStringR2                    # filename
     jal     WaitByteR2                      # A
-    POP     ra
-    ret
+    j       osfind_exit
+
 osfind_close:
     # Tube data: &12 &00 Y                         &7F
     mv      a0, a1
     jal     SendByteR2                      # handle
     jal     WaitByteR2
     li      a0, 0
-    POP     ra
+
+osfind_exit:
+    sw      a0, 8(sp)                   # store result in stack frame so it's returned in a0
+    POP2    ra, a0
     ret
 
 # --------------------------------------------------------------
@@ -993,12 +974,12 @@ oshdone:
 # --------------------------------------------------------------
 
 osERROR:
-    lw     a0, (sp)                     # (sp) holds the stacked mepc which is the ecall address
+    lw     a0, 12(sp)                   # 12(sp) holds the stacked mepc which is the ecall address
     addi   a0, a0, 4                    # step past the ecall instruction
     la     t0, ERRV
     lw     t0, (t0)
     addi   t0, t0, -4
-    sw     t0, 0(sp)                    # force ecall handler to return to the error handler
+    sw     t0, 12(sp)                   # force ecall handler to return to the error handler
     ret                                 # rather than the original user program
 
 # --------------------------------------------------------------
@@ -1020,10 +1001,7 @@ osERROR:
 # t2 is current character in command string table
 
 cmdLocal:
-    PUSH    a1
-    PUSH    a2
-    PUSH    a3
-    PUSH    ra
+    PUSH4   ra, a1, a2, a3
 
     addi    a0, a0, -1
 cmdLoop0:
@@ -1064,10 +1042,7 @@ cmdExec:
     jalr    ra, a1                      # execute the command
 
 cmdExit:
-    POP     ra
-    POP     a3
-    POP     a2
-    POP     a1
+    POP4    ra, a1, a2, a3
     ret
 
 # Additional code to make the match non-greedy
@@ -1115,12 +1090,12 @@ cmdEnd:
 # --------------------------------------------------------------
 
 cmdGo:
-    PUSH    ra
+    PUSH1   ra
     jal     read_hex
     beqz    a2, BadAddress
     jalr    ra, a1
     mv      a0, zero
-    POP     ra
+    POP1    ra
     ret
 
 BadAddress:
@@ -1132,11 +1107,11 @@ BadAddress:
 # --------------------------------------------------------------
 
 cmdHelp:
-    PUSH     ra
+    PUSH1   ra
     la      a0, HelpMessage
     jal     print_string
     li      a0, 1
-    POP     ra
+    POP1    ra
     ret
 
 # TODO: Version should come from VERSION definition
@@ -1148,27 +1123,28 @@ HelpMessage:
 # --------------------------------------------------------------
 
 cmdTest:
-    PUSH    ra
+    PUSH1   ra
     jal     read_hex
     beqz    a2, BadAddress
+    mv      a0, a1
     jal     print_hex_word
     li      a0, ' '
     SYS     OS_WRCH
+    mv      a0, a1
     jal     print_dec_word
     SYS     OS_NEWL
     mv      a0, zero
-    POP     ra
+    POP1    ra
     ret
 
 # --------------------------------------------------------------
 
 cmdPi:
-    PUSH    ra
+    PUSH2   ra, a1
+
     jal     read_dec
     beqz    a2, BadNumber
-
-    # Save param
-    PUSH    a1
+    sw      a1, 8(sp)
 
     # Set TIME to using OSWORD 2
     li      a0, 0x02
@@ -1178,15 +1154,15 @@ cmdPi:
     SYS     OS_WORD
 
     # Restore param
-    POP     a0
-    PUSH    a0
+    lw      a0, 8(sp)
 
     # Print param (in a1)
     jal     print_dec_word
     SYS     OS_NEWL
 
     # Restore param
-    pop     a0                          # ndigits
+    lw      a0, 8(sp)
+
     li      a1, 0                       # some memory to use as workspace
     # Do some real work
     jal     pi_calc
@@ -1204,7 +1180,7 @@ cmdPi:
     SYS     OS_NEWL
 
     mv      a0, zero
-    POP     ra
+    POP2    ra, a1
     ret
 
 BadNumber:
@@ -1238,27 +1214,22 @@ DefaultECallHandler:
 
     beqz    t0, BadECall
 
-    PUSH    ra
-    csrr    ra, mstatus                 # push critical machine state
-    PUSH    ra
-    csrr    ra, mepc
-    PUSH    ra
+    csrr    t1, mepc                    # push critical machine state
+    csrr    t2, mstatus
+    PUSH2   t1, t2
 
     li      ra, 1 << 3                  # re-enable interrupts
     csrrs   zero, mstatus, ra
 
     jalr    ra, t0
 
-    POP     ra
-    addi    ra, ra, 4                   # return to instruction after the ecall
-    csrw    mepc, ra
-    POP     ra
-    csrw    mstatus, ra
-    POP     ra
+    POP2    t1, t2
+    addi    t1, t1, 4                   # return to instruction after the ecall
+    csrw    mepc, t1
+    csrw    mstatus, t2
 
-    POP     t0
-    POP     gp
-    mret
+    sw      a0, 8(sp)                   # store the result on the a0 slot on the stack
+    J       InterruptHandlerExit
 
 BadECall:
     csrr    a0, mepc
@@ -1279,12 +1250,12 @@ BadECall:
 # -----------------------------------------------------------------------------
 
 UncaughtExceptionHandler:
-    push    t0
     csrr    a0, mepc
+    mv      a1, t0
     jal     print_hex_word
     li      a0, ':'
     SYS     OS_WRCH
-    pop     a0
+    mv      a0, a1
     jal     print_hex_word
     li      a0, ':'
     SYS     OS_WRCH
@@ -1298,8 +1269,8 @@ UncaughtExceptionHandler:
 # -----------------------------------------------------------------------------
 
 InterruptHandler:
-    PUSH    gp
-    PUSH    t0
+    PUSH4   ra, a0, t0, gp
+
     li      gp, TUBE                    # setup a register that points to the tube
     csrr    t0, mcause
     addi    t0, t0, -11
@@ -1315,14 +1286,12 @@ InterruptHandler:
     lb      t0, R1STATUS(gp)            # sign extend to 32 bits
     bltz    t0, r1_irq                  # branch if data available in R1
 
-    PUSH    ra
     la      t0, IRQV
     lw      t0, (t0)
     jalr    ra, t0
-    POP     ra
 
-    POP     t0
-    POP     gp
+InterruptHandlerExit:
+    POP4    ra, a0, t0, gp
     mret
 
 # -----------------------------------------------------------------------------
@@ -1332,40 +1301,27 @@ InterruptHandler:
 r1_irq:
     lb      t0, R1DATA(gp)
     bltz    t0, r1_irq_escape
-    PUSH    ra                          # Save registers
-    PUSH    a0
-    PUSH    a1
-    PUSH    a2
+
+    PUSH2   a1, a2                      # save registers
     jal     WaitByteR1                  # Get Y parameter from Tube R1
     mv      a2, a0
     jal     WaitByteR1                  # Get X parameter from Tube R1
     mv      a1, a0
     jal     WaitByteR1                  # Get event number from Tube R1
-
     la      t0, EVENTV
     lw      t0, (t0)
     jalr    ra, t0                      # indirect through the event vector
+    POP2    a1, a2                      # restore registers
 
-    POP     a2                          # restore registers
-    POP     a1
-    POP     a0
-    POP     ra
-    POP     t0
-    POP     gp
-    mret
+    j       InterruptHandlerExit
 
 r1_irq_escape:
-    PUSH    a0
-    PUSH    ra
     mv      a0, t0                      # copy escape flag into a0
     la      t0, ESCV
     lw      t0, (t0)
     jalr    ra, t0                      # indirect call to the escape vector
-    POP     ra
-    POP     a0
-    POP     t0
-    POP     gp
-    mret
+
+    j       InterruptHandlerExit
 
 # -----------------------------------------------------------------------------
 # Interrupt generated by data in Tube R4
@@ -1377,8 +1333,7 @@ r4_irq:
 
 # Error    R4: &FF R2: &00 err string &00
 
-    PUSH    ra
-    PUSH    t1
+    PUSH1   t1                          # save registers
     jal     WaitByteR2                  # Skip data in Tube R2 - should be 0x00
     la      t1, ERRADDR                 # ERRADDR is the address of the error buffer
     lw      t1, (t1)                    # so an extra level of indirection is required
@@ -1389,26 +1344,24 @@ err_loop:
     jal     WaitByteR2                  # Get error message bytes
     sb      a0, (t1)
     bnez    a0, err_loop
-    POP     t1
-    POP     ra
+    POP1    t1                          # restore registers
+
     la      a0, ERRADDR                 # ERRADDR is the address of the error buffer
     lw      a0, (a0)                    # so an extra level of indirection is required
+    sw      a0, 8(sp)                   # and store it on the stack to be restored as a0 by InterruptHandlerExit
+
     la      t0, ERRV
     lw      t0, (t0)
     csrw    mepc, t0                    # replace interrupt return address with that of error handler
-    POP     t0
-    POP     gp
-    mret
+
+    j       InterruptHandlerExit
 
 #
 # Transfer R4: action ID block sync R3: data
 #
 
 r4_datatransfer:
-    PUSH    ra
-    PUSH    a0
-    PUSH    t1                          # working register for transfer type
-    PUSH    t2                          # working register for transfer address
+    PUSH2   t1, t2                      # save registers
 
     mv      t1, t0                      # save transfer type
 
@@ -1438,13 +1391,8 @@ r4_datatransfer:
     jalr    zero, t0
 
 Release:
-    POP     t2
-    POP     t1
-    POP     a0
-    POP     ra
-    POP     t0
-    POP     gp
-    mret
+    POP2    t1, t2                      # restore registers
+    j       InterruptHandlerExit
 
 TransferHandlerTable:
     .word   Type0
@@ -1606,11 +1554,7 @@ Type7lp:
 # - all registers preserved
 
 print_hex_word:
-
-    PUSH    ra
-    PUSH    a0                          # preserve working registers
-    PUSH    a1
-    PUSH    a2
+    PUSH4   ra, a0, a1, a2              # save working registers
 
     mv      a1, a0                      # a1 is now the value to be printed
     li      a2, 28                      # a2 is a loop counter for digits
@@ -1621,10 +1565,7 @@ print_hex_word_loop:
     addi    a2, a2, -4                  # decrement the loop counter and loop back for next digits
     bgez    a2, print_hex_word_loop
 
-    POP     a2                          # restore working registers
-    POP     a1
-    POP     a0
-    POP     ra
+    POP4    ra, a0, a1, a2              # restore working registers
     ret
 
 # --------------------------------------------------------------
@@ -1640,7 +1581,7 @@ print_hex_word_loop:
 # - all registers preserved
 
 print_hex_1:
-    PUSH    ra
+    PUSH1   ra
     andi    a0, a0, 0x0F                # mask off everything but the bottom nibble
     li      t0, 0x0A
     blt     a0, t0, print_hex_0_9
@@ -1648,7 +1589,7 @@ print_hex_1:
 print_hex_0_9:
     add     a0, a0, '0'
     SYS     OS_WRCH
-    POP     ra
+    POP1    ra
     ret
 
 # --------------------------------------------------------------
@@ -1665,12 +1606,8 @@ print_hex_0_9:
 
 
 print_dec_word:
-    PUSH    ra
-    PUSH    a0
-    PUSH    a1
-    PUSH    a2
-    PUSH    a3
-    PUSH    a4
+    PUSH4   ra, a0, a1, a2
+    PUSH2   a3, a4
 
     mv      a4, zero                     # flag to manage supressing of leading zeros
     mv      a1, a0
@@ -1700,12 +1637,8 @@ print_dec_word_4:
     j       print_dec_word_1
 
 print_dec_word_5:
-    POP     a4
-    POP     a3
-    POP     a2
-    POP     a1
-    POP     a0
-    POP     ra
+    POP2    a3, a4
+    POP4    ra, a0, a1, a2
     ret
 
 DecTable:
@@ -1756,7 +1689,7 @@ skip_spaces_loop:
 # - all registers preserved
 
 read_hex:
-    PUSH    ra
+    PUSH1   ra
     jal     skip_spaces
     mv      a1, zero                    # a1 will contain the hex value
     mv      a2, zero                    # a2 will contain the number of digtis read
@@ -1782,7 +1715,7 @@ read_hex_valid:
     j       read_hex_lp
 
 read_hex_done:
-    POP     ra
+    POP1    ra
     ret
 
 # --------------------------------------------------------------
@@ -1801,7 +1734,7 @@ read_hex_done:
 # - all registers preserved
 
 read_dec:
-    PUSH    ra
+    PUSH1   ra
     jal     skip_spaces
     mv      a1, zero                    # a1 will contain the dec value
     mv      a2, zero                    # a2 will contain the number of digtis read
@@ -1822,7 +1755,7 @@ read_dec_valid:
     j       read_dec_lp
 
 read_dec_done:
-    POP     ra
+    POP1    ra
     ret
 
 # --------------------------------------------------------------
@@ -1905,18 +1838,16 @@ SendByteR2:
 #
 
 print_string:
-    PUSH    ra
-    mv      t0, a0
+    PUSH2   ra, a1
+    mv      a1, a0
 print_string_loop:
-    lb      a0, (t0)
+    lb      a0, (a1)
     beqz    a0, print_string_exit
-    PUSH    t0
     SYS     OS_WRCH
-    POP     t0
-    addi    t0, t0, 1
+    addi    a1, a1, 1
     j       print_string_loop
 print_string_exit:
-    POP     ra
+    POP2    ra, a1
     ret
 
 # --------------------------------------------------------------
@@ -1924,8 +1855,7 @@ print_string_exit:
 # Send 0D terminated string pointed to by a0 to Tube R2
 
 SendStringR2:
-    PUSH    ra
-    PUSH    a1
+    PUSH2   ra, a1
     mv      a1, a0
 SendStringR2Lp:
     lb      a0, (a1)
@@ -1933,6 +1863,5 @@ SendStringR2Lp:
     addi    a1, a1, 1
     li      t0, 0x0d
     bne     a0, t0, SendStringR2Lp
-    POP     a1
-    POP     ra
+    POP2    ra, a1
     ret
