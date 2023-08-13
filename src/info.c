@@ -113,8 +113,6 @@ static char *get_cmdline() {
 extern char * strcasestr(const char *, const char *);
 
 char *get_cmdline_prop(const char *prop) {
-   __attribute__ ((section (".noinit"))) static char ret[PROP_SIZE];
-   char *retptr = ret;
    char *cmdptr = get_cmdline();
 
    cmdptr = strcasestr(cmdptr, prop);
@@ -125,12 +123,7 @@ char *get_cmdline_prop(const char *prop) {
       if (*(cmdptr + proplen) == '=') {
             // skip the equals
             cmdptr += proplen + 1;
-            // copy the property value to the return buffer
-            while (*cmdptr != ' ' && *cmdptr != '\0') {
-               *retptr++ = *cmdptr++;
-            }
-            *retptr = '\0';
-            return ret;
+            return cmdptr;
          }
    }
    return NULL;
