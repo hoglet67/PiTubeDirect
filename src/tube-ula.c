@@ -743,7 +743,6 @@ void tube_init_hardware()
       case 0x0D:  // rpi1 rev 2.0
       case 0x0E:  // rpi1 rev 2.0
       case 0x0F:  // rpi1 rev 2.0
-         // cppcheck-suppress badBitmaskCheck
          host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
          RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
          RPI_SetGpioPinFunction(A1_PIN_26PIN, FS_INPUT);
@@ -751,7 +750,6 @@ void tube_init_hardware()
          RPI_SetGpioPinFunction(TEST_PIN_26PIN, FS_OUTPUT);
          test_pin = TEST_PIN_26PIN;
          break;
-
 
       default:
          host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
@@ -798,7 +796,7 @@ void tube_init_hardware()
 
   // enable overriding default LED option using cmdline.txt
   // depending on the pi use either bcm2708.disk_led_gpio=xx or bcm2709.disk_led_gpio=xx
-   char *prop = get_cmdline_prop("disk_led_gpio");
+   const char * const prop = get_cmdline_prop("disk_led_gpio");
    if (prop)
    {
       led_pin = (uint8_t)atoi(prop);
@@ -833,7 +831,7 @@ void tube_init_hardware()
 #endif
 
    // Read the VDU property, and initialize the frame
-   char *vdu_prop = get_cmdline_prop("vdu");
+   const char * const vdu_prop = get_cmdline_prop("vdu");
    if (vdu_prop) {
       vdu_enabled = atoi(vdu_prop) & 1;
    }

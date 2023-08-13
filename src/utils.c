@@ -10,7 +10,7 @@
  */
 
 int get_elk_mode() {
-   char *elk_mode_prop = get_cmdline_prop("elk_mode");
+   const char * const elk_mode_prop = get_cmdline_prop("elk_mode");
    int elk_mode = 0; // default
    if (elk_mode_prop) {
       elk_mode = atoi(elk_mode_prop);

@@ -638,7 +638,7 @@ int doCmdPiLIFE(const char *params) {
 
    // Draw Initial Configuration
    for (unsigned int y = 1; y < sy - 1; y++) {
-      uint8_t *p = a + y * sx + 1;
+      const uint8_t * p = a + y * sx + 1;
       for (unsigned int x = 1; x < sx - 1; x++) {
          if (*p++) {
             OS_WriteC(25);

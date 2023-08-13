@@ -198,7 +198,7 @@ static void start_core(int core, func_ptr func) {
 
 static unsigned int get_copro_number() {
    unsigned int coproc = default_copro();
-   char *copro_prop = get_cmdline_prop("copro");
+   const char * const copro_prop = get_cmdline_prop("copro");
 
    if (copro_prop) {
       coproc = (unsigned int) atoi(copro_prop);
@@ -256,7 +256,7 @@ static void get_copro_memory_size() {
 }
 
 static void get_tube_delay() {
-   char *copro_prop = get_cmdline_prop("tube_delay");
+   const char * const copro_prop = get_cmdline_prop("tube_delay");
    tube_delay = 0; // default
    if (copro_prop) {
       tube_delay = (uint32_t)atoi(copro_prop);
@@ -274,7 +274,7 @@ void kernel_main(unsigned int r0, unsigned int r1, unsigned int atags)
    unsigned int baud_rate;
    unsigned int last_copro;
 
-   char *prop = get_cmdline_prop("baud_rate");
+   const char * const prop = get_cmdline_prop("baud_rate");
    if (prop)
       baud_rate = (uint32_t)atoi(prop);
    else

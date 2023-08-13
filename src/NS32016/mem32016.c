@@ -361,7 +361,7 @@ void write_Arbitary(uint32_t addr, void* pData, uint32_t Size)
    }
 #endif
 
-   register uint8_t* pValue = (uint8_t*) pData;
+    register const uint8_t* pValue = (uint8_t*) pData;
    while (Size--)
    {
       write_x8(addr++, *pValue++);

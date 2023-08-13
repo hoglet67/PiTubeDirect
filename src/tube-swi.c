@@ -546,8 +546,7 @@ static void tube_SWI_Not_Known(unsigned int *reg) {
   const unsigned int * const lr = (unsigned int *)reg[13];
   printf("%08x %08x %08x %08x\r\n", reg[0], reg[1], reg[2], reg[3]);
   unsigned int num = *(lr - 1) & 0xFFFFFF;
-  char *name = lookup_swi_name(num);
-  printf("SWI %08x (%s) not implemented ************\r\n", num, name);
+  printf("SWI %08x (%s) not implemented ************\r\n", num, lookup_swi_name(num));
 }
 
 void C_SWI_Handler(unsigned int number, unsigned int *reg) {
@@ -598,7 +597,7 @@ int user_exec_fn(FunctionPtr_Type f, unsigned int param ) {
   if (DEBUG_ARM) {
     printf("Execution passing to %08x cpsr = %08x", (unsigned int)f, _get_cpsr());
     if (param) {
-       char *p = (char *)param;
+       const char *p = (char *)param;
        printf(" param = ");
        while (*p != 0 && *p != 10 && *p != 13) {
           putchar(*p++);
@@ -1006,7 +1005,7 @@ static void tube_Word(unsigned int *reg) {
   receiveBlock(R2_ID, out_len, block);
 }
 
-static void print_debug_string(char *s) {
+static void print_debug_string(const char *s) {
    while (*s >= ' ') {
       putchar(*s++);
    }
@@ -1302,7 +1301,7 @@ static void tube_Plot(unsigned int *reg) {
 }
 
 static void tube_WriteN(unsigned int *reg) {
-  unsigned char *ptr = (unsigned char *)reg[0];
+  const unsigned char *ptr = (unsigned char *)reg[0];
   unsigned int len = reg[1];
   while (len-- > 0) {
     sendByte(R1_ID, *ptr++);
@@ -1361,7 +1360,7 @@ static void tube_SWI_NumberFromString(unsigned int *reg) {
       ptr++;
 
       for (unsigned int m = 0; m < NUM_MODULES; m++) {
-         module_t *module = module_list[m];
+         const module_t *module = module_list[m];
 
          // Check i fthe module name (OS, ColourTrans, ...) matches
          if (!strcmp(name, module->name)) {
@@ -1400,7 +1399,7 @@ static void tube_SWI_NumberToString(unsigned int *reg) {
    char * buffer    = (char *)reg[1];
    unsigned int buffer_len  = reg[2];
 
-   char *name = lookup_swi_name(num);
+   const char *name = lookup_swi_name(num);
 
    // Make sure we don't overflow the buffer
    unsigned int name_len = strlen(name);
