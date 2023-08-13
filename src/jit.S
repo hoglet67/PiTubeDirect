@@ -3498,13 +3498,13 @@ jsrpush:
    orr   regSP, regSP, #0x100
    bx    lr
 
-jsr:
-   strb  reg12, [ regSP],#-1
-   orr   regSP, regSP, #0x100
-   add   reg0,jittedtable16ptr,regSP,LSL#JITTEDTABLESHIFT
-   strb  reg1, [ regSP],#-1
-   orr   regSP, regSP, #0x100
-   bx    reg0
+//jsr:
+//   strb  reg12, [ regSP],#-1
+//   orr   regSP, regSP, #0x100
+//   add   reg0,jittedtable16ptr,regSP,LSL#JITTEDTABLESHIFT
+//   strb  reg1, [ regSP],#-1
+//   orr   regSP, regSP, #0x100
+//   bx    reg0
 
 jsr_onstack:
    strb  reg1, [ regSP],#-1
