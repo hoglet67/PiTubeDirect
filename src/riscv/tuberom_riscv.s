@@ -292,7 +292,11 @@ ECallHandlerTable:
     .word   osERROR                     # ECALL 15
 
 # --------------------------------------------------------------
-# ECall 0 - OSQUIT - Exit current program
+# ECall  0 - OSQUIT - Exit current program
+# On entry:
+#     no parameters
+# On exit:
+#     this call does not return
 # --------------------------------------------------------------
 
 osQUIT:
@@ -301,10 +305,15 @@ osQUIT:
     jalr    zero, t0
 
 # --------------------------------------------------------------
-# ECall 1 - OSCLI - Send command line to host
+# ECall  1 - OSCLI - Send command line to host
 # --------------------------------------------------------------
-# On entry: a0=>command string
-# On exit:  a0=return value
+# On entry:
+#     a0: pointer to command string, terminated by 0D
+# On exit (for a command that runs on the host):
+#     t0-t3: undefined, all other registers preserved
+# On exit (for a program that runs on the parasite):
+#     a0: program result
+#     t0-t3: undefined, all other registers as set by the program
 # --------------------------------------------------------------
 
 osCLI:
@@ -394,12 +403,18 @@ run_string:
     .string "RUN"
 
 # --------------------------------------------------------------
-# ECall 2 - OSBYTE
+# ECall  2 - OSBYTE - Call MOS OSBYTE function
 # --------------------------------------------------------------
-# On entry, a0, a1, r2=OSBYTE parameters
-# On exit, a0  preserved
-#           If a0<$80, a1=returned value
-#           If a0>$7F, a1, a2, Carry=returned values
+# On entry:
+#     a0: OSBYTE A parameter (see AUG)
+#     a1: OSBYTE X parameter (see AUG)
+#     a2: OSBYTE Y parameter (see AUG)
+# On exit:
+#     a0: preserved
+#     a1: OSBYTE X result
+#     a2: OSBYTE Y result (if a0 >= 0x80, otherwise preserved)
+#     a3: OSBYTE C result (if a0 >= 0x80, otherwise preserved)
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osBYTE:
@@ -463,13 +478,18 @@ Byte82:                                 # Return &0000 as memory high word
     j       ByteReturn
 
 # --------------------------------------------------------------
-# ECall 3 - OSWORD
+# ECall  3 - OSWORD - Call MOS OSWORD function
 # --------------------------------------------------------------
-# On entry: a0 OSWORD number
-#           a1 OSWORD block
-# On exit:  a0 preserved
-#           If a0<&80, a1=returned value
-#           If a0>&7F, a1, a2, Carry=returned values
+# On entry:
+#     a0: OSWORD number (see AUG)
+#     a1: pointer to OSWORD block (see AUG)
+# On exit:
+#     a0: preserved
+#     a1: preserved, OSWORD block updated with response data
+#     t0-t3: undefined, all other registers preserved
+#
+# In addition, for OSWORD 0:
+#     a2: response length, or -1 if input terminated by escape
 # --------------------------------------------------------------
 
 osWORD:
@@ -599,13 +619,13 @@ word_out_len:
     .byte 0                             # padding
 
 # --------------------------------------------------------------
-# ECall 3 continued - OSWORD0 - Read a line of text
+# ECall  3 continued - OSWORD0 - Read a line of text
 # --------------------------------------------------------------
 # On entry, a0 = 0
-#           a1 = control block
+#           a1 = block
 #
 # On exit,  a0 = 0
-#           a1 = control block
+#           a1 = block
 #           a2 = length of returned string, or -1 to indicate escape
 #
 # Tube data  &0A block  --  &FF or &7F string &0D
@@ -650,10 +670,13 @@ RdLineExit:
     ret
 
 # --------------------------------------------------------------
-# ECall 4 - OSWRCH
+# ECall  4 - OSWRCH - Write character to output stream
 # --------------------------------------------------------------
-# On entry: a0=char
-# On exit: a0 preserved
+# On entry:
+#     a0: character to output
+# On exit:
+#     a0: preserved
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osWRCH:
@@ -664,9 +687,12 @@ osWRCH:
     ret
 
 # --------------------------------------------------------------
-# ECall 5 - OSNEWL
+# ECall  5 - OSNEWL - Write <NL><CR> to output stream
 # --------------------------------------------------------------
-# On exit: a0 preserved
+# On entry:
+#     no parameters
+# On exit:
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osNEWL:
@@ -679,9 +705,13 @@ osNEWL:
     ret
 
 # --------------------------------------------------------------
-# ECall 6 - OSRDCH - Wait for character from input stream
+# ECall  6 - OSRDCH - Wait for character from input stream
 # --------------------------------------------------------------
-# On exit: a0=char, -1 if escape pressed
+# On entry:
+#     no parameters
+# On exit:
+#     a0: character read from input, or -1 if escape pressed
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osRDCH:
@@ -700,15 +730,21 @@ rdch_done:
     ret
 
 # --------------------------------------------------------------
-# ECall 7 - OSFILE - Operate on whole files
+# ECall  7 - OSFILE - Read/write a whole files or its attributes
 # --------------------------------------------------------------
-# On entry: a0=reason
-#           a1=filename
-#           a2=block address
-# On exit:  a0=result
-#           a1 preserved
-#           a2 preserved
-#           control block updated
+# On entry:
+#     a0: function (see AUG)
+#     a1: pointer to filename, terminated by zero
+#     a2: pointer to 16-byte block containing:
+#            load  address (4 bytes)
+#            exec  address (4 bytes)
+#            start address (4 bytes)
+#            end   address (4 bytes)
+# On exit:
+#     a0: result
+#     a1: preserved
+#     a2: preserved, block updated with response data
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osFILE:
@@ -732,14 +768,17 @@ osFILE:
     ret
 
 # --------------------------------------------------------------
-# ECall 8 - OSARGS - Read info on open file or filing system
+# ECall  8 - OSARGS - Read/write an open files's arguments
 # --------------------------------------------------------------
-# On entry: a0=function
-#           a1=handle
-#           a2=block
-# On exit:  a0=returned value
-#           a1 preserved
-#           a2 returned block
+# On entry:
+#     a0: function (see AUG)
+#     a1: file handle
+#     a2: 32-bit value to read/write (Note: NOT a block pointer)
+# On exit:
+#     a0: preserved (except for a0=0 a1=0, where its the FS number)
+#     a1: preserved
+#     a2: 32-bit value to read/write (updated for a read operation)
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osARGS:
@@ -766,11 +805,14 @@ osARGS:
     ret
 
 # --------------------------------------------------------------
-# ECall 9 - OSBGET - Get a byte from open file
+# ECall  9 - OSBGET - Get a byte from open file
 # --------------------------------------------------------------
-# On entry: a1=handle
-# On exit:  a0=byte Read (0..255), or -1 if EOF reached
-#           a1=preserved
+# On entry:
+#     a1: file handle
+# On exit:
+#     a0: byte read (0..255), or -1 if EOF reached
+#     a1: preserved
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osBGET:
@@ -792,12 +834,15 @@ bget_done:
     ret
 
 # --------------------------------------------------------------
-# ECall 10  - OSBPUT - Put a byte to an open file
+# ECall 10 - OSBPUT - Put a byte to an open file
 # --------------------------------------------------------------
-# On entry: a0=byte to write
-#           a1=handle
-# On exit:  a0=preserved
-#           a1=preserved
+# On entry:
+#     a0: byte to write
+#     a1: file handle
+# On exit:
+#     a0: preserved
+#     a1: preserved
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osBPUT:
@@ -814,14 +859,25 @@ osBPUT:
     ret
 
 # --------------------------------------------------------------
-# ECall 11 - OSGBPB - Multiple byte read and write
+# ECall 11 - OSGBPB - Read or write multiple bytes
 # --------------------------------------------------------------
-# On entry: a0=function
-#           a1=>control block
-# On exit:  a0=returned value
-#           a1->control block (which has been updated)
-#           a2=carry
+# On entry:
+#     a0: function (see AUG)
+#     a1: pointer to 13-byte block containing:
+#            file handle                 (1 byte)
+#            start address of data       (4 bytes)
+#            number of bytes to transfer (4 bytes)
+#            sequential file pointer     (4 bytes)
+# On exit:
+#     a0: preserved
+#     a1: preserved, block updated with response data
+#     a2: result (0 = ok; 1 = fail, same a C on 6502 API)
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
+
+# TODO: Review this API
+#   use a1 for file handle?
+#   use a0 for result?
 
 osGBPB:
     # Tube data: &16 block A                       block Cy A
@@ -845,11 +901,15 @@ osGBPB:
     ret
 
 # --------------------------------------------------------------
-# ECall 12  - OSFIND - Open or Close a file
+# ECall 12 - OSFIND - Open or Close a file
 # --------------------------------------------------------------
-# On entry: a0=function
-#           a1=handle or =>filename
-# On exit:  a0=zero or handle
+# On entry:
+#     a0: function (see AUG)
+#     a1: file handle                          (if close file), or
+#         pointer to filename terminated by 0D (if open file)
+# On exit:
+#     a0=zero or handle
+#     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osFIND:
@@ -878,7 +938,20 @@ osfind_exit:
     ret
 
 # --------------------------------------------------------------
-# ECall 13 - OS SYSTEM CONTROL
+# ECall 13 - OS SYSTEM CONTROL - Miscellaneous
+# --------------------------------------------------------------
+#
+# TODO: this call is not implemented yet
+#
+# On entry:
+#     a0: function
+# On exit:
+#     a0: result
+#     t0-t3: undefined, all other registers preserved
+# Only one function is currently defined:
+#     a0 = &01: setup new program enviroment. This must be called by
+#     code that wants to become the current program instead of being
+#     transient code. The current program is re-entered at Soft Break.
 # --------------------------------------------------------------
 
 osSYSCTRL:
@@ -886,62 +959,63 @@ osSYSCTRL:
     ret
 
 # --------------------------------------------------------------
-# ECall 15 - OS HANDLERS
-#
-# Based on JGH's notes from:
-#     https://mdfs.net/Docs/Books/PDP11CoPro/Technical
-#
-# Reads and writes handlers and EMT dispatch table entries.
-#     a0>=0 - reads or writes EMT dispatch address:
-#             a0=EMT number
-#             a1=address of EMT routine, or zero to read
-#     On exit:
-#             a0 preserved
-#             a1 previous EMT dispatch address
-#
-#      a0<0 - reads or writes environment handler:
-#             a0=Environment handler number
-#             a1=address of environment hander or zero to read
-#             a2=address of environment data block or zero to read
-#     On exit:
-#             a0 preserved
-#             a1=previous environment handler address
-#             a2=previous environment data address
-#
-#     Environment handler numbers are:
-#       a0     a1                   a2
-#       &FFFF  Exit handler         version
-#       &FFFE  Escape handler       Escape flag (one byte)
-#       &FFFD  Error handler        Error buffer (256 bytes)
-#       &FFFC  Event handler        unused
-#       &FFFB  Unknown IRQ handler  (used during data transfer)
-#       &FFFA  (used during EMT)    EMT dispatch table (512 bytes)
-#
-#     Internal handlers:
-#       &FFF9  LPTR                 ADDRHI
-#       &FFF8  MEMBOT               MEMTOP
-#       &FFFA  ADDR                 TRANS
-#       &FFFB  PROG                 MISC+ESCFLG
-#
-#     The Exit handler is entered with a0=return value.
-#
-#     The Escape handler is entered with a0=new escape state in
-#     b6, must preserve all registers other than a0 and return
-#     with RTS PC.
-#
-#     The Error handler is entered with a0=>error block. Note that
-#     this may not be the address of the error buffer, the error
-#     buffer is used for dynamically generated error messages.
-#
-#     The Event handler is entered with a0,a1,a2 holding the event
-#     parameters, must preserve all registers, and return with RTS PC.
-#
-#     The Unknown IRQ handler must preserve all registers, and
-#     return with RTI.
-
+# ECall 14 - OS HANDLERS - Reads/writes environment handlers
+#                          or EMT dispatch table entries.
 # --------------------------------------------------------------
-
-# TODO: Implement R/W of ecall dispatch table
+#
+# TODO: this call is only partly implemented
+#
+# a0 >= 0: Reads or writes EMT dispatch address
+#
+# On entry:
+#     a0: EMT number
+#     a1: address of EMT routine, or zero to read
+# On exit:
+#     a0: preserved
+#     a1: previous EMT dispatch address
+#
+# a0 < 0: Reads or writes environment handler:
+#
+# On entry:
+#     a0: Environment handler number
+#     a1: address of environment hander or zero to read
+#     a2: address of environment data block or zero to read
+# On exit:
+#     a0: preserved
+#     a1: previous environment handler address
+#     a2: previous environment data address
+#
+# Environment handler numbers are:
+#     a0     a1                   a2
+#     &FFFF  Exit handler         version
+#     &FFFE  Escape handler       Escape flag (one byte)
+#     &FFFD  Error handler        Error buffer (256 bytes)
+#     &FFFC  Event handler        unused
+#     &FFFB  Unknown IRQ handler  (used during data transfer)
+#     &FFFA  (used during EMT)    EMT dispatch table (512 bytes)
+#
+# Internal handlers:
+#     &FFF9  LPTR                 ADDRHI
+#     &FFF8  MEMBOT               MEMTOP
+#     &FFFA  ADDR                 TRANS
+#     &FFFB  PROG                 MISC+ESCFLG
+#
+# The Exit handler is entered with a0=return value.
+#
+# The Escape handler is entered with a0=new escape state in
+# b6, must preserve all registers other than a0 and return
+# with RTS PC.
+#
+# The Error handler is entered with a0=>error block. Note that
+# this may not be the address of the error buffer, the error
+# buffer is used for dynamically generated error messages.
+#
+# The Event handler is entered with a0,a1,a2 holding the event
+# parameters, must preserve all registers, and return with RTS PC.
+#
+# The Unknown IRQ handler must preserve all registers, and
+# return with RTI.
+# --------------------------------------------------------------
 
 osHANDLERS:
     li      t0, 0xfffa
@@ -970,7 +1044,12 @@ oshdone:
     ret
 
 # --------------------------------------------------------------
-# ECall 15 - OS ERROR
+# ECall 15 - OS ERROR - invoke the current error handler
+# --------------------------------------------------------------
+# On entry:
+#     the error block should follow the ecall instruction
+# On exit:
+#     this call does not return
 # --------------------------------------------------------------
 
 osERROR:
