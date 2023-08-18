@@ -937,8 +937,7 @@
 // Opcode 00 - BRK is really a two byte instruction, so no fixup needed
 opcode_00:
         INTR    -2, 1
-        FETCH_NEXT_3B_STAGE_0 SUBPC
-        B     opcode_02
+        B     brk_overflow
         .balign I_ALIGN
 
 // Opcode 01 - ORA ($00,X)
@@ -949,6 +948,9 @@ opcode_01:
 
 // Opcode 02 - NOP 2
 opcode_02:
+        NOP_2
+brk_overflow:
+        FETCH_NEXT_3B_STAGE_0 SUBPC
         NOP_2
         .balign I_ALIGN
 
