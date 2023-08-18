@@ -710,7 +710,7 @@ osNEWL:
 # On entry:
 #     no parameters
 # On exit:
-#     a0: character read from input, or -1 if escape pressed
+#     a0: character read from input, or negative if escape pressed
 #     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
@@ -724,7 +724,7 @@ osRDCH:
     jal     WaitByteR2                  # Receive A
     andi    t1, t1, 0x80
     beqz    t1, rdch_done
-    li      a0, -1                      # -1 indicates EOF reached
+    ori     a0, a0, 0xffffff00          # negative indicates escape (or other error)
 rdch_done:
     POP1    ra
     ret
