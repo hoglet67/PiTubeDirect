@@ -34,8 +34,3 @@ beeb title ${NAME}.ssd ${NAME^^}
 beeb info ${NAME}.ssd
 rm -f ${NAME}.elf
 rm -f ${NAME^^}
-
-
-# Copy bbcbasic
-# ${BASE}objcopy -O binary ../../../BBCSDL/console/riscv/bbcbasic bbcbasic_riscv.bin
-#xxd -i bbcbasic_riscv.bin > bbcbasic.c

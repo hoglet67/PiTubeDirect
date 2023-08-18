@@ -1,8 +1,8 @@
 .equ     VERSION, 0x0020
 
 .equ     MEM_BOT, 0x00000000
-.equ     MEM_TOP, 0x00F00000
-.equ       STACK, 0x00F7FFF0    # 16 byte aligned
+.equ     MEM_TOP, 0x00F80000
+.equ       STACK, MEM_TOP - 16         # 16 byte aligned
 .equ        TUBE, 0x00FFFFE0
 
 .equ    R1STATUS, 0
