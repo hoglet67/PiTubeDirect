@@ -949,7 +949,7 @@ osfind_exit:
 #     a0: result
 #     t0-t3: undefined, all other registers preserved
 # Only one function is currently defined:
-#     a0 = &01: setup new program enviroment. This must be called by
+#     a0 = &01: setup new program environment. This must be called by
 #     code that wants to become the current program instead of being
 #     transient code. The current program is re-entered at Soft Break.
 # --------------------------------------------------------------
@@ -1688,7 +1688,7 @@ print_dec_word:
     PUSH4   ra, a0, a1, a2
     PUSH2   a3, a4
 
-    mv      a4, zero                     # flag to manage supressing of leading zeros
+    mv      a4, zero                     # flag to manage suppressing of leading zeros
     mv      a1, a0
     la      a2, DecTable - 4
 
@@ -1707,7 +1707,7 @@ print_dec_word_2:
 print_dec_word_3:
     li      t0, 1                       # force printing of the last digit
     beq     a3, t0, print_dec_word_4
-    add     a4, a4, a0                  # supress leading zeros
+    add     a4, a4, a0                  # suppress leading zeros
     beqz    a4, print_dec_word_1
 
 print_dec_word_4:
