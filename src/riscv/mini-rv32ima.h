@@ -150,7 +150,7 @@ MINIRV32_STEPPROTO
    else // No timer interrupt?  Execute a bunch of instructions.
    for( int icount = 0; icount < count; icount++ )
    {
-      uint32_t ir = 0;
+      uint32_t ir;
       rval = 0;
       cycle++;
       uint32_t ofs_pc = pc - MINIRV32_RAM_IMAGE_OFFSET;
@@ -538,7 +538,6 @@ MINIRV32_STEPPROTO
       // If trapping, always enter machine mode.
       CSR( extraflags ) |= 3;
 
-      trap = 0;
       pc += 4;
    }
 

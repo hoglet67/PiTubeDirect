@@ -29,17 +29,14 @@ void print4(int i) {
 // Note: ndigits should be a multiple of 4
 //
 int pi_calc(int ndigits, int *r) {
-   int i;
-   int k;
    int b;
-   int d;
    int c = 0;
    int n = ndigits * 7 / 2;
-   for (i = 1; i <= n; i++)
+   for (int i = 1; i <= n; i++)
       r[i] = 2000;
-   for (k = n; k > 0; k -= 14) {
-      d = 0;
-      i = k;
+   for (int k = n; k > 0; k -= 14) {
+      int d = 0;
+      int i = k;
       for(;;) {
          d += r[i] * 10000;
          b = i * 2 - 1;

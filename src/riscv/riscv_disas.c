@@ -45,8 +45,8 @@ struct {
 };
 
 union encoding {
-   uint32_t insn;
-   struct { /* generic */
+   uint32_t inst;          /* cppcheck-suppress unusedStructMember */
+   struct {
       uint32_t opcode :7;
       uint32_t rd     :5;
       uint32_t funct3 :3;
@@ -55,50 +55,42 @@ union encoding {
       uint32_t funct7 :7;
    };
    struct {
-      uint32_t opcode :7;
-      uint32_t rd     :5;
-      uint32_t funct3 :3;
-      uint32_t rs1    :5;
-      uint32_t rs2    :5;
-      uint32_t funct7 :7;
-   } r;
-   struct {
-      uint32_t opcode :7;
-      uint32_t rd     :5;
-      uint32_t funct3 :3;
-      uint32_t rs1    :5;
+      uint32_t        :7;  /* opcode */
+      uint32_t        :5;  /* rd */
+      uint32_t        :3;  /* funct3 */
+      uint32_t        :5;  /* rs1 */
       int32_t  i11_0  :12; /* sign extension */
    } i;
    struct {
-      uint32_t opcode :7;
+      uint32_t        :7;  /* opcode */
       uint32_t i4_0   :5;
-      uint32_t funct3 :3;
-      uint32_t rs1    :5;
-      uint32_t rs2    :5;
-      int32_t  i11_5  :7; /* sign extension */
+      uint32_t        :3;  /* funct3 */
+      uint32_t        :5;  /* rs1 */
+      uint32_t        :5;  /* rs2 */
+      int32_t  i11_5  :7;  /* sign extension */
    } s;
    struct {
-      uint32_t opcode :7;
+      uint32_t        :7;  /* opcode */
       uint32_t i11    :1;
       uint32_t i4_1   :4;
-      uint32_t funct3 :3;
-      uint32_t rs1    :5;
-      uint32_t rs2    :5;
+      uint32_t        :3;  /* funct3 */
+      uint32_t        :5;  /* rs1 */
+      uint32_t        :5;  /* rs2 */
       uint32_t i10_5  :6;
-      int32_t  i12    :1; /* sign extension */
+      int32_t  i12    :1;  /* sign extension */
    } b;
    struct {
-      uint32_t opcode :7;
-      uint32_t rd     :5;
+      uint32_t        :7;  /* opcode */
+      uint32_t        :5;  /* rd */
       uint32_t i31_12 :20;
    } u;
    struct {
-      uint32_t opcode :7;
-      uint32_t rd     :5;
+      uint32_t        :7;  /* opcode */
+      uint32_t        :5;  /* rd */
       uint32_t i19_12 :8;
       uint32_t i11    :1;
       uint32_t i10_1  :10;
-      int32_t  i20    :1; /* sign extension */
+      int32_t  i20    :1;  /* sign extension */
    } j;
 };
 
@@ -182,7 +174,7 @@ const char *name(int fmt, union encoding *e) {
    return "???";
 }
 
-const char *op0(int fmt, union encoding *e) {
+const char *op0(int fmt, const union encoding *e) {
    switch (fmt) {
    case R:
    case I:
@@ -199,7 +191,7 @@ const char *op0(int fmt, union encoding *e) {
    }
 }
 
-const char *op1(int fmt, union encoding *e, uint32_t pc) {
+const char *op1(int fmt, const union encoding *e, uint32_t pc) {
    static char imm[32];
    switch (fmt) {
    case R:
@@ -224,7 +216,7 @@ const char *op1(int fmt, union encoding *e, uint32_t pc) {
    return unimplemented;
 }
 
-const char *op2(int fmt, union encoding *e, uint32_t pc) {
+const char *op2(int fmt, const union encoding *e, uint32_t pc) {
    static char imm[32];
    switch (fmt) {
    case R:
@@ -249,7 +241,7 @@ const char *op2(int fmt, union encoding *e, uint32_t pc) {
 
 void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
 
-   union encoding e = {inst};
+   union encoding e = { .inst=(inst) };
    int fmt = format(e.opcode);
    const char *n = name(fmt, &e);
    const char *p0 = op0(fmt, &e);
@@ -262,9 +254,7 @@ void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
 
    if (e.opcode == 0x03 || e.opcode == 0x23) {
       // special case load/store
-      len = (size_t) snprintf(buf, buflen, ", %s(%s)", p2, p1);
-      buf += len;
-      buflen -= len;
+      snprintf(buf, buflen, ", %s(%s)", p2, p1);
    } else {
       if (p1) {
          len = (size_t) snprintf(buf, buflen, ", %s", p1);
@@ -272,9 +262,7 @@ void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
          buflen -= len;
       }
       if (p2) {
-         len = (size_t) snprintf(buf, buflen, ", %s", p2);
-         buf += len;
-         buflen -= len;
+         snprintf(buf, buflen, ", %s", p2);
       }
    }
 }
