@@ -59,7 +59,7 @@ union encoding {
       uint32_t        :5;  /* rd */
       uint32_t        :3;  /* funct3 */
       uint32_t        :5;  /* rs1 */
-      int32_t  i11_0  :12; /* sign extension */
+      uint32_t i11_0  :12;
    } i;
    struct {
       uint32_t        :7;  /* opcode */
@@ -67,7 +67,7 @@ union encoding {
       uint32_t        :3;  /* funct3 */
       uint32_t        :5;  /* rs1 */
       uint32_t        :5;  /* rs2 */
-      int32_t  i11_5  :7;  /* sign extension */
+      uint32_t i11_5  :7;
    } s;
    struct {
       uint32_t        :7;  /* opcode */
@@ -77,7 +77,7 @@ union encoding {
       uint32_t        :5;  /* rs1 */
       uint32_t        :5;  /* rs2 */
       uint32_t i10_5  :6;
-      int32_t  i12    :1;  /* sign extension */
+      uint32_t i12    :1;
    } b;
    struct {
       uint32_t        :7;  /* opcode */
@@ -90,7 +90,7 @@ union encoding {
       uint32_t i19_12 :8;
       uint32_t i11    :1;
       uint32_t i10_1  :10;
-      int32_t  i20    :1;  /* sign extension */
+      uint32_t i20    :1;
    } j;
 };
 
@@ -193,6 +193,7 @@ const char *op0(int fmt, const union encoding *e) {
 
 const char *op1(int fmt, const union encoding *e, uint32_t pc) {
    static char imm[32];
+   int i;
    switch (fmt) {
    case R:
    case I:
@@ -205,12 +206,14 @@ const char *op1(int fmt, const union encoding *e, uint32_t pc) {
          return NULL;
       }
    case U:
-      sprintf(imm, "0x%x", e->u.i31_12 << 12);
+      sprintf(imm, "%08" PRIx32, (uint32_t) (e->u.i31_12 << 12));
       return imm;
    case J:
-      sprintf(imm, "%08" PRIx32,
-              (uint32_t)((e->j.i20 << 20) | (e->j.i19_12 << 12) | (e->j.i11 << 11) | (e->j.i10_1  << 1)) + pc
-              );
+      i = (e->j.i20 << 20) | (e->j.i19_12 << 12) | (e->j.i11 << 11) | (e->j.i10_1  << 1);
+      if (i & 0x100000) {
+         i -= 0x200000;
+      }
+      sprintf(imm, "%08" PRIx32, pc + (uint32_t)i);
       return imm;
    }
    return unimplemented;
@@ -218,19 +221,30 @@ const char *op1(int fmt, const union encoding *e, uint32_t pc) {
 
 const char *op2(int fmt, const union encoding *e, uint32_t pc) {
    static char imm[32];
+   int i;
    switch (fmt) {
    case R:
       return reg_name[e->rs2];
    case I:
-      sprintf(imm, "%d", e->i.i11_0);
+      i = e->i.i11_0;
+      if (i & 0x800) {
+         i -= 0x1000;
+      }
+      sprintf(imm, "%d", i);
       return imm;
    case S:
-      sprintf(imm, "%d", (e->s.i11_5<<5) | e->s.i4_0);
+      i = (e->s.i11_5 << 5) | e->s.i4_0;
+      if (i & 0x800) {
+         i -= 0x1000;
+      }
+      sprintf(imm, "%d", i);
       return imm;
    case B:
-      sprintf(imm, "%08"PRIx32,
-              (uint32_t)((e->b.i12 << 12) | (e->b.i11 << 11) | (e->b.i10_5 << 5) | (e->b.i4_1 << 1)) + pc
-              );
+      i = (e->b.i12 << 12) | (e->b.i11 << 11) | (e->b.i10_5 << 5) | (e->b.i4_1 << 1);
+      if (i & 0x1000) {
+         i -= 0x2000;
+      }
+      sprintf(imm, "%08"PRIx32, pc + (uint32_t)i);
       return imm;
    case U:
    case J:
