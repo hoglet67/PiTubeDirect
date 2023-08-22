@@ -2056,10 +2056,10 @@ arm_fiq_handler_jit:
    tst   r12,#RESET_BIT+NMI_BIT+IRQ_BIT
    subeqs pc, lr, #4
 
-// if we are currently jitting the event will be handled at the end of the jitting
+// if we are currently running jit code and called out to C code then deal with FIQ once we are back
    ldrb  r12, fiqjitflag
    movs  r12, r12
-   add   r12, r12, #1
+   orr   r12, r12, #2
    strneb r12, fiqjitflag
    subnes pc, lr, #4
 
@@ -2437,10 +2437,9 @@ teststackpage:
    orr   r11,r11,#2
    str   r11,SMBT
 // dejit everything
-
    BL setupjitram
-
    bx    r8
+
 // entry regs
 // r0
 // r1
@@ -3115,6 +3114,7 @@ cacheflushloopI:
 #if __ARM_ARCH>6
    PLI   [r3]
 #endif
+
 testforirq:
    CPSID if                      // IRQs must also be disabled if FIQs are disabled
    ldrb  r0, fiqjitflag
