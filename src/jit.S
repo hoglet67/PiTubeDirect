@@ -2000,10 +2000,11 @@ reset_handler_jit:
 old_irq_vector:
    .word 0
 old_fiq_vector:
-        .align 3
+   .word 0
+   .align 3
 doorbell_const:
-        .word DOORBELL
-        .word DOORBELLDATA
+   .word DOORBELL
+   .word DOORBELLDATA
 fiqtemp:
    .word 0
    .word 0
@@ -2020,6 +2021,7 @@ cachelineD:
 cachelineI:
    .byte 0
 debugflag:
+   .byte 0
    .byte 0
 fiqjitflag:
    .byte 0
@@ -2074,11 +2076,11 @@ fiq_during_irq:               // we can get here from ARM FIQ or ARM IRQ handler
 
    strd  r0,fiqtemp           // store r0,r1 to give register space
    strd  r2,fiqtemp+8
+   orr   r1, regSP, #0x100
    mov   r0, #FAKESTACK
-   orr   regSP, regSP, #0x100
-   orr   r0, r0, regSP, LSL #6
+   orr   r0, r0, r1, LSL #6
    mrs   r1 , SPSR
-   STMFD r0!,{r1}             // save CPSR to FAKE FIQ stack
+   STMFD r0!,{r1}             // save SPSR to FAKE FIQ stack
    STMFD r0!, {r14}           // save lr to FAKE FIQ stack
 
    CPS   #CPSR_MODE_SVR       // drop to user mode
@@ -2111,10 +2113,9 @@ rtiended:
    INTR  -2, 0, FAKE          // Interrupt
 
 noirq:
-
+   orr   r1, regSP, #0x100
    mov   reg12, #FAKESTACK
-   orr   regSP, regSP, #0x100
-   orr   reg12, regSP, LSL #6
+   orr   reg12, r1, LSL #6
 
    ldrd  r0,[reg12,#-8]       // get SPSR and lr
 
