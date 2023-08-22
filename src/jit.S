@@ -2427,6 +2427,7 @@ jitentry:
    orr   r11,r11,#1
    str   r11,SMBT
 // dejit everything
+   BL setupjitram
    bx    r8
 teststackpage:
    tst   r11,#2
