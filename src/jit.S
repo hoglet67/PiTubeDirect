@@ -1974,6 +1974,9 @@ exec_65tubejit:
    ldrd  r2,[r4]
    strd  r0,[r4]
    strd  r2,old_irq_vector
+   mov   r1, #0
+   strb  r1, fiqjitflag
+   strb  r1, fiqirqflag
    CPSIE if // enable interrupts
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    //mov   reg2,#JITLET
