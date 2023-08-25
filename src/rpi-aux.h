@@ -36,9 +36,11 @@
 extern void RPI_AuxMiniUartIRQHandler();
 extern void RPI_AuxMiniUartInit(uint32_t baud);
 extern void RPI_AuxMiniUartWrite(char c);
+extern void RPI_UnbufferedWrite(char c);
 extern int  RPI_AuxMiniUartString(const char *c, int len);
 
-extern void dump_hex(unsigned int value, int bits);
-extern void dump_string( const char * string, int padding);
-extern void padding(int padding);
+extern void dump_binary(unsigned int value, int unbuffered);
+extern void dump_hex(unsigned int value, int bits, int unbuffered);
+extern void dump_string( const char * string, int padding, int unbuffered);
+extern void padding(int padding, int unbuffered);
 #endif

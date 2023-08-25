@@ -235,14 +235,43 @@ _prefetch_abort_handler_:
     stmfd    sp!, {r0}            // Store spsr onto stack.
     mov      r0, sp
     bl       prefetch_abort_handler
+    // if we come back here it was a watchpoint abort
+    // so tidy up stack and return
+    ldmfd    sp!,{r0}
+    str      r0,tempSPSR
+    ldmfd    sp!,{r0-r12, lr}
+    str      r0,tempr0
+    sub      lr,lr,#8           // abort address offset
+    ldr      r0,tempSPSR
+    stmfd    r13!,{r0}
+    STMFD    r13!,{lr}
+    ldr      r0,tempr0
+    RFEFD    r13!                 // return from dataabort handler
 
-.section ".text._data_abort_handler_"
 _data_abort_handler_:
     stmfd    sp!, {r0-r12, lr}
     mrs      r0, spsr             // Get spsr.
     stmfd    sp!, {r0}            // Store spsr onto stack.
     mov      r0, sp
     bl       data_abort_handler
+    // if we come back here it was a watchpoint abort
+    // so tidy up stack and return
+watchpointreturn:
+    ldmfd    sp!,{r0}
+    str      r0,tempSPSR
+    ldmfd    sp!,{r0-r12, lr}
+    str      r0,tempr0
+    sub      lr,lr,#8           // abort address offset
+    ldr      r0,tempSPSR
+    stmfd    r13!,{r0}
+    STMFD    r13!,{lr}
+    ldr      r0,tempr0
+    RFEFD    r13!                 // return from dataabort handler
+
+tempSPSR:
+.word 0
+tempr0:
+.word 0
 
 .section ".text._swi_handler_"
 _swi_handler_:

@@ -66,6 +66,15 @@ void RPI_AuxMiniUartWrite(char c)
 #endif
 }
 
+void RPI_UnbufferedWrite(char c)
+{  /* Wait until the UART has an empty space in the FIFO */
+  while ((auxiliary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)
+  {
+  }
+  /* Write the character to the FIFO for transmission */
+  auxiliary->MU_IO = c;
+}
+
 int RPI_AuxMiniUartString(const char *c, int len)
 {
 #ifdef USE_IRQ
@@ -117,6 +126,25 @@ int RPI_AuxMiniUartString(const char *c, int len)
     break;
   } while (num--);
 #endif
+  return count;
+}
+
+int RPI_UnbufferedString( const char *c, int len)
+{
+  int num = len-1;
+  int count = 0;
+  if ( len == 0 ) num = INT_MAX;
+  do {
+  /* Wait until the UART has an empty space in the FIFO */
+  while ((auxiliary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)
+  {
+  }
+  /* Write the character to the FIFO for transmission */
+  auxiliary->MU_IO = *c++;
+    count++;
+  if ( (*c==0) && ( len == 0 ) )
+    break;
+  } while (num--);
   return count;
 }
 
@@ -242,7 +270,17 @@ void RPI_AuxMiniUartInit(uint32_t baud)
 }
 
 
-void dump_hex(unsigned int value, int bits)
+void dump_binary(unsigned int value, int unbuffered) {
+  for (int i = 0; i < 32; i++) {
+    if (unbuffered)
+      RPI_UnbufferedWrite((uint8_t)('0' + (value >> 31)));
+    else
+      RPI_AuxMiniUartWrite((uint8_t)('0' + (value >> 31)));
+    value <<= 1;
+  }
+}
+
+void dump_hex(unsigned int value, int bits, int unbuffered)
 {
    value = value << (32-bits);
    for (int i = 0; i < (bits>>2); i++) {
@@ -252,25 +290,39 @@ void dump_hex(unsigned int value, int bits)
       } else {
          c = 'A' + c - 10;
       }
-      RPI_AuxMiniUartWrite((uint8_t)c);
+      if (unbuffered)
+        RPI_UnbufferedWrite((uint8_t)c);
+      else
+        RPI_AuxMiniUartWrite((uint8_t)c);
       value <<= 4;
    }
 }
 
-void dump_string( const char * string, int padding)
+void dump_string( const char * string, int padding, int unbuffered)
 {
-   int i=RPI_AuxMiniUartString( string, 0);
+   int i;
+   if (unbuffered)
+      i = RPI_UnbufferedString( string, 0);
+    else
+      i = RPI_AuxMiniUartString( string, 0);
+
    while ( i<padding) {
-      RPI_AuxMiniUartWrite(' ');
+      if (unbuffered)
+        RPI_UnbufferedWrite((uint8_t)' ');
+      else
+        RPI_AuxMiniUartWrite(' ');
       i++;
    }
 }
 
-void padding(int padding)
+void padding(int padding, int unbuffered)
 {
-     int i=0;
-     while ( i<padding) {
-      RPI_AuxMiniUartWrite(' ');
+  int i=0;
+   while ( i<padding) {
+      if (unbuffered)
+        RPI_UnbufferedWrite((uint8_t)' ');
+      else
+        RPI_AuxMiniUartWrite(' ');
       i++;
    }
 }
