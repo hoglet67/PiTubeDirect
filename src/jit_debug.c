@@ -83,12 +83,12 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    bufsize -= opstringlen;
    darm_t dis;
    darm_str_t dis_str;
-   uint32_t padding = 26;
+   uint32_t padding = 28;
    uint32_t offset =  (uint32_t)(buf - start);
    uint32_t arminstr = oplen<<1;
    uint32_t jitletaddr = JITLET+ ( addr<<3);
    do {
-       strncpy(buf,"                          ",padding-offset);
+       strncpy(buf,"                            ",padding-offset);
        buf += padding-1-offset;
        bufsize -= padding-1-offset;
 
