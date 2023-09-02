@@ -23,7 +23,7 @@ static void dump_info(unsigned int *context, int offset, const char *type) {
   unsigned int *reg;
   unsigned int flags;
   int i, j;
-
+  RPI_AuxMiniUartFlush(); // flush UART so we don't corrupt any messages
   // Make sure we avoid unaligned accesses
   context = (unsigned int *)(((unsigned int) context) & ~3u);
   // context point into the exception stack, at flags, followed by registers 0 .. 13

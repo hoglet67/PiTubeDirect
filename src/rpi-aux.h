@@ -33,14 +33,23 @@
 
 #include <stdint.h>
 
+enum UART_TX_TYPE {
+    UART_IRQ = 0,
+    UART_BLOCKING = 1,
+    UART_BUFFERED,
+};
+
 extern void RPI_AuxMiniUartIRQHandler();
 extern void RPI_AuxMiniUartInit(uint32_t baud);
+extern void RPI_AuxMiniUartFlush();
+extern void RPI_UARTTriggerTx();
 extern void RPI_AuxMiniUartWrite(char c);
 extern void RPI_UnbufferedWrite(char c);
 extern int  RPI_AuxMiniUartString(const char *c, int len);
 
-extern void dump_binary(unsigned int value, int unbuffered);
-extern void dump_hex(unsigned int value, int bits, int unbuffered);
-extern void dump_string( const char * string, int padding, int unbuffered);
-extern void padding(int padding, int unbuffered);
+extern void dump_char(char c, enum UART_TX_TYPE unbuffered);
+extern void dump_binary(unsigned int value, enum UART_TX_TYPE unbuffered);
+extern void dump_hex(unsigned int value, int bits,enum  UART_TX_TYPE unbuffered);
+extern void dump_string( const char * string, int padding, enum UART_TX_TYPE unbuffered);
+extern void padding(int padding, enum UART_TX_TYPE unbuffered);
 #endif

@@ -4,6 +4,7 @@
 #include "rpi-asm-helpers.h"
 #include "tube-pins.h"
 #include <limits.h>
+#include "rpi-aux.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "debugger/debugger.h"
@@ -19,13 +20,12 @@
 #define TX_BUFFER_SIZE (1<<22)  // Must be a power of 2
 
 static aux_t* auxiliary = (aux_t*) AUX_BASE;
-
-#ifdef USE_IRQ
-
-#include "rpi-interrupts.h"
 __attribute__ ((section (".noinit"))) static volatile char tx_buffer[TX_BUFFER_SIZE];
 static volatile int tx_head;
 static volatile int tx_tail;
+
+#ifdef USE_IRQ
+#include "rpi-interrupts.h"
 #endif // USE_IRQ
 
 void RPI_AuxMiniUartWrite(char c)
@@ -49,30 +49,64 @@ void RPI_AuxMiniUartWrite(char c)
   tx_buffer[tmp_head] = c;
   tx_head = tmp_head;
 
-  _data_memory_barrier();
-
   /* Enable TxEmpty interrupt */
-  auxiliary->MU_IER |= AUX_MUIER_TX_INT;
-
-  _data_memory_barrier();
+  auxiliary->MU_IER = AUX_MUIER_TX_INT | AUX_MUIER_RX_INT;
 
 #else
+    _data_memory_barrier();
   /* Wait until the UART has an empty space in the FIFO */
   while ((auxiliary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)
   {
   }
   /* Write the character to the FIFO for transmission */
   auxiliary->MU_IO = c;
+    _data_memory_barrier();
+#endif
+}
+
+void RPI_BufferedWrite( char c)
+{
+  int tmp_head = (tx_head + 1) & (TX_BUFFER_SIZE - 1);
+
+  /* Test if the buffer is full */
+  if (tmp_head == tx_tail) {
+     uint32_t cpsr = _get_cpsr();
+     if (cpsr & 0x80) {
+        /* IRQ disabled: drop the character to avoid deadlock */
+        return;
+     } else {
+        /* IRQ enabled: wait for space in buffer */
+        while (tmp_head == tx_tail) {
+        }
+     }
+  }
+  /* Buffer the character */
+  tx_buffer[tmp_head] = c;
+  tx_head = tmp_head;
+}
+
+void RPI_UARTTriggerTx()
+{
+#ifdef USE_IRQ
+
+  /* Enable TxEmpty interrupt */
+  auxiliary->MU_IER = AUX_MUIER_TX_INT | AUX_MUIER_RX_INT;
+
+#else
+  RPI_AuxMiniUartFlush();
 #endif
 }
 
 void RPI_UnbufferedWrite(char c)
-{  /* Wait until the UART has an empty space in the FIFO */
+{
+  _data_memory_barrier();
+    /* Wait until the UART has an empty space in the FIFO */
   while ((auxiliary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0)
   {
   }
   /* Write the character to the FIFO for transmission */
   auxiliary->MU_IO = c;
+  _data_memory_barrier();
 }
 
 int RPI_AuxMiniUartString(const char *c, int len)
@@ -104,15 +138,13 @@ int RPI_AuxMiniUartString(const char *c, int len)
       break;
   } while (num--);
 
-  _data_memory_barrier();
-
   /* Enable TxEmpty interrupt */
-  auxiliary->MU_IER |= AUX_MUIER_TX_INT;
+  auxiliary->MU_IER = AUX_MUIER_TX_INT | AUX_MUIER_RX_INT;
 
-  _data_memory_barrier();
 #else
   int num = len-1;
   int count = 0;
+    _data_memory_barrier();
   if ( len == 0 ) num = INT_MAX;
   do {
   /* Wait until the UART has an empty space in the FIFO */
@@ -125,14 +157,18 @@ int RPI_AuxMiniUartString(const char *c, int len)
   if ( (*c==0) && ( len == 0 ) )
     break;
   } while (num--);
+  _data_memory_barrier();
 #endif
   return count;
 }
+
+
 
 int RPI_UnbufferedString( const char *c, int len)
 {
   int num = len-1;
   int count = 0;
+  _data_memory_barrier();
   if ( len == 0 ) num = INT_MAX;
   do {
   /* Wait until the UART has an empty space in the FIFO */
@@ -145,10 +181,11 @@ int RPI_UnbufferedString( const char *c, int len)
   if ( (*c==0) && ( len == 0 ) )
     break;
   } while (num--);
+  _data_memory_barrier();
   return count;
 }
 
-
+#if 1
 void RPI_AuxMiniUartIRQHandler() {
 
   //_data_memory_barrier();
@@ -185,7 +222,7 @@ void RPI_AuxMiniUartIRQHandler() {
         auxiliary->MU_IO = tx_buffer[tx_tail];
       } else {
         /* Disable TxEmpty interrupt */
-        auxiliary->MU_IER &= (rpi_reg_byte_rw_t)~AUX_MUIER_TX_INT;
+        auxiliary->MU_IER = AUX_MUIER_RX_INT ;
       }
     }
   }
@@ -193,8 +230,60 @@ void RPI_AuxMiniUartIRQHandler() {
 
  // RPI_SetGpioLo(TEST3_PIN);
 
- // _data_memory_barrier();
+ _data_memory_barrier();
 }
+#else
+void RPI_AuxMiniUartIRQHandler() {
+
+  //_data_memory_barrier();
+  //RPI_SetGpioHi(TEST3_PIN);
+
+#ifdef USE_IRQ
+  _data_memory_barrier();
+/*
+  uint8_t iir = auxiliary->MU_IIR;
+    if (iir & AUX_MUIIR_INT_NOT_PENDING) {
+        _data_memory_barrier();
+      return;
+    }
+*/
+  uint32_t stat = auxiliary->MU_STAT;
+  uint32_t rxlevel = 8 - ((stat>>16) & 0xF);
+  uint32_t txlevel = 8 - ((stat>>24) & 0xF);
+
+  while(rxlevel)
+  {
+#ifdef INCLUDE_DEBUGGER
+      /* Forward all received characters to the debugger */
+      debugger_rx_char(auxiliary->MU_IO & 0xFF);
+#else
+      /* Else just echo characters */
+      RPI_AuxMiniUartWrite(auxiliary->MU_IO & 0xFF);
+#endif
+      rxlevel-=1;
+  }
+
+  while( txlevel)
+  {
+      if (tx_tail != tx_head) {
+        /* Transmit the character */
+        tx_tail = (tx_tail + 1) & (TX_BUFFER_SIZE - 1);
+        auxiliary->MU_IO = tx_buffer[tx_tail];
+      } else {
+        /* Disable TxEmpty interrupt */
+        auxiliary->MU_IER = AUX_MUIER_RX_INT ;
+        break;
+      }
+      txlevel-=1;
+  }
+#endif // USE_IRQ
+
+ // RPI_SetGpioLo(TEST3_PIN);
+
+ _data_memory_barrier();
+}
+#endif
+
 
 void RPI_AuxMiniUartInit(uint32_t baud)
 {
@@ -248,7 +337,8 @@ void RPI_AuxMiniUartInit(uint32_t baud)
   auxiliary->MU_IIR = 0xC6;
 
   /* Transposed calculation from Section 2.2.1 of the ARM peripherals manual */
-  auxiliary->MU_BAUD = (( sys_freq / (8 * baud)) - 1);
+  // improve rounding for low dividers
+  auxiliary->MU_BAUD = (( sys_freq*2 / (8 * baud)) - 1)/2;
 
 #ifdef USE_IRQ
   {
@@ -256,7 +346,7 @@ void RPI_AuxMiniUartInit(uint32_t baud)
     _data_memory_barrier();
     RPI_GetIrqController()->Enable_IRQs_1 = (1 << 29);
     _data_memory_barrier();
-    auxiliary->MU_IER |= AUX_MUIER_RX_INT;
+    auxiliary->MU_IER = AUX_MUIER_RX_INT;
   }
 #endif
 
@@ -269,18 +359,40 @@ void RPI_AuxMiniUartInit(uint32_t baud)
 
 }
 
+void RPI_AuxMiniUartFlush()
+{
+  unsigned int cpsr = _disable_interrupts_cspr();
+  _data_memory_barrier();
+  while (tx_tail != tx_head)
+  {
+    /* Wait until the UART has an empty space in the FIFO */
+    while ((auxiliary->MU_LSR & AUX_MULSR_TX_EMPTY) == 0);
+    /* Transmit the character */
+    tx_tail = (tx_tail + 1) & (TX_BUFFER_SIZE - 1);
+    auxiliary->MU_IO = tx_buffer[tx_tail];
+  }
+  _data_memory_barrier();
+  _restore_cpsr(cpsr);
+}
 
-void dump_binary(unsigned int value, int unbuffered) {
+void dump_char( char c , enum UART_TX_TYPE unbuffered)
+{
+  switch (unbuffered)
+  {
+    case UART_IRQ : RPI_AuxMiniUartWrite( c); break;
+    case UART_BLOCKING : RPI_UnbufferedWrite( c); break;
+    case UART_BUFFERED : RPI_BufferedWrite (c); break;
+  }
+}
+
+void dump_binary(unsigned int value, enum UART_TX_TYPE unbuffered) {
   for (int i = 0; i < 32; i++) {
-    if (unbuffered)
-      RPI_UnbufferedWrite((uint8_t)('0' + (value >> 31)));
-    else
-      RPI_AuxMiniUartWrite((uint8_t)('0' + (value >> 31)));
+    dump_char((uint8_t)('0' + (value >> 31)), unbuffered);
     value <<= 1;
   }
 }
 
-void dump_hex(unsigned int value, int bits, int unbuffered)
+void dump_hex(unsigned int value, int bits, enum UART_TX_TYPE unbuffered)
 {
    value = value << (32-bits);
    for (int i = 0; i < (bits>>2); i++) {
@@ -290,39 +402,39 @@ void dump_hex(unsigned int value, int bits, int unbuffered)
       } else {
          c = 'A' + c - 10;
       }
-      if (unbuffered)
-        RPI_UnbufferedWrite((uint8_t)c);
-      else
-        RPI_AuxMiniUartWrite((uint8_t)c);
+      dump_char((uint8_t)c, unbuffered);
       value <<= 4;
    }
 }
 
-void dump_string( const char * string, int padding, int unbuffered)
+void dump_string( const char * string, int paddingchars, enum UART_TX_TYPE unbuffered)
 {
    int i;
-   if (unbuffered)
-      i = RPI_UnbufferedString( string, 0);
-    else
-      i = RPI_AuxMiniUartString( string, 0);
+   switch (unbuffered)
+   {
+      case UART_IRQ :i=RPI_AuxMiniUartString( string, 0); break;
+      case UART_BLOCKING : i=RPI_UnbufferedString( string, 0); break;
+      case UART_BUFFERED : i=RPI_AuxMiniUartString( string, 0); break;
 
-   while ( i<padding) {
-      if (unbuffered)
-        RPI_UnbufferedWrite((uint8_t)' ');
-      else
-        RPI_AuxMiniUartWrite(' ');
-      i++;
    }
+   padding( paddingchars-i, unbuffered);
 }
 
-void padding(int padding, int unbuffered)
+void padding(int padding, enum UART_TX_TYPE unbuffered)
 {
   int i=0;
+  if (padding <6)
    while ( i<padding) {
-      if (unbuffered)
-        RPI_UnbufferedWrite((uint8_t)' ');
-      else
-        RPI_AuxMiniUartWrite(' ');
+      dump_char((uint8_t)' ', unbuffered);
       i++;
+   }
+   else
+   {
+    dump_char(27, unbuffered);
+    dump_char('[', unbuffered);
+    if (padding>9)
+          dump_char((char)('0'+(padding/10)), unbuffered);
+    dump_char((char)('0'+padding%10), unbuffered);
+    dump_char('C', unbuffered);
    }
 }
