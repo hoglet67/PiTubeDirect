@@ -185,7 +185,6 @@ int RPI_UnbufferedString( const char *c, int len)
   return count;
 }
 
-#if 1
 void RPI_AuxMiniUartIRQHandler() {
 
   //_data_memory_barrier();
@@ -232,58 +231,6 @@ void RPI_AuxMiniUartIRQHandler() {
 
  _data_memory_barrier();
 }
-#else
-void RPI_AuxMiniUartIRQHandler() {
-
-  //_data_memory_barrier();
-  //RPI_SetGpioHi(TEST3_PIN);
-
-#ifdef USE_IRQ
-  _data_memory_barrier();
-/*
-  uint8_t iir = auxiliary->MU_IIR;
-    if (iir & AUX_MUIIR_INT_NOT_PENDING) {
-        _data_memory_barrier();
-      return;
-    }
-*/
-  uint32_t stat = auxiliary->MU_STAT;
-  uint32_t rxlevel = 8 - ((stat>>16) & 0xF);
-  uint32_t txlevel = 8 - ((stat>>24) & 0xF);
-
-  while(rxlevel)
-  {
-#ifdef INCLUDE_DEBUGGER
-      /* Forward all received characters to the debugger */
-      debugger_rx_char(auxiliary->MU_IO & 0xFF);
-#else
-      /* Else just echo characters */
-      RPI_AuxMiniUartWrite(auxiliary->MU_IO & 0xFF);
-#endif
-      rxlevel-=1;
-  }
-
-  while( txlevel)
-  {
-      if (tx_tail != tx_head) {
-        /* Transmit the character */
-        tx_tail = (tx_tail + 1) & (TX_BUFFER_SIZE - 1);
-        auxiliary->MU_IO = tx_buffer[tx_tail];
-      } else {
-        /* Disable TxEmpty interrupt */
-        auxiliary->MU_IER = AUX_MUIER_RX_INT ;
-        break;
-      }
-      txlevel-=1;
-  }
-#endif // USE_IRQ
-
- // RPI_SetGpioLo(TEST3_PIN);
-
- _data_memory_barrier();
-}
-#endif
-
 
 void RPI_AuxMiniUartInit(uint32_t baud)
 {
