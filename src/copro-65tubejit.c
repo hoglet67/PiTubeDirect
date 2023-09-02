@@ -83,10 +83,10 @@ static void dis6502(unsigned int addr, int padding)
    char buffer[64];
    M6502 mpu;
    mpu.memory=0;
-   dump_hex(addr,16,0); RPI_AuxMiniUartWrite(' ');
+   dump_hex(addr,16,UART_BUFFERED);dump_char(' ',UART_BUFFERED);
    char * ptr =buffer;
    M6502_disassemble(&mpu, (unsigned short)addr,ptr);
-   dump_string(buffer,padding,0);
+   dump_string(buffer,padding,UART_BUFFERED);
 }
 // Called from assembler
 // cppcheck-suppress unusedFunction
@@ -104,16 +104,16 @@ void dissall(unsigned int addr, unsigned length)
          if (i ==0)
             dis6502( addr, 12);
          else
-            padding(17,0);
+            padding(17, UART_BUFFERED );
 
-         dump_hex(jitletaddr,32,0);
-         RPI_AuxMiniUartWrite(' ');
+         dump_hex(jitletaddr,32, UART_BUFFERED );
+         dump_char(' ',UART_BUFFERED);
 
          unsigned int instr = * (unsigned int *) (jitletaddr);
          if (darm_armv7_disasm(&dis, instr) == 0) {
             dis.addr = (jitletaddr);
             darm_str2(&dis, &dis_str, 0);
-            RPI_AuxMiniUartString(dis_str.total,0);
+            dump_string(dis_str.total,0, UART_BUFFERED );
          }
 
          //dump_string(dis_str.total,30,0);
@@ -125,9 +125,11 @@ void dissall(unsigned int addr, unsigned length)
             tableaddr+=4;
          }
          RPI_AuxMiniUartString(dis_str.total,0);*/
-         RPI_AuxMiniUartString("\r\n", 2);
+         dump_string("\r\n", 2, UART_BUFFERED);
          jitletaddr+=4;
       }
+      RPI_UARTTriggerTx();
    }
+
 }
 #endif
