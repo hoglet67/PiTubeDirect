@@ -190,10 +190,12 @@ then return to our secret stack This relies on instructions being re entrant , b
   // sub   r1,r1,r4
    movs  temp,temp
    BEQ   1f
-
+   mrs   r4,cpsr
+   CPSID if
    push  {r2-r3}
    BL    dissall
    pop   {r2-r3}
+   msr   cpsr,r4
   // MRC   p15, 0, r1, c15, c12, 1
   // str r1,timingtemp
 
@@ -285,24 +287,36 @@ then return to our secret stack This relies on instructions being re entrant , b
 .endm
 
 .macro DEBUG_REG reg bits
-   push  {r0-r4,r14}
-   mrs   r4, CPSR               // Save 6502 flags
+   push  {r0-r3,r12,r14}
+.if \reg==r0
+   mrs   r1, CPSR               // Save 6502 flags
    CPSID if
+   push  {r1}
+.else
+   mrs   r0, CPSR               // Save 6502 flags
+   CPSID if
+   push  {r0}
+.endif
+
    mov   r0,\reg
    mov   r1,#\bits
+   mov   r2,#00
    BL    dump_hex
-   msr   CPSR, r4
-   pop   {r0-r4,r14}
+   pop   {r0}
+   msr   CPSR, r0
+   pop   {r0-r3,r12,r14}
 .endm
 
 .macro DEBUG_CHAR char
-   push  {r0-r4,r14}
-   mrs   r4, CPSR               // Save 6502 flags
+   push  {r0-r3,r12,r14}
+   mrs   r0, CPSR               // Save 6502 flags
    CPSID if
+   push  {r0}
    mov   r0,#\char
    BL    RPI_AuxMiniUartWrite
-   msr   CPSR, r4
-   pop   {r0-r4,r14}
+   pop    {r0}
+   msr   CPSR, r0
+   pop   {r0-r3,r12,r14}
 .endm
 
 .macro MAKEBRANCHLINK reg
@@ -1803,10 +1817,11 @@ opc_FE: // Opcode FE - INC $0000,X
 // **********************************************
 
 setupjitram:
-   push  {r0,r1,r2,r3,r4,r5,r12}
+   push  {r0,r1,r2,r3,r4,r5,r6,r12,r14}
 // setup table JITLET ( 64K x bl JITLET)
 // setup JITTEDTABLE16 with 64K x mov pc,r14
    ldr   temp2,=dojit-JITLET-8
+ //  ldr   r6,=0xE1200070 // BKPT
    mov   r0,#JITLET
 #if JITTEDTABLESHIFT==3
    ldr   temp1,=0xe1a06006 // ARMNOPR6QUICK
@@ -1821,6 +1836,8 @@ setupjitram:
 loopdejitsetup:
    subs  r3,r3,#1
    str   temp2,[r0],#NEXTJITLET
+ //  str   temp2,[r0],#4
+ //  str   r6,[r0],#4
    sub   temp2,temp2,#NEXTJITLET>>2
 #if JITTEDTABLESHIFT==3
    str   temp1,[r4],#4   // NOP JITTEDTABLE16
@@ -1893,8 +1910,7 @@ cacheflushloopjittable:
    MCR   p15, 0, temp, c7, c10, 0 //; clean data cache
    MCR   p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
 #endif
-   pop  {r0,r1,r2,r3,r4,r5,r12}
-   bx    lr
+   pop  {r0,r1,r2,r3,r4,r5,r6,r12,pc}
 
 
 // **********************************************
@@ -1923,9 +1939,16 @@ exec_65tubejit:
 #endif
 
    BL setupjitram
+// setup watch points
+//   ldr r0,=0x0c07d6e8
+//   mov   r1,#15
+//   mov   r2,#3
+//   BL enable_watch0
 
-   mov   temp,#0
-   str   temp, SMBT
+ //  adr   r0,fiqirqflag
+//   mov   r1,#15
+//   mov   r2,#3
+  // BL enable_watch1
 
 // run dormann tests directly
 #ifdef DORMANN_TEST
@@ -1964,6 +1987,10 @@ exec_65tubejit:
    mov   jittedtable16ptr,#JITTEDTABLE16
 
    CPSID if
+   mov   r1, #0
+   str   r1, SMBT
+   strb  r1, fiqjitflag
+   strb  r1, fiqirqflag
    str   r13,stackptr
    str   ram6502,ram6502store
 
@@ -1974,9 +2001,7 @@ exec_65tubejit:
    ldrd  r2,[r4]
    strd  r0,[r4]
    strd  r2,old_irq_vector
-   mov   r1, #0
-   strb  r1, fiqjitflag
-   strb  r1, fiqirqflag
+
    CPSIE if // enable interrupts
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    //mov   reg2,#JITLET
@@ -1986,7 +2011,6 @@ exec_65tubejit:
 
 //*************************************************************
 reset_handler:
-
 reset_handler_jit:
 // release interrupt handler
    CPSID if
@@ -2009,8 +2033,6 @@ doorbell_const:
    .word DOORBELL
    .word DOORBELLDATA
 fiqtemp:
-   .word 0
-   .word 0
    .word 0
    .word 0
 stackptr:
@@ -2059,14 +2081,14 @@ arm_fiq_handler_jit:
    tst   r12,#RESET_BIT+NMI_BIT+IRQ_BIT
    subeqs pc, lr, #4
 
-// if we are currently running jit code and called out to C code then deal with FIQ once we are back
+// if we are currently running jit code and called out to C code or jitting then deal with FIQ once we are back
    ldrb  r12, fiqjitflag
    movs  r12, r12
    orr   r12, r12, #2
    strneb r12, fiqjitflag
    subnes pc, lr, #4
 
-// if we are in an IRQ the event will be handled at the end of the IRQ
+// if we are in an IRQ, the event will be handled at the end of the IRQ
    mrs   r12, spsr            // Get the saved psr
    and   r12, #0x1F
    cmp   r12, #0x12
@@ -2076,25 +2098,29 @@ arm_fiq_handler_jit:
    sub   r14,r14,#4
 
 fiq_during_irq:               // we can get here from ARM FIQ or ARM IRQ handler
-
    strd  r0,fiqtemp           // store r0,r1 to give register space
-   strd  r2,fiqtemp+8
-   orr   r1, regSP, #0x100
-   mov   r0, #FAKESTACK
-   orr   r0, r0, r1, LSL #6
    mrs   r1 , SPSR
-   STMFD r0!,{r1}             // save SPSR to FAKE FIQ stack
+
+   mov   r0, regSP, LSL #6
+   orr   r0, r0, #0x100<<6
+   orr   r0, r0, #FAKESTACK
+
+   STMFD r0!, {r1}            // save SPSR to FAKE FIQ stack
    STMFD r0!, {r14}           // save lr to FAKE FIQ stack
 
-   CPS   #CPSR_MODE_SVR       // drop to user mode
+   CPS   #CPSR_MODE_SVR       // drop to user mode leaving FIQ and IRQ disabled
+                              // becuase of gating above we know we are in the jitter
+                              // so regSP is a valid stack pointer
 
    STMFD r0!,{r2-r12,r14}     // save everything to FAKE FIQ stack
    ldrd  r2,fiqtemp
    STMFD r0!,{r2,r3}          // save R0,r1 on FAKE FIQ stack
 
+   ldrd  r2,r3,[r0,#8]        // restore r2,r3
+
    ldr   reg0, =tube_irq      // Get IRQ status
-   ldrd  r2,fiqtemp+8         // restore r2,r3
-   mrs   reg12, CPSR
+
+   mrs   reg12, CPSR          // doesn't do anything very useful
 
 rtiended:
    CPSID if                   // could come from rti
@@ -2111,20 +2137,18 @@ rtiended:
    bne   noirq
    tst   r0, #IRQ_BIT         // Bit 0 set indicate IRQ is active
    beq   noirq
-
    msr   CPSR_flg, reg12      // Restore the 6502 flags
    INTR  -2, 0, FAKE          // Interrupt
 
 noirq:
-   orr   r1, regSP, #0x100
-   mov   reg12, #FAKESTACK
-   orr   reg12, r1, LSL #6
+   mov   reg12, regSP, LSL #6
+   orr   reg12, reg12, #0x100<<6
+   orr   reg12, reg12, #FAKESTACK
 
    ldrd  r0,[reg12,#-8]       // get SPSR and lr
 
    SUB   lr, reg12, #16*4     // move pointer to the end of data
    PUSH  {r0,r1}              // push on to stack ready for RFEFD
-
 
    ldmfd lr,{r0-r12,r14}      // restore all the registers
 
@@ -2137,21 +2161,24 @@ handle_nmi:
    msr   CPSR_flg, r12        // Restore the 6502 flags
    INTR  -6, 0, FAKE
 
-
 arm_jit_irq_handler:
    sub   lr, lr, #4
    push  {r0, r1, r2, r3, ip, lr}
+#ifdef DEBUG
+   ldr r0,=jit_state
+   STM r0,{r7,r8,r9,r10,r11,r14} // Save the state for the debugger
+#endif
    bl    IRQHandler_main
 
    CPSID if                   // irqs should already be disabled , but just to be sure
    ldrb  r0,fiqirqflag
    movs  r0,r0
-   ldmeq sp!, {r0, r1, r2, r3, ip, pc}^
+   ldmeqfd sp!, {r0, r1, r2, r3, ip, pc}^
    mov   r0,#0
    strb  r0,fiqirqflag
 
 // we are in IRQ mode and have had a FIQ event
-   ldm   sp!, {r0, r1, r2, r3, ip, lr}
+   pop  {r0, r1, r2, r3, ip, lr}
    B     fiq_during_irq
 
 ioload:
@@ -2423,24 +2450,14 @@ jitentry:
    ldrb  r5,[temp2,#2]
    adr   r12,flags_table
    tst   r11,#1
-   BNE   teststackpage
+   BXNE  r8
    CMP   r2,#0x100
-   BGE   teststackpage
+   BXGE  r8
 
    orr   r11,r11,#1
    str   r11,SMBT
 // dejit everything
-   BL setupjitram
-   bx    r8
-teststackpage:
-   tst   r11,#2
-   bxne  r8
-   CMP   r2,#0x200
-   BXGE  r8
-   orr   r11,r11,#2
-   str   r11,SMBT
-// dejit everything
-   BL setupjitram
+   BL    setupjitram
    bx    r8
 
 // entry regs
@@ -2972,9 +2989,15 @@ opcode_table:
 .word  opc_FE, Bopc_FE  // Opcode FE - INC $0000,X
 .word  opc_FF, Bopc_FF  // Opcode FF - BBS7
 
-
 timingtemp:
    .word 0
+
+debugopcode:
+#if JITDEBUG
+   strb  temp,debugflag
+#endif
+   bx    lr
+
 opc_10: // Opcode 10 - BPL
 opc_30: // Opcode 30 - BMI
 opc_80: // Opcode 80 - BRA
@@ -3130,7 +3153,6 @@ testforirq:
    cmp   r0, #2
    blt   noirq_jit
 
-irqoccured:
    ldr   r1, =tube_irq
    ldr   r0, [r1]               // Get Mailbox data
    tst   r0, #RESET_BIT
@@ -3140,7 +3162,13 @@ irqoccured:
    tst   flags, #I_FLAG6502      // Test whether interrupts are enabled (bit 2 = 0)
    bne   noirq_jit
    tst   r0, #IRQ_BIT             // Bit 0 set indicate IRQ is active
-   beq   noirq_jit
+   bne   handle_irq_jit
+
+noirq_jit:
+   mov   r14, r3
+   ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
+   msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
+   bx    r14   // this is slow on some system , but we have just flushed the cache which is slow
 
 handle_irq_jit:
 // deal with IRQ during jitter
@@ -3151,7 +3179,7 @@ handle_irq_jit:
    INTR  -2, 0
 
 handle_nmi_jit:
-// deal with IRQ during jitter
+// deal with NMI during jitter
    BIC   r0,r0,#NMI_BIT  // clear NMI flag
    str   r0,[r1]   // Store it back again
    SUB   temp1,r3,#JITLET
@@ -3159,18 +3187,6 @@ handle_nmi_jit:
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    INTR  -6, 0
-
-noirq_jit:
-   mov   r14, r3
-   ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
-   msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
-   bx    r14   // this is slow on some system , but we have just flushed the cache which is slow
-
-debugopcode:
-#if JITDEBUG
-   strb  temp,debugflag
-#endif
-   bx    lr
 
 opc_00: // Opcode 00 - BRK
    ldrd  r8,[r9]
@@ -3897,6 +3913,19 @@ storetest:
    bx    lr
 1:
    bx  reg0
+
+jit_state:
+   .word 0 // SP
+   .word 0 // Y
+   .word 0 // Flags
+   .word 0 // A
+   .word 0 // X
+   .word 0 // PC
+
+.global jit_get_regs
+jit_get_regs:
+   ldr r0,=jit_state
+   BX R14
 
 opc_09: // Opcode 09 - ORA #$00
 opc_29: // Opcode 29 - AND #$00

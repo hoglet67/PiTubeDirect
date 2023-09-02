@@ -9,6 +9,8 @@
 extern void copro_65tubejit_emulator();
 
 extern void exec_65tubejit(unsigned char *memory, unsigned int speed);
+
+extern uint32_t * jit_get_regs(void);
 #endif
 
 #endif

@@ -6,7 +6,8 @@
 #include "cpu_debug.h"
 #include "lib6502.h"
 #include "jit_debug.h"
-
+#include "darm/darm.h"
+#include "copro-65tubejit.h"
 /*****************************************************
  * CPU Debug Interface
  *****************************************************/
@@ -50,19 +51,19 @@ static int dbg_debug_enable(int newvalue) {
 
 // CPU's usual memory read function for data.
 static uint32_t dbg_memread(uint32_t addr) {
-  // return (uint32_t) (uint8_t *)addr[0];
-  return 0;
+  return (uint32_t) (((uint8_t *)addr)[0]);
 }
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
-   // (uint8_t *)addr[0] = (uint8_t) value;
+   (((uint8_t *)addr)[0]) = (uint8_t) value;
 }
 
 static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
    char instr[64];
    M6502 mpu;
    mpu.memory=0;
+   char * start = buf;
    uint32_t oplen = (uint32_t) M6502_disassemble(&mpu, (uint16_t)addr, instr);
    uint32_t len = (uint32_t)snprintf(buf, bufsize, "%04"PRIx32" ", addr);
    buf += len;
@@ -76,25 +77,61 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
       buf += len;
       bufsize -= len;
    }
+   uint32_t opstringlen= strlen(instr);
    strncpy(buf, instr, bufsize);
+   buf += opstringlen;
+   bufsize -= opstringlen;
+   darm_t dis;
+   darm_str_t dis_str;
+   uint32_t padding = 26;
+   uint32_t offset =  (uint32_t)(buf - start);
+   uint32_t arminstr = oplen<<1;
+   uint32_t jitletaddr = JITLET+ ( addr<<3);
+   do {
+       strncpy(buf,"                          ",padding-offset);
+       buf += padding-1-offset;
+       bufsize -= padding-1-offset;
+
+       uint32_t instrarm = * (uint32_t *) (jitletaddr);
+
+       len = (uint32_t)snprintf(buf, bufsize, "%08"PRIx32" ", jitletaddr);
+      buf += len;
+      bufsize -= len;
+       if (darm_armv7_disasm(&dis, instrarm) == 0) {
+            dis.addr = (jitletaddr);
+            darm_str2(&dis, &dis_str, 0);
+            strncpy(buf, dis_str.total, bufsize);
+            buf += strlen(dis_str.total);
+            bufsize -= strlen(dis_str.total);
+            strncpy(buf, "\r\n", bufsize);
+
+            buf += 2;
+            bufsize -= 2;
+       }
+       offset =0;
+      jitletaddr+=4;
+      arminstr--;
+   } while (arminstr);
+   buf[-1] = 0;
    return (uint32_t)(addr + oplen);
 }
 
 // Get a register - which is the index into the names above
 static uint32_t dbg_reg_get(int which) {
+   uint32_t * ptr = jit_get_regs();
    switch (which) {
    case i_A:
-      return 1; //copro_jit_mpu->registers->a;
+      return ptr[3]& 0xFF;
    case i_X:
-      return 2; //copro_jit_mpu->registers->x;
+      return ptr[4]>>24;
    case i_Y:
-      return 3; //copro_jit_mpu->registers->y;
+      return ptr[1]>>24;
    case i_P:
-      return 4; //copro_jit_mpu->registers->p;
+      return ptr[2];
    case i_S:
-      return 5; //copro_jit_mpu->registers->s;
+      return ptr[0];
    case i_PC:
-      return 6; //copro_jit_mpu->registers->pc;
+      return ((ptr[5]-JITLET)>>3);
    default:
       return 0;
    }

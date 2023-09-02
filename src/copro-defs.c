@@ -41,6 +41,7 @@
 #include "pdp11/pdp11_debug.h"
 #include "f100/f100_debug.h"
 #include "65816/65816_debug.h"
+#include "jit_debug.h"
 
 #define DEBUGGER(n) (n)
 #define NO_DEBUGGER (NULL)
@@ -205,7 +206,7 @@ const copro_def_t copro_defs[] = {
       "65C02 (JIT)",            // 24
       copro_65tubejit_emulator,
       TYPE_65TUBE_0,
-      NO_DEBUGGER
+      DEBUGGER(&jit_cpu_debug)
    },
    {
       "Null",                   // 25
