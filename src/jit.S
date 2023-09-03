@@ -974,6 +974,11 @@ Bopc_81: // Opcode 81 - STA ($00,X)
    .word jitstatable-20
 Bopc_84: // Opcode 84 - STY $00
    JITZPST regY
+Bopc_84_noSMC:
+   mov   reg0,regY,LSR #24
+   SPACE_TWO_ARM_WORDS
+   strb  reg0,[ram6502,#0x00]
+
 Bopc_85: // Opcode 85 - STA $00
    JITZPSTAZ regA
 Bopc_85_fast: // Opcode 85 - STA $00
@@ -988,6 +993,10 @@ Bopc_85_noSMC:
 
 Bopc_86: // Opcode 86 - STX $00
    JITZPST regX
+Bopc_86_noSMC:
+   mov   reg0,regX,LSR #24
+   SPACE_TWO_ARM_WORDS
+   strb  reg0,[ram6502,#0x00]
 Bopc_87: // Opcode 87 - SMB0 $00
    JITSMB 0
 Bopc_88: // Opcode 88 - DEY
@@ -1006,24 +1015,24 @@ Bopc_8C: // Opcode 8C - STY $0000
 Bopc_8C_io: // Opcode 8C - STY $0000
    JITABS reg0
    nop
-   mov   reg1,regY,LSR #24
    mrs   r12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mov   reg1,regY,LSR #24
    .word iostore-28
 Bopc_8D: // Opcode 8D - STA $0000
    JITABSSTORE regA
 Bopc_8D_io: // Opcode 8D - STA $0000
    JITABS reg0
    nop
-   and   reg1,regA,#0xFF
    mrs   r12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   and   reg1,regA,#0xFF
    .word iostore-28
 Bopc_8E: // Opcode 8E - STX $0000
    JITABSSTORE regX
 Bopc_8E_io: // Opcode 8E - STX $0000
    JITABS reg0
    nop
-   mov   reg1,regX,LSR #24
    mrs   r12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mov   reg1,regX,LSR #24
    .word iostore-28
 Bopc_8F: // Opcode 8F - BBS0
    JITBBS 0
@@ -2364,13 +2373,22 @@ opc_85_noSMC:
    LDMIA r9,{r8,r9,r10,r11}
    orr   r11,r11,r4
    B     jitend2bytestore4
+
 opc_84: // Opcode 84 - STY $00
 opc_86: // Opcode 86 - STX $00
+   tst   r11,#1
+   beq   opc_84_noSMC
    LDMIA r9,{r8,r9,r10,r11}
    orr r9,r9,r4
    orr r10,r10,r4
    add r11,r11,r4,LSL #JITTEDTABLESHIFT
    b jitend2byteBLendstore
+
+opc_84_noSMC:
+   add   r9,r9,#4*4
+   LDMIA r9,{r8,r9,r10,r11}
+   orr   r11,r11,r4
+   B     jitend2bytestore4
 
 opc_16: // Opcode 16 - ASL $00, X
 opc_34: // Opcode 34 - BIT $00,X
