@@ -1005,25 +1005,25 @@ Bopc_8C: // Opcode 8C - STY $0000
    JITABSSTORE regY
 Bopc_8C_io: // Opcode 8C - STY $0000
    JITABS reg0
-   nop // strb  reg4,fiqjitflag
+   nop
    mov   reg1,regY,LSR #24
-   nop // mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mrs   r12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
 Bopc_8D: // Opcode 8D - STA $0000
    JITABSSTORE regA
 Bopc_8D_io: // Opcode 8D - STA $0000
    JITABS reg0
-   nop // strb  reg4,fiqjitflag
+   nop
    and   reg1,regA,#0xFF
-   nop //mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mrs   r12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
 Bopc_8E: // Opcode 8E - STX $0000
    JITABSSTORE regX
 Bopc_8E_io: // Opcode 8E - STX $0000
    JITABS reg0
-   nop // strb  reg4,fiqjitflag
+   nop
    mov   reg1,regX,LSR #24
-   nop // mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mrs   r12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
 Bopc_8F: // Opcode 8F - BBS0
    JITBBS 0
@@ -1080,9 +1080,9 @@ Bopc_9C: // Opcode 9C - STZ $0000
    JITABSSTORE ram6502
 Bopc_9C_iostore:
    JITABS reg0
-   nop // strb  reg4,fiqjitflag
+   nop
    mov   reg1,#0
-   nop // mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
+   mrs   r12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
    .word iostore-28
 Bopc_9D: // Opcode 9D - STA $0000,X
    JITABSXYST regA regX
@@ -2047,7 +2047,6 @@ cachelineI:
    .byte 0
 debugflag:
    .byte 0
-   .byte 0
 fiqjitflag:
    .byte 0
 fiqirqflag:
@@ -2197,14 +2196,12 @@ indirectiostore:
    sub   reg0,reg0,jittedtable16ptr
    and   reg1,regA,#0xFF    // This is an assumption that the value is in regA
    mov   reg0,reg0,LSR #JITTEDTABLESHIFT
-
+   mrs   r12, CPSR         // Save 6502 flags and current FIQ/IRQ bits
 iostore:
    strb  reg4,fiqjitflag
-   mrs   reg4, CPSR         // Save 6502 flags and current FIQ/IRQ bits
-
-   push  {lr}
+   push  {r12,lr}
    bl    tube_parasite_write_banksel // Call up to C code to handle parasite write
-   pop   {r3}
+   pop   {r12,lr}
    b     testforirq
 
 // **** dejit functions
@@ -2309,8 +2306,7 @@ dejit16bit31: // reg1 , reg1+4, reg1 + 8
 
 // **** jit up to a branch or jsr rts rti
 dojit:
-   mov   r0,#1
-   strb  r0,fiqjitflag
+   strb  reg4,fiqjitflag
 // r14 has address of instruction
    mrs   r4, CPSR                   // Save interrupt state (restored by dojitexit)
 
@@ -3141,13 +3137,14 @@ cacheflushloopI:
 #if __ARM_ARCH>6
    PLI   [r3]
 #endif
-
+   mov   r14, r3
+   mov   r12, r4
+   mov   reg4, #1 // constant used by jsr rts
 testforirq:
    CPSID if                      // IRQs must also be disabled if FIQs are disabled
    ldrb  r0, fiqjitflag
-   mov   reg12, r4
    //mov   reg2,#JITLET
-   mov   reg4, #1 // constant used by jsr rts
+
    //add   reg2,reg2,#NEXTJITLET
    mov   r1, #0
    strb  r1, fiqjitflag
@@ -3166,14 +3163,13 @@ testforirq:
    bne   handle_irq_jit
 
 noirq_jit:
-   mov   r14, r3
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
    bx    r14   // this is slow on some system , but we have just flushed the cache which is slow
 
 handle_irq_jit:
 // deal with IRQ during jitter
-   SUB   temp1,r3,#JITLET
+   SUB   temp1,r14,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
@@ -3183,7 +3179,7 @@ handle_nmi_jit:
 // deal with NMI during jitter
    BIC   r0,r0,#NMI_BIT  // clear NMI flag
    str   r0,[r1]   // Store it back again
-   SUB   temp1,r3,#JITLET
+   SUB   temp1,r14,#JITLET
    mov   temp1,temp1,LSR #JITLETSHIFT
    ldr   reg3, =MOVPCR14INSTRUCTION      // constant used to for store compares
    msr   CPSR,reg12 // Restore the 6502 flags, and interrupt state present on entry
