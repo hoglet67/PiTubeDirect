@@ -579,7 +579,7 @@ word_in_len:
     .byte 4                             #  9  =POINT()
     .byte 1                             # 10  =CHR$()
     .byte 1                             # 11  =Palette
-    .byte 5                             # 12  Pallette=
+    .byte 5                             # 12  Palette=
     .byte 0                             # 13  =Coords
     .byte 8                             # 14  =RTC
     .byte 25                            # 15  RTC=
@@ -978,7 +978,7 @@ osSYSCTRL:
 #
 # On entry:
 #     a0: Environment handler number
-#     a1: address of environment hander or zero to read
+#     a1: address of environment handler or zero to read
 #     a2: address of environment data block or zero to read
 # On exit:
 #     a0: preserved
@@ -1110,7 +1110,7 @@ cmdLoop3:                               # skip to the end of the command in the 
     lb      t2, (a2)
     bnez    t2, cmdLoop3
 
-    li      t0, '.'                     # was the mis-match a '.'
+    li      t0, '.'                     # was the mismatch a '.'
     bne     t1, t0, cmdLoop1            # no, then start again with next command
 
     addi    a1, a1, 1                   # increment user command pointer past the '.'
@@ -1854,7 +1854,7 @@ read_dec_done:
 
 # TODO
 #
-# 6502 code uses re-entrant interrups at this point
+# 6502 code uses re-entrant interrupts at this point
 #
 # we'll need to think carefully about this case
 #

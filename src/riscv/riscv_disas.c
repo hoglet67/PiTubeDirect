@@ -8,7 +8,7 @@
 // RV32A Atomic extension (opcode 0x2f)
 //    LR, SC, AMISWAP, AMOADD, AMOXOR, AMIAND, AMOOR, AMOMIN, AMOMAX, AMOMINU, AMOMAXU
 //
-// Certain priviliged instructions (opcode 0x73)
+// Certain privileged instructions (opcode 0x73)
 //    WFI, MRET, ...
 
 #include <stdio.h>
