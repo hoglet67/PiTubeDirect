@@ -369,11 +369,14 @@ void dump_string( const char * string, int paddingchars, enum UART_TX_TYPE unbuf
 
 void padding(int padding, enum UART_TX_TYPE unbuffered)
 {
-  int i=0;
+
   if (padding <6)
-   while ( i<padding) {
-      dump_char((uint8_t)' ', unbuffered);
+    {
+      int i=0;
+      while ( i<padding) {
+        dump_char((uint8_t)' ', unbuffered);
       i++;
+      }
    }
    else
    {
