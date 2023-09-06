@@ -1552,7 +1552,7 @@ Type3:
     bgez    t0, Type3
     lb      t0, R3DATA(gp)
     sb      t0, (t2)                    # store lo byte to memory
-    lb      t1, R3DATA(gp)
+    lb      t0, R3DATA(gp)
     sb      t0, 1(t2)                   # store hi byte to memory
     addi    t2, t2, 2
     j       Type3
