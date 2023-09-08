@@ -153,6 +153,8 @@ static int darm_str(const darm_t *d, darm_str_t *str)
     // argument index
     uint32_t arg = 0;
 
+    uint32_t noO = 0; // Flag to stop 'O'
+
     // pointers to the arguments
     char *args[] = {
         str->arg[0], str->arg[1], str->arg[2],
@@ -405,6 +407,19 @@ static int darm_str(const darm_t *d, darm_str_t *str)
             continue;
 
         case 'B':
+            if ( d->Rn == PC)
+            {
+                uint32_t target;
+                if(d->U == B_UNSET) {
+                    target = (d->addr + 8 - d->imm) ;//& 0xfffffffc;
+                } else {
+                    target = (d->addr + 8 + d->imm) ;//& 0xfffffffc;
+                }
+                *args[arg]++ = '&';
+                args[arg] += _utoa(target, args[arg], 16);
+                noO = 1;
+            } else
+            {
             *args[arg]++ = '[';
             APPEND(args[arg], darm_register_name(d->Rn));
 
@@ -417,9 +432,12 @@ static int darm_str(const darm_t *d, darm_str_t *str)
                 *args[arg]++ = ',';
                 *args[arg]++ = ' ';
             }
+            }
             continue;
 
         case 'O':
+            if (noO)
+                continue;
             // if the Rm operand is set, then this is about the Rm operand,
             // otherwise it's about the immediate
             if(d->Rm != R_INVLD) {
@@ -467,9 +485,9 @@ static int darm_str(const darm_t *d, darm_str_t *str)
             if(d->instr == I_BLX && d->H == B_INVLD) break;
             uint32_t target;
             if(d->U == B_UNSET) {
-                target = (d->addr + 8 - d->imm) & 0xfffffffc;
+                target = (d->addr + 8 - d->imm) ;//& 0xfffffffc;
             } else {
-                target = (d->addr + 8 + d->imm) & 0xfffffffc;
+                target = (d->addr + 8 + d->imm) ;//& 0xfffffffc;
             }
             *args[arg]++ = '&';
             args[arg] += _utoa(target, args[arg], 16);

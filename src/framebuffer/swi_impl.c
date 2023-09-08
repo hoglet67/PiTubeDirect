@@ -16,7 +16,7 @@ __attribute__ ((section (".noinit"))) static SWIHandler_Type base_handler[NUM_SW
 // Static methods
 // ==========================================================================
 
-static void write_string(char *ptr) {
+static void write_string(const char *ptr) {
   char c;
   while ((c = *ptr++) != 0) {
      fb_writec(c);

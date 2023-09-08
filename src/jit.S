@@ -440,13 +440,21 @@ then return to our secret stack This relies on instructions being re entrant , b
 .ifc \reg,regA
    MOVR1HIGH
    SPACE_THREE_ARM_WORDS
-   strb  regA,[reg1,#0]!
+   strb  \reg,[reg1,#0]!
+.else
+
+.ifc \reg,ram6502
+   MOVR1HIGH
+   SPACE_THREE_ARM_WORDS
+   strb  \reg,[reg1,#0]!
+
 .else
    MOVR1HIGH
    ARMNOPR6QUICK
    mov   reg0,\reg,LSR #24
    ARMNOPR6QUICK
    strb  reg0,[reg1,#0]!
+.endif
 .endif
    .word JITTEDTABLE16-28
 .endm
@@ -2117,7 +2125,7 @@ fiq_during_irq:               // we can get here from ARM FIQ or ARM IRQ handler
    STMFD r0!, {r14}           // save lr to FAKE FIQ stack
 
    CPS   #CPSR_MODE_SVR       // drop to user mode leaving FIQ and IRQ disabled
-                              // becuase of gating above we know we are in the jitter
+                              // because of gating above we know we are in the jitter
                               // so regSP is a valid stack pointer
 
    STMFD r0!,{r2-r12,r14}     // save everything to FAKE FIQ stack

@@ -155,7 +155,7 @@ void data_abort_handler(unsigned int *context) {
 
     context = (unsigned int *)(((unsigned int) context) & ~3u);
     // context point into the exception stack, at flags, followed by registers 0 .. 13
-    unsigned int *reg = context + 1;
+    const unsigned int *reg = context + 1;
     unsigned int *addr = (unsigned int *)((reg[13] & ~3u) - (uint32_t)12);
     dump_hex((unsigned int)addr,32,0);
     dump_string("=",0,0);
@@ -163,7 +163,7 @@ void data_abort_handler(unsigned int *context) {
     asm volatile ("mrc p14, 0, %0, c0, c0, 7" : "=r" (control));
     control &= 0xFFFFFFFE;
     asm volatile ("mcr p14, 0, %0, c0, c0, 7" : : "r" (control));
-    unsigned int *FAR;
+    const unsigned int *FAR;
     asm volatile ("mrc p15, 0, %0, c6, c0,  0" : "=r" (FAR));
     dump_hex((unsigned int)(*FAR),32,0);
     control |= 1;
