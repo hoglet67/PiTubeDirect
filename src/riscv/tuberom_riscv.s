@@ -18,22 +18,24 @@
 
 .equ NUM_ECALLS      , 16
 
-.equ OS_QUIT         ,  0
-.equ OS_CLI          ,  1
-.equ OS_BYTE         ,  2
-.equ OS_WORD         ,  3
-.equ OS_WRCH         ,  4
-.equ OS_NEWL         ,  5
-.equ OS_RDCH         ,  6
-.equ OS_FILE         ,  7
-.equ OS_ARGS         ,  8
-.equ OS_BGET         ,  9
-.equ OS_BPUT         , 10
-.equ OS_GBPB         , 11
-.equ OS_FIND         , 12
-.equ OS_SYS_CTRL     , 13
-.equ OS_HANDLERS     , 14
-.equ OS_ERROR        , 15
+.equ ECALL_BASE      , 0x00000000
+
+.equ OS_QUIT         , ECALL_BASE +  0
+.equ OS_CLI          , ECALL_BASE +  1
+.equ OS_BYTE         , ECALL_BASE +  2
+.equ OS_WORD         , ECALL_BASE +  3
+.equ OS_WRCH         , ECALL_BASE +  4
+.equ OS_NEWL         , ECALL_BASE +  5
+.equ OS_RDCH         , ECALL_BASE +  6
+.equ OS_FILE         , ECALL_BASE +  7
+.equ OS_ARGS         , ECALL_BASE +  8
+.equ OS_BGET         , ECALL_BASE +  9
+.equ OS_BPUT         , ECALL_BASE + 10
+.equ OS_GBPB         , ECALL_BASE + 11
+.equ OS_FIND         , ECALL_BASE + 12
+.equ OS_SYS_CTRL     , ECALL_BASE + 13
+.equ OS_HANDLERS     , ECALL_BASE + 14
+.equ OS_ERROR        , ECALL_BASE + 15
 
 .equ BUFSIZE         , 0x80             # size of the Error buffer and Input Buffer
 
@@ -1290,15 +1292,19 @@ DefaultECallHandler:
 
     # TODO: Check mcause = 11 (machine mode environment call)
 
-    # A7 contains the system call number
+    # A7 contains the system call number which we need to preserve
+    # (registers t0 and ra are available as working registers)
+    li      t0, ECALL_BASE
+    bltu    a7, t0, BadECall
+    sub     ra, a7, t0
     li      t0, NUM_ECALLS
-    bgeu    a7, t0, BadECall
+    bgeu    ra, t0, BadECall
 
     la      t0, ECallHandlerTable
-    add     t0, t0, a7
-    add     t0, t0, a7
-    add     t0, t0, a7
-    add     t0, t0, a7
+    add     t0, t0, ra
+    add     t0, t0, ra
+    add     t0, t0, ra
+    add     t0, t0, ra
     lw      t0, (t0)
 
     beqz    t0, BadECall
@@ -1322,10 +1328,11 @@ DefaultECallHandler:
 
 BadECall:
     csrr    a0, mepc
+    mv      a1, a7
     jal     print_hex_word
     li      a0, ':'
     SYS     OS_WRCH
-    mv      a0, a7
+    mv      a0, a1
     jal     print_hex_word
     li      a0, ':'
     SYS     OS_WRCH
