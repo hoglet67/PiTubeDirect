@@ -735,36 +735,40 @@ rdch_done:
 # On entry:
 #     a0: function (see AUG)
 #     a1: pointer to filename, terminated by zero
-#     a2: pointer to 16-byte block containing:
-#            load  address (4 bytes)
-#            exec  address (4 bytes)
-#            start address (4 bytes)
-#            end   address (4 bytes)
+#     a2: load  address
+#     a3: exec  address
+#     a4: start address
+#     a5: end   address
 # On exit:
 #     a0: result
 #     a1: preserved
-#     a2: preserved, block updated with response data
+#     a2: updated with response data
+#     a3: updated with response data
+#     a4: updated with response data
+#     a5: updated with response data
 #     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osFILE:
     # Tube data: &14 block string &0D A            A block
-    PUSH4   ra, a0, a1, a2
+    PUSH3   ra, a0, a1
+    PUSH4   a5, a4, a3, a2              # Create 16-byte block on stack at sp
     li      a0, 0x14
     jal     SendByteR2                  # Send command &14 - OSFILE
     li      a0, 16
-    mv      a1, a2
+    mv      a1, sp
     jal     SendBlockR2
-    lw      a0, 4(sp)                   # filename
+    lw      a0, 20(sp)                  # filename
     jal     SendStringR2
-    lw      a0, 8(sp)                   # reason
+    lw      a0, 24(sp)                  # reason
     jal     SendByteR2
     jal     WaitByteR2
-    sw      a0, 8(sp)                   # result
+    sw      a0, 24(sp)                  # result
     li      a0, 16
-    mv      a1, a2
+    mv      a1, sp
     jal     ReceiveBlockR2
-    POP4    ra, a0, a1, a2
+    POP4    a5, a4, a3, a2              # Update registers from reponse block on stack
+    POP3    ra, a0, a1
     ret
 
 # --------------------------------------------------------------
@@ -863,40 +867,46 @@ osBPUT:
 # --------------------------------------------------------------
 # On entry:
 #     a0: function (see AUG)
-#     a1: pointer to 13-byte block containing:
-#            file handle                 (1 byte)
-#            start address of data       (4 bytes)
-#            number of bytes to transfer (4 bytes)
-#            sequential file pointer     (4 bytes)
+#     a1: file handle (8 bits)
+#     a2: start address of data (32 bits)
+#     a3: number of bytes to transfer (32 bits)
+#     a4: sequential file pointer (32 bits)
+#
 # On exit:
-#     a0: preserved
-#     a1: preserved, block updated with response data
-#     a2: result (0 = ok; 1 = fail, same a C on 6502 API)
+#     a0: bits 0-7 are the 8-bit result, bit 31 indicates EOF
+#     a1: preserved
+#     a2: updated with response data
+#     a3: updated with response data
+#     a4: updated with response data
 #     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
-
-# TODO: Review this API
-#   use a1 for file handle?
-#   use a0 for result?
 
 osGBPB:
     # Tube data: &16 block A                       block Cy A
     PUSH3   ra, a0, a1
+    slli    a1, a1, 24                  # move 8-bit file handle to MSB
+    PUSH4   a4, a3, a2, a1              # create 13-byte block on stack at sp+3
+
     li      a0, 0x16
     jal     SendByteR2                  # 0x16
     li      a0, 13
+    addi    a1, sp, 3
     jal     SendBlockR2                 # control block
-    lw      a0, 8(sp)
+    lw      a0, 24(sp)
     jal     SendByteR2                  # function
 
     li      a0, 13
-    lw      a1, 4(sp)
+    addi    a1, sp, 3
     jal     ReceiveBlockR2              # control block
     jal     WaitByteR2                  # cy
-    srli    a0, a0, 7
-    mv      a2, a0
-    jal     WaitByteR2                  # result in a0
-    sw      a0, 8(sp)                   # store result in stack frame so it's returned in a0
+    mv      t1, a0
+    jal     WaitByteR2                  # A
+    andi    t1, t1, 0x80
+    beqz    t1, gbpb_done
+    ori     a0, a0, 0xffffff00          # negative indicates eof
+gbpb_done:
+    sw      a0, 24(sp)                  # store result in stack frame so it's returned in a0
+    POP4    a4, a3, a2, a1              # update registers from reponse block on stack
     POP3    ra, a0, a1
     ret
 
