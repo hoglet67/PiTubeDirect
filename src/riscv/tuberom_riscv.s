@@ -18,7 +18,7 @@
 
 .equ NUM_ECALLS      , 16
 
-.equ ECALL_BASE      , 0x00000000
+.equ ECALL_BASE      , 0x00AC0000
 
 .equ OS_QUIT         , ECALL_BASE +  0
 .equ OS_CLI          , ECALL_BASE +  1
