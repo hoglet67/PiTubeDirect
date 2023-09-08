@@ -14,7 +14,7 @@
 .equ    R4STATUS, 24
 .equ      R4DATA, 28
 
-.equ NUM_HANDLERS    , 12               # number of vectors in DefaultHandlers table
+.equ NUM_HANDLERS    , 14               # number of vectors in DefaultHandlers table
 
 .equ NUM_ECALLS      , 16
 
@@ -128,6 +128,8 @@ IRQV:       .word 0                     # Address of unknown IRQ handler
 IRQADDR:    .word 0                     # Tube Execution Address
 ECALLV:     .word 0                     # Address of unknown ECALL handler
 ECALLADDR:  .word 0                     # Address of ECall dispatch table
+EXCEPTV:    .word 0                     # Address of uncaught EXCEPTION handler
+EXCEPTADDR: .word 0                     # unused
 
     .align  8,0
 
@@ -224,6 +226,8 @@ DefaultHandlers:
     .word   0
     .word   DefaultUnknownECallHandler
     .word   ECallHandlerTable
+    .word   DefaultUncaughtExceptionHandler
+    .word   0
 
 # --------------------------------------------------------------
 # Default Error Handler
@@ -998,45 +1002,47 @@ osSYSCTRL:
 #     a2: previous environment data address
 #
 # Environment handler numbers are:
-#     a0     a1                   a2
-#     &FFFF  Exit handler         version
-#     &FFFE  Escape handler       Escape flag (one byte)
-#     &FFFD  Error handler        Error buffer (256 bytes)
-#     &FFFC  Event handler        unused
-#     &FFFB  Unknown IRQ handler  (used during data transfer)
-#     &FFFA  (used during EMT)    EMT dispatch table (512 bytes)
-#
-# Internal handlers:
-#     &FFF9  LPTR                 ADDRHI
-#     &FFF8  MEMBOT               MEMTOP
-#     &FFFA  ADDR                 TRANS
-#     &FFFB  PROG                 MISC+ESCFLG
+#     a0     a1 = handler         a2 = data
+#     &FFFF  Exit                 version
+#     &FFFE  Escape               Escape flag (one byte)
+#     &FFFD  Error                Error buffer (256 bytes)
+#     &FFFC  Event                unused
+#     &FFFB  Unknown IRQ          (used during data transfer)
+#     &FFFA  Unknown ECALL        Ecall dispatch table (64 bytes)
+#     &FFF9  Uncaught EXCEPTION   unused
 #
 # The Exit handler is entered with a0=return value.
 #
 # The Escape handler is entered with a0=new escape state in
 # b6, must preserve all registers other than a0 and return
-# with RTS PC.
+# with RET.
 #
 # The Error handler is entered with a0=>error block. Note that
 # this may not be the address of the error buffer, the error
 # buffer is used for dynamically generated error messages.
 #
 # The Event handler is entered with a0,a1,a2 holding the event
-# parameters, must preserve all registers, and return with RTS PC.
+# parameters, must preserve all registers, and return with RET.
 #
 # The Unknown IRQ handler must preserve all registers, and
-# return with RTI.
+# return with RET.
+#
+# The Unknown CALL handler is entered a7=unknown ecall number
+# and a0..a7 with the call parameters. It should return with RET.
+#
+# The Uncaught Exception handler must preserve all registers, and
+# return with RET.
+#
 # --------------------------------------------------------------
 
 osHANDLERS:
-    li      t0, 0xfffa
+    li      t0, 0x10000 - NUM_HANDLERS / 2
     bltu    a0, t0, oshdone
     li      t0, 0xffff
     bgtu    a0, t0, oshdone
 
-    sub     a0, t0, a0                  # a0: 0,1,2,3,4,5
-    slli    a0, a0, 3                   # a0: 0,8,16,24,32,40
+    sub     a0, t0, a0                  # a0: 0,1,2,3,4,5, 6
+    slli    a0, a0, 3                   # a0: 0,8,16,24,32,40,48
     la      t0, Handlers
     add     a0, a0, t0                  # a0: entry in handlers table
 
@@ -1289,6 +1295,7 @@ osword_pblock:
 # -----------------------------------------------------------------------------
 
 ECallHandler:
+    li      gp, TUBE                    # setup a register that points to the tube
 
     # TODO: Check mcause = 11 (machine mode environment call)
 
@@ -1357,8 +1364,19 @@ DefaultUnknownECallHandler:
 # -----------------------------------------------------------------------------
 
 UncaughtExceptionHandler:
+    POP4    ra, a0, t0, gp              # restore as much state as possible because we
+                                        # have no idea what registers an unknown ecall will use
+    PUSH1   ra
+    la      ra, EXCEPTV                 # Call UncaughtExceptionHandler
+    lw      ra, (ra)
+    jalr    ra, ra
+    POP1    ra
+
+    mret
+
+DefaultUncaughtExceptionHandler:
     csrr    a0, mepc
-    mv      a1, t0
+    csrr    a1, mcause
     jal     print_hex_word
     li      a0, ':'
     SYS     OS_WRCH
@@ -1366,6 +1384,26 @@ UncaughtExceptionHandler:
     jal     print_hex_word
     li      a0, ':'
     SYS     OS_WRCH
+
+    la      a0, exception_cause_table
+    bgez    a1, is_exception            # bit 31 indicate interrupt (0) vs exception (1)
+    la      a0, interrupt_cause_table
+is_exception:
+
+    li      t0, 0x7fffffff              # clear bit 31 (interrupt vs exception)
+    and     a1, a1, t0
+    li      t0, 16                      # check the cause doesn't exceed the size of out message tables
+    bge     a1, t0, print_reserved
+
+    slli    a1, a1, 2
+    add     a0, a0, a1
+    lw      a0, (a0)
+    j       print_cause
+
+print_reserved:
+    la      a0, reserved
+print_cause:
+    jal     print_string
     SYS     OS_ERROR
     .byte   255                         # re-use "Bad" error code
     .string "Uncaught Exception"
@@ -1378,14 +1416,15 @@ UncaughtExceptionHandler:
 InterruptHandler:
     PUSH4   ra, a0, t0, gp
 
-    li      gp, TUBE                    # setup a register that points to the tube
     csrr    t0, mcause
-    addi    t0, t0, -11
-    beqz    t0, ECallHandler
-    csrr    t0, mcause
-    bgez    t0, UncaughtExceptionHandler
 
-    # TODO: Check mcause = 11 (machine external interrupt) otherwise log
+    li      gp, 0x0000000B              # ecall exception
+    beq     t0, gp, ECallHandler
+
+    li      gp, 0x8000000B              # external machine interrupt
+    bne     t0, gp,UncaughtExceptionHandler
+
+    li      gp, TUBE                    # setup a register that points to the tube
 
     lb      t0, R4STATUS(gp)            # sign extend to 32 bits
     bltz    t0, r4_irq                  # branch if data available in R4
@@ -1393,8 +1432,8 @@ InterruptHandler:
     lb      t0, R1STATUS(gp)            # sign extend to 32 bits
     bltz    t0, r1_irq                  # branch if data available in R1
 
-    la      t0, IRQV
-    lw      t0, (t0)
+    la      t0, IRQV                    # Indirect through IRQV for unknown external machine interrupt
+    lw      t0, (t0)                    # all other unknown interrupt/exceptions go via the EXCEPTV
     jalr    ra, t0
 
 InterruptHandlerExit:
@@ -1972,3 +2011,118 @@ SendStringR2Lp:
     bne     a0, t0, SendStringR2Lp
     POP2    ra, a1
     ret
+
+# --------------------------------------------------------------
+# Interrupt / Exception Cause Tables
+# --------------------------------------------------------------
+
+interrupt_cause_table:                  # 16 entries
+    .word interrupt0
+    .word interrupt1
+    .word reserved
+    .word interrupt3
+    .word interrupt4
+    .word interrupt5
+    .word reserved
+    .word interrupt7
+    .word interrupt8
+    .word interrupt9
+    .word reserved
+    .word interrupt11
+    .word reserved
+    .word reserved
+    .word reserved
+    .word reserved
+
+exception_cause_table:                  # 16 entries
+    .word exception0
+    .word exception1
+    .word exception2
+    .word exception3
+    .word exception4
+    .word exception5
+    .word exception6
+    .word exception7
+    .word exception8
+    .word exception9
+    .word reserved
+    .word exception11
+    .word exception12
+    .word exception13
+    .word reserved
+    .word exception15
+
+interrupt0:
+    .string "User software interrupt"
+    .byte 0
+interrupt1:
+    .string "Supervisor software interrupt"
+    .byte 0
+interrupt3:
+    .string "Machine software interrupt"
+    .byte 0
+interrupt4:
+    .string "User timer interrupt"
+    .byte 0
+interrupt5:
+    .string "Supervisor timer interrupt"
+    .byte 0
+interrupt7:
+    .string "Machine timer interrupt"
+    .byte 0
+interrupt8:
+    .string "User external interrupt"
+    .byte 0
+interrupt9:
+    .string "Supervisor external interrupt"
+    .byte 0
+interrupt11:
+    .string "Machine external interrupt"
+    .byte 0
+
+exception0:
+    .string "Instruction address misaligned"
+    .byte   0
+exception1:
+    .string "Instruction access fault"
+    .byte   0
+exception2:
+    .string "Illegal instruction"
+    .byte   0
+exception3:
+    .string "Breakpoint"
+    .byte   0
+exception4:
+    .string "Load address misaligned"
+    .byte   0
+exception5:
+    .string "Load access fault"
+    .byte   0
+exception6:
+    .string "Store/AMO address misaligned"
+    .byte   0
+exception7:
+    .string "Store/AMO access fault"
+    .byte   0
+exception8:
+    .string "Environment call from U-mode"
+    .byte   0
+exception9:
+    .string "Environment call from S-mode"
+    .byte   0
+exception11:
+    .string "Environment call from M-mode"
+    .byte   0
+exception12:
+    .string "Instruction page fault"
+    .byte   0
+exception13:
+    .string "Load page fault"
+    .byte   0
+exception15:
+    .string "Store/AMO page fault"
+    .byte   0
+
+reserved:
+    .string "Reserved"
+    .byte   0
