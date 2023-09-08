@@ -126,7 +126,7 @@ EVENTV:     .word 0                     # Address of event handler
 EVENTADDR:  .word 0                     # unused
 IRQV:       .word 0                     # Address of unknown IRQ handler
 IRQADDR:    .word 0                     # Tube Execution Address
-ECALLV:     .word 0                     # Old SP within ECall handler
+ECALLV:     .word 0                     # Address of unknown ECALL handler
 ECALLADDR:  .word 0                     # Address of ECall dispatch table
 
     .align  8,0
@@ -220,9 +220,9 @@ DefaultHandlers:
     .word   ERRBLK
     .word   DefaultEventHandler
     .word   0
-    .word   DefaultIRQHandler
+    .word   DefaultUnknownIRQHandler
     .word   0
-    .word   DefaultECallHandler
+    .word   DefaultUnknownECallHandler
     .word   ECallHandlerTable
 
 # --------------------------------------------------------------
@@ -268,7 +268,7 @@ DefaultEventHandler:
 #
 # This is called when an unrecognised interrupt is detected
 
-DefaultIRQHandler:
+DefaultUnknownIRQHandler:
     ret
 
 # --------------------------------------------------------------
@@ -1288,17 +1288,17 @@ osword_pblock:
 # Exception handler
 # -----------------------------------------------------------------------------
 
-DefaultECallHandler:
+ECallHandler:
 
     # TODO: Check mcause = 11 (machine mode environment call)
 
     # A7 contains the system call number which we need to preserve
     # (registers t0 and ra are available as working registers)
     li      t0, ECALL_BASE
-    bltu    a7, t0, BadECall
+    bltu    a7, t0, UnknownECall
     sub     ra, a7, t0
     li      t0, NUM_ECALLS
-    bgeu    ra, t0, BadECall
+    bgeu    ra, t0, UnknownECall
 
     la      t0, ECallHandlerTable
     add     t0, t0, ra
@@ -1307,7 +1307,7 @@ DefaultECallHandler:
     add     t0, t0, ra
     lw      t0, (t0)
 
-    beqz    t0, BadECall
+    beqz    t0, UnknownECall
 
     csrr    t1, mepc                    # push critical machine state
     csrr    t2, mstatus
@@ -1326,7 +1326,18 @@ DefaultECallHandler:
     sw      a0, 8(sp)                   # store the result on the a0 slot on the stack
     J       InterruptHandlerExit
 
-BadECall:
+UnknownECall:
+    POP4    ra, a0, t0, gp              # restore as much state as possible because we
+                                        # have no idea what registers an unknown ecall will use
+    PUSH1   ra
+    la      ra, ECALLV                  # Call UnknownEcallHandler
+    lw      ra, (ra)
+    jalr    ra, ra
+    POP1    ra
+
+    mret
+
+DefaultUnknownECallHandler:
     csrr    a0, mepc
     mv      a1, a7
     jal     print_hex_word
@@ -1370,7 +1381,7 @@ InterruptHandler:
     li      gp, TUBE                    # setup a register that points to the tube
     csrr    t0, mcause
     addi    t0, t0, -11
-    beqz    t0, DefaultECallHandler     # TODO indirect through ecall vector??
+    beqz    t0, ECallHandler
     csrr    t0, mcause
     bgez    t0, UncaughtExceptionHandler
 
