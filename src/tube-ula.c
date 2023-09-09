@@ -868,7 +868,7 @@ void tube_init_hardware()
 }
 
 int tube_is_rst_active() {
-   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) ;
+   return ((RPI_GpioBase->GPLEV0 & NRST_MASK) == 0) || ((tube_irq & TUBE_ENABLE_BIT) && (HSTAT1 & HBIT_5));
 }
 #if 0
 static void tube_wait_for_rst_active() {
