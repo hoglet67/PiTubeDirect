@@ -1,4 +1,4 @@
-.equ     VERSION, 0x0020
+.equ     VERSION, 0x0090
 
 .equ     MEM_BOT, 0x00000000
 .equ     MEM_TOP, 0x00F80000
@@ -1282,10 +1282,16 @@ cmdHelp:
     POP1    ra
     ret
 
-# TODO: Version should come from VERSION definition
-
 HelpMessage:
-    .string "RISC-V 0.20\n\r"
+    .ascii  "RISC-V "
+.if (VERSION > 0xFFF)
+    .byte   '0' + (VERSION >> 12) & 15
+.endif
+    .byte   '0' + (VERSION >>  8) & 15
+    .byte   '.'
+    .byte   '0' + (VERSION >>  4) & 15
+    .byte   '0' +  VERSION        & 15
+    .byte   10, 13, 0
     .align  2,0
 
 # --------------------------------------------------------------
