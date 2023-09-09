@@ -1449,6 +1449,45 @@ UncaughtExceptionHandler:
     mret
 
 DefaultUncaughtExceptionHandler:
+
+# Store all register state on stack
+
+    addi    sp, sp, -128
+    sw      x0,    0(sp)
+    sw      x1,    4(sp)
+    sw      x2,    8(sp)
+    sw      x3,   12(sp)
+    sw      x4,   16(sp)
+    sw      x5,   20(sp)
+    sw      x6,   24(sp)
+    sw      x7,   28(sp)
+    sw      x8,   32(sp)
+    sw      x9,   36(sp)
+    sw      x10,  40(sp)
+    sw      x11,  44(sp)
+    sw      x12,  48(sp)
+    sw      x13,  52(sp)
+    sw      x14,  56(sp)
+    sw      x15,  60(sp)
+    sw      x16,  64(sp)
+    sw      x17,  68(sp)
+    sw      x18,  72(sp)
+    sw      x19,  76(sp)
+    sw      x20,  80(sp)
+    sw      x21,  84(sp)
+    sw      x22,  88(sp)
+    sw      x23,  92(sp)
+    sw      x24,  96(sp)
+    sw      x25, 100(sp)
+    sw      x26, 104(sp)
+    sw      x27, 108(sp)
+    sw      x28, 112(sp)
+    sw      x29, 116(sp)
+    sw      x30, 120(sp)
+    sw      x31, 124(sp)
+
+# Print the PC and Cause
+
     csrr    a0, mepc
     csrr    a1, mcause
     jal     print_hex_word
@@ -1478,6 +1517,37 @@ print_reserved:
     la      a0, reserved
 print_cause:
     jal     print_string
+
+# Dump register values
+
+    la      a1, register_names
+    li      a2, 32
+dump_loop1:
+    andi    a0, a2, 3
+    bnez    a0, skip_newline
+    SYS     OS_NEWL
+skip_newline:
+    li      a0, ' '
+    SYS     OS_WRCH
+    SYS     OS_WRCH
+    SYS     OS_WRCH
+dump_loop2:
+    lb      a0, (a1)
+    addi    a1, a1, 1
+    beqz    a0, dump_val
+    SYS     OS_WRCH
+    j       dump_loop2
+dump_val:
+    li      a0, '='
+    SYS     OS_WRCH
+    lw      a0, (sp)
+    jal     print_hex_word
+    addi    sp, sp, 4
+    addi    a2, a2, -1
+    bnez    a2, dump_loop1
+
+# Call the current error handler
+
     SYS     OS_ERROR
     .byte   255                         # re-use "Bad" error code
     .string "Uncaught Exception"
@@ -2085,6 +2155,44 @@ SendStringR2Lp:
     bne     a0, t0, SendStringR2Lp
     POP2    ra, a1
     ret
+
+# --------------------------------------------------------------
+# Register names
+# --------------------------------------------------------------
+
+register_names:
+   .string "zero", # X0
+   .string "  ra", # X1
+   .string "  sp", # X2
+   .string "  gp", # X3
+   .string "  tp", # X4
+   .string "  t0", # X5
+   .string "  t1", # X6
+   .string "  t2", # X7
+   .string "  s0", # X8
+   .string "  s1", # X9
+   .string "  a0", # X10
+   .string "  a1", # X11
+   .string "  a2", # X12
+   .string "  a3", # X13
+   .string "  a4", # X14
+   .string "  a5", # X15
+   .string "  a6", # X16
+   .string "  a7", # X17
+   .string "  s2", # X18
+   .string "  s3", # X19
+   .string "  s4", # X20
+   .string "  s5", # X21
+   .string "  s6", # X22
+   .string "  s7", # X23
+   .string "  s8", # X24
+   .string "  s9", # X25
+   .string " s10", # X26
+   .string " s11", # X27
+   .string "  t3", # X28
+   .string "  t4", # X29
+   .string "  t5", # X30
+   .string "  t6", # X31
 
 # --------------------------------------------------------------
 # Interrupt / Exception Cause Tables
