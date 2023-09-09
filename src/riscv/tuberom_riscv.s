@@ -2,6 +2,7 @@
 
 .equ     MEM_BOT, 0x00000000
 .equ     MEM_TOP, 0x00F80000
+.equ    ROM_BASE, 0x00FC0000
 .equ       STACK, MEM_TOP - 16         # 16 byte aligned
 .equ        TUBE, 0x00FFFFE0
 
@@ -13,8 +14,6 @@
 .equ      R3DATA, 20
 .equ    R4STATUS, 24
 .equ      R4DATA, 28
-
-.equ NUM_HANDLERS    , 14               # number of vectors in DefaultHandlers table
 
 .equ NUM_ECALLS      , 16
 
@@ -37,11 +36,58 @@
 .equ OS_HANDLERS     , ECALL_BASE + 14
 .equ OS_ERROR        , ECALL_BASE + 15
 
-.equ BUFSIZE         , 0x80             # size of the Error buffer and Input Buffer
+# -----------------------------------------------------------------------------
+# Workspace
+# -----------------------------------------------------------------------------
 
-.globl _start
+# Workspace consumes 0x200 bytes immediately below the Client ROM
 
-# Macros to maintain 16-byte stack alignment at all times
+.equ WORKSPACE       , ROM_BASE - 0x200
+
+.equ BUFSIZE         , 0x80               # size of the Error buffer and Input Buffer
+
+.equ VARIABLES       , WORKSPACE + 0x000
+.equ HANDLERS        , WORKSPACE + 0x080
+.equ CLIBUF          , WORKSPACE + 0x100
+.equ ERRBLK          , WORKSPACE + 0x180
+
+# Variables
+
+.equ ESCFLG          , WORKSPACE + 0x00   # escape flag
+.equ CURRENT_PROG    , WORKSPACE + 0x04   # current program, persisted across soft break
+.equ ARGSBLK         , WORKSPACE + 0x08   # block used for os args
+
+# TODO
+#   use stack for osword_pblock into workspace
+#   use stack for ARGSBLK
+
+#
+# Handlers are patterned on JGH's pdp11 client ROM:
+# https://mdfs.net/Software/Tube/PDP11/Tube11.src
+#
+
+.equ NUM_HANDLERS    , 14                 # number of entries in DefaultHandlers table
+
+.equ EXITV           , HANDLERS + 0x00    # Address of exit handler
+.equ EXITADDR        , HANDLERS + 0x04    # unused
+.equ ESCV            , HANDLERS + 0x08    # Address of escape handler
+.equ ESCADDR         , HANDLERS + 0x0C    # Address of escape flag
+.equ ERRV            , HANDLERS + 0x10    # Address of error handler
+.equ ERRADDR         , HANDLERS + 0x14    # Address of error buffer
+.equ EVENTV          , HANDLERS + 0x18    # Address of event handler
+.equ EVENTADDR       , HANDLERS + 0x1C    # unused
+.equ IRQV            , HANDLERS + 0x20    # Address of unknown IRQ handler
+.equ IRQADDR         , HANDLERS + 0x24    # Tube Execution Address
+.equ ECALLV          , HANDLERS + 0x28    # Address of unknown ECALL handler
+.equ ECALLADDR       , HANDLERS + 0x2C    # Address of ECall dispatch table
+.equ EXCEPTV         , HANDLERS + 0x30    # Address of uncaught EXCEPTION handler
+.equ EXCEPTADDR      , HANDLERS + 0x34    # unused
+
+# -----------------------------------------------------------------------------
+# Macros
+# -----------------------------------------------------------------------------
+
+# Stack macros to maintain 16-byte stack alignment at all times
 
 .macro PUSH1 reg1
     addi    sp, sp, -16
@@ -100,50 +146,22 @@
     ecall
 .endm
 
+# -----------------------------------------------------------------------------
+# Main ROM
+# -----------------------------------------------------------------------------
+
+.globl _start
+
 .section .text
 
 _start:
     j       ResetHandler
 
-ESCFLG:     .word 0                     # escape flag
-
-ARGSBLK:    .word 0                     # block used for os args
-
-#
-# Handlers are patterned on JGH's pdp11 client ROM:
-# https://mdfs.net/Software/Tube/PDP11/Tube11.src
-#
-
-Handlers:
-
-EXITV:      .word 0                     # Address of exit handler
-EXITADDR:   .word 0                     # unused
-ESCV:       .word 0                     # Address of escape handler
-ESCADDR:    .word 0                     # Address of escape flag
-ERRV:       .word 0                     # Address of error handler
-ERRADDR:    .word 0                     # Address of error buffer
-EVENTV:     .word 0                     # Address of event handler
-EVENTADDR:  .word 0                     # unused
-IRQV:       .word 0                     # Address of unknown IRQ handler
-IRQADDR:    .word 0                     # Tube Execution Address
-ECALLV:     .word 0                     # Address of unknown ECALL handler
-ECALLADDR:  .word 0                     # Address of ECall dispatch table
-EXCEPTV:    .word 0                     # Address of uncaught EXCEPTION handler
-EXCEPTADDR: .word 0                     # unused
-
-    .align  8,0
-
-ERRBLK:
-    .zero   BUFSIZE
-
-CLIBUF:
-    .zero   BUFSIZE
-
 ResetHandler:
     li      sp, STACK                   # setup the stack
 
     la      t1, DefaultHandlers         # copy the handlers
-    la      t2, Handlers
+    la      t2, HANDLERS
     li      t3, NUM_HANDLERS - 1
 InitVecLoop:
     lw      t0, (t1)
@@ -1043,7 +1061,7 @@ osHANDLERS:
 
     sub     a0, t0, a0                  # a0: 0,1,2,3,4,5, 6
     slli    a0, a0, 3                   # a0: 0,8,16,24,32,40,48
-    la      t0, Handlers
+    la      t0, HANDLERS
     add     a0, a0, t0                  # a0: entry in handlers table
 
     lw      t0, 0(a0)
