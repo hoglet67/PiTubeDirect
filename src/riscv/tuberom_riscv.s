@@ -47,7 +47,8 @@
 .equ BUFSIZE         , 0x80               # size of the Error buffer and Input Buffer
 
 .equ VARIABLES       , WORKSPACE + 0x000
-.equ HANDLERS        , WORKSPACE + 0x080
+.equ ECALL_TABLE     , WORKSPACE + 0x040  # space for max 16 ecall entry points
+.equ HANDLER_TABLE   , WORKSPACE + 0x080
 .equ CLIBUF          , WORKSPACE + 0x100
 .equ ERRBLK          , WORKSPACE + 0x180
 
@@ -63,20 +64,20 @@
 
 .equ NUM_HANDLERS    , 14                 # number of entries in DefaultHandlers table
 
-.equ EXITV           , HANDLERS + 0x00    # Address of exit handler
-.equ EXITADDR        , HANDLERS + 0x04    # unused
-.equ ESCV            , HANDLERS + 0x08    # Address of escape handler
-.equ ESCADDR         , HANDLERS + 0x0C    # Address of escape flag
-.equ ERRV            , HANDLERS + 0x10    # Address of error handler
-.equ ERRADDR         , HANDLERS + 0x14    # Address of error buffer
-.equ EVENTV          , HANDLERS + 0x18    # Address of event handler
-.equ EVENTADDR       , HANDLERS + 0x1C    # unused
-.equ IRQV            , HANDLERS + 0x20    # Address of unknown IRQ handler
-.equ IRQADDR         , HANDLERS + 0x24    # Tube Execution Address
-.equ ECALLV          , HANDLERS + 0x28    # Address of unknown ECALL handler
-.equ ECALLADDR       , HANDLERS + 0x2C    # Address of ECall dispatch table
-.equ EXCEPTV         , HANDLERS + 0x30    # Address of uncaught EXCEPTION handler
-.equ EXCEPTADDR      , HANDLERS + 0x34    # unused
+.equ EXITV        , HANDLER_TABLE + 0x00  # Address of exit handler
+.equ EXITADDR     , HANDLER_TABLE + 0x04  # unused
+.equ ESCV         , HANDLER_TABLE + 0x08  # Address of escape handler
+.equ ESCADDR      , HANDLER_TABLE + 0x0C  # Address of escape flag
+.equ ERRV         , HANDLER_TABLE + 0x10  # Address of error handler
+.equ ERRADDR      , HANDLER_TABLE + 0x14  # Address of error buffer
+.equ EVENTV       , HANDLER_TABLE + 0x18  # Address of event handler
+.equ EVENTADDR    , HANDLER_TABLE + 0x1C  # unused
+.equ IRQV         , HANDLER_TABLE + 0x20  # Address of unknown IRQ handler
+.equ IRQADDR      , HANDLER_TABLE + 0x24  # Tube Execution Address
+.equ ECALLV       , HANDLER_TABLE + 0x28  # Address of unknown ECALL handler
+.equ ECALLADDR    , HANDLER_TABLE + 0x2C  # Address of ECall dispatch table
+.equ EXCEPTV      , HANDLER_TABLE + 0x30  # Address of uncaught EXCEPTION handler
+.equ EXCEPTADDR   , HANDLER_TABLE + 0x34  # unused
 
 # -----------------------------------------------------------------------------
 # Macros
@@ -155,16 +156,27 @@ _start:
 ResetHandler:
     li      sp, STACK                   # setup the stack
 
-    la      t1, DefaultHandlers         # copy the handlers
-    la      t2, HANDLERS
-    li      t3, NUM_HANDLERS - 1
-InitVecLoop:
+    la      t1, DefaultHandlerTable     # copy the default handlers table
+    la      t2, HANDLER_TABLE
+    li      t3, NUM_HANDLERS
+InitHandlerLoop:
     lw      t0, (t1)
     sw      t0, (t2)
     addi    t1, t1, 4
     addi    t2, t2, 4
     addi    t3, t3, -1
-    bnez    t3, InitVecLoop
+    bnez    t3, InitHandlerLoop
+
+    la      t1, DefaultECallTable      # copy the default ecall table
+    la      t2, ECALL_TABLE
+    li      t3, NUM_ECALLS
+InitECallLoop:
+    lw      t0, (t1)
+    sw      t0, (t2)
+    addi    t1, t1, 4
+    addi    t2, t2, 4
+    addi    t3, t3, -1
+    bnez    t3, InitECallLoop
 
     la      t0, InterruptHandler        # install the interrupt/exception handler
     csrw    mtvec, t0
@@ -174,7 +186,6 @@ InitVecLoop:
     csrrs   zero, mstatus, t0
 
     la      a0, BannerMessage           # send the reset message
-
     jal     print_string
 
     mv      a0, zero                    # send the terminator
@@ -200,7 +211,7 @@ DefaultExitHandler:
     sw      a1, (a0)                    # current program to be the cmdOsLoop
 
 EnterCurrent:
-    li      sp, STACK                   # reset the stack - TODO: what else?
+    li      sp, STACK                   # reset the stack
     li      t0, 1 << 3                  # enable interrupts
     csrrs   zero, mstatus, t0
 
@@ -245,7 +256,7 @@ BannerMessage:
 # DEFAULT Handler TABLE
 # -----------------------------------------------------------------------------
 
-DefaultHandlers:
+DefaultHandlerTable:
     .word   DefaultExitHandler
     .word   VERSION
     .word   DefaultEscapeHandler
@@ -257,7 +268,7 @@ DefaultHandlers:
     .word   DefaultUnknownIRQHandler
     .word   0
     .word   DefaultUnknownECallHandler
-    .word   ECallHandlerTable
+    .word   ECALL_TABLE
     .word   DefaultUncaughtExceptionHandler
     .word   0
 
@@ -311,7 +322,7 @@ DefaultUnknownIRQHandler:
 # MOS interface
 # --------------------------------------------------------------
 
-ECallHandlerTable:
+DefaultECallTable:
     .word   osQUIT                      # ECALL  0
     .word   osCLI                       # ECALL  1
     .word   osBYTE                      # ECALL  2
@@ -1014,19 +1025,17 @@ sysctrl_done:
 
 # --------------------------------------------------------------
 # ECall 14 - OS HANDLERS - Reads/writes environment handlers
-#                          or EMT dispatch table entries.
+#                          or ECALL dispatch table entries.
 # --------------------------------------------------------------
 #
-# TODO: this call is only partly implemented
-#
-# a0 >= 0: Reads or writes EMT dispatch address
+# a0 >= 0: Reads or writes ECALL dispatch address
 #
 # On entry:
-#     a0: EMT number
-#     a1: address of EMT routine, or zero to read
+#     a0: ECALL number (0..15)
+#     a1: address of ECALL routine, or zero to read
 # On exit:
 #     a0: preserved
-#     a1: previous EMT dispatch address
+#     a1: previous ECALL dispatch address
 #
 # a0 < 0: Reads or writes environment handler:
 #
@@ -1041,13 +1050,13 @@ sysctrl_done:
 #
 # Environment handler numbers are:
 #     a0     a1 = handler         a2 = data
-#     &FFFF  Exit                 version
-#     &FFFE  Escape               Escape flag (one byte)
-#     &FFFD  Error                Error buffer (256 bytes)
-#     &FFFC  Event                unused
-#     &FFFB  Unknown IRQ          (used during data transfer)
-#     &FFFA  Unknown ECALL        Ecall dispatch table (64 bytes)
-#     &FFF9  Uncaught EXCEPTION   unused
+#     -1     Exit                 version
+#     -2     Escape               Escape flag (one byte)
+#     -3     Error                Error buffer (256 bytes)
+#     -4     Event                unused
+#     -5     Unknown IRQ          (used during data transfer)
+#     -6     Unknown ECALL        Ecall dispatch table (64 bytes)
+#     -7     Uncaught EXCEPTION   unused
 #
 # The Exit handler is entered with a0=return value.
 #
@@ -1074,29 +1083,49 @@ sysctrl_done:
 # --------------------------------------------------------------
 
 osHANDLERS:
-    li      t0, 0x10000 - NUM_HANDLERS / 2
-    bltu    a0, t0, oshdone
-    li      t0, 0xffff
-    bgtu    a0, t0, oshdone
+    mv      t0, a0                      # use t0 so we preserve a0
+    bgez    t0, ose
 
-    sub     a0, t0, a0                  # a0: 0,1,2,3,4,5, 6
-    slli    a0, a0, 3                   # a0: 0,8,16,24,32,40,48
-    la      t0, HANDLERS
-    add     a0, a0, t0                  # a0: entry in handlers table
+    li      t1, -1
+    sub     t0, t1, t0                  # t0: 0,1,2,3,4,5,6
 
-    lw      t0, 0(a0)
-    beqz    a1, skip_write_a1
-    sw      a1, 0(a0)
-skip_write_a1:
-    mv      a1, t0
+    li      t1, NUM_HANDLERS / 2
+    bgeu    t0, t1, osh_done
 
-    lw      t0, 4(a0)
-    beqz    a2, skip_write_a2
-    sw      a2, 4(a0)
-skip_write_a2:
-    mv      a2, t0
+    slli    t0, t0, 3                   # t0: 0,8,16,24,32,40,48
+    la      t1, HANDLER_TABLE
+    add     t0, t0, t1                  # t0: entry in handlers table
 
-oshdone:
+    lw      t1, 0(t0)
+    beqz    a1, osh_skip_write_a1
+    sw      a1, 0(t0)
+osh_skip_write_a1:
+    mv      a1, t1
+
+    lw      t1, 4(t0)
+    beqz    a2, osh_skip_write_a2
+    sw      a2, 4(t0)
+osh_skip_write_a2:
+    mv      a2, t1
+
+osh_done:
+    ret
+
+ose:
+    li      t1, NUM_ECALLS
+    bgeu    t0, t1, ose_done
+
+    slli    t0, t0, 2                   # t0: 0,4,8,12,16,20...
+    la      t1, ECALL_TABLE
+    add     t0, t0, t1                  # t0: entry in handlers table
+
+    lw      t1, 0(t0)
+    beqz    a1, ose_skip_write_a1
+    sw      a1, 0(t0)
+ose_skip_write_a1:
+    mv      a1, t1
+
+ose_done:
     ret
 
 # --------------------------------------------------------------
@@ -1345,7 +1374,8 @@ ECallHandler:
     li      t0, NUM_ECALLS
     bgeu    ra, t0, UnknownECall
 
-    la      t0, ECallHandlerTable
+    la      t0, ECALLADDR
+    lw      t0, (t0)
     add     t0, t0, ra
     add     t0, t0, ra
     add     t0, t0, ra
