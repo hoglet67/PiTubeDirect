@@ -1452,10 +1452,14 @@ DefaultUncaughtExceptionHandler:
 
 # Store all register state on stack
 
+    csrw    mscratch, sp                # store the original stack pointer in the mscratch CSR
+    li      sp, STACK                   # setup a new stack
+
     addi    sp, sp, -128
     sw      zero,  0(sp)
     sw      ra,    4(sp)
-    sw      sp,    8(sp)
+    csrr    ra, mscratch                # restore original stack pointer
+    sw      ra,    8(sp)                # save original stack pointer
     sw      gp,   12(sp)
     sw      tp,   16(sp)
     sw      t0,   20(sp)
