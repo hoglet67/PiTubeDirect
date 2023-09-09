@@ -189,10 +189,29 @@ InitVecLoop:
     jal     WaitByteR2                  # wait for the response and ignore
     li      gp, 0
 
+    la      a0, CURRENT_PROG            # if there isn't a current program then force one
+    lw      a0, (a0)
+    beqz    a0, DefaultExitHandler
+
+    li      a0, 0xFD                    # read the last break type
+    li      a1, 0x00
+    li      a2, 0xFF
+    SYS     OS_BYTE
+    beqz    a1, EnterCurrent            # re-enter current program on soft break
+
 DefaultExitHandler:
+    la      a0, CURRENT_PROG
+    la      a1, CmdOSLoop               # on hard or power up break reset the
+    sw      a1, (a0)                    # current program to be the cmdOsLoop
+
+EnterCurrent:
     li      sp, STACK                   # reset the stack - TODO: what else?
     li      t0, 1 << 3                  # enable interrupts
     csrrs   zero, mstatus, t0
+
+    la      a0, CURRENT_PROG
+    lw      a0, (a0)
+    jalr    zero, a0
 
 CmdOSLoop:
     li      a0, 0x2a
@@ -989,7 +1008,18 @@ osfind_exit:
 # --------------------------------------------------------------
 
 osSYSCTRL:
-    # TODO
+    li      t0, 1
+    bne     a0, t0, sysctrl_done
+
+    la      t0, IRQADDR
+    lw      t1, (t0)
+
+    beqz    t1, sysctrl_done            # disallow 0 as a valid current program
+
+    la      t0, CURRENT_PROG
+    sw      t1, (t0)
+
+sysctrl_done:
     ret
 
 # --------------------------------------------------------------
@@ -1208,6 +1238,10 @@ cmdGo:
     PUSH1   ra
     jal     read_hex
     beqz    a2, BadAddress
+
+    la      a2, IRQADDR             # Update IRQADDR incase OS_SYS_CTRL a0=1
+    sw      a1, (a2)                # is called to set the current program
+
     jalr    ra, a1
     mv      a0, zero
     POP1    ra
