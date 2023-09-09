@@ -55,11 +55,6 @@
 
 .equ ESCFLG          , WORKSPACE + 0x00   # escape flag
 .equ CURRENT_PROG    , WORKSPACE + 0x04   # current program, persisted across soft break
-.equ ARGSBLK         , WORKSPACE + 0x08   # block used for os args
-
-# TODO
-#   use stack for osword_pblock into workspace
-#   use stack for ARGSBLK
 
 #
 # Handlers are patterned on JGH's pdp11 client ROM:
@@ -830,25 +825,22 @@ osFILE:
 
 osARGS:
     # Tube data: &0C Y block A                     A block
-    PUSH3   ra, a0, a1
+    PUSH4   ra, a0, a1, a2
     li      a0, 0x0C
     jal     SendByteR2                  # 0x0c
     mv      a0, a1
     jal     SendByteR2                  # handle
     li      a0, 4
-    la      a1, ARGSBLK
-    sw      a2, (a1)
+    mv      a1, sp
     jal     SendBlockR2                 # control block
     lw      a0, 8(sp)
     jal     SendByteR2                  # function
     jal     WaitByteR2                  # result
     sw      a0, 8(sp)
     li      a0, 4
-    la      a1, ARGSBLK
+    mv      a1, sp
     jal     ReceiveBlockR2              # block
-    la      a1, ARGSBLK
-    lw      a2, (a1)
-    POP3    ra, a0, a1
+    POP4    ra, a0, a1, a2
     ret
 
 # --------------------------------------------------------------
@@ -993,8 +985,6 @@ osfind_exit:
 # --------------------------------------------------------------
 # ECall 13 - OS SYSTEM CONTROL - Miscellaneous
 # --------------------------------------------------------------
-#
-# TODO: this call is not implemented yet
 #
 # On entry:
 #     a0: function
@@ -1291,13 +1281,15 @@ cmdTest:
 cmdPi:
     PUSH2   ra, a1
 
+    addi    sp, sp, -16                # space for osword block on stack
+
     jal     read_dec
     beqz    a2, BadNumber
     sw      a1, 8(sp)
 
     # Set TIME to using OSWORD 2
     li      a0, 0x02
-    la      a1, osword_pblock
+    mv      a1, sp
     sw      zero, 0(a1)
     sw      zero, 4(a1)
     SYS     OS_WORD
@@ -1319,16 +1311,16 @@ cmdPi:
 
     # Read TIME using OSWORD 1
     li      a0, 0x01
-    la      a1, osword_pblock
+    mv      a1, sp
     SYS     OS_WORD
 
     # Print the LS word in decimal
-    la      a1, osword_pblock
-    lw      a0, (a1)
+    lw      a0, (sp)
     jal     print_dec_word
     SYS     OS_NEWL
 
     mv      a0, zero
+    addi    sp, sp, 16                 # free space for osword block on stack
     POP2    ra, a1
     ret
 
@@ -1338,18 +1330,12 @@ BadNumber:
     .string "Bad number"
     .align  2,0
 
-osword_pblock:
-    .word 0
-    .word 0
-
 # -----------------------------------------------------------------------------
 # Exception handler
 # -----------------------------------------------------------------------------
 
 ECallHandler:
     li      gp, TUBE                    # setup a register that points to the tube
-
-    # TODO: Check mcause = 11 (machine mode environment call)
 
     # A7 contains the system call number which we need to preserve
     # (registers t0 and ra are available as working registers)
