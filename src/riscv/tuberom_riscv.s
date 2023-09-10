@@ -1096,9 +1096,9 @@ osHANDLERS:
     la      t1, HANDLER_TABLE
     add     t0, t0, t1                  # t0: entry in handlers table
 
-    lw      t1, 0(t0)
+    lw      t1, (t0)
     beqz    a1, osh_skip_write_a1
-    sw      a1, 0(t0)
+    sw      a1, (t0)
 osh_skip_write_a1:
     mv      a1, t1
 
@@ -1116,12 +1116,13 @@ ose:
     bgeu    t0, t1, ose_done
 
     slli    t0, t0, 2                   # t0: 0,4,8,12,16,20...
-    la      t1, ECALL_TABLE
+    la      t1, ECALLADDR
+    lw      t1, (t1)
     add     t0, t0, t1                  # t0: entry in handlers table
 
-    lw      t1, 0(t0)
+    lw      t1, (t0)
     beqz    a1, ose_skip_write_a1
-    sw      a1, 0(t0)
+    sw      a1, (t0)
 ose_skip_write_a1:
     mv      a1, t1
 
