@@ -267,7 +267,7 @@ DefaultHandlerTable:
     .word   0
     .word   DefaultUnknownIRQHandler
     .word   0
-    .word   DefaultUnknownECallHandler
+    .word   DefaultUncaughtExceptionHandler
     .word   ECALL_TABLE
     .word   DefaultUncaughtExceptionHandler
     .word   0
@@ -1367,7 +1367,7 @@ BadNumber:
     .align  2,0
 
 # -----------------------------------------------------------------------------
-# Exception handler
+# ECall handler
 # -----------------------------------------------------------------------------
 
 ECallHandler:
@@ -1419,21 +1419,6 @@ UnknownECall:
 
     mret
 
-DefaultUnknownECallHandler:
-    csrr    a0, mepc
-    mv      a1, a7
-    jal     print_hex_word
-    li      a0, ':'
-    SYS     OS_WRCH
-    mv      a0, a1
-    jal     print_hex_word
-    li      a0, ':'
-    SYS     OS_WRCH
-    SYS     OS_ERROR
-    .word   255                         # re-use "Bad" error code
-    .string "Bad ECall"
-    .align  2,0
-
 # -----------------------------------------------------------------------------
 # Uncaught Exception Handler
 # -----------------------------------------------------------------------------
@@ -1448,6 +1433,10 @@ UncaughtExceptionHandler:
     POP1    ra
 
     mret
+
+# -----------------------------------------------------------------------------
+# Default Uncaught Exception Handler
+# -----------------------------------------------------------------------------
 
 DefaultUncaughtExceptionHandler:
 
@@ -1495,6 +1484,7 @@ DefaultUncaughtExceptionHandler:
 
     csrr    a0, mepc
     csrr    a1, mcause
+    mv      a3, a1                      # save the cause to allow the error message to be customized
     jal     print_hex_word
     li      a0, ':'
     SYS     OS_WRCH
@@ -1551,8 +1541,18 @@ dump_val:
     addi    a2, a2, -1
     bnez    a2, dump_loop1
 
-# Call the current error handler
+    li      a0, 0x0000000B              # ECall
+    bne     a3, a0, other_exception
 
+# Call the current error handler
+    SYS     OS_ERROR
+    .word   255                         # re-use "Bad" error code
+    .string "Unknown ECall"
+    .align  2,0
+
+other_exception:
+
+# Call the current error handler
     SYS     OS_ERROR
     .word   255                         # re-use "Bad" error code
     .string "Uncaught Exception"
@@ -1831,7 +1831,6 @@ Type7lp:
     addi    t1, t1, -1
     bnez    t1, Type7lp
     j       Release
-
 
 # -----------------------------------------------------------------------------
 # Helper methods
