@@ -1490,8 +1490,7 @@ DefaultUncaughtExceptionHandler:
     SYS     OS_WRCH
     mv      a0, a1
     jal     print_hex_word
-    li      a0, ':'
-    SYS     OS_WRCH
+    SYS     OS_NEWL
 
     la      a0, exception_cause_table
     bgez    a1, is_exception            # bit 31 indicate interrupt (0) vs exception (1)
@@ -1515,31 +1514,25 @@ print_cause:
 
 # Dump register values
 
+    SYS     OS_NEWL
     la      a1, register_names
     li      a2, 32
-dump_loop1:
-    andi    a0, a2, 3
-    bnez    a0, skip_newline
-    SYS     OS_NEWL
-skip_newline:
-    li      a0, ' '
-    SYS     OS_WRCH
-    SYS     OS_WRCH
-    SYS     OS_WRCH
-dump_loop2:
+dump_loop:
     lb      a0, (a1)
     addi    a1, a1, 1
     beqz    a0, dump_val
     SYS     OS_WRCH
-    j       dump_loop2
+    j       dump_loop
 dump_val:
     li      a0, '='
     SYS     OS_WRCH
     lw      a0, (sp)
     jal     print_hex_word
+    li      a0, ' '
+    SYS     OS_WRCH
     addi    sp, sp, 4
     addi    a2, a2, -1
-    bnez    a2, dump_loop1
+    bnez    a2, dump_loop
 
     li      a0, 0x0000000B              # ECall
     bne     a3, a0, other_exception
@@ -2165,39 +2158,43 @@ SendStringR2Lp:
 # Register names
 # --------------------------------------------------------------
 
+# The 4/3/3 padding is to wrap nicely on both 40 and 80 column displays
+#     RRRR=XXXXXXXX_RRR=XXXXXXXX_RRR=XXXXXXXX_
+#     0123456789012345678901234567890123456789
+
 register_names:
-   .string "zero", # X0
-   .string "  ra", # X1
-   .string "  sp", # X2
-   .string "  gp", # X3
-   .string "  tp", # X4
-   .string "  t0", # X5
-   .string "  t1", # X6
-   .string "  t2", # X7
-   .string "  s0", # X8
-   .string "  s1", # X9
-   .string "  a0", # X10
-   .string "  a1", # X11
-   .string "  a2", # X12
-   .string "  a3", # X13
-   .string "  a4", # X14
-   .string "  a5", # X15
-   .string "  a6", # X16
-   .string "  a7", # X17
-   .string "  s2", # X18
-   .string "  s3", # X19
-   .string "  s4", # X20
-   .string "  s5", # X21
-   .string "  s6", # X22
-   .string "  s7", # X23
-   .string "  s8", # X24
-   .string "  s9", # X25
-   .string " s10", # X26
-   .string " s11", # X27
-   .string "  t3", # X28
-   .string "  t4", # X29
-   .string "  t5", # X30
-   .string "  t6", # X31
+    .string "zero", # X0
+    .string  " ra", # X1
+    .string  " sp", # X2
+    .string "  gp", # X3
+    .string  " tp", # X4
+    .string  " t0", # X5
+    .string "  t1", # X6
+    .string  " t2", # X7
+    .string  " s0", # X8
+    .string "  s1", # X9
+    .string  " a0", # X10
+    .string  " a1", # X11
+    .string "  a2", # X12
+    .string  " a3", # X13
+    .string  " a4", # X14
+    .string "  a5", # X15
+    .string  " a6", # X16
+    .string  " a7", # X17
+    .string "  s2", # X18
+    .string  " s3", # X19
+    .string  " s4", # X20
+    .string "  s5", # X21
+    .string  " s6", # X22
+    .string  " s7", # X23
+    .string "  s8", # X24
+    .string  " s9", # X25
+    .string  "s10", # X26
+    .string " s11", # X27
+    .string  " t3", # X28
+    .string  " t4", # X29
+    .string "  t5", # X30
+    .string  " t6", # X31
 
 # --------------------------------------------------------------
 # Interrupt / Exception Cause Tables
