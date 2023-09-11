@@ -244,7 +244,7 @@ CmdOSEscape:
     li      a0, 0x7e
     SYS     OS_BYTE
     SYS     OS_ERROR
-    .byte   17
+    .word   17
     .string "Escape"
 
 BannerMessage:
@@ -281,7 +281,7 @@ DefaultHandlerTable:
 DefaultErrorHandler:
     li      sp, STACK                   # setup the stack
     SYS     OS_NEWL
-    addi    a0, a0, 1
+    addi    a0, a0, 4
     jal     print_string
     SYS     OS_NEWL
     j       DefaultExitHandler
@@ -1269,7 +1269,7 @@ cmdGo:
 
 BadAddress:
     SYS     OS_ERROR
-    .byte   252
+    .word   252
     .string "Bad address"
     .align  2,0
 
@@ -1362,7 +1362,7 @@ cmdPi:
 
 BadNumber:
     SYS     OS_ERROR
-    .byte   252
+    .word   252
     .string "Bad number"
     .align  2,0
 
@@ -1430,7 +1430,7 @@ DefaultUnknownECallHandler:
     li      a0, ':'
     SYS     OS_WRCH
     SYS     OS_ERROR
-    .byte   255                         # re-use "Bad" error code
+    .word   255                         # re-use "Bad" error code
     .string "Bad ECall"
     .align  2,0
 
@@ -1554,7 +1554,7 @@ dump_val:
 # Call the current error handler
 
     SYS     OS_ERROR
-    .byte   255                         # re-use "Bad" error code
+    .word   255                         # re-use "Bad" error code
     .string "Uncaught Exception"
     .align  2,0
 
@@ -1633,11 +1633,12 @@ r4_irq:
     la      t1, ERRADDR                 # ERRADDR is the address of the error buffer
     lw      t1, (t1)                    # so an extra level of indirection is required
     jal     WaitByteR2                  # Get error number
-    sb      a0, (t1)
+    sw      a0, (t1)
+    addi    t1, t1, 4
 err_loop:
-    addi    t1, t1, 1
     jal     WaitByteR2                  # Get error message bytes
     sb      a0, (t1)
+    addi    t1, t1, 1
     bnez    a0, err_loop
     POP1    t1                          # restore registers
 
