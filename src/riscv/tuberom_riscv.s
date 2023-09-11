@@ -1434,6 +1434,7 @@ UncaughtExceptionHandler:
 
     mret
 
+
 # -----------------------------------------------------------------------------
 # Default Uncaught Exception Handler
 # -----------------------------------------------------------------------------
@@ -1480,30 +1481,28 @@ DefaultUncaughtExceptionHandler:
     sw      t5,  120(sp)
     sw      t6,  124(sp)
 
-# Print the PC and Cause
+# Save the useful CSRs before and SYS calls change them
 
-    csrr    a0, mepc
-    csrr    a1, mcause
-    mv      a3, a1                      # save the cause to allow the error message to be customized
-    jal     print_hex_word
-    li      a0, ':'
-    SYS     OS_WRCH
-    mv      a0, a1
-    jal     print_hex_word
-    SYS     OS_NEWL
+    csrr    a1, mepc
+    csrr    a2, mtval
+    csrr    a3, mstatus
+    csrr    a4, mcause
 
+# Print the mcause as human readable text
+    la      a0, highlight1_string
+    jal     print_string
     la      a0, exception_cause_table
-    bgez    a1, is_exception            # bit 31 indicate interrupt (0) vs exception (1)
+    bgez    a4, is_exception            # bit 31 indicate interrupt (0) vs exception (1)
     la      a0, interrupt_cause_table
 is_exception:
 
     li      t0, 0x7fffffff              # clear bit 31 (interrupt vs exception)
-    and     a1, a1, t0
+    and     t1, a4, t0
     li      t0, 16                      # check the cause doesn't exceed the size of out message tables
-    bge     a1, t0, print_reserved
+    bge     t1, t0, print_reserved
 
-    slli    a1, a1, 2
-    add     a0, a0, a1
+    slli    t1, t1, 2
+    add     a0, a0, t1
     lw      a0, (a0)
     j       print_cause
 
@@ -1511,10 +1510,44 @@ print_reserved:
     la      a0, reserved
 print_cause:
     jal     print_string
+    la      a0, highlight2_string
+    jal     print_string
+
+# Print the mepc
+    la      a0, mepc_string
+    jal     print_string
+    mv      a0, a1
+    jal     print_hex_word
+    SYS     OS_NEWL
+
+# Print the mtval
+    la      a0, mtval_string
+    jal     print_string
+    mv      a0, a2
+    jal     print_hex_word
+    SYS     OS_NEWL
+
+# Print the mstatus
+    la      a0, mstatus_string
+    jal     print_string
+    mv      a0, a3
+    jal     print_hex_word
+    SYS     OS_NEWL
+
+# Print the mcause
+    la      a0, mcause_string
+    jal     print_string
+    mv      a0, a4
+    jal     print_hex_word
+    SYS     OS_NEWL
 
 # Dump register values
-
-    SYS     OS_NEWL
+    la      a0, highlight1_string
+    jal     print_string
+    la      a0, register_dump_string
+    jal     print_string
+    la      a0, highlight2_string
+    jal     print_string
     la      a1, register_names
     li      a2, 32
 dump_loop:
@@ -1535,7 +1568,7 @@ dump_val:
     bnez    a2, dump_loop
 
     li      a0, 0x0000000B              # ECall
-    bne     a3, a0, other_exception
+    bne     a4, a0, other_exception
 
 # Call the current error handler
     SYS     OS_ERROR
@@ -2195,6 +2228,28 @@ register_names:
     .string  " t4", # X29
     .string "  t5", # X30
     .string  " t6", # X31
+
+mepc_string:
+    .string "   mepc="
+
+mtval_string:
+    .string "  mtval="
+
+mstatus_string:
+    .string "mstatus="
+
+mcause_string:
+    .string " mcause="
+
+highlight1_string:
+    .string "*** "
+
+highlight2_string:
+    .ascii " ***"
+    .byte  10, 13, 0
+
+register_dump_string:
+    .string "Register dump"
 
 # --------------------------------------------------------------
 # Interrupt / Exception Cause Tables
