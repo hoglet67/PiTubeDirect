@@ -556,34 +556,53 @@ void debug_trap(const cpu_debug_t *cpu, uint32_t addr, int reason) {
  * Helpers
  *******************************************/
 
-static int parseNparams(const char *p, int required, int total, unsigned int **result) {
+// Returns:
+//   -1 if there was an error
+//    0 if the end line reached
+//    1 if a parameter was successfully parsed
+static int parseParam(const char **pp, unsigned int *result) {
+   const char *p = *pp;
    char *endptr;
-   int i;
+   // Check if there is something to parse
+   while (isspace((int)*p)) {
+      p++;
+   }
+   // Exit if not (allows later parems to be optional)
+   if (*p == 0) {
+      return 0;
+   }
+   // Allow 0x to override the current base
+   int b = base;
+   if (*p == '0' && (*(p+1) == 'x' || *(p+1) == 'X')) {
+      b = 16;
+      p += 2;
+   }
+   // Parse it in the current base
+   unsigned int value = strtoul(p, &endptr, b);
+   if (endptr == p) {
+      return -1;
+   }
+   p = endptr;
+   *result = value;
+   *pp = p;
+   return 1;
+}
+
+static int parseNparams(const char **pp, int required, int total, unsigned int **result) {
    int n = 0;
-   for (i = 0; i < total; i++) {
-      // Check if there is something to parse
-      while (isspace((int)*p)) {
-         p++;
-      }
-      // Exit if not (allows later parems to be optional)
-      if (*p == 0) {
+   for (int i = 0; i < total; i++) {
+      unsigned int value;
+      int ret = parseParam(pp, &value);
+      if (ret == 0) {
+         // Exit if nothing parsed (allows later parems to be optional)
          break;
-      }
-      // Allow 0x to override the current base
-      int b = base;
-      if (*p == '0' && (*(p+1) == 'x' || *(p+1) == 'X')) {
-         b = 16;
-         p += 2;
-      }
-      // Parse it in the current base
-      unsigned int value = strtoul(p, &endptr, b);
-      if (endptr == p) {
+      } else if (ret < 0) {
          printf("bad format for parameter %d\r\n", i + 1);
          return 1;
+      } else {
+         *(*result++) = value;
+         n++;
       }
-      p = endptr;
-      *(*result++) = value;
-      n++;
    }
    if (n < required) {
       printf("Missing parameter(s)\r\n");
@@ -594,17 +613,17 @@ static int parseNparams(const char *p, int required, int total, unsigned int **r
 
 static int parse1params(const char *params, int required, unsigned int *p1) {
    unsigned int *p[] = { p1 };
-   return parseNparams(params, required, 1, p);
+   return parseNparams(&params, required, 1, p);
 }
 
 static int parse2params(const char *params, int required, unsigned int *p1, unsigned int *p2) {
    unsigned int *p[] = { p1, p2 };
-   return parseNparams(params, required, 2, p);
+   return parseNparams(&params, required, 2, p);
 }
 
 static int parse3params(const char *params, int required, unsigned int *p1, unsigned int *p2, unsigned int *p3) {
    unsigned int *p[] = { p1, p2, p3 };
-   return parseNparams(params, required, 3, p);
+   return parseNparams(&params, required, 3, p);
 }
 
 // Set the breakpoint state variables
