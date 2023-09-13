@@ -23,7 +23,7 @@ static const char * prompt_str = ">> ";
 
 extern unsigned int copro;
 
-#define NUM_CMDS 24
+#define NUM_CMDS 25
 #define NUM_IO_CMDS 6
 
 // The Atom CRC Polynomial
@@ -53,6 +53,44 @@ typedef struct {
    uint32_t mask;
 } breakpoint_t;
 
+// Pattern related types (for the search command)
+
+#define MAX_PATTERN 32          // maximum pattern length
+
+typedef struct {
+   uint8_t values[MAX_PATTERN]; // array of value bytes
+   uint8_t masks[MAX_PATTERN];  // array of mask bytes
+   unsigned int len;            // current size of the pattern
+   int valid;                   // indicates the pattern has one or more non-wildcard bytes
+} pattern_t;
+
+enum {
+   P_OK,
+   P_MISSING_QUOTE,
+   P_BAD_ESCAPE,
+   P_MALFORMED_VALUE,
+   P_MALFORMED_MASK,
+   P_VALUE_TOO_BIG,
+   P_MASK_TOO_BIG,
+};
+
+static const char *pattern_errors[] = {
+   "OK",
+   "Missing closing quote",
+   "Bad escape sequence",
+   "Malformed value",
+   "Malformed mask",
+   "Value too big",
+   "Mask too big"
+};
+
+// Max value for a given width
+static const uint32_t max_values[] = {
+   0x000000ff, //  8 bits
+   0x0000ffff, // 16 bits
+   0xffffffff  // 32 bits
+};
+
 // Watches/Breakpoints addresses etc, stored sorted
 static breakpoint_t   exec_breakpoints[MAXBKPTS + 1];
 static breakpoint_t mem_rd_breakpoints[MAXBKPTS + 1];
@@ -80,6 +118,7 @@ static void doCmdNext(const char *params);
 static void doCmdOut(const char *params);
 static void doCmdRd(const char *params);
 static void doCmdRegs(const char *params);
+static void doCmdSearch(const char *params);
 static void doCmdStep(const char *params);
 static void doCmdTrace(const char *params);
 static void doCmdTraps(const char *params);
@@ -107,6 +146,7 @@ static const char *dbgCmdStrings[NUM_CMDS + NUM_IO_CMDS] = {
    "fill",
    "crc",
    "mem",
+   "search",
    "rd",
    "wr",
    "trace",
@@ -140,6 +180,7 @@ static const char *dbgHelpStrings[NUM_CMDS + NUM_IO_CMDS] = {
    "<start> <end> <data>",   // fill
    "<start> <end>",          // crc
    "<start> [ <end> ]",      // mem
+   "<start> <end> <pattern>",// search
    "<address>",              // rd
    "<address> <data>",       // wr
    "<interval> ",            // trace
@@ -174,6 +215,7 @@ static void (*dbgCmdFuncs[NUM_CMDS + NUM_IO_CMDS])(const char *params) = {
    doCmdFill,
    doCmdCrc,
    doCmdMem,
+   doCmdSearch,
    doCmdRd,
    doCmdWr,
    doCmdTrace,
@@ -914,6 +956,184 @@ static void doCmdMem(const char *params) {
       printf("\r\n");
       memAddr += n_cols * stride;
    } while (memAddr < endAddr);
+}
+
+static void dumpPattern(pattern_t *pattern) {
+   unsigned int len = pattern->len;
+   if (len > sizeof(pattern->values)) {
+      len = sizeof(pattern->values);
+   }
+   printf("Pattern bytes (in hex):");
+   for (unsigned int i = 0; i < len; i++) {
+      uint8_t value = pattern->values[i];
+      uint8_t mask  = pattern->masks[i];
+      switch (mask) {
+      case 0x00: printf(" **");                       break;
+      case 0x0f: printf(" *%x", value & 0x0f);        break;
+      case 0xf0: printf(" %x*", (value >> 4) & 0x0f); break;
+      case 0xff: printf(" %02x", value);              break;
+      default:   printf(" %02x/%02x", value, mask);
+      }
+   }
+   printf("\r\n");
+}
+
+static void appendToPattern(pattern_t *pattern, uint8_t value, uint8_t mask) {
+   // Only store the new byte if there is space
+   if (pattern->len < sizeof(pattern->values)) {
+      pattern->values[pattern->len] = value & mask;
+      pattern->masks[pattern->len] = mask;
+      if (mask) {
+         pattern->valid = 1;
+      }
+   }
+   // The pattern length is allowed to increase beyond buffer_size
+   // to allow truncated patterns to be trapped easily
+   pattern->len++;
+}
+
+
+// Returns 0 to indicate success, otherwise an error code
+static int parsePattern(const char **params, pattern_t *pattern) {
+   const char *p = *params;
+   while (1) {
+      // Skip spaces before trying to parse a pattern thing
+      while (*p == ' ') {
+         p++;
+      }
+      // If we hit the end of line then we are done with the whole pattern
+      if (*p == 0) {
+         break;
+      }
+      if (*p == '"') {
+         // Parse a quoted string with escape characters
+         p++; // skip the opening quote
+         while (1) {
+            if (*p == 0) {
+               return P_MISSING_QUOTE;
+            } else if (*p == '"') {
+               // End of quoted string
+               p++; // skip the closing quote
+               break; // done with parsing the quoted string
+            } else {
+               uint8_t value = 0x00;
+               uint8_t mask  = 0xff;
+               if (*p == '\\') {
+                  // Escaped character
+                  // See: https://en.wikipedia.org/wiki/Escape_sequences_in_C
+                  p++; // skip the back-slash
+                  switch (*p) {
+                  case  '*': mask  = 0x00; break; // Wildcard charcter
+                  case  'a': value = 0x07; break;
+                  case  'b': value = 0x08; break;
+                  case  'e': value = 0x1B; break;
+                  case  'f': value = 0x0C; break;
+                  case  'n': value = 0x0A; break;
+                  case  'r': value = 0x0D; break;
+                  case  't': value = 0x09; break;
+                  case  'v': value = 0x0B; break;
+                  case '\\': value = 0x5C; break;
+                  case '\'': value = 0x27; break;
+                  case  '"': value = 0x22; break;
+                  case  '?': value = 0x3F; break;
+                  // TODO: \nnn
+                  // TODO: \xnn....
+                  case  0  : return P_MISSING_QUOTE;
+                  default  : return P_BAD_ESCAPE;
+                  }
+               } else {
+                  // Non escaped charcter
+                  value = (uint8_t) *p;
+               }
+               appendToPattern(pattern, value, mask);
+               p++; // skip the character just added
+            }
+         }
+      } else if (*p == '*') {
+         p++; // skip the wildcard
+         // Insert a wildcard according to the current width
+         for (int i = 0; i < (1 << width); i++) {
+            appendToPattern(pattern, 0x00, 0x00);
+         }
+      } else {
+         // Parse a value
+         unsigned int value = 0;
+         unsigned int mask  = max_values[width];
+         if (parseParam(&p, &value) != 1) {
+            return P_MALFORMED_VALUE;
+         }
+         // Parse an optional mask
+         if (*p == '/') {
+            p++;
+            if (parseParam(&p, &mask) != 1) {
+               return P_MALFORMED_MASK;
+            }
+         }
+         // Sanity check value agaist the current width
+         if (value > max_values[width]) {
+            return P_VALUE_TOO_BIG;
+         }
+         // Sanity check mask agaist the current width
+         if (mask > max_values[width]) {
+            return P_MASK_TOO_BIG;
+         }
+         // Save the value/mask in the pattern as 1/2/4 individual bytes depending on the width
+         // Like the rest of the debugger, this assumes little-endian byte order
+         for (int i = 0; i < (1 << width); i++) {
+            appendToPattern(pattern, value & 0xff, mask & 0xff);
+            value >>= 8;
+            mask  >>= 8;
+         }
+      }
+   }
+   *params = p;
+   return P_OK;
+}
+
+static void doCmdSearch(const char *params) {
+   const cpu_debug_t *cpu = getCpu();
+   // For now, bail on Co Pros with word-wide memory (OPC and F100)
+   if (cpu->mem_width != WIDTH_8BITS) {
+      printf("Search needs Co Pro with an 8-bit memory interface\r\n");
+      return;
+   }
+   // Parse the start and end address
+   unsigned int start = 0;
+   unsigned int end   = 0;
+   unsigned int *p[] = { &start, &end };
+   if (parseNparams(&params, 1, 2, p)) {
+      return;
+   }
+   // Parse the pattern
+   pattern_t pattern;
+   pattern.len = 0;
+   pattern.valid = 0;
+   int ret = parsePattern(&params, &pattern);
+   if (ret) {
+      printf("Pattern syntax error: %s\r\n", pattern_errors[ret]);
+      return;
+   } else if (pattern.len == 0) {
+      printf("Missing pattern\r\n");
+      return;
+   } else if (pattern.len > sizeof(pattern.values)) {
+      printf("Pattern too long, max length is %d bytes\r\n", MAX_PATTERN);
+      return;
+   } else if (!pattern.valid) {
+      printf("Pattern contains only wildcards\r\n");
+      return;
+   }
+   dumpPattern(&pattern);
+   // Brute force search
+   unsigned int len = pattern.len;
+   for (unsigned int addr = start; addr <= end - len; addr++) {
+      unsigned int i = 0;
+      while (i < len && (((uint8_t) cpu->memread(addr + i)) & pattern.masks[i]) == pattern.values[i]) {
+         i++;
+      }
+      if (i == len) {
+         printf("Match at: %s\r\n", format_addr(addr));
+      }
+   }
 }
 
 static void doCmdRd(const char *params) {
