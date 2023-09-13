@@ -576,7 +576,7 @@ static int parseNparams(const char *p, int required, int total, unsigned int **r
          p += 2;
       }
       // Parse it in the current base
-      unsigned int value = (unsigned int )strtol(p, &endptr, b);
+      unsigned int value = strtoul(p, &endptr, b);
       if (endptr == p) {
          printf("bad format for parameter %d\r\n", i + 1);
          return 1;
