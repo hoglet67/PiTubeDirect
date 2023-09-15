@@ -2,14 +2,9 @@
 
 // TODO: Opcodes in Mini-rv32ima that need adding to the disassembler
 //
-// RV32M Multiply extension (opcode 0x33)
-//    MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU
-//
 // RV32A Atomic extension (opcode 0x2f)
 //    LR, SC, AMISWAP, AMOADD, AMOXOR, AMIAND, AMOOR, AMOMIN, AMOMAX, AMOMINU, AMOMAXU
 //
-// Certain privileged instructions (opcode 0x73)
-//    WFI, MRET, ...
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -104,21 +99,41 @@ int format(uint8_t opcode) {
 const char *name(int fmt, union encoding *e) {
    switch (fmt) {
    case R:
-      switch (e->funct3) {
-      case 0: return e->funct7? "sub": "add";
-      case 1: return "sll";
-      case 2: return "slt";
-      case 3: return "sltu";
-      case 4: return "xor";
-      case 5: return e->funct7? "sra": "srl";
-      case 6: return "or";
-      case 7: return "and";
-      }
-      break;
+      if (e->funct7 == 0x00) {
+         switch (e->funct3) {
+         case 0: return "add";
+         case 1: return "sll";
+         case 2: return "slt";
+         case 3: return "sltu";
+         case 4: return "xor";
+         case 5: return "srl";
+         case 6: return "or";
+         case 7: return "and";
+         }
+      } else if (e->funct7 == 0x20) {
+         switch (e->funct3) {
+         case 0: return "sub";
+         case 5: return "sra";
+         }
+      } else if (e->funct7 == 0x01) {
+         switch (e->funct3) {
+         case 0: return "mul";
+         case 1: return "mulh";
+         case 2: return "mulsu";
+         case 3: return "mulu";
+         case 4: return "div";
+         case 5: return "divu";
+         case 6: return "rem";
+         case 7: return "remu";
+         }
+      } break;
    case I:
       switch(e->opcode) {
       case 0x67:
-         return "jalr";
+         if (e->funct3 == 0) {
+            return "jalr";
+         }
+         break;
       case 0x03:
          switch (e->funct3) {
          case 0: return "lb";
@@ -131,11 +146,21 @@ const char *name(int fmt, union encoding *e) {
       case 0x13:
          switch (e->funct3) {
          case 0: return "addi";
-         case 1: return "slli";
+         case 1:
+            if (e->funct7 == 0x00) {
+               return "slli";
+            }
+            break;
          case 2: return "slti";
          case 3: return "sltiu";
          case 4: return "xori";
-         case 5: return e->funct7? "srai": "srli";
+         case 5:
+            if (e->funct7 == 0x00) {
+               return "srli";
+            } else if (e->funct7 == 0x20) {
+               return "srai";
+            }
+            break;
          case 6: return "ori";
          case 7: return "andi";
          }
@@ -152,9 +177,11 @@ const char *name(int fmt, union encoding *e) {
             switch (e->i.i11_0) {
             case 0x000: return "ecall";
             case 0x001: return "ebreak";
+            case 0x102: return "sret";
+            case 0x105: return "wfi";
             case 0x302: return "mret";
-            default: return "???";
             }
+            break;
          case 1: return "csrrw";
          case 2: return "csrrs";
          case 3: return "csrrc";
