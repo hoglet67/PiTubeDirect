@@ -182,12 +182,12 @@ const char *name(int fmt, union encoding *e) {
             case 0x302: return "mret";
             }
             break;
-         case 1: return "csrrw";
-         case 2: return "csrrs";
-         case 3: return "csrrc";
-         case 5: return "csrrwi";
-         case 6: return "csrrsi";
-         case 7: return "csrrci";
+         case 1: return e->rd ?           "csrrw"            : "csrw";
+         case 2: return e->rd ? (e->rs1 ? "csrrs"  : "csrr") : "csrs";
+         case 3: return e->rd ? (e->rs1 ? "csrrc"  : "csrr") : "csrc";
+         case 5: return e->rd ?           "csrrwi"           : "csrwi";
+         case 6: return e->rd ? (e->rs1 ? "csrrsi" : "csrr") : "csrsi";
+         case 7: return e->rd ? (e->rs1 ? "csrrci" : "csrr") : "csrci";
          }
          break;
       }
@@ -244,9 +244,16 @@ const char *op1(int fmt, const union encoding *e, uint32_t pc) {
    int i;
    switch (fmt) {
    case R:
-   case I:
    case S:
       return reg_name[e->rs1];
+   case I:
+      if (e->opcode == 0x73 && e->funct3 >= 5) {
+         // special case CSR immediate (rs1 treated as 5-bit unsigned immediate)
+         sprintf(imm, "%u", e->rs1);
+         return imm;
+      } else {
+         return reg_name[e->rs1];
+      }
    case B:
       if (e->rs2) {
          return reg_name[e->rs2];
@@ -254,14 +261,14 @@ const char *op1(int fmt, const union encoding *e, uint32_t pc) {
          return NULL;
       }
    case U:
-      sprintf(imm, "%08" PRIx32, (uint32_t) (e->u.i31_12 << 12));
+      sprintf(imm, "0x%" PRIx32, (uint32_t) (e->u.i31_12 << 12));
       return imm;
    case J:
       i = (e->j.i20 << 20) | (e->j.i19_12 << 12) | (e->j.i11 << 11) | (e->j.i10_1  << 1);
       if (i & 0x100000) {
          i -= 0x200000;
       }
-      sprintf(imm, "%08" PRIx32, pc + (uint32_t)i);
+      sprintf(imm, "0x%" PRIx32, pc + (uint32_t)i);
       return imm;
    }
    return unimplemented;
@@ -278,7 +285,36 @@ const char *op2(int fmt, const union encoding *e, uint32_t pc) {
       if (i & 0x800) {
          i -= 0x1000;
       }
-      sprintf(imm, "%d", i);
+      if (e->opcode == 0x73 && (e->funct3 & 3)) {
+         // CSR
+         switch (i) {
+         case 0x300: return "mstatus";
+         case 0x301: return "misa";
+         case 0x302: return "medeleg";
+         case 0x303: return "mideleg";
+         case 0x304: return "mie";
+         case 0x305: return "mtvec";
+         case 0x306: return "mcounteren";
+         case 0x340: return "mscratch";
+         case 0x341: return "mepc";
+         case 0x342: return "mcause";
+         case 0x343: return "mtval";
+         case 0x344: return "mip";
+         case 0xc00: return "cycle";
+         case 0xc01: return "time";
+         case 0xc02: return "instret";
+         case 0xc80: return "cycleh";
+         case 0xc81: return "timeh";
+         case 0xc82: return "instreth";
+         case 0xf11: return "mvendorid";
+         case 0xf12: return "marchid";
+         case 0xf13: return "mimpid";
+         case 0xf14: return "mhartid";
+         }
+         sprintf(imm, "0x%03x", i);
+      } else {
+         sprintf(imm, "%d", i);
+      }
       return imm;
    case S:
       i = (e->s.i11_5 << 5) | e->s.i4_0;
@@ -292,7 +328,7 @@ const char *op2(int fmt, const union encoding *e, uint32_t pc) {
       if (i & 0x1000) {
          i -= 0x2000;
       }
-      sprintf(imm, "%08"PRIx32, pc + (uint32_t)i);
+      sprintf(imm, "0x%"PRIx32, pc + (uint32_t)i);
       return imm;
    case U:
    case J:
@@ -306,36 +342,82 @@ void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
    union encoding e = { .inst=(inst) };
    int fmt = format(e.opcode);
    const char *n = name(fmt, &e);
-   const char *p0 = op0(fmt, &e);
-   const char *p1 = op1(fmt, &e, pc);
-   const char *p2 = op2(fmt, &e, pc);
+   const char *p[3];
+
+   p[0] = op0(fmt, &e);
+   p[1] = op1(fmt, &e, pc);
+   p[2] = op2(fmt, &e, pc);
 
    size_t len = (size_t) snprintf(buf, buflen, "%-8s", n);
-
-   if (e.opcode == 0x73 && e.funct3 == 0) {
-      // special case ECALL, EBREAK, SRET, MRET, WFI which don't have any parameters
-      return;
-   }
-
-   buf += len;
-   buflen -= len;
-
-   len = (size_t) snprintf(buf, buflen, " %s", p0);
-
    buf += len;
    buflen -= len;
 
    if (e.opcode == 0x03 || e.opcode == 0x23) {
       // special case load/store
-      snprintf(buf, buflen, ", %s(%s)", p2, p1);
-   } else {
-      if (p1) {
-         len = (size_t) snprintf(buf, buflen, ", %s", p1);
+      snprintf(buf, buflen, " %s, %s(%s)", p[0], p[2], p[1]);
+      return;
+   } else if (e.opcode == 0x73) {
+      if (e.funct3 == 0) {
+         // special case ECALL, EBREAK, SRET, MRET, WFI which don't have any parameters
+         return;
+      } else if (e.funct3 & 3) {
+         // special case CSR
+         //
+         // func3:
+         // 1: csrrw   rd, csr, rs1
+         //    csrw        csr, rs1
+         // 2: csrrs   rd, csr, rs1
+         //    csrs        csr, rs1
+         //    csrr    rd, csr
+         // 3: csrrc   rd, csr, rs1
+         //    csrc        csr, rs1
+         //    csrr    rd, csr
+         // 5: csrrwi  rd, csr, uimm5
+         //    csrwi       csr, uimm5
+         // 6: csrrsi  rd, csr, uimm5
+         //    csrr    rd, csr
+         //    csrsi       csr, uimm5
+         // 7: csrrci  rd, csr, uimm5
+         //    csrr    rd, csr
+         //    csrci       csr, uimm5
+         //
+         // On entry:
+         //   p0: rd
+         //   p1: rs1/uimm
+         //   p2: csr
+         // On exit:
+         //   p0: rd
+         //   p1: csr
+         //   p2: rs1/uimm
+         if (e.rd == 0) {
+            // csrw,  csrs,  csrc
+            // csrwi, csrsi, csrci
+            p[0] = NULL;
+         } else if ((e.rs1 == 0) && (e.funct3 & 2)) {
+            // csrr (2/3/6/7)
+            p[1] = NULL;
+         }
+         // Swap p1/p2 as it's the convention for the csr to be displayed last
+         const char *tmp = p[1];
+         p[1] = p[2];
+         p[2] = tmp;
+         // fall through
+      }
+   }
+
+   // everything else formatter as p0, p1, p2
+   // (but we allow for any of these to be omitted)
+   int comma = 0;
+   for (int i = 0; i < 3; i++) {
+      if (p[i]) {
+         if (comma) {
+            len = (size_t) snprintf(buf, buflen, ", %s", p[i]);
+         } else {
+            len = (size_t) snprintf(buf, buflen, " %s", p[i]);
+         }
          buf += len;
          buflen -= len;
-      }
-      if (p2) {
-         snprintf(buf, buflen, ", %s", p2);
+         comma = 1;
       }
    }
 }
