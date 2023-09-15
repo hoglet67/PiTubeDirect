@@ -131,6 +131,12 @@ const char *name(int fmt, union encoding *e) {
       switch(e->opcode) {
       case 0x67:
          if (e->funct3 == 0) {
+            if (e->rd == 0) {
+               if (e->rs1 == 1 && e->i.i11_0 == 0) {
+                  return "ret";
+               }
+               return "jr";
+            }
             return "jalr";
          }
          break;
@@ -216,7 +222,11 @@ const char *name(int fmt, union encoding *e) {
       }
       break;
    case J:
-      return "jal";
+      if (e->rd) {
+         return "jal";
+      } else {
+         return "j";
+      }
    }
 
    return "???";
@@ -356,6 +366,31 @@ void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
       // special case load/store
       snprintf(buf, buflen, " %s, %s(%s)", p[0], p[2], p[1]);
       return;
+   } else if (e.opcode == 0x6F) {
+      // special case JAL
+      //
+      // jal zero, offset => j offset
+      // jal ra, offset => jal offset
+      if (e.rd < 2) {
+         p[0] = NULL;
+      }
+   } else if (e.opcode == 0x67 && e.funct3 == 0) {
+      // special case JALR
+      if (e.rd == 0) {
+         if (e.rs1 == 1 && e.i.i11_0 == 0) {
+            // jalr zero, ra, 0 => ret
+            return;
+         }
+         // jalr zero, rs1, N => jr rs1, N
+         p[0] = NULL;
+      } else if (e.rd == 1) {
+         // jalr ra, rs1, N => jalr rs1, N
+         p[0] = NULL;
+      }
+      // suppress zero offset
+      if (e.i.i11_0 == 0) {
+         p[2] = NULL;
+      }
    } else if (e.opcode == 0x73) {
       if (e.funct3 == 0) {
          // special case ECALL, EBREAK, SRET, MRET, WFI which don't have any parameters
