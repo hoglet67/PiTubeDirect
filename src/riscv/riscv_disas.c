@@ -103,7 +103,8 @@ int format(uint8_t opcode) {
 
 const char *name(int fmt, union encoding *e) {
    switch (fmt) {
-   case R: switch (e->funct3) {
+   case R:
+      switch (e->funct3) {
       case 0: return e->funct7? "sub": "add";
       case 1: return "sll";
       case 2: return "slt";
@@ -112,17 +113,23 @@ const char *name(int fmt, union encoding *e) {
       case 5: return e->funct7? "sra": "srl";
       case 6: return "or";
       case 7: return "and";
-      } break;
-   case I: switch(e->opcode) {
-      case 0x67: return "jalr";
-      case 0x03: switch (e->funct3) {
+      }
+      break;
+   case I:
+      switch(e->opcode) {
+      case 0x67:
+         return "jalr";
+      case 0x03:
+         switch (e->funct3) {
          case 0: return "lb";
          case 1: return "lh";
          case 2: return "lw";
          case 4: return "lbu";
          case 5: return "lhu";
-         } break;
-      case 0x13: switch (e->funct3) {
+         }
+         break;
+      case 0x13:
+         switch (e->funct3) {
          case 0: return "addi";
          case 1: return "slli";
          case 2: return "slti";
@@ -131,13 +138,18 @@ const char *name(int fmt, union encoding *e) {
          case 5: return e->funct7? "srai": "srli";
          case 6: return "ori";
          case 7: return "andi";
-         } break;
-      case 0x0f: switch (e->funct3) {
+         }
+         break;
+      case 0x0f:
+         switch (e->funct3) {
          case 0: return "fence";
          case 1: return "fence.i";
-         } break;
-      case 0x73: switch (e->funct3) {
-         case 0: switch (e->i.i11_0) {
+         }
+         break;
+      case 0x73:
+         switch (e->funct3) {
+         case 0:
+            switch (e->i.i11_0) {
             case 0x000: return "ecall";
             case 0x001: return "ebreak";
             case 0x302: return "mret";
@@ -149,26 +161,35 @@ const char *name(int fmt, union encoding *e) {
          case 5: return "csrrwi";
          case 6: return "csrrsi";
          case 7: return "csrrci";
-         } break;
-      } break;
-   case S: switch(e->funct3) {
+         }
+         break;
+      }
+      break;
+   case S:
+      switch(e->funct3) {
       case 0: return "sb";
       case 1: return "sh";
       case 2: return "sw";
-      } break;
-   case B: switch(e->funct3) {
+      }
+      break;
+   case B:
+      switch(e->funct3) {
       case 0: return e->rs2 ? "beq"  : "beqz";
       case 1: return e->rs2 ? "bne"  : "bnez";
       case 4: return e->rs2 ? "blt"  : "bltz";
       case 5: return e->rs2 ? "bge"  : "bgez";
       case 6: return e->rs2 ? "bltu" : "bltuz";
       case 7: return e->rs2 ? "bgeu" : "bgeuz";
-      } break;
-   case U: switch(e->opcode) {
+      }
+      break;
+   case U:
+      switch(e->opcode) {
       case 0x37: return "lui";
       case 0x17: return "auipc";
-      } break;
-   case J: return "jal";
+      }
+      break;
+   case J:
+      return "jal";
    }
 
    return "???";
