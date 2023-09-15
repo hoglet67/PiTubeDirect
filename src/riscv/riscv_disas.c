@@ -310,7 +310,18 @@ void riscv_disasm_inst(char *buf, size_t buflen, uint32_t pc, uint32_t inst) {
    const char *p1 = op1(fmt, &e, pc);
    const char *p2 = op2(fmt, &e, pc);
 
-   size_t len = (size_t) snprintf(buf, buflen, "%-8s %s", n, p0);
+   size_t len = (size_t) snprintf(buf, buflen, "%-8s", n);
+
+   if (e.opcode == 0x73 && e.funct3 == 0) {
+      // special case ECALL, EBREAK, SRET, MRET, WFI which don't have any parameters
+      return;
+   }
+
+   buf += len;
+   buflen -= len;
+
+   len = (size_t) snprintf(buf, buflen, " %s", p0);
+
    buf += len;
    buflen -= len;
 
