@@ -197,7 +197,7 @@ const copro_def_t copro_defs[] = {
       DEBUGGER(&opc7_cpu_debug)
    },
    {
-      "RISCV",                  // 23
+      "RISC-V",                 // 23
       copro_riscv_emulator,
       TYPE_GENERIC,
       DEBUGGER(&riscv_cpu_debug)
