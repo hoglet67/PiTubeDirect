@@ -292,9 +292,6 @@ const char *op2(int fmt, const union encoding *e, uint32_t pc) {
       return reg_name[e->rs2];
    case I:
       i = e->i.i11_0;
-      if (i & 0x800) {
-         i -= 0x1000;
-      }
       if (e->opcode == 0x73 && (e->funct3 & 3)) {
          // CSR
          switch (i) {
@@ -323,6 +320,9 @@ const char *op2(int fmt, const union encoding *e, uint32_t pc) {
          }
          sprintf(imm, "0x%03x", i);
       } else {
+         if (i & 0x800) {
+            i -= 0x1000;
+         }
          sprintf(imm, "%d", i);
       }
       return imm;
