@@ -1395,8 +1395,9 @@ ECallHandler:
     csrr    t2, mstatus
     PUSH2   t1, t2
 
-    li      ra, 1 << 3                  # re-enable interrupts
-    csrrs   zero, mstatus, ra
+    andi    t2, t2, 1 << 7              # extract the MIEP bit
+    srli    t2, t2, 4                   # shift into the MIE bit position
+    csrrs   zero, mstatus, t2           # re-enable interrupts if they were previously enabled
 
     jalr    ra, t0
 
