@@ -207,7 +207,8 @@ static void copro_riscv_reset() {
 
    // Reset to ‘m’ mode.
    riscv_state->extraflags |= 3;
-   // mstatus.mie = 0, Disable all interrupts.
+   // Disable all interrupts.
+   riscv_state->mie = 0;
    // mstatus.mprv = 0, Select normal memory access privilege level.
    riscv_state->mstatus &= 0xFFFDFFF7;
    // misa = DEFAULT_MISA, enable all extensions.
