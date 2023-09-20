@@ -211,8 +211,11 @@ static void copro_riscv_reset() {
    riscv_state->mie = 0;
    // mstatus.mprv = 0, Select normal memory access privilege level.
    riscv_state->mstatus &= 0xFFFDFFF7;
-   // misa = DEFAULT_MISA, enable all extensions.
-
+   // reset the timer
+   riscv_state->timerl = 0;
+   riscv_state->timerh = 0;
+   riscv_state->timermatchl = 0;
+   riscv_state->timermatchh = 0;
    // mcause = 0 or Implementation defined RESET_MCAUSE_VALUES.
    riscv_state->mcause = 0;
    // PC = Implementation defined RESET_VECTOR.
