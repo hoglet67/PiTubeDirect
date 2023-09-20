@@ -1138,7 +1138,18 @@ ose_done:
 #     this call does not return
 # --------------------------------------------------------------
 
+# The stack is setup as follows
+
+# 12(sp) = stored mepc value
+#  8(sp) = stored mstatus value
+#  4(sp) = unused
+#  0(sp) = unused
+
+
 osERROR:
+    lw     a0, 8(sp)                    # 8(sp) holds the stacked mstatus
+    ori    a0, a0, 1 << 7               # bit 7 in mpie
+    sw     a0, 8(sp)                    # force ecall handler to re-enable interrupts on return
     lw     a0, 12(sp)                   # 12(sp) holds the stacked mepc which is the ecall address
     addi   a0, a0, 4                    # step past the ecall instruction
     la     t0, ERRV
