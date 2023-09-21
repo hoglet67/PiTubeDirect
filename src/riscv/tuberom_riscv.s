@@ -3,7 +3,9 @@
 .equ     MEM_BOT, 0x00000000
 .equ     MEM_TOP, 0x00F80000
 .equ    ROM_BASE, 0x00FC0000
-.equ       STACK, MEM_TOP - 16         # 16 byte aligned
+.equ   WORKSPACE, ROM_BASE - 0x200
+.equ   SYS_STACK, WORKSPACE - 16       # 16 byte aligned
+.equ  USER_STACK, MEM_TOP - 16         # 16 byte aligned
 .equ        TUBE, 0x00FFFFE0
 
 .equ    R1STATUS, 0
@@ -41,8 +43,6 @@
 # -----------------------------------------------------------------------------
 
 # Workspace consumes 0x200 bytes immediately below the Client ROM
-
-.equ WORKSPACE       , ROM_BASE - 0x200
 
 .equ BUFSIZE         , 0x80               # size of the Error buffer and Input Buffer
 
@@ -154,7 +154,7 @@ _start:
     j       ResetHandler
 
 ResetHandler:
-    li      sp, STACK                   # setup the stack
+    li      sp, SYS_STACK               # setup the stack
 
     la      t1, DefaultHandlerTable     # copy the default handlers table
     la      t2, HANDLER_TABLE
@@ -211,7 +211,7 @@ DefaultExitHandler:
     sw      a1, (a0)                    # current program to be the cmdOsLoop
 
 EnterCurrent:
-    li      sp, STACK                   # reset the stack
+    li      sp, USER_STACK              # reset the stack
     li      t0, 1 << 3                  # enable interrupts
     csrrs   zero, mstatus, t0
 
@@ -279,7 +279,7 @@ DefaultHandlerTable:
 #   a0 points to the error block
 
 DefaultErrorHandler:
-    li      sp, STACK                   # setup the stack
+    li      sp, SYS_STACK               # setup the stack
     SYS     OS_NEWL
     addi    a0, a0, 4
     jal     print_string
@@ -1456,7 +1456,7 @@ DefaultUncaughtExceptionHandler:
 # Store all register state on stack
 
     csrw    mscratch, sp                # store the original stack pointer in the mscratch CSR
-    li      sp, STACK                   # setup a new stack
+    li      sp, SYS_STACK               # setup a new stack
 
     addi    sp, sp, -128
     sw      zero,  0(sp)
