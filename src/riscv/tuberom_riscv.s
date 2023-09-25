@@ -56,6 +56,7 @@
 
 .equ ESCFLG          , WORKSPACE + 0x00   # escape flag
 .equ CURRENT_PROG    , WORKSPACE + 0x04   # current program, persisted across soft break
+.equ SAVEDSP         , WORKSPACE + 0x08   # saved SP in the ecall handler
 
 
 .equ DMA_DONE        , WORKSPACE + 0x0c   # flah to indicate the end of the DMA transfer
@@ -1098,6 +1099,15 @@ osHANDLERS:
     la      t1, HANDLER_TABLE
     add     t0, t0, t1                  # t0: entry in handlers table
 
+    la      t1, ERRV                    # special case ERRV
+    bne     t0, t1, not_errv
+
+    lw      t1, (sp)                    # chaning ERRV needs to be handled differently, as
+    beqz    a1, osh_skip_write_a1       # the ecall handler stacks/restores ERRV, so here we
+    sw      a1, (sp)                    # must read/write the copy on the stack
+    j       osh_skip_write_a1
+
+not_errv:
     lw      t1, (t0)
     beqz    a1, osh_skip_write_a1
     sw      a1, (t0)
@@ -1144,8 +1154,8 @@ ose_done:
 
 # 12(sp) = stored mepc value
 #  8(sp) = stored mstatus value
-#  4(sp) = unused
-#  0(sp) = unused
+#  4(sp) = stored SAVEDSP
+#  0(sp) = stored ERRV
 
 
 osERROR:
@@ -1388,9 +1398,12 @@ ECallHandler:
 
     # A7 contains the system call number which we need to preserve
     # (registers t0 and ra are available as working registers)
+
+    li      t0, 0x00ff7fff              # mask off the X bit in the ecall number
+    and     ra, a7, t0
     li      t0, ECALL_BASE
-    bltu    a7, t0, UnknownECall
-    sub     ra, a7, t0
+    bltu    ra, t0, UnknownECall
+    sub     ra, ra, t0
     li      t0, NUM_ECALLS
     bgeu    ra, t0, UnknownECall
 
@@ -1404,20 +1417,56 @@ ECallHandler:
 
     beqz    t0, UnknownECall
 
-    csrr    t1, mepc                    # push critical machine state
-    csrr    t2, mstatus
-    PUSH2   t1, t2
+    addi    sp, sp, -16                 # Make space on the stack
 
-    andi    t2, t2, 1 << 7              # extract the MIEP bit
-    srli    t2, t2, 4                   # shift into the MIE bit position
-    csrrs   zero, mstatus, t2           # re-enable interrupts if they were previously enabled
+    la      t1, ERRV                    # push the existing error handler
+    lw      t2, (t1)
+    sw      t2, (sp)
 
-    jalr    ra, t0
+    li      t2, 0x8000                  # extract the X bit from the ecall number
+    and     t2, a7, t2
+    beqz    t2, x_not_set
+    la      t2, ECallErrorCatcher       # install the ECall Error Handler if X set
+    sw      t2, (t1)
+    li      t2, 0x80000000              # speculatively set the "error occurred" bit in a7
+    or      a7, a7, t2
+x_not_set:
 
-    POP2    t1, t2
+    la      t1, SAVEDSP                 # push the existing SAVEDSP
+    lw      t2, (t1)
+    sw      t2, 4(sp)
+    sw      sp, (t1)                    # save the current SP
+
+    csrr    t1, mstatus
+    sw      t1, 8(sp)
+
+    csrr    t2, mepc                    # push critical machine state
+    sw      t2, 12(sp)
+
+    andi    t1, t1, 1 << 7              # extract the MIEP bit
+    srli    t1, t1, 4                   # shift into the MIE bit position
+    csrrs   zero, mstatus, t1           # re-enable interrupts if they were previously enabled
+
+    jalr    ra, t0                      # Do the ecall
+
+    li      t1, 0x7fffffff              # clear the "error occurred" bit in a7
+    and     a7, a7, t1
+
+ECallErrorCatcher:
+    la      t1, SAVEDSP                 # restore the saved SP
+    lw      sp, (t1)
+    lw      t1, 12(sp)
     addi    t1, t1, 4                   # return to instruction after the ecall
     csrw    mepc, t1
-    csrw    mstatus, t2
+    lw      t1, 8(sp)                   # restore critical machine state
+    csrw    mstatus, t1
+    la      t1, SAVEDSP                 # restore the previous SAVEDSP
+    lw      t2, 4(sp)
+    sw      t2, (t1)
+    la      t1, ERRV                    # restore the previous error handlt
+    lw      t2, (sp)
+    sw      t2, (t1)
+    addi    sp, sp, 16
 
     sw      a0, 8(sp)                   # store the result on the a0 slot on the stack
     J       InterruptHandlerExit
