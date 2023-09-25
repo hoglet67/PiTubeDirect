@@ -57,6 +57,8 @@
 .equ ESCFLG          , WORKSPACE + 0x00   # escape flag
 .equ CURRENT_PROG    , WORKSPACE + 0x04   # current program, persisted across soft break
 
+
+.equ DMA_DONE        , WORKSPACE + 0x0c   # flah to indicate the end of the DMA transfer
 #
 # Handlers are patterned on JGH's pdp11 client ROM:
 # https://mdfs.net/Software/Tube/PDP11/Tube11.src
@@ -1697,6 +1699,11 @@ err_loop:
 r4_datatransfer:
     PUSH2   t1, t2                      # save registers
 
+    csrr    t1, mepc                    # push critical machine state
+    sw      t1, 4(sp)
+    csrr    t1, mstatus
+    sw      t1, 0(sp)
+
     mv      t1, t0                      # save transfer type
 
     jal     WaitByteR4
@@ -1716,15 +1723,36 @@ r4_datatransfer:
     or      t2, t2, a0
     lb      t0, R3DATA(gp)
     lb      t0, R3DATA(gp)
-    jal     WaitByteR4                  # sync
 
-    la      t0, TransferHandlerTable
+    la      ra, TransferHandlerTable    # Look up the handler for the transfer type
     slli    t1, t1, 2
-    add     t0, t0, t1
-    lw      t0, (t0)
-    jalr    zero, t0
+    add     ra, ra, t1
+    lw      ra, (ra)
+
+    la      t1, DMA_DONE                # set DMA_DONE to non-zero value
+    sw      gp, (t1)
+
+r4_sync:                                # sync
+    lb      t0, R4STATUS(gp)
+    bgez    t0, r4_sync
+    lb      zero, R4DATA(gp)
+
+    li      t0, 1 << 3                  # mstatus.MIE=1 (enable interrupts)
+    csrrs   zero, mstatus, t0
+
+    jr      ra                          # this returns by jumping to r4_exit
 
 Release:
+    la      t1, DMA_DONE                # clear the DMA_DONE flag
+    sw      zero, (t1)
+
+r4_exit:
+    lw      t1, 0(sp)                   # restore critical machine state
+    csrw    mstatus, t1
+    lw      t1, 4(sp)
+    csrw    mepc, t1
+
+
     POP2    t1, t2                      # restore registers
     j       InterruptHandlerExit
 
@@ -1734,7 +1762,7 @@ TransferHandlerTable:
     .word   Type2
     .word   Type3
     .word   Type4
-    .word   Release                     # not actually used
+    .word   0                           # not actually used
     .word   Type6
     .word   Type7
 
@@ -1742,12 +1770,13 @@ TransferHandlerTable:
 # Type 0 transfer: 1-byte parasite -> host (SAVE)
 #
 # t0 - scratch register
+# t1 - the address of DMA_DONE
 # t2 - address register (memory address)
 # ============================================================
 
 Type0:
-    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
-    bltz    t0, Release
+    lw      t0, (t1)                    # Test for the DMA_DONE flag cleared by Tube Release
+    beqz    t0, r4_exit
     lb      t0, R3STATUS(gp)
     andi    t0, t0, 0x40
     beqz    t0, Type0
@@ -1760,12 +1789,13 @@ Type0:
 # Type 1 transfer: 1-byte host -> parasite (LOAD)
 #
 # t0 - scratch register
+# t1 - the address of DMA_DONE
 # t2 - address register (memory address)
 # ============================================================
 
 Type1:
-    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
-    bltz    t0, Release
+    lw      t0, (t1)                    # Test for the DMA_DONE flag cleared by Tube Release
+    beqz    t0, r4_exit
     lb      t0, R3STATUS(gp)
     bgez    t0, Type1
     lb      t0, R3DATA(gp)
@@ -1777,12 +1807,13 @@ Type1:
 # Type 2 transfer: 2-byte parasite -> host (SAVE)
 #
 # t0 - scratch register
+# t1 - the address of DMA_DONE
 # t2 - address register (memory address)
 # ============================================================
 
 Type2:
-    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
-    bltz    t0, Release
+    lw      t0, (t1)                    # Test for the DMA_DONE flag cleared by Tube Release
+    beqz    t0, r4_exit
     lb      t0, R3STATUS(gp)
     andi    t0, t0, 0x40
     beqz    t0, Type2
@@ -1797,12 +1828,13 @@ Type2:
 # Type 3 transfer: 2-byte host -> parasite (LOAD)
 #
 # t0 - scratch register
+# t1 - the address of DMA_DONE
 # t2 - address register (memory address)
 # ============================================================
 
 Type3:
-    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
-    bltz    t0, Release
+    lw      t0, (t1)                    # Test for the DMA_DONE flag cleared by Tube Release
+    beqz    t0, r4_exit
     lb      t0, R3STATUS(gp)
     bgez    t0, Type3
     lb      t0, R3DATA(gp)
@@ -1822,7 +1854,7 @@ Type3:
 Type4:
     la      t0, IRQADDR
     sw      t2, (t0)
-    j       Release
+    j       r4_exit
 
 # ============================================================
 # Type 6 transfer: 256-byte parasite -> host
@@ -1848,7 +1880,7 @@ Type6sync:
     andi    t0, t0, 0x40
     beqz    t0, Type6sync
     sb      zero, R3DATA(gp)
-    j       Release
+    j       r4_exit
 
 # ============================================================
 # Type 7 transfer: 256-byte host -> parasite
@@ -1868,7 +1900,7 @@ Type7lp:
     addi    t2, t2, 1
     addi    t1, t1, -1
     bnez    t1, Type7lp
-    j       Release
+    j       r4_exit
 
 # -----------------------------------------------------------------------------
 # Helper methods
