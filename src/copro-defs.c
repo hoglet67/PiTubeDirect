@@ -107,7 +107,7 @@ const copro_def_t copro_defs[] = {
       DEBUGGER(&simz80_cpu_debug)
    },
    {
-      "80286",                  // 8
+      "80186",                  // 8
       copro_80186_emulator,
       TYPE_80X86,
       DEBUGGER(&cpu80186_cpu_debug)
