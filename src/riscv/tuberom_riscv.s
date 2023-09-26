@@ -1278,7 +1278,7 @@ cmdEnd:
 # --------------------------------------------------------------
 
 cmdGo:
-    PUSH1   ra
+    PUSH2   ra, a7
     jal     read_hex
     beqz    a2, BadAddress
 
@@ -1287,7 +1287,7 @@ cmdGo:
 
     jalr    ra, a1
     mv      a0, zero
-    POP1    ra
+    POP2    ra, a7
     ret
 
 BadAddress:
@@ -1299,11 +1299,11 @@ BadAddress:
 # --------------------------------------------------------------
 
 cmdHelp:
-    PUSH1   ra
+    PUSH2   ra, a7
     la      a0, HelpMessage
     jal     print_string
     li      a0, 1
-    POP1    ra
+    POP2    ra, a7
     ret
 
 HelpMessage:
@@ -1321,7 +1321,7 @@ HelpMessage:
 # --------------------------------------------------------------
 
 cmdTest:
-    PUSH1   ra
+    PUSH2   ra, a7
     jal     read_hex
     beqz    a2, BadAddress
     mv      a0, a1
@@ -1332,13 +1332,13 @@ cmdTest:
     jal     print_dec_word
     SYS     OS_NEWL
     mv      a0, zero
-    POP1    ra
+    POP2    ra, a7
     ret
 
 # --------------------------------------------------------------
 
 cmdPi:
-    PUSH2   ra, a1
+    PUSH3   ra, a1, a7
 
     addi    sp, sp, -16                # space for osword block on stack
 
@@ -1380,7 +1380,7 @@ cmdPi:
 
     mv      a0, zero
     addi    sp, sp, 16                 # free space for osword block on stack
-    POP2    ra, a1
+    POP3    ra, a1, a7
     ret
 
 BadNumber:
