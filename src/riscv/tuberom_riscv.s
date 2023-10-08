@@ -819,7 +819,7 @@ osFILE:
     li      a0, 16
     mv      a1, sp
     jal     ReceiveBlockR2
-    POP4    a5, a4, a3, a2              # Update registers from reponse block on stack
+    POP4    a5, a4, a3, a2              # Update registers from response block on stack
     POP3    ra, a0, a1
     ret
 
@@ -955,7 +955,7 @@ osGBPB:
     ori     a0, a0, 0xffffff00          # negative indicates eof
 gbpb_done:
     sw      a0, 24(sp)                  # store result in stack frame so it's returned in a0
-    POP4    a4, a3, a2, a1              # update registers from reponse block on stack
+    POP4    a4, a3, a2, a1              # update registers from response block on stack
     POP3    ra, a0, a1
     ret
 
@@ -1102,7 +1102,7 @@ osHANDLERS:
     la      t1, ERRV                    # special case ERRV
     bne     t0, t1, not_errv
 
-    lw      t1, (sp)                    # chaning ERRV needs to be handled differently, as
+    lw      t1, (sp)                    # changing ERRV needs to be handled differently, as
     beqz    a1, osh_skip_write_a1       # the ecall handler stacks/restores ERRV, so here we
     sw      a1, (sp)                    # must read/write the copy on the stack
     j       osh_skip_write_a1
@@ -1282,7 +1282,7 @@ cmdGo:
     jal     read_hex
     beqz    a2, BadAddress
 
-    la      a2, IRQADDR             # Update IRQADDR incase OS_SYS_CTRL a0=1
+    la      a2, IRQADDR             # Update IRQADDR in case OS_SYS_CTRL a0=1
     sw      a1, (a2)                # is called to set the current program
 
     jalr    ra, a1
@@ -1635,7 +1635,7 @@ dump_val:
 
 # Call the current error handler
     SYS     OS_ERROR
-    .word   255                         # re-use "Bad" error code
+    .word   255                         # reuse "Bad" error code
     .string "Unknown ECall"
     .align  2,0
 
@@ -1643,7 +1643,7 @@ other_exception:
 
 # Call the current error handler
     SYS     OS_ERROR
-    .word   255                         # re-use "Bad" error code
+    .word   255                         # recouse "Bad" error code
     .string "Uncaught Exception"
     .align  2,0
 

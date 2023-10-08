@@ -1023,7 +1023,7 @@ static int parsePattern(const char **params, pattern_t *pattern) {
                   // See: https://en.wikipedia.org/wiki/Escape_sequences_in_C
                   p++; // skip the back-slash
                   switch (*p) {
-                  case  '*': mask  = 0x00; break; // Wildcard charcter
+                  case  '*': mask  = 0x00; break; // Wildcard character
                   case  'a': value = 0x07; break;
                   case  'b': value = 0x08; break;
                   case  'e': value = 0x1B; break;
@@ -1042,7 +1042,7 @@ static int parsePattern(const char **params, pattern_t *pattern) {
                   default  : return P_BAD_ESCAPE;
                   }
                } else {
-                  // Non escaped charcter
+                  // Non escaped character
                   value = (uint8_t) *p;
                }
                appendToPattern(pattern, value, mask);
@@ -1069,11 +1069,11 @@ static int parsePattern(const char **params, pattern_t *pattern) {
                return P_MALFORMED_MASK;
             }
          }
-         // Sanity check value agaist the current width
+         // Sanity check value against the current width
          if (value > max_values[width]) {
             return P_VALUE_TOO_BIG;
          }
-         // Sanity check mask agaist the current width
+         // Sanity check mask against the current width
          if (mask > max_values[width]) {
             return P_MASK_TOO_BIG;
          }
