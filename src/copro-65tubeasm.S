@@ -3617,7 +3617,7 @@ decimal_mode_sbc_operand:
 
 watchpointinit:
 
-// Check to see if we have already caputured the DATA_ABORT vector
+// Check to see if we have already captured the DATA_ABORT vector
 
       LDR   R3,=DATA_ABORT_ADDRESS
       LDR   R1,=watchpointentry
