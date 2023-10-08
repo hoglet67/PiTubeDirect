@@ -297,9 +297,9 @@ MOV  AX,CS:[L0CAF]      ; Get memory size
 CALL L0DAA              ;  and print it
 MOV  BX,L0CE0           ; BX=>'K', newline, newline
 CALL L18CF              ; Print rest of startup message and NULL terminator
-CALL L1973              ; Wait for RESET acknowledge from TubeR2, and disgard it
+CALL L1973              ; Wait for RESET acknowledge from TubeR2, and discard it
                         ; This will be &80 if code to be executed, &00 if no code to be executed
-                        ; As with the Z80, the 80x86 ignores the RESET acknowldge and instead
+                        ; As with the Z80, the 80x86 ignores the RESET acknowledge and instead
                         ; attempts to execute code if a Hard/Power Break, falling back to booting
                         ; a disk operating system from disk. A Soft Break always goes to the command
                         ; prompt.

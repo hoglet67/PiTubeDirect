@@ -338,7 +338,7 @@ static void  dbg_reg_set(int which, uint32_t value) {
    } else if (which == i_PC) {
       m_f100->pc = (uint16_t)value;
    } else {
-      // TODO: Would be nice to re-use UNPACK_FLAGS
+      // TODO: Would be nice to reuse UNPACK_FLAGS
       m_f100->I = (value >> 0) & 1;
       m_f100->Z = (value >> 1) & 1;
       m_f100->V = (value >> 2) & 1;

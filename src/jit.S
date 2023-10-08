@@ -161,7 +161,7 @@ then return to our secret stack This relies on instructions being re entrant , b
 #define S2  ( 2 )
 #define S3  ( 3 )
 
-// simpify replace algorithm. If we have a replaceable flags setting instruction and the next instruction sets the N flag then we can replace the flags setting instruction with a NOP
+// simplify replace algorithm. If we have a replaceable flags setting instruction and the next instruction sets the N flag then we can replace the flags setting instruction with a NOP
 
 #define EF 128
 
