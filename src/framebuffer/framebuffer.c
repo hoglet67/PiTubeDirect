@@ -177,7 +177,7 @@ static void update_font_size();
 static void update_text_area();
 static void init_variables();
 static void reset_areas();
-static void set_text_area(t_clip_window_t *window);
+static void set_text_area(const t_clip_window_t *window);
 static void invert_cursor(int x_pos, int y_pos, int start, int end);
 static void enable_edit_cursor();
 static void disable_edit_cursor();
@@ -190,7 +190,7 @@ static void edit_cursor_right();
 static void text_area_scroll(scroll_dir_t dir);
 static void update_g_cursors(int16_t x, int16_t y);
 static void change_mode(screen_mode_t *new_screen);
-static void set_graphics_area(screen_mode_t *scr, g_clip_window_t *window);
+static void set_graphics_area(const screen_mode_t *scr, const g_clip_window_t *window);
 static int read_character(int x_pos, int y_pos);
 
 // These are used in VDU 4 mode
@@ -377,7 +377,7 @@ static void reset_areas() {
 }
 
 // 0,0 is the top left
-static void set_text_area(t_clip_window_t *window) {
+static void set_text_area(const t_clip_window_t *window) {
    if (window->left > window->right || window->right > text_width - 1 || window->top > window->bottom || window->bottom > text_height - 1) {
       return;
    }
@@ -576,7 +576,7 @@ static void change_mode(screen_mode_t *new_screen) {
    prim_reset_sprites(screen);
 }
 
-static void set_graphics_area(screen_mode_t *scr, g_clip_window_t *window) {
+static void set_graphics_area(const screen_mode_t *scr, const g_clip_window_t *window) {
    // Sanity check illegal windowss
    if (window->left   < 0 || window->left   >= scr->width  << scr->xeigfactor ||
        window->bottom < 0 || window->bottom >= scr->height << scr->yeigfactor) {
