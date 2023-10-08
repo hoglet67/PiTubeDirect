@@ -677,7 +677,7 @@ void prim_set_ecf_origin(screen_mode_t *screen, int16_t x, int16_t y) {
    g_ecf_origin_y = y;
 }
 
-void prim_set_ecf_pattern(screen_mode_t *screen, int num, const uint8_t *pattern) {
+void prim_set_ecf_pattern(const screen_mode_t *screen, int num, const uint8_t *pattern) {
    // The pattern starts with the top row, which has the largest Y value
    pixel_t *ptr = g_ecf_pattern[num] + 8 * 7;
    // Expand pattern into array of pixels_t values
@@ -756,7 +756,7 @@ void prim_set_ecf_simple(screen_mode_t *screen, int num, const uint8_t *pattern)
    }
 }
 
-void prim_set_ecf_default(screen_mode_t *screen) {
+void prim_set_ecf_default(const screen_mode_t *screen) {
    g_ecf_mode = 0;
    g_ecf_origin_x = 0;
    g_ecf_origin_y = 0;
@@ -833,7 +833,7 @@ void prim_set_dot_pattern_len(screen_mode_t *screen, int len) {
    g_dot_pattern_index = 0;
 }
 
-void prim_set_graphics_area(screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+void prim_set_graphics_area(const screen_mode_t *screen, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
    // Reject illegal windows (this is what OS 1.20 does)
    if (x1 < 0 || x1 >= screen->width || y1 < 0 || y1 >= screen->height) {
       return;
@@ -1611,7 +1611,7 @@ void prim_draw_sprite(screen_mode_t *screen, int n, int x, int y) {
    if (n >= NUM_SPRITES) {
       return;
    }
-   sprite_t *sprite = sprites + n;
+   const sprite_t *sprite = sprites + n;
    // Return if sprite is not properly defined
    if (sprite->width == 0) {
 #ifdef DEBUG_VDU
@@ -1638,7 +1638,7 @@ void prim_draw_sprite(screen_mode_t *screen, int n, int x, int y) {
    // Write the sprite, allowing clipping to take care of off-screen pixels
    if (screen->log2bpp == 4) {
       uint16_t data;
-      uint16_t *datap = sprite->data;
+      const uint16_t *datap = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
          int yy = y + yp;
          for (int xp = 0; xp < sprite->width; xp++) {
@@ -1651,7 +1651,7 @@ void prim_draw_sprite(screen_mode_t *screen, int n, int x, int y) {
       }
    } else if (screen->log2bpp == 5)  {
       uint32_t data;
-      uint32_t *datap = sprite->data;
+      const uint32_t *datap = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
          int yy = y + yp;
          for (int xp = 0; xp < sprite->width; xp++) {
@@ -1664,7 +1664,7 @@ void prim_draw_sprite(screen_mode_t *screen, int n, int x, int y) {
       }
    } else {
       uint8_t data;
-      uint8_t *datap = sprite->data;
+      const uint8_t *datap = sprite->data;
       for (int yp = 0; yp < sprite->height; yp++) {
          int yy = y + yp;
          for (int xp = 0; xp < sprite->width; xp++) {
