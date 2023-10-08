@@ -365,9 +365,14 @@ static void OS_ReadVduVariables_impl(unsigned int *reg) {
 //   If in a 16 or 32 bpp mode, this will return the 15 or 24 bit
 //   colour number in R2 and tint will be 0.
 
+static int is_short(unsigned int x) {
+   // https://stackoverflow.com/questions/7337526/how-to-tell-if-a-32-bit-int-can-fit-in-a-16-bit-short
+   return !(((x & 0xffff8000) + 0x8000) & 0xffff7fff);
+}
+
 static void OS_ReadPoint_impl(unsigned int *reg) {
    // Make sure both the coordinates are in the range of a 16-bit value
-   if (((reg[0] | reg[1]) & 0xFFFF0000) == 0) {
+   if (is_short(reg[0]) && is_short(reg[1])) {
       int16_t x = (int16_t)reg[0];
       int16_t y = (int16_t)reg[1];
       pixel_t colour;

@@ -1,8 +1,11 @@
-.equ     VERSION, 0x0020
+.equ     VERSION, 0x0090
 
 .equ     MEM_BOT, 0x00000000
 .equ     MEM_TOP, 0x00F80000
-.equ       STACK, MEM_TOP - 16         # 16 byte aligned
+.equ    ROM_BASE, 0x00FC0000
+.equ   WORKSPACE, ROM_BASE - 0x200
+.equ   SYS_STACK, WORKSPACE - 16       # 16 byte aligned
+.equ  USER_STACK, MEM_TOP - 16         # 16 byte aligned
 .equ        TUBE, 0x00FFFFE0
 
 .equ    R1STATUS, 0
@@ -14,32 +17,76 @@
 .equ    R4STATUS, 24
 .equ      R4DATA, 28
 
-.equ NUM_HANDLERS    , 12               # number of vectors in DefaultHandlers table
-
 .equ NUM_ECALLS      , 16
 
-.equ OS_QUIT         ,  0
-.equ OS_CLI          ,  1
-.equ OS_BYTE         ,  2
-.equ OS_WORD         ,  3
-.equ OS_WRCH         ,  4
-.equ OS_NEWL         ,  5
-.equ OS_RDCH         ,  6
-.equ OS_FILE         ,  7
-.equ OS_ARGS         ,  8
-.equ OS_BGET         ,  9
-.equ OS_BPUT         , 10
-.equ OS_GBPB         , 11
-.equ OS_FIND         , 12
-.equ OS_SYS_CTRL     , 13
-.equ OS_HANDLERS     , 14
-.equ OS_ERROR        , 15
+.equ ECALL_BASE      , 0x00AC0000
 
-.equ BUFSIZE         , 0x80             # size of the Error buffer and Input Buffer
+.equ OS_QUIT         , ECALL_BASE +  0
+.equ OS_CLI          , ECALL_BASE +  1
+.equ OS_BYTE         , ECALL_BASE +  2
+.equ OS_WORD         , ECALL_BASE +  3
+.equ OS_WRCH         , ECALL_BASE +  4
+.equ OS_NEWL         , ECALL_BASE +  5
+.equ OS_RDCH         , ECALL_BASE +  6
+.equ OS_FILE         , ECALL_BASE +  7
+.equ OS_ARGS         , ECALL_BASE +  8
+.equ OS_BGET         , ECALL_BASE +  9
+.equ OS_BPUT         , ECALL_BASE + 10
+.equ OS_GBPB         , ECALL_BASE + 11
+.equ OS_FIND         , ECALL_BASE + 12
+.equ OS_SYS_CTRL     , ECALL_BASE + 13
+.equ OS_HANDLERS     , ECALL_BASE + 14
+.equ OS_ERROR        , ECALL_BASE + 15
 
-.globl _start
+# -----------------------------------------------------------------------------
+# Workspace
+# -----------------------------------------------------------------------------
 
-# Macros to maintain 16-byte stack alignment at all times
+# Workspace consumes 0x200 bytes immediately below the Client ROM
+
+.equ BUFSIZE         , 0x80               # size of the Error buffer and Input Buffer
+
+.equ VARIABLES       , WORKSPACE + 0x000
+.equ ECALL_TABLE     , WORKSPACE + 0x040  # space for max 16 ecall entry points
+.equ HANDLER_TABLE   , WORKSPACE + 0x080
+.equ CLIBUF          , WORKSPACE + 0x100
+.equ ERRBLK          , WORKSPACE + 0x180
+
+# Variables
+
+.equ ESCFLG          , WORKSPACE + 0x00   # escape flag
+.equ CURRENT_PROG    , WORKSPACE + 0x04   # current program, persisted across soft break
+.equ SAVEDSP         , WORKSPACE + 0x08   # saved SP in the ecall handler
+
+
+.equ DMA_DONE        , WORKSPACE + 0x0c   # flah to indicate the end of the DMA transfer
+#
+# Handlers are patterned on JGH's pdp11 client ROM:
+# https://mdfs.net/Software/Tube/PDP11/Tube11.src
+#
+
+.equ NUM_HANDLERS    , 14                 # number of entries in DefaultHandlers table
+
+.equ EXITV        , HANDLER_TABLE + 0x00  # Address of exit handler
+.equ EXITADDR     , HANDLER_TABLE + 0x04  # unused
+.equ ESCV         , HANDLER_TABLE + 0x08  # Address of escape handler
+.equ ESCADDR      , HANDLER_TABLE + 0x0C  # Address of escape flag
+.equ ERRV         , HANDLER_TABLE + 0x10  # Address of error handler
+.equ ERRADDR      , HANDLER_TABLE + 0x14  # Address of error buffer
+.equ EVENTV       , HANDLER_TABLE + 0x18  # Address of event handler
+.equ EVENTADDR    , HANDLER_TABLE + 0x1C  # unused
+.equ IRQV         , HANDLER_TABLE + 0x20  # Address of unknown IRQ handler
+.equ IRQADDR      , HANDLER_TABLE + 0x24  # Tube Execution Address
+.equ ECALLV       , HANDLER_TABLE + 0x28  # Address of unknown ECALL handler
+.equ ECALLADDR    , HANDLER_TABLE + 0x2C  # Address of ECall dispatch table
+.equ EXCEPTV      , HANDLER_TABLE + 0x30  # Address of uncaught EXCEPTION handler
+.equ EXCEPTADDR   , HANDLER_TABLE + 0x34  # unused
+
+# -----------------------------------------------------------------------------
+# Macros
+# -----------------------------------------------------------------------------
+
+# Stack macros to maintain 16-byte stack alignment at all times
 
 .macro PUSH1 reg1
     addi    sp, sp, -16
@@ -98,56 +145,41 @@
     ecall
 .endm
 
+# -----------------------------------------------------------------------------
+# Main ROM
+# -----------------------------------------------------------------------------
+
+.globl _start
+
 .section .text
 
 _start:
     j       ResetHandler
 
-ESCFLG:     .word 0                     # escape flag
-
-ARGSBLK:    .word 0                     # block used for os args
-
-#
-# Handlers are patterned on JGH's pdp11 client ROM:
-# https://mdfs.net/Software/Tube/PDP11/Tube11.src
-#
-
-Handlers:
-
-EXITV:      .word 0                     # Address of exit handler
-EXITADDR:   .word 0                     # unused
-ESCV:       .word 0                     # Address of escape handler
-ESCADDR:    .word 0                     # Address of escape flag
-ERRV:       .word 0                     # Address of error handler
-ERRADDR:    .word 0                     # Address of error buffer
-EVENTV:     .word 0                     # Address of event handler
-EVENTADDR:  .word 0                     # unused
-IRQV:       .word 0                     # Address of unknown IRQ handler
-IRQADDR:    .word 0                     # Tube Execution Address
-ECALLV:     .word 0                     # Old SP within ECall handler
-ECALLADDR:  .word 0                     # Address of ECall dispatch table
-
-    .align  8,0
-
-ERRBLK:
-    .zero   BUFSIZE
-
-CLIBUF:
-    .zero   BUFSIZE
-
 ResetHandler:
-    li      sp, STACK                   # setup the stack
+    li      sp, SYS_STACK               # setup the stack
 
-    la      t1, DefaultHandlers         # copy the handlers
-    la      t2, Handlers
-    li      t3, NUM_HANDLERS - 1
-InitVecLoop:
+    la      t1, DefaultHandlerTable     # copy the default handlers table
+    la      t2, HANDLER_TABLE
+    li      t3, NUM_HANDLERS
+InitHandlerLoop:
     lw      t0, (t1)
     sw      t0, (t2)
     addi    t1, t1, 4
     addi    t2, t2, 4
     addi    t3, t3, -1
-    bnez    t3, InitVecLoop
+    bnez    t3, InitHandlerLoop
+
+    la      t1, DefaultECallTable      # copy the default ecall table
+    la      t2, ECALL_TABLE
+    li      t3, NUM_ECALLS
+InitECallLoop:
+    lw      t0, (t1)
+    sw      t0, (t2)
+    addi    t1, t1, 4
+    addi    t2, t2, 4
+    addi    t3, t3, -1
+    bnez    t3, InitECallLoop
 
     la      t0, InterruptHandler        # install the interrupt/exception handler
     csrw    mtvec, t0
@@ -157,7 +189,6 @@ InitVecLoop:
     csrrs   zero, mstatus, t0
 
     la      a0, BannerMessage           # send the reset message
-
     jal     print_string
 
     mv      a0, zero                    # send the terminator
@@ -167,10 +198,29 @@ InitVecLoop:
     jal     WaitByteR2                  # wait for the response and ignore
     li      gp, 0
 
+    la      a0, CURRENT_PROG            # if there isn't a current program then force one
+    lw      a0, (a0)
+    beqz    a0, DefaultExitHandler
+
+    li      a0, 0xFD                    # read the last break type
+    li      a1, 0x00
+    li      a2, 0xFF
+    SYS     OS_BYTE
+    beqz    a1, EnterCurrent            # re-enter current program on soft break
+
 DefaultExitHandler:
-    li      sp, STACK                   # reset the stack - TODO: what else?
+    la      a0, CURRENT_PROG
+    la      a1, CmdOSLoop               # on hard or power up break reset the
+    sw      a1, (a0)                    # current program to be the cmdOsLoop
+
+EnterCurrent:
+    li      sp, USER_STACK              # reset the stack
     li      t0, 1 << 3                  # enable interrupts
     csrrs   zero, mstatus, t0
+
+    la      a0, CURRENT_PROG
+    lw      a0, (a0)
+    jalr    zero, a0
 
 CmdOSLoop:
     li      a0, 0x2a
@@ -197,7 +247,7 @@ CmdOSEscape:
     li      a0, 0x7e
     SYS     OS_BYTE
     SYS     OS_ERROR
-    .byte   17
+    .word   17
     .string "Escape"
 
 BannerMessage:
@@ -209,7 +259,7 @@ BannerMessage:
 # DEFAULT Handler TABLE
 # -----------------------------------------------------------------------------
 
-DefaultHandlers:
+DefaultHandlerTable:
     .word   DefaultExitHandler
     .word   VERSION
     .word   DefaultEscapeHandler
@@ -218,10 +268,12 @@ DefaultHandlers:
     .word   ERRBLK
     .word   DefaultEventHandler
     .word   0
-    .word   DefaultIRQHandler
+    .word   DefaultUnknownIRQHandler
     .word   0
-    .word   DefaultECallHandler
-    .word   ECallHandlerTable
+    .word   DefaultUncaughtExceptionHandler
+    .word   ECALL_TABLE
+    .word   DefaultUncaughtExceptionHandler
+    .word   0
 
 # --------------------------------------------------------------
 # Default Error Handler
@@ -230,9 +282,9 @@ DefaultHandlers:
 #   a0 points to the error block
 
 DefaultErrorHandler:
-    li      sp, STACK                   # setup the stack
+    li      sp, SYS_STACK               # setup the stack
     SYS     OS_NEWL
-    addi    a0, a0, 1
+    addi    a0, a0, 4
     jal     print_string
     SYS     OS_NEWL
     j       DefaultExitHandler
@@ -266,14 +318,14 @@ DefaultEventHandler:
 #
 # This is called when an unrecognised interrupt is detected
 
-DefaultIRQHandler:
+DefaultUnknownIRQHandler:
     ret
 
 # --------------------------------------------------------------
 # MOS interface
 # --------------------------------------------------------------
 
-ECallHandlerTable:
+DefaultECallTable:
     .word   osQUIT                      # ECALL  0
     .word   osCLI                       # ECALL  1
     .word   osBYTE                      # ECALL  2
@@ -735,36 +787,40 @@ rdch_done:
 # On entry:
 #     a0: function (see AUG)
 #     a1: pointer to filename, terminated by zero
-#     a2: pointer to 16-byte block containing:
-#            load  address (4 bytes)
-#            exec  address (4 bytes)
-#            start address (4 bytes)
-#            end   address (4 bytes)
+#     a2: load  address
+#     a3: exec  address
+#     a4: start address
+#     a5: end   address
 # On exit:
 #     a0: result
 #     a1: preserved
-#     a2: preserved, block updated with response data
+#     a2: updated with response data
+#     a3: updated with response data
+#     a4: updated with response data
+#     a5: updated with response data
 #     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
 
 osFILE:
     # Tube data: &14 block string &0D A            A block
-    PUSH4   ra, a0, a1, a2
+    PUSH3   ra, a0, a1
+    PUSH4   a5, a4, a3, a2              # Create 16-byte block on stack at sp
     li      a0, 0x14
     jal     SendByteR2                  # Send command &14 - OSFILE
     li      a0, 16
-    mv      a1, a2
+    mv      a1, sp
     jal     SendBlockR2
-    lw      a0, 4(sp)                   # filename
+    lw      a0, 20(sp)                  # filename
     jal     SendStringR2
-    lw      a0, 8(sp)                   # reason
+    lw      a0, 24(sp)                  # reason
     jal     SendByteR2
     jal     WaitByteR2
-    sw      a0, 8(sp)                   # result
+    sw      a0, 24(sp)                  # result
     li      a0, 16
-    mv      a1, a2
+    mv      a1, sp
     jal     ReceiveBlockR2
-    POP4    ra, a0, a1, a2
+    POP4    a5, a4, a3, a2              # Update registers from reponse block on stack
+    POP3    ra, a0, a1
     ret
 
 # --------------------------------------------------------------
@@ -783,25 +839,22 @@ osFILE:
 
 osARGS:
     # Tube data: &0C Y block A                     A block
-    PUSH3   ra, a0, a1
+    PUSH4   ra, a0, a1, a2
     li      a0, 0x0C
     jal     SendByteR2                  # 0x0c
     mv      a0, a1
     jal     SendByteR2                  # handle
     li      a0, 4
-    la      a1, ARGSBLK
-    sw      a2, (a1)
+    mv      a1, sp
     jal     SendBlockR2                 # control block
     lw      a0, 8(sp)
     jal     SendByteR2                  # function
     jal     WaitByteR2                  # result
     sw      a0, 8(sp)
     li      a0, 4
-    la      a1, ARGSBLK
+    mv      a1, sp
     jal     ReceiveBlockR2              # block
-    la      a1, ARGSBLK
-    lw      a2, (a1)
-    POP3    ra, a0, a1
+    POP4    ra, a0, a1, a2
     ret
 
 # --------------------------------------------------------------
@@ -863,40 +916,46 @@ osBPUT:
 # --------------------------------------------------------------
 # On entry:
 #     a0: function (see AUG)
-#     a1: pointer to 13-byte block containing:
-#            file handle                 (1 byte)
-#            start address of data       (4 bytes)
-#            number of bytes to transfer (4 bytes)
-#            sequential file pointer     (4 bytes)
+#     a1: file handle (8 bits)
+#     a2: start address of data (32 bits)
+#     a3: number of bytes to transfer (32 bits)
+#     a4: sequential file pointer (32 bits)
+#
 # On exit:
-#     a0: preserved
-#     a1: preserved, block updated with response data
-#     a2: result (0 = ok; 1 = fail, same a C on 6502 API)
+#     a0: bits 0-7 are the 8-bit result, bit 31 indicates EOF
+#     a1: preserved
+#     a2: updated with response data
+#     a3: updated with response data
+#     a4: updated with response data
 #     t0-t3: undefined, all other registers preserved
 # --------------------------------------------------------------
-
-# TODO: Review this API
-#   use a1 for file handle?
-#   use a0 for result?
 
 osGBPB:
     # Tube data: &16 block A                       block Cy A
     PUSH3   ra, a0, a1
+    slli    a1, a1, 24                  # move 8-bit file handle to MSB
+    PUSH4   a4, a3, a2, a1              # create 13-byte block on stack at sp+3
+
     li      a0, 0x16
     jal     SendByteR2                  # 0x16
     li      a0, 13
+    addi    a1, sp, 3
     jal     SendBlockR2                 # control block
-    lw      a0, 8(sp)
+    lw      a0, 24(sp)
     jal     SendByteR2                  # function
 
     li      a0, 13
-    lw      a1, 4(sp)
+    addi    a1, sp, 3
     jal     ReceiveBlockR2              # control block
     jal     WaitByteR2                  # cy
-    srli    a0, a0, 7
-    mv      a2, a0
-    jal     WaitByteR2                  # result in a0
-    sw      a0, 8(sp)                   # store result in stack frame so it's returned in a0
+    mv      t1, a0
+    jal     WaitByteR2                  # A
+    andi    t1, t1, 0x80
+    beqz    t1, gbpb_done
+    ori     a0, a0, 0xffffff00          # negative indicates eof
+gbpb_done:
+    sw      a0, 24(sp)                  # store result in stack frame so it's returned in a0
+    POP4    a4, a3, a2, a1              # update registers from reponse block on stack
     POP3    ra, a0, a1
     ret
 
@@ -941,8 +1000,6 @@ osfind_exit:
 # ECall 13 - OS SYSTEM CONTROL - Miscellaneous
 # --------------------------------------------------------------
 #
-# TODO: this call is not implemented yet
-#
 # On entry:
 #     a0: function
 # On exit:
@@ -955,24 +1012,33 @@ osfind_exit:
 # --------------------------------------------------------------
 
 osSYSCTRL:
-    # TODO
+    li      t0, 1
+    bne     a0, t0, sysctrl_done
+
+    la      t0, IRQADDR
+    lw      t1, (t0)
+
+    beqz    t1, sysctrl_done            # disallow 0 as a valid current program
+
+    la      t0, CURRENT_PROG
+    sw      t1, (t0)
+
+sysctrl_done:
     ret
 
 # --------------------------------------------------------------
 # ECall 14 - OS HANDLERS - Reads/writes environment handlers
-#                          or EMT dispatch table entries.
+#                          or ECALL dispatch table entries.
 # --------------------------------------------------------------
 #
-# TODO: this call is only partly implemented
-#
-# a0 >= 0: Reads or writes EMT dispatch address
+# a0 >= 0: Reads or writes ECALL dispatch address
 #
 # On entry:
-#     a0: EMT number
-#     a1: address of EMT routine, or zero to read
+#     a0: ECALL number (0..15)
+#     a1: address of ECALL routine, or zero to read
 # On exit:
 #     a0: preserved
-#     a1: previous EMT dispatch address
+#     a1: previous ECALL dispatch address
 #
 # a0 < 0: Reads or writes environment handler:
 #
@@ -986,61 +1052,93 @@ osSYSCTRL:
 #     a2: previous environment data address
 #
 # Environment handler numbers are:
-#     a0     a1                   a2
-#     &FFFF  Exit handler         version
-#     &FFFE  Escape handler       Escape flag (one byte)
-#     &FFFD  Error handler        Error buffer (256 bytes)
-#     &FFFC  Event handler        unused
-#     &FFFB  Unknown IRQ handler  (used during data transfer)
-#     &FFFA  (used during EMT)    EMT dispatch table (512 bytes)
-#
-# Internal handlers:
-#     &FFF9  LPTR                 ADDRHI
-#     &FFF8  MEMBOT               MEMTOP
-#     &FFFA  ADDR                 TRANS
-#     &FFFB  PROG                 MISC+ESCFLG
+#     a0     a1 = handler         a2 = data
+#     -1     Exit                 version
+#     -2     Escape               Escape flag (one byte)
+#     -3     Error                Error buffer (256 bytes)
+#     -4     Event                unused
+#     -5     Unknown IRQ          (used during data transfer)
+#     -6     Unknown ECALL        Ecall dispatch table (64 bytes)
+#     -7     Uncaught EXCEPTION   unused
 #
 # The Exit handler is entered with a0=return value.
 #
 # The Escape handler is entered with a0=new escape state in
 # b6, must preserve all registers other than a0 and return
-# with RTS PC.
+# with RET.
 #
 # The Error handler is entered with a0=>error block. Note that
 # this may not be the address of the error buffer, the error
 # buffer is used for dynamically generated error messages.
 #
 # The Event handler is entered with a0,a1,a2 holding the event
-# parameters, must preserve all registers, and return with RTS PC.
+# parameters, must preserve all registers, and return with RET.
 #
 # The Unknown IRQ handler must preserve all registers, and
-# return with RTI.
+# return with RET.
+#
+# The Unknown CALL handler is entered a7=unknown ecall number
+# and a0..a7 with the call parameters. It should return with RET.
+#
+# The Uncaught Exception handler must preserve all registers, and
+# return with RET.
+#
 # --------------------------------------------------------------
 
 osHANDLERS:
-    li      t0, 0xfffa
-    bltu    a0, t0, oshdone
-    li      t0, 0xffff
-    bgtu    a0, t0, oshdone
+    mv      t0, a0                      # use t0 so we preserve a0
+    bgez    t0, ose
 
-    sub     a0, t0, a0                  # a0: 0,1,2,3,4,5
-    slli    a0, a0, 3                   # a0: 0,8,16,24,32,40
-    la      t0, Handlers
-    add     a0, a0, t0                  # a0: entry in handlers table
+    li      t1, -1
+    sub     t0, t1, t0                  # t0: 0,1,2,3,4,5,6
 
-    lw      t0, 0(a0)
-    beqz    a1, skip_write_a1
-    sw      a1, 0(a0)
-skip_write_a1:
-    mv      a1, t0
+    li      t1, NUM_HANDLERS / 2
+    bgeu    t0, t1, osh_done
 
-    lw      t0, 4(a0)
-    beqz    a2, skip_write_a2
-    sw      a2, 4(a0)
-skip_write_a2:
-    mv      a2, t0
+    slli    t0, t0, 3                   # t0: 0,8,16,24,32,40,48
+    la      t1, HANDLER_TABLE
+    add     t0, t0, t1                  # t0: entry in handlers table
 
-oshdone:
+    la      t1, ERRV                    # special case ERRV
+    bne     t0, t1, not_errv
+
+    lw      t1, (sp)                    # chaning ERRV needs to be handled differently, as
+    beqz    a1, osh_skip_write_a1       # the ecall handler stacks/restores ERRV, so here we
+    sw      a1, (sp)                    # must read/write the copy on the stack
+    j       osh_skip_write_a1
+
+not_errv:
+    lw      t1, (t0)
+    beqz    a1, osh_skip_write_a1
+    sw      a1, (t0)
+osh_skip_write_a1:
+    mv      a1, t1
+
+    lw      t1, 4(t0)
+    beqz    a2, osh_skip_write_a2
+    sw      a2, 4(t0)
+osh_skip_write_a2:
+    mv      a2, t1
+
+osh_done:
+    ret
+
+ose:
+    li      t1, NUM_ECALLS
+    bgeu    t0, t1, ose_done
+
+    slli    t0, t0, 2                   # t0: 0,4,8,12,16,20...
+    la      t1, ECALLADDR
+    lw      t1, (t1)
+    add     t0, t0, t1                  # t0: entry in handlers table
+
+    lw      t1, (t0)
+    beqz    a1, ose_skip_write_a1
+    sw      a1, (t0)
+ose_skip_write_a1:
+    mv      a1, t1
+
+ose_done:
     ret
 
 # --------------------------------------------------------------
@@ -1052,7 +1150,18 @@ oshdone:
 #     this call does not return
 # --------------------------------------------------------------
 
+# The stack is setup as follows
+
+# 12(sp) = stored mepc value
+#  8(sp) = stored mstatus value
+#  4(sp) = stored SAVEDSP
+#  0(sp) = stored ERRV
+
+
 osERROR:
+    lw     a0, 8(sp)                    # 8(sp) holds the stacked mstatus
+    ori    a0, a0, 1 << 7               # bit 7 in mpie
+    sw     a0, 8(sp)                    # force ecall handler to re-enable interrupts on return
     lw     a0, 12(sp)                   # 12(sp) holds the stacked mepc which is the ecall address
     addi   a0, a0, 4                    # step past the ecall instruction
     la     t0, ERRV
@@ -1169,40 +1278,50 @@ cmdEnd:
 # --------------------------------------------------------------
 
 cmdGo:
-    PUSH1   ra
+    PUSH2   ra, a7
     jal     read_hex
     beqz    a2, BadAddress
+
+    la      a2, IRQADDR             # Update IRQADDR incase OS_SYS_CTRL a0=1
+    sw      a1, (a2)                # is called to set the current program
+
     jalr    ra, a1
     mv      a0, zero
-    POP1    ra
+    POP2    ra, a7
     ret
 
 BadAddress:
     SYS     OS_ERROR
-    .byte   252
+    .word   252
     .string "Bad address"
     .align  2,0
 
 # --------------------------------------------------------------
 
 cmdHelp:
-    PUSH1   ra
+    PUSH2   ra, a7
     la      a0, HelpMessage
     jal     print_string
     li      a0, 1
-    POP1    ra
+    POP2    ra, a7
     ret
 
-# TODO: Version should come from VERSION definition
-
 HelpMessage:
-    .string "RISC-V 0.20\n\r"
+    .ascii  "RISC-V "
+.if (VERSION > 0xFFF)
+    .byte   '0' + (VERSION >> 12) & 15
+.endif
+    .byte   '0' + (VERSION >>  8) & 15
+    .byte   '.'
+    .byte   '0' + (VERSION >>  4) & 15
+    .byte   '0' +  VERSION        & 15
+    .byte   10, 13, 0
     .align  2,0
 
 # --------------------------------------------------------------
 
 cmdTest:
-    PUSH1   ra
+    PUSH2   ra, a7
     jal     read_hex
     beqz    a2, BadAddress
     mv      a0, a1
@@ -1213,13 +1332,15 @@ cmdTest:
     jal     print_dec_word
     SYS     OS_NEWL
     mv      a0, zero
-    POP1    ra
+    POP2    ra, a7
     ret
 
 # --------------------------------------------------------------
 
 cmdPi:
-    PUSH2   ra, a1
+    PUSH3   ra, a1, a7
+
+    addi    sp, sp, -16                # space for osword block on stack
 
     jal     read_dec
     beqz    a2, BadNumber
@@ -1227,7 +1348,7 @@ cmdPi:
 
     # Set TIME to using OSWORD 2
     li      a0, 0x02
-    la      a1, osword_pblock
+    mv      a1, sp
     sw      zero, 0(a1)
     sw      zero, 4(a1)
     SYS     OS_WORD
@@ -1249,97 +1370,280 @@ cmdPi:
 
     # Read TIME using OSWORD 1
     li      a0, 0x01
-    la      a1, osword_pblock
+    mv      a1, sp
     SYS     OS_WORD
 
     # Print the LS word in decimal
-    la      a1, osword_pblock
-    lw      a0, (a1)
+    lw      a0, (sp)
     jal     print_dec_word
     SYS     OS_NEWL
 
     mv      a0, zero
-    POP2    ra, a1
+    addi    sp, sp, 16                 # free space for osword block on stack
+    POP3    ra, a1, a7
     ret
 
 BadNumber:
     SYS     OS_ERROR
-    .byte   252
+    .word   252
     .string "Bad number"
     .align  2,0
 
-osword_pblock:
-    .word 0
-    .word 0
-
 # -----------------------------------------------------------------------------
-# Exception handler
+# ECall handler
 # -----------------------------------------------------------------------------
 
-DefaultECallHandler:
+ECallHandler:
+    li      gp, TUBE                    # setup a register that points to the tube
 
-    # TODO: Check mcause = 11 (machine mode environment call)
+    # A7 contains the system call number which we need to preserve
+    # (registers t0 and ra are available as working registers)
 
-    # A7 contains the system call number
+    li      t0, 0x00ff7fff              # mask off the X bit in the ecall number
+    and     ra, a7, t0
+    li      t0, ECALL_BASE
+    bltu    ra, t0, UnknownECall
+    sub     ra, ra, t0
     li      t0, NUM_ECALLS
-    bgeu    a7, t0, BadECall
+    bgeu    ra, t0, UnknownECall
 
-    la      t0, ECallHandlerTable
-    add     t0, t0, a7
-    add     t0, t0, a7
-    add     t0, t0, a7
-    add     t0, t0, a7
+    la      t0, ECALLADDR
+    lw      t0, (t0)
+    add     t0, t0, ra
+    add     t0, t0, ra
+    add     t0, t0, ra
+    add     t0, t0, ra
     lw      t0, (t0)
 
-    beqz    t0, BadECall
+    beqz    t0, UnknownECall
 
-    csrr    t1, mepc                    # push critical machine state
-    csrr    t2, mstatus
-    PUSH2   t1, t2
+    addi    sp, sp, -16                 # Make space on the stack
 
-    li      ra, 1 << 3                  # re-enable interrupts
-    csrrs   zero, mstatus, ra
+    la      t1, ERRV                    # push the existing error handler
+    lw      t2, (t1)
+    sw      t2, (sp)
 
-    jalr    ra, t0
+    li      t2, 0x8000                  # extract the X bit from the ecall number
+    and     t2, a7, t2
+    beqz    t2, x_not_set
+    la      t2, ECallErrorCatcher       # install the ECall Error Handler if X set
+    sw      t2, (t1)
+    li      t2, 0x80000000              # speculatively set the "error occurred" bit in a7
+    or      a7, a7, t2
+x_not_set:
 
-    POP2    t1, t2
+    la      t1, SAVEDSP                 # push the existing SAVEDSP
+    lw      t2, (t1)
+    sw      t2, 4(sp)
+    sw      sp, (t1)                    # save the current SP
+
+    csrr    t1, mstatus
+    sw      t1, 8(sp)
+
+    csrr    t2, mepc                    # push critical machine state
+    sw      t2, 12(sp)
+
+    andi    t1, t1, 1 << 7              # extract the MIEP bit
+    srli    t1, t1, 4                   # shift into the MIE bit position
+    csrrs   zero, mstatus, t1           # re-enable interrupts if they were previously enabled
+
+    jalr    ra, t0                      # Do the ecall
+
+    li      t1, 0x7fffffff              # clear the "error occurred" bit in a7
+    and     a7, a7, t1
+
+ECallErrorCatcher:
+    la      t1, SAVEDSP                 # restore the saved SP
+    lw      sp, (t1)
+    lw      t1, 12(sp)
     addi    t1, t1, 4                   # return to instruction after the ecall
     csrw    mepc, t1
-    csrw    mstatus, t2
+    lw      t1, 8(sp)                   # restore critical machine state
+    csrw    mstatus, t1
+    la      t1, SAVEDSP                 # restore the previous SAVEDSP
+    lw      t2, 4(sp)
+    sw      t2, (t1)
+    la      t1, ERRV                    # restore the previous error handlt
+    lw      t2, (sp)
+    sw      t2, (t1)
+    addi    sp, sp, 16
 
     sw      a0, 8(sp)                   # store the result on the a0 slot on the stack
     J       InterruptHandlerExit
 
-BadECall:
-    csrr    a0, mepc
-    jal     print_hex_word
-    li      a0, ':'
-    SYS     OS_WRCH
-    mv      a0, a7
-    jal     print_hex_word
-    li      a0, ':'
-    SYS     OS_WRCH
-    SYS     OS_ERROR
-    .byte   255                         # re-use "Bad" error code
-    .string "Bad ECall"
-    .align  2,0
+UnknownECall:
+    POP4    ra, a0, t0, gp              # restore as much state as possible because we
+                                        # have no idea what registers an unknown ecall will use
+    PUSH1   ra
+    la      ra, ECALLV                  # Call UnknownEcallHandler
+    lw      ra, (ra)
+    jalr    ra, ra
+    POP1    ra
+
+    mret
 
 # -----------------------------------------------------------------------------
 # Uncaught Exception Handler
 # -----------------------------------------------------------------------------
 
 UncaughtExceptionHandler:
-    csrr    a0, mepc
-    mv      a1, t0
-    jal     print_hex_word
-    li      a0, ':'
-    SYS     OS_WRCH
+    POP4    ra, a0, t0, gp              # restore as much state as possible because we
+                                        # have no idea what registers an unknown ecall will use
+    PUSH1   ra
+    la      ra, EXCEPTV                 # Call UncaughtExceptionHandler
+    lw      ra, (ra)
+    jalr    ra, ra
+    POP1    ra
+
+    mret
+
+
+# -----------------------------------------------------------------------------
+# Default Uncaught Exception Handler
+# -----------------------------------------------------------------------------
+
+DefaultUncaughtExceptionHandler:
+
+# Store all register state on stack
+
+    csrw    mscratch, sp                # store the original stack pointer in the mscratch CSR
+    li      sp, SYS_STACK               # setup a new stack
+
+    addi    sp, sp, -128
+    sw      zero,  0(sp)
+    sw      ra,    4(sp)
+    csrr    ra, mscratch                # restore original stack pointer
+    sw      ra,    8(sp)                # save original stack pointer
+    sw      gp,   12(sp)
+    sw      tp,   16(sp)
+    sw      t0,   20(sp)
+    sw      t1,   24(sp)
+    sw      t2,   28(sp)
+    sw      s0,   32(sp)
+    sw      s1,   36(sp)
+    sw      a0,   40(sp)
+    sw      a1,   44(sp)
+    sw      a2,   48(sp)
+    sw      a3,   52(sp)
+    sw      a4,   56(sp)
+    sw      a5,   60(sp)
+    sw      a6,   64(sp)
+    sw      a7,   68(sp)
+    sw      s2,   72(sp)
+    sw      s3,   76(sp)
+    sw      s4,   80(sp)
+    sw      s5,   84(sp)
+    sw      s6,   88(sp)
+    sw      s7,   92(sp)
+    sw      s8,   96(sp)
+    sw      s9,  100(sp)
+    sw      s10, 104(sp)
+    sw      s11, 108(sp)
+    sw      t3,  112(sp)
+    sw      t4,  116(sp)
+    sw      t5,  120(sp)
+    sw      t6,  124(sp)
+
+# Save the useful CSRs before and SYS calls change them
+
+    csrr    a1, mepc
+    csrr    a2, mtval
+    csrr    a3, mstatus
+    csrr    a4, mcause
+
+# Print the mcause as human readable text
+    la      a0, highlight1_string
+    jal     print_string
+    la      a0, exception_cause_table
+    bgez    a4, is_exception            # bit 31 indicate interrupt (0) vs exception (1)
+    la      a0, interrupt_cause_table
+is_exception:
+
+    li      t0, 0x7fffffff              # clear bit 31 (interrupt vs exception)
+    and     t1, a4, t0
+    li      t0, 16                      # check the cause doesn't exceed the size of out message tables
+    bge     t1, t0, print_reserved
+
+    slli    t1, t1, 2
+    add     a0, a0, t1
+    lw      a0, (a0)
+    j       print_cause
+
+print_reserved:
+    la      a0, reserved
+print_cause:
+    jal     print_string
+    la      a0, highlight2_string
+    jal     print_string
+
+# Print the mepc
+    la      a0, mepc_string
+    jal     print_string
     mv      a0, a1
     jal     print_hex_word
-    li      a0, ':'
+    SYS     OS_NEWL
+
+# Print the mtval
+    la      a0, mtval_string
+    jal     print_string
+    mv      a0, a2
+    jal     print_hex_word
+    SYS     OS_NEWL
+
+# Print the mstatus
+    la      a0, mstatus_string
+    jal     print_string
+    mv      a0, a3
+    jal     print_hex_word
+    SYS     OS_NEWL
+
+# Print the mcause
+    la      a0, mcause_string
+    jal     print_string
+    mv      a0, a4
+    jal     print_hex_word
+    SYS     OS_NEWL
+
+# Dump register values
+    la      a0, highlight1_string
+    jal     print_string
+    la      a0, register_dump_string
+    jal     print_string
+    la      a0, highlight2_string
+    jal     print_string
+    la      a1, register_names
+    li      a2, 32
+dump_loop:
+    lb      a0, (a1)
+    addi    a1, a1, 1
+    beqz    a0, dump_val
     SYS     OS_WRCH
+    j       dump_loop
+dump_val:
+    li      a0, '='
+    SYS     OS_WRCH
+    lw      a0, (sp)
+    jal     print_hex_word
+    li      a0, ' '
+    SYS     OS_WRCH
+    addi    sp, sp, 4
+    addi    a2, a2, -1
+    bnez    a2, dump_loop
+
+    li      a0, 0x0000000B              # ECall
+    bne     a4, a0, other_exception
+
+# Call the current error handler
     SYS     OS_ERROR
-    .byte   255                         # re-use "Bad" error code
+    .word   255                         # re-use "Bad" error code
+    .string "Unknown ECall"
+    .align  2,0
+
+other_exception:
+
+# Call the current error handler
+    SYS     OS_ERROR
+    .word   255                         # re-use "Bad" error code
     .string "Uncaught Exception"
     .align  2,0
 
@@ -1350,14 +1654,15 @@ UncaughtExceptionHandler:
 InterruptHandler:
     PUSH4   ra, a0, t0, gp
 
-    li      gp, TUBE                    # setup a register that points to the tube
     csrr    t0, mcause
-    addi    t0, t0, -11
-    beqz    t0, DefaultECallHandler     # TODO indirect through ecall vector??
-    csrr    t0, mcause
-    bgez    t0, UncaughtExceptionHandler
 
-    # TODO: Check mcause = 11 (machine external interrupt) otherwise log
+    li      gp, 0x0000000B              # ecall exception
+    beq     t0, gp, ECallHandler
+
+    li      gp, 0x8000000B              # external machine interrupt
+    bne     t0, gp,UncaughtExceptionHandler
+
+    li      gp, TUBE                    # setup a register that points to the tube
 
     lb      t0, R4STATUS(gp)            # sign extend to 32 bits
     bltz    t0, r4_irq                  # branch if data available in R4
@@ -1365,8 +1670,8 @@ InterruptHandler:
     lb      t0, R1STATUS(gp)            # sign extend to 32 bits
     bltz    t0, r1_irq                  # branch if data available in R1
 
-    la      t0, IRQV
-    lw      t0, (t0)
+    la      t0, IRQV                    # Indirect through IRQV for unknown external machine interrupt
+    lw      t0, (t0)                    # all other unknown interrupt/exceptions go via the EXCEPTV
     jalr    ra, t0
 
 InterruptHandlerExit:
@@ -1417,11 +1722,12 @@ r4_irq:
     la      t1, ERRADDR                 # ERRADDR is the address of the error buffer
     lw      t1, (t1)                    # so an extra level of indirection is required
     jal     WaitByteR2                  # Get error number
-    sb      a0, (t1)
+    sw      a0, (t1)
+    addi    t1, t1, 4
 err_loop:
-    addi    t1, t1, 1
     jal     WaitByteR2                  # Get error message bytes
     sb      a0, (t1)
+    addi    t1, t1, 1
     bnez    a0, err_loop
     POP1    t1                          # restore registers
 
@@ -1442,6 +1748,11 @@ err_loop:
 r4_datatransfer:
     PUSH2   t1, t2                      # save registers
 
+    csrr    t1, mepc                    # push critical machine state
+    sw      t1, 4(sp)
+    csrr    t1, mstatus
+    sw      t1, 0(sp)
+
     mv      t1, t0                      # save transfer type
 
     jal     WaitByteR4
@@ -1461,15 +1772,36 @@ r4_datatransfer:
     or      t2, t2, a0
     lb      t0, R3DATA(gp)
     lb      t0, R3DATA(gp)
-    jal     WaitByteR4                  # sync
 
-    la      t0, TransferHandlerTable
+    la      ra, TransferHandlerTable    # Look up the handler for the transfer type
     slli    t1, t1, 2
-    add     t0, t0, t1
-    lw      t0, (t0)
-    jalr    zero, t0
+    add     ra, ra, t1
+    lw      ra, (ra)
+
+    la      t1, DMA_DONE                # set DMA_DONE to non-zero value
+    sw      gp, (t1)
+
+r4_sync:                                # sync
+    lb      t0, R4STATUS(gp)
+    bgez    t0, r4_sync
+    lb      zero, R4DATA(gp)
+
+    li      t0, 1 << 3                  # mstatus.MIE=1 (enable interrupts)
+    csrrs   zero, mstatus, t0
+
+    jr      ra                          # this returns by jumping to r4_exit
 
 Release:
+    la      t1, DMA_DONE                # clear the DMA_DONE flag
+    sw      zero, (t1)
+
+r4_exit:
+    lw      t1, 0(sp)                   # restore critical machine state
+    csrw    mstatus, t1
+    lw      t1, 4(sp)
+    csrw    mepc, t1
+
+
     POP2    t1, t2                      # restore registers
     j       InterruptHandlerExit
 
@@ -1479,7 +1811,7 @@ TransferHandlerTable:
     .word   Type2
     .word   Type3
     .word   Type4
-    .word   Release                     # not actually used
+    .word   0                           # not actually used
     .word   Type6
     .word   Type7
 
@@ -1487,12 +1819,13 @@ TransferHandlerTable:
 # Type 0 transfer: 1-byte parasite -> host (SAVE)
 #
 # t0 - scratch register
+# t1 - the address of DMA_DONE
 # t2 - address register (memory address)
 # ============================================================
 
 Type0:
-    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
-    bltz    t0, Release
+    lw      t0, (t1)                    # Test for the DMA_DONE flag cleared by Tube Release
+    beqz    t0, r4_exit
     lb      t0, R3STATUS(gp)
     andi    t0, t0, 0x40
     beqz    t0, Type0
@@ -1505,12 +1838,13 @@ Type0:
 # Type 1 transfer: 1-byte host -> parasite (LOAD)
 #
 # t0 - scratch register
+# t1 - the address of DMA_DONE
 # t2 - address register (memory address)
 # ============================================================
 
 Type1:
-    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
-    bltz    t0, Release
+    lw      t0, (t1)                    # Test for the DMA_DONE flag cleared by Tube Release
+    beqz    t0, r4_exit
     lb      t0, R3STATUS(gp)
     bgez    t0, Type1
     lb      t0, R3DATA(gp)
@@ -1522,12 +1856,13 @@ Type1:
 # Type 2 transfer: 2-byte parasite -> host (SAVE)
 #
 # t0 - scratch register
+# t1 - the address of DMA_DONE
 # t2 - address register (memory address)
 # ============================================================
 
 Type2:
-    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
-    bltz    t0, Release
+    lw      t0, (t1)                    # Test for the DMA_DONE flag cleared by Tube Release
+    beqz    t0, r4_exit
     lb      t0, R3STATUS(gp)
     andi    t0, t0, 0x40
     beqz    t0, Type2
@@ -1542,17 +1877,18 @@ Type2:
 # Type 3 transfer: 2-byte host -> parasite (LOAD)
 #
 # t0 - scratch register
+# t1 - the address of DMA_DONE
 # t2 - address register (memory address)
 # ============================================================
 
 Type3:
-    lb      t0, R4STATUS(gp)            # Test for an pending interrupt signalling end of transfer
-    bltz    t0, Release
+    lw      t0, (t1)                    # Test for the DMA_DONE flag cleared by Tube Release
+    beqz    t0, r4_exit
     lb      t0, R3STATUS(gp)
     bgez    t0, Type3
     lb      t0, R3DATA(gp)
     sb      t0, (t2)                    # store lo byte to memory
-    lb      t1, R3DATA(gp)
+    lb      t0, R3DATA(gp)
     sb      t0, 1(t2)                   # store hi byte to memory
     addi    t2, t2, 2
     j       Type3
@@ -1567,7 +1903,7 @@ Type3:
 Type4:
     la      t0, IRQADDR
     sw      t2, (t0)
-    j       Release
+    j       r4_exit
 
 # ============================================================
 # Type 6 transfer: 256-byte parasite -> host
@@ -1593,7 +1929,7 @@ Type6sync:
     andi    t0, t0, 0x40
     beqz    t0, Type6sync
     sb      zero, R3DATA(gp)
-    j       Release
+    j       r4_exit
 
 # ============================================================
 # Type 7 transfer: 256-byte host -> parasite
@@ -1613,8 +1949,7 @@ Type7lp:
     addi    t2, t2, 1
     addi    t1, t1, -1
     bnez    t1, Type7lp
-    j       Release
-
+    j       r4_exit
 
 # -----------------------------------------------------------------------------
 # Helper methods
@@ -1944,3 +2279,182 @@ SendStringR2Lp:
     bne     a0, t0, SendStringR2Lp
     POP2    ra, a1
     ret
+
+# --------------------------------------------------------------
+# Register names
+# --------------------------------------------------------------
+
+# The 4/3/3 padding is to wrap nicely on both 40 and 80 column displays
+#     RRRR=XXXXXXXX_RRR=XXXXXXXX_RRR=XXXXXXXX_
+#     0123456789012345678901234567890123456789
+
+register_names:
+    .string "zero", # X0
+    .string  " ra", # X1
+    .string  " sp", # X2
+    .string "  gp", # X3
+    .string  " tp", # X4
+    .string  " t0", # X5
+    .string "  t1", # X6
+    .string  " t2", # X7
+    .string  " s0", # X8
+    .string "  s1", # X9
+    .string  " a0", # X10
+    .string  " a1", # X11
+    .string "  a2", # X12
+    .string  " a3", # X13
+    .string  " a4", # X14
+    .string "  a5", # X15
+    .string  " a6", # X16
+    .string  " a7", # X17
+    .string "  s2", # X18
+    .string  " s3", # X19
+    .string  " s4", # X20
+    .string "  s5", # X21
+    .string  " s6", # X22
+    .string  " s7", # X23
+    .string "  s8", # X24
+    .string  " s9", # X25
+    .string  "s10", # X26
+    .string " s11", # X27
+    .string  " t3", # X28
+    .string  " t4", # X29
+    .string "  t5", # X30
+    .string  " t6", # X31
+
+mepc_string:
+    .string "   mepc="
+
+mtval_string:
+    .string "  mtval="
+
+mstatus_string:
+    .string "mstatus="
+
+mcause_string:
+    .string " mcause="
+
+highlight1_string:
+    .string "*** "
+
+highlight2_string:
+    .ascii " ***"
+    .byte  10, 13, 0
+
+register_dump_string:
+    .string "Register dump"
+
+# --------------------------------------------------------------
+# Interrupt / Exception Cause Tables
+# --------------------------------------------------------------
+
+interrupt_cause_table:                  # 16 entries
+    .word interrupt0
+    .word interrupt1
+    .word reserved
+    .word interrupt3
+    .word interrupt4
+    .word interrupt5
+    .word reserved
+    .word interrupt7
+    .word interrupt8
+    .word interrupt9
+    .word reserved
+    .word interrupt11
+    .word reserved
+    .word reserved
+    .word reserved
+    .word reserved
+
+exception_cause_table:                  # 16 entries
+    .word exception0
+    .word exception1
+    .word exception2
+    .word exception3
+    .word exception4
+    .word exception5
+    .word exception6
+    .word exception7
+    .word exception8
+    .word exception9
+    .word reserved
+    .word exception11
+    .word exception12
+    .word exception13
+    .word reserved
+    .word exception15
+
+interrupt0:
+    .string "User software interrupt"
+    .byte 0
+interrupt1:
+    .string "Supervisor software interrupt"
+    .byte 0
+interrupt3:
+    .string "Machine software interrupt"
+    .byte 0
+interrupt4:
+    .string "User timer interrupt"
+    .byte 0
+interrupt5:
+    .string "Supervisor timer interrupt"
+    .byte 0
+interrupt7:
+    .string "Machine timer interrupt"
+    .byte 0
+interrupt8:
+    .string "User external interrupt"
+    .byte 0
+interrupt9:
+    .string "Supervisor external interrupt"
+    .byte 0
+interrupt11:
+    .string "Machine external interrupt"
+    .byte 0
+
+exception0:
+    .string "Instruction address misaligned"
+    .byte   0
+exception1:
+    .string "Instruction access fault"
+    .byte   0
+exception2:
+    .string "Illegal instruction"
+    .byte   0
+exception3:
+    .string "Breakpoint"
+    .byte   0
+exception4:
+    .string "Load address misaligned"
+    .byte   0
+exception5:
+    .string "Load access fault"
+    .byte   0
+exception6:
+    .string "Store/AMO address misaligned"
+    .byte   0
+exception7:
+    .string "Store/AMO access fault"
+    .byte   0
+exception8:
+    .string "Environment call from U-mode"
+    .byte   0
+exception9:
+    .string "Environment call from S-mode"
+    .byte   0
+exception11:
+    .string "Environment call from M-mode"
+    .byte   0
+exception12:
+    .string "Instruction page fault"
+    .byte   0
+exception13:
+    .string "Load page fault"
+    .byte   0
+exception15:
+    .string "Store/AMO page fault"
+    .byte   0
+
+reserved:
+    .string "Reserved"
+    .byte   0

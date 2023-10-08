@@ -9,6 +9,7 @@
 #include "tube-client.h"
 #include "tube-ula.h"
 #include "tube.h"
+#include "info.h"
 #include "riscv/tuberom.h"
 
 // Define the memory size of the RISCV Co Pro (must be a power of 2)
@@ -206,11 +207,15 @@ static void copro_riscv_reset() {
 
    // Reset to ‘m’ mode.
    riscv_state->extraflags |= 3;
-   // mstatus.mie = 0, Disable all interrupts.
+   // Disable all interrupts.
+   riscv_state->mie = 0;
    // mstatus.mprv = 0, Select normal memory access privilege level.
    riscv_state->mstatus &= 0xFFFDFFF7;
-   // misa = DEFAULT_MISA, enable all extensions.
-
+   // reset the timer
+   riscv_state->timerl = 0;
+   riscv_state->timerh = 0;
+   riscv_state->timermatchl = 0;
+   riscv_state->timermatchh = 0;
    // mcause = 0 or Implementation defined RESET_MCAUSE_VALUES.
    riscv_state->mcause = 0;
    // PC = Implementation defined RESET_VECTOR.
@@ -223,15 +228,58 @@ static void copro_riscv_reset() {
    tube_reset_performance_counters();
 }
 
+static inline uint32_t get_arm_cycle_count ()
+{
+  uint32_t value;
+  // Read CCNT Register
+#if (__ARM_ARCH >= 7 )
+  asm volatile ("MRC p15, 0, %0, c9, c13, 0\t\n": "=r"(value));
+#else
+  asm volatile ("MRC p15, 0, %0, c15, c12, 1\t\n": "=r"(value));
+#endif
+  return value;
+}
+
+static uint32_t init_arm_cycle_count()
+{
+   uint32_t value;
+#if (__ARM_ARCH >= 7 )
+   asm volatile ("MRC p15, 0, %0, c9, c12, 0\t\n" : "=r"(value));
+   value &= 0xfffffff7;
+   asm volatile ("MCR p15, 0, %0, c9, c12, 0\t\n" :: "r"(value));
+#else
+   asm volatile ("MRC p15, 0, %0, c15, c12, 0\t\n" : "=r"(value));
+   value &= 0xfffffff7;
+   asm volatile ("MCR p15, 0, %0, c15, c12, 0\t\n" :: "r"(value));
+#endif
+   return get_arm_cycle_count();
+}
+
+
 void copro_riscv_emulator()
 {
    // Remember the current copro so we can exit if it changes
    unsigned int last_copro = copro;
 
+   // ARM clock ticks in 1ms
+   uint32_t arm_cycles_per_ms = get_clock_rates(ARM_CLK_ID)->rate / 1000;
+
    copro_riscv_poweron_reset();
    copro_riscv_reset();
 
+   // Last ARM cycle count
+   uint32_t last_arm_cycle_count = init_arm_cycle_count();
+
    while (1) {
+
+      // Track the elapsed time usin the ARM cycle counter, tring to
+      // minimize the maths done each RISC-V instruction.
+      uint32_t elapsed_cycles = get_arm_cycle_count() - last_arm_cycle_count;
+      uint32_t elapsed_us = 0;
+      if (elapsed_cycles >= arm_cycles_per_ms) {
+         elapsed_us = 1000;
+         last_arm_cycle_count += arm_cycles_per_ms;
+      }
 
 #ifdef INCLUDE_DEBUGGER
       if (riscv_debug_enabled)
@@ -244,7 +292,7 @@ void copro_riscv_emulator()
                       riscv_state,   // struct MiniRV32IMAState * state
                       memory,        // uint8_t * image
                       0,             // uint32_t vProcAddress
-                      0,             // uint32_t elapsedUs
+                      elapsed_us,    // uint32_t elapsedUs
                       1              // int count
                       );
 
@@ -258,6 +306,7 @@ void copro_riscv_emulator()
                break;
             }
             copro_riscv_reset();
+            last_arm_cycle_count = init_arm_cycle_count();
          }
       }
 

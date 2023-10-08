@@ -266,9 +266,11 @@ static void tube_host_read(uint32_t addr)
       {
          PH3_0 = BYTE_TO_WORD(PH3_1);
          ph3pos--;
-         PSTAT3 |= 0xC0;
-         if (!ph3pos) HSTAT3 &= (uint32_t)~HBIT_7;
-         if ((HSTAT1 & HBIT_3) && (ph3pos == 0)) tube_irq|=NMI_BIT;
+         if (!ph3pos) {                             // Test if PH3 empty
+            HSTAT3 &= (uint32_t)~HBIT_7;            // Clear host "available" flag
+            PSTAT3 |= 0xC0;                         // Set parasite "Not Full" flag (and NMI flag)
+            if (HSTAT1 & HBIT_3) tube_irq|=NMI_BIT; // Raise NMI interrupt if enabled
+         }
          //tube_updateints_NMI();
       }
       break;

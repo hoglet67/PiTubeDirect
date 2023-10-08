@@ -232,6 +232,10 @@ MINIRV32_STEPPROTO
                         rval = CSR( timerh );
                      else if( rsval == 0x1100bff8 )
                         rval = CSR( timerl );
+                     else if( rsval == 0x11004004 )
+                        rval = CSR( timermatchh );
+                     else if( rsval == 0x11004000 )
+                        rval = CSR( timermatchl );
                      else
                         MINIRV32_HANDLE_MEM_LOAD_CONTROL( rsval, rval );
                   }

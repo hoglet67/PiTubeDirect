@@ -1,7 +1,7 @@
 #ifdef __riscv
 static int putchar(int c) {
 	register int a0 asm ("a0") = c;
-	register int a7 asm ("a7") = 4;
+	register int a7 asm ("a7") = 0xAC0004;
 	asm volatile ("ecall"
                  : "+r" (a0)
                  : "r"  (a7)
