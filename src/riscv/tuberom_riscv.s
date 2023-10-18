@@ -181,6 +181,9 @@ InitECallLoop:
     addi    t3, t3, -1
     bnez    t3, InitECallLoop
 
+    la      t0, ESCFLG                  # clear the default escape flag
+    sw      zero, (t0)
+
     la      t0, InterruptHandler        # install the interrupt/exception handler
     csrw    mtvec, t0
     li      t0, 1 << 11                 # mie.MEIE=1 (enable external interrupts)
