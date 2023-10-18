@@ -335,8 +335,13 @@ void copro_armnative_emulator() {
   // Reset ARM performance counters
   tube_reset_performance_counters();
 
-  // Send reset message
-  tube_Reset();
+  // If there is no current language, tube_Reset will be interrupted
+  // by the "this is not a langauge" error and the default error/exit
+  // handler will eventually return here.
+  if (!setjmp(enterOS)) {
+     // Send reset message exactly once
+     tube_Reset();
+  }
 
   // Re-enable the language transfer
   set_ignore_transfer(0);
