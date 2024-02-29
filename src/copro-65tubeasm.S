@@ -343,13 +343,13 @@
         add     r0, regPC, #1
         ldrb    temp1, [regPC, #1]
         mrs     temp2, CPSR
-        push    {temp2}
+        push    {temp1,temp2}
         orr     temp2, temp2, #ARM_INT_MASK
         msr     CPSR_c, temp2
-        push    {r2-r12}
+        push    {r3-r12}
         bl      copro_65tube_trace
-        pop     {r2-r12}
-        pop     {temp2}
+        pop     {r3-r12}
+        pop     {temp1,temp2}
         msr     CPSR, temp2
 .endm
 
