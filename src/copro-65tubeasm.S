@@ -346,9 +346,9 @@
         push    {temp2}
         orr     temp2, temp2, #ARM_INT_MASK
         msr     CPSR_c, temp2
-        push    {r3-r12}
+        push    {r2-r12}
         bl      copro_65tube_trace
-        pop     {r3-r12}
+        pop     {r2-r12}
         pop     {temp2}
         msr     CPSR, temp2
 .endm
@@ -3149,7 +3149,7 @@ timing_table:
 
 
 exec_65tube:
-        push    {r4-r11,lr}
+        push    {r4-r12,lr}
 #if defined(USE_MEMORY_POINTER)
         mov     memry, r0               // set memry (memry) to the 64K 6502 memory array
                                         // must be 64k aligned
@@ -3216,14 +3216,14 @@ exec_65tube_exit:                       // We get here from the Event handler wh
         ldrd  r2,old_irq_vector
         strd  r2,[r0]
 
-        pop     {r4-r11,pc}
+        pop     {r4-r12,pc}
 
 // ARM FIQ handler
 arm_fiq_handler_fast6502:
 
 #ifdef USE_DOORBELL
       ldrd     r10, doorbell_const      // Read the GPU doorbell
-      push     {r0-r3,r14}
+      push     {r0-r3,r12,r14}
 
       ldr      r1, [r10]               // Get Mailbox data
       ldr      r0, [r11]               // Get Mailbox data
@@ -3231,11 +3231,11 @@ arm_fiq_handler_fast6502:
 #else
       ldr      r10, =MBOX0_READ        // Read the GPU mailbox
 
-      push     {r0-r3,r14}
+      push     {r0-r3,r12,r14}
       ldr      r0, [r10]               // Get Mailbox data
 
       tst      r0, #0x0F               // Discard if the channel bits are non-zero
-      popne    {r0-r3,r14}             // Clean up the stack
+      popne    {r0-r3,r12,r14}             // Clean up the stack
       subnes   pc, lr, #4              // And return without invoking the handler
 #endif
 
@@ -3244,7 +3244,7 @@ arm_fiq_handler_fast6502:
 
       ldr      r9,fiq_status
       ldr      r12,[r12]
-      pop      {r0-r3,r14}
+      pop      {r0-r3,r12,r14}
       tst      r9,#2
       tstne    r12,#RESET_BIT+NMI_BIT+IRQ_BIT
       orrne    instt, instt, #copro6502asm_instruction_size
@@ -3253,7 +3253,7 @@ arm_fiq_handler_fast6502:
 
 arm_irq_handler_fast6502:
         sub   lr, lr, #4
-        push  {r0, r1, r2, r3, r4, ip, lr}
+        push  {r0, r1, r2, r3, r4, r5, ip, lr}
         ldr   r4,fiq_status
         mov   r0,#0
         str   r0,fiq_status
@@ -3269,7 +3269,7 @@ arm_irq_handler_fast6502:
         tstne   r1,#RESET_BIT+NMI_BIT+IRQ_BIT
         orrne    instt, instt, #copro6502asm_instruction_size
 
-        ldm sp!, {r0, r1, r2, r3, r4, ip, pc}^
+        ldm sp!, {r0, r1, r2, r3, r4, r5, ip, pc}^
 
 lastPC:
    .word 0
@@ -3397,7 +3397,7 @@ execute_one_instruction:
 // Tube access handlers
 
 tube_load_handler_regA_flags:
-        push    {r3,next_instr,r12}
+        push    {r3,next_instr,r7,r12}
         mrs     next_instr, CPSR               // Save 6502 flags
 
         str     instt,fiq_status
@@ -3413,7 +3413,7 @@ tube_load_handler_regA_flags:
 
         sxtb    regA,operand
         msr     CPSR_f, next_instr
-        pop     {r3,next_instr,r12}
+        pop     {r3,next_instr,r7,r12}
         FLAGS_QUICK_FETCH012   regA
 
 tube_load_handler:
@@ -3458,7 +3458,7 @@ tube_load_handler_sign:
 tube_store_handler_regA:
         mov     temp1, regA
 tube_store_handler:
-        push    {r2-r3,r12}
+        push    {r2-r4,r12}
         and     r1, temp1, #0xff
 
         str     instt,fiq_status
@@ -3473,7 +3473,7 @@ tube_store_handler:
         orrne   instt, instt, #copro6502asm_instruction_size
 
 
-        pop     {r2-r3,r12}
+        pop     {r2-r4,r12}
         msr     CPSR_f, r2           // restore 6502 flags, including ARM
         FETCH_NEXT_STAGE_012
 

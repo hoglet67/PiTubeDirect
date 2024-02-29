@@ -125,7 +125,7 @@ copro_armnative_fiq_handler:
         ldr     r8, [r11]
 
         sub     lr, lr, #4
-        push    {r0-r3, lr}            // Save everything that is not shadowed
+        push    {r0-r4, lr}            // Save everything that is not shadowed
 
         mov     r0,r8
         bl      tube_io_handler        // Update the Tube ULA emulation
@@ -135,7 +135,7 @@ copro_armnative_fiq_handler:
 
         bl      copro_armnative_tube_interrupt_handler
 
-        ldm sp!, {r0, r1, r2, r3, pc}^ // Return from ISR
+        ldm sp!, {r0, r1, r2, r3, r4, pc}^ // Return from ISR
 
 #endif
 
@@ -161,15 +161,14 @@ _user_exec:
 
     // This must only be called from supervisor mode....
 
-    stmfd    sp!, {r0-r5, lr}     // r0 contains address of the code to execute in user mode
+    stmfd    sp!, {r0-r4, lr}     // r0 contains address of the code to execute in user mode
                                   // r1..r3 contain parameters, r4 is a scratch register
-                                  // r5 is pushed to maintain 8 byte stack alignment
 
     mov      r4, r0               // Save r0 into the scratch register
 
     mrs      r0, spsr             // Get spsr
-    stmfd    sp!, {r0}            // Save spsr, as this (and lr) will be corrupted by nested swis
-
+    stmfd    sp!, {r0, r1}        // Save spsr, as this (and lr) will be corrupted by nested swis
+                                  // r1 is pushed to maintain 8 byte stack alignment
 #if (__ARM_ARCH >= 7 )
     stmfd    sp!, {r0-r3}         // Save the _user_exec params
     bl       CleanDataCache
@@ -215,10 +214,10 @@ _user_exec:
 
     str      r0, [sp, #4]         // Save the exit code so it will end up back in r0
 
-    ldmfd    sp!, {r0}            // Get spsr from stack.
+    ldmfd    sp!, {r0,r1}         // Get spsr from stack.
     msr      spsr_c, r0           // Restore spsr.
 
-    ldmfd    sp!, {r0-r5, pc}     // Restore registers and return.
+    ldmfd    sp!, {r0-r4, pc}     // Restore registers and return.
 
 
     // Called with the error buffer pointer in R0, the last known value of R12 in R1 and the error handler address in R2

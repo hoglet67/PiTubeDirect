@@ -291,18 +291,18 @@ then return to our secret stack This relies on instructions being re entrant , b
 .if \reg==r0
    mrs   r1, CPSR               // Save 6502 flags
    CPSID if
-   push  {r1}
+   push  {r1,r2}
 .else
    mrs   r0, CPSR               // Save 6502 flags
    CPSID if
-   push  {r0}
+   push  {r0,r2}
 .endif
 
    mov   r0,\reg
    mov   r1,#\bits
    mov   r2,#00
    BL    dump_hex
-   pop   {r0}
+   pop   {r0,r2}
    msr   CPSR, r0
    pop   {r0-r3,r12,r14}
 .endm
@@ -311,10 +311,10 @@ then return to our secret stack This relies on instructions being re entrant , b
    push  {r0-r3,r12,r14}
    mrs   r0, CPSR               // Save 6502 flags
    CPSID if
-   push  {r0}
+   push  {r0,r1}
    mov   r0,#\char
    BL    RPI_AuxMiniUartWrite
-   pop    {r0}
+   pop    {r0,r1}
    msr   CPSR, r0
    pop   {r0-r3,r12,r14}
 .endm
@@ -1834,7 +1834,7 @@ opc_FE: // Opcode FE - INC $0000,X
 // **********************************************
 
 setupjitram:
-   push  {r0,r1,r2,r3,r4,r5,r6,r12,r14}
+   push  {r0-r7,r12,r14}
 // setup table JITLET ( 64K x bl JITLET)
 // setup JITTEDTABLE16 with 64K x mov pc,r14
    ldr   temp2,=dojit-JITLET-8
@@ -1927,7 +1927,7 @@ cacheflushloopjittable:
    MCR   p15, 0, temp, c7, c10, 0 //; clean data cache
    MCR   p15, 0, temp, c7, c5, 0 //; invalidate I cache & BTB
 #endif
-   pop  {r0,r1,r2,r3,r4,r5,r6,r12,pc}
+   pop  {r0-r7,r12,pc}
 
 
 // **********************************************
@@ -1937,7 +1937,7 @@ cacheflushloopjittable:
 // R0 Points to memory
 
 exec_65tubejit:
-   push  {r4-r11,lr}
+   push  {r4-r12,lr}
    mov   ram6502,r0  // this is assumed to be zero
 
 // setup ARM cycle counter
@@ -2037,7 +2037,7 @@ reset_handler_jit:
    CPSIE if
 
    ldr   r13,stackptr  // Hack to ensure the stack ptr is on the right place
-   pop   {r4-r11,pc}
+   pop   {r4-r12,pc}
 
 .ltorg
    .align 3
@@ -2082,18 +2082,18 @@ CACHELINE_ALIGN = 5
 arm_fiq_handler_jit:
 #ifdef USE_DOORBELL
    ldrd     r10, doorbell_const      // Read the GPU doorbell
-   push  {r0-r3,r14}
+   push  {r0-r4,r14}
    ldr   r1, [r10]               // read doorbell
 #else
    ldr   r11, =MBOX0_READ        // Read the GPU mailbox
-   push  {r0-r3,r14}
+   push  {r0-r4,r14}
 
 #endif
    ldr   r0, [r11]               // Get data
    ldr   r10, =tube_irq
    BL    tube_io_handler
    ldr   r12,[r10]
-   pop   {r0-r3,r14}
+   pop   {r0-r4,r14}
    tst   r12,#RESET_BIT+NMI_BIT+IRQ_BIT
    subeqs pc, lr, #4
 
@@ -2328,7 +2328,7 @@ dojit:
    mrs   r4, CPSR                   // Save interrupt state (restored by dojitexit)
 
    sub   r3,r14,#4                  // return address ( first address of jitted code)
-   push  {r3-r11}
+   push  {r3-r12}
 #ifdef DEBUG_TIMING
       ldr     r8, =ASS_GPSET0     // timing debug code
       mov     r7, #TEST2_MASK
@@ -3159,7 +3159,7 @@ cacheflushloopI:
         mov     r7, #TEST2_MASK
         str     r7, [r8]
 #endif
-   pop {r3-r11}
+   pop {r3-r12}
 #if __ARM_ARCH>6
    PLI   [r3]
 #endif
