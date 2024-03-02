@@ -100,7 +100,6 @@ copro_armnative_fiq_handler:
         pop     {r0, r1}               // Get spsr from stack.
         msr     spsr_cf, r0            // Restore spsr.
 
-        ldr     r1, =in_tube_intr_flag // Get the address of the in_tube_intr flag
         mov     r0, #0
         str     r0, [r1]               // Clear the in_tube_intr flag
 
@@ -125,7 +124,7 @@ copro_armnative_fiq_handler:
         ldr     r8, [r11]
 
         sub     lr, lr, #4
-        push    {r0-r4, lr}            // Save everything that is not shadowed
+        push    {r0-r3, ip, lr}        // Save everything that is not shadowed
 
         mov     r0,r8
         bl      tube_io_handler        // Update the Tube ULA emulation
@@ -135,67 +134,66 @@ copro_armnative_fiq_handler:
 
         bl      copro_armnative_tube_interrupt_handler
 
-        ldm sp!, {r0, r1, r2, r3, r4, pc}^ // Return from ISR
+        ldm sp!, {r0-r3, ip, pc}^          // Return from ISR
 
 #endif
 
 copro_armnative_swi_handler:
-    stmfd    sp!, {r0-r11,r12,lr} // Store registers.
+    stmfd    sp!, {r0-r12, lr}    // Store registers.  
+    ldr      r0, [lr, #-4]        // Calculate address of SWI instruction and load it into r0.
     mov      r1, sp               // Set pointer to parameters.
-    mrs      r0, spsr             // Get spsr.
-    stmfd    sp!, {r0,r3}         // Store spsr onto stack and another register to maintain
+    mrs      r2, spsr             // Get spsr.
+    stmfd    sp!, {r2,r3}         // Store spsr onto stack and another register to maintain
                                   // 8-byte-aligned stack. This is only really needed in case of
                                   // nested SVCs.
-    ldr      r0, [lr, #-4]        // Calculate address of SWI instruction and load it into r0.
+
     bic      r0, r0, #0xFF000000  // Mask off top 8 bits of instruction to give SWI number.
                                   // r0 now contains SWI number
                                   // r1 now contains pointer to stacked registers
     CPSIE    i                    // re-enable IRQ interrupts as some SWI calls (like OS_ReadLine) block
     bl       C_SWI_Handler        // Call C routine to handle the SWI.
-    ldmfd    sp!, {r0,r3}         // Get spsr from stack.
-    msr      spsr_cf, r0          // Restore spsr.
-    ldmfd    sp!, {r0-r11,r12,pc}^// Restore registers and return.
+    ldmfd    sp!, {r2,r3}         // Get spsr from stack.
+    msr      spsr_cf, r2          // Restore spsr.
+    ldmfd    sp!, {r0-r12, pc}^   // Restore registers and return.
 
 _user_exec_fn:
 _user_exec:
 
     // This must only be called from supervisor mode....
 
-    stmfd    sp!, {r0-r4, lr}     // r0 contains address of the code to execute in user mode
+    stmfd    sp!, {r1-r4, ip, lr} // r0 contains address of the code to execute in user mode 
+                                  //   not stacked as it will be an exit code
                                   // r1..r3 contain parameters, r4 is a scratch register
+                                  // ip will be used to store the spsr
 
-    mov      r4, r0               // Save r0 into the scratch register
+    mrs      ip, spsr             // Get spsr
 
-    mrs      r0, spsr             // Get spsr
-    stmfd    sp!, {r0, r1}        // Save spsr, as this (and lr) will be corrupted by nested swis
-                                  // r1 is pushed to maintain 8 byte stack alignment
 #if (__ARM_ARCH >= 7 )
-    stmfd    sp!, {r0-r3}         // Save the _user_exec params
+    stmfd    sp!, {r0-r3, ip, lr}    // Save the _user_exec params
     bl       CleanDataCache
-    ldmfd    sp!, {r0-r3}         // Restore the _user_exec params
+    ldmfd    sp!, {r0-r3, ip, lr }   // Restore the _user_exec params
 
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c5, 0   // Invalidate entire instruction cache
+    mov      r4, #0
+    mcr      p15, 0, r4, c7, c5, 0   // Invalidate entire instruction cache
     isb
 #else
-    mov      r0, #0                  // New code may have just been written to memory, so
-    mcr      p15, 0, r0, c7, c10, 0  // Clean entire data cache
+    mov      r4, #0                  // New code may have just been written to memory, so
+    mcr      p15, 0, r4, c7, c10, 0  // Clean entire data cache
 
-    mov      r0, #0
-    mcr      p15, 0, r0, c7, c5, 0   // Invalidate entire instruction cache
-    mcr      p15, 0, r0, c7, c5, 4   // Flush the prefetch buffer
+    mcr      p15, 0, r4, c7, c5, 0   // Invalidate entire instruction cache
+    mcr      p15, 0, r4, c7, c5, 4   // Flush the prefetch buffer
  #endif
 
     // Re-enable ARM FIQ and IRQ interrupts, and move to user mode
     CPSIE    if, #CPSR_MODE_USER
 
-    tst      r4, #1               // Bit 0 of the address is used to indicate the carry flag value
-    mrs      r0, CPSR
-    biceq    r0, r0, #C_FLAG      // Set/Clear the carry flag accordingly
-    orrne    r0, r0, #C_FLAG
-    msr      CPSR_flg, r0
+    tst      r0, #1               // Bit 0 of the address is used to indicate the carry flag value
+    mrs      r4, CPSR
+    biceq    r4, r4, #C_FLAG      // Set/Clear the carry flag accordingly
+    orrne    r4, r4, #C_FLAG
+    msr      CPSR_flg, r4
 
-    bic      r4, #1               // Now clear this bit, as we should always be jumping to a 32-bit aligned address
+    bic      r4, r0, #1           // Now clear this bit, as we should always be jumping to a 32-bit aligned address
 
     mov      r0, r1               // Copy the params
     mov      r1, r2
@@ -212,12 +210,9 @@ _user_exec:
 
     svc      0x000016             // Change back to supervisor mode (OS_EnterOS)
 
-    str      r0, [sp, #4]         // Save the exit code so it will end up back in r0
+    msr      spsr_c, ip           // Restore spsr.
 
-    ldmfd    sp!, {r0,r1}         // Get spsr from stack.
-    msr      spsr_c, r0           // Restore spsr.
-
-    ldmfd    sp!, {r0-r4, pc}     // Restore registers and return.
+    ldmfd    sp!, {r1-r4, ip, pc}     // Restore registers and return.
 
 
     // Called with the error buffer pointer in R0, the last known value of R12 in R1 and the error handler address in R2
@@ -236,7 +231,7 @@ _error_handler_wrapper:
 _escape_handler_wrapper:
 
     // Preserve the registers the escape handler will use
-    stmfd    sp!, {r11-r12, lr}
+    stmfd    sp!, {r10-r12, lr}
 
     // Move the escape flag into R11
     mov      r11, r0
@@ -248,8 +243,7 @@ _escape_handler_wrapper:
     blx      r2
 
     // Restore stacked resisters and return
-    ldmfd    sp!, {r11-r12, lr}
-    bx       lr
+    ldmfd    sp!, {r10-r12, pc}
 
     // Called with the R12 value in R0 and the exit handler address in R1
 _exit_handler_wrapper:
