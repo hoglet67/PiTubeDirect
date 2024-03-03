@@ -68,8 +68,8 @@ __attribute__ ((section (".noinit"))) struct {
 
 // Screen Mode Handlers
 static void tt_reset          (screen_mode_t *screen);
-static void tt_clear          (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col);
-static void tt_scroll         (screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir);
+static void tt_clear          (const screen_mode_t *screen, const t_clip_window_t *text_window, pixel_t bg_col);
+static void tt_scroll         (screen_mode_t *screen,const  t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir);
 static void tt_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col);
 static int  tt_read_character (screen_mode_t *screen, int col, int row, pixel_t bg_col);
 static void tt_unknown_vdu    (screen_mode_t *screen, const uint8_t *buf);
@@ -253,7 +253,7 @@ static void update_double_height_counts() {
       count++;
    }
 }
-static void tt_clear(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
+static void tt_clear(const screen_mode_t *screen, const t_clip_window_t *text_window, pixel_t bg_col) {
    // Call the default implementation to clear the framebuffer
    default_clear_screen(screen, text_window, bg_col);
    // Clear the backing store
@@ -270,7 +270,7 @@ static void tt_clear(screen_mode_t *screen, t_clip_window_t *text_window, pixel_
    update_double_height_counts();
 }
 
-static void tt_scroll(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir) {
+static void tt_scroll(screen_mode_t *screen, const t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir) {
    // Call the default implementation to scroll the framebuffer
    default_scroll_screen(screen, text_window, bg_col, dir);
    // Scroll the backing store

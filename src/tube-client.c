@@ -211,7 +211,7 @@ static unsigned int get_copro_number() {
 
 unsigned int get_copro_mhz(unsigned int copro_num) {
    unsigned int copro_mhz = 0; // default
-   char *copro_prop = NULL;
+   const char *copro_prop = NULL;
    // Note: Co Pro Speed is only implemented in the 65tube Co Processors (copros 0/1/2/3)
    if (copro_defs[copro_num].type == TYPE_65TUBE_1) {
       copro_mhz = 3; // default to 3MHz (65C02)
@@ -238,7 +238,7 @@ static void get_copro_speed() {
 }
 
 static void get_copro_memory_size() {
-   char *copro_prop = NULL;
+   const char *copro_prop = NULL;
    copro_memory_size = 0; // default
    // Note: Co Pro Memory Size is only implemented in the 80286 and 32016 Coprocessors (copros 8/13)
    if (copro_def->type == TYPE_80X86) {

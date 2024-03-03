@@ -715,6 +715,7 @@ static char *write_string(char *ptr) {
 // OSFILE   R2: &14 block string &0D A            A block
 // OSGBPB   R2: &16 block A                       block Cy A
 
+// cppcheck-suppress constParameterCallback
 static void tube_WriteC(unsigned int *reg) {
   sendByte(R1_ID, (unsigned char)((reg[0]) & 0xff));
 }
@@ -1067,6 +1068,7 @@ static void tube_BGet(unsigned int *reg) {
   reg[0] = receiveByte(R2_ID);
 }
 
+// cppcheck-suppress constParameterCallback
 static void tube_BPut(unsigned int *reg) {
   // OSBPUT   R2: &10 Y A                           &7F
   sendByte(R2_ID, 0x10);
@@ -1291,6 +1293,7 @@ static void tube_ChangeEnvironment(unsigned int *reg) {
 
 }
 
+// cppcheck-suppress constParameterCallback
 static void tube_Plot(unsigned int *reg) {
     sendByte(R1_ID, 25);
     sendByte(R1_ID, (unsigned char )(reg[0]) );

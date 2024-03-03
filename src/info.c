@@ -94,7 +94,7 @@ static char *get_cmdline() {
    __attribute__ ((section (".noinit"))) static char cmdline[PROP_SIZE];
    static int read = 0;
    if (!read) {
-      rpi_mailbox_property_t *buf;
+      rpi_mailbox_property_t const *buf;
       RPI_PropertyInit();
       RPI_PropertyAddTag(TAG_GET_COMMAND_LINE, 0);
       RPI_PropertyProcess();

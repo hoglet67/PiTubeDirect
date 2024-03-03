@@ -202,39 +202,39 @@ static void default_set_rounding(font_t *font, int rounding) {
    }
 }
 
-static const char *default_get_name(font_t *font) {
+static const char *default_get_name(const font_t *font) {
    return font->name;
 }
 
-static uint32_t default_get_number(font_t *font) {
+static uint32_t default_get_number(const font_t *font) {
    return font->number;
 }
 
-static int default_get_spacing_w(font_t *font) {
+static int default_get_spacing_w(const font_t *font) {
    return font->spacing_w;
 }
 
-static int default_get_spacing_h(font_t *font) {
+static int default_get_spacing_h(const font_t *font) {
    return font->spacing_h;
 }
 
-static int default_get_scale_w(font_t *font) {
+static int default_get_scale_w(const font_t *font) {
    return font->scale_w;
 }
 
-static int default_get_scale_h(font_t *font) {
+static int default_get_scale_h(const font_t *font) {
    return font->scale_h;
 }
 
-static int default_get_rounding(font_t *font) {
+static int default_get_rounding(const font_t *font) {
    return font->rounding;
 }
 
-static int default_get_overall_w(font_t *font) {
+static int default_get_overall_w(const font_t *font) {
    return ((font->width + font->spacing_w) << font->rounding) * font->scale_w;
 }
 
-static int default_get_overall_h(font_t *font) {
+static int default_get_overall_h(const font_t *font) {
    return ((font->height + font->spacing_h) << font->rounding) * font->scale_h;
 }
 
@@ -261,7 +261,7 @@ static void default_write_char(font_t *font, screen_mode_t *screen, int c, int x
    }
 }
 
-static int default_read_char(font_t *font, screen_mode_t *screen, int x, int y, pixel_t bg_col) {
+static int default_read_char(const font_t *font, screen_mode_t *screen, int x, int y, pixel_t bg_col) {
    int screendata[MAX_FONT_HEIGHT];
    // Read the character from screen memory
    int *dp = screendata;
@@ -371,6 +371,6 @@ void initialize_font_by_name(const char *name, font_t *font) {
    initialize_font(font_cat, num, font);
 }
 
-void define_character(font_t *font, uint8_t c, const  uint8_t *data) {
+void define_character(const font_t *font, uint8_t c, const uint8_t *data) {
    copy_font_character(font, data, c, 0);
 }

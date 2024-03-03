@@ -972,7 +972,7 @@ static void start_vc_ula()
    RPI_PropertyProcess();
 
 #ifdef DEBUG
-   rpi_mailbox_property_t *buf = RPI_PropertyGet(TAG_LAUNCH_VPU1);
+   const rpi_mailbox_property_t * const buf = RPI_PropertyGet(TAG_LAUNCH_VPU1);
    if (buf) {
       LOG_DEBUG("TAG_LAUNCH_VPU1 returned %08"PRIx32"\r\n", buf->data.buffer_32[0]);
    } else {

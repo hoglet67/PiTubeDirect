@@ -871,7 +871,7 @@ static int get_vdisplay() {
     return (*PIXELVALVE2_VERTB) & 0xFFFF;
 }
 
-static void to_rectangle(screen_mode_t *screen, t_clip_window_t *text_window, rectangle_t *r) {
+static void to_rectangle(const screen_mode_t *screen, const t_clip_window_t *text_window, rectangle_t *r) {
    if (text_window == NULL) {
       r->x1 = 0;
       r->y1 = 0;
@@ -888,7 +888,7 @@ static void to_rectangle(screen_mode_t *screen, t_clip_window_t *text_window, re
    }
 }
 
-static int is_full_screen(screen_mode_t *screen, rectangle_t *r) {
+static int is_full_screen(const screen_mode_t *screen, const rectangle_t *r) {
    return (r->x1 == 0 && r->y1 == 0 && r->x2 == screen->width - 1 && r->y2 == screen->height - 1);
 }
 
@@ -1025,7 +1025,7 @@ void default_reset_screen(screen_mode_t *screen) {
     font->set_spacing_h(font, (screen->mode_flags & (F_BBC_GAP | F_GAP)) ? 2 : 0);
 }
 
-void default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col) {
+void default_clear_screen(const screen_mode_t *screen, const t_clip_window_t *text_window, pixel_t bg_col) {
    rectangle_t r;
    // Convert text window to screen graphics coordinates (0,0 = bottom left)
    to_rectangle(screen, text_window, &r);
@@ -1039,7 +1039,7 @@ void default_clear_screen(screen_mode_t *screen, t_clip_window_t *text_window, p
    }
 }
 
-void default_scroll_screen(screen_mode_t *screen, t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir) {
+void default_scroll_screen(screen_mode_t *screen, const t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir) {
    rectangle_t r;
    font_t *font = screen->font;
    int font_height = font->get_overall_h(font);
@@ -1106,7 +1106,7 @@ void default_set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r
 void default_set_colour_32bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
 }
 
-pixel_t default_get_colour_8bpp(screen_mode_t *screen, uint8_t gcol) {
+pixel_t default_get_colour_8bpp(const screen_mode_t *screen, uint8_t gcol) {
    //                                     7  6  5  4  3  2  1  0
    // The          GCOL number format is B3 B2 G3 G2 R3 R2 T1 T0
    // The  8-bit colour number format is B3 G3 G2 R3 B2 R2 T1 T0
@@ -1117,7 +1117,7 @@ pixel_t default_get_colour_8bpp(screen_mode_t *screen, uint8_t gcol) {
    }
 }
 
-pixel_t default_get_colour_16bpp(screen_mode_t *screen, uint8_t gcol) {
+pixel_t default_get_colour_16bpp(const screen_mode_t *screen, uint8_t gcol) {
    //                                     7  6  5  4  3  2  1  0
    // The          GCOL number format is B3 B2 G3 G2 R3 R2 T1 T0
    //                                    15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
@@ -1128,7 +1128,7 @@ pixel_t default_get_colour_16bpp(screen_mode_t *screen, uint8_t gcol) {
    return (pixel_t)((r << 12) | (g << 7) | (b << 1));
 }
 
-pixel_t default_get_colour_32bpp(screen_mode_t *screen, uint8_t gcol) {
+pixel_t default_get_colour_32bpp(const screen_mode_t *screen, uint8_t gcol) {
    //                                     7  6  5  4  3  2  1  0
    // The          GCOL number format is B3 B2 G3 G2 R3 R2 T1 T0
    // The 32-bit colour number format is xxBBGGRR i.e. the same as RISC OS
@@ -1142,7 +1142,7 @@ pixel_t default_get_colour_32bpp(screen_mode_t *screen, uint8_t gcol) {
    return (pixel_t)((b << 16) | (g << 8) | r);
 }
 
-pixel_t default_nearest_colour_8bpp(struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
+pixel_t default_nearest_colour_8bpp(const struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
    // Max distance is 7 * 255 * 255 which fits easily in an int
    int distance = 0x7fffffff;
    colour_index_t best = 0;
@@ -1161,46 +1161,46 @@ pixel_t default_nearest_colour_8bpp(struct screen_mode *screen, uint8_t r, uint8
    return best;
 }
 
-pixel_t default_nearest_colour_16bpp(struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
+pixel_t default_nearest_colour_16bpp(const struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
    //                                    15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
    // The 16-bit colour number format is R4 R3 R2 R1 R0 G5 G4 G3 G2 G1 G0 B4 B3 B2 B1 B0
    return (pixel_t)(((r & 0xF8) << 8) | ((g & 0xF8) << 3) | ((b & 0xF8) >> 3));
 }
 
-pixel_t default_nearest_colour_32bpp(struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
+pixel_t default_nearest_colour_32bpp(const struct screen_mode *screen, uint8_t r, uint8_t g, uint8_t b) {
    // The 32-bit colour number format is xxBBGGRR i.e. the same as RISC OS
    // (this requires framebuffer_swap=0 in config.txt)
    return (pixel_t)((b << 16) | (g << 8) | r);
 }
 
 
-void default_set_pixel_8bpp(screen_mode_t *screen, int x, int y, pixel_t value) {
+void default_set_pixel_8bpp(const screen_mode_t *screen, int x, int y, pixel_t value) {
    uint8_t *fbptr = (uint8_t *)(fb + (screen->height - y - 1) * screen->pitch + x);
    *fbptr = (uint8_t)value;
 }
 
-void default_set_pixel_16bpp(screen_mode_t *screen, int x, int y, pixel_t value) {
+void default_set_pixel_16bpp(const screen_mode_t *screen, int x, int y, pixel_t value) {
    uint16_t *fbptr = (uint16_t *)(fb + (screen->height - y - 1) * screen->pitch + x * 2);
    *fbptr = (uint16_t)value;
 
 }
-void default_set_pixel_32bpp(screen_mode_t *screen, int x, int y, pixel_t value) {
+void default_set_pixel_32bpp(const screen_mode_t *screen, int x, int y, pixel_t value) {
    uint32_t *fbptr = (uint32_t *)(fb + (screen->height - y - 1) * screen->pitch + x * 4);
    *fbptr = value;
 }
 
-pixel_t default_get_pixel_8bpp(screen_mode_t *screen, int x, int y) {
-   uint8_t *fbptr = (uint8_t *)(fb + (screen->height - y - 1) * screen->pitch + x);
+pixel_t default_get_pixel_8bpp(const screen_mode_t *screen, int x, int y) {
+   const uint8_t *fbptr = (uint8_t *)(fb + (screen->height - y - 1) * screen->pitch + x);
    return *fbptr;
 }
 
-pixel_t default_get_pixel_16bpp(screen_mode_t *screen, int x, int y) {
-   uint16_t *fbptr = (uint16_t *)(fb + (screen->height - y - 1) * screen->pitch + x * 2);
+pixel_t default_get_pixel_16bpp(const screen_mode_t *screen, int x, int y) {
+   const uint16_t *fbptr = (uint16_t *)(fb + (screen->height - y - 1) * screen->pitch + x * 2);
    return *fbptr;
 }
 
-pixel_t default_get_pixel_32bpp(screen_mode_t *screen, int x, int y) {
-   uint32_t *fbptr = (uint32_t *)(fb + (screen->height - y - 1) * screen->pitch + x * 4);
+pixel_t default_get_pixel_32bpp(const screen_mode_t *screen, int x, int y) {
+   const uint32_t *fbptr = (uint32_t *)(fb + (screen->height - y - 1) * screen->pitch + x * 4);
    return *fbptr;
 }
 
