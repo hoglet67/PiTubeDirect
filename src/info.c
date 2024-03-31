@@ -215,7 +215,7 @@ void dump_useful_info() {
    }
 
    for (i = MIN_CLK_ID; i <= MAX_CLK_ID; i++) {
-         clock_info_t *clk_info = get_clock_rates(i);
+      const clock_info_t *clk_info = get_clock_rates(i);
       LOG_INFO("%15s_FREQ : %10.3f MHz %10.3f MHz %10.3f MHz\r\n",
              clock_names[i],
              (double) (clk_info->rate)  / 1.0e6,

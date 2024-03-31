@@ -11,6 +11,6 @@ unsigned int _get_stack_pointer();
 void _invalidate_icache();
 void _data_memory_barrier();
 void _data_synchronization_barrier();
-void _invalidate_tlb_mva(void *address);
+void _invalidate_tlb_mva(const void *address);
 unsigned int _get_core();
 #endif

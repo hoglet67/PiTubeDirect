@@ -1049,7 +1049,7 @@ static void htos( char *s, byte b)
 int M6502_disassemble(const M6502 * const mpu, word ip, char buffer[64])
 {
   char *s= buffer;
-  byte *b= mpu->memory + ip;
+  const byte *b= mpu->memory + ip;
 
   switch (b[0])
     {

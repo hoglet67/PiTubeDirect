@@ -17,7 +17,7 @@ typedef uint32_t addr_t;
 typedef uint16_t addr_t;
 #endif
 
-typedef int   (*M6502_Callback)(M6502 *mpu, addr_t address, uint8_t data);
+typedef int   (*M6502_Callback)(const M6502 *mpu, addr_t address, uint8_t data);
 
 #ifdef TURBO
 typedef M6502_Callback  M6502_CallbackTable[0x40000];

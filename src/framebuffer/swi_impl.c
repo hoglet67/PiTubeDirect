@@ -49,7 +49,7 @@ static void OS_Write0_impl(unsigned int *reg) {
    reg[0] = r0 + strlen((char *)r0) + 1;
 }
 
-
+// cppcheck-suppress constParameterCallback
 static void OS_NewLine_impl(unsigned int *reg) {
    fb_writec(0x0A);
    fb_writec(0x0D);
@@ -431,6 +431,7 @@ static void OS_SetColour_impl(unsigned int *reg) {
    }
 }
 
+// cppcheck-suppress constParameterCallback
 static void OS_SetECFOrigin_impl(unsigned int *reg) {
    int16_t x = (int16_t)reg[0];
    int16_t y = (int16_t)reg[1];

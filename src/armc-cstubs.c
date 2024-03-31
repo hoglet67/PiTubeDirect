@@ -162,7 +162,7 @@ int kill(int pid, int sig)
 /* Establish a new name for an existing file. Minimal implementation: */
 // Called from assembler
 // cppcheck-suppress unusedFunction
-int link( char *old, char *new )
+int link( const char *old __attribute__((unused)), const char *new __attribute__((unused)) )
 {
   errno = EMLINK;
   return -1;
@@ -187,7 +187,9 @@ int open(const char *name, int flags, int mode)
 /* Read from a file. Minimal implementation: */
 // Called from assembler
 // cppcheck-suppress unusedFunction
-int _read(int file, char *ptr, int len)
+__attribute__((used)) int _read(int file __attribute__((unused)),
+                                const char *ptr __attribute__((unused)),
+                                int len __attribute__((unused)))
 {
   return 0;
 }
@@ -222,7 +224,8 @@ int stat(const char *file, struct stat *st)
 /* Timing information for current process. Minimal implementation: */
 // Called from assembler
 // cppcheck-suppress unusedFunction
-clock_t times(struct tms *buf)
+// cppcheck-suppress constParameterPointer
+clock_t times(struct tms *buf __attribute__((unused)))
 {
   return (clock_t)-1;
 }
@@ -230,7 +233,7 @@ clock_t times(struct tms *buf)
 /* Remove a file's directory entry. Minimal implementation: */
 // Called from assembler
 // cppcheck-suppress unusedFunction
-int unlink(char *name)
+int unlink(const char *name __attribute__((unused)))
 {
   errno = ENOENT;
   return -1;
@@ -239,7 +242,7 @@ int unlink(char *name)
 /* Wait for a child process. Minimal implementation: */
 // Called from assembler
 // cppcheck-suppress unusedFunction
-int wait(int *status)
+int wait(const int *status __attribute__((unused)))
 {
   errno = ECHILD;
   return -1;

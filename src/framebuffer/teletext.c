@@ -303,7 +303,7 @@ static void tt_scroll(screen_mode_t *screen, const t_clip_window_t *text_window,
    update_double_height_counts();
 }
 
-
+// cppcheck-suppress constParameterCallback
 static int tt_read_character(screen_mode_t *screen, int col, int row, pixel_t bg_col) {
    int c = tt.mode7screen[row][col];
 

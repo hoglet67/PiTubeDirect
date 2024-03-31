@@ -1100,9 +1100,11 @@ void default_set_colour_8bpp(screen_mode_t *screen, colour_index_t index, int r,
    colour_t[index & 0xff] = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
 }
 
+// cppcheck-suppress constParameterCallback
 void default_set_colour_16bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
 }
 
+// cppcheck-suppress constParameterCallback
 void default_set_colour_32bpp(screen_mode_t *screen, colour_index_t index, int r, int g, int b) {
 }
 
@@ -1222,6 +1224,7 @@ int default_read_character(screen_mode_t *screen, int col, int row, pixel_t bg_c
    return font->read_char(font, screen, x, y, bg_col);
 }
 
+// cppcheck-suppress constParameterCallback
 void default_unknown_vdu(screen_mode_t *screen, const uint8_t *buf) {
 }
 

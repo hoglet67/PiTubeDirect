@@ -629,18 +629,18 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
 // Public methods
 // ==========================================================================
 
-void prim_init (screen_mode_t *screen) {
+void prim_init (const screen_mode_t *screen) {
    // max_col is used when calculating the logical inverse of the existing pixel
    max_col = (pixel_t) screen->ncolour;
    // marker is used when flood filling, if there are spare bits in the frame buffer
    marker = (pixel_t) (screen->ncolour + 1);
 }
 
-void prim_set_fg_col(screen_mode_t *screen, pixel_t colour) {
+void prim_set_fg_col(const screen_mode_t *screen, pixel_t colour) {
    g_fg_col = colour;
 }
 
-void prim_set_fg_plotmode(screen_mode_t *screen, plotmode_t plotmode) {
+void prim_set_fg_plotmode(const screen_mode_t *screen, plotmode_t plotmode) {
    g_fg_plotmode = plotmode;
 }
 
@@ -652,11 +652,11 @@ pixel_t prim_get_fg_col() {
    return g_fg_col;
 }
 
-void prim_set_bg_col(screen_mode_t *screen, pixel_t colour) {
+void prim_set_bg_col(const screen_mode_t *screen, pixel_t colour) {
    g_bg_col = colour;
 }
 
-void prim_set_bg_plotmode(screen_mode_t *screen, plotmode_t plotmode) {
+void prim_set_bg_plotmode(const screen_mode_t *screen, plotmode_t plotmode) {
    g_bg_plotmode = plotmode;
 }
 
@@ -668,11 +668,11 @@ pixel_t prim_get_bg_col() {
    return g_bg_col;
 }
 #endif
-void prim_set_ecf_mode(screen_mode_t *screen, int ecf_mode) {
+void prim_set_ecf_mode(const screen_mode_t *screen, int ecf_mode) {
    g_ecf_mode = ecf_mode;
 }
 
-void prim_set_ecf_origin(screen_mode_t *screen, int16_t x, int16_t y) {
+void prim_set_ecf_origin(const screen_mode_t *screen, int16_t x, int16_t y) {
    g_ecf_origin_x = x;
    g_ecf_origin_y = y;
 }

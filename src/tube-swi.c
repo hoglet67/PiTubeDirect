@@ -733,6 +733,7 @@ static void tube_Write0(unsigned int *reg) {
   reg[0] = (unsigned int)write_string((char *)reg[0]);;
 }
 
+// cppcheck-suppress constParameterCallback
 static void tube_NewLine(unsigned int *reg) {
   sendByte(R1_ID, 0x0A);
   sendByte(R1_ID, 0x0D);
@@ -1158,10 +1159,12 @@ static void tube_Exit(unsigned int *reg) {
   _exit_handler_wrapper(r12, handler);
 }
 
+// cppcheck-suppress constParameterCallback
 static void tube_IntOn(unsigned int *reg) {
   _enable_interrupts();
 }
 
+// cppcheck-suppress constParameterCallback
 static void tube_IntOff(unsigned int *reg) {
   _disable_interrupts();
 }
@@ -1311,6 +1314,7 @@ static void tube_WriteN(unsigned int *reg) {
   }
 }
 
+// cppcheck-suppress constParameterCallback
 static void tube_SynchroniseCodeAreas(unsigned int *reg) {
    CleanDataCache();
    _invalidate_icache();

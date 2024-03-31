@@ -128,7 +128,7 @@ void _data_synchronization_barrier(void)
 #endif
 }
 
-void _invalidate_tlb_mva(void *address)
+void _invalidate_tlb_mva(const void *address)
  {
     asm volatile
     (
