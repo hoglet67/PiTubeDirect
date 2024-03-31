@@ -464,7 +464,7 @@ static void draw_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
             xl_prev = -xr_next;
             xr_prev = -xl_next;
          }
-         // Draw the slice as a single horizintal line
+         // Draw the slice as a single horizontal line
          if (y >= 0) {
             // Left line runs from xl_this rightwards to max(xl_this, max(xl_prev, xl_next) - 1)
             int xl = max(xl_this, max(xl_prev, xl_next) - 1);
@@ -582,7 +582,7 @@ static void fill_sheared_ellipse(screen_mode_t *screen, int xc, int yc, int widt
          // It's probably quicker to just use y * y
          y_squared += odd_sequence;
          odd_sequence += 2;
-         // Draw the slice as a single horizintal line
+         // Draw the slice as a single horizontal line
          draw_hline(screen, xc + xl, xc + xr, yc + y, colour);
          if (y > 0) {
             draw_hline(screen, xc - xl, xc - xr, yc - y, colour);
@@ -1199,7 +1199,7 @@ void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, i
    int tmp;
    // Use Standard Triangle Fill
    // http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
-   // sort the three vertices by y-coordinate ascending so v1 is the topmost vertice
+   // sort the three vertices by y-coordinate ascending so v1 is the topmost vertex
    if (y2 > y1) {
       tmp = x1; x1 = x2; x2 = tmp;
       tmp = y1; y1 = y2; y2 = tmp;
@@ -1426,7 +1426,7 @@ void prim_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int
          // Read source pixel, clipping if necessary
          if (sx >= g_x_min && sx <= g_x_max && sy >= g_y_min && sy <= g_y_max) {
             px = screen->get_pixel(screen, sx, sy);
-            // If moving, set the source pixal back to the background colour
+            // If moving, set the source pixel back to the background colour
             if (move) {
                set_pixel(screen, sx, sy, PC_BG);
             }

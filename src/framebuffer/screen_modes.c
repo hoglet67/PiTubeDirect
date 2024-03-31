@@ -848,7 +848,7 @@ static void init_colour_table(screen_mode_t *screen) {
       for (int i = 0; i < 2; i++) {
          uint32_t *p = i ? palette1_base : palette0_base;
          p[0]     = (n + 8) * 4;         // 0: property buffer: length (bytes)
-         p[1]     = 0;                   // 1: property byffer: 0=request
+         p[1]     = 0;                   // 1: property buffer: 0=request
          p[2]     = TAG_SET_PALETTE;     // 2: tag header: tag
          p[3]     = (n + 2) * 4;         // 3: tag header: length of body (bytes)
          p[4]     = 0;                   // 4: tag header: 0=request

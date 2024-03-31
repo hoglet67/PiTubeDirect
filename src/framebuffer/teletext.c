@@ -439,7 +439,7 @@ static void tt_process_controls_after(int c, int col, int row) {
    case TT_RELEASE:
       // Release (and start of line) are the only things that cleat the hold flag
       tt.held = FALSE;
-      // Release also resets the held mosiac to back to space
+      // Release also resets the held mosaic to back to space
       tt.held_char = TT_SPACE;
       break;
    }
@@ -509,7 +509,7 @@ static void re_render_row(screen_mode_t *screen, int col, int row) {
 static void tt_write_character(screen_mode_t *screen, int c, int col, int row, pixel_t fg_col, pixel_t bg_col) {
 
    // Note: fg_col/bg_col (from COLOUR n) are ignored in teletext mode
-   // because colour control characters are used insread
+   // because colour control characters are used instead
 
    // Remap some codes to accommodate differences between the
    // Beeb's character set and the SAA5050 Character ROM

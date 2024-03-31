@@ -43,7 +43,7 @@ enum {
    TT_DOUBLE        = 0x0D,
    TT_S0            = 0x0E, // double width (later ETS spec)
    TT_S1            = 0x0F, // double size (later ETS spec)
-   TT_G_BLACK       = 0x10, // for colour conversoon
+   TT_G_BLACK       = 0x10, // for colour conversion
    TT_G_RED         = 0x11,
    TT_G_GREEN       = 0x12,
    TT_G_YELLOW      = 0x13,

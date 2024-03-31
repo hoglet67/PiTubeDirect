@@ -260,7 +260,7 @@ static void OS_ReadLine_impl(unsigned int *reg) {
    }
 
    // Exit with reg[1] to the length (excluding the terminator)
-   // and with the carry indicatingthe escape condition
+   // and with the carry indicating the escape condition
    reg[1] = ptr;
    updateCarry(esc, reg);
 
@@ -405,7 +405,7 @@ static void OS_ReadPoint_impl(unsigned int *reg) {
 //        bit 4 = 0:foreground, 1:background
 //        bit 5 = 0:r1 = colour number, 1:r1 = ECF pattern (ignored)
 //        bit 6 = 0:graphics, 1:text
-//        bit 7 = 0:write, 1:read (ginored)
+//        bit 7 = 0:write, 1:read (ignored)
 // cppcheck-suppress constParameterCallback
 static void OS_SetColour_impl(unsigned int *reg) {
    unsigned int flags = reg[0];
