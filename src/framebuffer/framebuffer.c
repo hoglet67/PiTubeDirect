@@ -1379,7 +1379,7 @@ static void vdu_25(const uint8_t *buf) {
          prim_draw_sprite(screen, current_sprite, x_pos, y_pos);
          break;
       default:
-         printf("Unsuppported plot code: %d\r\n", g_mode);
+         printf("Unsupported plot code: %d\r\n", g_mode);
          break;
       }
    }
