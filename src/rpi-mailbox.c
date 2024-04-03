@@ -17,7 +17,7 @@ typedef struct {
 static mailbox_t* rpiMailbox0 = (mailbox_t*)( PERIPHERAL_BASE + 0xB880 );
 static mailbox_t* rpiMailbox1 = (mailbox_t*)( PERIPHERAL_BASE + 0xB8A0 );
 
-/* These defines come from the Broadcom Videocode driver source code, see:
+/* These defines come from the Broadcom Videocore driver source code, see:
    brcm_usrlib/dag/vmcsx/vcinclude/bcm2708_chip/arm_control.h */
 
 #define ARM_MS_FULL   0x80000000
