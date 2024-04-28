@@ -88,8 +88,8 @@ static void copro_pdp11_reset() {
    // Copy over client ROM to top of memory
    copro_memcpy((void *) (memory + 0x10000 - sizeof(tuberom_pdp11)), (const void *)tuberom_pdp11, sizeof(tuberom_pdp11));
 
-   // Reset the processor
-   pdp11_reset(0xf800);
+   // Reset the processor, start at first ROM location
+   pdp11_reset(0x10000 - sizeof(tuberom_pdp11));
 
    // Wait for rst become inactive before continuing to execute
    tube_wait_for_rst_release();
