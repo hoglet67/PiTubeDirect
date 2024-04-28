@@ -85,8 +85,8 @@ static void copro_pdp11_reset() {
    // Log ARM performance counters
    tube_log_performance_counters();
 
-   // Copy over client ROM
-   copro_memcpy((void *) (memory + 0xF800), (const void *)tuberom_pdp11, sizeof(tuberom_pdp11));
+   // Copy over client ROM to top of memory
+   copro_memcpy((void *) (memory + 0x10000 - sizeof(tuberom_pdp11)), (const void *)tuberom_pdp11, sizeof(tuberom_pdp11));
 
    // Reset the processor
    pdp11_reset(0xf800);
