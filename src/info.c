@@ -94,7 +94,7 @@ static char *get_cmdline() {
    __attribute__ ((section (".noinit"))) static char cmdline[PROP_SIZE];
    static int read = 0;
    if (!read) {
-      rpi_mailbox_property_t *buf;
+      rpi_mailbox_property_t const *buf;
       RPI_PropertyInit();
       RPI_PropertyAddTag(TAG_GET_COMMAND_LINE, 0);
       RPI_PropertyProcess();
@@ -215,7 +215,7 @@ void dump_useful_info() {
    }
 
    for (i = MIN_CLK_ID; i <= MAX_CLK_ID; i++) {
-         clock_info_t *clk_info = get_clock_rates(i);
+      const clock_info_t *clk_info = get_clock_rates(i);
       LOG_INFO("%15s_FREQ : %10.3f MHz %10.3f MHz %10.3f MHz\r\n",
              clock_names[i],
              (double) (clk_info->rate)  / 1.0e6,

@@ -55,18 +55,18 @@ typedef struct font {
    void    (*set_scale_h)(struct font *font, int scale_h);
    void   (*set_rounding)(struct font *font, int rounding);
 
-   const char * (*get_name)(struct font *font);
-   uint32_t  (*get_number)(struct font *font);
-   int    (*get_spacing_w)(struct font *font);
-   int    (*get_spacing_h)(struct font *font);
-   int      (*get_scale_w)(struct font *font);
-   int      (*get_scale_h)(struct font *font);
-   int     (*get_rounding)(struct font *font);
-   int    (*get_overall_w)(struct font *font);
-   int    (*get_overall_h)(struct font *font);
+   const char * (*get_name)(const struct font *font);
+   uint32_t  (*get_number)(const struct font *font);
+   int    (*get_spacing_w)(const struct font *font);
+   int    (*get_spacing_h)(const struct font *font);
+   int      (*get_scale_w)(const struct font *font);
+   int      (*get_scale_h)(const struct font *font);
+   int     (*get_rounding)(const struct font *font);
+   int    (*get_overall_w)(const struct font *font);
+   int    (*get_overall_h)(const struct font *font);
 
    void     (*write_char)(struct font *font, screen_mode_t *screen, int c, int x, int y, pixel_t fg_col, pixel_t bg_col);
-   int      ( *read_char)(struct font *font, screen_mode_t *screen, int x, int y,                        pixel_t bg_col);
+   int      ( *read_char)(const struct font *font, screen_mode_t *screen, int x, int y,                        pixel_t bg_col);
 
 } font_t;
 
@@ -76,6 +76,6 @@ void initialize_font_by_number(uint32_t num, font_t *font);
 
 void initialize_font_by_name(const char *name, font_t *font);
 
-void define_character(font_t *font, uint8_t c, const uint8_t *data);
+void define_character(const font_t *font, uint8_t c, const uint8_t *data);
 
 #endif

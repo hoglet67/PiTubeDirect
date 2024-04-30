@@ -26,6 +26,7 @@ static void write_string(const char *ptr) {
 // ==========================================================================
 // Implementation of SWIs that write to the VDU
 // ==========================================================================
+// cppcheck-suppress constParameterCallback
 static void OS_WriteC_impl(unsigned int *reg) {
    fb_writec((char)(reg[0] & 0xff));
 }
@@ -48,12 +49,13 @@ static void OS_Write0_impl(unsigned int *reg) {
    reg[0] = r0 + strlen((char *)r0) + 1;
 }
 
-
+// cppcheck-suppress constParameterCallback
 static void OS_NewLine_impl(unsigned int *reg) {
    fb_writec(0x0A);
    fb_writec(0x0D);
 }
 
+// cppcheck-suppress constParameterCallback
 static void OS_Plot_impl(unsigned int *reg) {
    fb_writec(25);
    fb_writec((char)reg[0]);
@@ -64,7 +66,7 @@ static void OS_Plot_impl(unsigned int *reg) {
 }
 
 static void OS_WriteN_impl(unsigned int *reg) {
-   char *ptr = (char *)reg[0];
+   const char *ptr = (char *)reg[0];
    uint32_t len = reg[1];
    while (len-- > 0) {
       fb_writec(*ptr++);
@@ -258,7 +260,7 @@ static void OS_ReadLine_impl(unsigned int *reg) {
    }
 
    // Exit with reg[1] to the length (excluding the terminator)
-   // and with the carry indicatingthe escape condition
+   // and with the carry indicating the escape condition
    reg[1] = ptr;
    updateCarry(esc, reg);
 
@@ -341,7 +343,7 @@ static void OS_ReadModeVariable_impl(unsigned int *reg) {
 //   R1 Preserved
 
 static void OS_ReadVduVariables_impl(unsigned int *reg) {
-   int32_t *iblock = (int32_t *)reg[0];
+   const int32_t *iblock = (int32_t *)reg[0];
    int32_t *oblock = (int32_t *)reg[1];
    while (*iblock != -1) {
       *oblock++ = fb_read_vdu_variable(*iblock++);
@@ -403,7 +405,8 @@ static void OS_ReadPoint_impl(unsigned int *reg) {
 //        bit 4 = 0:foreground, 1:background
 //        bit 5 = 0:r1 = colour number, 1:r1 = ECF pattern (ignored)
 //        bit 6 = 0:graphics, 1:text
-//        bit 7 = 0:write, 1:read (ginored)
+//        bit 7 = 0:write, 1:read (ignored)
+// cppcheck-suppress constParameterCallback
 static void OS_SetColour_impl(unsigned int *reg) {
    unsigned int flags = reg[0];
    pixel_t colour     = reg[1];
@@ -428,6 +431,7 @@ static void OS_SetColour_impl(unsigned int *reg) {
    }
 }
 
+// cppcheck-suppress constParameterCallback
 static void OS_SetECFOrigin_impl(unsigned int *reg) {
    int16_t x = (int16_t)reg[0];
    int16_t y = (int16_t)reg[1];

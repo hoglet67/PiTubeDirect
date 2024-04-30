@@ -272,7 +272,7 @@ void copro_riscv_emulator()
 
    while (1) {
 
-      // Track the elapsed time usin the ARM cycle counter, tring to
+      // Track the elapsed time using the ARM cycle counter, trying to
       // minimize the maths done each RISC-V instruction.
       uint32_t elapsed_cycles = get_arm_cycle_count() - last_arm_cycle_count;
       uint32_t elapsed_us = 0;

@@ -383,7 +383,7 @@ static void set_text_area(const t_clip_window_t *window) {
    }
    // Shallow copy of the struct
    t_window = *window;
-   // Update any dependent variabled
+   // Update any dependent variables
    update_text_area();
 }
 
@@ -577,7 +577,7 @@ static void change_mode(screen_mode_t *new_screen) {
 }
 
 static void set_graphics_area(const screen_mode_t *scr, const g_clip_window_t *window) {
-   // Sanity check illegal windowss
+   // Sanity check illegal windows
    if (window->left   < 0 || window->left   >= scr->width  << scr->xeigfactor ||
        window->bottom < 0 || window->bottom >= scr->height << scr->yeigfactor) {
       return;
@@ -1379,7 +1379,7 @@ static void vdu_25(const uint8_t *buf) {
          prim_draw_sprite(screen, current_sprite, x_pos, y_pos);
          break;
       default:
-         printf("Unsuppported plot code: %d\r\n", g_mode);
+         printf("Unsupported plot code: %d\r\n", g_mode);
          break;
       }
    }
@@ -2161,14 +2161,14 @@ uint8_t fb_get_flash_space_time() {
 }
 
 int fb_point(int16_t x, int16_t y, pixel_t *colour) {
-   // convert to absolute external coorrdinates
+   // convert to absolute external coordinates
    x += g_x_origin;
    y += g_y_origin;
    if (x < g_window.left || x > g_window.right || y < g_window.bottom || y > g_window.top) {
       // -1 indicates pixel off screen
       return -1;
    } else {
-      // convert to absolute pixel coorrdinates
+      // convert to absolute pixel coordinates
       x >>= screen->xeigfactor;
       y >>= screen->yeigfactor;
       // read the pixel

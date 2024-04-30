@@ -20,7 +20,7 @@ static void reboot_now(void)
 // For some reason printf generally doesn't work here
 static void dump_info(unsigned int *context, int offset, const char *type) {
   unsigned int *addr;
-  unsigned int *reg;
+  const unsigned int *reg;
   unsigned int flags;
   int i, j;
   RPI_AuxMiniUartFlush(); // flush UART so we don't corrupt any messages

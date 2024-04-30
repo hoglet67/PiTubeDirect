@@ -31,17 +31,17 @@ typedef enum {
    PC_BG      = 3
 } plotcol_t;
 
-void       prim_init                 (screen_mode_t *screen);
-void       prim_set_fg_col           (screen_mode_t *screen, pixel_t colour);
-void       prim_set_fg_plotmode      (screen_mode_t *screen, plotmode_t plotmode);
+void       prim_init                 (const screen_mode_t *screen);
+void       prim_set_fg_col           (const screen_mode_t *screen, pixel_t colour);
+void       prim_set_fg_plotmode      (const screen_mode_t *screen, plotmode_t plotmode);
 pixel_t    prim_get_fg_col           ();
 plotmode_t prim_get_fg_plotmode      ();
-void       prim_set_bg_col           (screen_mode_t *screen, pixel_t colour);
-void       prim_set_bg_plotmode      (screen_mode_t *screen, plotmode_t plotmode);
+void       prim_set_bg_col           (const screen_mode_t *screen, pixel_t colour);
+void       prim_set_bg_plotmode      (const screen_mode_t *screen, plotmode_t plotmode);
 pixel_t    prim_get_bg_col           ();
 plotmode_t prim_get_bg_plotmode      ();
-void       prim_set_ecf_mode         (screen_mode_t *screen, int ecf_mode);
-void       prim_set_ecf_origin       (screen_mode_t *screen, int16_t x, int16_t y);
+void       prim_set_ecf_mode         (const screen_mode_t *screen, int ecf_mode);
+void       prim_set_ecf_origin       (const screen_mode_t *screen, int16_t x, int16_t y);
 void       prim_set_ecf_pattern      (const screen_mode_t *screen, int num, const uint8_t *pattern);
 void       prim_set_ecf_simple       (screen_mode_t *screen, int num, const uint8_t *pattern);
 void       prim_set_ecf_default      (const screen_mode_t *screen);

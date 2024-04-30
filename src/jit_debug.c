@@ -56,6 +56,7 @@ static uint32_t dbg_memread(uint32_t addr) {
 
 // CPU's usual memory write function.
 static void dbg_memwrite(uint32_t addr, uint32_t value) {
+   // cppcheck-suppress unreadVariable
    (((uint8_t *)addr)[0]) = (uint8_t) value;
 }
 

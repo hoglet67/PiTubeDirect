@@ -166,7 +166,7 @@ static void defaultUpcallHandler() {
 }
 
 /***********************************************************
- * Initialize the envorinment
+ * Initialize the environment
  ***********************************************************/
 
 static void initEnv() {
@@ -336,7 +336,7 @@ void copro_armnative_emulator() {
   tube_reset_performance_counters();
 
   // If there is no current language, tube_Reset will be interrupted
-  // by the "this is not a langauge" error and the default error/exit
+  // by the "this is not a language" error and the default error/exit
   // handler will eventually return here.
   if (!setjmp(enterOS)) {
      // Send reset message exactly once

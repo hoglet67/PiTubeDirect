@@ -50,6 +50,6 @@ extern int  RPI_AuxMiniUartString(const char *c, int len);
 extern void dump_char(char c, enum UART_TX_TYPE unbuffered);
 extern void dump_binary(unsigned int value, enum UART_TX_TYPE unbuffered);
 extern void dump_hex(unsigned int value, int bits,enum  UART_TX_TYPE unbuffered);
-extern void dump_string( const char * string, int padding, enum UART_TX_TYPE unbuffered);
+extern void dump_string( const char * string, int paddingchars, enum UART_TX_TYPE unbuffered);
 extern void padding(int padding, enum UART_TX_TYPE unbuffered);
 #endif

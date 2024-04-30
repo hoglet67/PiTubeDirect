@@ -2,7 +2,6 @@
 
 int pi_calc(int n, int *r);
 
-// cppcheck-suppress unusedFunction
 int _start(char *params) {
    // Skip the filename
    while (*params && *params != ' ') {

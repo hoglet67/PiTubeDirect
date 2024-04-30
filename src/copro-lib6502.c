@@ -103,11 +103,11 @@ static int copro_lib6502_reg0_write(M6502 *mpu, addr_t addr, uint8_t data) {
 }
 #endif
 
-static int copro_lib6502_tube_read(M6502 *mpu, addr_t addr, uint8_t data) {
+static int copro_lib6502_tube_read(const M6502 *mpu, addr_t addr, uint8_t data) {
   return tube_parasite_read(addr);
 }
 
-static int copro_lib6502_tube_write(M6502 *mpu, addr_t addr, uint8_t data) {
+static int copro_lib6502_tube_write(const M6502 *mpu, addr_t addr, uint8_t data) {
   tube_parasite_write(addr, data);
   return 0;
 }
