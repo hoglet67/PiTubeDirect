@@ -92,7 +92,7 @@ int copro_lib6502_mem_write(M6502 *mpu, addr_t addr, uint8_t data) {
 #endif
 
 #ifdef TURBO
-static int copro_lib6502_reg0_write(M6502 *mpu, addr_t addr, uint8_t data) {
+static int copro_lib6502_reg0_write(const M6502 *mpu, addr_t addr, uint8_t data) {
   if (mpu->flags & M6502_Turbo) {
     // On the 256K Co Pro (Co Pro 17) bit 7 of &FEF0 controls turbo mode
     turbo = data & 0x80;
