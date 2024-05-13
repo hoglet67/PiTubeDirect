@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <setjmp.h>
 
 #include "copro-armnative.h"
 
@@ -549,6 +550,17 @@ static void tube_SWI_Not_Known(unsigned int *reg) {
   printf("SWI %08x (%s) not implemented ************\r\n", num, lookup_swi_name(num));
 }
 
+
+// TODO: Beware: this implementation of the X Bit is not re-entrant
+// because swi_buf is static. To make it re-entrant, everything needs
+// to be on the C_SWI_Hanlder local stack.
+
+__attribute__ ((section (".noinit"))) static jmp_buf swi_buf;
+
+static void swiErrorHandler(unsigned int r0) {
+   longjmp(swi_buf, 1);
+}
+
 void C_SWI_Handler(unsigned int number, unsigned int *reg) {
   unsigned int num = number;
   int errorBit = 0;
@@ -558,17 +570,21 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
   // Save r12 so it can be restored by the error handler wrapper
   // (ARM Basic makes the bad assumption that r12 is preserved)
   last_r12 = reg[12];
-  // TODO - We need to switch to a local error handler
-  // for the error bit to work as intended.
+
+  // Note whether the X bit was set in the SWI call, then mask it off
   if (num & ERROR_BIT) {
     errorBit = 1;
     num &= ~ERROR_BIT;
   }
 
+  // Lookup the SWI Handler
+  SWIHandler_Type handler = NULL;
+  unsigned int *args = NULL;
   if ((num & 0xFFFFFF00) == 0x0100) {      // JGH
-     os_table[SWI_OS_WriteC].handler(&num);
+     args = &num;
+     handler = os_table[SWI_OS_WriteC].handler;
   } else {
-     SWIHandler_Type handler = NULL;
+     args = reg;
      for (unsigned int m = 0; m < NUM_MODULES; m++) {
         module_t *module = module_list[m];
         if (num >= module->swi_num_min && num <= module->swi_num_max) {
@@ -576,15 +592,37 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
            break;
         }
      }
-     if (handler != NULL) {
-        handler(reg);
-     } else {
-        tube_SWI_Not_Known(reg);
-        if (errorBit) {
+  }
+
+  if (handler != NULL) {
+     // SWI handler exists
+     if (errorBit && (num != SWI_OS_ChangeEnvironment || reg[0] != ERROR_HANDLER)) {
+        // X bit set in SWI number, call the SWI with a temp error handler
+        EnvironmentHandler_type oldErrorHandler = NULL;
+        if (setjmp(swi_buf)) {
+           // if the SWI throws an error, set the overflow
            updateOverflow(1, reg);
+        } else {
+           oldErrorHandler = env->handler[ERROR_HANDLER].handler;
+           env->handler[ERROR_HANDLER].handler = swiErrorHandler;
+           // if the SWI returns normally, clear the overflow flag
+           updateOverflow(0, reg);
+           handler(args);
         }
+        // Restore the original error handler
+        env->handler[ERROR_HANDLER].handler = oldErrorHandler;
+     } else {
+        // X bit clear in SWI number, call the SWI with the existing error handler
+        handler(args);
+     }
+  } else {
+     // No SWI handler
+     tube_SWI_Not_Known(reg);
+     if (errorBit) {
+        updateOverflow(1, reg);
      }
   }
+
   if (DEBUG_ARM) {
     printf("SWI %08x complete cpsr=%08x\r\n", number, _get_cpsr());
   }
