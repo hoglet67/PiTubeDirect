@@ -550,15 +550,10 @@ static void tube_SWI_Not_Known(unsigned int *reg) {
   printf("SWI %08x (%s) not implemented ************\r\n", num, lookup_swi_name(num));
 }
 
-
-// TODO: Beware: this implementation of the X Bit is not re-entrant
-// because swi_buf is static. To make it re-entrant, everything needs
-// to be on the C_SWI_Hanlder local stack.
-
-__attribute__ ((section (".noinit"))) static jmp_buf swi_buf;
+static jmp_buf *swi_buf_ptr;
 
 static void swiErrorHandler(unsigned int r0) {
-   longjmp(swi_buf, 1);
+   longjmp(*swi_buf_ptr, 1);
 }
 
 void C_SWI_Handler(unsigned int number, unsigned int *reg) {
@@ -599,6 +594,9 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
      if (errorBit && (num != SWI_OS_ChangeEnvironment || reg[0] != ERROR_HANDLER)) {
         // X bit set in SWI number, call the SWI with a temp error handler
         EnvironmentHandler_type oldErrorHandler = NULL;
+        jmp_buf *old_swi_buf_ptr = swi_buf_ptr;
+        jmp_buf swi_buf;
+        swi_buf_ptr = &swi_buf;
         if (setjmp(swi_buf)) {
            // if the SWI throws an error, set the overflow
            updateOverflow(1, reg);
@@ -611,6 +609,7 @@ void C_SWI_Handler(unsigned int number, unsigned int *reg) {
         }
         // Restore the original error handler
         env->handler[ERROR_HANDLER].handler = oldErrorHandler;
+        swi_buf_ptr = old_swi_buf_ptr;
      } else {
         // X bit clear in SWI number, call the SWI with the existing error handler
         handler(args);
