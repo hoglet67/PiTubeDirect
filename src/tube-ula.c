@@ -50,7 +50,7 @@ static void start_vc_ula();
 #include "tubevc.h"
 
 int test_pin;
-static uint32_t led_pin=0;
+static uint32_t led_pin = 255; // Default is no LED defined
 
 static volatile uint32_t *tube_regs = (uint32_t *) ARM_TUBE_REG_ADDR;
 static uint32_t host_addr_bus;
@@ -736,6 +736,25 @@ void tube_init_hardware()
       {
       case 0x02:  // rpi1 rev 1.0
       case 0x03:  // rpi1 rev 1.0
+         host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
+         RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(A1_PIN_26PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(A0_PIN_26PIN, FS_INPUT);
+         break;
+
+      default:
+         host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
+         RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
+         RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT);
+         break;
+      }
+
+   // early 26pin pins have a slightly different pin out
+   switch (revision)
+      {
+      case 0x02:  // rpi1 rev 1.0
+      case 0x03:  // rpi1 rev 1.0
       case 0x04:  // rpi1 rev 2.0
       case 0x05:  // rpi1 rev 2.0
       case 0x06:  // rpi1 rev 2.0
@@ -745,19 +764,12 @@ void tube_init_hardware()
       case 0x0D:  // rpi1 rev 2.0
       case 0x0E:  // rpi1 rev 2.0
       case 0x0F:  // rpi1 rev 2.0
-         host_addr_bus = (A2_PIN_26PIN << 16) | (A1_PIN_26PIN << 8) | (A0_PIN_26PIN); // address bus GPIO mapping
-         RPI_SetGpioPinFunction(A2_PIN_26PIN, FS_INPUT);
-         RPI_SetGpioPinFunction(A1_PIN_26PIN, FS_INPUT);
-         RPI_SetGpioPinFunction(A0_PIN_26PIN, FS_INPUT);
          RPI_SetGpioPinFunction(TEST_PIN_26PIN, FS_OUTPUT);
          test_pin = TEST_PIN_26PIN;
+         led_pin = 16; // 26 pin Pi models don't add the disk_led_gpio=xx property
          break;
 
       default:
-         host_addr_bus = (A2_PIN_40PIN << 16) | (A1_PIN_40PIN << 8) | (A0_PIN_40PIN); // address bus GPIO mapping
-         RPI_SetGpioPinFunction(A2_PIN_40PIN, FS_INPUT);
-         RPI_SetGpioPinFunction(A1_PIN_40PIN, FS_INPUT);
-         RPI_SetGpioPinFunction(A0_PIN_40PIN, FS_INPUT);
          RPI_SetGpioPinFunction(TEST_PIN_40PIN, FS_OUTPUT);
          RPI_SetGpioPinFunction(TEST2_PIN, FS_OUTPUT);
          RPI_SetGpioPinFunction(TEST3_PIN, FS_OUTPUT);
@@ -799,16 +811,15 @@ void tube_init_hardware()
   // enable overriding default LED option using cmdline.txt
   // depending on the pi use either bcm2708.disk_led_gpio=xx or bcm2709.disk_led_gpio=xx
    const char * const prop = get_cmdline_prop("disk_led_gpio");
-   if (prop)
-   {
+   if (prop) {
       led_pin = (uint8_t)atoi(prop);
-      if ( led_pin < 54 )
-         RPI_SetGpioOutput(led_pin);
-      else
-         led_pin = 255;
    }
-   else
+
+   if (led_pin < 54) {
+      RPI_SetGpioOutput(led_pin);
+   } else {
       led_pin = 255;
+   }
 
    // Configure our pins as inputs
    RPI_SetGpioPinFunction(D7_PIN, FS_INPUT);
