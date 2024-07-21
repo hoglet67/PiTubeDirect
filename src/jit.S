@@ -1338,10 +1338,10 @@ Bopc_CD: // Opcode CD - CMP $0000
    cmp   reg1,reg12,LSL #24
 Bopc_CE: // Opcode CE - DEC $0000
    JITABSLDRBWB
-   sub   reg12, reg12, #1
+   .word decstore-16
    sxtb  reg12, reg12
    teq   reg12, #0
-   strb  reg12,[reg1]
+   .word JITTEDTABLE16-28
 
 Bopc_CF: // Opcode CF - BBS4
    JITBBS 4
@@ -1813,6 +1813,7 @@ opc_F7: // Opcode F7 - SMB7 $00
    orr   r11,r11,r4
    B     jitend2bytestore4
 
+opc_CE: // Opcode CE - DEC $0000
 opc_EE: // Opcode EE - INC $0000
    LDMIA r9,{r7,r8,r9,r10,r11,r12}
    orr   r0,r4,r5,LSL #8
@@ -3347,7 +3348,6 @@ opc_9D: // Opcode 9D - STA $0000,X
 opc_9E: // Opcode 9E - STZ $0000,X
 opc_CC: // Opcode CC - CPY $0000
 opc_CD: // Opcode CD - CMP $0000
-opc_CE: // Opcode CE - DEC $0000
 opc_D9: // Opcode D9 - CMP $0000,Y
 opc_DD: // Opcode DD - CMP $0000,X
 opc_EC: // Opcode EC - CPX $0000
@@ -3692,6 +3692,11 @@ decflags:
 
 incstore:
    add  reg12, reg12, #1
+   strb reg12,[reg1]
+   bx lr
+
+decstore:
+   sub  reg12, reg12, #1
    strb reg12,[reg1]
    bx lr
 
