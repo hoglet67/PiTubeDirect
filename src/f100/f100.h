@@ -31,12 +31,12 @@ void f100_irq(int id);
 #define ATOH(c)   ((c>='0' && c<='9') ? toupper(c)-'0': toupper(c)-'A'+10)
 #define HEXPAIRTOD(c,c1) (16*ATOH(c)+ATOH(c1))
 #define INTTOPRINT(c) (( (c)>31 && (c)<128) ? (c): '.')
-#define COMPUTE_ZERO(r)   cpu.Z = (((r&0x0FFFF) ==0)?1:0)
-#define COMPUTE_CARRY(r)  cpu.C = (((r&0x10000) !=0)?1:0)
-#define COMPUTE_BORROW(r) cpu.C = (((r&0x10000) !=0)?0:1)
-#define COMPUTE_SIGN(r)   cpu.S = (((r&0x08000) !=0)?1:0)
-#define COMPUTE_OVERFLOW_ADD(r,a,b) cpu.V = (((a & 0x8000)==(b & 0x8000)) && (r & 0x8000) != (a & 0x8000))
-#define COMPUTE_OVERFLOW_SUB(r,a,b) cpu.V = (((a & 0x8000)!=(b & 0x8000)) && (r & 0x8000) != (a & 0x8000))
+#define COMPUTE_ZERO(r)   cpu.Z = ((((r)&0x0FFFF) ==0)?1:0)
+#define COMPUTE_CARRY(r)  cpu.C = ((((r)&0x10000) !=0)?1:0)
+#define COMPUTE_BORROW(r) cpu.C = ((((r)&0x10000) !=0)?0:1)
+#define COMPUTE_SIGN(r)   cpu.S = ((((r)&0x08000) !=0)?1:0)
+#define COMPUTE_OVERFLOW_ADD(r,a,b) cpu.V = ((((a) & 0x8000)==((b) & 0x8000)) && ((r) & 0x8000) != ((a) & 0x8000))
+#define COMPUTE_OVERFLOW_SUB(r,a,b) cpu.V = ((((a) & 0x8000)!=((b) & 0x8000)) && ((r) & 0x8000) != ((a) & 0x8000))
 #define COMPUTE_SZ(r)        COMPUTE_SIGN(r) ; COMPUTE_ZERO(r)
 #define COMPUTE_SV(r, a, b)  COMPUTE_SIGN(r) ; COMPUTE_OVERFLOW_ADD(r,a,b)
 #define COMPUTE_SV_ADD(r, a, b)  COMPUTE_SIGN(r) ; COMPUTE_OVERFLOW_ADD(r,a,b)
@@ -58,10 +58,10 @@ void f100_irq(int id);
 #else
 #define TRUNC15(m)        ((m) & 0x7FFF)
 #endif
-#define INC_ADDR(m,n)     ((m) = TRUNC15(m+n))
+#define INC_ADDR(m,n)     ((m) = TRUNC15((m)+(n)))
 // Define an INC_PTR operation - we think pointers use full 16 bit arithmetic but
 // may need to revisit this once we see an actual IC in operation
-#define INC_PTR(m,n)     ((m) = TRUNC16(m+n))
+#define INC_PTR(m,n)     ((m) = TRUNC16((m)+(n)))
 #define FETCH15(m, o, pc) o=TRUNC15(F100_READ_MEM(pc)); INC_ADDR(pc,1)
 #define HALT(ir)          (ir.F==0 && ir.T==1)
 #define LSP               0
