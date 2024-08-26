@@ -13,7 +13,7 @@ static void print_tag_value(const char *name, const rpi_mailbox_property_t *buf,
          if (hex) {
             LOG_INFO("%08"PRIx32, buf->data.buffer_32[i]);
          } else {
-            LOG_INFO("%8"PRId32, buf->data.buffer_32[i]);
+            LOG_INFO("%8"PRIu32, buf->data.buffer_32[i]);
          }
       }
    }
