@@ -30,4 +30,4 @@ extern uint32_t TrapFlags;
 
 //extern void ShowTraps(void);
 extern void HandleTrap(void);
-extern void n32016_dumpregs();
+extern void n32016_dumpregs(const char * pMessage);
