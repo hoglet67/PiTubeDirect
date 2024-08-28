@@ -200,7 +200,7 @@ static void text_cursor_up();
 static void text_cursor_down();
 static void text_cursor_col0();
 static void text_cursor_home();
-static void text_cursor_tab();
+static void text_cursor_tab(const uint8_t *buf);
 static void text_area_clear();
 static void text_delete();
 
@@ -211,7 +211,7 @@ static void graphics_cursor_up();
 static void graphics_cursor_down();
 static void graphics_cursor_col0();
 static void graphics_cursor_home();
-static void graphics_cursor_tab();
+static void graphics_cursor_tab(const uint8_t *buf);
 static void graphics_area_clear();
 static void graphics_delete();
 

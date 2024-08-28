@@ -609,7 +609,7 @@ static int parseParam(const char **pp, unsigned int *result) {
    while (isspace((int)*p)) {
       p++;
    }
-   // Exit if not (allows later parems to be optional)
+   // Exit if not (allows later params to be optional)
    if (*p == 0) {
       return 0;
    }

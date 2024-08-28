@@ -153,16 +153,16 @@ static const unsigned char partab[256] = {
          (uint32_t)((temp == 0x7f) << 2) | 2;\
 
 #define SET_FLAG_CP(temp,sum,cbits) \
-      AF = (AF & (uint32_t)~0xff) | (sum & 0x80) |\
-         (uint32_t)(((sum & 0xff) == 0) << 6) | (temp & 0x28) |\
-         (uint32_t)(((cbits >> 6) ^ (cbits >> 5)) & 4) | 2 |\
-         (cbits & 0x10) | (uint32_t)((cbits >> 8) & 1)
+      AF = (AF & (uint32_t)~0xff) | ((sum) & 0x80) |\
+         (uint32_t)((((sum) & 0xff) == 0) << 6) | ((temp) & 0x28) |\
+         (uint32_t)((((cbits) >> 6) ^ ((cbits) >> 5)) & 4) | 2 |\
+         ((cbits) & 0x10) | (uint32_t)(((cbits) >> 8) & 1)
 
 #define SET_FLAG_SBC(sum,cbits) \
-      AF = ((sum & 0xff) << 8) | (sum & 0xa8) |\
-         (uint32_t)(((sum & 0xff) == 0) << 6) | (cbits & 0x10) |\
-         (uint32_t)(((cbits >> 6) ^ (cbits >> 5)) & 4) | 2 |\
-         (uint32_t)((cbits >> 8) & 1)
+      AF = (((sum) & 0xff) << 8) | ((sum) & 0xa8) |\
+         (uint32_t)((((sum) & 0xff) == 0) << 6) | ((cbits) & 0x10) |\
+         (uint32_t)((((cbits) >> 6) ^ ((cbits) >> 5)) & 4) | 2 |\
+         (uint32_t)(((cbits) >> 8) & 1)
 
 #define SET_FLAG_ADC(sum,cbits) \
       AF = ((sum & 0xff) << 8) | (sum & 0xa8) |\

@@ -175,7 +175,7 @@ static void set_pixel(screen_mode_t *screen, int x, int y, plotcol_t col) {
          colour = existing & (max_col - colour);
          break;
       case PM_OR_INVERTED:
-         colour = existing & (max_col - colour);
+         colour = existing | (max_col - colour);
          break;
       default:
          break;
