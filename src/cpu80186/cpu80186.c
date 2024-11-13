@@ -293,6 +293,22 @@ static void trace_instruction(uint16_t cs, uint16_t pc) {
 
 #endif
 
+static void illegal_instruction()
+{
+#ifdef CPU_V20
+   intcall86 (6); /* trip invalid opcode exception (this occurs on the 80186+, 8086/8088 CPUs treat them as NOPs. */
+   /* technically they aren't exactly like NOPs in most cases, but for our purposes, that's accurate enough. */
+#endif
+   if (verbose)
+      {
+         printf("Illegal opcode: %02X @ %04X:%04X\n", opcode, savecs, saveip);
+#ifdef TRACE_LAST_N
+         trace_dump_regs();
+         trace_dump_buffer();
+#endif
+      }
+}
+
 static void flag_szp8(uint8_t value)
 {
   zf = (!value) ? 1 : 0;															// set or clear zero flag
@@ -1459,6 +1475,10 @@ static void op_grp5()
 
     case 6: /* PUSH Ev */
       push(oper1);
+    break;
+
+    default:
+       illegal_instruction();
     break;
   }
 }
@@ -3813,18 +3833,7 @@ void exec86(uint32_t tube_cycles)
         break;
 
         default:
-#ifdef CPU_V20
-        intcall86 (6); /* trip invalid opcode exception (this occurs on the 80186+, 8086/8088 CPUs treat them as NOPs. */
-        /* technically they aren't exactly like NOPs in most cases, but for our purposes, that's accurate enough. */
-#endif
-        if (verbose)
-        {
-          printf("Illegal opcode: %02X @ %04X:%04X\n", opcode, savecs, saveip);
-#ifdef TRACE_LAST_N
-          trace_dump_regs();
-          trace_dump_buffer();
-#endif
-        }
+           illegal_instruction();
         break;
       }
     tubeUseCycles(1);
