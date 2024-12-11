@@ -143,8 +143,6 @@ static int copro_lib6502_poll(M6502 *mpu) {
 }
 
 void copro_lib6502_emulator(int type) {
-  addr_t addr = 0xfef0;
-
   // Remember the current copro so we can exit if it changes
   last_copro = copro;
 
@@ -154,14 +152,13 @@ void copro_lib6502_emulator(int type) {
 #ifdef TURBO
   if (type == TYPE_TURBO) {
      // Reg0 is the turbo enable/disable flag at &FEF0
-     M6502_setCallback(mpu, write, addr, copro_lib6502_reg0_write);
-     addr++;
+     M6502_setCallback(mpu, write, 0xfef0, copro_lib6502_reg0_write);
      // Set the turbo flag to indicate at runtime that this is the turbo copro instance
      mpu->flags |= M6502_Turbo;
   }
 #endif
 
-  for (; addr <= 0xfeff; addr++) {
+  for (addr_t addr=0xfef8; addr <= 0xfeff; addr++) {
     M6502_setCallback(mpu, read,  addr, copro_lib6502_tube_read);
     M6502_setCallback(mpu, write, addr, copro_lib6502_tube_write);
   }
