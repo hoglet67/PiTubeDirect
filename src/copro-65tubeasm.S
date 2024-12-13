@@ -22,7 +22,6 @@
 // TIMING_INSTRUCTION borrows opcodes 0xEB and 0xFB to record the state of the
 // ARMs instruction cycle counter to zero page registers 0xE0 -0xE3 and 0xE4 to 0xE7
 // These instructions are NOPs which aren't used by any normal program
-
 // To use the timing, execute 0xEB then execute 0xFB
 // timing_zero_error = !&E4 - !&E0
 // next execute 0xEB then the instruction to time and lastly execute 0xFB
@@ -2154,9 +2153,10 @@ opcode_9B:
 // Opcode 9C - STZ $0000
 opcode_9C:
         EA_ABSOLUTE
-        FETCH_NEXT_3B_STAGE_0
-        STORE_BYTE  instt                       // lower byte is defined to be zero
-        FETCH_NEXT_STAGE_012
+//      FETCH_NEXT_3B_STAGE_0
+//      STORE_BYTE  instt                       // lower byte is defined to be zero
+//      FETCH_NEXT_STAGE_012
+        STORE_ABSOLUTE instt                    // lower byte is defined to be zero
         .balign I_ALIGN
 
 // Opcode 9D - STA $0000,X
