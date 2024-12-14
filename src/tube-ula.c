@@ -563,10 +563,6 @@ void tube_parasite_write_banksel(uint32_t addr, uint8_t val)
      // Implement write only bank selection registers for 8x 8K pages
      unsigned int logical = (addr & 7) << 1;
      unsigned int physical = (val << 1);
-     // For backwards compatibility, writing 0xff resets the default mapping
-     if (val == 0xFF) {
-        physical = logical;
-     }
      map_4k_page(logical, physical);
      map_4k_page(logical + 1, physical + 1);
      // Page 0 must also be mapped as page 16 (64K)
