@@ -55,13 +55,23 @@ void copro_65tubejit_emulator(int type) {
    mpu_memory = copro_65tube_poweron_reset();
    copro_65tube_reset(type, mpu_memory);
 
-   // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
-   map_4k_page(65536>>12, 0);
+   while (1) {
 
-   // Make the JITTEDTABLE16 table wrap as well.
-   map_4k_pageJIT((JITTEDTABLE16+(4*65536))>>12, JITTEDTABLE16>>12);
+      // On every reset, setup the default bank mappings
+      for (unsigned int i = 0 ; i <= 15; i++) {
+         map_4k_page(i, i);
+      }
 
-   while (copro == last_copro) {
+      // Exit if the Co Pro has chanhed
+      if (copro != last_copro) {
+         break;
+      }
+
+      // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
+      map_4k_page(16, 0);
+      // Make the JITTEDTABLE16 table wrap as well.
+      map_4k_pageJIT((JITTEDTABLE16+(4*65536))>>12, JITTEDTABLE16>>12);
+
       tube_reset_performance_counters();
       exec_65tubejit(mpu_memory,0 );
 
@@ -69,11 +79,8 @@ void copro_65tubejit_emulator(int type) {
       copro_65tube_reset(type, mpu_memory);
    }
 
-   // restore memory mapping
-
-   for ( unsigned int i= 0 ; i<=16; i++ )
-     map_4k_page(i, i);
-
+   // restore correct memory mapping for the 64K poiht
+   map_4k_page(16, 16);
    map_4k_pageJIT((JITTEDTABLE16+(4*65536))>>12, (JITTEDTABLE16+(4*65536))>>12);
 }
 #ifdef DEBUG
