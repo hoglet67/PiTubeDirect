@@ -63,20 +63,30 @@ static void copro_65tube_reset(int type, unsigned char mpu_memory[]) {
 void copro_65tube_emulator(int type) {
    // Remember the current copro so we can exit if it changes
    unsigned int last_copro = copro;
-  // unsigned char *addr;
+   // unsigned char *addr;
    //__attribute__ ((aligned (64*1024))) unsigned char mpu_memory[64*1024]; // allocate the amount of ram
    unsigned char * mpu_memory; // now the arm vectors have moved we can set the core memory to start at 0
-   unsigned int i;
    // When the 65tube co pro on a single core system, switch to the alternative FIQ handler
    // that flag events from the ISR using the ip register
 
    mpu_memory = copro_65tube_poweron_reset();
    copro_65tube_reset(type, mpu_memory);
 
-     // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
-  map_4k_page(16, 0);
+   while (1) {
 
-   while (copro == last_copro) {
+      // On every reset, setup the default bank mappings
+      for (unsigned int i = 0 ; i <= 15; i++) {
+         map_4k_page(i, i);
+      }
+
+      // Exit if the Co Pro has chanhed
+      if (copro != last_copro) {
+         break;
+      }
+
+      // Make page 64K point to page 0 so that accesses LDA 0xFFFF, X work without needing masking
+      map_4k_page(16, 0);
+
 #ifdef HISTOGRAM
       copro_65tube_init_histogram();
 #endif
@@ -91,9 +101,7 @@ void copro_65tube_emulator(int type) {
       copro_65tube_reset(type, mpu_memory);
    }
 
-   // restore memory mapping
-
-   for ( i= 0 ; i<=16; i++ )
-     map_4k_page(i, i);
+   // restore correct memory mapping for the 64K poiht
+   map_4k_page(16, 16);
 
 }
