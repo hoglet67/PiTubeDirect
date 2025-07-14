@@ -2757,13 +2757,13 @@ void n32016_exec()
             if (Regs[0].RegType == DoublePrecision)
             {
                temp64.u64 = ReadGen64(0);
-               temp = (uint32_t) round(temp64.f64);
+               temp = (uint32_t)((int32_t) round(temp64.f64));
             }
             else
             {
                Temp32Type q;
                q.u32 = ReadGen(0);
-               temp = (uint32_t) roundf(q.f32);
+               temp = (uint32_t)((int32_t) roundf(q.f32));
             }
          }
          break;
@@ -2773,13 +2773,13 @@ void n32016_exec()
             if (Regs[0].RegType == DoublePrecision)
             {
                temp64.u64 = ReadGen64(0);
-               temp = (uint32_t) temp64.f64;
+               temp = (uint32_t)((int32_t) temp64.f64);
             }
             else
             {
                Temp32Type q;
                q.u32 = ReadGen(0);
-               temp = (uint32_t) q.f32;
+               temp = (uint32_t)((int32_t) q.f32);
             }
          }
          break;
@@ -2795,13 +2795,13 @@ void n32016_exec()
             if (Regs[0].RegType == DoublePrecision)
             {
                temp64.u64 = ReadGen64(0);
-               temp = (uint32_t) floor(temp64.f64);
+               temp = (uint32_t)((int32_t) floor(temp64.f64));
             }
             else
             {
                Temp32Type q;
                q.u32 = ReadGen(0);
-               temp = (uint32_t) floorf(q.f32);
+               temp = (uint32_t)((int32_t) floorf(q.f32));
             }
          }
          break;
