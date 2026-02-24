@@ -2322,6 +2322,10 @@ void n32016_exec()
 
             // Read the immediate offset (3 bits) / length - 1 (5 bits) from the instruction
             temp3 = READ_PC_BYTE();
+
+            // The field can be upto 32 bits, and is independent of the opcode i bits
+            OpSize.Op[0] = sz32;
+
             temp = ReadGen(0);
             temp2 = 0;
             temp >>= (temp3 >> 5); // Shift by offset
