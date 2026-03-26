@@ -1827,12 +1827,11 @@ int fb_get_cursor_char() {
 }
 
 void fb_wait_for_vsync() {
+   // Clear the VSYNC flag
+   vsync_flag = 0;
 
    // Wait for the VSYNC flag to be set by the IRQ handler
    while (!vsync_flag);
-
-   // Clear the VSYNC flag
-   vsync_flag = 0;
 }
 
 screen_mode_t *fb_get_current_screen_mode() {
