@@ -103,6 +103,32 @@ static void OS_Byte_impl(unsigned int *reg) {
       fb_wait_for_vsync();  // wait for the vsync flag to be set by the ISR
       return; // parasite only
 
+   case 112:
+      // Select Main/Shadow for VDU access
+      {
+         int x = reg[1] & 0xff;
+         // return existing value in X
+         reg[1] = (uint32_t)fb_get_vdu_buffer_num();
+         // set the new buffer number
+         if (x >= 1 && x <= 2) {
+            fb_set_vdu_buffer_num(fb_get_current_screen_mode(), x - 1);
+         }
+      }
+      return; // parasite only
+
+   case 113:
+      // Select Main/Shadow for Display access
+      {
+         int x = reg[1] & 0xff;
+         // return existing value in X
+         reg[1] = (uint32_t)fb_get_display_buffer_num();
+         // set the new buffer number
+         if (x >= 1 && x <= 2) {
+            fb_set_display_buffer_num(fb_get_current_screen_mode(), x - 1);
+         }
+      }
+      return; // parasite only
+
    case 134:
       // Read text cursor position
       reg[1] = (uint32_t)fb_get_cursor_x();

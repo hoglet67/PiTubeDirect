@@ -13,6 +13,9 @@
 // Align frame buffer of a 64KB boundary (mostly for OCD reasons!)
 #define FB_ALIGNMENT 0x10000
 
+// Double buffering implemented
+#define NUM_BUFFERS 2
+
 // Registers to read the physical screen size
 #ifdef RPI4
 #define PIXELVALVE2_HORZB (volatile uint32_t *)(PERIPHERAL_BASE + 0x20A010)
@@ -22,7 +25,10 @@
 #define PIXELVALVE2_VERTB (volatile uint32_t *)(PERIPHERAL_BASE + 0x807018)
 #endif
 
-unsigned char* fb = NULL;
+unsigned char* fbbase = NULL;   // Address of the base of the double-height virtual framebuffer
+unsigned char* fb = NULL;       // Address of the currently active VDU buffer
+int vdu_buffer_num = 0;
+int display_buffer_num = 0;
 
 // Maximum number of logical colours
 #define NUM_COLOURS 256
@@ -963,7 +969,7 @@ void default_init_screen(screen_mode_t *screen, font_t *font) {
     RPI_PropertyInit();
     RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER, FB_ALIGNMENT);
     RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, screen->width, screen->height );
-    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height );
+    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height * NUM_BUFFERS ); // Larger to support double buffering
     RPI_PropertyAddTag(TAG_SET_DEPTH, (1 << screen->log2bpp));
     RPI_PropertyAddTag(TAG_GET_PITCH );
     RPI_PropertyAddTag(TAG_GET_PHYSICAL_SIZE );
@@ -996,14 +1002,18 @@ void default_init_screen(screen_mode_t *screen, font_t *font) {
 
     if( ( mp = RPI_PropertyGet( TAG_ALLOCATE_BUFFER ) ) )
     {
-        fb = (unsigned char*)mp->data.buffer_32[0];
+        fbbase = (unsigned char*)mp->data.buffer_32[0];
 #ifdef DEBUG_VDU
         printf( "Framebuffer address: %8.8X\r\n", (unsigned int)fb );
 #endif
     }
 
     // On the Pi 2/3 the mailbox returns the address with bits 31..30 set, which is wrong
-    fb = (unsigned char *)(((unsigned int) fb) & 0x3fffffff);
+    fbbase = (unsigned char *)(((unsigned int) fbbase) & 0x3fffffff);
+
+    // Default to using buffer 0 (double buffering disabled)
+    fb_set_vdu_buffer_num(screen, 0);
+    fb_set_display_buffer_num(screen, 0);
 
     // Initialize colour table and palette
     screen->font = font;
@@ -1322,10 +1332,6 @@ screen_mode_t *get_screen_mode(int mode_num) {
    return sm;
 }
 
-uint32_t get_fb_address() {
-   return (uint32_t) fb;
-}
-
 int32_t fb_read_mode_variable(mode_variable_t v, screen_mode_t *screen) {
    switch (v) {
    case M_MODEFLAGS:
@@ -1371,4 +1377,36 @@ int32_t fb_read_mode_variable(mode_variable_t v, screen_mode_t *screen) {
       return 0;
    }
    return 0;
+}
+
+uint32_t fb_get_vdu_address(screen_mode_t *screen) {
+   return (uint32_t) (fbbase + screen->height * screen->pitch * vdu_buffer_num);
+}
+
+uint32_t fb_get_display_address(screen_mode_t *screen) {
+   return (uint32_t) (fbbase + screen->height * screen->pitch * display_buffer_num);
+}
+
+void fb_set_vdu_buffer_num(screen_mode_t *screen, int num) {
+   if (num >= 0 && num <= 1) {
+      vdu_buffer_num = num;
+      fb = (uint8_t *)(fbbase + screen->height * screen->pitch * num);
+   }
+}
+
+int fb_get_vdu_buffer_num() {
+   return vdu_buffer_num;
+}
+
+void fb_set_display_buffer_num(screen_mode_t *screen, int num) {
+   if (num >= 0 && num < NUM_BUFFERS) {
+      display_buffer_num = num;
+      RPI_PropertyInit();
+      RPI_PropertyAddTag(TAG_SET_VIRTUAL_OFFSET, 0, num * screen->height); // Params are X pixels, Y pixels
+      RPI_PropertyProcess();
+   }
+}
+
+int fb_get_display_buffer_num() {
+   return display_buffer_num;
 }

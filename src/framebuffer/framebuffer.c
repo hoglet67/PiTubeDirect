@@ -1915,10 +1915,10 @@ int32_t fb_read_vdu_variable(vdu_variable_t v) {
       return 0;
    case V_SCREENSTART:
       // As used by VDU drivers
-      return (int)(get_fb_address());
+      return (int)(fb_get_vdu_address(screen));
    case V_DISPLAYSTART:
       // As used by display hardware
-      return (int)(get_fb_address());
+      return (int)(fb_get_display_address(screen));
    case V_TOTALSCREENSIZE:
       return screen->height * screen->pitch;
    case V_GPLFMD:
