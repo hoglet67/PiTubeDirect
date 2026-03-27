@@ -110,9 +110,10 @@ static void OS_Byte_impl(unsigned int *reg) {
          // return existing value in X
          reg[1] = (uint32_t)fb_get_vdu_buffer_num();
          // set the new buffer number (out of range values handled gracefully)
-         if (x > 0) {
-            fb_set_vdu_buffer_num(fb_get_current_screen_mode(), x - 1);
+         if (x == 0) {
+            x = 1; // the default bank for all our screen modes is the main bank
          }
+         fb_set_vdu_buffer_num(fb_get_current_screen_mode(), x - 1);
       }
       return; // parasite only
 
@@ -123,9 +124,10 @@ static void OS_Byte_impl(unsigned int *reg) {
          // return existing value in X
          reg[1] = (uint32_t)fb_get_display_buffer_num();
          // set the new buffer number (out of range values handled gracefully)
-         if (x > 0) {
-            fb_set_display_buffer_num(fb_get_current_screen_mode(), x - 1);
+         if (x == 0) {
+            x = 1; // the default bank for all our screen modes is the main bank
          }
+         fb_set_display_buffer_num(fb_get_current_screen_mode(), x - 1);
       }
       return; // parasite only
 
