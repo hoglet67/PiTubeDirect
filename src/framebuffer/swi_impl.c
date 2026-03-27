@@ -184,6 +184,30 @@ static void OS_Byte_impl(unsigned int *reg) {
 }
 
 // ==========================================================================
+// Implementation of OS_Word SWI
+// ==========================================================================
+
+static void OS_Word_impl(unsigned int *reg) {
+
+   // TODO: OSWORD  9 - Read pixel logical colour
+   // TODO: OSWORD 10 - Read a character definition
+   // TODO: OSWORD 11 - Read the palette
+   // TODO: OSWORD 13 - Read current and previous graphics cursor positions
+
+   // Override certain VDU-related OSWORDs
+
+   switch (reg[0] & 0xff) {
+   case 12:
+      // OSWORD 12 - Write the palette
+      fb_vdu_19((uint8_t *)reg[1]);
+      return; // parasite only
+   }
+
+   // Otherwise pass call to the old handler
+   base_handler[SWI_OS_Word](reg);
+}
+
+// ==========================================================================
 // Implementation of OS_ReadLine SWI
 // ==========================================================================
 
@@ -499,6 +523,7 @@ void fb_set_vdu_device(vdu_device_t device) {
    // In VDU_BOTH the Pi implementation takes precedence
    if (device == VDU_PI || device == VDU_BOTH) {
       os_table[SWI_OS_Byte].handler             = OS_Byte_impl;
+      os_table[SWI_OS_Word].handler             = OS_Word_impl;
       os_table[SWI_OS_ReadLine].handler         = OS_ReadLine_impl;
       os_table[SWI_OS_ScreenMode].handler       = OS_ScreenMode_impl;
       os_table[SWI_OS_ReadPoint].handler        = OS_ReadPoint_impl;

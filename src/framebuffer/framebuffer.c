@@ -2214,3 +2214,16 @@ uint8_t fb_get_gcol_from_colnum(uint8_t colnum) {
       return 0;
    }
 }
+
+// Redefine a colour
+// buf[0] = logical colour
+// buf[1] = physical colour / mode
+// buf[2] = R
+// buf[3] = G
+// buf[4] = B
+
+void fb_vdu_19(const uint8_t *buf) {
+   // printf("fb_vdu_19: %02x %02x %02x %02x %02x\r\n",
+   // buf[0], buf[1], buf[2], buf[3], buf[4]);
+   vdu_19(buf - 1);
+}

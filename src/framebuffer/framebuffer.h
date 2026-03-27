@@ -126,4 +126,6 @@ void fb_set_c_bg_col(pixel_t colour);
 
 uint8_t fb_get_gcol_from_colnum(uint8_t colnum);
 
+void fb_vdu_19(const uint8_t *buf);
+
 #endif
