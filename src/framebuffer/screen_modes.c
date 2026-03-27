@@ -962,11 +962,17 @@ void default_init_screen(screen_mode_t *screen, font_t *font) {
     RPI_PropertyAddTag(TAG_SET_DEPTH, 1 << screen->log2bpp);
     RPI_PropertyProcess();
 
+    if (screen->mode_num == 69) {
+       screen->num_buffers = 1;
+    } else {
+       screen->num_buffers = MAX_VIRTUAL_HEIGHT / screen->height;
+    }
+
     // Initialise the framebuffer for real...
     RPI_PropertyInit();
     RPI_PropertyAddTag(TAG_ALLOCATE_BUFFER, FB_ALIGNMENT);
     RPI_PropertyAddTag(TAG_SET_PHYSICAL_SIZE, screen->width, screen->height );
-    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height * NUM_BUFFERS ); // Larger to support double buffering
+    RPI_PropertyAddTag(TAG_SET_VIRTUAL_SIZE,  screen->width, screen->height * screen->num_buffers ); // Larger to support double/triple buffering
     RPI_PropertyAddTag(TAG_SET_DEPTH, (1 << screen->log2bpp));
     RPI_PropertyAddTag(TAG_GET_PITCH );
     RPI_PropertyAddTag(TAG_GET_PHYSICAL_SIZE );
@@ -1385,7 +1391,7 @@ uint32_t fb_get_display_address(screen_mode_t *screen) {
 }
 
 void fb_set_vdu_buffer_num(screen_mode_t *screen, int num) {
-   if (num >= 0 && num < NUM_BUFFERS) {
+   if (num >= 0 && num < screen->num_buffers) {
       vdu_buffer_num = num;
       fb = (uint8_t *)(fbbase + screen->height * screen->pitch * num);
    }
@@ -1396,7 +1402,7 @@ int fb_get_vdu_buffer_num() {
 }
 
 void fb_set_display_buffer_num(screen_mode_t *screen, int num) {
-   if (num >= 0 && num < NUM_BUFFERS) {
+   if (num >= 0 && num < screen->num_buffers) {
       display_buffer_num = num;
       RPI_PropertyInit();
       RPI_PropertyAddTag(TAG_SET_VIRTUAL_OFFSET, 0, num * screen->height); // Params are X pixels, Y pixels

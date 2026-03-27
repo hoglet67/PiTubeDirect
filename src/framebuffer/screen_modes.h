@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+// Maximum framebuffer virtual hight (used to calculate multi buffering)
+#define MAX_VIRTUAL_HEIGHT 2160
+
 // Default screen mode
 // 640x512 256 colours (80x64 text)
 #define DEFAULT_SCREEN_MODE 21
@@ -93,6 +96,7 @@ typedef struct screen_mode {
    float par;       // ideal pixel aspect ratio
 
    int pitch;       // filled in by init
+   int num_buffers; // filled in by init
 
    uint8_t white;   // the gcol number for white
 

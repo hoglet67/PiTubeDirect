@@ -3,9 +3,6 @@
 
 #include <stdint.h>
 
-// Double buffering implemented
-#define NUM_BUFFERS 2
-
 #include "screen_modes.h"
 
 // #define DEBUG_VDU
