@@ -13,9 +13,6 @@
 // Align frame buffer of a 64KB boundary (mostly for OCD reasons!)
 #define FB_ALIGNMENT 0x10000
 
-// Double buffering implemented
-#define NUM_BUFFERS 2
-
 // Registers to read the physical screen size
 #ifdef RPI4
 #define PIXELVALVE2_HORZB (volatile uint32_t *)(PERIPHERAL_BASE + 0x20A010)
@@ -1388,7 +1385,7 @@ uint32_t fb_get_display_address(screen_mode_t *screen) {
 }
 
 void fb_set_vdu_buffer_num(screen_mode_t *screen, int num) {
-   if (num >= 0 && num <= 1) {
+   if (num >= 0 && num < NUM_BUFFERS) {
       vdu_buffer_num = num;
       fb = (uint8_t *)(fbbase + screen->height * screen->pitch * num);
    }
