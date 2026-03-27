@@ -227,6 +227,9 @@ static void set_flashing(int on) {
 // This is called on initialization, on mode change, and VDU 20
 // It sets the default palette, and resets the default display options
 static void tt_reset(screen_mode_t *screen) {
+   // Default to using buffer 0 (double buffering disabled)
+   fb_set_vdu_buffer_num(screen, 0);
+   fb_set_display_buffer_num(screen, 0);
    // Initialize the font
    set_font(screen, 0);
    font_t *font = screen->font;

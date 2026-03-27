@@ -1014,10 +1014,6 @@ void default_init_screen(screen_mode_t *screen, font_t *font) {
     // On the Pi 2/3 the mailbox returns the address with bits 31..30 set, which is wrong
     fbbase = (unsigned char *)(((unsigned int) fbbase) & 0x3fffffff);
 
-    // Default to using buffer 0 (double buffering disabled)
-    fb_set_vdu_buffer_num(screen, 0);
-    fb_set_display_buffer_num(screen, 0);
-
     // Initialize colour table and palette
     screen->font = font;
     screen->reset(screen);
@@ -1027,6 +1023,10 @@ void default_init_screen(screen_mode_t *screen, font_t *font) {
 }
 
 void default_reset_screen(screen_mode_t *screen) {
+    // Default to using buffer 0 (double buffering disabled)
+    fb_set_vdu_buffer_num(screen, 0);
+    fb_set_display_buffer_num(screen, 0);
+
     /* Copy default colour table */
     init_colour_table(screen);
 
