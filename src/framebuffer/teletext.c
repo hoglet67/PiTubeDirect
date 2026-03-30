@@ -365,6 +365,9 @@ static uint8_t tt_process_controls(int c, int col, int row) {
    case TT_HOLD:
       tt.held = TRUE;
       break;
+   case TT_STEADY:
+      set_flashing(FALSE);
+      break;
    }
 
    if (is_graphics(c) && tt.graphics) {
@@ -429,9 +432,6 @@ static void tt_process_controls_after(int c, int col, int row) {
       break;
    case TT_FLASH:
       set_flashing(TRUE);
-      break;
-   case TT_STEADY:
-      set_flashing(FALSE);
       break;
    case TT_NORMAL:
       tt.doubled = FALSE;
