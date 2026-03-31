@@ -10,6 +10,8 @@
 #include "primitives.h"
 #include "screen_modes.h"
 
+static int replicated = 0;
+
 __attribute__ ((section (".noinit"))) static SWIHandler_Type base_handler[NUM_SWI_HANDLERS];
 
 // ==========================================================================
@@ -133,16 +135,28 @@ static void OS_Byte_impl(unsigned int *reg) {
 
    case 134:
       // Read text cursor position
-      reg[1] = (uint32_t)fb_get_cursor_x();
-      reg[2] = (uint32_t)fb_get_cursor_y();
-      return; // parasite only
+      if (!replicated) {
+         reg[1] = (uint32_t)fb_get_cursor_x();
+         reg[2] = (uint32_t)fb_get_cursor_y();
+         return; // parasite only
+      }
+      // To avoid inconsistencies due to Parasite->Host->Parasite
+      // delays, when the screen is replicated we allow the host to
+      // answer this OSBYTE
+      break;
 
    case 135:
       // Read character at text cursor position
-      reg[1] = (uint32_t)fb_get_cursor_char();
-      // Also returns current screen mode
-      reg[2] = (uint32_t)fb_get_current_screen_mode()->mode_num;
-      return; // parasite only
+      if (!replicated) {
+         reg[1] = (uint32_t)fb_get_cursor_char();
+         // Also returns current screen mode
+         reg[2] = (uint32_t)fb_get_current_screen_mode()->mode_num;
+         return; // parasite only
+      }
+      // To avoid inconsistencies due to Parasite->Host->Parasite
+      // delays, when the screen is replicated we allow the host to
+      // answer this OSBYTE
+      break;
 
    case 163:
       // GXR Set Pattern Length
@@ -535,5 +549,6 @@ void fb_set_vdu_device(vdu_device_t device) {
       os_table[SWI_OS_SetECFOrigin].handler     = OS_SetECFOrigin_impl;
    }
 
-
+   // Flag for OS implementations to vary their behaviour if the screen is replicated to Pi and Beeb
+   replicated = (device == VDU_BOTH);
 }
