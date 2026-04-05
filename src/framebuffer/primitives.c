@@ -7,7 +7,7 @@
 #include "framebuffer.h"
 #include "fonts.h"
 
-// #define USE_NEW_SECTOR_SEGMENT_FILL
+#define USE_NEW_SECTOR_SEGMENT_FILL
 
 static pixel_t    max_col;
 static pixel_t    marker;
@@ -1435,6 +1435,10 @@ static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int32_t xc
 #define PLOT_SEGMENT 0xA8 /* Plot a segment */
 #define PLOT_SECTOR 0xB0 /* Plot a sector */
 
+
+#define MIN(x1,x2) ((x1) > (x2) ? (x2):(x1))
+#define MAX(x1,x2) ((x1) > (x2) ? (x1):(x2))
+
 static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int32_t xc, int32_t yc, int32_t xradius, int32_t yradius, int32_t start_dx, int32_t start_dy, int32_t end_dx, int32_t end_dy, uint32_t colour, uint32_t action, int32_t plot_graphop_code) {
    // For details of the arc, sector, segment plot codes, see e.g. http://www.riscos.com/support/developer ... phics.html
    // Original Graphics ROM sector, arc and segment 6502 routines are dissasembled here: https://tobylobster.github.io/GXR-pages/gxr/S-s16.html
@@ -1444,7 +1448,7 @@ static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int32_t xc, int
    int32_t width=xradius;
    int32_t height=yradius;
    int32_t shear=0;
-   if (height == 0.0f) {
+   if (height == 0) {
       // this arc/sector/segment is just a single point
       draw_hline(screen,xc,xc,yc,colour);
    } else {
@@ -1459,10 +1463,10 @@ static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int32_t xc, int
 
       // this loop copies the code and logic from draw_ellipse(...) as closely as possible.
       float oversize=0.5;// this makes the circles a bit fatter, and avoids leaving a single pixel at the top and bottom
-      float axis_ratio = ((float)width+oversize) / ((float)height+oversize);
+      float axis_ratio = (((float)width)+oversize) / (((float)height)+oversize);
       float shear_per_line = (float) (shear) / (float) height;
       float xshear = 0.0;
-      float h_squared = ((float)height+oversize) * ((float)height+oversize);
+      float h_squared = (((float)height)+oversize) * (((float)height)+oversize);
       // Maintain the left/right coordinates of the previous, current, and next slices
       // to allow lines to be drawn to make sure the pixels are connected
       int xl_prev = 0;
@@ -1485,9 +1489,9 @@ static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int32_t xc, int
          // Draw the slice as a single horizontal line
          if (y >= 0) {
             // Left line runs from xl_this rightwards to MAX(xl_this, MAX(xl_prev, xl_next) - 1)
-            int xl = max(xl_this, max(xl_prev, xl_next) - 1);
+            int xl = MAX(xl_this, MAX(xl_prev, xl_next) - 1);
             // Right line runs from xr_this leftwards to MIN(xr_this, MIN(xr_prev, xr_next) + 1)
-            int xr = min(xr_this, min(xr_prev, xr_next) + 1);
+            int xr = MIN(xr_this, MIN(xr_prev, xr_next) + 1);
             if (plot_graphop_code==PLOT_SECTOR) {
                draw_h_line_with_sector_segment_filter(screen, xc,yc,xl_this, xr_this, y, colour, action,start_dx,start_dy,end_dx,end_dy,0,is_minor_sector);
             } else if (plot_graphop_code==PLOT_SEGMENT) {
@@ -1540,11 +1544,11 @@ void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
 }
 
 void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
-   int32_t start_dx=x1-xc;//displacement to start point from centre
-   int32_t start_dy=y1-yc;//displacement to start point from centre
+   int32_t start_dx=x2-xc;//displacement to start point from centre
+   int32_t start_dy=y2-yc;//displacement to start point from centre
    int32_t radius = calc_radius(xc, yc, x1, y1);
-   int32_t end_dx=x2-xc;//displacement to end point from centre
-   int32_t end_dy=y2-yc;//displacement to end point from centre
+   int32_t end_dx=x1-xc;//displacement to end point from centre
+   int32_t end_dy=y1-yc;//displacement to end point from centre
    draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, start_dy, end_dx, end_dy, colour, 0, PLOT_SECTOR);
 }
 
