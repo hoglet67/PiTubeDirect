@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <inttypes.h>
 #include "primitives.h"
 #include "framebuffer.h"
 #include "fonts.h"
