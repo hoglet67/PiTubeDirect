@@ -7,6 +7,8 @@
 #include "framebuffer.h"
 #include "fonts.h"
 
+// #define USE_NEW_SECTOR_SEGMENT_FILL
+
 static pixel_t    max_col;
 static pixel_t    marker;
 static plotmode_t g_fg_plotmode;
@@ -945,10 +947,11 @@ void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, plotc
 
 typedef int (*fill_test_fn)(screen_mode_t *, int, int);
 
+#ifndef USE_NEW_SECTOR_SEGMENT_FILL
+
 static int test_pixel_bg_col(screen_mode_t *screen, int x, int y) {
    return get_pixel(screen, x, y) == g_bg_col;
 }
-
 
 static int test_pixel_bg_ecf(screen_mode_t *screen, int x, int y) {
    int ecfnum = (g_bg_plotmode >> 4) - 1;
@@ -959,6 +962,8 @@ static int test_pixel_bg_ecf(screen_mode_t *screen, int x, int y) {
    pixel_t colour = g_ecf_pattern[ecfnum][(((y - g_ecf_origin_y) & 7) << 3) + ((x - g_ecf_origin_x) & g_ecf_mask)];
    return get_pixel(screen, x, y) == colour;
 }
+
+#endif
 
 static int test_pixel_not_bg_col(screen_mode_t *screen, int x, int y) {
    // No need to explicitly test for the marker as the test succeed fail on marked bits anyway
@@ -1350,6 +1355,201 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    arc_fill_y = (int16_t)yf;
 }
 
+#ifdef USE_NEW_SECTOR_SEGMENT_FILL
+
+static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int32_t xc, int32_t yc, int32_t x1, int32_t x2, int32_t y, uint32_t col, uint32_t action,int32_t start_dx,int32_t start_dy, int32_t end_dx, int32_t end_dy, uint32_t is_segment, uint32_t is_minor_sector) {
+   // This function draws a horizontal line from x1+xc to x2+xc, at height y+yc; but only plots those pixels
+   // which are in the sector defined by vectors (start_dx,start_dy) and (end_dx, end_dy), relative to circle centre (cx,cy)
+   // If is_segment is true, then it also checks the side of the segment's chord each pixel is on.
+   if (x1>x2) {
+      int32_t temp=x2;
+      x2=x1;
+      x1=temp;
+   }
+
+   // TODO: DMB: For now, allow set_pixel to do clipping
+
+   // copy clipping logic from draw_h_line() method, but add on xc,yc to the x and y coordinates:
+   // if (x1+xc >= ds.vscrwidth || x2+xc < 0 || y+yc<0 || y+yc>=ds.vscrheight) return;
+   // if (x1+xc < 0) x1 = -xc;
+   // if (x2+xc >= ds.vscrwidth) x2 = ds.vscrwidth-1-xc;
+
+   int32_t start_dx_normal_vector=start_dy;// rotates start vector 90 degrees
+   int32_t start_dy_normal_vector=-start_dx;
+   int32_t end_dx_normal_vector=-end_dy;// rotates end vector 90 degrees in opposite direction
+   int32_t end_dy_normal_vector=end_dx;
+   // note that both normal vectors now point inwards towards the region that needs filling.
+
+   // calculate segment's chord vector (only used if is_segment!=0):
+   int32_t chord_dx=end_dx-start_dx;
+   int32_t chord_dy=end_dy-start_dy;
+   // Calculate the "normal" to the chord vector, i.e. rotate chord vector 90 degrees
+   int32_t chord_dx_normal_vector=-chord_dy;
+   int32_t chord_dy_normal_vector=chord_dx;
+
+   int32_t x=x1;
+   //The following 3 dot products indicate which side of the vectors/chord that the point (x,y) is at. These dot products
+   // are positive if (x,y) is on the side indicated by the direction of the corresponding normal vector.
+   int dot_product_for_chord=(x-start_dx)*chord_dx_normal_vector+(y-start_dy)*chord_dy_normal_vector;// only used for segment
+   int dot_product_for_start_vector=x*start_dx_normal_vector+y*start_dy_normal_vector;
+   int dot_product_for_end_vector=x*end_dx_normal_vector+y*end_dy_normal_vector;
+
+   for (x=x1;x<=x2;x++) {
+      // the following 3 booleans say which side of the vectors/chord that the point (x,y) is at. These are true if (x,y) is on
+      // the side indicated by the corresponding normal vector.
+      int32_t correct_side_of_chord=dot_product_for_chord>=0;// only used for segment
+      int32_t correct_side_of_start_vector=dot_product_for_start_vector>=0;
+      int32_t correct_side_of_end_vector=dot_product_for_end_vector>=0;
+      if (is_minor_sector) {
+         // Our sector's angle is less than 180 degrees.
+         // So this means we only plot a single minor sector. We just need to see if we are inside that minor sector,
+         // i.e. we just need to check our point is on the correct side of BOTH normal vectors.
+         // Both normal vectors point inwards towards the minor sector which we want to fill.
+         int32_t xInMinorSector=correct_side_of_start_vector && correct_side_of_end_vector;
+         if (xInMinorSector && (correct_side_of_chord || is_segment==0))
+            // For a segment, with a small angle like this (minor sector) we are using the sector check AND the segment chord check together.
+            // otherwise, for very small angle segments, pixels can leak out of the sector due to rounding errors.
+            set_pixel(sr, xc+x, yc+y, col);
+      } else {
+         // Our sector's angle is > 180 degrees
+         // Here we are drawing a MAJOR sector or segment. Let's call the minor sector which we don't plot as the "void".
+         // The logic to plot the major sector is to consider the opposite points to those we want. Those opposite points, form a minor-sector "void",
+         // Checking for that minor sector is simple. The void is backwards from both normal vectors.
+         // Note that NOT(Void)=not(wrong side of both normal vectors) = correct side of EITHER of the two vectors. So we use an OR condition in the next line:
+         int32_t xInMajorSector=correct_side_of_start_vector || correct_side_of_end_vector;
+         if (xInMajorSector || (correct_side_of_chord && is_segment==1))
+            // okay, so this must be part of the Major sector... So we plot it...
+            // For a major segment, with a very small void angle, we are using the sector check OR the segment chord check together.
+            // Otherwise, for very small void angles, pixels can be missed from the segment due to rounding errors.
+            set_pixel(sr, xc+x, yc+y, col);
+      }
+      // Now, as we move to the next pixel, update the 3 dot products to be applicable for the next point (x+1,y)
+      // To do this, we just increase each dot product by their coefficient of x:
+      dot_product_for_chord+=chord_dx_normal_vector;// only used for segment
+      dot_product_for_start_vector+=start_dx_normal_vector;
+      dot_product_for_end_vector+=end_dx_normal_vector;
+   }
+}
+
+#define PLOT_ARC 0xA0 /* Plot a circular arc */
+#define PLOT_SEGMENT 0xA8 /* Plot a segment */
+#define PLOT_SECTOR 0xB0 /* Plot a sector */
+
+static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int32_t xc, int32_t yc, int32_t xradius, int32_t yradius, int32_t start_dx, int32_t start_dy, int32_t end_dx, int32_t end_dy, uint32_t colour, uint32_t action, int32_t plot_graphop_code) {
+   // For details of the arc, sector, segment plot codes, see e.g. http://www.riscos.com/support/developer ... phics.html
+   // Original Graphics ROM sector, arc and segment 6502 routines are dissasembled here: https://tobylobster.github.io/GXR-pages/gxr/S-s16.html
+   // This code is inspired by that logic, i.e. considering all pixels in a solid circle, but only plotting those pixels on the
+   // correct side of the construction vectors; but the implementation differs probably.
+   // (This implementation by M.Fairbank, July 2025)
+   int32_t width=xradius;
+   int32_t height=yradius;
+   int32_t shear=0;
+   if (height == 0.0f) {
+      // this arc/sector/segment is just a single point
+      draw_hline(screen,xc,xc,yc,colour);
+   } else {
+
+      // work out whether the sector being filled is a MAJOR sector or a MINOR sector (i.e. whether the angle at the centre of the sector is >180 or <180)
+      // We know this is a major sector if the start line is less than 180 degrees anticlockwise of the end line.
+      // We know this is a minor sector if the start line is less than 180 degrees clockwise of the end line. (Remember, we fill this sector by
+      // sweeping anticlockwise from the start line to the end line).
+      // We can check if the start line is anticlockwise of the end line by forming their cross product, as follows:
+      int32_t cross_product=start_dx*end_dy-end_dx*start_dy;
+      uint32_t is_minor_sector=cross_product<=0;// a synonym for this would be "arc sweeps out less than 180 degrees"
+
+      // this loop copies the code and logic from draw_ellipse(...) as closely as possible.
+      float oversize=0.5;// this makes the circles a bit fatter, and avoids leaving a single pixel at the top and bottom
+      float axis_ratio = ((float)width+oversize) / ((float)height+oversize);
+      float shear_per_line = (float) (shear) / (float) height;
+      float xshear = 0.0;
+      float h_squared = ((float)height+oversize) * ((float)height+oversize);
+      // Maintain the left/right coordinates of the previous, current, and next slices
+      // to allow lines to be drawn to make sure the pixels are connected
+      int xl_prev = 0;
+      int xr_prev = 0;
+      int xl_this = 0;
+      int xr_this = 0;
+      int y;
+      // Start at -1 to allow the pipeline to fill
+      for (y = -1; y < height; y++) {
+         int y_squared_next=(y+1)*(y+1);
+         float x = axis_ratio * sqrtf(h_squared - (float)y_squared_next);
+         int xl_next = (int) (xshear - x);
+         int xr_next = (int) (xshear + x);
+         xshear += shear_per_line;
+         // Initialize the pipeline for the first slice
+         if (y == 0) {
+            xl_prev = -xr_next;
+            xr_prev = -xl_next;
+         }
+         // Draw the slice as a single horizontal line
+         if (y >= 0) {
+            // Left line runs from xl_this rightwards to MAX(xl_this, MAX(xl_prev, xl_next) - 1)
+            int xl = max(xl_this, max(xl_prev, xl_next) - 1);
+            // Right line runs from xr_this leftwards to MIN(xr_this, MIN(xr_prev, xr_next) + 1)
+            int xr = min(xr_this, min(xr_prev, xr_next) + 1);
+            if (plot_graphop_code==PLOT_SECTOR) {
+               draw_h_line_with_sector_segment_filter(screen, xc,yc,xl_this, xr_this, y, colour, action,start_dx,start_dy,end_dx,end_dy,0,is_minor_sector);
+            } else if (plot_graphop_code==PLOT_SEGMENT) {
+               draw_h_line_with_sector_segment_filter(screen, xc,yc,xl_this, xr_this, y, colour, action,start_dx,start_dy,end_dx,end_dy,1,is_minor_sector);
+            } else {
+               // This is PLOT_ARC. So we just draw the groups of pixels at the left and right of each row.
+               // However those pixels can be filtered by exactly the same logic as the sector filter, so we just
+               // reuse that method here.
+               draw_h_line_with_sector_segment_filter(screen, xc,yc,xl_this, xl, y, colour, action,start_dx,start_dy,end_dx,end_dy,0,is_minor_sector);
+               draw_h_line_with_sector_segment_filter(screen, xc,yc,xr_this, xr, y, colour, action,start_dx,start_dy,end_dx,end_dy,0,is_minor_sector);
+            }
+            if (y > 0) {
+               if (plot_graphop_code==PLOT_SECTOR) {
+                  draw_h_line_with_sector_segment_filter(screen, xc,yc,xl_this, xr_this, -y, colour, action,start_dx,start_dy,end_dx,end_dy,0,is_minor_sector);
+               } else if (plot_graphop_code==PLOT_SEGMENT) {
+                  draw_h_line_with_sector_segment_filter(screen, xc,yc,xl_this, xr_this, -y, colour, action,start_dx,start_dy,end_dx,end_dy,1,is_minor_sector);
+               } else {
+                  // This is PLOT_ARC. So we just draw the groups of pixels at the left and right of each row.
+                  // However those pixels can be filtered by exactly the same logic as the sector filter, so we just
+                  // reuse that method here.
+                  draw_h_line_with_sector_segment_filter(screen, xc,yc,-xl_this, -xl, -y, colour, action,start_dx,start_dy,end_dx,end_dy,0,is_minor_sector);
+                  draw_h_line_with_sector_segment_filter(screen, xc,yc,-xr_this, -xr, -y, colour, action,start_dx,start_dy,end_dx,end_dy,0,is_minor_sector);
+               }
+            }
+         }
+         xl_prev = xl_this;
+         xr_prev = xr_this;
+         xl_this = xl_next;
+         xr_this = xr_next;
+      }
+      // Draw the final slice
+      if (plot_graphop_code==PLOT_SEGMENT) {
+         draw_h_line_with_sector_segment_filter(screen,xc,yc, +xl_this, xr_this, +height, colour, action,start_dx,start_dy,end_dx,end_dy,1,is_minor_sector);
+         draw_h_line_with_sector_segment_filter(screen,xc,yc, -xl_this,-xr_this, -height, colour, action,start_dx,start_dy,end_dx,end_dy,1,is_minor_sector);
+      } else {
+         // This is PLOT_ARC or PLOT_SECTOR. The logic here is the same (because this is the top/bottom single row of pixels)
+         draw_h_line_with_sector_segment_filter(screen,xc,yc, +xl_this, xr_this, +height, colour, action,start_dx,start_dy,end_dx,end_dy,0,is_minor_sector);
+         draw_h_line_with_sector_segment_filter(screen,xc,yc, -xl_this,-xr_this, -height, colour, action,start_dx,start_dy,end_dx,end_dy,0,is_minor_sector);
+      }
+   }
+}
+
+void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
+   int32_t start_dx=x1-xc;//displacement to start point from centre
+   int32_t start_dy=y1-yc;//displacement to start point from centre
+   int32_t radius = calc_radius(xc, yc, x1, y1);
+   int32_t end_dx=x2-xc;//displacement to end point from centre
+   int32_t end_dy=y2-yc;//displacement to end point from centre
+   draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, start_dy, end_dx, end_dy, colour, 0, PLOT_SEGMENT);
+}
+
+void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
+   int32_t start_dx=x1-xc;//displacement to start point from centre
+   int32_t start_dy=y1-yc;//displacement to start point from centre
+   int32_t radius = calc_radius(xc, yc, x1, y1);
+   int32_t end_dx=x2-xc;//displacement to end point from centre
+   int32_t end_dy=y2-yc;//displacement to end point from centre
+   draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, start_dy, end_dx, end_dy, colour, 0, PLOT_SECTOR);
+}
+
+#else
+
 // Common to prim_fill_chord and prim_fill_sector
 static void prim_fill_interior(screen_mode_t *screen, int x, int y, plotcol_t colour) {
    fill_test_fn test_pixel;
@@ -1387,6 +1587,8 @@ void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int
    // Fill the interior
    prim_fill_interior(screen, arc_fill_x, arc_fill_y, colour);
 }
+
+#endif
 
 // Block Copy/Move
 void prim_move_copy_rectangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, int x3, int y3, int move) {
