@@ -930,7 +930,7 @@ static void vdu23_8(const uint8_t *buf) {
    }
 
 #ifdef DEBUG_VDU
-   printf("Clear %d,%d to %d,%d exclistive\r\n", x[0], y[0], x[1], y[1]);
+   printf("Clear %d,%d to %d,%d exclusive\r\n", x[0], y[0], x[1], y[1]);
 #endif
 
    // Check again if end point is before the start point
@@ -945,10 +945,6 @@ static void vdu23_8(const uint8_t *buf) {
    y[0] += t_window.top;
    y[1] += t_window.top;
 
-   // Make x[1] inclusive
-   // There is a corner cases here where x[1] is 0 which we should test
-   x[1]--;
-
    // Disable cursor to avoid artifacts
    int tmp = disable_cursors();
 
@@ -957,8 +953,9 @@ static void vdu23_8(const uint8_t *buf) {
    // Special case, both start and end on same line
    if (y[0] == y[1]) {
 
+      // Note: x[1] must be > 0 or the clear nothing check would have bailed
       window.left   = x[0];
-      window.right  = x[1];
+      window.right  = (uint8_t)(x[1] - 1); // Make x[1] inclusive
       window.top    = y[0];
       window.bottom = y[0];
       screen->clear(screen, &window, c_bg_col);
@@ -987,12 +984,15 @@ static void vdu23_8(const uint8_t *buf) {
       }
 
       // Clear partial bottom line (B above, if it exists)
-      if (x[1] < t_window.right) {
-         window.left   = t_window.left;
-         window.right  = x[1];
-         window.top    = y[1];
-         window.bottom = y[1];
-         screen->clear(screen, &window, c_bg_col);
+      if (x[1] <= t_window.right) { // <= as x[1] is exclusive
+         // Gracefully handle the corner case where x[1] (exclusive) points to the first col in the window
+         if (x[1] > t_window.left) {
+            window.left   = t_window.left;
+            window.right  = (uint8_t) (x[1] - 1); // Make x[1] inclusive
+            window.top    = y[1];
+            window.bottom = y[1];
+            screen->clear(screen, &window, c_bg_col);
+         }
          // Move end row back a line
          y[1]--;
       }
