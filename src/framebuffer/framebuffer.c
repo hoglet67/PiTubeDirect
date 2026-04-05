@@ -853,15 +853,13 @@ static void vdu23_8(const uint8_t *buf) {
 #ifdef DEBUG_VDU
    printf("%d %d %d %d %d %d\r\n", t[0], t[1], x[0], y[0], x[1], y[1]);
 #endif
-   // Cast everything to 8-bit so maths works out correctly
-   uint8_t cx     = (uint8_t) c_x_pos;
-   uint8_t cy     = (uint8_t) c_y_pos;
-   uint8_t left   = t_window.left;
-   uint8_t top    = t_window.top;
-   uint8_t right  = t_window.right;
-   uint8_t bottom = t_window.bottom;
-
-   uint8_t off_right  = (uint8_t)(t_window.right + 1);
+   // Setup reference points relative to the current text window
+   uint8_t cx     = (uint8_t) (c_x_pos - t_window.left);
+   uint8_t cy     = (uint8_t) (c_y_pos - t_window.top);
+   uint8_t left   = (uint8_t) 0;
+   uint8_t top    = (uint8_t) 0;
+   uint8_t right  = (uint8_t) (t_window.right - t_window.left + 1);
+   uint8_t bottom = (uint8_t) (t_window.bottom - t_window.top);
 
 #ifdef DEBUG_VDU
    printf("cx=%d, cy=%d, l=%d, t=%d, r=%d, b=%d\r\n", cx, cy, left, top, right, bottom);
@@ -882,7 +880,7 @@ static void vdu23_8(const uint8_t *buf) {
          break;
       case 2:
          // off top right of window
-         x[i] += off_right;
+         x[i] += right;
          y[i] += top;
          break;
       case 4:
@@ -897,7 +895,7 @@ static void vdu23_8(const uint8_t *buf) {
          break;
       case 6:
          // off right of cursor line
-         x[i] += off_right;
+         x[i] += right;
          y[i] += cy;
          break;
       case 8:
@@ -912,18 +910,19 @@ static void vdu23_8(const uint8_t *buf) {
          break;
       case 10:
          // off bottom right of window
-         x[i] += off_right;
+         x[i] += right;
          y[i] += bottom;
          break;
       }
 
-      if (x[i] < left) {
+      // Maybe easier if x[] and y[] were int8_t rather than uint8_t
+      if (x[i] >= 0x80) {
          x[i] = left;
-      } else if (x[i] > off_right) {
-         x[i] = off_right;
+      } else if (x[i] > right) {
+         x[i] = right;
       }
 
-      if (y[i] < top) {
+      if (y[i] >= 0x80) {
          y[i] = top;
       } else if (y[i] > bottom) {
          y[i] = bottom;
@@ -931,17 +930,23 @@ static void vdu23_8(const uint8_t *buf) {
    }
 
 #ifdef DEBUG_VDU
-   printf("Clear %d,%d to %d,%d inclusive\r\n", x[0], y[0], x[1], y[1]);
+   printf("Clear %d,%d to %d,%d exclistive\r\n", x[0], y[0], x[1], y[1]);
 #endif
 
    // Check again if end point is before the start point
-   if (y[1] < y[0] || (y[1] == y[0] && x[1] < x[0])) {
+   if (y[1] < y[0] || (y[1] == y[0] && x[1] <= x[0])) {
       // Nothing to clear
       return;
    }
 
+   // Make absolute
+   x[0] += t_window.left;
+   x[1] += t_window.left;
+   y[0] += t_window.top;
+   y[1] += t_window.top;
+
    // Make x[1] inclusive
-   // TODO: There are probably some corner cases if this wraps
+   // There is a corner cases here where x[1] is 0 which we should test
    x[1]--;
 
    // Disable cursor to avoid artifacts
@@ -971,9 +976,9 @@ static void vdu23_8(const uint8_t *buf) {
       // ....................
 
       // Clear partial top line (A above, if it exists)
-      if (x[0] > left) {
+      if (x[0] > t_window.left) {
          window.left   = x[0];
-         window.right  = right;
+         window.right  = t_window.right;
          window.top    = y[0];
          window.bottom = y[0];
          screen->clear(screen, &window, c_bg_col);
@@ -982,8 +987,8 @@ static void vdu23_8(const uint8_t *buf) {
       }
 
       // Clear partial bottom line (B above, if it exists)
-      if (x[1] < right) {
-         window.left   = left;
+      if (x[1] < t_window.right) {
+         window.left   = t_window.left;
          window.right  = x[1];
          window.top    = y[1];
          window.bottom = y[1];
@@ -994,8 +999,8 @@ static void vdu23_8(const uint8_t *buf) {
 
       // Clear any whole lines in between (C above, if it exists)
       if (y[1] >= y[0]) {
-         window.left   = left;
-         window.right  = right;
+         window.left   = t_window.left;
+         window.right  = t_window.right;
          window.top    = y[0];
          window.bottom = y[1];
          screen->clear(screen, &window, c_bg_col);
@@ -1252,13 +1257,13 @@ static void vdu_17(const uint8_t *buf) {
       c_bg_gcol = col;
       c_bg_col = calculate_colour(c_bg_gcol, c_bg_tint);
 #ifdef DEBUG_VDU
-      printf("bg = "PRIx32"\r\n", c_bg_col);
+      printf("bg = %"PRIx32"\r\n", c_bg_col);
 #endif
    } else {
       c_fg_gcol = col;             ;
       c_fg_col = calculate_colour(c_fg_gcol, c_fg_tint);
 #ifdef DEBUG_VDU
-      printf("fg ="PRIx32"\r\n", c_fg_col);
+      printf("fg = %"PRIx32"\r\n", c_fg_col);
 #endif
    }
 }
