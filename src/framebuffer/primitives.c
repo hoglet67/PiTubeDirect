@@ -1409,7 +1409,7 @@ static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int32_t xc
          if (xInMinorSector && (correct_side_of_chord || is_segment==0))
             // For a segment, with a small angle like this (minor sector) we are using the sector check AND the segment chord check together.
             // otherwise, for very small angle segments, pixels can leak out of the sector due to rounding errors.
-            set_pixel(sr, xc+x, yc+y, col);
+            set_pixel(sr, xc+x, yc-y, col);
       } else {
          // Our sector's angle is > 180 degrees
          // Here we are drawing a MAJOR sector or segment. Let's call the minor sector which we don't plot as the "void".
@@ -1421,7 +1421,7 @@ static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int32_t xc
             // okay, so this must be part of the Major sector... So we plot it...
             // For a major segment, with a very small void angle, we are using the sector check OR the segment chord check together.
             // Otherwise, for very small void angles, pixels can be missed from the segment due to rounding errors.
-            set_pixel(sr, xc+x, yc+y, col);
+            set_pixel(sr, xc+x, yc-y, col);
       }
       // Now, as we move to the next pixel, update the 3 dot products to be applicable for the next point (x+1,y)
       // To do this, we just increase each dot product by their coefficient of x:
@@ -1538,18 +1538,19 @@ void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
    int32_t start_dx=x1-xc;//displacement to start point from centre
    int32_t start_dy=y1-yc;//displacement to start point from centre
    int32_t radius = calc_radius(xc, yc, x1, y1);
-   int32_t end_dx=x2-xc;//displacement to end point from centre
-   int32_t end_dy=y2-yc;//displacement to end point from centre
-   draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, start_dy, end_dx, end_dy, colour, 0, PLOT_SEGMENT);
+   int32_t radius2 = calc_radius(xc, yc, x2, y2);
+   int32_t end_dx=(x2-xc) * radius / radius2; //displacement to end point from centre
+   int32_t end_dy=(y2-yc) * radius / radius2; //displacement to end point from centre
+   draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_SEGMENT);
 }
 
 void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
-   int32_t start_dx=x2-xc;//displacement to start point from centre
-   int32_t start_dy=y2-yc;//displacement to start point from centre
+   int32_t start_dx=x1-xc;//displacement to start point from centre
+   int32_t start_dy=y1-yc;//displacement to start point from centre
    int32_t radius = calc_radius(xc, yc, x1, y1);
-   int32_t end_dx=x1-xc;//displacement to end point from centre
-   int32_t end_dy=y1-yc;//displacement to end point from centre
-   draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, start_dy, end_dx, end_dy, colour, 0, PLOT_SECTOR);
+   int32_t end_dx=x2-xc;//displacement to end point from centre
+   int32_t end_dy=y2-yc;//displacement to end point from centre
+   draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_SECTOR);
 }
 
 #else
