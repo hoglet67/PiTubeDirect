@@ -1056,9 +1056,10 @@ void default_scroll_screen(screen_mode_t *screen, const t_clip_window_t *text_wi
    rectangle_t r;
    font_t *font = screen->font;
    int font_height = font->get_overall_h(font);
-   int blank;
+   int font_width  = font->get_overall_w(font);
    // Convert text window to screen graphics coordinates (0,0 = bottom left)
    to_rectangle(screen, text_window, &r);
+   rectangle_t blank = r;
    if (dir == SCROLL_UP && is_full_screen(screen, &r)) {
       // Scroll the screen upwards one row, and clear the bottom text line to the background colour
       if (screen->log2bpp == 3) {
@@ -1068,7 +1069,7 @@ void default_scroll_screen(screen_mode_t *screen, const t_clip_window_t *text_wi
       }
       _fast_scroll(fb, fb + font_height * screen->pitch, (screen->height - font_height) * screen->pitch);
       // Now blank the bottom line
-      blank = r.y1;
+      blank.y2 = r.y1 + (font_height - 1);
    } else {
       switch (dir) {
       case SCROLL_UP:
@@ -1080,7 +1081,7 @@ void default_scroll_screen(screen_mode_t *screen, const t_clip_window_t *text_wi
             }
          }
          // Now blank the bottom line
-         blank = r.y1;
+         blank.y2 = r.y1 + (font_height - 1);
          break;
       case SCROLL_DOWN:
          // Scroll downwards, working bottom to top
@@ -1091,18 +1092,37 @@ void default_scroll_screen(screen_mode_t *screen, const t_clip_window_t *text_wi
             }
          }
          // Now blank the top line
-         blank = r.y2 - (font_height - 1);
+         blank.y1 = r.y2 - (font_height - 1);
          break;
-      default:
-         // TODO - Left and Right not implemented
-         return;
+      case SCROLL_RIGHT:
+         // Scroll rightwards, working right to left
+         for (int x = r.x2 ; x >= r.x1 + font_width; x--) {
+            int z = x - font_width;
+            for (int y = r.y1; y <= r.y2; y++) {
+               screen->set_pixel(screen, x, y, screen->get_pixel(screen, z, y));
+            }
+         }
+         // Now blank the left line
+         blank.x2 = r.x1 + (font_width - 1);
+         break;
+      case SCROLL_LEFT:
+         // Scroll leftwards, working left to right
+         for (int x = r.x1 ; x <= r.x2 - font_width; x++) {
+            int z = x + font_width;
+            for (int y = r.y1; y <= r.y2; y++) {
+               screen->set_pixel(screen, x, y, screen->get_pixel(screen, z, y));
+            }
+         }
+         // Now blank the right line
+         blank.x1 = r.x2 - (font_width - 1);
+         break;
       }
    }
-   // Blank the top/bottom line
-   for (int y = blank; y <  blank + font_height; y++) {
+   // Blank the top/bottom line or left/right column
+   for (int y = blank.y1; y <= blank.y2; y++) {
       // Special case the black lines in BBC Gap Modes
       pixel_t col = ( (screen->mode_flags & F_BBC_GAP) && (y % 10 < 2) ) ? BBC_GAP_COL : bg_col;
-      for (int x = r.x1; x <= r.x2; x++) {
+      for (int x = blank.x1; x <= blank.x2; x++) {
          screen->set_pixel(screen, x, y, col);
       }
    }

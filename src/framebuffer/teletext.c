@@ -74,6 +74,10 @@ static void tt_write_character(screen_mode_t *screen, int c, int col, int row, p
 static int  tt_read_character (screen_mode_t *screen, int col, int row, pixel_t bg_col);
 static void tt_unknown_vdu    (screen_mode_t *screen, const uint8_t *buf);
 
+// forward references
+static void re_render_row(screen_mode_t *screen, int col, int row);
+static void tt_reset_line_state(int row);
+
 // Screen Mode Definition
 static screen_mode_t teletext_screen_modes[] = {
    // Standard 40x25 teletext display
@@ -274,8 +278,6 @@ static void tt_clear(const screen_mode_t *screen, const t_clip_window_t *text_wi
 }
 
 static void tt_scroll(screen_mode_t *screen, const t_clip_window_t *text_window, pixel_t bg_col, scroll_dir_t dir) {
-   // Call the default implementation to scroll the framebuffer
-   default_scroll_screen(screen, text_window, bg_col, dir);
    // Scroll the backing store
    switch (dir) {
    case SCROLL_UP:
@@ -298,12 +300,34 @@ static void tt_scroll(screen_mode_t *screen, const t_clip_window_t *text_window,
          tt.mode7screen[text_window->top][col] = TT_SPACE;
       }
       break;
-   default:
-      // TODO - Left and Right not implemented
+   case SCROLL_RIGHT:
+      for (int col = text_window->right; col > text_window->left; col--) {
+            for (int row = text_window->top; row <= text_window->bottom; row++) {
+               tt.mode7screen[row][col] = tt.mode7screen[row][col - 1];
+            }
+      }
+      for (int row = text_window->top; row <= text_window->bottom; row++) {
+         tt.mode7screen[row][text_window->left] = TT_SPACE;
+      }
+      break;
+   case SCROLL_LEFT:
+      for (int col = text_window->left; col < text_window->right; col++) {
+            for (int row = text_window->top; row <= text_window->bottom; row++) {
+               tt.mode7screen[row][col] = tt.mode7screen[row][col + 1];
+            }
+      }
+      for (int row = text_window->top; row <= text_window->bottom; row++) {
+         tt.mode7screen[row][text_window->right] = TT_SPACE;
+      }
       break;
    }
    // Recalculate the double height counts
    update_double_height_counts();
+   // Re-render all rows (as changes to double height can affect rows outside the text window)
+   for (int row = 0; row < tt.rows; row++) {
+      tt_reset_line_state(row);
+      re_render_row(screen, 0, row);
+   }
 }
 
 // cppcheck-suppress constParameterCallback

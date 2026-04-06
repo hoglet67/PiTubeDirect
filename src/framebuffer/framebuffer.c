@@ -841,7 +841,44 @@ static void vdu23_6(const uint8_t *buf) {
 
 static void vdu23_7(const uint8_t *buf) {
    // VDU 23,7,extent,direction,movement,0,0,0,0,0 (Scroll rectangle)
-   // TODO
+
+   // Extent
+   t_clip_window_t window;
+   switch (buf[1]) {
+   case 0:
+      window = t_window;
+      break;
+   case 1:
+      window.left = 0;
+      window.top = 0;
+      window.right = (uint8_t)(text_width - 1);
+      window.bottom = (uint8_t)(text_height - 1);
+      break;
+   default: return;
+   }
+
+   // Direction
+   scroll_dir_t dir;
+   switch (buf[2]) {
+   case 0: dir = SCROLL_RIGHT; break;
+   case 1: dir = SCROLL_LEFT ; break;
+   case 2: dir = SCROLL_DOWN ; break;
+   case 3: dir = SCROLL_UP   ; break;
+   case 4: dir = SCROLL_RIGHT; break;
+   case 5: dir = SCROLL_LEFT ; break;
+   case 6: dir = SCROLL_DOWN ; break;
+   case 7: dir = SCROLL_UP   ; break;
+   default: return;
+   }
+
+   // Movement: TODO
+
+   // Scroll
+   int tmp = disable_cursors();
+   screen->scroll(screen, &window, c_bg_col, dir);
+   if (tmp) {
+      enable_cursors();
+   }
 }
 
 static void vdu23_8(const uint8_t *buf) {
