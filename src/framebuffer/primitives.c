@@ -1243,12 +1243,12 @@ void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, i
 
 #ifdef USE_NEW_SECTOR_SEGMENT_FILL
 
-static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int32_t xc, int32_t yc, int32_t x1, int32_t x2, int32_t y, uint32_t col, uint32_t action,int32_t start_dx,int32_t start_dy, int32_t end_dx, int32_t end_dy, uint32_t is_segment, uint32_t is_minor_sector) {
+static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int xc, int yc, int x1, int x2, int y, uint32_t col, uint32_t action,int start_dx,int start_dy, int end_dx, int end_dy, uint32_t is_segment, uint32_t is_minor_sector) {
    // This function draws a horizontal line from x1+xc to x2+xc, at height y+yc; but only plots those pixels
    // which are in the sector defined by vectors (start_dx,start_dy) and (end_dx, end_dy), relative to circle centre (cx,cy)
    // If is_segment is true, then it also checks the side of the segment's chord each pixel is on.
    if (x1>x2) {
-      int32_t temp=x2;
+      int temp=x2;
       x2=x1;
       x1=temp;
    }
@@ -1260,20 +1260,20 @@ static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int32_t xc
    // if (x1+xc < 0) x1 = -xc;
    // if (x2+xc >= ds.vscrwidth) x2 = ds.vscrwidth-1-xc;
 
-   int32_t start_dx_normal_vector=start_dy;// rotates start vector 90 degrees
-   int32_t start_dy_normal_vector=-start_dx;
-   int32_t end_dx_normal_vector=-end_dy;// rotates end vector 90 degrees in opposite direction
-   int32_t end_dy_normal_vector=end_dx;
+   int start_dx_normal_vector=start_dy;// rotates start vector 90 degrees
+   int start_dy_normal_vector=-start_dx;
+   int end_dx_normal_vector=-end_dy;// rotates end vector 90 degrees in opposite direction
+   int end_dy_normal_vector=end_dx;
    // note that both normal vectors now point inwards towards the region that needs filling.
 
    // calculate segment's chord vector (only used if is_segment!=0):
-   int32_t chord_dx=end_dx-start_dx;
-   int32_t chord_dy=end_dy-start_dy;
+   int chord_dx=end_dx-start_dx;
+   int chord_dy=end_dy-start_dy;
    // Calculate the "normal" to the chord vector, i.e. rotate chord vector 90 degrees
-   int32_t chord_dx_normal_vector=-chord_dy;
-   int32_t chord_dy_normal_vector=chord_dx;
+   int chord_dx_normal_vector=-chord_dy;
+   int chord_dy_normal_vector=chord_dx;
 
-   int32_t x=x1;
+   int x=x1;
    //The following 3 dot products indicate which side of the vectors/chord that the point (x,y) is at. These dot products
    // are positive if (x,y) is on the side indicated by the direction of the corresponding normal vector.
    int dot_product_for_chord=(x-start_dx)*chord_dx_normal_vector+(y-start_dy)*chord_dy_normal_vector;// only used for segment
@@ -1283,15 +1283,15 @@ static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int32_t xc
    for (x=x1;x<=x2;x++) {
       // the following 3 booleans say which side of the vectors/chord that the point (x,y) is at. These are true if (x,y) is on
       // the side indicated by the corresponding normal vector.
-      int32_t correct_side_of_chord=dot_product_for_chord>=0;// only used for segment
-      int32_t correct_side_of_start_vector=dot_product_for_start_vector>=0;
-      int32_t correct_side_of_end_vector=dot_product_for_end_vector>=0;
+      int correct_side_of_chord=dot_product_for_chord>=0;// only used for segment
+      int correct_side_of_start_vector=dot_product_for_start_vector>=0;
+      int correct_side_of_end_vector=dot_product_for_end_vector>=0;
       if (is_minor_sector) {
          // Our sector's angle is less than 180 degrees.
          // So this means we only plot a single minor sector. We just need to see if we are inside that minor sector,
          // i.e. we just need to check our point is on the correct side of BOTH normal vectors.
          // Both normal vectors point inwards towards the minor sector which we want to fill.
-         int32_t xInMinorSector=correct_side_of_start_vector && correct_side_of_end_vector;
+         int xInMinorSector=correct_side_of_start_vector && correct_side_of_end_vector;
          if (xInMinorSector && (correct_side_of_chord || is_segment==0))
             // For a segment, with a small angle like this (minor sector) we are using the sector check AND the segment chord check together.
             // otherwise, for very small angle segments, pixels can leak out of the sector due to rounding errors.
@@ -1302,7 +1302,7 @@ static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int32_t xc
          // The logic to plot the major sector is to consider the opposite points to those we want. Those opposite points, form a minor-sector "void",
          // Checking for that minor sector is simple. The void is backwards from both normal vectors.
          // Note that NOT(Void)=not(wrong side of both normal vectors) = correct side of EITHER of the two vectors. So we use an OR condition in the next line:
-         int32_t xInMajorSector=correct_side_of_start_vector || correct_side_of_end_vector;
+         int xInMajorSector=correct_side_of_start_vector || correct_side_of_end_vector;
          if (xInMajorSector || (correct_side_of_chord && is_segment==1))
             // okay, so this must be part of the Major sector... So we plot it...
             // For a major segment, with a very small void angle, we are using the sector check OR the segment chord check together.
@@ -1325,15 +1325,15 @@ static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int32_t xc
 #define MIN(x1,x2) ((x1) > (x2) ? (x2):(x1))
 #define MAX(x1,x2) ((x1) > (x2) ? (x1):(x2))
 
-static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int32_t xc, int32_t yc, int32_t xradius, int32_t yradius, int32_t start_dx, int32_t start_dy, int32_t end_dx, int32_t end_dy, uint32_t colour, uint32_t action, int32_t plot_graphop_code) {
+static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int xc, int yc, int xradius, int yradius, int start_dx, int start_dy, int end_dx, int end_dy, uint32_t colour, uint32_t action, int plot_graphop_code) {
    // For details of the arc, sector, segment plot codes, see e.g. http://www.riscos.com/support/developer ... phics.html
    // Original Graphics ROM sector, arc and segment 6502 routines are dissasembled here: https://tobylobster.github.io/GXR-pages/gxr/S-s16.html
    // This code is inspired by that logic, i.e. considering all pixels in a solid circle, but only plotting those pixels on the
    // correct side of the construction vectors; but the implementation differs probably.
    // (This implementation by M.Fairbank, July 2025)
-   int32_t width=xradius;
-   int32_t height=yradius;
-   int32_t shear=0;
+   int width=xradius;
+   int height=yradius;
+   int shear=0;
    if (height == 0) {
       // this arc/sector/segment is just a single point
       draw_hline(screen,xc,xc,yc,colour);
@@ -1344,7 +1344,7 @@ static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int32_t xc, int
       // We know this is a minor sector if the start line is less than 180 degrees clockwise of the end line. (Remember, we fill this sector by
       // sweeping anticlockwise from the start line to the end line).
       // We can check if the start line is anticlockwise of the end line by forming their cross product, as follows:
-      int32_t cross_product=start_dx*end_dy-end_dx*start_dy;
+      int cross_product=start_dx*end_dy-end_dx*start_dy;
       uint32_t is_minor_sector=cross_product<=0;// a synonym for this would be "arc sweeps out less than 180 degrees"
 
       // this loop copies the code and logic from draw_ellipse(...) as closely as possible.
@@ -1421,10 +1421,10 @@ static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int32_t xc, int
 }
 
 void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
-   int32_t start_dx = x1 - xc; //displacement to start point from centre
-   int32_t start_dy = y1 - yc; //displacement to start point from centre
-   int32_t end_dx   = x2 - xc; //displacement to end point from centre
-   int32_t end_dy   = y2 - yc; //displacement to end point from centre
+   int start_dx = x1 - xc; //displacement to start point from centre
+   int start_dy = y1 - yc; //displacement to start point from centre
+   int end_dx   = x2 - xc; //displacement to end point from centre
+   int end_dy   = y2 - yc; //displacement to end point from centre
    // Draw the circle
    if (screen->xeigfactor == screen->yeigfactor) {
       // Square pixels
@@ -1439,14 +1439,14 @@ void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2
    }
 }
 void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
-   int32_t start_dx = x1 - xc; //displacement to start point from centre
-   int32_t start_dy = y1 - yc; //displacement to start point from centre
-   int32_t end_dx   = x2 - xc; //displacement to end point from centre
-   int32_t end_dy   = y2 - yc; //displacement to end point from centre
-   int32_t width;
-   int32_t height;
-   int32_t radius;
-   int32_t radius2;
+   int start_dx = x1 - xc; //displacement to start point from centre
+   int start_dy = y1 - yc; //displacement to start point from centre
+   int end_dx   = x2 - xc; //displacement to end point from centre
+   int end_dy   = y2 - yc; //displacement to end point from centre
+   int width;
+   int height;
+   int radius;
+   int radius2;
    if (screen->xeigfactor == screen->yeigfactor) {
       // Square pixels
       radius  = calc_radius(xc, yc, x1, y1);
@@ -1461,17 +1461,17 @@ void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
       height  = radius >> screen->yeigfactor;
    }
    // Project end onto perimeter
-   end_dx = (int32_t)((float) end_dx * (float) radius / (float)radius2);
-   end_dy = (int32_t)((float) end_dy * (float) radius / (float)radius2);
+   end_dx = (int)((float) end_dx * (float) radius / (float)radius2);
+   end_dy = (int)((float) end_dy * (float) radius / (float)radius2);
    // Draw filled segment
    draw_arc_or_sector_or_segment(screen, xc, yc, width, height, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_SEGMENT);
 }
 
 void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
-   int32_t start_dx = x1 - xc; //displacement to start point from centre
-   int32_t start_dy = y1 - yc; //displacement to start point from centre
-   int32_t end_dx   = x2 - xc; //displacement to end point from centre
-   int32_t end_dy   = y2 - yc; //displacement to end point from centre
+   int start_dx = x1 - xc; //displacement to start point from centre
+   int start_dy = y1 - yc; //displacement to start point from centre
+   int end_dx   = x2 - xc; //displacement to end point from centre
+   int end_dy   = y2 - yc; //displacement to end point from centre
    if (screen->xeigfactor == screen->yeigfactor) {
       // Square pixels
       int radius = calc_radius(xc, yc, x1, y1);
