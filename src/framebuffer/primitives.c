@@ -114,8 +114,12 @@ static inline int min(int a, int b) {
    return (a < b) ? a : b;
 }
 
+static float calc_radius_float(int x1, int y1, int x2, int y2) {
+   return sqrtf((float)((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)));
+}
+
 static int calc_radius(int x1, int y1, int x2, int y2) {
-   return (int)(sqrtf((float)((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1))) + 0.5F);
+   return (int)(calc_radius_float(x1, y1, x2, y2) + 0.5F);
 }
 
 static pixel_t get_pixel(screen_mode_t *screen, int x, int y) {
@@ -1445,24 +1449,24 @@ void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int 
    int end_dy   = y2 - yc; //displacement to end point from centre
    int width;
    int height;
-   int radius;
-   int radius2;
+   float radius;
+   float radius2;
    if (screen->xeigfactor == screen->yeigfactor) {
       // Square pixels
-      radius  = calc_radius(xc, yc, x1, y1);
-      radius2 = calc_radius(xc, yc, x2, y2);
-      width   = radius;
-      height  = radius;
+      radius  = calc_radius_float(xc, yc, x1, y1);
+      radius2 = calc_radius_float(xc, yc, x2, y2);
+      width   = (int) roundf(radius);
+      height  = (int) roundf(radius);
    } else {
       // Rectangular pixels
-      radius  = calc_radius(xc << screen->xeigfactor, yc << screen->yeigfactor, x1 << screen->xeigfactor, y1 << screen->yeigfactor);
-      radius2 = calc_radius(xc << screen->xeigfactor, yc << screen->yeigfactor, x2 << screen->xeigfactor, y2 << screen->yeigfactor);
-      width   = radius >> screen->xeigfactor;
-      height  = radius >> screen->yeigfactor;
+      radius  = calc_radius_float(xc << screen->xeigfactor, yc << screen->yeigfactor, x1 << screen->xeigfactor, y1 << screen->yeigfactor);
+      radius2 = calc_radius_float(xc << screen->xeigfactor, yc << screen->yeigfactor, x2 << screen->xeigfactor, y2 << screen->yeigfactor);
+      width   = (int) roundf(radius / (float)(1 << screen->xeigfactor));
+      height  = (int) roundf(radius / (float)(1 << screen->yeigfactor));
    }
    // Project end onto perimeter
-   end_dx = (int)((float) end_dx * (float) radius / (float)radius2);
-   end_dy = (int)((float) end_dy * (float) radius / (float)radius2);
+   end_dx = (int)roundf(((float) end_dx) * radius / radius2);
+   end_dy = (int)roundf(((float) end_dy) * radius / radius2);
    // Draw filled segment
    draw_arc_or_sector_or_segment(screen, xc, yc, width, height, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_SEGMENT);
 }
