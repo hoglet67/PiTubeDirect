@@ -83,10 +83,12 @@ typedef enum {
    Q_ALL
 } quadrant_t;
 
+#ifndef USE_NEW_SECTOR_SEGMENT_FILL
 static int16_t arc_end_x;
 static int16_t arc_end_y;
 static int16_t arc_fill_x;
 static int16_t arc_fill_y;
+#endif
 
 #define NUM_SPRITES 256
 
@@ -232,6 +234,7 @@ static void fill_top_flat_triangle(screen_mode_t *screen, int x1, int y1, int x2
    }
 }
 
+#ifndef USE_NEW_SECTOR_SEGMENT_FILL
 // Rodders: Arc drawing routines, used by chord and sector fills
 static unsigned int arc_quadrant(int x, int y) {
    if (x >= 0) {
@@ -336,6 +339,7 @@ static int arc_point(unsigned int q, quadrant_t state, int x, int y, int xs, int
    }
    return FALSE;
 }
+#endif
 
 static void draw_circle(screen_mode_t *screen, int xc, int yc, int r, plotcol_t colour) {
    int x = 0;
@@ -1236,124 +1240,6 @@ void prim_fill_triangle(screen_mode_t *screen, int x1, int y1, int x2, int y2, i
    }
 }
 
-// Rodders: Draw arc using modified Bresenham algorithm
-// Finds start and end quadrants and masks plotting of points
-
-// TODO: Update this to work with non-square pixels
-
-void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
-   // Draw arc using modified Bresenham algorithm
-   // Finds start and end quadrants and masks plotting of points
-   int radius = calc_radius(xc, yc, x1, y1);
-   // Don't use calc_radius for r2 as this rounds up and can lead to gaps and leakage
-   int r2 = (int)sqrt((x2-xc)*(x2-xc) + (y2-yc)*(y2-yc));
-
-   // Calc end point
-   int x3 = xc + (x2 - xc) * radius / r2;
-   int y3 = yc + (y2 - yc) * radius / r2;
-
-   // Set up quadrants
-   unsigned int qstart = arc_quadrant(x1 - xc, y1 - yc);
-   unsigned int qend = arc_quadrant(x3 - xc, y3 - yc);
-   quadrant_t q[4] = {Q_NONE, Q_NONE, Q_NONE, Q_NONE};
-   q[qstart] = (qstart == qend) ? Q_BOTH : Q_START;
-   if (qstart != qend || (y1 >= yc && x1 < x3) || (y1 < yc && x1 > x3)) {
-      for (unsigned int i = qstart + 1; i < qstart + 4; i++) {
-         unsigned int j = i % 4;
-         if (j == qend) {
-            q[j] = Q_END;
-            break;
-         } else {
-            q[j] = Q_ALL;
-         }
-      }
-   }
-
-   int x = 0;
-   int y = radius;
-   int d = 1 - radius;
-
-   // Do compass points
-   if (arc_point(0, q[0], xc, yc + y, x1, y1, x3, y3))
-      set_pixel(screen, xc, yc + y, colour);
-   if (arc_point(1, q[1], xc - y, yc, x1, y1, x3, y3))
-      set_pixel(screen, xc - y, yc, colour);
-   if (arc_point(2, q[2], xc, yc - y, x1, y1, x3, y3))
-      set_pixel(screen, xc, yc - y, colour);
-   if (arc_point(3, q[3], xc + y, yc, x1, y1, x3, y3))
-      set_pixel(screen, xc + y, yc, colour);
-
-   while(x < y) {
-      if (d < 0) {
-         d = d + 2 * x + 3;
-         x += 1;
-      } else {
-         d = d + 2 * (x - y) + 5;
-         x += 1;
-         y -= 1;
-      }
-      if (arc_point(0, q[0], xc + x, yc + y, x1, y1, x3, y3)) {
-         set_pixel(screen, xc + x, yc + y, colour);
-      }
-      if (arc_point(3, q[3], xc + x, yc - y, x1, y1, x3, y3)) {
-         set_pixel(screen, xc + x, yc - y, colour);
-      }
-      if (arc_point(1, q[1], xc - x, yc + y, x1, y1, x3, y3)) {
-         set_pixel(screen, xc - x, yc + y, colour);
-      }
-      if (arc_point(2, q[2], xc - x, yc - y, x1, y1, x3, y3)) {
-         set_pixel(screen, xc - x, yc - y, colour);
-      }
-      if (arc_point(0, q[0], xc + y, yc + x, x1, y1, x3, y3)) {
-         set_pixel(screen, xc + y, yc + x, colour);
-      }
-      if (arc_point(3, q[3], xc + y, yc - x, x1, y1, x3, y3)) {
-         set_pixel(screen, xc + y, yc - x, colour);
-      }
-      if (arc_point(1, q[1], xc - y, yc + x, x1, y1, x3, y3)) {
-         set_pixel(screen, xc - y, yc + x, colour);
-      }
-      if (arc_point(2, q[2], xc - y, yc - x, x1, y1, x3, y3)) {
-         set_pixel(screen, xc - y, yc - x, colour);
-      }
-   }
-   // Save the screen coordinates of the arc endpoint, for sector/chord drawing
-   // (but don't reuse the graphics cursor for this purpose)
-   arc_end_x = (int16_t)x3;
-   arc_end_y = (int16_t)y3;
-
-   // Find chord centre for flood fill
-   int xf = (x1 + x3) / 2;
-   int yf = (y1 + y3) / 2;
-
-   // Make xf,yf relative to the centre
-   xf -= xc;
-   yf -= yc;
-
-   // If chord passes through origin use alternative centre
-   if (abs(xf) < 5 && abs(yf) < 5) {
-      xf = -(y1 - yc) / 2;
-      yf =  (x1 - xc) / 2;
-   }
-   unsigned int qf = arc_quadrant(xf, yf);
-   int rf = calc_radius(0, 0, xf, yf);
-   if (rf < 5) rf = radius / 2;
-   xf = (xf + xf * radius / rf) / 2;
-   yf = (yf + yf * radius / rf) / 2;
-
-   // Invert if the point would not be displayed
-   if (!arc_point(qf, q[qf], xc + xf, yc + yf, x1, y1, x3, y3)) {
-      xf = - xf;
-      yf = - yf;
-   }
-
-   // Make xf,yf absolute again
-   xf += xc;
-   yf += yc;
-
-   arc_fill_x = (int16_t)xf;
-   arc_fill_y = (int16_t)yf;
-}
 
 #ifdef USE_NEW_SECTOR_SEGMENT_FILL
 
@@ -1534,26 +1420,191 @@ static void draw_arc_or_sector_or_segment(screen_mode_t *screen, int32_t xc, int
    }
 }
 
+void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
+   int32_t start_dx = x1 - xc; //displacement to start point from centre
+   int32_t start_dy = y1 - yc; //displacement to start point from centre
+   int32_t end_dx   = x2 - xc; //displacement to end point from centre
+   int32_t end_dy   = y2 - yc; //displacement to end point from centre
+   // Draw the circle
+   if (screen->xeigfactor == screen->yeigfactor) {
+      // Square pixels
+      int r = calc_radius(xc, yc, x1, y1);
+      draw_arc_or_sector_or_segment(screen, xc, yc, r, r, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_ARC);
+   } else {
+      // Rectangular pixels
+      int r = calc_radius(xc << screen->xeigfactor, yc << screen->yeigfactor, x1 << screen->xeigfactor, y1 << screen->yeigfactor);
+      int width  = r >> screen->xeigfactor;
+      int height = r >> screen->yeigfactor;
+      draw_arc_or_sector_or_segment(screen, xc, yc, width, height, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_ARC);
+   }
+}
 void prim_fill_chord(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
-   int32_t start_dx=x1-xc;//displacement to start point from centre
-   int32_t start_dy=y1-yc;//displacement to start point from centre
-   int32_t radius = calc_radius(xc, yc, x1, y1);
-   int32_t radius2 = calc_radius(xc, yc, x2, y2);
-   int32_t end_dx=(x2-xc) * radius / radius2; //displacement to end point from centre
-   int32_t end_dy=(y2-yc) * radius / radius2; //displacement to end point from centre
-   draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_SEGMENT);
+   int32_t start_dx = x1 - xc; //displacement to start point from centre
+   int32_t start_dy = y1 - yc; //displacement to start point from centre
+   int32_t end_dx   = x2 - xc; //displacement to end point from centre
+   int32_t end_dy   = y2 - yc; //displacement to end point from centre
+   int32_t width;
+   int32_t height;
+   int32_t radius;
+   int32_t radius2;
+   if (screen->xeigfactor == screen->yeigfactor) {
+      // Square pixels
+      radius  = calc_radius(xc, yc, x1, y1);
+      radius2 = calc_radius(xc, yc, x2, y2);
+      width   = radius;
+      height  = radius;
+   } else {
+      // Rectangular pixels
+      radius  = calc_radius(xc << screen->xeigfactor, yc << screen->yeigfactor, x1 << screen->xeigfactor, y1 << screen->yeigfactor);
+      radius2 = calc_radius(xc << screen->xeigfactor, yc << screen->yeigfactor, x2 << screen->xeigfactor, y2 << screen->yeigfactor);
+      width   = radius >> screen->xeigfactor;
+      height  = radius >> screen->yeigfactor;
+   }
+   // Project end onto perimeter
+   end_dx = (int32_t)((float) end_dx * (float) radius / (float)radius2);
+   end_dy = (int32_t)((float) end_dy * (float) radius / (float)radius2);
+   // Draw filled segment
+   draw_arc_or_sector_or_segment(screen, xc, yc, width, height, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_SEGMENT);
 }
 
 void prim_fill_sector(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
-   int32_t start_dx=x1-xc;//displacement to start point from centre
-   int32_t start_dy=y1-yc;//displacement to start point from centre
-   int32_t radius = calc_radius(xc, yc, x1, y1);
-   int32_t end_dx=x2-xc;//displacement to end point from centre
-   int32_t end_dy=y2-yc;//displacement to end point from centre
-   draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_SECTOR);
+   int32_t start_dx = x1 - xc; //displacement to start point from centre
+   int32_t start_dy = y1 - yc; //displacement to start point from centre
+   int32_t end_dx   = x2 - xc; //displacement to end point from centre
+   int32_t end_dy   = y2 - yc; //displacement to end point from centre
+   if (screen->xeigfactor == screen->yeigfactor) {
+      // Square pixels
+      int radius = calc_radius(xc, yc, x1, y1);
+      draw_arc_or_sector_or_segment(screen, xc, yc, radius, radius, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_SECTOR);
+   } else {
+      // Rectangular pixels
+      int radius = calc_radius(xc << screen->xeigfactor, yc << screen->yeigfactor, x1 << screen->xeigfactor, y1 << screen->yeigfactor);
+      int width  = radius >> screen->xeigfactor;
+      int height = radius >> screen->yeigfactor;
+      draw_arc_or_sector_or_segment(screen, xc, yc, width, height, start_dx, -start_dy, end_dx, -end_dy, colour, 0, PLOT_SECTOR);
+   }
 }
 
 #else
+
+// Rodders: Draw arc using modified Bresenham algorithm
+// Finds start and end quadrants and masks plotting of points
+
+// TODO: Update this to work with non-square pixels
+
+void prim_draw_arc(screen_mode_t *screen, int xc, int yc, int x1, int y1, int x2, int y2, plotcol_t colour) {
+   // Draw arc using modified Bresenham algorithm
+   // Finds start and end quadrants and masks plotting of points
+   int radius = calc_radius(xc, yc, x1, y1);
+   // Don't use calc_radius for r2 as this rounds up and can lead to gaps and leakage
+   int r2 = (int)sqrt((x2-xc)*(x2-xc) + (y2-yc)*(y2-yc));
+
+   // Calc end point
+   int x3 = xc + (x2 - xc) * radius / r2;
+   int y3 = yc + (y2 - yc) * radius / r2;
+
+   // Set up quadrants
+   unsigned int qstart = arc_quadrant(x1 - xc, y1 - yc);
+   unsigned int qend = arc_quadrant(x3 - xc, y3 - yc);
+   quadrant_t q[4] = {Q_NONE, Q_NONE, Q_NONE, Q_NONE};
+   q[qstart] = (qstart == qend) ? Q_BOTH : Q_START;
+   if (qstart != qend || (y1 >= yc && x1 < x3) || (y1 < yc && x1 > x3)) {
+      for (unsigned int i = qstart + 1; i < qstart + 4; i++) {
+         unsigned int j = i % 4;
+         if (j == qend) {
+            q[j] = Q_END;
+            break;
+         } else {
+            q[j] = Q_ALL;
+         }
+      }
+   }
+
+   int x = 0;
+   int y = radius;
+   int d = 1 - radius;
+
+   // Do compass points
+   if (arc_point(0, q[0], xc, yc + y, x1, y1, x3, y3))
+      set_pixel(screen, xc, yc + y, colour);
+   if (arc_point(1, q[1], xc - y, yc, x1, y1, x3, y3))
+      set_pixel(screen, xc - y, yc, colour);
+   if (arc_point(2, q[2], xc, yc - y, x1, y1, x3, y3))
+      set_pixel(screen, xc, yc - y, colour);
+   if (arc_point(3, q[3], xc + y, yc, x1, y1, x3, y3))
+      set_pixel(screen, xc + y, yc, colour);
+
+   while(x < y) {
+      if (d < 0) {
+         d = d + 2 * x + 3;
+         x += 1;
+      } else {
+         d = d + 2 * (x - y) + 5;
+         x += 1;
+         y -= 1;
+      }
+      if (arc_point(0, q[0], xc + x, yc + y, x1, y1, x3, y3)) {
+         set_pixel(screen, xc + x, yc + y, colour);
+      }
+      if (arc_point(3, q[3], xc + x, yc - y, x1, y1, x3, y3)) {
+         set_pixel(screen, xc + x, yc - y, colour);
+      }
+      if (arc_point(1, q[1], xc - x, yc + y, x1, y1, x3, y3)) {
+         set_pixel(screen, xc - x, yc + y, colour);
+      }
+      if (arc_point(2, q[2], xc - x, yc - y, x1, y1, x3, y3)) {
+         set_pixel(screen, xc - x, yc - y, colour);
+      }
+      if (arc_point(0, q[0], xc + y, yc + x, x1, y1, x3, y3)) {
+         set_pixel(screen, xc + y, yc + x, colour);
+      }
+      if (arc_point(3, q[3], xc + y, yc - x, x1, y1, x3, y3)) {
+         set_pixel(screen, xc + y, yc - x, colour);
+      }
+      if (arc_point(1, q[1], xc - y, yc + x, x1, y1, x3, y3)) {
+         set_pixel(screen, xc - y, yc + x, colour);
+      }
+      if (arc_point(2, q[2], xc - y, yc - x, x1, y1, x3, y3)) {
+         set_pixel(screen, xc - y, yc - x, colour);
+      }
+   }
+   // Save the screen coordinates of the arc endpoint, for sector/chord drawing
+   // (but don't reuse the graphics cursor for this purpose)
+   arc_end_x = (int16_t)x3;
+   arc_end_y = (int16_t)y3;
+
+   // Find chord centre for flood fill
+   int xf = (x1 + x3) / 2;
+   int yf = (y1 + y3) / 2;
+
+   // Make xf,yf relative to the centre
+   xf -= xc;
+   yf -= yc;
+
+   // If chord passes through origin use alternative centre
+   if (abs(xf) < 5 && abs(yf) < 5) {
+      xf = -(y1 - yc) / 2;
+      yf =  (x1 - xc) / 2;
+   }
+   unsigned int qf = arc_quadrant(xf, yf);
+   int rf = calc_radius(0, 0, xf, yf);
+   if (rf < 5) rf = radius / 2;
+   xf = (xf + xf * radius / rf) / 2;
+   yf = (yf + yf * radius / rf) / 2;
+
+   // Invert if the point would not be displayed
+   if (!arc_point(qf, q[qf], xc + xf, yc + yf, x1, y1, x3, y3)) {
+      xf = - xf;
+      yf = - yf;
+   }
+
+   // Make xf,yf absolute again
+   xf += xc;
+   yf += yc;
+
+   arc_fill_x = (int16_t)xf;
+   arc_fill_y = (int16_t)yf;
+}
 
 // Common to prim_fill_chord and prim_fill_sector
 static void prim_fill_interior(screen_mode_t *screen, int x, int y, plotcol_t colour) {
