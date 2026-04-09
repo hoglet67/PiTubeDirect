@@ -1258,13 +1258,14 @@ static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int xc, in
    }
 
    // copy clipping logic from draw_h_line() method, but add on xc,yc to the x and y coordinates:
-   if (x1 + xc > g_x_max || x2 + xc < g_x_min || y + yc < g_y_min || y + yc >= g_y_max) {
+   // (note, y coords are negative)
+   if (xc + x1 > g_x_max || xc + x2 < g_x_min || yc - y < g_y_min || yc - y >= g_y_max) {
       return;
    }
-   if (x1 + xc < g_x_min) {
+   if (xc + x1 < g_x_min) {
       x1 = g_x_min - xc;
    }
-   if (x2 + xc > g_x_max) {
+   if (xc + x2 > g_x_max) {
       x2 = g_x_max - xc;
    }
 
