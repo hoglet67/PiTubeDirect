@@ -1257,12 +1257,16 @@ static void draw_h_line_with_sector_segment_filter(screen_mode_t *sr, int xc, in
       x1=temp;
    }
 
-   // TODO: DMB: For now, allow set_pixel to do clipping
-
    // copy clipping logic from draw_h_line() method, but add on xc,yc to the x and y coordinates:
-   // if (x1+xc >= ds.vscrwidth || x2+xc < 0 || y+yc<0 || y+yc>=ds.vscrheight) return;
-   // if (x1+xc < 0) x1 = -xc;
-   // if (x2+xc >= ds.vscrwidth) x2 = ds.vscrwidth-1-xc;
+   if (x1 + xc > g_x_max || x2 + xc < g_x_min || y + yc < g_y_min || y + yc >= g_y_max) {
+      return;
+   }
+   if (x1 + xc < g_x_min) {
+      x1 = g_x_min - xc;
+   }
+   if (x2 + xc > g_x_max) {
+      x2 = g_x_max - xc;
+   }
 
    int start_dx_normal_vector=start_dy;// rotates start vector 90 degrees
    int start_dy_normal_vector=-start_dx;
