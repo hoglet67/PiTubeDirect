@@ -1180,15 +1180,15 @@ static void tube_Mouse(unsigned int *reg) {
 
   reg[0]=128; reg[1]=7; reg[2]=0;
   tube_Byte(reg);      // ADVAL(7)
-  msX=reg[1];         // Mouse X
+  msX=reg[1] + (reg[2] << 8);         // Mouse X
 
   reg[0]=128; reg[1]=8; reg[2]=0;
   tube_Byte(reg);      // ADVAL(8)
-  msY=reg[1];         // Mouse Y
+  msY=reg[1] + (reg[2] << 8);         // Mouse Y
 
   reg[0]=128; reg[1]=9; reg[2]=0;
   tube_Byte(reg);      // ADVAL(9)
-  msZ=reg[1];         // Mouse Z (buttons)
+  msZ=reg[1] + (reg[2] << 8);         // Mouse Z (buttons)
 
   reg[0]=msX;
   reg[1]=msY;
