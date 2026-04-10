@@ -924,7 +924,7 @@ void prim_draw_line(screen_mode_t *screen, int x1, int y1, int x2, int y2, plotc
    }
    int start = 0;
    // restart the dot pattern if the first point is plotted
-   if (!omit_first) {
+   if (dotted && !omit_first) {
       g_dot_pattern_index = 0;
    }
    for (int i = start; i <= longest; i++) {
