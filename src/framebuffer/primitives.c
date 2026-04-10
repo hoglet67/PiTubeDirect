@@ -1144,67 +1144,99 @@ void prim_fill_area(screen_mode_t *screen, int x, int y, plotcol_t colour, fill_
    pixel_t fg_col = g_fg_col;
    pixel_t bg_col = g_bg_col;
 
-   if (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max) {
-      return;
-   }
+   int error = 0;
+
+   int offscreen = (x < g_x_min  || x > g_x_max || y < g_y_min || y > g_y_max);
 
    switch(mode) {
    case HL_LR_NB:
-      if (get_pixel(screen, x, y) != bg_col) {
-         return;
+      if (offscreen || get_pixel(screen, x, y) != bg_col) {
+         error = 1;
+      } else {
+         while (get_pixel(screen, x_right + 1, y) == bg_col && x_right + 1 < g_x_max) {
+            x_right++;
+         }
+         while (get_pixel(screen, x_left - 1, y) == bg_col && x_left - 1 > g_x_min) {
+            x_left--;
+         }
+         draw_hline(screen, x_left, x_right, y, colour);
       }
-      while (get_pixel(screen, x_right + 1, y) == bg_col && x_right + 1 < g_x_max) {
-         x_right++;
-      }
-      while (get_pixel(screen, x_left - 1, y) == bg_col && x_left - 1 > g_x_min) {
-         x_left--;
-      }
-      draw_hline(screen, x_left, x_right, y, colour);
       break;
 
    case HL_RO_BG:
-      if (get_pixel(screen, x, y) == bg_col) {
-         return;
+      if (offscreen) {
+         error = 1;
+      } else if (get_pixel(screen, x, y) == bg_col) {
+         error = 2;
+      } else {
+         while (get_pixel(screen, x_right + 1, y) != bg_col && x_right + 1 < g_x_max) {
+            x_right++;
+         }
+         draw_hline(screen, x_left, x_right, y, colour);
       }
-      while (get_pixel(screen, x_right + 1, y) != bg_col && x_right + 1 < g_x_max) {
-         x_right++;
-      }
-      draw_hline(screen, x_left, x_right, y, colour);
       break;
 
    case HL_LR_FG:
-      if (get_pixel(screen, x, y) == fg_col) {
-         return;
+      if (offscreen || get_pixel(screen, x, y) == fg_col) {
+         error = 1;
+      } else {
+         while (get_pixel(screen, x_right + 1, y) != fg_col && x_right + 1 < g_x_max) {
+            x_right++;
+         }
+         while (get_pixel(screen, x_left - 1, y) != fg_col && x_left - 1 > g_x_min) {
+            x_left--;
+         }
+         draw_hline(screen, x_left, x_right, y, colour);
       }
-      while (get_pixel(screen, x_right + 1, y) != fg_col && x_right + 1 < g_x_max) {
-         x_right++;
-      }
-      while (get_pixel(screen, x_left - 1, y) != fg_col && x_left - 1 > g_x_min) {
-         x_left--;
-      }
-      draw_hline(screen, x_left, x_right, y, colour);
       break;
 
    case HL_RO_NF:
-      if (get_pixel(screen, x, y) != fg_col) {
-         return;
+      if (offscreen) {
+         error = 1;
+      } else if (get_pixel(screen, x, y) != fg_col) {
+         error = 2;
+      } else {
+         while (get_pixel(screen, x_right + 1, y) == fg_col && x_right + 1 < g_x_max) {
+            x_right++;
+         }
+         draw_hline(screen, x_left, x_right, y, colour);
       }
-      while (get_pixel(screen, x_right + 1, y) == fg_col && x_right + 1 < g_x_max) {
-         x_right++;
-      }
-      draw_hline(screen, x_left, x_right, y, colour);
       break;
 
    case AF_NONBG:
       prim_flood_fill_wrapper(screen, x, y, colour, AF_NONBG);
-      break;
+      return; // Don't update the graphics cursors
 
    case AF_TOFGD:
       prim_flood_fill_wrapper(screen, x, y, colour, AF_TOFGD);
-      break;
+      return; // Don't update the graphics cursors
 
    default:
       printf( "Unknown fill mode %d\r\n", mode);
+      return; // Don't update the graphics cursors
+   }
+
+   switch (error) {
+   case 1:
+      // Error 1 (used for fill LR)
+      //    set current cursor to the new point (which it already is)
+      //    set last cursor to lie on a different line
+      g_x_pos_last1 = g_x_pos;
+      g_y_pos_last1 = (int16_t)(g_y_pos + (1 << screen->yeigfactor));
+      break;
+   case 2:
+      // Error 2 (used for fill R)
+      //    set last cursor to the new point
+      //    set current cursor one pixel to the left
+      g_x_pos_last1 = g_x_pos;
+      g_y_pos_last1 = g_y_pos;
+      g_x_pos = (int16_t)(g_x_pos - (1 << screen->xeigfactor));
+      break;
+   default:
+      // No error, update with the line drawn
+      g_x_pos =       (int16_t)(x_right << screen->xeigfactor);
+      g_x_pos_last1 = (int16_t)(x_left  << screen->xeigfactor);
+      g_y_pos_last1 = g_y_pos;
       break;
    }
 }

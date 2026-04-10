@@ -76,12 +76,14 @@ static uint8_t g_bg_tint;
 static uint8_t g_fg_gcol;
 static uint8_t g_fg_tint;
 
-static int16_t g_x_pos;
-static int16_t g_x_pos_last1;
-static int16_t g_x_pos_last2;
-static int16_t g_y_pos;
-static int16_t g_y_pos_last1;
-static int16_t g_y_pos_last2;
+// These are occasionally manipulated by primitives (e.g. Horizontal Line Fill)
+int16_t g_x_pos;
+int16_t g_x_pos_last1;
+int16_t g_x_pos_last2;
+int16_t g_y_pos;
+int16_t g_y_pos_last1;
+int16_t g_y_pos_last2;
+
 static int16_t g_x_origin;
 static int16_t g_y_origin;
 
@@ -533,7 +535,6 @@ static void text_area_scroll(scroll_dir_t dir) {
    }
    update_cursors();
 }
-
 
 static void update_g_cursors(int16_t x, int16_t y) {
    g_x_pos_last2 = g_x_pos_last1;

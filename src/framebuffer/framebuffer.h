@@ -72,6 +72,13 @@ typedef enum {
    V_WINDOWHEIGHT    = 257  // &101 Height of text window in chars
 } vdu_variable_t;
 
+extern int16_t g_x_pos;
+extern int16_t g_x_pos_last1;
+extern int16_t g_x_pos_last2;
+extern int16_t g_y_pos;
+extern int16_t g_y_pos_last1;
+extern int16_t g_y_pos_last2;
+
 void fb_initialize();
 
 void fb_show_splash_screen();
