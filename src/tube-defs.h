@@ -3,7 +3,7 @@
 #ifndef TUBE_DEFS_H
 #define TUBE_DEFS_H
 
-#define RELEASENAME "Indigo-alpha10"
+#define RELEASENAME "Indigo-beta1"
 
 // If defined, the doorbell is used rather then the mailbox
 #define USE_DOORBELL
