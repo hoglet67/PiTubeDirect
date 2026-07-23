@@ -12,6 +12,11 @@ extern uint8_t Client86_v1_01[];
 
 static uint8_t *vdu_base;
 
+static int xios83_type = 0;
+static uint32_t xios83_screen_start = 0xB800; // Default to standard framebuffer segment
+static uint32_t xios83_screen_end = 0xBD00;
+
+
 static void copro_80186_poweron_reset() {
    // Wipe memory
    Cleari80186Ram();
@@ -46,19 +51,74 @@ void copro_80186_tube_write(uint16_t addr, uint8_t data) {
   tube_parasite_write(addr, data);
 }
 
+void copro_80186_xios_hook(uint16_t ax, uint16_t bx, uint16_t cx) {
+   if ((ax & 0xff) == 0x83) {
+      printf("XIOS 83: bx=%04x cx=%04x\r\n", bx, cx);
+      xios83_type = cx;
+      xios83_screen_start = bx << 4;
+      switch (xios83_type) {
+      case 2:
+         xios83_screen_end = xios83_screen_start + 0xA000;
+         break;
+      default:
+         xios83_screen_end = xios83_screen_start + 0x5000;
+         break;
+      }
+   }
+}
+
 void copro_80186_write_hook(uint32_t addr32, uint8_t value) {
    if (vdu_enabled) {
-      // GEM monochrome mode is 640x256 with pixels stored linearly (8 pixels per byte) giving a 20KB screen
       // MODE 12 is 640x256 with 16 colours (black = 0; white = 7)
-      if (addr32 >= 0xb8000 && addr32 < 0xbd000) {
-         uint8_t *vdu_ptr = vdu_base + ((addr32 & 0x7FFF) << 3);
-         for (int i = 0; i < 8; i++) {
-            if (value & 128) {
-               *vdu_ptr++ = 7;
-            } else {
-               *vdu_ptr++ = 0;
+      if (addr32 >= xios83_screen_start && addr32 < xios83_screen_end) {
+         uint8_t mask;
+         uint8_t *vdu_ptr;
+         addr32 -= xios83_screen_start;
+         switch (xios83_type) {
+         case 0:
+            // Type 0: BBC Mode 3, used for DOS Mode 7.
+            break;
+         case 1:
+            // Type 1: BBC Mode 0, used for standard (2-colour) GEM
+            // Colour 0 => Black (0)
+            // Colour 1 => White (7)
+            vdu_ptr = vdu_base + (addr32 << 3);
+            for (int i = 0; i < 8; i++) {
+               if (value & 128) {
+                  *vdu_ptr++ = 7; // white
+               } else {
+                  *vdu_ptr++ = 0; // black
+               }
+               value <<= 1;
             }
-            value <<= 1;
+            break;
+         case 2:
+            // Type 2: BBC Mode 1, used for 4-colour GEM.
+            // Colour 00 => Black (0) 000
+            // Colour 01 => Cyan  (6) 110
+            // Colour 10 => Red   (1) 001
+            // Colour 11 => White (7) 111
+            mask = 6;
+            if (addr32 >= 0x5000) {
+               mask = 1;
+               addr32 -= 0x5000;
+            }
+            vdu_ptr = vdu_base + (addr32 << 3);
+            for (int i = 0; i < 8; i++) {
+               *vdu_ptr &= ~mask;
+               if (value & 128) {
+                  *vdu_ptr |= mask;
+               }
+               vdu_ptr++;
+               value <<= 1;
+            }
+            break;
+         case 3:
+            // Type 3: A 25-line, 4-colour, 40-column mode. It is used by DOS Screen Modes 0/1 and 4/5.
+            break;
+         case 4:
+            // Type 4: The 25-line, 2-colour, 80-column mode without gaps between the lines, used by DOS Modes 2/3 and 6. (This is the screen type entered by DOS-Plus on system boot.)
+            break;
          }
       }
    }

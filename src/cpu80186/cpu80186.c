@@ -42,6 +42,7 @@
 #include "mem80186.h"
 #include "iop80186.h"
 #include "../tube.h"
+#include "../copro-80186.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "cpu80186_debug.h"
@@ -1459,6 +1460,9 @@ static void op_grp5()
       push(segregs[regcs]);
       push(ip);
       getea(rm);
+      if (ea == (0x1197 * 16 + 0x0028)) {
+         copro_80186_xios_hook(getreg16(regax), getreg16(regbx), getreg16(regcx));
+      }
       ip = (uint16_t) (read86(ea) + read86(ea + 1) * 256);
       segregs[regcs] = (uint16_t) (read86(ea + 2) + read86(ea + 3) * 256);
     break;
