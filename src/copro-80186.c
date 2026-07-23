@@ -6,8 +6,11 @@
 #include "cpu80186/mem80186.h"
 #include "cpu80186/iop80186.h"
 #include "utils.h"
+#include "framebuffer/framebuffer.h"
 
 extern uint8_t Client86_v1_01[];
+
+static uint8_t *vdu_base;
 
 static void copro_80186_poweron_reset() {
    // Wipe memory
@@ -27,6 +30,12 @@ static void copro_80186_reset() {
   tube_wait_for_rst_release();
   // Reset ARM performance counters
   tube_reset_performance_counters();
+   // If VDU enabled, switch to mode 12
+   if (vdu_enabled) {
+      fb_writec(22);
+      fb_writec(12);
+      vdu_base = (uint8_t *)fb_get_vdu_address(fb_get_current_screen_mode());
+   }
 }
 
 unsigned int copro_80186_tube_read(uint16_t addr) {
@@ -35,6 +44,24 @@ unsigned int copro_80186_tube_read(uint16_t addr) {
 
 void copro_80186_tube_write(uint16_t addr, uint8_t data) {
   tube_parasite_write(addr, data);
+}
+
+void copro_80186_write_hook(uint32_t addr32, uint8_t value) {
+   if (vdu_enabled) {
+      // GEM monochrome mode is 640x256 with pixels stored linearly (8 pixels per byte) giving a 20KB screen
+      // MODE 12 is 640x256 with 16 colours (black = 0; white = 7)
+      if (addr32 >= 0xb8000 && addr32 < 0xbd000) {
+         uint8_t *vdu_ptr = vdu_base + ((addr32 & 0x7FFF) << 3);
+         for (int i = 0; i < 8; i++) {
+            if (value & 128) {
+               *vdu_ptr++ = 7;
+            } else {
+               *vdu_ptr++ = 0;
+            }
+            value <<= 1;
+         }
+      }
+   }
 }
 
 void copro_80186_emulator()

@@ -28,6 +28,7 @@
 #include "Client86_v1_01.h"
 #include "../tube-client.h"
 #include "../tube.h"
+#include "../copro-80186.h"
 
 #ifdef INCLUDE_DEBUGGER
 #include "../cpu_debug.h"
@@ -83,6 +84,8 @@ void write86(uint32_t addr32, uint8_t value)
       debug_memwrite(&cpu80186_cpu_debug, addr32, value, 1);
    }
 #endif
+   // Hook to allow VDU emulation
+   copro_80186_write_hook(addr32, value);
    uint32_t addr = map_address(addr32);
    if (addr < RAM_LIMIT) {
 #ifdef USE_MEMORY_POINTER
