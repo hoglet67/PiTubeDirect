@@ -3548,6 +3548,9 @@ void exec86(uint32_t tube_cycles)
         case 0xCD: /* CD INT Ib */
         oper1b = getmem8(segregs[regcs], ip);
         StepIP(1);
+        if (oper1b == 0x10) {
+           copro_80186_int10_hook(getreg16(regax), getreg16(regbx), getreg16(regcx));
+        }
         intcall86(oper1b);
         break;
 

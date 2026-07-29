@@ -10,6 +10,8 @@ extern void copro_80186_tube_write(uint16_t addr, uint8_t data);
 
 extern void copro_80186_write_hook(uint32_t addr32, uint8_t value);
 
+extern void copro_80186_int10_hook(uint16_t ax, uint16_t bx, uint16_t cx);
+
 extern void copro_80186_xios_hook(uint16_t ax, uint16_t bx, uint16_t cx);
 
 #endif

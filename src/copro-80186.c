@@ -7,15 +7,31 @@
 #include "cpu80186/iop80186.h"
 #include "utils.h"
 #include "framebuffer/framebuffer.h"
+#include "framebuffer/fonts.h"
 
 extern uint8_t Client86_v1_01[];
 
+#define CGA_SCREEN_START 0xB8000
+#define CGA_SCREEN_END   0xBD000
+
+
+static uint32_t screen_start = CGA_SCREEN_START;
+static uint32_t screen_end = CGA_SCREEN_END;
+static int gemmode = 0;
+
+static screen_mode_t *screen;
 static uint8_t *vdu_base;
+static int textmode = 1;
+static unsigned int textcols = 80;
+static unsigned int textrows = 25;
+static int graphwidth = 0;
 
-static int xios83_type = 0;
-static uint32_t xios83_screen_start = 0xB800; // Default to standard framebuffer segment
-static uint32_t xios83_screen_end = 0xBD00;
-
+void refresh_vdu_vars() {
+   printf("Refreshing VDU variables\r\n");
+   screen = fb_get_current_screen_mode();
+   initialize_font_by_name("8X8", screen->font);
+   vdu_base = (uint8_t *)fb_get_vdu_address(screen);
+}
 
 static void copro_80186_poweron_reset() {
    // Wipe memory
@@ -35,11 +51,203 @@ static void copro_80186_reset() {
   tube_wait_for_rst_release();
   // Reset ARM performance counters
   tube_reset_performance_counters();
-   // If VDU enabled, switch to mode 12
+   // If VDU enabled, switch to mode 8 (640x256 in 4 colours)
    if (vdu_enabled) {
       fb_writec(22);
-      fb_writec(12);
-      vdu_base = (uint8_t *)fb_get_vdu_address(fb_get_current_screen_mode());
+      fb_writec(8);
+      refresh_vdu_vars();
+   }
+}
+
+
+//command then, address high, then address low (8 bytes)
+typedef enum {
+   IDLE,
+   SKIP_N,
+   SKIP_STRING,
+   OSWORD_A,
+   OSWORD_INLEN,
+   OSWORD_BLOCK,
+   OSWORD_OUTLEN,
+   OSWORD_FF_ADDR_MSB,
+   OSWORD_FF_ADDR_LSB,
+   OSWORD_FF_CMD,
+   OSFIND_A,
+   OSFILE_BLOCK,
+   OSFILE_STRING
+} decode_state_t;
+
+static decode_state_t state = IDLE;
+
+static void decode_r2_byte(uint8_t data) {
+
+   static uint8_t n = 0;
+   static uint8_t cmd = 0;
+
+   // Need to parse the input side of the R2 protocol to identify OSWORD &FF
+   //
+   // Input parameters                               Output parameters
+   // OSRDCH   R2: &00                               Cy A
+   // OSCLI    R2: &02 string &0D                    &7F or &80
+   // OSBYTELO R2: &04 X A                           X
+   // OSBYTEHI R2: &06 X Y A                         Cy Y X
+   // OSWORD   R2: &08 A in_length block out_length  block
+   // OSWORD0  R2: &0A block                         &FF or &7F string &0D
+   // OSARGS   R2: &0C Y block A                     A block
+   // OSBGET   R2: &0E Y                             Cy A
+   // OSBPUT   R2: &10 Y A                           &7F
+   // OSFIND   R2: &12 &00 Y                         &7F
+   // OSFIND   R2: &12 A string &0D                  A
+   // OSFILE   R2: &14 block string &0D A            A block
+   // OSGBPB   R2: &16 block A                       block Cy A
+
+
+   switch (state) {
+   case IDLE:
+      switch (data) {
+      case 0x00:
+         // OSRDCH   R2: &00
+         break;
+      case 0x02:
+         // OSCLI    R2: &02 string &0D
+         state = SKIP_STRING;
+         break;
+      case 0x04:
+         // OSBYTELO R2: &04 X A
+         n = 1 + 1;
+         state = SKIP_N;
+         break;
+      case 0x06:
+         // OSBYTEHI R2: &06 X Y A
+         n = 1 + 1 + 1;
+         state = SKIP_N;
+         break;
+      case 0x08:
+         // OSWORD   R2: &08 A in_length block out_length
+         state = OSWORD_A;
+         break;
+      case 0x0A:
+         // OSWORD0  R2: &0A block
+         n = 5;
+         state = SKIP_N;
+         break;
+      case 0x0C:
+         // OSARGS   R2: &0C Y block A
+         n = 1 + 4 + 1;
+         state = SKIP_N;
+         break;
+      case 0x0E:
+         // OSBGET   R2: &0E Y
+         break;
+         n = 1;
+         state = SKIP_N;
+         break;
+      case 0x10:
+         // OSBPUT   R2: &10 Y A
+         n = 1 + 1;
+         state = SKIP_N;
+         break;
+      case 0x12:
+         // OSFIND   R2: &12 A string &0D
+         state = OSFIND_A;
+         break;
+      case 0x14:
+         // OSFILE   R2: &14 block string &0D A
+         n = 16;
+         state = OSFILE_BLOCK;
+         break;
+      case 0x16:
+         // OSGBPB   R2: &16 block A
+         n = 13 + 1;
+         state = SKIP_N;
+         break;
+      default:
+         // Protocol error
+         printf("R2 protocol error: %02x\r\n", data);
+      }
+      break;
+   case SKIP_N:
+      n--;
+      if (!n) {
+         state = IDLE;
+      }
+      break;
+   case SKIP_STRING:
+      if (data == 0x0d) {
+         state = IDLE;
+      }
+      break;
+   case OSWORD_A:
+      cmd = data;
+      state = OSWORD_INLEN;
+      break;
+   case OSWORD_INLEN:
+      n = data;
+      if (cmd == 0xff) {
+         state = OSWORD_FF_ADDR_MSB;
+      } else {
+         state = OSWORD_BLOCK;
+      }
+      break;
+   case OSWORD_BLOCK:
+      n--;
+      if (!n) {
+         state = OSWORD_OUTLEN;
+      }
+      break;
+   case OSWORD_OUTLEN:
+      state = IDLE;
+      break;
+   case OSWORD_FF_ADDR_MSB:
+      if (data == 0x00) {
+         state = OSWORD_OUTLEN;
+      } else {
+         state = OSWORD_FF_ADDR_LSB;
+      }
+      break;
+   case OSWORD_FF_ADDR_LSB:
+      state = OSWORD_FF_CMD;
+      break;
+   case OSWORD_FF_CMD:
+      if (data == 0xff) {
+         state = OSWORD_FF_ADDR_MSB;
+      }
+      break;
+   case OSFIND_A:
+      state = SKIP_STRING;
+      break;
+   case OSFILE_BLOCK:
+      n--;
+      if (!n) {
+         state = OSFILE_STRING;
+      }
+      break;
+   case OSFILE_STRING:
+      if (data == 0x0d) {
+         n = 1;
+         state = SKIP_N;
+      }
+      break;
+   }
+}
+
+static void decode_r1_byte(uint8_t data) {
+   static int modechange = 0;
+   // forward normal (i.e. none block) data to VDU driver
+   if (state != OSWORD_FF_CMD) {
+      // remap VDU 22,1 to VDU 22,8
+      if (modechange && data == 1) {
+         data = 8;
+      }
+      printf("VDU: %c (%d)\r\n", (data >= 32 && data < 127) ? ((char) data) : '?', data);
+      fb_writec(data);
+      if (modechange) {
+         // Refresh the locally cached VDU variables on each mode change
+         refresh_vdu_vars();
+         modechange = 0;
+      } else if (data == 22) {
+         modechange = 1;
+      }
    }
 }
 
@@ -48,77 +256,118 @@ unsigned int copro_80186_tube_read(uint16_t addr) {
 }
 
 void copro_80186_tube_write(uint16_t addr, uint8_t data) {
-  tube_parasite_write(addr, data);
+   if (vdu_enabled) {
+      if (addr == 3) {
+         decode_r2_byte(data);
+      }
+      if (addr == 1) {
+         decode_r1_byte(data);
+      }
+   }
+   tube_parasite_write(addr, data);
+}
+
+void copro_80186_int10_hook(uint16_t ax, uint16_t bx, uint16_t cx) {
+   printf("INT10: ax=%04x bx=%04x cx=%04x\r\n", ax, bx, cx);
+   // AH of 0x00 indicates change to a standard CGA screen mode (mode indicated in AL)
+   if (ax < 0x0008) {
+      // Cancel GEM mode and reset the screen to the standard CGA locations
+      gemmode = 0;
+      screen_start = CGA_SCREEN_START;
+      screen_end = CGA_SCREEN_END;
+      switch (ax) {
+      case 0x0000:
+      case 0x0001:
+         // On BBC DOSPlus, CGA modes 0,1 are 40x25 text modes
+         textmode = 1;
+         textcols = 40;
+         textrows = 25;
+         break;
+      case 0x0002:
+      case 0x0003:
+      case 0x0007:
+         // On BBC DOSPlus, CGA modes 2,3,7 are 80x25 text modes
+         textmode = 1;
+         textcols = 80;
+         textrows = 25;
+         break;
+      case 0x0004:
+      case 0x0005:
+         // On BBC DOSPlus, CGA modes 4,5 are 320x200 graphics modes
+         textmode = 0;
+         graphwidth = 320;
+         break;
+      case 0x0006:
+         // On BBC DOSPlus, CGA mode 6 is a 640x200 graphics modes
+         textmode = 0;
+         graphwidth = 640;
+         break;
+      }
+   }
 }
 
 void copro_80186_xios_hook(uint16_t ax, uint16_t bx, uint16_t cx) {
    if ((ax & 0xff) == 0x83) {
       printf("XIOS 83: bx=%04x cx=%04x\r\n", bx, cx);
-      xios83_type = cx;
-      xios83_screen_start = bx << 4;
-      switch (xios83_type) {
-      case 2:
-         xios83_screen_end = xios83_screen_start + 0xA000;
-         break;
-      default:
-         xios83_screen_end = xios83_screen_start + 0x5000;
-         break;
+      if (cx == 1) {
+         // Monochrome GEM
+         gemmode = 1;
+         screen_start = bx << 4;
+         screen_end = screen_start + 0x5000;
+      } else if (cx == 2) {
+         // Colour GEM
+         gemmode = 2;
+         screen_start = bx << 4;
+         screen_end = screen_start + 0xA000;
+      } else {
+         // None-GEM
+         gemmode = 0;
+         screen_start = CGA_SCREEN_START;
+         screen_end = CGA_SCREEN_END;
       }
    }
 }
 
 void copro_80186_write_hook(uint32_t addr32, uint8_t value) {
    if (vdu_enabled) {
-      // MODE 12 is 640x256 with 16 colours (black = 0; white = 7)
-      if (addr32 >= xios83_screen_start && addr32 < xios83_screen_end) {
-         uint8_t mask;
-         uint8_t *vdu_ptr;
-         addr32 -= xios83_screen_start;
-         switch (xios83_type) {
-         case 0:
-            // Type 0: BBC Mode 3, used for DOS Mode 7.
-            break;
-         case 1:
-            // Type 1: BBC Mode 0, used for standard (2-colour) GEM
-            // Colour 0 => Black (0)
-            // Colour 1 => White (7)
-            vdu_ptr = vdu_base + (addr32 << 3);
+      if (addr32 >= screen_start && addr32 < screen_end) {
+         addr32 -= screen_start;
+         // Deal with text modes first
+         if (gemmode == 1 || (graphwidth == 640 && !textmode)) {
+            // Monochrome GEM and DOS Mode 6 (640x256 2-colour graphics)
+            uint8_t *vdu_ptr = vdu_base + (addr32 << 3);
             for (int i = 0; i < 8; i++) {
                if (value & 128) {
-                  *vdu_ptr++ = 7; // white
+                  *vdu_ptr++ = 1;
                } else {
-                  *vdu_ptr++ = 0; // black
+                  *vdu_ptr++ = 0;
                }
                value <<= 1;
             }
-            break;
-         case 2:
-            // Type 2: BBC Mode 1, used for 4-colour GEM.
-            // Colour 00 => Black (0) 000
-            // Colour 01 => Cyan  (6) 110
-            // Colour 10 => Red   (1) 001
-            // Colour 11 => White (7) 111
-            mask = 6;
+         } else if (gemmode == 2 || (graphwidth == 320 && !textmode)) {
+            // Colour GEM and DOS Modes 4/5 (320x256 4-colour graphics)
+            uint8_t mask = 1;
             if (addr32 >= 0x5000) {
-               mask = 1;
+               mask = 2;
                addr32 -= 0x5000;
             }
-            vdu_ptr = vdu_base + (addr32 << 3);
+            uint8_t *vdu_ptr = vdu_base + (addr32 << 3);
             for (int i = 0; i < 8; i++) {
-               *vdu_ptr &= ~mask;
+               *vdu_ptr &= 0xFF - mask;
                if (value & 128) {
                   *vdu_ptr |= mask;
                }
                vdu_ptr++;
                value <<= 1;
             }
-            break;
-         case 3:
-            // Type 3: A 25-line, 4-colour, 40-column mode. It is used by DOS Screen Modes 0/1 and 4/5.
-            break;
-         case 4:
-            // Type 4: The 25-line, 2-colour, 80-column mode without gaps between the lines, used by DOS Modes 2/3 and 6. (This is the screen type entered by DOS-Plus on system boot.)
-            break;
+         } else if (textmode) {
+            if (!(addr32 & 1)) {
+               // Ignore the attribute byte for now
+               addr32 >>= 1;
+               if (addr32 < textcols * textrows) {
+                  screen->write_character(screen, value, (int) (addr32 % textcols), (int) (addr32 / textcols), 1, 0);
+               }
+            }
          }
       }
    }
